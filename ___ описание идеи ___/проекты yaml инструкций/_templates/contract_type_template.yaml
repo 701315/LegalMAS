@@ -1,0 +1,5374 @@
+# ═══════════════════════════════════════════════════════════════
+# УНИФИЦИРОВАННЫЙ ШАБЛОН ОПИСАНИЯ ТИПА ДОГОВОРА
+# Сгенерирован автоматически: 2026-02-16 10:47:56
+# На основе 49 файлов из C:\LegalAI\legal_taxonomy\contract_types
+# 
+# frequency: required (≥90%), common (≥50%), rare (<50%)
+# ═══════════════════════════════════════════════════════════════
+
+type:
+  frequency: required
+  type: str
+  examples:
+  - contract_1.1
+  - contract_1.10
+  - contract_1.11
+name:
+  frequency: required
+  type: str
+  examples:
+  - Договор купли-продажи (общая)
+  - Договор цессии (уступки права требования)
+  - Договор купли-продажи корпоративных прав (долей/акций)
+description:
+  frequency: required
+  type: str
+  examples:
+  - 'БАЗОВАЯ (РОДОВАЯ) конструкция (emptio-venditio) для возмездной передачи права собственности на имущество.
+
+    РОДИТЕЛЬСКИЙ Т…'
+  - Договор, по которому первоначальный кредитор (Цедент) передает новому кредитору (Цессионарию) право требовать исполнения…
+  - 'Договор отчуждения корпоративных прав участия в коммерческих организациях.
+
+    Включает продажу долей в уставном капитале ОО…'
+version:
+  frequency: required
+  type: float
+  examples:
+  - '2.1'
+  - '2.0'
+  - '2.2'
+parent:
+  frequency: required
+  type: str
+  examples:
+  - class_1_transfer_of_ownership
+  - class_2_modification_of_obligations
+  - class_2_transfer_for_use
+metadata:
+  __meta:
+    frequency: required
+    type: dict
+  category:
+    frequency: required
+    type: str
+    examples:
+    - contract
+    - agreement
+  subcategory:
+    frequency: required
+    type: str
+    examples:
+    - ownership_transfer
+    - obligation_modification
+    - corporate_transactions
+  complexity:
+    frequency: required
+    type: str
+    examples:
+    - low-medium
+    - high
+    - critical
+  risk_level:
+    frequency: required
+    type: str
+    examples:
+    - medium
+    - high
+    - critical
+  legal_base:
+    frequency: required
+    type: str
+    examples:
+    - § 1 Главы 30 ГК РФ (ст. 454-491)
+    - Глава 24 ГК РФ (ст. 382-390)
+    - § 1 Главы 30 ГК РФ, ФЗ-14 «Об ООО», ФЗ-208 «Об АО», ФЗ-39 «О рынке ценных бумаг»
+  hierarchy_position:
+    frequency: rare
+    type: str
+    examples:
+    - parent_general
+    - child_specialized
+    - child_specialized_consumer
+  classification_priority:
+    frequency: rare
+    type: str
+    examples:
+    - fallback
+rules:
+  __meta:
+    frequency: required
+    type: dict
+  keywords:
+    __meta:
+      frequency: required
+      type: dict
+    high:
+      frequency: required
+      type: list
+      examples:
+      - '[Продавец, Покупатель, продал, купл, …]'
+      - '[цессия, уступка права требования, цедент, цессионарий, …]'
+      - '[доля в уставном капитале, уставный капитал ООО, акции, бездокументарные ценные бумаги, …]'
+    medium:
+      frequency: required
+      type: list
+      examples:
+      - '[ассортимент, комплектность, тара и упаковка, гарантийный срок, …]'
+      - '[договор-основание, дебиторская задолженность, объем передаваемых прав, гарантии цедента, …]'
+      - '[общество с ограниченной ответственностью, акционерное общество, преимущественное право покупки, нотариальное удостоверение,
+        …]'
+    low:
+      frequency: required
+      type: list
+      examples:
+      - '[самовывоз, доставка, предоплата]'
+      - '[должник, акт сверки, решение суда, регрессное требование, …]'
+      - '[выписка из ЕГРЮЛ, дивиденды, участник общества, акционер, …]'
+  phrases:
+    __meta:
+      frequency: required
+      type: dict
+    high:
+      __meta:
+        frequency: required
+        type: list_of_dicts
+      __element_fields:
+        Конфиденциальная информация включает, но не ограничивается:
+          frequency: rare
+          type: list
+          examples:
+          - '[перечень]'
+    medium:
+      frequency: required
+      type: list
+      examples:
+      - '[Товар должен быть свободным от прав третьих лиц, Качество товара должно соответствовать требованиям]'
+      - '[Право переходит в том объеме и на тех условиях, которые существовали к моменту уступки, Цедент не отвечает за платежеспособность
+        Должника, если иное не предусмотрено договором, Передача оригиналов документов, подтверждающих право требования, Стоимость
+        уступки составляет ___ рублей]'
+      - '[Цена Доли/Акций определяется Сторонами в размере ___ рублей, Продавец заверяет, что Доля/Акции не обременены правами
+        третьих лиц, Сделка не требует одобрения антимонопольного органа, Продавец предоставил Покупателю возможность проведения
+        Due Diligence]'
+  patterns:
+    __meta:
+      frequency: required
+      type: dict
+    required:
+      frequency: required
+      type: list
+      examples:
+      - '[(?i)(купл|продаж|продавец|покупатель|товар|собственност)]'
+      - '[(?i)(цесси[яи]|уступк[аи]\\s+прав[аи]\\s+требования|переда[ач]\\s+прав[аи]\\s+требования)]'
+      - '[(?i)(дол[яи].*уставн.*капитал|акци[ий].*обыкновенн|пакет.*акций|корпоративн.*прав)]'
+    optional:
+      frequency: required
+      type: list
+      examples:
+      - '[(?i)(цедент|цессионарий|уведомлени[ея]\\s+должника|гаранти[ия]\\s+цедента)]'
+      - '[(?i)(номинальн.*стоимость|ООО.*№.*|АО.*№.*|ПАО.*№.*|рег.*номер.*выпуск)]'
+      - '[(?i)(погашени.*долг.*полность|передач.*имуществ.*взамен|акт.*приема.*передач.*отступн)]'
+    exclusion_patterns:
+      frequency: rare
+      type: list
+      examples:
+      - '[(?i)(розничн.*купл|покупатель.*гражданин), (?i)(поставк|поставщик.*получатель), (?i)(контрактаци|сельскохозяйствен.*продукци),
+        (?i)(энергоснабжени|электроэнерги|тепло.*энерги), …]'
+  exclusions:
+    __meta:
+      frequency: required
+      type: list_of_dicts
+    __element_fields:
+      pattern:
+        frequency: rare
+        type: str
+        examples:
+        - поставка|для перепродажи
+        - оптовая партия
+        - между юридическими лицами
+      reason:
+        frequency: rare
+        type: str
+        examples:
+        - Коммерческое использование
+        - Не розничная продажа
+        - B2B договор
+  weights:
+    __meta:
+      frequency: required
+      type: dict
+    keyword_high:
+      frequency: required
+      type: float
+      examples:
+      - '3.0'
+      - '3.5'
+      - '4.0'
+    keyword_medium:
+      frequency: required
+      type: float
+      examples:
+      - '1.5'
+      - '1.8'
+      - '2.0'
+    phrase_high:
+      frequency: required
+      type: float
+      examples:
+      - '3.0'
+      - '4.0'
+      - '2.5'
+    pattern_required:
+      frequency: required
+      type: float
+      examples:
+      - '4.0'
+      - '5.0'
+      - '4.5'
+    keyword_low:
+      frequency: required
+      type: float
+      examples:
+      - '0.5'
+      - '0.7'
+      - '0.8'
+    phrase_medium:
+      frequency: required
+      type: float
+      examples:
+      - '1.5'
+      - '1.0'
+      - '1.2'
+    pattern_optional:
+      frequency: required
+      type: float
+      examples:
+      - '1.0'
+      - '1.2'
+    exclusion_keyword:
+      frequency: rare
+      type: float
+      examples:
+      - '5.0'
+  classification:
+    __meta:
+      frequency: required
+      type: dict
+    min_confidence:
+      frequency: required
+      type: float
+      examples:
+      - '0.6'
+      - '0.85'
+      - '0.9'
+    max_matches:
+      frequency: required
+      type: int
+      examples:
+      - '3'
+      - '1'
+      - '5'
+    fallback_logic:
+      frequency: rare
+      type: str
+      examples:
+      - Если confidence < 0.7 для всех специализированных типов → применять contract_1.1
+  exclusion_logic:
+    __meta:
+      frequency: common
+      type: list_of_dicts
+    __element_fields:
+      confidence:
+        frequency: required
+        type: float
+        examples:
+        - '0.9'
+        - '0.85'
+        - '0.8'
+      description:
+        frequency: required
+        type: str
+        examples:
+        - Розничная купля-продажа (потребительская сделка)
+        - Договор поставки (B2B для предпринимательской деятельности)
+        - Договор контрактации (сельхозпродукция)
+      condition:
+        frequency: required
+        type: str
+        examples:
+        - financing_keywords AND factoring_indicators
+        - debtor_change_keywords AND creditor_consent
+        - gratuitous_transfer AND corporate_rights
+      target:
+        frequency: required
+        type: str
+        examples:
+        - reclassify
+        - rejection
+        - reclassification_to_general_lease
+      if:
+        frequency: rare
+        type: str
+        examples:
+        - contains_retail_keywords AND buyer_is_individual
+        - both_parties_are_business AND goods_for_business_use
+        - contains_agricultural_keywords AND seller_is_producer
+      then:
+        frequency: rare
+        type: str
+        examples:
+        - contract_1.2
+        - contract_1.3
+        - contract_1.4
+  exclusion_keywords:
+    frequency: rare
+    type: list
+    examples:
+    - '[розничн, покупатель-гражданин, для личных нужд, поставк, …]'
+party_roles:
+  __meta:
+    frequency: required
+    type: dict
+  guaranty:
+    __meta:
+      frequency: rare
+      type: dict
+    description:
+      frequency: rare
+      type: str
+      examples:
+      - Для поручительства
+    roles:
+      frequency: rare
+      type: list
+      examples:
+      - '[Поручитель (лицо, принимающее на себя обязательство отвечать за должника), Кредитор (лицо, перед которым поручитель
+        принимает обязательство), Должник по основному обязательству (сторона, за которую поручаются; может не быть стороной
+        договора поручительства)]'
+  pledge:
+    __meta:
+      frequency: rare
+      type: dict
+    description:
+      frequency: rare
+      type: str
+      examples:
+      - Для залога
+    roles:
+      frequency: rare
+      type: list
+      examples:
+      - '[Залогодатель (должник или третье лицо, предоставляющее имущество в залог), Залогодержатель (кредитор по основному
+        обязательству)]'
+essential_terms:
+  __meta:
+    frequency: required
+    type: dict
+  guaranty:
+    __meta:
+      frequency: rare
+      type: dict
+    description:
+      frequency: rare
+      type: str
+      examples:
+      - Существенные условия поручительства
+    terms:
+      frequency: rare
+      type: list
+      examples:
+      - '[Указание на основное обязательство, за исполнение которого поручитель отвечает, Указание должника по основному обязательству,
+        Объём ответственности поручителя (полный / частичный / ограниченный суммой), Вид ответственности (солидарная / субсидиарная)]'
+  pledge:
+    __meta:
+      frequency: rare
+      type: dict
+    description:
+      frequency: rare
+      type: str
+      examples:
+      - Существенные условия залога
+    terms:
+      frequency: rare
+      type: list
+      examples:
+      - '[Предмет залога (индивидуально-определённое имущество или имущественные права), Оценка предмета залога, Существо,
+        размер и срок исполнения обязательства, обеспеченного залогом, Указание на то, у какой из сторон находится заложенное
+        имущество]'
+specific_risks:
+  __meta:
+    frequency: required
+    type: list_of_dicts
+  __element_fields:
+    Для заемщика:
+      frequency: rare
+      type: str
+      examples:
+      - скрытые комиссии и навязанные услуги
+      - потеря заложенного имущества при дефолте
+      - одностороннее изменение банком условий договора
+    Для обеих сторон:
+      frequency: rare
+      type: str
+      examples:
+      - споры о правомерности начисления штрафных санкций
+      - споры о моменте перехода требования
+      - нарушение порядка уведомления должника
+    Для фактора:
+      frequency: rare
+      type: str
+      examples:
+      - кредитный риск должника при факторинге без регресса
+      - риск недействительности уступаемого требования
+    Для приобретателя:
+      frequency: rare
+      type: str
+      examples:
+      - скрытые лицензии, обременения, претензии третьих лиц (истинных авторов/правообладателей)
+      - оспаривание патента, товарного знака после приобретения
+    Для отчуждателя:
+      frequency: rare
+      type: str
+      examples:
+      - неполучение вознаграждения, особенно при поэтапной оплате
+      - потеря права использования без надлежащей компенсации
+    Гибель предмета:
+      frequency: rare
+      type: str
+      examples:
+      - обязанность выплатить все платежи даже при отсутствии имущества (нестраховой случай)
+    Судебные иски по ЗоЗПП:
+      frequency: rare
+      type: str
+      examples:
+      - неустойка 3% за день просрочки, возмещение убытков, моральный вред
+    Для Участника:
+      frequency: rare
+      type: str
+      examples:
+      - риск банкротства застройщика и замораживания строительства (снижен эскроу)
+    Для Застройщика:
+      frequency: rare
+      type: str
+      examples:
+      - административная и субсидиарная ответственность за нарушения 214-ФЗ
+    Для банка:
+      frequency: rare
+      type: str
+      examples:
+      - кредитный риск (дефолт заемщика)
+    Для клиента:
+      frequency: rare
+      type: str
+      examples:
+      - регрессное требование фактора при неплатеже должника
+    Налоговые риски:
+      frequency: rare
+      type: str
+      examples:
+      - сложность оценки стоимости нематериальных активов
+    Для лицензиара:
+      frequency: rare
+      type: str
+      examples:
+      - риск недобросовестности лицензиата (неотчетность, неуплата роялти, ухудшение репутации бренда, конкуренция с другими
+        лиц…
+    Для лицензиата:
+      frequency: rare
+      type: str
+      examples:
+      - риск прекращения действия патента/товарного знака или оспаривания прав лицензиара третьими лицами
+    Для франчайзи:
+      frequency: rare
+      type: str
+      examples:
+      - высокие инвестиции с риском неокупаемости, жесткая зависимость от франчайзера, риск досрочного прекращения договора
+        с по…
+    Для франчайзера:
+      frequency: rare
+      type: str
+      examples:
+      - солидарная ответственность по требованиям к качеству товаров/услуг франчайзи (ст. 1034 ГК РФ), риск ущерба репутации
+        бре…
+aliases:
+  frequency: required
+  type: list
+  examples:
+  - '[ДКП, Купля-продажа имущества, Соглашение о продаже, Общая купля-продажа]'
+  - '[Договор уступки права требования, Соглашение об уступке права требования, Договор продажи долга, Цессионный договор,
+    …]'
+  - '[SPA (Share Purchase Agreement), Договор купли-продажи доли в ООО, Договор отчуждения акций, Договор продажи корпоративных
+    прав, …]'
+section_markers:
+  __meta:
+    frequency: required
+    type: dict
+  deposit:
+    __meta:
+      frequency: rare
+      type: dict
+    sections:
+      frequency: rare
+      type: list
+      examples:
+      - '[Предмет договора (сумма, валюта, вид вклада), Процентная ставка и порядок начисления/выплаты процентов, Порядок
+        внесения и пополнения вклада, Порядок возврата вклада (в т.ч. досрочного), …]'
+  account:
+    __meta:
+      frequency: rare
+      type: dict
+    sections:
+      frequency: rare
+      type: list
+      examples:
+      - '[Предмет договора (вид счета, валюта), Порядок осуществления операций по счету, Тарифы и стоимость услуг банка, Проценты
+        за пользование средствами на счете (если предусмотрено), …]'
+  guaranty:
+    __meta:
+      frequency: rare
+      type: dict
+    description:
+      frequency: rare
+      type: str
+      examples:
+      - Секции для договора поручительства
+    sections:
+      frequency: rare
+      type: list
+      examples:
+      - '[Предмет договора (основное обязательство, за которое поручитель отвечает), Объём и вид ответственности поручителя
+        (солидарная/субсидиарная, лимит суммы), Срок поручительства, Права и обязанности сторон, …]'
+  pledge:
+    __meta:
+      frequency: rare
+      type: dict
+    description:
+      frequency: rare
+      type: str
+      examples:
+      - Секции для договора залога
+    sections:
+      frequency: rare
+      type: list
+      examples:
+      - '[Предмет залога (описание, индивидуализация имущества), Оценка предмета залога, Обеспечиваемое обязательство, Права
+        и обязанности сторон, …]'
+notes:
+  frequency: required
+  type: str
+  examples:
+  - 'ЭТО БАЗОВЫЙ (ОБЩИЙ) ТИП договора купли-продажи.
+
+
+    ПРИМЕНЯЕТСЯ КАК FALLBACK:
+
+    - Если нет признаков специализированных типов…'
+  - 'КРИТИЧЕСКИЕ ТРЕБОВАНИЯ И ОСОБЕННОСТИ ДОГОВОРА ЦЕССИИ:
+
+    1. Индивидуализация требования: должно быть точно определено, како…'
+  - 'КРИТИЧЕСКИЕ ОСОБЕННОСТИ КОРПОРАТИВНЫХ СДЕЛОК:
+
+    1. Для ООО: момент перехода права — внесение записи в ЕГРЮЛ (нотариус пода…'
+validation_metadata:
+  __meta:
+    frequency: required
+    type: dict
+  validation_version:
+    frequency: required
+    type: str
+    examples:
+    - '2.1'
+    - '2.0'
+    - '2.2'
+  last_updated:
+    frequency: required
+    type: str
+    examples:
+    - '2026-02-06'
+    - '2026-02-07'
+  author:
+    frequency: required
+    type: str
+    examples:
+    - Legal AI Team
+    - Legal AI Team (Hybrid Edition)
+    - Legal AI Team (Transport Hybrid)
+  legal_base:
+    __meta:
+      frequency: required
+      type: dict
+    primary:
+      frequency: required
+      type: list
+      examples:
+      - '[§ 1 Главы 30 ГК РФ (ст. 454-491) — Общие положения о купле-продаже]'
+      - '[Глава 24 ГК РФ (ст. 382-390)]'
+      - '[§ 1 Главы 30 ГК РФ (купля-продажа, ст. 454-491), ФЗ-14 от 08.02.1998 «Об обществах с ограниченной ответственностью»
+        (ст. 21 - отчуждение доли), ФЗ-208 от 26.12.1995 «Об акционерных обществах» (ст. 72.1 - приобретение более 30% акций)]'
+    secondary:
+      frequency: required
+      type: list
+      examples:
+      - '[Постановление Пленума ВАС РФ № 16 от 14.03.2014 (Свобода договора)]'
+      - '[ст. 384 ГК РФ (объем передаваемых прав), ст. 385 ГК РФ (права и обязанности цедента, уведомление должника), ст.
+        388 ГК РФ (условия допустимости уступки), ст. 390 ГК РФ (ответственность цедента)]'
+      - '[ФЗ-39 от 22.04.1996 «О рынке ценных бумаг» (обращение бездокументарных ценных бумаг), ст. 431.2 ГК РФ (заверения
+        об обстоятельствах), ст. 428.1 ГК РФ (рамочный договор, опцион)]'
+    related:
+      frequency: required
+      type: list
+      examples:
+      - '[ст. 223, 224 ГК РФ (Момент возникновения права собственности), ст. 211, 459 ГК РФ (Риск случайной гибели имущества),
+        ст. 317.1 ГК РФ (Законные проценты)]'
+      - '[Постановление Пленума ВС РФ № 54 от 21.12.2017 «О некоторых вопросах применения положений главы 24 ГК РФ», Глава
+        43 ГК РФ (факторинг - финансирование под уступку денежного требования), ст. 391 ГК РФ (перевод долга - для отличия),
+        ФЗ-229 «Об исполнительном производстве» (уступка взыскателем исполнительного документа), …]'
+      - '[Семейный кодекс РФ ст. 35 (согласие супруга на распоряжение общим имуществом), ФЗ-135 от 26.07.2006 «О защите конкуренции»
+        (предварительное согласие ФАС на концентрацию), Налоговый кодекс РФ (налогообложение доходов от продажи долей/акций),
+        ФЗ-115 от 07.08.2001 «О противодействии легализации доходов» (проверка бенефициаров)]'
+    note:
+      frequency: rare
+      type: str
+      examples:
+      - "При квалификации как специализированный тип (розница, поставка и т.д.) \nприменяются соответствующие специальные\
+        \ нормы (§…"
+  essential_elements:
+    __meta:
+      frequency: required
+      type: list_of_dicts
+    __element_fields:
+      element:
+        frequency: required
+        type: str
+        examples:
+        - parties_general
+        - subject_general
+        - price_general
+      required:
+        frequency: required
+        type: bool
+        examples:
+        - 'True'
+        - 'False'
+      legal_base:
+        frequency: required
+        type: str
+        examples:
+        - ст. 432 ГК РФ
+        - ст. 455 ГК РФ
+        - ст. 424, 485 ГК РФ
+      validation_rules:
+        frequency: required
+        type: list
+        examples:
+        - '[presence_check, legal_capacity_indicators]'
+        - '[presence_check, quantity_units_check, identifiability_check]'
+        - '[price_determinability_check]'
+      description:
+        frequency: required
+        type: str
+        examples:
+        - Любые субъекты гражданского права (физические, юридические лица, публичные образования)
+        - Любая вещь, не изъятая из оборота. Должна быть определима через наименование и количество
+        - Может быть определена по соглашению или по цене аналогичных товаров
+      conditional_checks:
+        __meta:
+          frequency: required
+          type: list_of_dicts
+        __element_fields:
+          trigger:
+            frequency: required
+            type: str
+            examples:
+            - assignment_keywords
+            - commercial_parties_both
+            - assignment_to_third_party
+          rule:
+            frequency: required
+            type: str
+            examples:
+            - claim_specificity_required
+            - compensation_check_required
+            - debtor_notification_clause_required
+          severity:
+            frequency: required
+            type: str
+            examples:
+            - critical
+            - high
+            - medium
+          keywords:
+            frequency: required
+            type: list
+            examples:
+            - '[цессия, уступка права, передача права требования]'
+            - '[ООО, АО, ЗАО, ИП, …]'
+            - '[доля, уставный капитал, ООО, общество с ограниченной ответственностью]'
+          legal_base:
+            frequency: required
+            type: str
+            examples:
+            - ст. 432 ГК РФ
+            - ст. 575 ГК РФ
+            - ст. 385 ГК РФ
+          risk_msg:
+            frequency: required
+            type: str
+            examples:
+            - 'Неопределенность предмета (''Продаю долг Иванова'') делает договор незаключенным. Нужно: ''Продаю долг Иванова
+              по расписке …'
+            - Безвозмездная уступка между коммерческими организациями возможна только как обычный подарок стоимостью до 3000
+              рублей
+            - Без уведомления Должник может заплатить Цеденту, и долг погасится. Цессионарий останется ни с чем.
+          validation_rules:
+            frequency: common
+            type: list
+            examples:
+            - '[share_percentage_specified, share_nominal_value_specified, egrul_record_reference]'
+            - '[stock_quantity_specified, stock_type_specified, issue_registration_number]'
+            - '[price_adjustment_mechanism, earn_out_provisions, deferred_payment_terms]'
+      name:
+        frequency: required
+        type: str
+        examples:
+        - Стороны договора
+        - Предмет договора (общие требования)
+        - Цена (рекомендуется для ясности)
+      risk_msg:
+        frequency: rare
+        type: str
+        examples:
+        - Неиндивидуализированный предмет → договор незаключен
+        - Отсутствие четкого указания на полномочия подписанта может привести к оспариванию сделки по ст. 174 ГК РФ
+        - Неопределенный предмет договора ведет к признанию договора незаключенным (п. 3 ст. 607 ГК РФ)
+      risk_if_missing:
+        frequency: rare
+        type: str
+        examples:
+        - Без указания основного обязательства договор является недействительным как непоименованный
+        - Без четкого перечня действий предмет договора является несогласованным, что может повлечь его недействительность
+        - Без определенного предмета договор считается незаключенным
+  protective_clauses:
+    __meta:
+      frequency: required
+      type: dict
+    buyer_protection:
+      __meta:
+        frequency: common
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: required
+          type: str
+          examples:
+          - encumbrance_warranty_general
+          - quality_warranty_general
+          - cedent_warranties_validity_existence
+        name:
+          frequency: required
+          type: str
+          examples:
+          - Гарантия отсутствия прав третьих лиц
+          - Гарантия качества товара
+          - Гарантии Цедента о действительности и существовании требования
+        risk_if_missing:
+          frequency: required
+          type: str
+          examples:
+          - 'Риск эвикции: изъятия товара третьими лицами (залогодержателями, кредиторами и др.)
+
+            с последующими убытками и судебными …'
+          - 'Бремя доказывания, что недостатки возникли до передачи, лежит на покупателе.
+
+            С явной гарантией это бремя переходит на пр…'
+          - 'Без явных гарантий Цессионарий принимает на себя риск недействительности, несуществования
+
+            или погашения требования. Цеде…'
+        legal_base:
+          frequency: required
+          type: str
+          examples:
+          - ст. 460-462 ГК РФ
+          - ст. 470, 476 ГК РФ
+          - ст. 390 ГК РФ
+        severity:
+          frequency: required
+          type: str
+          examples:
+          - high
+          - medium
+          - critical
+        detection:
+          __meta:
+            frequency: required
+            type: dict
+          positive_keywords:
+            frequency: required
+            type: list
+            examples:
+            - '[свободен от прав третьих лиц, не обременен, гарантирует отсутствие обременений]'
+            - '[гарантийный срок, гарантия качества, соответствует требованиям]'
+            - '[цедент гарантирует действительность, право требования существует на момент уступки, долг не погашен, требование
+              не прекращено, …]'
+          context_patterns:
+            frequency: required
+            type: list
+            examples:
+            - '[(?i)цедент.*гарантирует.*что.*передаваемое.*право.*требования.*является.*действительным.*и.*существующим,
+              (?i)цедент.*несет.*ответственность.*за.*недействительность.*или.*отсутствие.*переданного.*требования]'
+            - '[(?i)цедент.*обязуется.*передать.*цессионарию.*следующие.*документы, (?i)передача.*документов.*оформляется.*актом.*приема.*передачи]'
+            - '[(?i)вместе.*с.*правом.*требования.*переходят.*все.*права.*обеспечивающие.*его.*исполнение, (?i)цедент.*обязуется.*передать.*цессионарию.*права.*из.*договоров.*залога.*и.*поручительства]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[с момента подписания настоящего соглашения, с даты заключения договора]'
+            - '[возврат невозможен, обмену не подлежит, только ремонт, претензии принимаются в течение 3 дней, …]'
+            - '[объект культурного наследия, ОКН, охранная зона, санитарно-защитная зона]'
+        affected_party:
+          frequency: required
+          type: str
+          examples:
+          - buyer
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - agricultural_land
+              - border_area
+              - permanent_rent_type
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[сельхозземли, земли сельхозназначения, пашня, сенокос, …]'
+              - '[приграничная зона, пограничная территория, граница государства]'
+              - '[постоянная рента, бессрочная рента]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - foreigner_restriction_check_required
+              - border_restriction_check_required
+              - buyout_clause_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+              - high
+    seller_protection:
+      __meta:
+        frequency: common
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: required
+          type: str
+          examples:
+          - retention_of_title_general
+          - acceptance_deadline_general
+          - limitation_of_liability_for_solvency
+        name:
+          frequency: required
+          type: str
+          examples:
+          - Удержание права собственности до оплаты
+          - Срок для проверки товара и заявления претензий
+          - Ограничение ответственности за платежеспособность Должника
+        risk_if_missing:
+          frequency: required
+          type: str
+          examples:
+          - 'Для сделок с отсрочкой платежа: риск утраты товара без оплаты при банкротстве покупателя.
+
+            Особенно актуально для дорогос…'
+          - "Риск предъявления претензий спустя длительное время, когда доказать состояние товара \nна момент передачи затруднительно\
+            \ …"
+          - 'Цедент отвечает за ДЕЙСТВИТЕЛЬНОСТЬ требования, но НЕ отвечает за ИСПОЛНИМОСТЬ
+
+            (платежеспособность Должника), если не пр…'
+        legal_base:
+          frequency: required
+          type: str
+          examples:
+          - ст. 491 ГК РФ
+          - ст. 477, 483 ГК РФ
+          - ст. 390 ГК РФ
+        severity:
+          frequency: required
+          type: str
+          examples:
+          - medium
+          - high
+          - critical
+        detection:
+          __meta:
+            frequency: required
+            type: dict
+          positive_keywords:
+            frequency: required
+            type: list
+            examples:
+            - '[право собственности переходит после оплаты, сохраняется за продавцом до полной оплаты]'
+            - '[срок приемки, претензии заявляются в течение, акт приема-передачи]'
+            - '[цедент не отвечает за платежеспособность, не несет ответственности за неисполнение Должником, кроме случая
+              принятия поручительства, цедент не гарантирует исполнение требования, …]'
+          context_patterns:
+            frequency: required
+            type: list
+            examples:
+            - '[(?i)до.*полной.*оплаты.*право.*собственности.*не.*переходит]'
+            - '[(?i)цедент.*не.*несет.*ответственности.*за.*неисполнение.*требования.*должником, (?i)цессионарий.*принимает.*на.*себя.*риск.*неплатежеспособности.*должника]'
+            - '[(?i)расчеты.*по.*договору.*являются.*окончательными.*и.*не.*подлежат.*пересмотру, (?i)после.*исполнения.*обязательств.*по.*передаче.*права.*обязательства.*цедента.*прекращаются]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[залог не возникает, право залога не применяется]'
+            - '[на 5 лет, на неопределенный срок, долгосрочный наем]'
+            - '[выселение в одностороннем порядке, выселение в течение 3 дней, по усмотрению наймодателя]'
+        affected_party:
+          frequency: required
+          type: str
+          examples:
+          - seller
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - distance_selling_keywords
+              - donation_type_charity
+              - dependency_contract_type
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[интернет-магазин, сайт, доставка, курьер, …]'
+              - '[пожертвование, благотворительность, общеполезные цели, социальные цели]'
+              - '[пожизненное содержание, иждивение, содержание с иждивением]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - retention_clause_recommended
+              - target_use_and_reporting_required
+              - detailed_scope_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - medium
+              - high
+              - critical
+            legal_base:
+              frequency: rare
+              type: str
+              examples:
+              - ст. 770 ГК РФ
+    buyer_seller_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - simultaneous_or_secured_transfer
+          - goods_quality_warranty
+          - ownership_transfer_timing
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Механизм обеспечения одновременности передачи или встречного предоставления
+          - Гарантии качества обмениваемых товаров
+          - Четкое определение момента перехода права собственности
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При отсутствии механизма обеспечения одновременности передачи сторона, первой передавшая товар,
+
+            рискует не получить встр…'
+          - 'Без явных гарантий качества к полученному товару будут применяться общие положения о качестве.
+
+            Сторона не сможет предъяв…'
+          - 'По умолчанию право собственности переходит после исполнения обеими сторонами (ст. 570 ГК РФ).
+
+            Неясность в этом вопросе п…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 328, 570 ГК РФ
+          - ст. 469-477, 567 ГК РФ
+          - ст. 223, 224, 570 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - both
+          - lender
+          - borrower
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[одновременная передача, аккредитив, эскроу-счет, банковская ячейка, …]'
+            - '[гарантия качества, соответствие товара, отсутствие недостатков, технические характеристики, …]'
+            - '[право собственности переходит, после исполнения обеими сторонами, момент перехода права, риск случайной гибели,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)передача.*товаров.*осуществляется.*одновременно, (?i)исполнение.*обязательств.*обеими.*сторонами.*одновременно]'
+            - '[(?i)сторона.*гарантирует.*качество.*передаваемого.*товара, (?i)к.*полученному.*товару.*применяются.*правила.*о.*качестве]'
+            - '[(?i)право.*собственности.*переходит.*после.*исполнения.*обязательств.*обеими.*сторонами]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[комиссия за ведение ссудного счета, комиссия за выдачу кредита, комиссия за рассмотрение заявки]'
+            - '[обязательное страхование жизни, кредит предоставляется при условии, обязательное подключение услуги]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - with_crew
+              - without_crew
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - lessor_insures
+              - lessee_insures
+            legal_base:
+              frequency: rare
+              type: str
+              examples:
+              - ст. 637 ГК РФ
+              - ст. 646 ГК РФ
+            description:
+              frequency: rare
+              type: str
+              examples:
+              - При аренде с экипажем страхование — обязанность арендодателя
+              - При аренде без экипажа страхование — обязанность арендатора
+    client_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - full_liability_for_third_parties
+          - cargo_insurance_obligation_detailed
+          - carrier_selection_approval_mechanism
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Полная ответственность экспедитора за действия привлеченных лиц
+          - Обязанность застраховать груз от всех рисков
+          - Механизм согласования выбора перевозчика
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Экспедитор может пытаться ограничить ответственность формулировками \"только посредник\", \n\"не отвечает за\
+            \ перевозчика\". Э…"
+          - 'Экспедитор часто страхует только свою ответственность (на небольшую сумму) или вообще ничего.
+
+            При утрате дорогостоящего …'
+          - 'Экспедитор может выбрать ненадежного, финансово несостоятельного перевозчика или аффилированную компанию.
+
+            При утрате гру…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 803 ГК РФ, ст. 7 ФЗ-87
+          - ст. 4 ФЗ-87, Глава 48 ГК РФ
+          - ст. 10 ГК РФ (добросовестность), ст. 53.2 ГК РФ (аффилированность)
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - client
+          - depositor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[отвечает за действия третьих лиц, как за свои собственные, полная ответственность за выбор перевозчика, ответственность
+              за сохранность груза, …]'
+            - '[застраховать груз, в пользу клиента, от всех рисков, страховая сумма не менее стоимости груза, …]'
+            - '[согласование перевозчика, право вето на выбор перевозчика, критерии выбора перевозчика, раскрытие аффилированности,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)экспедитор.*несет.*ответственность.*за.*действия.*привлеченных.*им.*третьих.*лиц.*как.*за.*свои.*собственные]'
+            - '[(?i)экспедитор.*обязуется.*застраховать.*груз.*от.*всех.*рисков.*на.*время.*перевозки, (?i)страховая.*сумма.*должна.*составлять.*не.*менее.*\d+.*%.*стоимости.*груза]'
+            - '[(?i)экспедитор.*обязан.*предоставить.*клиенту.*информацию.*о.*предлагаемом.*перевозчике, (?i)клиент.*вправе.*отклонить.*предложенного.*перевозчика.*в.*течение.*\d+.*дней]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[не несет ответственности за перевозчика, только в пределах агентского вознаграждения, ограничение ответственности
+              за действия третьих лиц]'
+            - '[дополнительные платежи по тарифам, комиссии определяются фактором в одностороннем порядке]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - individual_depositor
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[физическое лицо, гражданин, вкладчик]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - insurance_disclosure_mandatory
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+    principal_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - scope_of_authority_limitation
+          - conflict_of_interest_prohibition
+          - power_of_attorney_revocation_mechanism
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Четкое ограничение объема и целей полномочий поверенного
+          - Запрет конфликта интересов и двойного представительства
+          - Механизм отмены доверенности и уведомления третьих лиц
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без детальных ограничений поверенный, действуя в рамках доверенности, может совершать любые сделки,
+
+            в том числе невыгодн…'
+          - 'Поверенный может совершить сделку с самим собой или представлять интересы обеих сторон в одной сделке
+
+            в ущерб доверителю…'
+          - 'При отмене поручения доверенность должна быть отозвана. Без уведомления третьих лиц они вправе
+
+            полагаться на ее действит…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 971, 183 ГК РФ
+          - ст. 10, 182 ГК РФ
+          - ст. 188, 189 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - principal
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[поверенный вправе совершать только следующие действия, запрещается совершать сделки, не указанные в договоре,
+              пределы полномочий, максимальная сумма сделки, …]'
+            - '[запрет действовать в собственных интересах, конфликт интересов, не может представлять интересы другой стороны,
+              запрет на сделки с аффилированными лицами, …]'
+            - '[обязанность возврата доверенности, уведомление третьих лиц об отмене, публикация в реестре отмененных доверенностей,
+              срок для уведомления, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)поверенный\s+не\s+вправе\s+совершать\s+сделки\s+на\s+сумму\s+свыше\s+[0-9]+, (?i)совершение\s+сделок,\s+не\s+предусмотренных\s+в\s+п\.\s+[0-9]+\s+,
+              запрещено]'
+            - '[(?i)поверенный\s+не\s+вправе\s+совершать\s+сделки\s+от\s+имени\s+доверителя\s+с\s+самим\s+собой, (?i)при\s+возникновении\s+конфликта\s+интересов\s+поверенный\s+обязан\s+немедленно\s+уведомить]'
+            - '[(?i)при\s+прекращении\s+договора\s+поверенный\s+обязан\s+немедленно\s+вернуть\s+доверенность, (?i)доверитель\s+обязуется\s+уведомить\s+известных\s+третьих\s+лиц\s+об\s+отмене\s+доверенности]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[вправе совершать любые необходимые действия]'
+    supplier_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - obligation_to_collect
+          - penalty_payment_delay
+          - force_majeure_clause
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанность выборки (самовывоза) товара
+          - Неустойка за просрочку оплаты товара
+          - Оговорка о форс-мажорных обстоятельствах
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без условия об обязанности покупателя забрать товар поставщик несет расходы
+
+            на хранение и риски порчи товара после его г…'
+          - 'Без договорной неустойки поставщик сможет взыскать только проценты по ст. 395 ГК РФ,
+
+            что часто ниже стоимости коммерческ…'
+          - 'Без детализированной оговорки о форс-мажоре поставщик может нести ответственность
+
+            за непоставку товара по причинам, не з…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 510, 515 ГК РФ
+          - ст. 330, 395 ГК РФ
+          - ст. 401, 416 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - medium
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - supplier
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[выборка товара, самовывоз, со склада поставщика, обязан вывезти товар, …]'
+            - '[неустойка за просрочку оплаты, пеня за несвоевременную оплату, штраф за просрочку платежа, проценты за просрочку,
+              …]'
+            - '[форс-мажор, непреодолимая сила, обстоятельства непреодолимой силы, освобождение от ответственности, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)покупатель.*обязан.*вывезти.*товар.*со.*склад]'
+            - '[(?i)за.*просрочку.*оплаты.*уплачивается.*неустойка]'
+            - '[(?i)форс.*мажор.*освобожда.*от.*ответственности.*поставк]'
+    agent_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - expense_reimbursement_procedure
+          - remuneration_on_early_termination
+          - remuneration_guarantee_and_payment_terms
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Детальный порядок возмещения расходов и авансирования
+          - Компенсация вознаграждения при досрочном прекращении договора
+          - Гарантия вознаграждения и четкие условия оплаты
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Доверитель обязан возмещать понесенные издержки (ст. 975 ГК РФ). Без процедуры (смета, аванс, отчет)
+
+            поверенный рискует …'
+          - 'Доверитель вправе отменить поручение в любое время (ст. 977 ГК РФ). Без условия о компенсации
+
+            поверенный не получит возн…'
+          - 'Без четкого порядка и сроков выплаты (аванс, периодические платежи, проценты от сделок)
+
+            агент рискует выполнить объем ра…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 975 ГК РФ
+          - ст. 978 ГК РФ
+          - ст. 1006 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - agent
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[доверитель обязан возместить все документально подтвержденные расходы, аванс на расходы, смета расходов, оправдательные
+              документы, …]'
+            - '[вознаграждение при досрочной отмене, пропорциональная оплата выполненного, компенсация фактически понесенных
+              расходов, выходное вознаграждение]'
+            - '[агентское вознаграждение, размер вознаграждения, сроки выплаты вознаграждения, порядок расчета вознаграждения,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)доверитель\s+обязуется\s+возместить\s+поверенному\s+фактически\s+понесенные\s+расходы\s+на\s+основании\s+отчета]'
+            - '[(?i)в\s+случае\s+отмены\s+поручения\s+доверителем\s+поверенному\s+выплачивается\s+вознаграждение\s+соразмерно]'
+            - '[(?i)вознаграждение\s+агента\s+составляет\s+[0-9]+%.*от\s+суммы\s+заключенных\s+сделок]'
+    producer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - force_majeure_specific
+          - obligation_to_accept
+          - advance_payment_producer
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Специальная оговорка о форс-мажоре для сельского хозяйства
+          - Обязанность заготовителя принять выращенную продукцию
+          - Авансирование производителя заготовителем
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без детализированного перечня сельскохозяйственных форс-мажорных обстоятельств
+
+            производитель может нести ответственность…'
+          - 'Без четкого условия об обязанности заготовителя принять выращенную продукцию
+
+            производитель может столкнуться с отказом о…'
+          - 'Без условия об авансировании или предоплате производитель несет все расходы
+
+            по производству сельскохозяйственной продукц…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 401, 416, 538 ГК РФ
+          - ст. 536 ГК РФ
+          - ст. 536, 487 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - producer
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[неблагоприятные погодные условия, засуха, наводнение, заморозки, …]'
+            - '[обязан принять продукцию, обязанность заготовителя принять, не вправе отказаться от приемки, принять выращенную
+              продукцию, …]'
+            - '[авансирование производителя, предварительная оплата, авансовый платеж, финансирование производства, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)производитель.*освобождается.*ответственности.*при.*наступлении, (?i)неблагоприятные.*погодные.*условия.*являются.*форс.*мажором]'
+            - '[(?i)заготовитель.*обязан.*принять.*продукцию.*произведенную]'
+            - '[(?i)заготовитель.*обязуется.*авансировать.*производителя]'
+    purchaser_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - product_quality_requirements
+          - delivery_schedule
+          - penalty_for_non_delivery
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Требования к качеству сельскохозяйственной продукции
+          - График сдачи (поставки) сельскохозяйственной продукции
+          - Неустойка за недопоставку или несвоевременную сдачу продукции
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без четких требований к качеству продукции заготовитель может получить
+
+            продукцию, не соответствующую стандартам для посл…'
+          - 'Без графика сдачи продукции заготовитель не сможет планировать логистику,
+
+            хранение и переработку продукции. Неравномерна…'
+          - 'Без договорной неустойки за недопоставку заготовитель сможет взыскать
+
+            только убытки, доказывание которых в сельском хозя…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 469, 536 ГК РФ
+          - ст. 508, 536 ГК РФ
+          - ст. 330, 521 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - purchaser
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[качество продукции, требования к качеству, стандарты качества, соответствие ГОСТ, …]'
+            - '[график сдачи, график поставки, периоды сдачи, сроки сдачи по периодам, …]'
+            - '[неустойка за недопоставку, пеня за просрочку сдачи, штраф за нарушение сроков, ответственность за недопоставку,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)продукция.*должна.*соответствовать.*требованиям.*качества]'
+            - '[(?i)продукция.*сдается.*по.*графику.*приложенному]'
+            - '[(?i)за.*недопоставку.*продукции.*уплачивается.*неустойка]'
+    subscriber_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - energy_quality_requirements
+          - limitation_procedure
+          - liability_for_interruptions
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Требования к качеству подаваемой энергии
+          - Порядок ограничения и прекращения подачи энергии
+          - Ответственность за перерывы в подаче энергии
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без четких требований к качеству энергии (напряжение, частота для электроэнергии,
+
+            температура для тепловой энергии, давл…'
+          - 'Без четкой процедуры ограничения или отключения подачи энергии абонент может быть
+
+            лишен доступа к ресурсу без предупрежд…'
+          - 'Без условий об ответственности за несанкционированные перерывы в подаче энергии
+
+            абонент не сможет взыскать убытки, вызва…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 542 ГК РФ
+          - ст. 546 ГК РФ
+          - ст. 547 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - critical
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - subscriber
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[качество энергии, параметры качества, соответствие ГОСТ, напряжение, …]'
+            - '[ограничение подачи, прекращение подачи, отключение энергии, предварительное уведомление, …]'
+            - '[ответственность за перерывы, возмещение ущерба, простой оборудования, несанкционированное отключение, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)энергия.*должна.*соответствовать.*требованиям.*качества, (?i)параметры.*качества.*электроэнергии]'
+            - '[(?i)ограничение.*подачи.*энергии.*допускается.*при.*неоплате, (?i)предварительное.*уведомление.*об.*отключении]'
+            - '[(?i)энергоснабжающая.*организация.*несет.*ответственность.*за.*перерывы]'
+    lessor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - improvements_ownership
+          - penalty_late_payment
+          - sublease_control
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Регулирование судьбы улучшений
+          - Неустойка за просрочку оплаты
+          - Контроль передачи третьим лицам
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Если арендатор произведет неотделимые улучшения без согласия арендодателя, возникнет спор о компенсации их стоимости.
+
+            По…'
+          - 'Без договорной неустойки арендодатель сможет взыскать только проценты по ст. 395 ГК РФ (ключевая ставка),
+
+            что часто не п…'
+          - 'Арендатор может передать имущество в субаренду без надлежащего контроля со стороны собственника.
+
+            Хотя ст. 615 ГК РФ треб…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 623 ГК РФ
+          - ст. 330 ГК РФ
+          - ст. 615 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - lessor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[улучшения, неотделимые улучшения, отделимые улучшения, реконструкция, …]'
+            - '[неустойка, пени, штраф, 0,1%, …]'
+            - '[субаренда, перенаем, передача третьим лицам, с письменного согласия, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)(неотделим|отделим).*улучшени, (?i)произвед.*улучшени.*согласи, (?i)стоимость.*улучшени.*возмещ]'
+            - '[(?i)просрочк.*оплат.*пени, (?i)неустойк.*за.*просрочку]'
+            - '[(?i)запрещено.*передават.*пользование, (?i)субаренд.*разрешает.*согласи]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[безвозмездно, без компенсации]'
+    lessee_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - early_termination_right
+          - maintenance_duties
+          - warranty_fitness
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Право на внесудебный отказ
+          - Распределение обязанностей по ремонту
+          - Гарантия пригодности имущества
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'В срочном договоре аренды арендатор не может просто съехать, предупредив за месяц,
+
+            если это право прямо не прописано (ст…'
+          - 'Если не разграничить виды ремонта, арендодатель может уклоняться от капитального ремонта,
+
+            ссылаясь на неправильную экспл…'
+          - 'Арендодатель может передать имущество с существенными недостатками, делающими его непригодным
+
+            для использования по назна…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 620, 450.1 ГК РФ
+          - ст. 616 ГК РФ
+          - ст. 611, 612 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - lessee
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[односторонний отказ, внесудебный порядок, уведомление за, право расторгнуть, …]'
+            - '[капитальный ремонт, текущий ремонт, бремя содержания, неотложный ремонт, …]'
+            - '[состояние имущества, пригодность для использования, исправное состояние, соответствие назначению, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)арендатор.*вправе.*отказаться, (?i)уведомление.*за.*месяц.*расторжени]'
+            - '[(?i)арендодатель.*обязуется.*производит.*капитальн, (?i)текущий.*ремонт.*арендатор]'
+            - '[(?i)передаетс.*исправном.*состоянии, (?i)пригодн.*для.*использования.*по.*назначению]'
+    customer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - detailed_service_specification
+          - unilateral_refusal_limited_liability
+          - reporting_duty_detailed
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Детальная спецификация услуг (ТЗ) как неотъемлемая часть договора
+          - Ограничение платежей при одностороннем отказе заказчика
+          - Подробная отчетность исполнителя (для налогов и приемки)
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Без детальной спецификации невозможно доказать ненадлежащее исполнение. \nИсполнитель может ограничиться формальными\
+            \ дейс…"
+          - 'Заказчик может отказаться в любой момент (ст. 782), но обязан оплатить "фактические расходы".
+
+            Исполнители часто вписываю…'
+          - 'Услуга нематериальна. Чтобы доказать факт оказания (для налоговой и суда), нужен Отчет или Акт с детализацией.
+
+            "Акт на с…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 432, 779 ГК РФ, Постановление Пленума ВАС РФ № 33
+          - ст. 782 ГК РФ, Постановление Пленума ВАС РФ № 16
+          - НК РФ ст. 252, ст. 9 ФЗ № 402-ФЗ 'О бухучете'
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - customer
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[техническое задание, спецификация услуг, перечень конкретных действий, объем услуг, …]'
+            - '[оплатив фактические расходы, отказ от исполнения, прямые затраты]'
+            - '[отчет об оказанных услугах, детализация услуг, акт сдачи-приемки с расшифровкой, почасовой отчет, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)перечень.*услуг.*определен.*в.*приложении.*№, (?i)услуги.*оказываются.*в.*соответствии.*с.*техническим.*заданием]'
+            - '[(?i)при.*отказе.*заказчик.*оплачивает.*фактически.*понесенные.*исполнителем.*расходы]'
+            - '[(?i)исполнитель.*представляет.*ежемесячный.*отчет.*с.*детализацией.*оказанных.*услуг]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[штраф за расторжение, неустойка в размере цены, оплата полной стоимости договора]'
+    service_provider_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - payment_for_downtime_customer_fault
+          - subcontracting_right_explicit
+          - retention_of_rights_until_payment
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Оплата простоя/неоказания по вине заказчика
+          - Явное право на привлечение субподрядчиков
+          - Сохранение прав на результаты до полной оплаты
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Если услуги не оказаны по вине Заказчика (не дал доступ, не пришел на консультацию, не предоставил информацию),
+
+            они подл…'
+          - 'По умолчанию Исполнитель обязан оказывать услуги ЛИЧНО (ст. 780 ГК РФ). Если вы — агентство или фирма,
+
+            вам нужно явное п…'
+          - "Исполнитель передает заказчику результаты (отчеты, документы, ПО) до полной оплаты. \nВ случае неоплаты сложно\
+            \ истребоват…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 781 ГК РФ, ст. 406 ГК РФ
+          - ст. 780 ГК РФ
+          - ст. 712, 359 ГК РФ (по аналогии)
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - service_provider
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[по вине заказчика подлежат оплате, в полном объеме, оплата простоя, неоказание услуг по вине заказчика, …]'
+            - '[вправе привлекать третьих лиц, без согласия заказчика, своими силами или с привлечением, субподрядчики, …]'
+            - '[право удержания, передача результатов после оплаты, сохранение прав до оплаты, непредоставление документов
+              при неоплате, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)в.*случае.*непредоставления.*заказчиком.*информации.*услуги.*подлежат.*оплате.*в.*полном.*объеме]'
+            - '[(?i)исполнитель.*вправе.*привлекать.*для.*оказания.*услуг.*третьих.*лиц]'
+            - '[(?i)исполнитель.*вправе.*удерживать.*результаты.*до.*полной.*оплаты.*услуг]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[лично, без права привлечения, исполнитель не вправе привлекать]'
+    shipper_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - cargo_value_declaration_insurance
+          - delivery_deadline_penalty_enhanced
+          - claim_procedure_mandatory_detailed
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Объявленная ценность груза и условия страхования
+          - Штрафные санкции за просрочку доставки (сверх уставных)
+          - Детализированный обязательный претензионный порядок
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "При утрате/повреждении груза перевозчик возмещает только действительную стоимость (ст. 796 ГК РФ), \nно не более\
+            \ объявлен…"
+          - 'Транспортные уставы предусматривают мизерные штрафы за просрочку (9% провозной платы в сутки по УАТ).
+
+            Без договорной неу…'
+          - 'До подачи иска к перевозчику ОБЯЗАТЕЛЬНО предъявление претензии (ст. 797 ГК РФ).
+
+            Сроки короткие: 30 дней для недостачи/п…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 796 ГК РФ, транспортные уставы
+          - ст. 792, 793 ГК РФ, ст. 34 УАТ
+          - ст. 797 ГК РФ, транспортные уставы
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - shipper
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[объявленная ценность, стоимость груза, страхование груза, страховая сумма, …]'
+            - '[штраф за опоздание, неустойка за задержку доставки, пеня за просрочку, срок доставки, …]'
+            - '[претензионный порядок, срок предъявления претензии, 30 дней, 45 дней, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)грузоотправитель.*вправе.*объявить.*ценность.*груза, (?i)ответственность.*перевозчика.*ограничена.*объявленной.*стоимостью]'
+            - '[(?i)за.*нарушение.*срока.*доставки.*перевозчик.*уплачивает.*неустойку.*в.*размере, (?i)при.*просрочке.*доставки.*свыше.*\d+.*дней.*грузоотправитель.*вправе.*требовать]'
+            - '[(?i)претензии.*предъявляются.*в.*течение.*\d+.*дней.*со.*дня.*наступления.*события, (?i)иск.*может.*быть.*предъявлен.*после.*получения.*ответа.*на.*претензию.*или.*по.*истечении.*\d+.*дней]'
+    carrier_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - lien_right_procedural
+          - demurrage_clause_detailed
+          - liability_limitation_explicit
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Право удержания груза с порядком реализации
+          - Плата за простой (демередж) с четкими нормативами
+          - Явное ограничение ответственности в соответствии с уставами
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При неоплате провозной платы перевозчик вправе удерживать груз (ст. 790, 359 ГК РФ).
+
+            Без процедуры реализации удержанног…'
+          - 'Превышение нормативного времени погрузки/выгрузки ведет к простоям транспорта, убыткам перевозчика.
+
+            Без штрафных санкций…'
+          - "Без ссылки на ограничения транспортных уставов суд может применить общие нормы ГК РФ \nо полном возмещении убытков\
+            \ (ст. 1…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 790, 359, 360 ГК РФ
+          - УАТ ст. 35, ст. 791 ГК РФ
+          - ст. 796 ГК РФ, транспортные уставы
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - carrier
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[право удержания груза, до уплаты провозных платежей, удерживать груз, реализация удержанного груза, …]'
+            - '[штраф за простой, плата за простой, демередж, сверхнормативный простой, …]'
+            - '[ответственность ограничена, в размере объявленной стоимости, не более реальной стоимости, согласно Уставу
+              автомобильного транспорта, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)перевозчик.*вправе.*удерживать.*груз.*до.*полной.*оплаты.*причитающихся.*платежей, (?i)в.*случае.*неоплаты.*груз.*подлежит.*реализации.*в.*порядке.*установленном.*законом]'
+            - '[(?i)нормативное.*время.*погрузки.*составляет.*\d+.*часов.*при.*превышении.*взимается.*плата, (?i)за.*каждый.*час.*простоя.*сверх.*нормативного.*времени.*грузоотправитель.*уплачивает]'
+            - '[(?i)ответственность.*перевозчика.*ограничена.*в.*соответствии.*с.*(УАТ|УЖТ|Воздушным.*кодексом|КТМ)]'
+    forwarder_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - client_documents_provision_suspension
+          - forwarder_lien_right_procedural
+          - liability_exclusions_proof_burden
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Право не приступать к исполнению при непредоставлении документов
+          - Право удержания груза с процедурой реализации
+          - Исключения из ответственности и бремя доказывания
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Клиент может задержать предоставление необходимых документов (инвойсы, сертификаты, разрешения).
+
+            Экспедитор не может нач…'
+          - 'При неоплате вознаграждения и расходов экспедитор вправе удерживать груз (ст. 3 ФЗ-87).
+
+            Без процедуры реализации удержан…'
+          - "Экспедитор несет ответственность за утрату груза, если не докажет, что это вызвано обстоятельствами, \nза которые\
+            \ отвечае…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 804 ГК РФ, ст. 328 ГК РФ
+          - ст. 3 ФЗ-87, ст. 359, 360 ГК РФ
+          - ст. 803, 401 ГК РФ, ст. 4 ФЗ-87
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - forwarder
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[не приступать к исполнению, до предоставления документов, приостановка исполнения обязательств, ответственность
+              клиента за задержку, …]'
+            - '[право удерживать груз, до уплаты вознаграждения, возмещения расходов, реализация удержанного груза, …]'
+            - '[освобождается от ответственности, обстоятельства, которые экспедитор не мог предотвратить, вина клиента, недостатки
+              груза, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)экспедитор.*вправе.*не.*приступать.*к.*исполнению.*обязательств.*до.*предоставления.*полного.*комплекта.*документов]'
+            - '[(?i)экспедитор.*вправе.*удерживать.*груз.*до.*полной.*оплаты.*причитающихся.*платежей, (?i)в.*случае.*неоплаты.*груз.*подлежит.*реализации.*через.*\d+.*дней.*после.*уведомления]'
+            - '[(?i)экспедитор.*освобождается.*от.*ответственности.*при.*наступлении.*следующих.*обстоятельств, (?i)клиент.*обязан.*доказать.*что.*утрата.*груза.*произошла.*не.*по.*его.*вине]'
+    depositor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - professional_custodian_full_liability
+          - return_on_first_demand_right
+          - item_identification_return_procedure
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Полная ответственность профессионального хранителя
+          - Право на возврат вещи по первому требованию
+          - Четкая процедура идентификации и возврата вещи
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Профессиональный хранитель (товарный склад, ломбард) отвечает за утрату, недостачу, \nповреждение вещи независимо\
+            \ от вины…"
+          - "Поклажедатель имеет право забрать вещь в любой момент, даже если договор срочный \n(ст. 904 ГК РФ). Любые штрафы\
+            \ за досро…"
+          - "При возврате, особенно при иррегулярном хранении, возможны споры: не то количество, \nне то качество. Без акта\
+            \ выдачи (фо…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 901 ГК РФ
+          - ст. 904 ГК РФ
+          - ст. 887, 900 ГК РФ, Постановление Росстата № 66
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - depositor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[независимо от вины, полная материальная ответственность, профессиональный хранитель отвечает, возмещение полной
+              стоимости, …]'
+            - '[по первому требованию, возвратить вещь немедленно, досрочное прекращение, право истребовать в любой момент,
+              …]'
+            - '[акт выдачи (МХ-3), проверка при возврате, идентификация по номеру, маркировка вещи, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)хранитель.*несет.*ответственность.*за.*утрату.*недостачу.*повреждение.*вещи.*независимо.*от.*вины]'
+            - '[(?i)поклажедатель.*вправе.*истребовать.*вещь.*в.*любое.*время.*независимо.*от.*срока.*договора]'
+            - '[(?i)возврат.*вещи.*оформляется.*актом.*по.*форме.*МХ.*3, (?i)при.*возврате.*составляется.*акт.*с.*указанием.*состояния.*вещи.*и.*количества]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[только при наличии вины, отвечает только за виновные действия, ограничение ответственности суммой вознаграждения]'
+    custodian_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - uncollected_goods_disposal_procedure
+          - extraordinary_expenses_reimbursement
+          - item_properties_danger_warranty
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Процедура реализации невостребованной вещи
+          - Возмещение чрезвычайных расходов на сохранность
+          - Гарантия раскрытия свойств вещи и отсутствия опасности
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Поклажедатель может не забрать вещь и не платить за хранение. Хранитель не может \nвечно хранить вещь. Ст. 899\
+            \ ГК РФ разр…"
+          - "При угрозе сохранности вещи (болезнь животного, порча продуктов) хранитель вынужден \nнести чрезвычайные расходы\
+            \ (ст. 898…"
+          - "Поклажедатель может передать опасную вещь (легковоспламеняющуюся, токсичную, \nбиологически опасную) без предупреждения.\
+            \ …"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 899 ГК РФ
+          - ст. 898 ГК РФ
+          - ст. 893, 894 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - custodian
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[продать невостребованную вещь, самостоятельная реализация, по цене, сложившейся в месте хранения, предупредив
+              письменно, …]'
+            - '[чрезвычайные расходы, согласие поклажедателя, возмещение затрат, лимит расходов без согласования, …]'
+            - '[раскрытие свойств вещи, опасные свойства, предупреждение об опасности, гарантия безопасности, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)по.*истечении.*\d+.*дней.*после.*направления.*уведомления.*невостребованная.*вещь.*подлежит.*реализации]'
+            - '[(?i)расходы.*превышающие.*\d+.*рублей.*подлежат.*предварительному.*согласованию.*с.*поклажедателем]'
+            - '[(?i)поклажедатель.*обязан.*предупредить.*хранителя.*об.*опасных.*свойствах.*вещи, (?i)в.*случае.*обнаружения.*опасных.*свойств.*хранитель.*вправе.*уничтожить.*вещь.*за.*счет.*поклажедателя]'
+    policyholder_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - rules_attachment_proof
+          - franchise_type_clarity
+          - claims_payment_deadlines
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Доказательство вручения Правил страхования
+          - Ясность типа и размера франшизы
+          - Четкие сроки и перечень документов для выплаты
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Условия часто прописаны в Правилах страхования (многостраничный документ). \nЕсли в Полисе нет отметки \"Правила\
+            \ получил\",…"
+          - "Франшиза — часть убытка, которую не платит страховщик. Безусловная франшиза вычитается всегда, \nусловная — только\
+            \ если у…"
+          - "Страховщики могут затягивать выплату, требуя \"все необходимые документы\" без конкретики. \nНужен исчерпывающий\
+            \ перечень и…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 943 ГК РФ
+          - ст. 9 Закона № 4015-1
+          - ЗоЗПП ст. 31 (для граждан), ст. 12.1 Закона № 4015-1
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - policyholder
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[Правила страхования вручены, с Правилами ознакомлен, получил на руки, экземпляр Правил прилагается, …]'
+            - '[безусловная франшиза, условная франшиза, невозмещаемая часть, размер франшизы, …]'
+            - '[в течение рабочих дней, с момента получения полного комплекта, исчерпывающий перечень документов, срок выплаты
+              страхового возмещения, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)страхователь.*подтверждает.*что.*получил.*экземпляр.*правил.*страхования]'
+            - '[(?i)безусловная.*франшиза.*в.*размере.*\d+.*рублей.*вычитается.*из.*суммы.*возмещения]'
+            - '[(?i)страховщик.*обязан.*произвести.*выплату.*в.*течение.*\d+.*рабочих.*дней.*с.*момента]'
+    insurer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - notification_duty_timing
+          - subrogation_rights_preservation
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Срок и способ уведомления о страховом случае
+          - Сохранение права суброгации
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Если страхователь поздно сообщил о случае (пожар, ДТП), страховщик не может расследовать причины и оценить ущерб.
+
+            Ст. 96…'
+          - 'После выплаты возмещения страховщик имеет право взыскать сумму с виновника (ст. 965 ГК РФ).
+
+            Договор может исключать это …'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 961 ГК РФ
+          - ст. 965 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - insurer
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[незамедлительно уведомить, в течение 24 часов, сообщить любым доступным способом, уведомление по телефону,
+              …]'
+            - '[переходит право требования, к лицу, ответственному за убытки, право суброгации, обязанность передать документы,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)страхователь.*обязан.*уведомить.*страховщика.*о.*наступлении.*страхового.*случая.*в.*течение.*\d+.*часов]'
+            - '[(?i)после.*выплаты.*страхового.*возмещения.*к.*страховщику.*переходит.*право.*требования]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[без права суброгации, отказ от права требования]'
+    settlor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - asset_segregation_requirement
+          - investment_policy_limitations
+          - trustee_full_liability
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Требование обособления имущества
+          - Инвестиционная декларация и ограничения полномочий
+          - Полная ответственность управляющего за убытки
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Если активы не обособлены (нет отдельного счета, баланса), кредиторы управляющего могут наложить на них взыскание.
+
+            Это к…'
+          - 'Учредитель должен ограничить полномочия управляющего: "не покупать высокорискованные активы", "не продавать недвижимость…'
+          - Управляющий отвечает за любое уменьшение стоимости имущества, если не докажет форс-мажор или действия учредителя
+            (ст. 10…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 1018 ГК РФ
+          - Свобода договора, принцип определенности условий
+          - ст. 1022 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - settlor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[отдельный банковский счет, отдельный баланс, обособленный учет, знак Д.У., …]'
+            - '[инвестиционная декларация, ограничение полномочий, согласование сделок, стратегия управления, …]'
+            - '[возместить реальный ущерб, упущенная выгода, если не проявил должной заботливости, отвечает всем своим имуществом,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)имущество.*учитывается.*на.*отдельном.*балансе.*управляющего]'
+            - '[(?i)управляющий.*обязан.*осуществлять.*управление.*в.*соответствии.*с.*инвестиционной.*декларацией]'
+            - '[(?i)управляющий.*несет.*ответственность.*за.*убытки.*если.*не.*докажет.*что.*они.*произошли.*вследствие]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[только за вину, ограничение ответственности суммой вознаграждения]'
+    trustee_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - expenses_reimbursement_mechanism
+          - du_mark_obligation
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Механизм возмещения необходимых расходов
+          - Обязанность указания статуса Д.У. в документах
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Управляющий имеет право на возмещение необходимых расходов за счет имущества (ст. 1023). \nБез определения лимита\
+            \ и соста…"
+          - Управляющий обязан указывать "Д.У." во всех документах и сделках. Если забыл — отвечает ЛИЧНЫМ имуществом (ст.
+            1012 п. 3…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 1023 ГК РФ
+          - ст. 1012 п. 3 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - trustee
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[возмещение необходимых расходов, за счет доходов от использования, до получения вознаграждения, лимит расходов
+              без согласования, …]'
+            - '[действует в качестве управляющего, пометка Д.У., сообщить контрагентам, указание на доверительное управление,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)расходы.*превышающие.*\d+.*рублей.*подлежат.*предварительному.*согласованию]'
+            - '[(?i)управляющий.*обязан.*указывать.*в.*документах.*что.*действует.*в.*качестве.*доверительного.*управляющего]'
+    factor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - claim_validity_warranty
+          - anti_dilution_and_setoff_protection
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Гарантия клиента о действительности уступаемого требования
+          - Защита от зачета встречных требований должника
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без гарантий фактор рискует приобрести несуществующее, оспоримое или уже погашенное
+
+            требование. Клиент должен нести отве…'
+          - 'Должник вправе предъявить к зачету встречные требования к клиенту, что может полностью
+
+            обнулить требование фактора. Без …'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 827 ГК РФ
+          - ст. 832 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - factor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[действительность требования, клиент гарантирует, требование существует, обязательство не исполнено, …]'
+            - '[отсутствие встречных требований, зачет встречных требований, клиент гарантирует отсутствие зачета, компенсация
+              при зачете]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)клиент.*гарантирует.*действительность.*уступаемого.*требования]'
+            - '[(?i)клиент.*гарантирует.*отсутствие.*встречных.*требований.*должника]'
+    bank_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - aml_ctf_compliance
+          - account_closure_procedure
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Условия о соблюдении требований ПОД/ФТ
+          - Порядок расторжения договора и закрытия счета
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Банк обязан соблюдать 115-ФЗ. Отсутствие условий о праве банка запрашивать документы
+
+            и приостанавливать операции создает…'
+          - 'При отсутствии порядка возникают споры о моменте прекращения обязательств,
+
+            судьбе остатка на счете. Банк несет риск прод…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ФЗ-115 'О противодействии легализации'
+          - ст. 859 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - bank
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[идентификация клиента, противодействие легализации, 115-ФЗ, подозрительные операции, …]'
+            - '[расторжение договора, закрытие счета, остаток средств при закрытии, уведомление о расторжении]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)клиент.*обязуется.*предоставлять.*документы.*для.*идентификации]'
+            - '[(?i)договор.*может.*быть.*расторгнут.*по.*заявлению.*клиента.*в.*любое.*время]'
+    guarantor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - limitation_of_guarantor_liability
+          - subsidiary_liability_clause
+          - guarantor_consent_to_changes
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Ограничение ответственности поручителя (лимит суммы)
+          - Установление субсидиарной (а не солидарной) ответственности
+          - Согласие поручителя на изменение основного обязательства
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - По умолчанию поручитель несет солидарную ответственность в полном объеме (основной долг, проценты, неустойки,
+            судебные и…
+          - По умолчанию поручитель несет солидарную ответственность. Без этой оговорки кредитор может требовать исполнения
+            сразу с …
+          - Кредитор и должник могут изменить основное обязательство (сумму, срок), увеличивая риск поручителя. Поручительство
+            может…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 363 ГК РФ
+          - ст. 367 ГК РФ
+          - ст. 365 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - guarantor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[ответственность поручителя ограничена суммой, лимит по поручительству, поручитель отвечает в пределах, максимальная
+              сумма поручительства]'
+            - '[субсидиарная ответственность, поручитель отвечает после должника, обязанность кредитора сначала потребовать
+              с должника]'
+            - '[согласие поручителя на изменение, прекращение поручительства при изменении без согласия, уведомление поручителя
+              об изменениях]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)ответственность.*поручителя.*ограничена.*суммой.*[0-9]+, (?i)поручитель.*несет.*ответственность.*только.*в.*пределах.*основного.*долга]'
+            - '[(?i)поручитель.*несет.*субсидиарную.*ответственность]'
+            - '[(?i)изменение.*основного.*обязательства.*без.*согласия.*поручителя.*влечет.*прекращение]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[солидарная ответственность]'
+            - '[поручитель заранее дает согласие на любые изменения, безусловное согласие]'
+    pledgor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - judicial_enforcement_requirement
+          - pledge_valuation_fairness
+          - pledgor_right_to_use_property
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Требование судебного порядка обращения взыскания
+          - Справедливая (независимая) оценка предмета залога
+          - Право залогодателя на пользование заложенным имуществом
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - Без требования судебного порядка залогодержатель может обратить взыскание во внесудебном порядке (если это предусмотрено…
+          - Заниженная оценка ведет к утрате имущества стоимостью выше долга. При реализации имущество может быть продано
+            по занижен…
+          - Без явного права залогодатель может быть лишен возможности использовать заложенное имущество, особенно если оно
+            является…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 349 ГК РФ
+          - ст. 340 ГК РФ
+          - ст. 346 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - pledgor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[обращение взыскания только в судебном порядке, запрет внесудебного обращения взыскания, требуется решение
+              суда]'
+            - '[независимая оценка, оценщик, отчёт об оценке, рыночная стоимость]'
+            - '[право пользования предметом залога, залогодатель сохраняет право владения и пользования, извлечение доходов
+              из заложенного имущества]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)обращение.*взыскания.*на.*предмет.*залога.*осуществляется.*только.*по.*решению.*суда]'
+            - '[(?i)оценка.*предмета.*залога.*произведена.*независимым.*оценщиком]'
+            - '[(?i)залогодатель.*вправе.*пользоваться.*предметом.*залога.*в.*соответствии.*с.*его.*назначением]'
+    commissioner_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - reimbursement_of_expenses_procedure
+          - right_of_retention_clause
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Порядок возмещения комиссионеру расходов
+          - Закрепление права удержания в обеспечение своих требований
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Комитент обязан возместить комиссионеру израсходованные на исполнение поручения суммы (ст. 1001 ГК РФ).
+
+            Без процедуры (с…'
+          - 'Комиссионер вправе удерживать причитающиеся ему суммы из денег, поступивших за счет комитента (ст. 997 ГК РФ).
+
+            Без явног…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 1001 ГК РФ
+          - ст. 997 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - commissioner
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[возмещение необходимых расходов, аванс на расходы, смета расходов, документальное подтверждение расходов,
+              …]'
+            - '[право удержания, удерживать причитающиеся суммы, обеспечение требований комиссионера, из поступивших денежных
+              средств]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)комитент\s+обязуется\s+возместить\s+комиссионеру\s+фактически\s+понесенные\s+расходы]'
+            - '[(?i)комиссионер\s+вправе\s+удерживать\s+причитающиеся\s+ему\s+суммы\s+из\s+всех\s+средств,\s+поступивших\s+от\s+комитента]'
+    both_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - clear_contribution_valuation
+          - decision_making_procedure
+          - information_rights_and_reporting
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Чёткая денежная оценка всех вкладов
+          - Процедура принятия решений по ключевым вопросам
+          - Право на информацию и регулярная отчетность
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без денежной оценки вкладов (особенно неденежных: знания, репутация) невозможно определить
+
+            доли в общей собственности, п…'
+          - 'Без четкой процедуры принятия решений (квалифицированное большинство, единогласие) возникают тупиковые ситуации
+
+            и конфли…'
+          - 'Товарищи, не ведущие дела, рискуют быть исключенными из информационного поля. Без права на регулярную отчетность
+
+            и досту…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 1042 ГК РФ
+          - ст. 1044, 1045 ГК РФ
+          - ст. 1045 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - both
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[вклад оценивается, денежная оценка вклада, стоимость вклада, оценка имущества, …]'
+            - '[порядок принятия решений, единогласное решение, квалифицированное большинство, вопросы, требующие согласия
+              всех товарищей, …]'
+            - '[право на информацию, отчетность, ежеквартальный отчет, доступ к документации, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)вклад\s+товарищ\w+\s+оценивается\s+в\s+сумме, (?i)стоимость\s+вклада\s+составляет]'
+            - '[(?i)решения\s+по\s+вопросам.*принимаются.*(единогласно|большинством), (?i)для\s+принятия\s+решения\s+требуется\s+согласие.*всех\s+товарищей]'
+            - '[(?i)ведущий\s+дела\s+обязан\s+предоставлять.*отчет.*о\s+деятельности, (?i)каждый\s+товарищ\s+вправе\s+знакомиться\s+со\s+всей\s+документацией]'
+  additional_protective_clauses:
+    __meta:
+      frequency: required
+      type: dict
+    buyer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: common
+          type: str
+          examples:
+          - enforcement_proceedings_specifics
+          - tax_liabilities_allocation
+          - tax_liabilities_and_reporting
+        name:
+          frequency: common
+          type: str
+          examples:
+          - Особенности уступки требования в рамках исполнительного производства
+          - Распределение налоговых обязательств
+          - Распределение налоговых обязательств и отчетности
+        risk_if_missing:
+          frequency: common
+          type: str
+          examples:
+          - 'Уступка взыскателем исполнительного документа имеет особенности: необходимо уведомление
+
+            судебного пристава-исполнителя, …'
+          - 'Продажа доли/акций имеет налоговые последствия: НДФЛ (13%) для физических лиц,
+
+            налог на прибыль (20%) для организаций. Т…'
+          - 'Предоставление отступного имеет налоговые последствия: у кредитора возникает доход
+
+            (стоимость отступного), у должника - …'
+        legal_base:
+          frequency: common
+          type: str
+          examples:
+          - ФЗ-229 «Об исполнительном производстве» ст. 52
+          - Налоговый кодекс РФ
+          - НК РФ ст. 41 (доход), ст. 252 (расходы), ст. 146 (НДС)
+        severity:
+          frequency: common
+          type: str
+          examples:
+          - critical
+          - high
+          - medium
+        affected_party:
+          frequency: common
+          type: str
+          examples:
+          - buyer
+          - both
+        detection:
+          __meta:
+            frequency: common
+            type: dict
+          positive_keywords:
+            frequency: common
+            type: list
+            examples:
+            - '[исполнительный документ, исполнительное производство, судебный пристав-исполнитель, изменение взыскателя,
+              …]'
+            - '[налоговые обязательства, НДФЛ с дохода от продажи, налог на прибыль, ответственность за налоговые риски, …]'
+            - '[налоговые обязательства, НДС при передаче имущества, доход кредитора, расход должника, …]'
+          context_patterns:
+            frequency: common
+            type: list
+            examples:
+            - '[(?i)цедент.*обязуется.*уведомить.*судебного.*пристава.*исполнителя.*об.*уступке, (?i)уступка.*права.*требования.*по.*исполнительному.*документу]'
+            - '[(?i)продавец.*несет.*ответственность.*за.*уплату.*налогов.*с.*дохода.*от.*продажи, (?i)стороны.*определили.*следующий.*порядок.*распределения.*налоговых.*рисков]'
+            - '[(?i)каждая.*из.*сторон.*несет.*ответственность.*за.*свои.*налоговые.*обязательства, (?i)стоимость.*отступного.*для.*целей.*налогообложения.*признается.*равной.*согласованной.*стоимости]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[санитарно-защитная зона, СЗЗ, охранная зона ЛЭП, охранная зона газопровода, …]'
+            - '[захоронение отходов, свалка, загрязнение почв, радиационное загрязнение, …]'
+          conditional_checks:
+            __meta:
+              frequency: rare
+              type: list_of_dicts
+            __element_fields:
+              trigger:
+                frequency: rare
+                type: str
+                examples:
+                - with_crew
+              rule:
+                frequency: rare
+                type: str
+                examples:
+                - required
+                - recommended
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - enforcement_keywords
+              - preorder_keywords
+              - long_term_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[исполнительный лист, пристав, исполнительное производство, взыскание]'
+              - '[предзаказ, предварительный заказ, ожидается поставка, предоплата за предзаказ]'
+              - '[на год, на два года, длительный, долгосрочный, …]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - enforcement_specific_clauses_required
+              - preorder_cancellation_right_required
+              - price_adjustment_clause_recommended
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+              - medium
+              - high
+        buyer_protection:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            clause_id:
+              frequency: rare
+              type: str
+              examples:
+              - utilities_and_servitudes
+            name:
+              frequency: rare
+              type: str
+              examples:
+              - Права на инженерные коммуникации и наличие сервитутов
+            risk_if_missing:
+              frequency: rare
+              type: str
+              examples:
+              - 'Электрические кабели, газопроводы, водопроводы и иные коммуникации, проходящие по участку,
+
+                могут принадлежать сторонним …'
+            legal_base:
+              frequency: rare
+              type: str
+              examples:
+              - ст. 274 ГК РФ (сервитут), Земельный кодекс РФ, Правила определения охранных зон
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+            affected_party:
+              frequency: rare
+              type: str
+              examples:
+              - buyer
+            detection:
+              __meta:
+                frequency: rare
+                type: dict
+              positive_keywords:
+                frequency: rare
+                type: list
+                examples:
+                - '[инженерные коммуникации, принадлежность коммуникаций, сервитут зарегистрирован, охранная зона коммуникаций,
+                  …]'
+              negative_keywords:
+                frequency: rare
+                type: list
+                examples:
+                - '[отсутствуют сервитуты, сервитуты не зарегистрированы]'
+              context_patterns:
+                frequency: rare
+                type: list
+                examples:
+                - '[(?i)сервитут.*зарегистрирован.*в.*ЕГРН, (?i)коммуникации.*находятся.*в.*собственности.*продавца]'
+            conditional_checks:
+              __meta:
+                frequency: rare
+                type: list_of_dicts
+              __element_fields:
+                trigger:
+                  frequency: rare
+                  type: str
+                  examples:
+                  - land_plot_sale
+                keywords:
+                  frequency: rare
+                  type: list
+                  examples:
+                  - '[земельный участок, участок земли, надел]'
+                rule:
+                  frequency: rare
+                  type: str
+                  examples:
+                  - servitude_disclosure_required
+                severity:
+                  frequency: rare
+                  type: str
+                  examples:
+                  - high
+    seller_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - food_expiration_info
+          - protection_against_abuse_in_care
+          - consumer_law_application_disclosure
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Информация о сроке годности продовольственных товаров
+          - Защита от злоупотреблений при пожизненном содержании
+          - Раскрытие применения Закона о защите прав потребителей
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Для продовольственных товаров отсутствие четкой информации о сроке годности является нарушением \nтребований\
+            \ безопасности…"
+          - 'При договоре пожизненного содержания существует риск злоупотреблений со стороны плательщика:
+
+            изоляция получателя от родс…'
+          - 'Арендатор-гражданин будет иметь все права потребителя: обращаться в Роспотребнадзор,
+
+            требовать возмещения убытков и мора…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 5, 10 ЗоЗПП, Технический регламент ТР ТС 021/2011
+          - ст. 602 ГК РФ
+          - Закон РФ № 2300-1, ст. 626 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - medium
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - seller
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[срок годности, употребить до, годен до, пищевой продукт, …]'
+            - '[право на посещение родственниками, независимый контроль качества ухода, запрет на изоляцию получателя, право
+              на общение с внешним миром, …]'
+            - '[отношения регулируются Законом о защите прав потребителей, права потребителя сохраняются, претензионный порядок
+              урегулирования споров, возмещение морального вреда, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)срок.*годности.*истекает]'
+            - '[(?i)получатель.*ренты.*имеет.*право.*на.*посещение.*родственниками.*и.*друзьями, (?i)качество.*ухода.*может.*проверяться.*социальными.*службами.*или.*уполномоченными.*лицами]'
+            - '[(?i)к.*отношениям.*сторон.*применяетс.*закон.*о.*защите.*прав.*потребителей]'
+          conditional_checks:
+            __meta:
+              frequency: rare
+              type: list_of_dicts
+            __element_fields:
+              trigger:
+                frequency: rare
+                type: str
+                examples:
+                - with_crew
+              rule:
+                frequency: rare
+                type: str
+                examples:
+                - recommended
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - food_keywords
+              - lifetime_maintenance_contract
+              - cross_border_indicators
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[продукт, пищевой, еда, напиток, …]'
+              - '[пожизненное содержание, иждивение, уход, забота]'
+              - '[иностранный, оффшор, международный, валютный, …]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - expiration_date_required
+              - abuse_protection_mechanisms_required
+              - cross_border_clauses_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+    both_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: common
+          type: str
+          examples:
+          - international_transport_provisions
+          - long_term_cooperation_provisions
+          - natural_loss_norms_application
+        name:
+          frequency: common
+          type: str
+          examples:
+          - Условия для международных перевозок (конвенции, таможня, юрисдикция)
+          - Условия для долгосрочного экспедиторского обслуживания
+          - Применение норм естественной убыли
+        risk_if_missing:
+          frequency: common
+          type: str
+          examples:
+          - "При международных перевозках автоматически применяются конвенции (КДПГ для авто, \nМонреальская для авиа). Неясность\
+            \ в во…"
+          - "При долгосрочном обслуживании без четких условий о порядке изменения тарифов, расторжения, \nуведомительных сроках\
+            \ возник…"
+          - "При хранении некоторых товаров (продукты, жидкости) возможна естественная убыль \n(усушка, утруска). Без ссылки\
+            \ на утверж…"
+        legal_base:
+          frequency: common
+          type: str
+          examples:
+          - Конвенция КДПГ, Монреальская конвенция, Таможенный кодекс ЕАЭС
+          - ст. 310, 421 ГК РФ, ст. 6 ФЗ-87
+          - Нормы естественной убыли, утвержденные Минэкономразвития
+        severity:
+          frequency: common
+          type: str
+          examples:
+          - critical
+          - medium
+          - high
+        affected_party:
+          frequency: common
+          type: str
+          examples:
+          - both
+        detection:
+          __meta:
+            frequency: common
+            type: dict
+          positive_keywords:
+            frequency: common
+            type: list
+            examples:
+            - '[международная перевозка, Конвенция КДПГ, Монреальская конвенция, таможенное оформление, …]'
+            - '[долгосрочное сотрудничество, уведомительный срок расторжения, изменение тарифов, пересмотр условий, …]'
+            - '[естественная убыль, нормы естественной убыли, усушка, утруска, утрата в пределах норм, …]'
+          context_patterns:
+            frequency: common
+            type: list
+            examples:
+            - '[(?i)к.*настоящему.*договору.*применяются.*положения.*Конвенции.*о.*договоре.*международной.*дорожной.*перевозки.*грузов,
+              (?i)грузоотправитель.*обеспечивает.*таможенное.*оформление.*в.*стране.*отправления]'
+            - '[(?i)договор.*заключается.*на.*неопределенный.*срок.*с.*правом.*расторжения.*при.*уведомлении.*за.*\d+.*дней]'
+            - '[(?i)ответственность.*за.*недостачу.*в.*пределах.*норм.*естественной.*убыли.*не.*возлагается]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - international_keywords
+              - registrable_ip
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[международная, экспорт, импорт, таможня, …]'
+              - '[патент, товарный знак, Роспатент]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - international_clauses_required
+              - registration_procedure_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+              - high
+    buyer_seller_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: common
+          type: str
+          examples:
+          - consequences_of_non_performance
+          - explicit_public_contract_declaration
+          - bankruptcy_protection_mechanisms
+        name:
+          frequency: common
+          type: str
+          examples:
+          - Последствия неисполнения одной из сторон
+          - Явное указание на публичный характер договора
+          - Механизмы защиты на случай банкротства
+        risk_if_missing:
+          frequency: common
+          type: str
+          examples:
+          - 'При неисполнении одной стороной (отказ от передачи товара) у другой стороны отсутствуют
+
+            четкие механизмы защиты: требова…'
+          - 'Арендодатель может пытаться отказать в заключении договора или навязать индивидуальные условия.
+
+            Арендатор может не знать…'
+          - "При банкротстве Лизингополучателя имущество может быть включено в конкурсную массу. При банкротстве \nЛизингодателя\
+            \ — про…"
+        legal_base:
+          frequency: common
+          type: str
+          examples:
+          - ст. 328, 450, 463 ГК РФ
+          - ст. 426 ГК РФ
+          - ФЗ № 127-ФЗ «О несостоятельности (банкротстве)»
+        severity:
+          frequency: common
+          type: str
+          examples:
+          - high
+          - medium
+          - critical
+        affected_party:
+          frequency: common
+          type: str
+          examples:
+          - both
+          - seller
+          - lender
+        detection:
+          __meta:
+            frequency: common
+            type: dict
+          positive_keywords:
+            frequency: common
+            type: list
+            examples:
+            - '[ответственность за неисполнение, расторжение договора, возмещение убытков, отказ от исполнения, …]'
+            - '[публичный договор, заключается с каждым обратившимся потребителем, единые условия для всех потребителей, недопустимость
+              необоснованного отказа, …]'
+            - '[последствия банкротства, не включается в конкурсную массу, право на изъятие при банкротстве, обеспечение обязательств,
+              …]'
+          context_patterns:
+            frequency: common
+            type: list
+            examples:
+            - '[(?i)в.*случае.*неисполнения.*сторона.*вправе.*расторгнуть.*договор, (?i)при.*отказе.*от.*передачи.*товара.*применяются.*последствия]'
+            - '[(?i)договор.*является.*публичным.*в.*соответстви.*со.*ст.*426.*ГК.*РФ, (?i)условия.*являются.*едиными.*для.*всех.*потребителей.*обращающихся.*за.*услугой]'
+            - '[(?i)в.*случае.*банкротства.*лизингополучателя.*лизингодатель.*вправе.*изъять.*предмет.*лизинга, (?i)предмет.*лизинга.*не.*является.*составом.*конкурсной.*массы.*лизингополучателя]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[подсудность по месту нахождения застройщика, исключительная подсудность]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - customer_supplies_materials
+              - construction_activity
+              - object_requires_expertise
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[предоставляются заказчиком, давальческое, материалы заказчика]'
+              - '[строительство, генподрядчик, объект капитального строительства]'
+              - '[экспертиза проектной документации, объект капитального строительства]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - materials_reporting_required
+              - insurance_clause_required
+              - sro_clause_mandatory
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+              - critical
+    client_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - expenses_approval_limitation
+          - non_recourse_confirmation
+          - debtor_relationship_preservation
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Предварительное согласование расходов и лимиты
+          - Подтверждение безрегрессного характера
+          - Сохранение отношений клиента с должником
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Экспедитор может необоснованно увеличивать расходы (завышенные тарифы перевозчиков, скрытые комиссии).
+
+            Клиент обязан воз…'
+          - 'При факторинге без регресса фактор принимает на себя кредитный риск должника.
+
+            Без явного указания фактор может попытатьс…'
+          - 'Агрессивное взыскание фактором может нарушить деловые отношения клиента с должником.
+
+            Без согласования действий клиент ри…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 804 ГК РФ
+          - ст. 831 п. 1 ГК РФ
+          - ст. 824 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - client
+          - both
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[предварительное согласование расходов, смета расходов, лимит расходов, превышение сметы согласовывается, …]'
+            - '[без регресса, безрегрессный факторинг, риск неплатежа несет фактор, фактор не вправе требовать возврата финансирования]'
+            - '[согласование действий по взысканию, уведомление клиента о контактах с должником, корректное взыскание, сохранение
+              деловых отношений]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)расходы.*превышающие.*\d+.*рублей.*подлежат.*предварительному.*согласованию.*с.*клиентом]'
+            - '[(?i)факторинг.*осуществляется.*без.*права.*регресса]'
+            - '[(?i)фактор.*обязуется.*информировать.*клиента.*о.*действиях.*по.*взысканию]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - non_recourse_keywords
+              - overdraft_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[без регресса, безрегрессный]'
+              - '[овердрафт, кредитование счета]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - explicit_non_recourse_confirmation_required
+              - overdraft_terms_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+    principal_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - transfer_of_proceeds_obligation
+          - subdelegation_control
+          - subcommission_control
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанность незамедлительной передачи всего полученного по сделкам
+          - Контроль передоверия полномочий
+          - Контроль привлечения субкомиссионера
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Поверенный обязан передавать доверителю все полученное (ст. 974 ГК РФ). Без конкретного срока и порядка
+
+            поверенный может…'
+          - 'Передоверие допускается с согласия доверителя (ст. 976 ГК РФ). Без контроля доверитель может получить
+
+            непредсказуемого с…'
+          - 'Комиссионер вправе привлечь субкомиссионера, оставаясь ответственным перед комитентом (ст. 994 ГК РФ).
+
+            Без условия о пре…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 974 ГК РФ
+          - ст. 976 ГК РФ
+          - ст. 994 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - principal
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[передача полученного, всё полученное по сделкам, немедленная передача, срок передачи денежных средств, …]'
+            - '[передоверие допускается только с письменного согласия, запрет передоверия, ответственность за выбор заместителя,
+              требование к квалификации заместителя]'
+            - '[субкомиссия допускается с письменного согласия комитента, запрет на субкомиссию, комиссионер отвечает за действия
+              субкомиссионера]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)поверенный\s+обязан\s+передать\s+доверителю\s+всё\s+полученное\s+в\s+течение\s+[0-9]+\s+дней]'
+            - '[(?i)передоверие\s+исполнения\s+поручения\s+допускается\s+только\s+при\s+наличии\s+письменного\s+согласия]'
+            - '[(?i)привлечение\s+субкомиссионера\s+допускается\s+только\s+с\s+предварительного\s+согласия\s+комитента]'
+    both_parties_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - termination_settlement_procedure
+          - commercial_representation_specifics
+          - additional_benefit_distribution
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Порядок завершения расчетов и передачи документов при прекращении
+          - Специальные условия для коммерческого представительства
+          - Распределение дополнительной выгоды
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При прекращении (отмена, отказ, смерть) не урегулированы вопросы: возврат доверенностей, передача
+
+            документов, окончатель…'
+          - 'Коммерческий представитель (ст. 184 ГК РФ) имеет особый статус (действует в предпринимательских целях,
+
+            может представлят…'
+          - 'Если комиссионер совершил сделку на более выгодных условиях, чем указал комитент, дополнительная
+
+            выгода по умолчанию дел…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 977-979 ГК РФ
+          - ст. 184 ГК РФ
+          - ст. 992 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - both
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[последствия прекращения договора, возврат доверенностей и документов, окончательный расчет в течение X дней,
+              действия по завершению текущих дел, …]'
+            - '[коммерческий представитель, предпринимательская деятельность, право представлять обе стороны сделки с согласия,
+              требование письменной формы, …]'
+            - '[дополнительная выгода, распределение выгоды, более выгодные условия, превышение цены]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)при\s+прекращении\s+договора\s+поверенный\s+обязан\s+вернуть\s+все\s+документы\s+и\s+произвести\s+окончательный\s+расчет]'
+            - '[(?i)поверенный\s+является\s+коммерческим\s+представителем\s+в\s+смысле\s+ст\.\s+184\s+ГК\s+РФ]'
+            - '[(?i)дополнительная\s+выгода\s+делится\s+между\s+сторонами\s+поровну]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[рабочий день с ... до ..., подчиняется правилам внутреннего трудового распорядка, ежегодный оплачиваемый отпуск,
+              должностная инструкция]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - commercial_rep_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[коммерческий представитель, предприниматель, ИП, ООО, …]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - commercial_rep_clauses_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+    supplier_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - custom_order_protection
+          - mcd_obligations
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Защита при поставке товаров, изготовленных под заказ
+          - Обязанности по обслуживанию внутридомовых сетей в МКД
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При поставке товаров, изготовленных по спецификации покупателя, отсутствие условий
+
+            о последствиях отказа покупателя от т…'
+          - 'В многоквартирных домах отсутствие четкого разграничения ответственности
+
+            за внутридомовые сети может привести к спорам о…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 475, 480, 717 ГК РФ
+          - ст. 36, 161 ЖК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - supplier
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[изготовлено по заказу, спецификация покупателя, нестандартные характеристики, индивидуальный заказ, …]'
+            - '[многоквартирный дом, внутридомовые сети, общедомовые нужды, ОДН, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)товар.*изготовлен.*по.*спецификации.*покупателя]'
+            - '[(?i)в.*многоквартирных.*домах.*обслуживание.*внутридомовых.*сетей]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - custom_order_keywords
+              - mcd_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[под заказ, по спецификации, нестандартный, индивидуальный, …]'
+              - '[многоквартирный, МКД, квартира, жилой дом, …]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - cancellation_protection_required
+              - mcd_specific_clause_recommended
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+              - medium
+    agent_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - clear_instructions_right
+          - clear_payment_triggers
+          - principal_exclusivity_for_agent
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Право на получение четких и исполнимых указаний
+          - Четкие основания (триггеры) для выплаты вознаграждения
+          - Исключительность территории/сегмента для агента (запрет принципалу работать с другими агентами)
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Поверенный обязан следовать указаниям доверителя (ст. 973 ГК РФ). При нечетких или противоречивых
+
+            указаниях поверенный р…'
+          - 'Без определения момента возникновения права на вознаграждение (заключение сделки,
+
+            оплата клиентом, поставка) возникают с…'
+          - 'Принципал может использовать других агентов на той же территории, что снижает
+
+            эффективность работы агента и создает конк…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 973 ГК РФ
+          - ст. 1006 ГК РФ
+          - ст. 1007 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - agent
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[указания должны быть конкретными и осуществимыми, право требовать разъяснения указаний, срок для дачи разъяснений,
+              ответственность за нечеткие указания]'
+            - '[момент возникновения права на вознаграждение, триггер оплаты, вознаграждение начисляется при, оплата за заключенную
+              сделку, …]'
+            - '[исключительные права на территорию, эксклюзивный агент, запрет другим агентам, единственный агент на территории]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)при\s+неясности\s+указаний\s+поверенный\s+вправе\s+приостановить\s+исполнение\s+до\s+получения\s+разъяснений]'
+            - '[(?i)право\s+на\s+вознаграждение\s+возникает\s+с\s+момента\s+(заключения\s+сделки|поступления\s+оплаты)]'
+            - '[(?i)принципал\s+не\s+вправе\s+заключать.*договоры\s+с\s+другими\s+агентами\s+на\s+(данной\s+)?территории]'
+    producer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - crop_insurance_obligation
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанность страхования урожая
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без условия о страховании урожая производитель несет все риски гибели
+
+            продукции. Страхование урожая распределяет риски м…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 927-970 ГК РФ (договор страхования)
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - producer
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[страхование урожая, страхование сельскохозяйственных рисков, страховой полис, страховая сумма, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)производитель.*обязуется.*застраховать.*урожай]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - high_value_crops_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[дорогостоящие культуры, элитные семена, ценные сорта]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - insurance_clause_recommended
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+    purchaser_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - production_support_obligations
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанности заготовителя по обеспечению производства
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Без условий об обязанности заготовителя предоставлять семенной материал,
+
+            удобрения, средства защиты растений или технику…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 536 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - purchaser
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[предоставление семян, обеспечение удобрениями, средства защиты растений, предоставление техники, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)заготовитель.*обязуется.*предоставить.*семен.*материал]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - production_support_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[семена, удобрения, пестициды, техника, …]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - production_support_clause_recommended
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - low
+    subscriber_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - special_consumption_regime
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Условия для объектов с особым режимом потребления
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Для медицинских учреждений, объектов связи, объектов с непрерывным
+
+            технологическим циклом отсутствие особых условий о пр…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 546, 547 ГК РФ, ФЗ-35 «Об электроэнергетике»
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - subscriber
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[особый режим потребления, объекты первой категории надежности, медицинское учреждение, непрерывный технологический
+              цикл, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)для.*объектов.*первой.*категории.*надежности.*гарантируется]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - critical_infrastructure_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[больница, поликлиника, родильный дом, диспетчерская, …]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - special_regime_clause_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+    lessor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - land_use_vri
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Соблюдение вида разрешенного использования
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Использование земельного участка не по целевому назначению (ВРИ) влечет крупные административные
+
+            штрафы по ст. 8.8 КоАП …'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 8.8 КоАП РФ, ст. 42 ЗК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - lessor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[целевое использование, вид разрешенного использования, ВРИ, земли населенных пунктов, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)использовани.*земл.*соответстви.*назначени]'
+    lessee_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - equipment_warranty
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Гарантийное обслуживание оборудования
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При аренде сложного оборудования отсутствие условия о гарантийном обслуживании и ремонте
+
+            может привести к простоям в про…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 612, 623 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - lessee
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[гарантийное обслуживание, техническое обслуживание, ремонт оборудования, устранение неисправностей, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)оборудовани.*гарантийн.*обслуживани, (?i)арендодатель.*обязуется.*ремонт]'
+    service_provider_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - take_or_pay_subscription
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Условие 'Take or Pay' для абонентского договора
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'В абонентском договоре Заказчик платит за *возможность* воспользоваться услугой.
+
+            Если он не обращался за услугой, деньги…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 429.4 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - service_provider
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[абонентская плата, независимо от фактического объема, фиксированный платеж, оплата за доступ, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)абонентская.*плата.*вносится.*независимо.*от.*фактического.*использования.*услуг]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - subscription_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[абонент, сопровождение, подписка, ежемесячная плата]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - take_or_pay_clause_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - high
+    customer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - quality_standards_warranty
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Стандарты качества и гарантии исполнения
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При отсутствии стандартов качества к услугам применяются "обычно предъявляемые требования",
+
+            которые крайне расплывчаты. …'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 721, 723, 783 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - medium
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - customer
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[стандарты качества, требования к качеству, гарантийные обязательства, устранение недостатков, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)услуги.*должны.*соответствовать.*требованиям.*установленным.*в.*договоре]'
+    shipper_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - vehicle_supply_timing_penalties_detailed
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Санкции за несвоевременную подачу транспортных средств
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Просрочка подачи ТС под погрузку ведет к простоям, срыву производственных процессов, \nубыткам грузоотправителя.\
+            \ Без штра…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 794 ГК РФ, транспортные уставы
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - shipper
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[штраф за несвоевременную подачу, пеня за просрочку подачи ТС, срок подачи транспортных средств, график подачи,
+              …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)при.*нарушении.*срока.*подачи.*транспортных.*средств.*перевозчик.*уплачивает.*штраф, (?i)за.*каждый.*час.*опоздания.*с.*подачей.*ТС.*взимается.*пеня]'
+    carrier_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - exclusions_from_liability_comprehensive
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Исчерпывающий перечень обстоятельств, освобождающих от ответственности
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Без четкого перечня освобождающих обстоятельств перевозчик несет риск ответственности \nза события, за которые\
+            \ не должен …"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 796, 401 ГК РФ, транспортные уставы
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - carrier
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[непреодолимая сила, обстоятельства, которые перевозчик не мог предотвратить, вина грузоотправителя, свойства
+              груза, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)перевозчик.*освобождается.*от.*ответственности.*при.*наступлении.*следующих.*обстоятельств]'
+    forwarder_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - report_approval_deemed_acceptance
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Механизм утверждения отчета экспедитора (молчаливое согласие)
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Экспедитор обязан представить отчет (ст. 804 ГК РФ). Клиент может затягивать утверждение, \nчтобы отсрочить оплату.\
+            \ Без м…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 804 ГК РФ, ст. 438 ГК РФ (акцепт)
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - forwarder
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[отчет считается утвержденным, молчаливое согласие, отсутствие возражений в течение срока, отчет направляется
+              в срок, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)отчет.*считается.*утвержденным.*при.*непоступлении.*возражений.*в.*течение.*\d+.*дней]'
+    depositor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - warehouse_certificate_issuance_terms
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Условия выдачи и обращения складских свидетельств
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "Складское свидетельство - ценная бумага (ст. 912 ГК РФ). Без четких условий о порядке \nвыдачи, передаче, залоге\
+            \ возникаю…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 912-916 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - depositor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[складское свидетельство, именная складская расписка, двойное складское свидетельство, варрант, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)хранитель.*выдает.*двойное.*складское.*свидетельство.*состоящее.*из.*складского.*и.*залогового.*свидетельства]'
+    custodian_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - third_party_claims_suspension_procedure
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Приостановление выдачи при требованиях третьих лиц
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - "На хранимую вещь могут быть предъявлены права третьими лицами (арест, залог). \nБез процедуры приостановления\
+            \ выдачи и ув…"
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 895, 896 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - custodian
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[требования третьих лиц, арест имущества, судебные приставы, уведомление поклажедателя, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)при.*предъявлении.*требований.*третьими.*лицами.*хранитель.*обязан.*уведомить.*поклажедателя.*и.*приостановить.*выдачу]'
+    policyholder_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - compulsory_insurance_law_reference
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Ссылка на специальный закон для обязательного страхования
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Для ОСАГО, страхования опасных объектов действуют специальные законы с фиксированными тарифами, лимитами.
+
+            Если договор н…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ФЗ № 40-ФЗ (ОСАГО), ФЗ № 225-ФЗ (опасные объекты)
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - policyholder
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[в соответствии с Федеральным законом, обязательное страхование, ОСАГО, страхование опасных объектов, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)договор.*заключается.*в.*соответствии.*с.*Федеральным.*законом.*№.*40.*ФЗ.*.*Об.*ОСАГО]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - compulsory_insurance_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[ОСАГО, обязательное, опасный объект, гражданская ответственность]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - compulsory_insurance_law_reference_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+    insurer_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - material_facts_disclosure_consequences
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Раскрытие существенных обстоятельств и последствия сокрытия
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Страхователь может скрыть важную информацию (техническое состояние, заболевания, предыдущие случаи).
+
+            Без явного обязател…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 944, 951 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - insurer
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[обязан сообщить все известные обстоятельства, существенные для оценки риска, последствия сокрытия информации,
+              право отказать в выплате, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)страхователь.*обязан.*сообщить.*страховщику.*все.*известные.*ему.*обстоятельства.*имеющие.*существенное.*значение]'
+    settlor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - trustee_reporting_transparency
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Прозрачная отчетность и право контроля
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Управляющий обязан представлять отчеты (ст. 1020). Без четкого формата и сроков отчеты могут быть формальными.
+
+            Учредител…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 1020 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - settlor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[отчет управляющего, периодичность отчетности, форма отчета, перечень информации в отчете, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)управляющий.*представляет.*учредителю.*ежеквартальный.*отчет.*содержащий.*следующую.*информацию]'
+    factor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - prohibition_of_subsequent_assignment
+          - bankruptcy_claw_back_protection
+          - tax_risk_allocation
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Запрет последующей уступки клиентом
+          - Защита от оспаривания сделки при банкротстве клиента
+          - Распределение налоговых рисков
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Клиент может повторно уступить то же требование третьему лицу, создав конкуренцию прав.
+
+            Фактор рискует утратить приорите…'
+          - 'При банкротстве клиента уступка может быть оспорена как сделка с предпочтением
+
+            или подозрительная сделка. Фактор рискует…'
+          - 'Уступка денежного требования имеет налоговые последствия: НДС на вознаграждение,
+
+            определение налоговой базы при уступке.…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 829 ГК РФ
+          - ст. 61.2, 61.3 ФЗ-127 'О несостоятельности'
+          - НК РФ ст. 155, 279
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - factor
+          - both
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[запрет последующей уступки, клиент не вправе уступать, исключительное право фактора, запрет повторной уступки]'
+            - '[заверение об отсутствии признаков банкротства, клиент не находится в процедуре банкротства, рыночные условия
+              сделки, эквивалентность встречного предоставления]'
+            - '[налоговые последствия уступки, НДС на услуги фактора, убыток от уступки, налоговая база при уступке, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)клиент.*не.*вправе.*уступать.*требование.*третьим.*лицам]'
+            - '[(?i)клиент.*заверяет.*что.*не.*имеет.*признаков.*банкротства]'
+            - '[(?i)стороны.*самостоятельно.*исполняют.*свои.*налоговые.*обязательства]'
+    bank_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - tax_agent_obligations
+          - court_and_enforcement_orders
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанности банка как налогового агента
+          - Порядок исполнения судебных актов
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Банки обязаны удерживать НДФЛ с процентов по вкладам физлиц, превышающим
+
+            необлагаемый минимум. Отсутствие упоминания соз…'
+          - 'Банк обязан исполнять исполнительные документы. Отсутствие порядка уведомления
+
+            клиента создает конфликты и претензии.
+
+            '
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - НК РФ ст. 214.2
+          - ФЗ-229 'Об исполнительном производстве', ст. 855 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - medium
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - bank
+          - both
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[налоговый агент, НДФЛ с процентов, удержание налога, необлагаемый минимум]'
+            - '[исполнительный документ, судебный акт, инкассовое поручение, арест счета, …]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)банк.*является.*налоговым.*агентом.*по.*НДФЛ.*с.*процентов.*по.*вкладу]'
+            - '[(?i)банк.*обязан.*исполнить.*исполнительный.*документ.*в.*порядке]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - individual_depositor_interest
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[вклад, физическое лицо, проценты]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - tax_agent_disclosure
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - medium
+    guarantor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - guarantor_notification_of_default
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанность кредитора уведомить поручителя о неисполнении
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - Поручитель может узнать о дефолте слишком поздно, когда долг вырос за счет процентов и штрафов, лишаясь возможности
+            свое…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 366 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - guarantor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[уведомление поручителя о неисполнении, кредитор обязан сообщить поручителю о просрочке, извещение о дефолте]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)кредитор.*обязан.*уведомить.*поручителя.*о.*неисполнении.*должником]'
+    pledgor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - pledge_no_encumbrances
+          - subsequent_pledge_control
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Гарантия отсутствия иных обременений на предмет залога
+          - Контроль/запрет последующего залога
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - Если имущество уже обременено, залогодержатель может не получить приоритета. Для залогодателя — риск ответственности
+            за …
+          - Залогодатель может заложить имущество другим кредиторам, создавая конкуренцию и риск недостаточности стоимости
+            для удовл…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 342, 345 ГК РФ
+          - ст. 342 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - both
+          - creditor
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[отсутствие обременений, не находится в залоге, свободно от прав третьих лиц, выписка из ЕГРН]'
+            - '[запрет последующего залога, последующий залог не допускается, согласие на последующий залог]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)залогодатель.*гарантирует.*что.*имущество.*не.*обременено]'
+            - '[(?i)последующий.*залог.*предмета.*залога.*(не.*допускается|запрещен)]'
+    creditor_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - pledge_insurance_obligation
+          - mortgage_registration_obligation
+          - bankruptcy_risks_awareness
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Обязанность страхования предмета залога
+          - Обязательная государственная регистрация ипотеки
+          - Информирование о рисках оспаривания в банкротстве
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'При гибели или повреждении предмета залога кредитор утрачивает обеспечение без компенсации.
+
+            '
+          - 'Без регистрации в ЕГРН ипотека не возникает, кредитор не приобретает преимущественного права.
+
+            '
+          - Обеспечительные сделки, заключенные в период подозрительности (до 6 месяцев до банкротства), могут быть оспорены
+            и призн…
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 343 ГК РФ, ст. 31 ФЗ-102
+          - ст. 339.1 ГК РФ, ФЗ-102
+          - ст. 61.2, 61.3 ФЗ-127
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - creditor
+          - both
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[страхование предмета залога, выгодоприобретатель — залогодержатель, обязанность застраховать]'
+            - '[государственная регистрация ипотеки, регистрация в ЕГРН, закладная]'
+            - '[риски оспаривания в банкротстве, сделка с предпочтением, период подозрительности]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)залогодатель.*обязан.*застраховать.*предмет.*залога]'
+            - '[(?i)ипотека.*подлежит.*государственной.*регистрации]'
+            - '[(?i)стороны.*осведомлены.*о.*рисках.*оспаривания.*сделки.*в.*банкротстве]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - real_estate_pledge
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[ипотека, залог недвижимости, квартира, земельный участок]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - mortgage_registration_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+    commissioner_protection:
+      __meta:
+        frequency: rare
+        type: list_of_dicts
+      __element_fields:
+        clause_id:
+          frequency: rare
+          type: str
+          examples:
+          - delcredere_conditions
+          - termination_compensation_clause
+        name:
+          frequency: rare
+          type: str
+          examples:
+          - Условия и последствия принятия комиссионером делькредере
+          - Компенсация при досрочной отмене поручения комитентом
+        risk_if_missing:
+          frequency: rare
+          type: str
+          examples:
+          - 'Делькредере — дополнительная ответственность за исполнение сделки третьим лицом (ст. 993 ГК РФ).
+
+            Без четких условий (раз…'
+          - 'При отмене поручения комитент обязан выплатить вознаграждение за совершенные сделки и возместить расходы
+
+            (ст. 1003 ГК РФ…'
+        legal_base:
+          frequency: rare
+          type: str
+          examples:
+          - ст. 993 ГК РФ
+          - ст. 1003 ГК РФ
+        severity:
+          frequency: rare
+          type: str
+          examples:
+          - critical
+          - high
+        affected_party:
+          frequency: rare
+          type: str
+          examples:
+          - commissioner
+        detection:
+          __meta:
+            frequency: rare
+            type: dict
+          positive_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[делькредере, ручательство за исполнение третьим лицом, дополнительное вознаграждение за делькредере, условия
+              наступления ответственности]'
+            - '[вознаграждение при досрочной отмене, компенсация расходов при отмене, распоряжение имуществом в 15-дневный
+              срок]'
+          context_patterns:
+            frequency: rare
+            type: list
+            examples:
+            - '[(?i)комиссионер\s+принимает\s+на\s+себя\s+делькредере\s+за\s+исполнение\s+сделки]'
+            - '[(?i)при\s+отмене\s+поручения\s+комитентом\s+комиссионер\s+сохраняет\s+право\s+на\s+вознаграждение]'
+          negative_keywords:
+            frequency: rare
+            type: list
+            examples:
+            - '[комиссионер не отвечает за неисполнение третьим лицом]'
+        conditional_checks:
+          __meta:
+            frequency: rare
+            type: list_of_dicts
+          __element_fields:
+            trigger:
+              frequency: rare
+              type: str
+              examples:
+              - delcredere_keywords
+            keywords:
+              frequency: rare
+              type: list
+              examples:
+              - '[делькредере, ручательство за исполнение]'
+            rule:
+              frequency: rare
+              type: str
+              examples:
+              - delcredere_terms_required
+            severity:
+              frequency: rare
+              type: str
+              examples:
+              - critical
+  mixed_type_indicators:
+    __meta:
+      frequency: rare
+      type: list_of_dicts
+    __element_fields:
+      indicator:
+        frequency: rare
+        type: str
+        examples:
+        - contains_both_general_and_special_terms
+      description:
+        frequency: rare
+        type: str
+        examples:
+        - Договор содержит элементы общей купли-продажи и признаки специализированного типа
+      examples:
+        frequency: rare
+        type: list
+        examples:
+        - '[Есть условие о ''розничной продаже'', но стороны — две коммерческие организации, Указан ''товар для предпринимательской
+          деятельности'', но нет систематических поставок, Предмет — движимое имущество, но есть ссылка на кадастровый номер]'
+      recommendation:
+        frequency: rare
+        type: str
+        examples:
+        - 'Приоритет квалификации:
+
+          1. Специальные нормы (если явно применимы)
+
+          2. Общие нормы купли-продажи
+
+          3. Аналогия закона/права…'
+  fallback_validations:
+    __meta:
+      frequency: rare
+      type: list_of_dicts
+    __element_fields:
+      validation_id:
+        frequency: rare
+        type: str
+        examples:
+        - check_for_specialization_absence
+        - general_contract_completeness
+      name:
+        frequency: rare
+        type: str
+        examples:
+        - Проверка отсутствия признаков специализированных типов
+        - Полнота общих условий
+      description:
+        frequency: rare
+        type: str
+        examples:
+        - Убедиться, что договор правомерно квалифицирован как общая купля-продажа
+        - Проверка, что договор содержит минимально необходимые условия
+      checks:
+        __meta:
+          frequency: rare
+          type: list_of_dicts
+        __element_fields:
+          check:
+            frequency: rare
+            type: str
+            examples:
+            - no_consumer_indicators
+            - no_business_to_business_indicators
+            - no_special_subject
+          description:
+            frequency: rare
+            type: str
+            examples:
+            - Нет признаков розничной купли-продажи
+            - Нет явных признаков поставки
+            - Предмет не относится к специальным категориям
+          indicators_absent:
+            frequency: rare
+            type: list
+            examples:
+            - '[потребитель, для личных нужд, розничн]'
+            - '[поставк, для предпринимательской деятельности, партия]'
+            - '[недвижимость, энерги, сельхозпродукци]'
+      action_if_found:
+        frequency: rare
+        type: str
+        examples:
+        - requalify_to_specific_type
+      action_if_not_found:
+        frequency: rare
+        type: str
+        examples:
+        - confirm_as_general_sale
+      required_elements:
+        frequency: rare
+        type: list
+        examples:
+        - '[identifiable_parties, determinable_subject, price_or_price_determination_mechanism, transfer_mechanism]'
+      recommended_elements:
+        frequency: rare
+        type: list
+        examples:
+        - '[quality_terms, warranty_against_encumbrances, risk_allocation, dispute_resolution]'
+sibling_contracts:
+  __meta:
+    frequency: rare
+    type: list_of_dicts
+  __element_fields:
+    contract_1.2:
+      frequency: rare
+      type: str
+      examples:
+      - Розничная купля-продажа
+    contract_1.3:
+      frequency: rare
+      type: str
+      examples:
+      - Договор поставки
+    contract_1.4:
+      frequency: rare
+      type: str
+      examples:
+      - Договор контрактации
+    contract_1.5:
+      frequency: rare
+      type: str
+      examples:
+      - Договор энергоснабжения
+    contract_1.6:
+      frequency: rare
+      type: str
+      examples:
+      - Договор купли-продажи недвижимости
+    contract_1.7:
+      frequency: rare
+      type: str
+      examples:
+      - Договор мены (Бартер)
+    contract_1.8:
+      frequency: rare
+      type: str
+      examples:
+      - Договор дарения
+    contract_1.9:
+      frequency: rare
+      type: str
+      examples:
+      - Договор ренты
+    contract_1.10:
+      frequency: rare
+      type: str
+      examples:
+      - Договор уступки права требования (цессия)
+    contract_1.11:
+      frequency: rare
+      type: str
+      examples:
+      - Договор купли-продажи корпоративных прав (долей/акций)
+    contract_1.12:
+      frequency: rare
+      type: str
+      examples:
+      - Соглашение об отступном
+    contract_1.13:
+      frequency: rare
+      type: str
+      examples:
+      - Договор продажи предприятия
+notes_for_validator:
+  frequency: rare
+  type: str
+  examples:
+  - 'ВАЖНО: Этот шаблон является БАЗОВЫМ (ОБЩИМ) для всей группы договоров передачи собственности.
+
+
+    АЛГОРИТМ РАБОТЫ:
+
+    1. Прове…'
