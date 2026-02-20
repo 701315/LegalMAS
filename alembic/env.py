@@ -13,9 +13,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from src.core.config import settings
 from src.db.base import Base
 
-# Import all models here so Alembic can detect them.
-# As you add models in later stages, add imports here.
-# import src.db.models.deal  # noqa  (uncomment in Stage 1)
+# Import all models so Alembic can detect them for autogenerate.
+import src.db.models  # noqa — this imports all models via __init__.py
 
 # Alembic Config object
 config = context.config

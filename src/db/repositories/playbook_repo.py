@@ -1,0 +1,107 @@
+"""
+Repository for PlaybookVersion and ModelConfig operations.
+"""
+
+import uuid
+from datetime import datetime, timezone
+
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.core.constants import PlaybookStatus
+from src.db.models.playbook import ModelConfig, PlaybookVersion
+
+
+class PlaybookRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create_model_config(
+        self,
+        name: str,
+        embeddings_primary: str = "intfloat/multilingual-e5-large",
+        embeddings_fallback: str | None = "cointegrated/LaBSE",
+        retrieval_config: dict | None = None,
+        scoring_config: dict | None = None,
+    ) -> ModelConfig:
+        """Create a model configuration."""
+        mc = ModelConfig(
+            name=name,
+            embeddings_primary=embeddings_primary,
+            embeddings_fallback=embeddings_fallback,
+            retrieval_config=retrieval_config or {},
+            scoring_config=scoring_config or {},
+        )
+        self.session.add(mc)
+        await self.session.flush()
+        return mc
+
+    async def create_version(
+        self,
+        name: str,
+        semver: str,
+        model_config_id: uuid.UUID,
+        git_commit: str | None = None,
+        yaml_sha256: str | None = None,
+        compiled_checks: dict | None = None,
+        status: str = PlaybookStatus.DRAFT.value,
+    ) -> PlaybookVersion:
+        """Create a new playbook version."""
+        pv = PlaybookVersion(
+            name=name,
+            semver=semver,
+            model_config_id=model_config_id,
+            git_commit=git_commit,
+            yaml_sha256=yaml_sha256,
+            compiled_checks=compiled_checks,
+            status=status,
+        )
+        self.session.add(pv)
+        await self.session.flush()
+        return pv
+
+    async def get_default(self) -> PlaybookVersion | None:
+        """Get the playbook version with status='default'. Only one should exist."""
+        result = await self.session.execute(
+            select(PlaybookVersion).where(
+                PlaybookVersion.status == PlaybookStatus.DEFAULT.value
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_by_id(self, version_id: uuid.UUID) -> PlaybookVersion | None:
+        """Get playbook version by ID."""
+        result = await self.session.execute(
+            select(PlaybookVersion).where(PlaybookVersion.id == version_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def promote_to_default(
+        self, version_id: uuid.UUID
+    ) -> PlaybookVersion | None:
+        """
+        Promote a version to default.
+        Steps: current default -> stable, then target -> default.
+        """
+        # Demote current default to stable
+        await self.session.execute(
+            update(PlaybookVersion)
+            .where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
+            .values(status=PlaybookStatus.STABLE.value)
+        )
+
+        # Promote target to default
+        stmt = (
+            update(PlaybookVersion)
+            .where(PlaybookVersion.id == version_id)
+            .values(
+                status=PlaybookStatus.DEFAULT.value,
+                promoted_at=datetime.now(timezone.utc),
+            )
+            .returning(PlaybookVersion)
+        )
+        result = await self.session.execute(stmt)
+        pv = result.scalar_one_or_none()
+        if pv:
+            await self.session.flush()
+        return pv

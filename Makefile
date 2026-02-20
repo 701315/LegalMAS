@@ -51,6 +51,10 @@ format:
 migrate:
 	alembic upgrade head
 
+# Заполнить базу тестовыми данными
+seed:
+	python -m scripts.seed
+
 # Удалить Docker volumes (осторожно: удалит все данные!)
 clean:
 	docker compose down -v
