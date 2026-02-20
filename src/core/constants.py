@@ -8,6 +8,7 @@ from enum import Enum
 
 class DocumentStatus(str, Enum):
     """Status of a document in the processing pipeline."""
+
     PENDING = "pending"
     EXTRACTING = "extracting"
     EXTRACTED = "extracted"
@@ -21,6 +22,7 @@ class DocumentStatus(str, Enum):
 
 class Severity(str, Enum):
     """Risk severity level for a check result."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -30,6 +32,7 @@ class Severity(str, Enum):
 
 class CheckResultStatus(str, Enum):
     """Result of a single DD check."""
+
     FAIL = "fail"
     PASS = "pass"
     UNCLEAR = "unclear"
@@ -37,6 +40,7 @@ class CheckResultStatus(str, Enum):
 
 class PlaybookStatus(str, Enum):
     """Lifecycle status of a playbook version."""
+
     DRAFT = "draft"
     STABLE = "stable"
     DEFAULT = "default"
@@ -44,6 +48,7 @@ class PlaybookStatus(str, Enum):
 
 class RelationType(str, Enum):
     """Type of relationship between two documents."""
+
     MASTER = "master"
     APPENDIX = "appendix"
     AMENDMENT = "amendment"
@@ -55,6 +60,7 @@ class RelationType(str, Enum):
 
 class JobStatus(str, Enum):
     """Status of an async processing job."""
+
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -64,6 +70,7 @@ class JobStatus(str, Enum):
 
 class BundleSourceType(str, Enum):
     """Source from which documents were imported."""
+
     ZIP = "zip"
     VDR_API = "vdr_api"
     LOCAL = "local"
@@ -71,12 +78,14 @@ class BundleSourceType(str, Enum):
 
 class PIIMode(str, Enum):
     """PII processing mode (152-FZ compliance)."""
+
     LOCAL_ONLY = "local_only"
     CLOUD_FALLBACK_ALLOWED = "cloud_fallback_allowed"
 
 
 class ExportType(str, Enum):
     """Type of export artifact."""
+
     GRID_XLSX = "grid_xlsx"
     DEAL_SUMMARY_XLSX = "deal_summary_xlsx"
     REPORT_DOCX = "report_docx"
@@ -86,6 +95,7 @@ class ExportType(str, Enum):
 
 class DealStatus(str, Enum):
     """Overall status of a deal."""
+
     CREATED = "created"
     IMPORTING = "importing"
     EXTRACTING = "extracting"
@@ -96,6 +106,7 @@ class DealStatus(str, Enum):
 
 class QCStatus(str, Enum):
     """Quality control status for a check result."""
+
     PENDING = "pending"
     CONFIRMED = "confirmed"
     REJECTED = "rejected"
@@ -104,6 +115,7 @@ class QCStatus(str, Enum):
 
 class DetectorType(str, Enum):
     """Type of detector used in a check."""
+
     RULES = "rules"
     LLM = "llm"
     HYBRID = "hybrid"

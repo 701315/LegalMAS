@@ -21,6 +21,7 @@ class TransientError(MASBaseError):
     Examples: network timeout, service temporarily unavailable,
     database connection lost.
     """
+
     pass
 
 
@@ -30,6 +31,7 @@ class PermanentError(MASBaseError):
     Examples: invalid file format, missing required field,
     business logic violation.
     """
+
     pass
 
 
@@ -40,8 +42,13 @@ class QuarantineError(MASBaseError):
     unsupported format.
     """
 
-    def __init__(self, message: str, document_id: str | None = None,
-                 reason: str = "unknown", details: dict | None = None):
+    def __init__(
+        self,
+        message: str,
+        document_id: str | None = None,
+        reason: str = "unknown",
+        details: dict | None = None,
+    ):
         super().__init__(message, details)
         self.document_id = document_id
         self.reason = reason
@@ -52,6 +59,7 @@ class EvidenceNotFoundError(PermanentError):
     Evidence was not found in raw text.
     Result must be set to UNCLEAR per Evidence First principle.
     """
+
     pass
 
 
@@ -74,4 +82,5 @@ class IdempotencyConflictError(PermanentError):
     """
     Duplicate request with same idempotency key but different payload.
     """
+
     pass

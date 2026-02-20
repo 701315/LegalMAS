@@ -4,19 +4,17 @@ These tests require Docker services to be running (make up).
 """
 
 import pytest
-import asyncio
 import redis
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from src.core.config import settings
-from src.storage.artifact_store import ArtifactStore, ArtifactPath
-
+from src.storage.artifact_store import ArtifactPath, ArtifactStore
 
 # ============================================================
 # PostgreSQL
 # ============================================================
+
 
 @pytest.mark.asyncio
 async def test_postgres_connection():
@@ -51,6 +49,7 @@ async def test_postgres_version():
 # Redis
 # ============================================================
 
+
 def test_redis_connection():
     """Redis should respond to PING."""
     r = redis.from_url(settings.REDIS_URL)
@@ -69,6 +68,7 @@ def test_redis_set_get():
 # ============================================================
 # MinIO (ArtifactStore)
 # ============================================================
+
 
 def test_artifact_store_creates_bucket():
     """ArtifactStore should create the bucket on initialization."""
@@ -163,6 +163,7 @@ def test_artifact_store_get_nonexistent_raises():
 # ============================================================
 # ArtifactPath
 # ============================================================
+
 
 def test_artifact_path_original():
     """ArtifactPath should build correct paths for originals."""

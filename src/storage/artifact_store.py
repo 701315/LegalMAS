@@ -13,7 +13,7 @@ from minio import Minio
 from minio.error import S3Error
 
 from src.core.config import Settings, settings
-from src.core.exceptions import TransientError, PermanentError
+from src.core.exceptions import PermanentError, TransientError
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -164,8 +164,12 @@ class ArtifactStore:
                 details={"path": path, "error": str(e)},
             )
 
-    def put_file(self, path: str, file_data: bytes | io.BytesIO,
-                 content_type: str = "application/octet-stream") -> str:
+    def put_file(
+        self,
+        path: str,
+        file_data: bytes | io.BytesIO,
+        content_type: str = "application/octet-stream",
+    ) -> str:
         """
         Upload binary file to MinIO.
 

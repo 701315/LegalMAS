@@ -1,7 +1,5 @@
 """Tests for application configuration."""
 
-import os
-
 from src.core.config import Settings
 
 

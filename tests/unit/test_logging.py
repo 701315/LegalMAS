@@ -1,6 +1,6 @@
 """Tests for structured logging setup."""
 
-from src.core.logging import get_logger, setup_logging, request_id_var, deal_id_var
+from src.core.logging import deal_id_var, get_logger, request_id_var, setup_logging
 
 
 def test_logger_can_be_created():

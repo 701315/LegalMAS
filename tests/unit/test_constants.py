@@ -39,8 +39,7 @@ def test_all_enums_are_string_serializable():
         for member in enum_class:
             # Must be a string
             assert isinstance(member.value, str), (
-                f"{enum_class.__name__}.{member.name} value is not a string: "
-                f"{member.value!r}"
+                f"{enum_class.__name__}.{member.name} value is not a string: " f"{member.value!r}"
             )
 
             # Must be JSON-serializable
@@ -52,8 +51,7 @@ def test_all_enums_are_string_serializable():
 
             # .value must be lowercase
             assert member.value == member.value.lower(), (
-                f"{enum_class.__name__}.{member.name} value must be lowercase: "
-                f"{member.value!r}"
+                f"{enum_class.__name__}.{member.name} value must be lowercase: " f"{member.value!r}"
             )
 
 
@@ -66,15 +64,23 @@ def test_severity_has_all_required_levels():
 
 def test_document_status_has_pipeline_stages():
     """DocumentStatus must include all pipeline processing stages."""
-    required = {"pending", "extracting", "extracted", "sanitized",
-                "structured", "classified", "analyzing", "completed", "quarantine"}
+    required = {
+        "pending",
+        "extracting",
+        "extracted",
+        "sanitized",
+        "structured",
+        "classified",
+        "analyzing",
+        "completed",
+        "quarantine",
+    }
     actual = {s.value for s in DocumentStatus}
     assert required.issubset(actual)
 
 
 def test_relation_type_has_mvp_types():
     """RelationType must include all MVP relation types from spec."""
-    required = {"master", "appendix", "amendment", "disclosure",
-                "version", "draft", "counterpart"}
+    required = {"master", "appendix", "amendment", "disclosure", "version", "draft", "counterpart"}
     actual = {r.value for r in RelationType}
     assert required.issubset(actual)
