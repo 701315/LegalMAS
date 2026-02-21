@@ -5,10 +5,9 @@ DocumentVersion — tracks extracted/processed versions of a document.
 """
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, Index
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.constants import DocumentStatus
@@ -75,10 +74,37 @@ class Document(Base):
         nullable=True,
     )
 
+    classification_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Final classification confidence 0.0-1.0",
+    )
+
+    classification_level: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Level that made final decision: L1, L2, L3, L4, HYBRID",
+    )
+
+    classification_details: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Full classification history with all levels tried",
+    )
+
+    applicable_triggers: Mapped[list[str] | None] = mapped_column(
+        ARRAY(String(100)),
+        nullable=True,
+        comment="Triggered conditions for conditional checks (from YAML)",
+    )
+
     __table_args__ = (
         Index("idx_documents_deal_status", "deal_id", "status"),
         Index("idx_documents_deal_sha256", "deal_id", "sha256_file"),
         Index("idx_documents_bundle", "bundle_id"),
+        Index(
+            "idx_documents_classification", "deal_id", "doc_type", "classification_confidence"
+        ),  # НОВЫЙ
     )
 
 
@@ -134,6 +160,4 @@ class DocumentVersion(Base):
         comment="Average OCR confidence 0.0-1.0",
     )
 
-    __table_args__ = (
-        Index("idx_docver_doc_version", "document_id", "version_num"),
-    )
+    __table_args__ = (Index("idx_docver_doc_version", "document_id", "version_num"),)

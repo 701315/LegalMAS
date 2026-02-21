@@ -3,7 +3,7 @@ Repository for CheckResult operations.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,9 +47,7 @@ class ResultRepository:
         await self.session.flush()
         return cr
 
-    async def get_by_run(
-        self, run_id: uuid.UUID, severity: str | None = None
-    ) -> list[CheckResult]:
+    async def get_by_run(self, run_id: uuid.UUID, severity: str | None = None) -> list[CheckResult]:
         """Get all results for a run, optionally filtered by severity."""
         stmt = select(CheckResult).where(CheckResult.run_id == run_id)
         if severity is not None:
@@ -58,9 +56,7 @@ class ResultRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_by_document(
-        self, document_id: uuid.UUID, run_id: uuid.UUID
-    ) -> list[CheckResult]:
+    async def get_by_document(self, document_id: uuid.UUID, run_id: uuid.UUID) -> list[CheckResult]:
         """Get all results for a document within a run."""
         result = await self.session.execute(
             select(CheckResult).where(
@@ -85,7 +81,7 @@ class ResultRepository:
                 qc_status=qc_status,
                 qc_by=qc_by,
                 qc_comment=qc_comment,
-                qc_at=datetime.now(timezone.utc),
+                qc_at=datetime.now(UTC),
             )
             .returning(CheckResult)
         )
@@ -110,7 +106,7 @@ class ResultRepository:
                 qc_status=qc_status,
                 qc_by=qc_by,
                 qc_comment=qc_comment,
-                qc_at=datetime.now(timezone.utc),
+                qc_at=datetime.now(UTC),
             )
         )
         result = await self.session.execute(stmt)

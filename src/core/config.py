@@ -39,6 +39,19 @@ class Settings(BaseSettings):
     # --- PII ---
     PII_ENCRYPTION_KEY: str = "dev-encryption-key-change-in-production"
 
+    # --- Classification & Embeddings ---
+    EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"
+    CLASSIFICATION_REGISTRY_PATH: str = "playbooks/document_types/registry.yaml"
+
+    # --- LLM Providers ---
+    OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
+    LOCAL_LLM_ENDPOINT: str = "http://localhost:11434"
+
+    # --- Circuit Breaker ---
+    CIRCUIT_BREAKER_THRESHOLD: int = 5
+    CIRCUIT_BREAKER_TIMEOUT: int = 60
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

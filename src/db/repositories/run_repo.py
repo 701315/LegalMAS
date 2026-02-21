@@ -3,7 +3,7 @@ Repository for Run and Job operations.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,27 +39,18 @@ class RunRepository:
 
     async def get_by_id(self, run_id: uuid.UUID) -> Run | None:
         """Get run by ID."""
-        result = await self.session.execute(
-            select(Run).where(Run.id == run_id)
-        )
+        result = await self.session.execute(select(Run).where(Run.id == run_id))
         return result.scalar_one_or_none()
 
-    async def update_status(
-        self, run_id: uuid.UUID, status: str, **kwargs
-    ) -> Run | None:
+    async def update_status(self, run_id: uuid.UUID, status: str, **kwargs) -> Run | None:
         """Update run status and optional fields."""
         values = {"status": status, **kwargs}
         if status == "running" and "started_at" not in kwargs:
-            values["started_at"] = datetime.now(timezone.utc)
+            values["started_at"] = datetime.now(UTC)
         if status in ("completed", "failed") and "completed_at" not in kwargs:
-            values["completed_at"] = datetime.now(timezone.utc)
+            values["completed_at"] = datetime.now(UTC)
 
-        stmt = (
-            update(Run)
-            .where(Run.id == run_id)
-            .values(**values)
-            .returning(Run)
-        )
+        stmt = update(Run).where(Run.id == run_id).values(**values).returning(Run)
         result = await self.session.execute(stmt)
         run = result.scalar_one_or_none()
         if run:
@@ -100,22 +91,15 @@ class JobRepository:
         await self.session.flush()
         return job
 
-    async def update_status(
-        self, job_id: uuid.UUID, status: str, **kwargs
-    ) -> Job | None:
+    async def update_status(self, job_id: uuid.UUID, status: str, **kwargs) -> Job | None:
         """Update job status."""
         values = {"status": status, **kwargs}
         if status == "running" and "started_at" not in kwargs:
-            values["started_at"] = datetime.now(timezone.utc)
+            values["started_at"] = datetime.now(UTC)
         if status in ("completed", "failed", "dlq") and "finished_at" not in kwargs:
-            values["finished_at"] = datetime.now(timezone.utc)
+            values["finished_at"] = datetime.now(UTC)
 
-        stmt = (
-            update(Job)
-            .where(Job.id == job_id)
-            .values(**values)
-            .returning(Job)
-        )
+        stmt = update(Job).where(Job.id == job_id).values(**values).returning(Job)
         result = await self.session.execute(stmt)
         job = result.scalar_one_or_none()
         if job:

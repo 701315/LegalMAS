@@ -3,7 +3,7 @@ Repository for PlaybookVersion and ModelConfig operations.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,9 +63,7 @@ class PlaybookRepository:
     async def get_default(self) -> PlaybookVersion | None:
         """Get the playbook version with status='default'. Only one should exist."""
         result = await self.session.execute(
-            select(PlaybookVersion).where(
-                PlaybookVersion.status == PlaybookStatus.DEFAULT.value
-            )
+            select(PlaybookVersion).where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
         )
         return result.scalar_one_or_none()
 
@@ -76,9 +74,7 @@ class PlaybookRepository:
         )
         return result.scalar_one_or_none()
 
-    async def promote_to_default(
-        self, version_id: uuid.UUID
-    ) -> PlaybookVersion | None:
+    async def promote_to_default(self, version_id: uuid.UUID) -> PlaybookVersion | None:
         """
         Promote a version to default.
         Steps: current default -> stable, then target -> default.
@@ -96,7 +92,7 @@ class PlaybookRepository:
             .where(PlaybookVersion.id == version_id)
             .values(
                 status=PlaybookStatus.DEFAULT.value,
-                promoted_at=datetime.now(timezone.utc),
+                promoted_at=datetime.now(UTC),
             )
             .returning(PlaybookVersion)
         )

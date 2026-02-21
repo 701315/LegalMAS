@@ -6,11 +6,10 @@ Family — group of related documents with one master.
 
 import uuid
 
-from sqlalchemy import Float, ForeignKey, String, Text, Index
+from sqlalchemy import Float, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import RelationType
 from src.db.base import Base
 
 

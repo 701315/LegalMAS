@@ -38,9 +38,7 @@ class DocumentRepository:
 
     async def get_by_id(self, doc_id: uuid.UUID) -> Document | None:
         """Get document by ID."""
-        result = await self.session.execute(
-            select(Document).where(Document.id == doc_id)
-        )
+        result = await self.session.execute(select(Document).where(Document.id == doc_id))
         return result.scalar_one_or_none()
 
     async def get_by_deal(
@@ -59,9 +57,7 @@ class DocumentRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_by_sha256(
-        self, deal_id: uuid.UUID, sha256: str
-    ) -> Document | None:
+    async def get_by_sha256(self, deal_id: uuid.UUID, sha256: str) -> Document | None:
         """Find document by SHA256 hash within a deal (for dedup)."""
         result = await self.session.execute(
             select(Document).where(
@@ -71,17 +67,10 @@ class DocumentRepository:
         )
         return result.scalar_one_or_none()
 
-    async def update_status(
-        self, doc_id: uuid.UUID, status: str, **kwargs
-    ) -> Document | None:
+    async def update_status(self, doc_id: uuid.UUID, status: str, **kwargs) -> Document | None:
         """Update document status and optional fields."""
         values = {"status": status, **kwargs}
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .values(**values)
-            .returning(Document)
-        )
+        stmt = update(Document).where(Document.id == doc_id).values(**values).returning(Document)
         result = await self.session.execute(stmt)
         doc = result.scalar_one_or_none()
         if doc:
@@ -101,3 +90,50 @@ class DocumentRepository:
         )
         result = await self.session.execute(stmt)
         return {row[0]: row[1] for row in result.all()}
+
+    async def update_classification(
+        self,
+        doc_id: uuid.UUID,
+        doc_type: str,
+        classification_confidence: float,
+        classification_level: str,
+        classification_details: dict,
+        applicable_triggers: list[str],
+        playbook_version_id: uuid.UUID | None = None,
+    ) -> Document | None:
+        """Update document classification results."""
+        values = {
+            "doc_type": doc_type,
+            "classification_confidence": classification_confidence,
+            "classification_level": classification_level,
+            "classification_details": classification_details,
+            "applicable_triggers": applicable_triggers,
+        }
+        if playbook_version_id is not None:
+            values["playbook_version_id"] = playbook_version_id
+
+        stmt = update(Document).where(Document.id == doc_id).values(**values).returning(Document)
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+        return doc
+
+    async def get_by_type_and_confidence(
+        self,
+        deal_id: uuid.UUID,
+        doc_type: str,
+        min_confidence: float = 0.0,
+    ) -> list[Document]:
+        """Get documents by type with minimum classification confidence."""
+        stmt = (
+            select(Document)
+            .where(
+                Document.deal_id == deal_id,
+                Document.doc_type == doc_type,
+                Document.classification_confidence >= min_confidence,
+            )
+            .order_by(Document.classification_confidence.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

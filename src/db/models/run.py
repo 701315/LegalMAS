@@ -7,7 +7,7 @@ Job — a single task within a run (one document, one processing step).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, String, Index
+from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -147,6 +147,4 @@ class Job(Base):
         default=0,
     )
 
-    __table_args__ = (
-        Index("idx_jobs_run_status", "run_id", "status"),
-    )
+    __table_args__ = (Index("idx_jobs_run_status", "run_id", "status"),)

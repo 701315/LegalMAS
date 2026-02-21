@@ -84,3 +84,31 @@ def test_relation_type_has_mvp_types():
     required = {"master", "appendix", "amendment", "disclosure", "version", "draft", "counterpart"}
     actual = {r.value for r in RelationType}
     assert required.issubset(actual)
+
+
+def test_classification_level_enum():
+    """ClassificationLevel must have all cascade levels."""
+    from src.core.constants import ClassificationLevel
+
+    expected = {"L1", "L2", "L3", "L4", "HYBRID"}
+    actual = {level.value for level in ClassificationLevel}
+    assert actual == expected
+
+
+def test_trigger_type_enum():
+    """TriggerType must include all conditional check triggers."""
+    from src.core.constants import TriggerType
+
+    # Проверяем что есть хотя бы базовые триггеры
+    required = {"residential_property", "land_plot_sale", "mortgage_related"}
+    actual = {t.value for t in TriggerType}
+    assert required.issubset(actual)
+
+
+def test_classification_thresholds_are_valid():
+    """Classification thresholds must be floats between 0 and 1."""
+    from src.core.constants import CLASSIFICATION_THRESHOLDS
+
+    for key, value in CLASSIFICATION_THRESHOLDS.items():
+        assert isinstance(value, float), f"{key} must be float"
+        assert 0.0 <= value <= 1.0, f"{key} must be between 0 and 1"

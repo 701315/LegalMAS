@@ -65,6 +65,21 @@ class ArtifactPath:
     def embeddings(tenant_id: str, deal_id: str, document_id: str) -> str:
         return f"tenants/{tenant_id}/deals/{deal_id}/embeddings/{document_id}.npy"
 
+    @staticmethod
+    def document_type_registry() -> str:
+        """Путь к реестру типов документов (глобальный)."""
+        return "playbooks/document_types/registry.yaml"
+
+    @staticmethod
+    def document_type_config(doc_type_code: str) -> str:
+        """Путь к YAML-конфигурации конкретного типа документа."""
+        return f"playbooks/document_types/{doc_type_code}.yaml"
+
+    @staticmethod
+    def playbook_config(playbook_name: str, version: str) -> str:
+        """Путь к конфигурации playbook."""
+        return f"playbooks/{playbook_name}/{version}/config.yaml"
+
 
 class ArtifactStore:
     """
@@ -161,6 +176,79 @@ class ArtifactStore:
                 )
             raise TransientError(
                 f"Failed to get JSON from '{path}': {e}",
+                details={"path": path, "error": str(e)},
+            )
+
+    def put_ndjson(self, path: str, records: list[dict]) -> str:
+        """
+        Serialize list of records to NDJSON (newline-delimited JSON).
+        Used for evidence.jsonl, check_results.jsonl.
+
+        Args:
+            path: Object path
+            records: List of dicts, each will be one JSON line
+
+        Returns:
+            S3 URI string
+        """
+        try:
+            ndjson_lines = [json.dumps(r, ensure_ascii=False) for r in records]
+            ndjson_bytes = "\n".join(ndjson_lines).encode("utf-8")
+            data_stream = io.BytesIO(ndjson_bytes)
+
+            self.client.put_object(
+                bucket_name=self.bucket,
+                object_name=path,
+                data=data_stream,
+                length=len(ndjson_bytes),
+                content_type="application/x-ndjson",
+            )
+
+            uri = f"s3://{self.bucket}/{path}"
+            logger.debug(
+                "Stored NDJSON artifact",
+                path=path,
+                records=len(records),
+                size_bytes=len(ndjson_bytes),
+            )
+            return uri
+
+        except S3Error as e:
+            raise TransientError(
+                f"Failed to store NDJSON at '{path}': {e}",
+                details={"path": path, "error": str(e)},
+            )
+
+    def get_ndjson(self, path: str) -> list[dict]:
+        """
+        Download NDJSON artifact and deserialize to list of dicts.
+
+        Args:
+            path: Object path
+
+        Returns:
+            List of deserialized records
+        """
+        try:
+            response = self.client.get_object(
+                bucket_name=self.bucket,
+                object_name=path,
+            )
+            ndjson_bytes = response.read()
+            response.close()
+            response.release_conn()
+
+            lines = ndjson_bytes.decode("utf-8").strip().split("\n")
+            return [json.loads(line) for line in lines if line]
+
+        except S3Error as e:
+            if e.code == "NoSuchKey":
+                raise PermanentError(
+                    f"Artifact not found: '{path}'",
+                    details={"path": path},
+                )
+            raise TransientError(
+                f"Failed to get NDJSON from '{path}': {e}",
                 details={"path": path, "error": str(e)},
             )
 

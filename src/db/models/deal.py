@@ -4,9 +4,8 @@ Each deal belongs to a tenant and contains bundles of documents.
 """
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import String, Text, Index
+from sqlalchemy import Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -80,6 +79,4 @@ class Deal(Base):
         comment="Arbitrary deal metadata",
     )
 
-    __table_args__ = (
-        Index("idx_deals_tenant_status", "tenant_id", "status"),
-    )
+    __table_args__ = (Index("idx_deals_tenant_status", "tenant_id", "status"),)

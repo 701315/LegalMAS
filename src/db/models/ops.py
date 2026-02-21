@@ -8,7 +8,7 @@ DLQRecord — dead letter queue for failed tasks.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index
+from sqlalchemy import Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -57,7 +57,9 @@ class IdempotencyKey(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "endpoint", "idempotency_key",
+            "tenant_id",
+            "endpoint",
+            "idempotency_key",
             name="uq_idempotency_tenant_endpoint_key",
         ),
         Index("idx_idempotency_tenant_key", "tenant_id", "idempotency_key"),

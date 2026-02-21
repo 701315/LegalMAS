@@ -4,11 +4,10 @@ Export model — tracks generated export files (Excel, Word, PDF).
 
 import uuid
 
-from sqlalchemy import BigInteger, ForeignKey, String, Index
+from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import ExportType
 from src.db.base import Base
 
 

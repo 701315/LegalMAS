@@ -44,10 +44,7 @@ class AuditRepository:
         limit: int = 100,
     ) -> list[AuditLog]:
         """Get audit logs for a deal, optionally filtered by action."""
-        stmt = (
-            select(AuditLog)
-            .where(AuditLog.deal_id == deal_id)
-        )
+        stmt = select(AuditLog).where(AuditLog.deal_id == deal_id)
         if action is not None:
             stmt = stmt.where(AuditLog.action == action)
         stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit)

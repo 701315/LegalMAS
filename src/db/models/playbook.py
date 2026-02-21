@@ -7,7 +7,7 @@ ModelConfig — configuration of ML models used by the runner.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, Index, DateTime
+from sqlalchemy import DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -102,6 +102,28 @@ class PlaybookVersion(Base):
         comment="When this version was promoted to default",
     )
 
-    __table_args__ = (
-        Index("idx_playbook_status", "status"),
+    trigger_definitions: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Trigger definitions from YAML: {'residential_property': {'any_keywords': ['квартира', 'жилой дом']}}",
     )
+
+    dd_request_templates: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="DD request templates from YAML: [{'if_check_fails': 'encumbrances_warranty', 'request': '...'}]",
+    )
+
+    section_markers: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Section markers for Structure Builder: ['Предмет договора', 'Цена и порядок расчетов']",
+    )
+
+    classification_config: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Classification config: {'keywords': {...}, 'exclusions': [...], 'weights': {...}, 'patterns': {...}}",
+    )
+
+    __table_args__ = (Index("idx_playbook_status", "status"),)

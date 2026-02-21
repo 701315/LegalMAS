@@ -59,3 +59,12 @@ seed:
 clean:
 	docker compose down -v
 	@echo "All volumes removed"
+
+# Запустить production воркер
+worker:
+	celery -A src.queue.celery_app:celery_app worker --loglevel=info --queues=default,high_priority,low_priority --pool=solo
+
+# Запустить воркер с тестовыми задачами (разработка)
+worker-dev:
+	celery -A src.queue.celery_app:celery_app worker --loglevel=info --queues=default,high_priority,low_priority --include=tests.tasks_for_testing --pool=solo
+

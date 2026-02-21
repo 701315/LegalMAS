@@ -3,16 +3,17 @@ Shared test fixtures.
 Provides database session with automatic rollback for each test.
 """
 
+# Register test tasks into Celery app — test scope only, never in production
 import uuid
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
-    async_sessionmaker,
     create_async_engine,
 )
 
+import tests.tasks_for_testing  # noqa: F401
 from src.core.config import settings
 from src.db.base import Base
 
@@ -34,11 +35,6 @@ async def db_session():
     async with engine.begin() as conn:
         # Create all tables (if not exist)
         await conn.run_sync(Base.metadata.create_all)
-
-    # Create session with transaction
-    async_session = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
 
     async with engine.connect() as conn:
         trans = await conn.begin()

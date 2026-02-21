@@ -7,14 +7,16 @@ Requires PostgreSQL to be running (make up).
 import uuid
 
 import pytest
+from sqlalchemy import delete
 
 from src.core.constants import (
     DealStatus,
     DocumentStatus,
     PlaybookStatus,
     QCStatus,
-    Severity,
 )
+from src.db.models.bundle import Bundle
+from src.db.models.playbook import ModelConfig, PlaybookVersion
 from src.db.repositories import (
     AuditRepository,
     DealRepository,
@@ -22,11 +24,10 @@ from src.db.repositories import (
     DocumentVersionRepository,
     IdempotencyRepository,
     PlaybookRepository,
-    RelationRepository,
     ResultRepository,
     RunRepository,
 )
-
+from src.db.repositories.calibration_repo import CalibrationRepository
 
 # ============================================================
 # Deal Repository
@@ -94,7 +95,6 @@ class TestDocumentRepository:
         deal_repo = DealRepository(session)
         deal = await deal_repo.create(tenant_id=tenant_id, name="Doc Test Deal")
 
-        from src.db.models.bundle import Bundle
         bundle = Bundle(deal_id=deal.id, source_type="local", status="completed", file_count=0)
         session.add(bundle)
         await session.flush()
@@ -128,8 +128,10 @@ class TestDocumentRepository:
         repo = DocumentRepository(db_session)
 
         await repo.create(
-            deal_id=deal.id, bundle_id=bundle.id,
-            filename="doc1.pdf", sha256_file="hash_abc",
+            deal_id=deal.id,
+            bundle_id=bundle.id,
+            filename="doc1.pdf",
+            sha256_file="hash_abc",
         )
 
         found = await repo.get_by_sha256(deal.id, "hash_abc")
@@ -178,7 +180,6 @@ class TestDocumentVersionRepository:
         deal_repo = DealRepository(db_session)
         deal = await deal_repo.create(tenant_id=tenant_id, name="V Test")
 
-        from src.db.models.bundle import Bundle
         bundle = Bundle(deal_id=deal.id, source_type="local", status="done", file_count=1)
         db_session.add(bundle)
         await db_session.flush()
@@ -187,7 +188,9 @@ class TestDocumentVersionRepository:
         doc = await doc_repo.create(deal_id=deal.id, bundle_id=bundle.id, filename="t.pdf")
 
         ver_repo = DocumentVersionRepository(db_session)
-        ver = await ver_repo.create(document_id=doc.id, version_num=1, original_ref="s3://bucket/orig.pdf")
+        ver = await ver_repo.create(
+            document_id=doc.id, version_num=1, original_ref="s3://bucket/orig.pdf"
+        )
 
         assert ver.text_layout_raw_ref is None
 
@@ -206,7 +209,6 @@ class TestDocumentVersionRepository:
         deal_repo = DealRepository(db_session)
         deal = await deal_repo.create(tenant_id=tenant_id, name="VL Test")
 
-        from src.db.models.bundle import Bundle
         bundle = Bundle(deal_id=deal.id, source_type="local", status="done", file_count=1)
         db_session.add(bundle)
         await db_session.flush()
@@ -226,11 +228,6 @@ class TestDocumentVersionRepository:
 # ============================================================
 # Playbook Repository
 # ============================================================
-
-import pytest
-from sqlalchemy import delete
-
-from src.db.models.playbook import PlaybookVersion, ModelConfig
 
 
 @pytest.fixture(autouse=True)
@@ -266,11 +263,15 @@ class TestPlaybookRepository:
 
         mc = await repo.create_model_config(name="promo-mc")
         v1 = await repo.create_version(
-            name="PB", semver="1.0.0", model_config_id=mc.id,
+            name="PB",
+            semver="1.0.0",
+            model_config_id=mc.id,
             status=PlaybookStatus.DEFAULT.value,
         )
         v2 = await repo.create_version(
-            name="PB", semver="2.0.0", model_config_id=mc.id,
+            name="PB",
+            semver="2.0.0",
+            model_config_id=mc.id,
             status=PlaybookStatus.DRAFT.value,
         )
 
@@ -295,7 +296,6 @@ class TestResultRepository:
         deal_repo = DealRepository(session)
         deal = await deal_repo.create(tenant_id=tenant_id, name="Result Test")
 
-        from src.db.models.bundle import Bundle
         bundle = Bundle(deal_id=deal.id, source_type="local", status="done", file_count=1)
         session.add(bundle)
         await session.flush()
@@ -306,13 +306,17 @@ class TestResultRepository:
         pb_repo = PlaybookRepository(session)
         mc = await pb_repo.create_model_config(name="r-mc")
         pv = await pb_repo.create_version(
-            name="R", semver="1.0.0", model_config_id=mc.id,
+            name="R",
+            semver="1.0.0",
+            model_config_id=mc.id,
             status=PlaybookStatus.DEFAULT.value,
         )
 
         run_repo = RunRepository(session)
         run = await run_repo.create(
-            deal_id=deal.id, playbook_version_id=pv.id, model_config_id=mc.id,
+            deal_id=deal.id,
+            playbook_version_id=pv.id,
+            model_config_id=mc.id,
         )
 
         return deal, doc, run
@@ -323,12 +327,20 @@ class TestResultRepository:
         repo = ResultRepository(db_session)
 
         await repo.create(
-            run_id=run.id, document_id=doc.id, check_id="coc_001",
-            check_name="Change of Control", result="fail", severity="critical",
+            run_id=run.id,
+            document_id=doc.id,
+            check_id="coc_001",
+            check_name="Change of Control",
+            result="fail",
+            severity="critical",
         )
         await repo.create(
-            run_id=run.id, document_id=doc.id, check_id="gov_001",
-            check_name="Governing Law", result="pass", severity="pass",
+            run_id=run.id,
+            document_id=doc.id,
+            check_id="gov_001",
+            check_name="Governing Law",
+            result="pass",
+            severity="pass",
         )
 
         counts = await repo.count_by_severity(run.id)
@@ -341,15 +353,21 @@ class TestResultRepository:
         repo = ResultRepository(db_session)
 
         cr = await repo.create(
-            run_id=run.id, document_id=doc.id, check_id="test_001",
-            check_name="Test", result="fail", severity="high",
+            run_id=run.id,
+            document_id=doc.id,
+            check_id="test_001",
+            check_name="Test",
+            result="fail",
+            severity="high",
         )
 
         assert cr.qc_status == QCStatus.PENDING.value
 
         updated = await repo.update_qc(
-            cr.id, qc_status=QCStatus.CONFIRMED.value,
-            qc_by="reviewer@firm.com", qc_comment="Looks correct",
+            cr.id,
+            qc_status=QCStatus.CONFIRMED.value,
+            qc_by="reviewer@firm.com",
+            qc_comment="Looks correct",
         )
 
         assert updated is not None
@@ -363,12 +381,20 @@ class TestResultRepository:
         repo = ResultRepository(db_session)
 
         cr1 = await repo.create(
-            run_id=run.id, document_id=doc.id, check_id="a",
-            check_name="A", result="pass", severity="pass",
+            run_id=run.id,
+            document_id=doc.id,
+            check_id="a",
+            check_name="A",
+            result="pass",
+            severity="pass",
         )
         cr2 = await repo.create(
-            run_id=run.id, document_id=doc.id, check_id="b",
-            check_name="B", result="pass", severity="pass",
+            run_id=run.id,
+            document_id=doc.id,
+            check_id="b",
+            check_name="B",
+            result="pass",
+            severity="pass",
         )
 
         count = await repo.bulk_update_qc(
@@ -390,7 +416,9 @@ class TestIdempotencyRepository:
         repo = IdempotencyRepository(db_session)
 
         record, is_new = await repo.get_or_create(
-            tenant_id=tenant_id, endpoint="import", key="key-001",
+            tenant_id=tenant_id,
+            endpoint="import",
+            key="key-001",
         )
 
         assert is_new is True
@@ -427,6 +455,17 @@ class TestIdempotencyRepository:
 
 
 class TestAuditRepository:
+    async def _create_deal_and_bundle(self, session, tenant_id):
+        """Helper: create a deal and bundle for audit tests."""
+        deal_repo = DealRepository(session)
+        deal = await deal_repo.create(tenant_id=tenant_id, name="Audit Test Deal")
+
+        bundle = Bundle(deal_id=deal.id, source_type="local", status="completed", file_count=0)
+        session.add(bundle)
+        await session.flush()
+
+        return deal, bundle
+
     @pytest.mark.asyncio
     async def test_log_and_retrieve(self, db_session, tenant_id):
         # Need a deal for deal_id
@@ -436,14 +475,18 @@ class TestAuditRepository:
         repo = AuditRepository(db_session)
 
         await repo.log(
-            tenant_id=tenant_id, deal_id=deal.id,
-            action="IMPORT", actor="user@firm.com",
+            tenant_id=tenant_id,
+            deal_id=deal.id,
+            action="IMPORT",
+            actor="user@firm.com",
             actor_role="deal_owner",
             details={"doc_count": 10},
         )
         await repo.log(
-            tenant_id=tenant_id, deal_id=deal.id,
-            action="EXPORT", actor="user@firm.com",
+            tenant_id=tenant_id,
+            deal_id=deal.id,
+            action="EXPORT",
+            actor="user@firm.com",
         )
 
         logs = await repo.get_by_deal(deal.id)
@@ -452,3 +495,82 @@ class TestAuditRepository:
         import_logs = await repo.get_by_deal(deal.id, action="IMPORT")
         assert len(import_logs) == 1
         assert import_logs[0].details == {"doc_count": 10}
+
+    @pytest.mark.asyncio
+    async def test_classification_update(self, db_session, tenant_id):
+        """Test classification fields update."""
+        deal, bundle = await self._create_deal_and_bundle(db_session, tenant_id)
+        repo = DocumentRepository(db_session)
+
+        doc = await repo.create(
+            deal_id=deal.id,
+            bundle_id=bundle.id,
+            filename="contract.pdf",
+        )
+
+        # Initially null
+        assert doc.classification_confidence is None
+        assert doc.doc_type is None
+
+        # Update classification
+        updated = await repo.update_classification(
+            doc_id=doc.id,
+            doc_type="contract_1.6_real_estate",
+            classification_confidence=0.85,
+            classification_level="L2",
+            classification_details={
+                "levels_tried": ["L1", "L2"],
+                "L1": {"type": "SPA", "confidence": 0.65},
+                "L2": {"type": "contract_1.6_real_estate", "confidence": 0.85},
+            },
+            applicable_triggers=["residential_property", "mortgage_related"],
+        )
+
+        assert updated is not None
+        assert updated.doc_type == "contract_1.6_real_estate"
+        assert updated.classification_confidence == 0.85
+        assert updated.classification_level == "L2"
+        assert "L1" in updated.classification_details
+        assert len(updated.applicable_triggers) == 2
+        assert "residential_property" in updated.applicable_triggers
+
+
+# ============================================================
+# Calibration Repository
+# ============================================================
+
+
+class TestCalibrationRepository:
+    @pytest.mark.asyncio
+    async def test_create_and_get(self, db_session):
+        repo = CalibrationRepository(db_session)
+
+        # Update (creates new record)
+        await repo.update_calibration(
+            doc_type="contract_1.6_real_estate",
+            level="L2",
+            bucket=0.8,
+            correct=True,
+        )
+
+        # Get
+        cal = await repo.get_calibration("contract_1.6_real_estate", "L2", 0.8)
+        assert cal is not None
+        assert cal.calibrated_confidence == 1.0
+        assert cal.sample_count == 1
+
+    @pytest.mark.asyncio
+    async def test_running_average(self, db_session):
+        repo = CalibrationRepository(db_session)
+
+        # First update: correct
+        await repo.update_calibration("SPA", "L1", 0.9, correct=True)
+        cal = await repo.get_calibration("SPA", "L1", 0.9)
+        assert cal.calibrated_confidence == 1.0
+
+        # Second update: incorrect
+        await repo.update_calibration("SPA", "L1", 0.9, correct=False)
+        cal = await repo.get_calibration("SPA", "L1", 0.9)
+        # Running avg: (1.0 + 0.0) / 2 = 0.5
+        assert abs(cal.calibrated_confidence - 0.5) < 0.01
+        assert cal.sample_count == 2

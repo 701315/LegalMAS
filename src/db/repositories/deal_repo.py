@@ -45,9 +45,7 @@ class DealRepository:
 
     async def get_by_id(self, deal_id: uuid.UUID) -> Deal | None:
         """Get deal by ID. Returns None if not found."""
-        result = await self.session.execute(
-            select(Deal).where(Deal.id == deal_id)
-        )
+        result = await self.session.execute(select(Deal).where(Deal.id == deal_id))
         return result.scalar_one_or_none()
 
     async def get_by_tenant(
@@ -65,12 +63,7 @@ class DealRepository:
 
     async def update_status(self, deal_id: uuid.UUID, status: str) -> Deal | None:
         """Update deal status. Returns updated deal or None if not found."""
-        stmt = (
-            update(Deal)
-            .where(Deal.id == deal_id)
-            .values(status=status)
-            .returning(Deal)
-        )
+        stmt = update(Deal).where(Deal.id == deal_id).values(status=status).returning(Deal)
         result = await self.session.execute(stmt)
         deal = result.scalar_one_or_none()
         if deal:

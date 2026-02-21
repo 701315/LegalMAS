@@ -6,11 +6,21 @@ Each check produces one result with evidence, severity, and QC status.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Float, ForeignKey, String, Text, Index, DateTime
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import CheckResultStatus, DetectorType, QCStatus, Severity
+from src.core.constants import (
+    QCStatus,
+)
 from src.db.base import Base
 
 
@@ -84,6 +94,25 @@ class CheckResult(Base):
         comment="Flags: structure_degraded, llm_fallback_used, etc.",
     )
 
+    structured_data: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Extracted structured fields from check (e.g. cadastral_number, price_amount)",
+    )
+
+    conditional_check_triggered: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        comment="True if this check was triggered by a conditional rule",
+    )
+
+    trigger_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Name of the trigger that activated this check (if conditional)",
+    )
+
     # --- QC fields ---
 
     qc_status: Mapped[str] = mapped_column(
@@ -113,4 +142,9 @@ class CheckResult(Base):
         Index("idx_results_doc", "document_id"),
         Index("idx_results_severity", "run_id", "severity"),
         Index("idx_results_qc", "run_id", "qc_status"),
+        Index(
+            "idx_results_structured",
+            "run_id",
+            postgresql_where="structured_data IS NOT NULL",
+        ),
     )
