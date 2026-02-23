@@ -3,12 +3,12 @@ Repository for PlaybookVersion and ModelConfig operations.
 """
 
 import uuid
-from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.constants import PlaybookStatus
+from src.db.models.deal import Deal
 from src.db.models.playbook import ModelConfig, PlaybookVersion
 
 
@@ -46,7 +46,16 @@ class PlaybookRepository:
         compiled_checks: dict | None = None,
         status: str = PlaybookStatus.DRAFT.value,
     ) -> PlaybookVersion:
-        """Create a new playbook version."""
+        """Create a new playbook version.
+
+        If status='default', automatically archives the previous default version
+        to ensure only one default exists at any time.
+        """
+        if status == PlaybookStatus.DEFAULT.value:
+            await self.session.execute(
+                text("UPDATE playbook_versions SET status = 'archived' WHERE status = 'default'")
+            )
+
         pv = PlaybookVersion(
             name=name,
             semver=semver,
@@ -74,30 +83,21 @@ class PlaybookRepository:
         )
         return result.scalar_one_or_none()
 
-    async def promote_to_default(self, version_id: uuid.UUID) -> PlaybookVersion | None:
+    async def get_for_deal(self, deal_id: uuid.UUID) -> PlaybookVersion | None:
         """
-        Promote a version to default.
-        Steps: current default -> stable, then target -> default.
+        Get playbook for a specific deal:
+        1) try Deal.playbook_version_id
+        2) fallback to global default.
         """
-        # Demote current default to stable
-        await self.session.execute(
-            update(PlaybookVersion)
-            .where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
-            .values(status=PlaybookStatus.STABLE.value)
+        # 1) playbook, явно привязанный к сделке
+        result = await self.session.execute(
+            select(PlaybookVersion)
+            .join(Deal, Deal.playbook_version_id == PlaybookVersion.id)
+            .where(Deal.id == deal_id)
         )
+        pb = result.scalar_one_or_none()
+        if pb is not None:
+            return pb
 
-        # Promote target to default
-        stmt = (
-            update(PlaybookVersion)
-            .where(PlaybookVersion.id == version_id)
-            .values(
-                status=PlaybookStatus.DEFAULT.value,
-                promoted_at=datetime.now(UTC),
-            )
-            .returning(PlaybookVersion)
-        )
-        result = await self.session.execute(stmt)
-        pv = result.scalar_one_or_none()
-        if pv:
-            await self.session.flush()
-        return pv
+        # 2) глобальный default
+        return await self.get_default()

@@ -19,6 +19,7 @@ State is stored in Redis so it's shared across all Celery workers.
 """
 
 import time
+import uuid
 from enum import Enum
 
 import redis as redis_lib
@@ -153,8 +154,9 @@ class CircuitBreaker:
             return
 
         if current_state == CBState.CLOSED:
-            # Add failure timestamp to sorted set
-            self._redis.zadd(self._failures_key, {str(now): now})
+            # Add failure timestamp to sorted set with unique member
+            member = str(uuid.uuid4())
+            self._redis.zadd(self._failures_key, {member: now})
 
             # Remove failures outside the window
             window_start = now - self.window_size_seconds

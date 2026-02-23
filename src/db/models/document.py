@@ -102,9 +102,7 @@ class Document(Base):
         Index("idx_documents_deal_status", "deal_id", "status"),
         Index("idx_documents_deal_sha256", "deal_id", "sha256_file"),
         Index("idx_documents_bundle", "bundle_id"),
-        Index(
-            "idx_documents_classification", "deal_id", "doc_type", "classification_confidence"
-        ),  # НОВЫЙ
+        Index("idx_documents_classification", "deal_id", "doc_type", "classification_confidence"),
     )
 
 

@@ -1,0 +1,1150 @@
+type: contract_1.6_real_estate
+name: "Договор купли-продажи недвижимости"
+
+description: |
+  Специализированный вид купли-продажи недвижимого имущества, регулируемый § 7 Главы 30 ГК РФ.
+  Характеризуется обязательной письменной формой, государственной регистрацией перехода права собственности,
+  специальными гарантиями для покупателя и множеством практических ограничений и рисков.
+
+version: 3.2
+parent: class_1_transfer_of_ownership
+
+metadata:
+  category: contract
+  subcategory: ownership_transfer
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 7 Главы 30 ГК РФ (ст. 549-558)"
+  doc_types_supported:
+    - "договор купли-продажи квартиры"
+    - "договор купли-продажи жилого дома"
+    - "договор купли-продажи нежилого помещения"
+    - "договор купли-продажи здания/сооружения"
+    - "договор купли-продажи земельного участка"
+    - "договор купли-продажи доли в праве собственности на недвижимость"
+    - "договор купли-продажи общего имущества в МКД (подвал/чердак и т.п.)"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════
+#  RUNTIME L1 / TRIGGERS (v1) ─ используется уже сейчас (Stage 2.5–6)
+# ════════════════════════════════
+classification_runtime_v1:
+  rules:
+    filename_patterns:
+      - "(?i)недвижимост"
+      - "(?i)квартир"
+      - "(?i)земельн"
+      - "(?i)real[\\s_.]?estate"
+    folder_patterns:
+      - "(?i)real[\\s_]?estate"
+      - "(?i)недвижим"
+
+    keywords:
+      high:
+        - "недвижимост"
+        - "квартир"
+        - "земельн участ"
+        - "здани"
+        - "сооружени"
+        - "государственн регистрац"
+        - "егрн"
+        - "росреестр"
+        - "кадастров номер"
+        - "передаточн акт"
+        - "категория земель"
+        - "разрешенное использование"
+        - "вид разрешенного использования"
+      medium:
+        - "купля-продажа недвижимости"
+        - "право собственности"
+        - "объект недвижимости"
+        - "переход права собственности"
+        - "обременение"
+        - "ограничение"
+        - "залог"
+        - "ипотека"
+        - "задаток"
+        - "аванс"
+        - "обеспечительный платеж"
+        - "эскроу"
+        - "аккредитив"
+        - "уступка прав"
+        - "перевод долга"
+        - "страхование"
+        - "страховой полис"
+        - "запрет регистрационных действий"
+        - "арест"
+        - "кадастровая стоимость"
+        - "конфиденциальность"
+        - "неразглашение"
+        - "техническая документация"
+        - "проектная документация"
+        - "разрешение на ввод"
+      low:
+        - "дом"
+        - "помещение"
+        - "сервитут"
+        - "зоует"
+        - "сзз"
+        - "общедомовое имущество"
+        - "общее собрание собственников"
+
+    exclusions:
+      - "движимое имущество"
+      - "аренда"
+      - "договор мены недвижимости"
+      - "долевое участие в строительстве"
+
+# ════════════════════════════════
+#  Триггеры используются в TriggerDetector 
+# ════════════════════════════════
+  trigger_definitions:
+    residential_property:
+      any_keywords: ["квартира", "жилой дом", "комната", "жилое помещение"]
+    land_plot_sale:
+      any_keywords:
+        ["земельный участок", "участок земли", "кадастровый квартал",
+         "категория земель", "разрешенное использование", "вид разрешенного использования", "ври"]
+    building_sale:
+      any_keywords: ["здание", "сооружение", "строение", "нежилое помещение"]
+    share_in_right_sale:
+      any_keywords: ["доля в праве", "долевая собственность", "1/2", "1/3", "1/4", "в праве общей собственности"]
+    legal_entity_party:
+      any_keywords: ["ооо", "ао", "пао", "зао", "общество", "инн", "огрн", "кпп"]
+    individual_party:
+      any_keywords: ["паспорт", "гражданин", "физическое лицо", "дата рождения", "место рождения"]
+    mortgage_related:
+      any_keywords: ["ипотека", "залог", "залогодержатель", "закладная", "кредит", "обременение в пользу"]
+    lease_related:
+      any_keywords: ["аренда", "арендатор", "найм", "договор аренды", "плата за пользование"]
+    foreign_buyer_keywords:
+      any_keywords: ["иностранн", "нерезидент", "иностранная компания", "паспорт иностранного гражданина"]
+    agricultural_land_keywords:
+      any_keywords:
+        ["земли сельскохозяйственного назначения", "сельхоз", "пашня", "сенокос", "пастбище"]
+    border_zone_keywords:
+      any_keywords: ["приграничная зона", "пограничная территория", "граница государства"]
+    mcd_common_property_sale:
+      any_keywords:
+        ["общее имущество", "общедомовое имущество", "чердак", "подвал", "лестничн", "технический этаж", "общие помещения"]
+
+# ════════════════════════════════
+#  VALIDATION ENGINE v3.2 (future) ─ не используется L1 прямо сейчас, но готово для Stage 6–8+ и Runner
+# ════════════════════════════════
+validation_engine_v3_2:
+  rules_enhanced:
+    phrases:
+      high:
+        - "Право собственности на объект недвижимости переходит к Покупателю с момента государственной регистрации в ЕГРН"
+        - "Продавец гарантирует, что на момент заключения договора объект не обременен правами третьих лиц"
+        - "Расчеты производятся путем внесения денежных средств в банковскую ячейку..."
+        - "кадастровый номер"
+        - "адрес объекта"
+      medium:
+        - "Стороны обязуются совершить все необходимые действия для государственной регистрации..."
+        - "Передача объекта недвижимости оформляется передаточным актом"
+        - "Объект не является предметом залога и не сдан в долгосрочную аренду"
+    patterns:
+      required:
+        - "(?i)(недвижимост|квартир|земельн.*участ|здани|сооружен|кадастров|государственн.*регистрац|егрн|росреестр)"
+      optional:
+        - "(?i)(кадастровый.*номер|егрн|росреестр|объект.*недвижимости|право.*собственности|обременен|ограничен|ипотек|задаток|аванс|обеспечительн|эскроу|аккредитив|уступк|перевод\\s+долга|страхован|запрет\\s+регистрационн|арест|кадастров(ая|ой)\\s+стоим|конфиденц|неразглаш|техническ.*документ|проектн.*документ|разрешен.*ввод)"
+    exclusion_logic:
+      - condition: "agricultural_land_keywords AND foreign_buyer_keywords"
+        target: "rejection"
+        confidence: 0.95
+        description: "Иностранцы не могут приобретать сельскохозяйственные земли по ФЗ-101"
+      - condition: "border_zone_keywords AND foreign_buyer_keywords"
+        target: "rejection"
+        confidence: 0.90
+        description: "Иностранцы не могут приобретать земли в приграничных зонах по ст. 15 ЗК РФ"
+    weights:
+      keyword_high: 3.5
+      keyword_medium: 1.5
+      keyword_low: 0.5
+      phrase_high: 3.0
+      phrase_medium: 1.5
+      pattern_required: 4.5
+      pattern_optional: 1.0
+    classification:
+      min_confidence: 0.80
+      max_matches: 3
+
+    party_roles:
+      - "Продавец (Seller) — собственник недвижимого имущества"
+      - "Покупатель (Buyer) — приобретатель права собственности на недвижимость"
+    essential_terms:
+      - "Данные, позволяющие определенно установить недвижимое имущество (кадастровый номер, адрес, площадь)"
+      - "Цена недвижимости (существенное условие по ст. 555 ГК РФ)"
+      - "Перечень лиц, сохраняющих право пользования (для жилых помещений по ст. 558 ГК РФ)"
+    aliases:
+      - "Продажа недвижимости"
+      - "ДКП недвижимости"
+      - "Договор отчуждения недвижимости"
+      - "Договор купли-продажи квартиры"
+      - "Договор купли-продажи земельного участка"
+      - "Договор купли-продажи здания"
+      - "Договор купли-продажи доли квартиры"
+    section_markers:
+      - "Предмет договора"
+      - "Цена и порядок расчетов"
+      - "Обеспечение исполнения обязательств (задаток/обеспечительный платеж)"
+      - "Сроки и порядок передачи"
+      - "Передача недвижимости и передаточный акт"
+      - "Гарантии/заверения продавца"
+      - "Обременения, аренда, права третьих лиц"
+      - "Запреты/аресты/ограничения регистрационных действий"
+      - "Порядок регистрации перехода права"
+      - "Условия (приостановки/отказа) регистрации"
+      - "Риск случайной гибели/повреждения; страхование"
+      - "Уступка прав и обязанностей"
+      - "Конфиденциальность/неразглашение"
+      - "Техническая/проектная/разрешительная документация"
+      - "Ответственность и неустойка"
+      - "Расторжение договора"
+      - "Разрешение споров"
+      - "Заключительные положения"
+
+  metadata:
+    validation_version: "3.2"
+    last_updated: "2026-02-17"
+    author: "Legal AI Team"
+
+    severity_scale:
+      critical: {score: 100, color: "red"}
+      high:     {score: 70,  color: "red"}
+      medium:   {score: 40,  color: "yellow"}
+      low:      {score: 10,  color: "green"}
+      info:     {score: 0,   color: "green"}
+
+    evidence:
+      require_pinpoint: true
+      snippet_max_chars: 480
+      require_quote_if_fail: true
+
+    formats:
+      enums:
+        pass_fail_unclear_na: ["pass", "fail", "unclear", "not_applicable"]
+        risk_color: ["red", "yellow", "green"]
+        payment_method:
+          ["escrow", "accreditive", "bank_cell", "cashless_transfer",
+           "cash", "mixed", "other", "not_found"]
+        deposit_type:
+          ["advance", "deposit_zadatok", "security_payment", "other", "not_found"]
+        property_kind:
+          ["residential", "non_residential", "land_plot", "building", "share_in_right", "unknown"]
+        assignment_restriction:
+          ["prohibited", "allowed_with_consent", "allowed", "unclear", "not_found"]
+        insurance_required:
+          ["yes", "no", "unclear", "not_found"]
+      patterns:
+        cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+
+    legal_base:
+      primary:
+        - "§ 7 Главы 30 ГК РФ (ст. 549-558)"
+      secondary:
+        - "ФЗ от 13.07.2015 № 218-ФЗ «О государственной регистрации недвижимости»"
+        - "ст. 131 ГК РФ (госрегистрация прав)"
+        - "ст. 550 ГК РФ (форма договора продажи недвижимости)"
+        - "ст. 459 ГК РФ (переход риска — по применимости)"
+        - "ст. 380-381 ГК РФ (задаток)"
+        - "ст. 381.1-381.2 ГК РФ (обеспечительный платеж)"
+        - "ст. 250 ГК РФ (преимущественное право покупки доли)"
+        - "ст. 453 ГК РФ (последствия расторжения)"
+        - "ст. 421 ГК РФ (свобода договора — для конфиденциальности/ковенантов)"
+      related:
+        - "СК РФ ст. 35 (согласие супруга)"
+        - "ЖК РФ (МКД/общее имущество/перепланировка — по применимости)"
+        - "ЗК РФ (земельные участки/ВРИ — по применимости)"
+        - "ФЗ № 101-ФЗ (оборот сельхозземель)"
+        - "ст. 15 ЗК РФ (приграничные зоны — по применимости)"
+        - "ФЗ № 73-ФЗ (культурное наследие — по применимости)"
+  
+  # ──────────────────────────────────────────────────────────
+  # ESSENTIAL ELEMENTS
+  # ──────────────────────────────────────────────────────────
+  
+  essential_elements:
+    - element: "parties"
+      required: true
+      legal_base: "ст. 432, 549 ГК РФ"
+      validation_rules: ["presence_check", "legal_capacity_indicators"]
+      extraction_hints:
+        outputs:
+          - {field: "seller_name",  format: "string_or_not_found"}
+          - {field: "buyer_name",   format: "string_or_not_found"}
+          - {field: "seller_type",  format: "enum(legal_entity/individual/unclear)"}
+          - {field: "buyer_type",   format: "enum(legal_entity/individual/unclear)"}
+
+    - element: "subject"
+      required: true
+      legal_base: "ст. 554 ГК РФ"
+      validation_rules: ["presence_check", "definiteness_check"]
+      conditional_checks:
+        - trigger: "real_estate_keywords"
+          keywords: ["недвижимость", "квартира", "участок", "здание", "сооружение", "помещение"]
+          rule: "cadastral_number_required"
+          legal_base: "ст. 554 ГК РФ, ФЗ-218"
+          severity: "critical"
+          validation_rules: ["cadastral_number_check", "address_specified", "area_specified"]
+      extraction_hints:
+        outputs:
+          - {field: "property_kind",
+             format: "enum(residential/non_residential/land_plot/building/share_in_right/unknown)"}
+          - {field: "cadastral_number",
+             format: "regex_or_not_found:validation_engine_v3_2.metadata.formats.patterns.cadastral_number"}
+          - {field: "address", format: "string_or_not_found"}
+          - {field: "area",    format: "string_or_not_found"}
+
+    - element: "price"
+      required: true
+      legal_base: "ст. 555 ГК РФ"
+      validation_rules: ["presence_check", "amount_specified"]
+      extraction_hints:
+        outputs:
+          - {field: "price_amount",       format: "money_or_not_found"}
+          - {field: "price_includes_vat", format: "enum(yes/no/unclear/not_applicable)"}
+
+    - element: "residents_list"
+      required: false
+      legal_base: "ст. 558 ГК РФ"
+      validation_rules: ["residents_clause_check"]
+      conditional_checks:
+        - trigger: "residential_property"
+          keywords: ["квартира", "жилой дом", "комната", "жилое помещение"]
+          rule: "residents_list_required"
+          legal_base: "ст. 558 ГК РФ"
+          severity: "critical"
+      extraction_hints:
+        outputs:
+          - {field: "residents_list_status",
+             format: "enum(listed/explicitly_none/not_found/not_applicable)"}
+
+    - element: "governing_law_forum"
+      required: false
+      legal_base: "ГК РФ (общие положения)"
+      severity_if_missing: "medium"
+      validation_rules: ["presence_check_optional"]
+      extraction_hints:
+        outputs:
+          - {field: "governing_law", format: "string_or_not_found"}
+          - {field: "dispute_forum", format: "string_or_not_found"}
+
+    - element: "registration_mechanics"
+      required: false
+      legal_base: "ФЗ-218, ст. 131 ГК РФ"
+      severity_if_missing: "high"
+      validation_rules: ["presence_check_optional", "procedure_clarity_check"]
+
+  # ──────────────────────────────────────────────────────────
+  # TRANSACTION MECHANICS (top teams)
+  # ──────────────────────────────────────────────────────────
+  transaction_mechanics_clauses:
+
+    both_parties:
+      - clause_id: "closing_date_long_stop"
+        name: "Срок(и) закрытия и дедлайн (long stop) / сроки подачи на регистрацию"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["не позднее", "в течение", "срок", "дата", "подать на регистрацию", "регистрация перехода права"]
+          context_patterns:
+            - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч)"
+            - "(?i)под(ать|ача).*регистрац"
+
+      - clause_id: "conditions_precedent_list"
+        name: "Явный список условий (CP) и порядок подтверждения их выполнения"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["условие", "при условии", "после предоставления", "после получения", "до регистрации"]
+          context_patterns:
+            - "(?i)(при\\s+условии|до\\s+регистрац|после\\s+предоставлен)"
+
+      - clause_id: "deliverables_closing_package"
+        name: "Пакет документов на закрытие (deliverables) + кто предоставляет"
+        legal_base: "ФЗ-218 (процедуры), ГК РФ (общие положения)"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords:
+            - "перечень документов"
+            - "приложение"
+            - "выписка ЕГРН"
+            - "согласие"
+            - "доверенность"
+            - "передаточный акт"
+            - "техническая документация"
+            - "проектная документация"
+            - "разрешение на ввод"
+            - "разрешение на строительство"
+          context_patterns:
+            - "(?i)переч(ень|ня)\\s+документ"
+            - "(?i)техническ(ая|ой)\\s+документ"
+            - "(?i)разрешени(е|я)\\s+на\\s+(ввод|строительств)"
+
+      - clause_id: "termination_and_consequences"
+        name: "Расторжение: основания, порядок, последствия (включая возврат денег/депозита)"
+        legal_base: "ст. 453 ГК РФ"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["расторжение", "отказ от договора", "возврат денежных средств", "неустойка", "штраф", "задаток", "обеспечительный платеж"]
+          context_patterns:
+            - "(?i)расторж(ение|ении)"
+            - "(?i)возврат.*денежн"
+
+      - clause_id: "assignment_restriction"
+        name: "Уступка прав/перевод долга: запрет или требование согласия другой стороны"
+        legal_base: "ГК РФ (уступка/перевод долга — по применимости)"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["уступка", "уступить", "переуступка", "перевод долга", "без согласия", "с согласия"]
+          context_patterns:
+            - "(?i)уступк(а|и).*без\\s+соглас"
+            - "(?i)перевод\\s+долга"
+        extraction_hints:
+          outputs:
+            - {field: "assignment_restriction", format: "enum(prohibited/allowed_with_consent/allowed/unclear/not_found)"}
+
+      - clause_id: "confidentiality"
+        name: "Конфиденциальность/неразглашение условий сделки"
+        risk_if_missing: |
+          Для крупных сделок отсутствие конфиденциальности повышает репутационные/коммерческие риски
+          (утечки цены/условий/персональных данных и т.п.).
+        legal_base: "ст. 421 ГК РФ (свобода договора)"
+        severity: "low"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["конфиденциальность", "неразглашение", "коммерческая тайна", "не раскрывать третьим лицам"]
+          context_patterns:
+            - "(?i)конфиденциал"
+            - "(?i)не\\s+разглаш"
+
+      - clause_id: "notices_and_communications"
+        name: "Уведомления: адреса, способ, сроки, 'считается полученным'"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["уведомление", "адрес для корреспонденции", "электронной почтой", "курьер", "считается полученным"]
+          context_patterns:
+            - "(?i)считается\\s+полученн"
+
+      - clause_id: "force_majeure"
+        name: "Форс-мажор"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "low"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["форс-мажор", "непреодолимая сила"]
+          context_patterns:
+            - "(?i)непреодолим(ая|ой)\\s+сил"
+
+    buyer_protection:
+      - clause_id: "deposit_advance_security_payment"
+        name: "Депозит/аванс/задаток/обеспечительный платеж: вид, сумма, условия возврата"
+        legal_base: "ст. 380-381, 381.1-381.2 ГК РФ"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["аванс", "задаток", "обеспечительный платеж", "возврат", "удержание"]
+          context_patterns:
+            - "(?i)\\b(аванс|задаток|обеспечительн(ый|ого)\\s+платеж)\\b"
+        extraction_hints:
+          outputs:
+            - {field: "deposit_type", format: "enum(advance/deposit_zadatok/security_payment/other/not_found)"}
+            - {field: "deposit_amount", format: "money_or_not_found"}
+            - {field: "deposit_refund_rule", format: "short_text_or_not_found"}
+
+      - clause_id: "risk_of_loss_before_registration"
+        name: "Риск случайной гибели/повреждения до регистрации перехода права"
+        legal_base: "ст. 459 ГК РФ (по применимости)"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["риск случайной гибели", "риск случайного повреждения", "несет риск", "до регистрации"]
+          context_patterns:
+            - "(?i)риск\\s+случайн(ой|ого)\\s+(гибел|поврежден)"
+
+      - clause_id: "insurance_before_registration"
+        name: "Страхование объекта до регистрации/передачи"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["страхование", "страховой полис", "страховая сумма", "выгодоприобретатель"]
+          context_patterns:
+            - "(?i)страхов(ание|ой\\s+полис)"
+        extraction_hints:
+          outputs:
+            - {field: "insurance_required", format: "enum(yes/no/unclear/not_found)"}
+            - {field: "insurance_payer", format: "string_or_not_found"}
+
+      - clause_id: "possession_vacant_delivery"
+        name: "Фактическая передача/освобождение/снятие с регистрации и сроки"
+        legal_base: "ст. 556 ГК РФ + ЖК РФ (по применимости)"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["освободить", "снятие с регистрационного учета", "передача ключей", "передаточный акт", "выселение"]
+          context_patterns:
+            - "(?i)снят(ие|ь)\\s+с\\s+регистрац"
+            - "(?i)передач(а|и)\\s+ключ"
+
+      - clause_id: "prorations_settlements"
+        name: "Пропорции/расчеты по расходам (налоги/коммунальные/аренда)"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["пропорционально", "показания счетчиков", "налоги", "коммунальные", "перерасчет", "арендная плата"]
+          context_patterns:
+            - "(?i)показан(ия|ий)\\s+счетчик"
+            - "(?i)пропорциональн"
+
+      - clause_id: "defects_condition_disclosure"
+        name: "Состояние объекта/скрытые недостатки/как есть/as is"
+        legal_base: "ГК РФ (общие положения купли-продажи)"
+        severity: "medium"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["скрытые недостатки", "как есть", "as is", "состояние объекта", "технический план", "БТИ", "перепланировка"]
+          context_patterns:
+            - "(?i)скрыт(ые|ых)\\s+недостатк"
+            - "(?i)как\\s+есть|as\\s+is"
+
+    seller_protection:
+      - clause_id: "buyer_payment_default_remedies"
+        name: "Просрочка оплаты покупателем: remedies"
+        legal_base: "ГК РФ (общие положения) + ст. 380-381 ГК РФ (если задаток)"
+        severity: "medium"
+        affected_party: "seller"
+        detection:
+          positive_keywords: ["просрочка оплаты", "пеня", "неустойка", "штраф", "удержание", "задаток", "расторжение"]
+          context_patterns:
+            - "(?i)просрочк.*оплат"
+            - "(?i)пен(я|и)|неустойк"
+
+      - clause_id: "no_change_of_land_purpose_without_consent"
+        name: "Запрет изменения категории/ВРИ/целевого назначения без согласия продавца (для земли)"
+        risk_if_missing: |
+          Иногда продавцу важно, чтобы покупатель не менял категорию/ВРИ (например, при сохранении определенного статуса/обязательств).
+          Это ковенант, чаще всего актуален для земельных участков.
+        legal_base: "ст. 421 ГК РФ (свобода договора) + ЗК РФ (по применимости)"
+        severity: "low"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "не изменять"
+            - "вид разрешенного использования"
+            - "категория земель"
+            - "целевое назначение"
+            - "без согласия продавца"
+          context_patterns:
+            - "(?i)не\\s+измен(ять|яет).*?(вид\\s+разрешенн|ВРИ|категор|целев)"
+            - "(?i)без\\s+согласия\\s+продавц"
+        conditional_checks:
+          - trigger: "land_plot_sale"
+            keywords: ["земельный участок", "категория земель", "вид разрешенного использования", "ВРИ"]
+            rule: "seller_land_use_change_restriction_applicable"
+            severity: "low"
+
+  # ──────────────────────────────────────────────────────────
+  # PROTECTIVE CLAUSES (базовые “гарантии”)
+  # ──────────────────────────────────────────────────────────
+  protective_clauses:
+    buyer_protection:
+      - clause_id: "encumbrances_warranty"
+        name: "Гарантия отсутствия обременений и прав третьих лиц"
+        legal_base: "ст. 460, 556 ГК РФ"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["не обременен", "отсутствие обременений", "не заложен", "не находится под арестом", "свободен от прав третьих лиц", "не сдан в аренду"]
+          context_patterns:
+            - "(?i)продавец.*гарантирует.*отсутствие.*обременений"
+
+      - clause_id: "rosreestr_bans_arrests_absence"
+        name: "Отсутствие арестов/запретов/ограничений регистрационных действий (прямое указание)"
+        risk_if_missing: |
+          Даже при общей гарантии обременений полезно иметь отдельное заверение про отсутствие арестов/запретов/ограничений
+          (часто критично для регистрации и сроков закрытия).
+        legal_base: "ФЗ-218 (ограничения/записи ЕГРН — по применимости)"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "запрет регистрационных действий"
+            - "ограничение регистрационных действий"
+            - "арест"
+            - "запрет"
+            - "отсутствуют ограничения"
+            - "в ЕГРН отсутствуют записи"
+          context_patterns:
+            - "(?i)запрет\\s+регистрационн"
+            - "(?i)арест"
+            - "(?i)в\\s+ЕГРН\\s+отсутств(уют|ует)\\s+(запис|сведения)"
+
+      - clause_id: "foreign_ownership_restrictions"
+        name: "Ограничения для иностранных покупателей (сельхоз/приграничные зоны)"
+        legal_base: "ФЗ-101, ст. 15 ЗК РФ"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["ограничения для иностранцев", "приграничная", "сельскохозяйственного назначения", "нерезидент"]
+          context_patterns:
+            - "(?i)иностранн|нерезидент"
+
+      - clause_id: "heritage_and_protection_zones"
+        name: "ОКН/ЗОУИТ/СЗЗ и прочие ограничительные зоны"
+        legal_base: "ФЗ-73, ГрК РФ, ФЗ-218 (по применимости)"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["ОКН", "культурное наследие", "ЗОУИТ", "зона с особыми условиями", "СЗЗ", "охранная зона"]
+          context_patterns:
+            - "(?i)культурн(ого)?\\s+наслед"
+            - "(?i)ЗОУИТ|СЗЗ|охранн(ая|ой)\\s+зон"
+
+    seller_protection:
+      - clause_id: "payment_security"
+        name: "Безопасные расчеты (аккредитив/эскроу/ячейка)"
+        legal_base: "ст. 860.7, 867 ГК РФ"
+        severity: "high"
+        affected_party: "seller"
+        detection:
+          positive_keywords: ["аккредитив", "эскроу", "банковская ячейка", "депозит нотариуса"]
+          context_patterns:
+            - "(?i)аккредитив|эскроу|ячейк"
+
+      - clause_id: "retention_of_ownership"
+        name: "Залог/ипотека в силу закона при рассрочке — не отменять"
+        legal_base: "ст. 488 ГК РФ (по применимости)"
+        severity: "high"
+        affected_party: "seller"
+        detection:
+          positive_keywords: ["ипотека в силу закона", "в залоге у продавца", "до полной оплаты"]
+          negative_keywords: ["ипотека в силу закона не возникает", "залог не возникает", "право залога не применяется"]
+          context_patterns:
+            - "(?i)ипотек.*в\\s+силу\\s+закона"
+
+      - clause_id: "transfer_act"
+        name: "Передаточный акт"
+        legal_base: "ст. 556 ГК РФ"
+        severity: "medium"
+        affected_party: "seller"
+        detection:
+          positive_keywords: ["передаточный акт", "акт приема-передачи", "передача ключей"]
+          context_patterns:
+            - "(?i)акт\\s+(приема|передач)"
+
+  # ──────────────────────────────────────────────────────────
+  # ADDITIONAL PROTECTIVE CLAUSES (max)
+  # ──────────────────────────────────────────────────────────
+
+  additional_protective_clauses:
+    buyer_protection:
+      - clause_id: "corporate_approval_check"
+        name: "Корпоративные одобрения (крупная сделка/заинтересованность)"
+        legal_base: "ФЗ-14/ФЗ-208 (по применимости)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["одобрение крупной сделки", "решение общего собрания", "заинтересованность"]
+          context_patterns:
+            - "(?i)одобрен(ие|а).*крупн"
+
+      - clause_id: "marital_status_and_spousal_consent"
+        name: "Согласие супруга / раскрытие семейного положения"
+        legal_base: "СК РФ ст. 35"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["согласие супруга", "нотариальное согласие", "не состоит в браке", "брачный договор"]
+          context_patterns:
+            - "(?i)согласие\\s+супруг"
+
+      - clause_id: "guardianship_consent"
+        name: "Опека/несовершеннолетние: разрешение органа опеки"
+        legal_base: "ст. 292 ГК РФ, ФЗ-48 (по применимости)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["согласие органа опеки", "разрешение опеки", "несовершеннолетн", "недееспособн", "отсутствие несовершеннолетних"]
+          context_patterns:
+            - "(?i)орган(а|ов)\\s+опек"
+
+      - clause_id: "co_owners_preemptive_right_waiver_or_proof"
+        name: "Долевая собственность: соблюдение преимущественного права покупки (общая проверка)"
+        legal_base: "ст. 250 ГК РФ"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["преимущественное право покупки", "уведомление сособственников", "отказ от преимущественного права", "сособственник", "доля"]
+          context_patterns:
+            - "(?i)преимущест(венное|во)\\s+право\\s+покупк"
+
+      - clause_id: "co_owner_notification_mechanism"
+        name: "Долевая собственность: механизм уведомления сособственников (цена+условия) и подтверждение отправки"
+        risk_if_missing: |
+          Топ-практика по долям — не только “упомянуть ст. 250”, но и закрепить/подтвердить:
+          - что сособственники уведомлены о цене и условиях,
+          - каким способом (нотариус/заказное письмо),
+          - и что есть доказательство отправки/получения/истечения срока.
+        legal_base: "ст. 250 ГК РФ"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "уведомление сособственников"
+            - "предложение купить долю"
+            - "по цене"
+            - "на условиях"
+            - "заказным письмом"
+            - "нотариальное уведомление"
+            - "почтовая квитанция"
+            - "опись вложения"
+            - "подтверждение отправки"
+          context_patterns:
+            - "(?i)уведомлен(ие|ия).*сособственник"
+            - "(?i)по\\s+цене\\s+.*на\\s+услови"
+            - "(?i)заказн(ым|ое)\\s+письм|нотариальн.*уведомлен"
+        conditional_checks:
+          - trigger: "share_in_right_sale"
+            keywords: ["доля в праве", "долевая собственность", "сособственник", "преимущественное право"]
+            rule: "co_owner_notification_mechanism_required"
+            severity: "critical"
+
+      - clause_id: "notary_requirement_for_share_sale"
+        name: "Нотариальное удостоверение (для долей/иных случаев — если применимо)"
+        legal_base: "ГК РФ (форма сделки) + спец.нормы (по применимости)"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["нотариус", "нотариальное удостоверение", "удостоверено нотариусом"]
+          context_patterns:
+            - "(?i)нотариальн(ое|ым)\\s+удостоверен"
+
+      - clause_id: "long_term_lease_check"
+        name: "Аренда: отсутствие/раскрытие действующих договоров аренды и условий"
+        legal_base: "ст. 617 ГК РФ (по применимости)"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["аренда", "арендатор", "договор аренды", "срок аренды", "не сдан в аренду"]
+          context_patterns:
+            - "(?i)договор\\s+аренд"
+
+      - clause_id: "mortgage_and_pledge_clearance"
+        name: "Ипотека/залог: подтверждение отсутствия или порядок снятия обременения"
+        legal_base: "ГК РФ (залог) + ФЗ-218 (обременения)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["ипотека", "залог", "залогодержатель", "снятие обременения", "погашена", "закладная"]
+          context_patterns:
+            - "(?i)ипотек|залогодержател|снят(ие|ь)\\s+обременен"
+
+      - clause_id: "mortgagee_consent_mechanism"
+        name: "Если есть ипотека: согласие залогодержателя и механизм продажи до погашения"
+        legal_base: "ГК РФ (залог/ипотека) + ФЗ-218"
+        severity: "critical"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["согласие залогодержателя", "согласие банка", "погашение кредита", "снятие ипотеки", "закладная"]
+          context_patterns:
+            - "(?i)согласие\\s+(банка|залогодержател)"
+            - "(?i)погашен(ие|а)\\s+кредит"
+        conditional_checks:
+          - trigger: "mortgage_related"
+            keywords: ["ипотека", "залог", "залогодержатель", "закладная", "обременение в пользу"]
+            rule: "mortgagee_consent_required_if_mortgage_present"
+            severity: "critical"
+
+      - clause_id: "technical_documentation_transfer"
+        name: "Передача технической/проектной/разрешительной документации (для зданий/сооружений)"
+        risk_if_missing: |
+          Для зданий и сооружений важно закрепить передачу техдоков (техплан, проектная документация, разрешения, ввод в эксплуатацию),
+          иначе покупатель может столкнуться с невозможностью реконструкции/эксплуатации/регистрационных действий.
+        legal_base: "ГК РФ (исполнение обязательств) + ГрК РФ/ЖК РФ (по применимости)"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "техническая документация"
+            - "проектная документация"
+            - "разрешение на строительство"
+            - "разрешение на ввод"
+            - "исполнительная документация"
+            - "технический план"
+            - "паспорт объекта"
+          context_patterns:
+            - "(?i)техническ(ая|ой)\\s+документ"
+            - "(?i)проектн(ая|ой)\\s+документ"
+            - "(?i)разрешени(е|я)\\s+на\\s+(строительств|ввод)"
+        conditional_checks:
+          - trigger: "building_sale"
+            keywords: ["здание", "сооружение", "строение", "нежилое помещение"]
+            rule: "tech_docs_transfer_required_for_buildings"
+            severity: "high"
+
+      - clause_id: "utilities_and_servitudes"
+        name: "Коммуникации/сервитуты"
+        legal_base: "ст. 274 ГК РФ + ФЗ-218"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["инженерные коммуникации", "сервитут", "охранная зона", "ЛЭП", "трубопровод"]
+          context_patterns:
+            - "(?i)сервитут|охранн(ая|ой)\\s+зон"
+
+      - clause_id: "sanitary_and_security_zones"
+        name: "СЗЗ/ЗОУИТ/охранные зоны"
+        legal_base: "ФЗ-52, ГрК РФ, ФЗ-218 (по применимости)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["СЗЗ", "санитарно-защитная зона", "ЗОУИТ", "зона с особыми условиями", "охранная зона"]
+          context_patterns:
+            - "(?i)санитарно\\s*[- ]?защитн|ЗОУИТ|СЗЗ"
+
+      - clause_id: "ecological_condition"
+        name: "Экологическое состояние"
+        legal_base: "ФЗ-7, ФЗ-89 (по применимости)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["экологическое состояние", "экоаудит", "загрязнение", "свалка", "захоронение отходов"]
+          context_patterns:
+            - "(?i)экологическ|свалк|захоронен|загрязнен"
+
+      - clause_id: "seller_title_and_egrn_extract"
+        name: "Титул продавца + актуальная выписка ЕГРН/правоустанавливающие документы"
+        legal_base: "ФЗ-218"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["выписка из ЕГРН", "правоустанавливающ", "правоподтверждающ", "запись ЕГРН"]
+          context_patterns:
+            - "(?i)выписк(а|у)\\s+из\\s+ЕГРН"
+
+      - clause_id: "cadastral_value_reference"
+        name: "Кадастровая стоимость (указание/ссылка) и/или налоговая оговорка"
+        risk_if_missing: |
+          Не всегда обязательно, но для части клиентов важно: указать/сверить кадастровую стоимость или
+          закрепить, что стороны понимают налоговые последствия (особенно при сильном расхождении цены и кадастровой).
+        legal_base: "НК РФ/ФЗ-237 (о кадастровой оценке) — по применимости"
+        severity: "low"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["кадастровая стоимость", "кадастровой стоимости", "по состоянию на", "кадастровая оценка"]
+          context_patterns:
+            - "(?i)кадастров(ая|ой)\\s+стоим"
+
+      - clause_id: "registration_refusal_remedy"
+        name: "Приостановка/отказ в регистрации: кто исправляет, сроки, возврат денег, расторжение"
+        legal_base: "ФЗ-218 + ст. 453 ГК РФ"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["приостановка регистрации", "отказ в регистрации", "устранение причин", "возврат денежных средств", "расторжение"]
+          context_patterns:
+            - "(?i)(отказ|приостановк).*регистрац"
+
+      - clause_id: "payment_schedule_and_conditions"
+        name: "Порядок оплаты: сроки, условия выдачи денег, реквизиты"
+        legal_base: "ГК РФ (общие положения)"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["оплата", "срок оплаты", "после регистрации", "после подписания акта", "условие выдачи", "банковские реквизиты"]
+          context_patterns:
+            - "(?i)оплат(а|ы).*?(после|при\\s+условии)"
+
+      - clause_id: "vat_and_tax_allocation"
+        name: "НДС/налоги/распределение расходов и сборов"
+        legal_base: "НК РФ (по применимости) + ГК РФ"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords: ["НДС", "в том числе НДС", "без НДС", "налог", "госпошлина", "расходы"]
+          context_patterns:
+            - "(?i)\\bНДС\\b|госпошлин"
+
+      - clause_id: "utility_debts_and_charges"
+        name: "Задолженность по ЖКУ/эксплуатации/налогам; порядок сверки"
+        legal_base: "ЖК РФ/НК РФ (по применимости)"
+        severity: "medium"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["отсутствие задолженности", "справка", "коммунальные", "эксплуатационные", "налог на имущество", "капитальный ремонт"]
+          context_patterns:
+            - "(?i)отсутств(ует|уют).*задолженн"
+
+      - clause_id: "unauthorized_redevelopment"
+        name: "Перепланировка/реконструкция: согласована/узаконена"
+        legal_base: "ЖК РФ/ГрК РФ (по применимости)"
+        severity: "medium"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["перепланировка", "реконструкция", "согласована", "узаконена", "разрешение"]
+          context_patterns:
+            - "(?i)перепланировк|реконструкц"
+
+      - clause_id: "land_building_unity"
+        name: "Единство судьбы земли и строения (если продается здание)"
+        legal_base: "ст. 552 ГК РФ, ст. 35 ЗК РФ (по применимости)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["вместе с земельным участком", "право аренды земельного участка", "переходит вместе со зданием", "права на землю"]
+          context_patterns:
+            - "(?i)земельн.*участ.*(переходит|передается).*вместе"
+
+      - clause_id: "permitted_use_and_intended_use_fit"
+        name: "ВРИ/категория земель: соответствие целям покупателя (если продается участок)"
+        legal_base: "ЗК РФ + градостроительные регламенты (по применимости)"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["категория земель", "разрешенное использование", "ВРИ", "вид разрешенного использования"]
+          context_patterns:
+            - "(?i)разрешенн(ое|ого)\\s+использован|вид\\s+разрешенн(ого|ое)\\s+использован|\\bВРИ\\b"
+        conditional_checks:
+          - trigger: "land_plot_sale"
+            keywords: ["земельный участок", "категория земель", "разрешенное использование", "ВРИ"]
+            rule: "vri_required_for_land_plot"
+            severity: "high"
+        extraction_hints:
+          outputs:
+            - {field: "land_category", format: "string_or_not_found"}
+            - {field: "permitted_use_vri", format: "string_or_not_found"}
+
+      - clause_id: "mcd_common_property_approval"
+        name: "Общее имущество МКД: решение общего собрания/протокол"
+        legal_base: "ЖК РФ (по применимости)"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords: ["общее имущество", "общедомовое имущество", "общее собрание собственников", "протокол общего собрания", "чердак", "подвал"]
+          context_patterns:
+            - "(?i)протокол\\s+общ(его|его\\s+собрания)\\s+собственник"
+        conditional_checks:
+          - trigger: "mcd_common_property_sale"
+            keywords: ["общее имущество", "подвал", "чердак", "общедомовое имущество"]
+            rule: "mcd_approval_required"
+            severity: "critical"
+
+    seller_protection:
+      - clause_id: "allocation_of_fees"
+        name: "Расходы/пошлины/нотариат/регистрация: кто платит"
+        legal_base: "ФЗ-218 (процедуры) + ГК РФ"
+        severity: "medium"
+        affected_party: "seller"
+        detection:
+          positive_keywords: ["расходы", "госпошлина", "нотариальные расходы", "расходы по регистрации", "оплачивает"]
+          context_patterns:
+            - "(?i)расход(ы|ов).*по\\s+регистрац"
+
+  # ──────────────────────────────────────────────────────────
+  # OUTPUTS
+  # ──────────────────────────────────────────────────────────
+  
+  outputs:
+    dd_grid:
+      column_convention:
+        per_check_columns: ["status", "value", "evidence", "severity"]
+        status_values: "pass_fail_unclear_na"
+        evidence_required: true
+
+      profiles:
+        core:
+          include_sections:
+            - "essential_elements"
+            - "transaction_mechanics_clauses"
+            - "protective_clauses"
+            - "additional_protective_clauses"
+          include_checks:
+            - "additional_protective_clauses.buyer_protection.seller_title_and_egrn_extract"
+            - "protective_clauses.buyer_protection.encumbrances_warranty"
+            - "protective_clauses.buyer_protection.rosreestr_bans_arrests_absence"
+            - "protective_clauses.seller_protection.payment_security"
+            - "transaction_mechanics_clauses.both_parties.termination_and_consequences"
+            - "transaction_mechanics_clauses.buyer_protection.possession_vacant_delivery"
+            - "risk.summary"
+
+        full:
+          include_sections:
+            - "essential_elements"
+            - "transaction_mechanics_clauses"
+            - "protective_clauses"
+            - "additional_protective_clauses"
+          add_management_columns:
+            - "risk.summary"
+            - "issues.count_red"
+            - "issues.count_yellow"
+            - "next_steps.request_list"
+            - "qc.status"
+            - "qc.owner"
+
+        max:
+          include_sections:
+            - "essential_elements"
+            - "transaction_mechanics_clauses"
+            - "protective_clauses"
+            - "additional_protective_clauses"
+          add_columns:
+            - "risk.summary"
+            - "risk.max_severity"
+            - "risk.override_color"
+            - "risk.override_reason"
+            - "issues.top_5"
+            - "next_steps.request_list"
+            - "next_steps.recommended_edits"
+            - "qc.status"
+            - "qc.owner"
+            - "qc.partner_approved"
+          enforce:
+            evidence_required_for_fail: true
+            evidence_required_for_critical: true
+
+      client_output_overrides:
+        enabled: true
+        fields:
+          - key: "client.name"
+          - key: "client.report_title"
+          - key: "client.brand.logo_asset_id"
+          - key: "client.brand.primary_color"
+          - key: "client.format.date"
+          - key: "client.format.money"
+        defaults:
+          client.format.date: "DD.MM.YYYY"
+          client.format.money: "ru_RU"
+
+    # Executive summary (для руководства)
+    executive_summary:
+      enabled: true
+      format: "markdown"            # можно потом рендерить в docx/pdf
+      sections:
+        - id: "summary.header"
+          title: "Краткое резюме"
+          include_fields: ["risk.summary", "risk.max_severity", "doc_id", "file_name"]
+        - id: "summary.key_findings"
+          title: "Ключевые выводы (Top-5)"
+          include_fields: ["issues.top_5"]
+        - id: "summary.red_flags"
+          title: "Красные флаги"
+          include_fields: ["issues.red_list"]
+        - id: "summary.yellow_flags"
+          title: "Жёлтые флаги"
+          include_fields: ["issues.yellow_list"]
+        - id: "summary.dd_requests"
+          title: "Что запросить (DD Requests)"
+          include_fields: ["next_steps.request_list"]
+      color_legend:
+        red: "Критично/Высокий риск"
+        yellow: "Средний риск"
+        green: "Низкий риск/OK"
+
+    risk_aggregation:
+      method: "max_severity"
+      red_if_any: ["critical", "high"]
+      yellow_if_any: ["medium"]
+      green_if_only: ["low", "info"]
+      allow_manual_override: true
+      override_fields: ["risk.override_color", "risk.override_reason"]
+
+    dd_requests:
+      mapping_examples:
+        # ЕГРН/титул/запреты
+        - if_check_fails: "seller_title_and_egrn_extract"
+          request: "Актуальная выписка ЕГРН + правоустанавливающие документы + цепочка переходов (если есть) + подтверждение отсутствия ограничений/обременений"
+        - if_check_fails: "rosreestr_bans_arrests_absence"
+          request: "Выписка ЕГРН с разделом об ограничениях/обременениях + подтверждение отсутствия арестов/запретов регистрационных действий + документы об отмене (если были)"
+        - if_check_fails: "encumbrances_warranty"
+          request: "Письменные заверения продавца об отсутствии прав третьих лиц + выписка ЕГРН + документы о снятии/прекращении обременений (если выявлены)"
+
+        # Доли / уведомления
+        - if_check_fails: "co_owners_preemptive_right_waiver_or_proof"
+          request: "Документы по ст. 250 ГК РФ: уведомления сособственников о цене и условиях + отказы/истечение сроков"
+        - if_check_fails: "co_owner_notification_mechanism"
+          request: "Доказательства уведомления: нотариальные уведомления/заказные письма + опись вложения + квитанции + подтверждение получения/истечения срока"
+
+        # Ипотека
+        - if_check_fails: "mortgage_and_pledge_clearance"
+          request: "Справка/письмо банка о погашении + документы на снятие ипотеки/закладная + подтверждение регистрации снятия в ЕГРН"
+        - if_check_fails: "mortgagee_consent_mechanism"
+          request: "Согласие залогодержателя/банка на сделку + схема погашения кредита/снятия ипотеки (эскроу/аккредитив) + порядок одновременных действий при регистрации"
+
+        # Супруг/опека
+        - if_check_fails: "marital_status_and_spousal_consent"
+          request: "Нотариальное согласие супруга / подтверждение отсутствия брака / брачный договор (если есть)"
+        - if_check_fails: "guardianship_consent"
+          request: "Разрешение органа опеки/попечительства + справка о зарегистрированных/проживающих + подтверждение отсутствия нарушений прав несовершеннолетних"
+
+        # Аренда/освобождение
+        - if_check_fails: "long_term_lease_check"
+          request: "Все договоры аренды/найма + допсоглашения + документы о прекращении/расторжении + акт освобождения/передачи"
+        - if_check_fails: "possession_vacant_delivery"
+          request: "Обязательство освободить объект к дате X + порядок снятия с регистрационного учета + акт передачи ключей/имущества"
+
+        # Зоны/экология/сервитуты
+        - if_check_fails: "sanitary_and_security_zones"
+          request: "Выписка ЕГРН о ЗОУИТ/ограничениях + ПЗЗ/ГПЗУ (если участок) + подтверждение отсутствия СЗЗ/охранных зон"
+        - if_check_fails: "utilities_and_servitudes"
+          request: "Схема коммуникаций + документы о принадлежности сетей + сведения о сервитутах/охранных зонах + согласования ресурсоснабжающих организаций (если есть)"
+        - if_check_fails: "ecological_condition"
+          request: "Отчет экоаудита/обследования (если релевантно) + заверение об отсутствии свалок/захоронений + сведения об объектах накопленного вреда"
+
+        # Техдоки
+        - if_check_fails: "technical_documentation_transfer"
+          request: "Комплект техдоков: техплан/БТИ/проектная/исполнительная документация + разрешение на строительство/ввод (если применимо) + подтверждение передачи по акту"
+
+        # Сделочная механика
+        - if_check_fails: "deposit_advance_security_payment"
+          request: "Четко определить вид платежа (аванс/задаток/обеспечительный) + условия возврата/удержания + сроки возврата + реквизиты"
+        - if_check_fails: "closing_date_long_stop"
+          request: "Согласовать дедлайны: дата/окно закрытия + long stop + сроки подачи на регистрацию + последствия пропуска сроков"
+        - if_check_fails: "conditions_precedent_list"
+          request: "Составить перечень условий закрытия (CP) + ответственных + сроки + доказательства выполнения + порядок waiver"
+        - if_check_fails: "deliverables_closing_package"
+          request: "Составить список deliverables (ЕГРН, согласия, доверенности, акт, справки, техдоки) и закрепить, кто/когда предоставляет"
+        - if_check_fails: "termination_and_consequences"
+          request: "Прописать основания расторжения + последствия (возврат денег/депозита, штрафы, сроки) + порядок уведомлений"
+        - if_check_fails: "assignment_restriction"
+          request: "Добавить запрет уступки/перевода долга без согласия другой стороны либо описать допустимые случаи уступки"
+        - if_check_fails: "insurance_before_registration"
+          request: "Определить обязанность страхования до регистрации/передачи + кто платит + выгодоприобретатель + минимальная страховая сумма"
+
+        # Земля/ВРИ/ограничения продавца
+        - if_check_fails: "permitted_use_and_intended_use_fit"
+          request: "Указать категорию земель и ВРИ + выписка/сведения ЕГРН/ПЗЗ/ГПЗУ + подтверждение соответствия целям покупателя"
+        - if_check_fails: "no_change_of_land_purpose_without_consent"
+          request: "Если ковенант важен: включить запрет менять категорию/ВРИ без согласия продавца + санкции/неустойку за нарушение"
+
+        # Кадастровая стоимость
+        - if_check_fails: "cadastral_value_reference"
+          request: "Сведения о кадастровой стоимости (выписка/справка) + согласование налоговых оговорок (если требуется политикой клиента)"
+
+        # Конфиденциальность
+        - if_check_fails: "confidentiality"
+          request: "Добавить NDA/раздел о конфиденциальности: что является конфиденциальным, срок, исключения, ответственность"
+
+        # МКД общее имущество
+        - if_check_fails: "mcd_common_property_approval"
+          request: "Протокол общего собрания собственников + подтверждение кворума/голосования + правовой режим объекта + согласования (если нужны)"
+
+# Конец файла

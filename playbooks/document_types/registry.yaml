@@ -1,0 +1,312 @@
+# Document Types Registry
+# Используется YAML Registry (src/classifiers/yaml_registry.py) для загрузки всех типов.
+# Classifier L1 (RuleBasedClassifier) читает rules каждого типа при классификации.
+# Это единственный источник правды для типов документов на Этапах 2.5–8.
+version: "1.0"
+version: "1.0"
+
+document_types:
+# Договоры
+  # group_1_ownership
+  - type: "contract_1.1"
+    name: "Договор купли-продажи (общая)"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.2"
+    name: "Розничная купля-продажа"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.3"
+    name: "Договор поставки"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.4"
+    name: "Договор контрактации"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.5"
+    name: "Договор энергоснабжения"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.6_real_estate"
+    name: "Договор купли-продажи недвижимости"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.7"
+    name: "Договор мены (бартер)"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.8"
+    name: "Договор дарения"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.9"
+    name: "Договор ренты"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.10"
+    name: "Договор цессии (уступки права требования)"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.11_shares"
+    name: "Договор купли-продажи корпоративных прав (долей/акций)"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.12"
+    name: "Соглашение об отступном"
+    category: "contract"
+    group: "group_1_ownership"
+
+  - type: "contract_1.13"
+    name: "Договор продажи предприятия"
+    category: "contract"
+    group: "group_1_ownership"
+
+  # group_2_use
+  - type: "contract_2.1"
+    name: "Договор аренды (общая коммерческая)"
+    category: "contract"
+    group: "group_2_use"
+
+  - type: "contract_2.2"
+    name: "Договор проката"
+    category: "contract"
+    group: "group_2_use"
+
+  - type: "contract_2.3"
+    name: "Договор аренды транспортного средства"
+    category: "contract"
+    group: "group_2_use"
+
+  - type: "contract_2.4"
+    name: "Договор лизинга (финансовой аренды)"
+    category: "contract"
+    group: "group_2_use"
+
+  - type: "contract_2.5"
+    name: "Договор найма жилого помещения"
+    category: "contract"
+    group: "group_2_use"
+
+  - type: "contract_2.6"
+    name: "Договор безвозмездного пользования (ссуды)"
+    category: "contract"
+    group: "group_2_use"
+
+  # group_3_works
+  - type: "contract_3.1"
+    name: "Договор подряда (общий)"
+    category: "contract"
+    group: "group_3_works"
+
+  - type: "contract_3.2"
+    name: "Договор бытового подряда"
+    category: "contract"
+    group: "group_3_works"
+
+  - type: "contract_3.3"
+    name: "Договор строительного подряда"
+    category: "contract"
+    group: "group_3_works"
+
+  - type: "contract_3.4"
+    name: "Договор на выполнение проектных и изыскательских работ (ПИР)"
+    category: "contract"
+    group: "group_3_works"
+
+  - type: "contract_3.5"
+    name: "Договор на выполнение НИОКР"
+    category: "contract"
+    group: "group_3_works"
+
+  - type: "contract_3.6"
+    name: "Договор участия в долевом строительстве (ДДУ)"
+    category: "contract"
+    group: "group_3_works"
+
+  # group_4_services
+  - type: "contract_4.1"
+    name: "Договор возмездного оказания услуг"
+    category: "contract"
+    group: "group_4_services"
+
+  - type: "contract_4.2"
+    name: "Договор перевозки груза"
+    category: "contract"
+    group: "group_4_services"
+
+  - type: "contract_4.3"
+    name: "Договор транспортной экспедиции"
+    category: "contract"
+    group: "group_4_services"
+
+  - type: "contract_4.4"
+    name: "Договор хранения"
+    category: "contract"
+    group: "group_4_services"
+
+  - type: "contract_4.5"
+    name: "Договор страхования"
+    category: "contract"
+    group: "group_4_services"
+
+  - type: "contract_4.6"
+    name: "Договор доверительного управления имуществом"
+    category: "contract"
+    group: "group_4_services"
+
+  # group_5_financial
+  - type: "contract_5.1"
+    name: "Договор займа"
+    category: "contract"
+    group: "group_5_financial"
+
+  - type: "contract_5.2"
+    name: "Кредитный договор"
+    category: "contract"
+    group: "group_5_financial"
+
+  - type: "contract_5.3"
+    name: "Договор финансирования под уступку денежного требования (факторинг)"
+    category: "contract"
+    group: "group_5_financial"
+
+  - type: "contract_5.4"
+    name: "Договор банковского вклада (депозита) и банковского счета"
+    category: "contract"
+    group: "group_5_financial"
+
+  - type: "contract_5.5"
+    name: "Договор поручительства / Договор залога"
+    category: "contract"
+    group: "group_5_financial"
+
+  # group_6_intermediary
+  - type: "contract_6.1"
+    name: "Договор поручения"
+    category: "contract"
+    group: "group_6_intermediary"
+
+  - type: "contract_6.2"
+    name: "Договор комиссии"
+    category: "contract"
+    group: "group_6_intermediary"
+
+  - type: "contract_6.3"
+    name: "Агентский договор"
+    category: "contract"
+    group: "group_6_intermediary"
+
+  # group_7_ip
+  - type: "contract_7.1"
+    name: "Договор об отчуждении исключительного права"
+    category: "contract"
+    group: "group_7_ip"
+
+  - type: "contract_7.2_license"
+    name: "Лицензионный договор"
+    category: "contract"
+    group: "group_7_ip"
+
+  - type: "contract_7.3"
+    name: "Договор коммерческой концессии (франчайзинг)"
+    category: "contract"
+    group: "group_7_ip"
+
+  - type: "contract_7.4_nda"
+    name: "Соглашение о неразглашении конфиденциальной информации (NDA)"
+    category: "contract"
+    group: "group_7_ip"
+
+  # group_8_partnership
+  - type: "contract_8.1"
+    name: "Договор простого товарищества (о совместной деятельности)"
+    category: "contract"
+    group: "group_8_partnership"
+
+  # group_9_special
+  - type: "contract_9.1_employment"
+    name: "Трудовой договор"
+    category: "contract"
+    group: "group_9_special"
+
+  - type: "contract_9.2"
+    name: "Коллективный договор"
+    category: "contract"
+    group: "group_9_special"
+
+  - type: "contract_9.3"
+    name: "Брачный договор (брачный контракт)"
+    category: "contract"
+    group: "group_9_special"
+
+  - type: "contract_9.4"
+    name: "Алиментное соглашение (соглашение об уплате алиментов)"
+    category: "contract"
+    group: "group_9_special"
+
+  - type: "contract_9.5"
+    name: "Договор об учреждении общества (Учредительный договор)"
+    category: "contract"
+    group: "group_9_special"
+
+# Счета
+  - type: "invoice_standard"
+    name: "Счёт на оплату"
+    category: "invoice"
+    subcategory: "standard"
+
+  - type: "invoice_proforma"
+    name: "Проформа-счёт"
+    category: "invoice"
+    subcategory: "proforma"
+
+# Акты
+  - type: "act_acceptance_services"
+    name: "Акт приёма-передачи услуг"
+    category: "acceptance_act"
+    subcategory: "services"
+
+  - type: "act_acceptance_goods"
+    name: "Акт приёма-передачи товара"
+    category: "acceptance_act"
+    subcategory: "goods"
+
+# Счета-фактуры
+  - type: "vat_invoice"
+    name: "Счёт-фактура"
+    category: "vat_invoice"
+    subcategory: "standard"
+
+# Соглашения
+  - type: "agreement_settlement"
+    name: "Соглашение о взаимозачёте"
+    category: "agreement"
+    subcategory: "settlement"
+
+  - type: "agreement_additional"
+    name: "Дополнительное соглашение к договору"
+    category: "agreement"
+    subcategory: "addendum"
+
+# Справки
+  - type: "certificate_tax_debt"
+    name: "Справка об отсутствии задолженности по налогам"
+    category: "certificate"
+    subcategory: "tax_debt"
+
+  - type: "certificate_bank"
+    name: "Банковская справка"
+    category: "certificate"
+    subcategory: "bank"

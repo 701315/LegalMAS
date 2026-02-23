@@ -28,6 +28,9 @@ class ResultRepository:
         confidence: float | None = None,
         detector_used: str | None = None,
         quality_flags: dict | None = None,
+        structured_data: dict | None = None,
+        conditional_check_triggered: bool = False,
+        trigger_name: str | None = None,
     ) -> CheckResult:
         """Create a check result."""
         cr = CheckResult(
@@ -42,6 +45,9 @@ class ResultRepository:
             confidence=confidence,
             detector_used=detector_used,
             quality_flags=quality_flags or {},
+            structured_data=structured_data,
+            conditional_check_triggered=conditional_check_triggered,
+            trigger_name=trigger_name,
         )
         self.session.add(cr)
         await self.session.flush()

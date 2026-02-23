@@ -19,7 +19,7 @@ class RunRepository:
         self,
         deal_id: uuid.UUID,
         playbook_version_id: uuid.UUID,
-        model_config_id: uuid.UUID,
+        model_config_id: uuid.UUID | None = None,
         bundle_id: uuid.UUID | None = None,
         environment_hash: str | None = None,
         profile: str = "full",

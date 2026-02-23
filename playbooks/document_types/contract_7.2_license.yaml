@@ -1,0 +1,751 @@
+type: contract_7.2_license
+name: "Лицензионный договор"
+
+description: |
+  Соглашение, по которому правообладатель (лицензиар) предоставляет или обязуется предоставить другой стороне (лицензиату) право использования результата интеллектуальной деятельности или средства индивидуализации в установленных пределах. Исключительное право не отчуждается, лицензиар остается правообладателем. Лицензия бывает исключительной (лицензиар не может выдавать лицензии другим и может быть ограничен в собственном использовании) и неисключительной (простой). Для объектов, подлежащих регистрации (патенты, товарные знаки), договор подлежит государственной регистрации в Роспатенте. Регулируется § 6 Главы 69, § 5 Главы 71 и § 5 Главы 72 ГК РФ.
+
+version: 2.1
+parent: class_7_intellectual_property
+
+metadata:
+  category: contract
+  subcategory: intellectual_property
+  complexity: high
+  risk_level: medium-high
+  jurisdiction: RU
+  language: ru
+  legal_base: "ГК РФ, ч. 4, ст. 1235"
+  doc_types_supported:
+    - "Лицензионное соглашение"
+    - "Договор о предоставлении права использования"
+    - "Лицензия на использование"
+    - "Патентная лицензия"
+    - "Лицензия на товарный знак"
+    - "Авторский лицензионный договор"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════
+#  RUNTIME L1 / TRIGGERS (v1)
+# ════════════════════════════════
+classification_runtime_v1:
+  rules:
+    filename_patterns: []
+    folder_patterns: []
+    keywords:
+      high:
+        - "лицензионный договор"
+        - "лицензия"
+        - "лицензиар"
+        - "лицензиат"
+        - "право использования"
+        - "исключительная лицензия"
+        - "неисключительная лицензия"
+        - "предоставление права использования"
+      medium:
+        - "сублицензия"
+        - "роялти"
+        - "паушальный платеж"
+        - "территория действия"
+        - "способы использования"
+        - "срок действия лицензии"
+        - "отчетность"
+        - "контроль качества"
+      low:
+        - "лицензионное вознаграждение"
+        - "минимальные гарантированные платежи"
+        - "право на инспекцию"
+        - "прединфрингинг"
+        - "отзыв лицензии"
+        - "Роспатент"
+    exclusions:
+      - "договор об отчуждении исключительного права (полная передача)"
+      - "договор коммерческой концессии (комплекс исключительных прав + ноу-хау)"
+      - "договор авторского заказа"
+      - "агентский договор"
+  
+# ════════════════════════════════
+#  Триггеры используются в TriggerDetector 
+# ════════════════════════════════  
+
+  trigger_definitions:
+    residential_property:
+      any_keywords: ["заполняется юристом дополнительно"]
+    land_plot_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+    building_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+    share_in_right_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+    legal_entity_party:
+      any_keywords: ["заполняется юристом дополнительно"]
+    individual_party:
+      any_keywords: ["заполняется юристом дополнительно"]
+    mortgage_related:
+      any_keywords: ["заполняется юристом дополнительно"]
+    lease_related:
+      any_keywords: ["заполняется юристом дополнительно"]
+    foreign_buyer_keywords:
+      any_keywords: ["заполняется юристом дополнительно"]
+    agricultural_land_keywords:
+      any_keywords: ["заполняется юристом дополнительно"]
+    border_zone_keywords:
+      any_keywords: ["заполняется юристом дополнительно"]
+    mcd_common_property_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+
+# ════════════════════════════════
+#  VALIDATION ENGINE v3.2
+# ════════════════════════════════
+validation_engine_v3_2:
+  rules_enhanced:
+    phrases:
+      high:
+        - "Лицензиар предоставляет Лицензиату право использования [объект ИС] на условиях настоящего договора"
+        - "Лицензия является исключительной/неисключительной (простой)"
+        - "Лицензиат выплачивает вознаграждение в виде [фиксированного платежа / роялти]"
+        - "Право использования предоставляется на срок [срок] и на территории [территория]"
+        - "Лицензиар гарантирует наличие исключительного права"
+      medium:
+        - "Лицензиат обязуется предоставлять регулярные отчеты об использовании"
+        - "Лицензиат не вправе заключать сублицензионные договоры без письменного согласия Лицензиара"
+        - "За нарушение условий договора предусмотрена неустойка"
+        - "Срок действия лицензии привязан к сроку действия патента"
+    patterns:
+      required:
+        - "(?i)(лицензионн\\w+\\s+договор|лицензи\\w+.*предоставл\\w+.*прав\\w+.*использовани\\w+|лицензиар.*лицензиат)"
+      optional:
+        - "(?i)(исключительн\\w+|неисключительн\\w+|простая).*лицензи\\w+"
+        - "(?i)вознаграждение\\s+в\\s+виде\\s+(роялти|паушальн\\w+\\s+платеж\\w+)"
+        - "(?i)срок\\s+действия\\s+лицензи\\w+.*территори\\w+"
+    exclusion_logic:
+      - condition: "full_transfer_keywords AND no_license_type"
+        target: "rejection"
+        confidence: 0.85
+        description: "Если присутствует указание на передачу права в полном объеме без упоминания лицензии - это отчуждение"
+      - condition: "franchise_elements_present AND know_how_transfer"
+        target: "rejection"
+        confidence: 0.80
+        description: "Если помимо права использования передаются коммерческая тайна, ноу-хау и право на фирменное наименование - это коммерческая концессия"
+    weights:
+      keyword_high: 3.0
+      keyword_medium: 1.5
+      keyword_low: 0.5
+      phrase_high: 2.5
+      phrase_medium: 1.0
+      pattern_required: 4.0
+      pattern_optional: 1.0
+    classification:
+      min_confidence: 0.75
+      max_matches: 3
+
+    party_roles:
+      - "Лицензиар (правообладатель, предоставляющий право использования)"
+      - "Лицензиат (лицо, получающее право использования)"
+    essential_terms:
+      - "Предмет договора: четкое указание на объект ИС, право использования которого предоставляется (с реквизитами регистрации, если есть)"
+      - "Способы использования: исчерпывающий перечень действий, которые лицензиат вправе совершать с объектом ИС (существенное условие)"
+      - "Территория, на которой допускается использование (если не указана - на всей территории РФ)"
+      - "Срок действия лицензии (если не указан - 5 лет, для товарных знаков - не более срока действия исключительного права)"
+    aliases:
+      - "Лицензионное соглашение"
+      - "Договор о предоставлении права использования"
+      - "Лицензия на использование"
+      - "Патентная лицензия"
+      - "Лицензия на товарный знак"
+      - "Авторский лицензионный договор"
+    section_markers:
+      - "Предмет договора (объект ИС, реквизиты патента/свидетельства, вид лицензии)"
+      - "Объем предоставляемых прав (способы использования, территория, срок)"
+      - "Лицензионное вознаграждение (размер, форма, порядок выплаты, отчетность)"
+      - "Права и обязанности сторон"
+      - "Гарантии лицензиара"
+      - "Контроль качества (для товарных знаков)"
+      - "Порядок предоставления сублицензии"
+      - "Ответственность сторон"
+      - "Основания и порядок досрочного расторжения"
+      - "Последствия прекращения действия исключительного права"
+      - "Конфиденциальность"
+      - "Порядок разрешения споров"
+      - "Заключительные положения (о регистрации, применимое право)"
+
+  metadata:
+    validation_version: "2.1"
+    last_updated: "2026-02-07"
+    author: "Legal AI Team"
+    
+    severity_scale:
+      critical: {score: 100, color: "red"}
+      high:     {score: 70,  color: "red"}
+      medium:   {score: 40,  color: "yellow"}
+      low:      {score: 10,  color: "green"}
+      info:     {score: 0,   color: "green"}
+    
+    evidence:
+      require_pinpoint: true
+      snippet_max_chars: 480
+      require_quote_if_fail: true
+    
+    formats:
+      enums:
+        pass_fail_unclear_na: "заполняется юристом дополнительно"
+        risk_color: "заполняется юристом дополнительно"
+        payment_method: "заполняется юристом дополнительно"
+        deposit_type: "заполняется юристом дополнительно"
+        property_kind: "заполняется юристом дополнительно"
+        assignment_restriction: "заполняется юристом дополнительно"
+        insurance_required: "заполняется юристом дополнительно"
+      patterns:
+        cadastral_number: "заполняется юристом дополнительно"
+    
+    legal_base:
+      primary:
+        - "ст. 1235 ГК РФ — лицензионный договор (общие положения)"
+        - "ст. 1236 ГК РФ — виды лицензионных договоров"
+        - "ст. 1237 ГК РФ — исполнение лицензионного договора"
+        - "ст. 1238 ГК РФ — сублицензионный договор"
+      secondary:
+        - "ст. 1286 ГК РФ — лицензионный договор о предоставлении права использования произведения"
+        - "ст. 1367 ГК РФ — лицензионный договор о предоставлении права использования изобретения, полезной модели, промышленного образца"
+        - "ст. 1489 ГК РФ — лицензионный договор о предоставлении права использования товарного знака"
+        - "ст. 1469 ГК РФ — лицензионный договор о предоставлении права использования секрета производства (ноу-хау)"
+      related:
+        - "ст. 1232 ГК РФ — государственная регистрация распоряжения исключительным правом"
+        - "НК РФ ст. 149 п. 2 пп. 26 (НДС при предоставлении прав использования программ для ЭВМ, баз данных)"
+        - "НК РФ ст. 250, 265 (налоговый учет роялти)"
+        - "НК РФ ст. 309 (налогообложение роялти при выплатах иностранным лицам)"
+        - "НК РФ ст. 105.3 (трансфертное ценообразование при роялти между взаимозависимыми лицами)"
+        - "Постановление Пленума ВС РФ № 10 от 23.04.2019 (судебная практика по интеллектуальным правам)"
+        - "Административный регламент Роспатента (Приказ Минэкономразвития России от 30.09.2015 № 707)"
+
+  # ──────────────────────────────────────────────────────────
+  # ESSENTIAL ELEMENTS
+  # ──────────────────────────────────────────────────────────
+  
+  essential_elements:
+    - element: "parties"
+      required: true
+      legal_base: "ст. 432, 1235 ГК РФ"
+      validation_rules:
+        - "presence_check"
+        - "legal_capacity_indicators"
+        - "licensor_is_rightsholder"
+      extraction_hints: {}
+      description: "Лицензиар (правообладатель) и Лицензиат; проверка правоспособности"
+      conditional_checks: []
+      extraction_hints: {}
+    
+    - element: "subject_ip_object"
+      name: "Объект интеллектуальной собственности"
+      required: true
+      legal_base: "ст. 1235 п. 1 ГК РФ"
+      description: "Конкретный объект ИС, право использования которого предоставляется"
+      validation_rules:
+        - "presence_check"
+        - "definiteness_check"
+        - "ip_object_identification"
+      conditional_checks:
+        - trigger: "registered_ip_objects"
+          keywords: ["патент", "товарный знак", "полезная модель", "промышленный образец", "НМПТ"]
+          rule: "registration_details_required"
+          legal_base: "ст. 1232, 1235 ГК РФ"
+          severity: "critical"
+          validation_rules:
+            - "registration_number_present"
+            - "registration_date_present"
+            - "validity_period_present"
+    - element: "permitted_uses"
+      name: "Способы использования"
+      required: true
+      legal_base: "ст. 1235 п. 1 ГК РФ"
+      description: "Способы использования объекта ИС — существенное условие; права, не указанные в договоре, считаются непредоставленными"
+      validation_rules:
+        - "presence_check"
+        - "uses_enumerated"
+        - "definiteness_check"
+      conditional_checks:
+        - trigger: "license_agreement"
+          keywords: ["лицензия", "право использования", "лицензионный договор"]
+          rule: "permitted_uses_mandatory"
+          legal_base: "ст. 1235 п. 1 ГК РФ"
+          severity: "critical"
+          risk_msg: "Без указания способов использования договор может быть признан незаключенным"
+          validation_rules:
+            - "uses_list_present"
+            - "uses_clear_and_definite"
+      extraction_hints: {}
+    - element: "license_type"
+      name: "Вид лицензии"
+      required: false
+      legal_base: "п. 3 ст. 1236 ГК РФ"
+      description: "Вид лицензии (исключительная/неисключительная). При отсутствии считается простой."
+      validation_rules:
+        - "license_type_identifiable"
+      conditional_checks:
+        - trigger: "exclusive_license_indicators"
+          keywords: ["исключительная", "эксклюзивная", "лицензиар не вправе", "только лицензиат"]
+          rule: "exclusive_license_consequences_check"
+          legal_base: "п. 1 ст. 1236 ГК РФ"
+          severity: "high"
+          risk_msg: "При исключительной лицензии лицензиар не может предоставлять аналогичные права другим лицам и может быть ограничен в собственном использовании"
+      extraction_hints: {}
+    - element: "territory"
+      name: "Территория действия"
+      required: false
+      legal_base: "п. 3 ст. 1235 ГК РФ"
+      description: "Территория, на которой допускается использование. При отсутствии - вся территория РФ"
+      validation_rules:
+        - "territory_specified_or_default"
+      conditional_checks: []
+      extraction_hints: {}
+    - element: "term"
+      name: "Срок действия лицензии"
+      required: false
+      legal_base: "п. 4 ст. 1235 ГК РФ"
+      description: "Срок действия лицензии. При отсутствии - 5 лет. Не может превышать срок действия права"
+      validation_rules:
+        - "term_specified_or_default"
+        - "term_within_right_validity"
+      conditional_checks: []
+      extraction_hints: {}
+    - element: "consideration"
+      name: "Вознаграждение"
+      required: true
+      legal_base: "п. 5 ст. 1235 ГК РФ"
+      description: "Размер вознаграждения или порядок его определения. Для возмездного договора - существенное условие"
+      validation_rules:
+        - "remuneration_specified_or_gratuitous"
+        - "calculation_method_if_variable"
+      conditional_checks:
+        - trigger: "commercial_parties"
+          keywords: ["ООО", "АО", "ЗАО", "ПАО", "ИП", "юридическое лицо", "коммерческая организация"]
+          rule: "gratuitous_between_commercial_suspicious"
+          legal_base: "ст. 1235 п. 5, 575 ГК РФ"
+          severity: "medium"
+          risk_msg: "Безвозмездная лицензия между коммерческими лицами может быть признана притворной сделкой"
+      extraction_hints: {}
+    - element: "registration_obligation"
+      name: "Обязанность государственной регистрации"
+      required: true
+      legal_base: "ст. 1232, 1235 ГК РФ"
+      description: "Обязанность государственной регистрации для регистрируемых объектов"
+      validation_rules:
+        - "registration_clause_if_applicable"
+      conditional_checks:
+        - trigger: "registrable_ip"
+          keywords: ["патент", "товарный знак", "полезная модель", "промышленный образец", "НМПТ", "Роспатент"]
+          rule: "registration_mandatory"
+          legal_base: "п. 2 ст. 1235 ГК РФ"
+          severity: "critical"
+          risk_msg: "Без государственной регистрации лицензионный договор на регистрируемый объект считается недействительным"
+      extraction_hints: {}
+
+  transaction_mechanics_clauses:
+    both_parties:
+      - clause_id: "closing_date_long_stop"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "conditions_precedent_list"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "deliverables_closing_package"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "termination_and_consequences"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "assignment_restriction"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        extraction_hints:
+          outputs:
+            - {field: "assignment_restriction", format: "enum(prohibited/allowed_with_consent/allowed/unclear/not_found)"}
+      - clause_id: "confidentiality"
+        name: "заполняется юристом дополнительно"
+        risk_if_missing: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "notices_and_communications"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "force_majeure"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+    buyer_protection:
+      - clause_id: "deposit_advance_security_payment"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        extraction_hints:
+          outputs:
+            - {field: "deposit_type", format: "enum(advance/deposit_zadatok/security_payment/other/not_found)"}
+            - {field: "deposit_amount", format: "money_or_not_found"}
+            - {field: "deposit_refund_rule", format: "short_text_or_not_found"}
+      - clause_id: "risk_of_loss_before_registration"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "insurance_before_registration"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        extraction_hints:
+          outputs:
+            - {field: "insurance_required", format: "enum(yes/no/unclear/not_found)"}
+            - {field: "insurance_payer", format: "string_or_not_found"}
+      - clause_id: "possession_vacant_delivery"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "prorations_settlements"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "defects_condition_disclosure"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+    seller_protection:
+      - clause_id: "buyer_payment_default_remedies"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "no_change_of_land_purpose_without_consent"
+        name: "заполняется юристом дополнительно"
+        risk_if_missing: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        conditional_checks:
+          - trigger: "land_plot_sale"
+            keywords: ["земельный участок", "категория земель", "вид разрешенного использования", "ВРИ"]
+            rule: "seller_land_use_change_restriction_applicable"
+            severity: "low"
+
+  protective_clauses:
+    buyer_protection:
+      - clause_id: "warranties_and_ip_validity"
+        name: "Гарантии лицензиара и обеспечение действительности исключительного права"
+        risk_if_missing: |
+          Лицензиат инвестирует в использование объекта ИС. Если право лицензиара оспорено или патент аннулирован, 
+          лицензия становится бесполезной. Без гарантий наличия прав и обязательств лицензиара поддерживать их 
+          действительность (уплачивать пошлины, защищать от нарушителей) лицензиат несет все риски недействительности лицензии.
+        legal_base: "ст. 1235, 431.2, 1252 ГК РФ"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "лицензиар гарантирует наличие права"
+            - "исключительное право действительно"
+            - "отсутствие обременений"
+            - "обязанность поддерживать патент в силе"
+            - "уплата патентных пошлин"
+            - "защита от нарушений третьими лицами"
+            - "прединфрингинг"
+            - "уведомление о претензиях третьих лиц"
+          context_patterns:
+            - '(?i)лицензиар\s+гарантирует.*что\s+является\s+правообладател\w+\s+и\s+право\s+не\s+обременено'
+            - '(?i)лицензиар\s+обязуется\s+поддерживать\s+действительность\s+(патента|товарного\s+знака)'
+        extraction_hints: {}
+      - clause_id: "defense_against_infringement"
+        name: "Обязанность лицензиара защищать право от нарушителей"
+        risk_if_missing: |
+          Если третьи лица нарушают исключительное право, лицензиат (особенно при неисключительной лицензии) может быть 
+          не вправе предъявлять иски самостоятельно. Без обязанности лицензиара защищать право лицензиат страдает от 
+          конкуренции нарушителей, но не может защититься.
+        legal_base: "ст. 1254 ГК РФ"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "защита от нарушителей"
+            - "пресечение нарушений"
+            - "обязанность защищать право"
+            - "иск к нарушителям"
+            - "содействие в защите"
+            - "право лицензиата защищать"
+          context_patterns:
+            - '(?i)лицензиар\s+обязуется\s+пресекать\s+нарушения\s+права'
+            - '(?i)лицензиат\s+вправе\s+предъявлять\s+иски\s+к\s+нарушителям'
+        extraction_hints: {}
+    seller_protection:
+      - clause_id: "royalty_reporting_and_audit"
+        name: "Отчетность лицензиата и право аудита (при роялти)"
+        risk_if_missing: |
+          При вознаграждении в виде роялти лицензиар зависит от честности отчетности лицензиата. 
+          Без права аудита и четких требований к отчетности лицензиат может занижать показатели, 
+          и лицензиар недополучит вознаграждение. Особенно критично при процентных отчислениях от выручки.
+        legal_base: "ст. 1235, 1237 ГК РФ"
+        severity: "critical"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "отчетность лицензиата"
+            - "отчет о продажах"
+            - "отчет об использовании"
+            - "право аудита"
+            - "проверка бухгалтерии"
+            - "периодические отчеты"
+            - "расчет роялти"
+            - "подтверждающие документы"
+          context_patterns:
+            - '(?i)лицензиат\s+обязан\s+представлять\s+отчеты\s+об\s+использовании'
+            - '(?i)лицензиар\s+вправе\s+проводить\s+аудит.*для\s+проверки\s+(расчета\s+)?роялти'
+        conditional_checks:
+          - trigger: "royalty_payment"
+            keywords: ["роялти", "процент от выручки", "процент от продаж", "периодические платежи"]
+            rule: "reporting_and_audit_required"
+            severity: "critical"
+        extraction_hints: {}
+      - clause_id: "quality_control_trademark"
+        name: "Контроль качества продукции/услуг под товарным знаком"
+        risk_if_missing: |
+          При лицензировании товарного знака лицензиар несет репутационные риски. Без контроля качества 
+          лицензиат может выпускать некачественную продукцию, что нанесет ущерб репутации бренда. 
+          Потеря контроля качества - основание для досрочной отмены регистрации товарного знака.
+        legal_base: "ст. 1489, 1486 ГК РФ"
+        severity: "critical"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "контроль качества"
+            - "стандарты качества"
+            - "требования к продукции"
+            - "соответствие стандартам"
+            - "инспекция качества"
+            - "одобрение образцов"
+            - "маркировка"
+            - "руководство по бренду"
+          context_patterns:
+            - '(?i)лицензиат\s+обязан\s+соблюдать\s+стандарты\s+качества'
+            - '(?i)лицензиар\s+вправе\s+контролировать\s+качество.*продукции'
+        conditional_checks:
+          - trigger: "trademark_license"
+            keywords: ["товарный знак", "торговая марка", "бренд", "знак обслуживания"]
+            rule: "quality_control_mandatory"
+            severity: "critical"
+        extraction_hints: {}
+
+  additional_protective_clauses:
+    buyer_protection:
+      - clause_id: "most_favored_licensee"
+        name: "Условие о наиболее благоприятном режиме (MFN)"
+        risk_if_missing: |
+          При неисключительной лицензии лицензиар может выдать другим лицензиатам более выгодные условия (ниже роялти, шире права). 
+          Без условия MFN лицензиат может оказаться в неконкурентном положении по сравнению с последующими лицензиатами.
+        legal_base: "Договорная практика, ст. 1 ГК РФ (добросовестность)"
+        severity: "medium"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "наиболее благоприятные условия"
+            - "MFN"
+            - "most favored licensee"
+            - "равные условия"
+            - "не хуже условий других лицензиатов"
+          context_patterns:
+            - '(?i)условия.*не\s+менее\s+благоприятны.*чем.*другим\s+лицензиатам'
+            - '(?i)в\s+случае\s+предоставления.*более\s+выгодных\s+условий.*автоматически\s+распространяются'
+        extraction_hints: {}
+      - clause_id: "improvements_and_derivatives"
+        name: "Права на улучшения и производные произведения"
+        risk_if_missing: |
+          Лицензиат может создать улучшения, модификации, производные произведения на основе лицензированного объекта. 
+          Без урегулирования прав на них возникают споры: принадлежат ли они лицензиату, лицензиару или совместно? 
+          Может ли лицензиат использовать их после прекращения лицензии?
+        legal_base: "ст. 1259, 1260, 1358 ГК РФ"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "улучшения"
+            - "модификации"
+            - "производные произведения"
+            - "права на улучшения"
+            - "обратная лицензия"
+            - "grant-back"
+            - "совместные права"
+          context_patterns:
+            - '(?i)права\s+на\s+улучшения.*принадлежат\s+(лицензиату|лицензиару|сторонам\s+совместно)'
+            - '(?i)лицензиат\s+вправе\s+создавать\s+производные\s+произведения'
+        extraction_hints: {}
+    seller_protection:
+      - clause_id: "minimum_royalty_guarantee"
+        name: "Минимальные гарантированные платежи (minimum guarantee)"
+        risk_if_missing: |
+          При вознаграждении только в виде роялти лицензиар зависит от активности лицензиата. Если лицензиат не использует 
+          объект (или использует минимально), лицензиар не получает вознаграждения. Минимальный гарантированный платеж 
+          обеспечивает базовый доход и стимулирует лицензиата к активному использованию.
+        legal_base: "ст. 1235 п. 5 ГК РФ"
+        severity: "high"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "минимальный платеж"
+            - "минимальное роялти"
+            - "гарантированный платеж"
+            - "minimum guarantee"
+            - "минимальный объем использования"
+            - "неснижаемый платеж"
+          context_patterns:
+            - '(?i)минимальн\w+\s+(гарантированн\w+\s+)?платеж\s+составляет'
+            - '(?i)роялти\s+выплачивается\s+в\s+размере\s+не\s+менее'
+        extraction_hints: {}
+      - clause_id: "non_assertion_covenant"
+        name: "Обязательство лицензиата не оспаривать право"
+        risk_if_missing: |
+          Лицензиат, получив доступ к информации об объекте, может попытаться оспорить патент или товарный знак лицензиара. 
+          Хотя такие условия имеют ограниченную силу (особенно в ЕС), в России они применяются. Без такого условия лицензиар 
+          рискует потерять право по иску лицензиата.
+        legal_base: "ст. 10 ГК РФ, судебная практика"
+        severity: "medium"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "не оспаривать право"
+            - "non-assertion"
+            - "запрет оспаривания"
+            - "признание действительности"
+            - "отказ от претензий к праву"
+          context_patterns:
+            - '(?i)лицензиат\s+обязуется\s+не\s+оспаривать.*прав\w+\s+лицензиар'
+            - '(?i)лицензиат\s+признает\s+действительность.*права'
+        extraction_hints: {}
+    both_protection:
+      - clause_id: "registration_procedure"
+        name: "Порядок государственной регистрации и распределение расходов"
+        risk_if_missing: |
+          Для регистрируемых объектов лицензия вступает в силу с момента регистрации. Без четкого распределения обязанностей 
+          стороны могут затягивать процесс. Споры о расходах на регистрацию - частая проблема.
+        legal_base: "ст. 1232, 1235 ГК РФ"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords:
+            - "регистрация лицензии"
+            - "расходы на регистрацию"
+            - "государственная пошлина"
+            - "подача заявления в Роспатент"
+            - "обязанность по регистрации"
+          context_patterns:
+            - '(?i)расходы\s+на\s+регистрацию.*несет\s+(лицензиар|лицензиат|стороны\s+поровну)'
+            - '(?i)заявление\s+о\s+регистрации.*подается\s+(лицензиаром|лицензиатом|совместно)'
+        conditional_checks:
+          - trigger: "registrable_ip"
+            keywords: ["патент", "товарный знак", "Роспатент"]
+            rule: "registration_procedure_required"
+            severity: "high"
+        extraction_hints: {}
+
+  outputs:
+    dd_grid:
+      column_convention:
+        per_check_columns: ["status", "value", "evidence", "severity"]
+        status_values: "pass_fail_unclear_na"
+        evidence_required: true
+      profiles:
+        core:
+          include_sections: []
+          include_checks: []
+        full:
+          include_sections: []
+          add_management_columns: []
+        max:
+          include_sections: []
+          add_columns: []
+          enforce: {}
+      client_output_overrides:
+        enabled: true
+        fields: []
+        defaults:
+          client.format.date: "DD.MM.YYYY"
+          client.format.money: "ru_RU"
+    executive_summary:
+      enabled: true
+      format: "markdown"
+      sections: []
+      color_legend: {}
+    risk_aggregation:
+      method: "max_severity"
+      red_if_any: []
+      yellow_if_any: []
+      green_if_only: []
+      allow_manual_override: true
+      override_fields: []
+    dd_requests:
+      mapping_examples: {}

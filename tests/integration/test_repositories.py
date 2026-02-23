@@ -232,9 +232,14 @@ class TestDocumentVersionRepository:
 
 @pytest.fixture(autouse=True)
 async def cleanup_playbooks(db_session):
-    """Clean up playbook_versions and model_configs before each test."""
-    await db_session.execute(delete(PlaybookVersion))
-    await db_session.execute(delete(ModelConfig))
+    """Clean up only test playbooks before each test."""
+    # Удаляем только версии с test-именами, создаваемыми в этом файле
+    await db_session.execute(
+        delete(PlaybookVersion).where(PlaybookVersion.name.in_(["Test Playbook", "PB", "R"]))
+    )
+    await db_session.execute(
+        delete(ModelConfig).where(ModelConfig.name.in_(["test-mc", "promo-mc", "r-mc"]))
+    )
     await db_session.commit()
 
 

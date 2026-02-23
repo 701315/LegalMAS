@@ -1,0 +1,706 @@
+type: contract_7.4_nda
+name: "Соглашение о неразглашении конфиденциальной информации (NDA)"
+
+description: |
+  Соглашение, по которому одна или обе стороны обязуются сохранять конфиденциальность информации, полученной в ходе переговоров, сотрудничества или иного взаимодействия. Может быть односторонним (только одна сторона раскрывает информацию) или двусторонним/взаимным (обе стороны обмениваются конфиденциальной информацией). Цель - защита коммерческой тайны, ноу-хау, персональных данных и иных ценных сведений от несанкционированного разглашения. Является ключевым инструментом для защиты интересов при обсуждении потенциальных сделок (M&A, инвестиции, партнерства). Регулируется нормами о коммерческой тайне (ФЗ-98) и общими положениями ГК РФ.
+
+version: 2.1
+parent: class_7_intellectual_property
+
+metadata:
+  category: agreement
+  subcategory: intellectual_property
+  complexity: medium-high
+  risk_level: medium-high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Федеральный закон от 29.07.2004 № 98-ФЗ 'О коммерческой тайне', ст. 1465-1472 ГК РФ"
+  doc_types_supported:
+    - "NDA (Non-Disclosure Agreement)"
+    - "Соглашение о конфиденциальности"
+    - "Договор о неразглашении"
+    - "Confidential Disclosure Agreement (CDA)"
+    - "Соглашение о защите коммерческой тайны"  
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════
+#  RUNTIME L1 / TRIGGERS (v1)
+# ════════════════════════════════
+classification_runtime_v1:
+  rules:
+    filename_patterns: []
+    folder_patterns: []
+    keywords:
+      high:
+        - "неразглашение"
+        - "конфиденциальность"
+        - "конфиденциальная информация"
+        - "соглашение о неразглашении"
+        - "NDA"
+        - "коммерческая тайна"
+        - "режим конфиденциальности"
+      medium:
+        - "одностороннее соглашение"
+        - "двустороннее соглашение"
+        - "взаимное соглашение"
+        - "disclosing party"
+        - "receiving party"
+        - "protected information"
+        - "ноу-хау"
+        - "секрет производства"
+      low:
+        - "confidential disclosure agreement"
+        - "non-disclosure agreement"
+        - "возврат информации"
+        - "исключения из конфиденциальности"
+        - "персональные данные"
+        - "служебная тайна"
+    exclusions:
+      - "трудовой договор (может содержать положение о конфиденциальности)"
+      - "договор коммерческой концессии (включает защиту ноу-хау как часть комплекса)"
+      - "лицензионный договор (может включать конфиденциальность)"
+
+# ════════════════════════════════
+#  Триггеры используются в TriggerDetector 
+# ════════════════════════════════
+
+  trigger_definitions:
+    residential_property:
+      any_keywords: ["заполняется юристом дополнительно"]
+    land_plot_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+    building_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+    share_in_right_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+    legal_entity_party:
+      any_keywords: ["заполняется юристом дополнительно"]
+    individual_party:
+      any_keywords: ["заполняется юристом дополнительно"]
+    mortgage_related:
+      any_keywords: ["заполняется юристом дополнительно"]
+    lease_related:
+      any_keywords: ["заполняется юристом дополнительно"]
+    foreign_buyer_keywords:
+      any_keywords: ["заполняется юристом дополнительно"]
+    agricultural_land_keywords:
+      any_keywords: ["заполняется юристом дополнительно"]
+    border_zone_keywords:
+      any_keywords: ["заполняется юристом дополнительно"]
+    mcd_common_property_sale:
+      any_keywords: ["заполняется юристом дополнительно"]
+
+# ════════════════════════════════
+#  VALIDATION ENGINE v3.2
+# ════════════════════════════════
+validation_engine_v3_2:
+  rules_enhanced:
+    phrases:
+      high:
+        - "Стороны обязуются не разглашать конфиденциальную информацию третьим лицам"
+        - "Конфиденциальная информация включает, но не ограничивается: [перечень]"
+        - "Не считается конфиденциальной информация, которая стала общедоступной"
+        - "Срок действия обязательств о неразглашении составляет [срок]"
+        - "Раскрывающая сторона предоставляет информацию в целях [цель]"
+      medium:
+        - "Получающая сторона обязана принимать разумные меры для защиты информации"
+        - "Информация должна быть помечена как 'Конфиденциально' или аналогично"
+        - "Ограничения на использование информации только в оговоренных целях"
+        - "Обязанность вернуть или уничтожить информацию по требованию"
+        - "Раскрытие информации по требованию государственных органов"
+    patterns:
+      required:
+        - "(?i)(соглашение\\s+о\\s+неразглашении|NDA|конфиденциальн\\w+\\s+информация|режим\\s+конфиденциальности)"
+      optional:
+        - "(?i)(односторонн\\w+|двусторонн\\w+|взаимн\\w+).*соглашение"
+        - "(?i)(коммерческая\\s+тайна|ноу-хау|секрет\\s+производства)"
+        - "(?i)(не\\s+разглашать|сохранять\\s+конфиденциальность)"
+    exclusion_logic:
+      - condition: "employment_contract AND confidentiality_clause_only"
+        target: "rejection"
+        confidence: 0.75
+        description: "Если соглашение о конфиденциальности является частью трудового договора - это не самостоятельное NDA"
+      - condition: "franchise_agreement AND knowhow_protection_included"
+        target: "rejection"
+        confidence: 0.80
+        description: "Если защита конфиденциальной информации является частью договора коммерческой концессии - это не самостоятельное NDA"
+    weights:
+      keyword_high: 3.0
+      keyword_medium: 1.5
+      keyword_low: 0.5
+      phrase_high: 2.5
+      phrase_medium: 1.0
+      pattern_required: 4.0
+      pattern_optional: 1.0
+    classification:
+      min_confidence: 0.75
+      max_matches: 3
+
+    party_roles:
+      - "Раскрывающая сторона (Disclosing Party) - сторона, которая раскрывает конфиденциальную информацию"
+      - "Получающая сторона (Receiving Party) - сторона, которая получает конфиденциальную информацию и обязуется ее защищать"
+    essential_terms:
+      - "Определение конфиденциальной информации (предмет соглашения)"
+      - "Цели раскрытия информации (ограничение использования)"
+      - "Срок действия обязательств о неразглашении"
+      - "Обязанности получающей стороны по защите информации"
+    aliases:
+      - "NDA (Non-Disclosure Agreement)"
+      - "Соглашение о конфиденциальности"
+      - "Договор о неразглашении"
+      - "Confidential Disclosure Agreement (CDA)"
+      - "Соглашение о защите коммерческой тайны"
+    section_markers:
+      - "Преамбула (стороны, цели соглашения)"
+      - "Определения (конфиденциальная информация, раскрывающая/получающая сторона)"
+      - "Предмет соглашения (цели раскрытия информации)"
+      - "Обязанности получающей стороны"
+      - "Исключения из конфиденциальности"
+      - "Срок действия обязательств"
+      - "Возврат или уничтожение информации"
+      - "Ответственность за нарушение"
+      - "Порядок раскрытия информации по требованию государственных органов"
+      - "Разрешение споров"
+      - "Заключительные положения"
+
+  metadata:
+    validation_version: "2.1"
+    last_updated: "2026-02-07"
+    author: "Legal AI Team"
+    
+    severity_scale:
+      critical: {score: 100, color: "red"}
+      high:     {score: 70,  color: "red"}
+      medium:   {score: 40,  color: "yellow"}
+      low:      {score: 10,  color: "green"}
+      info:     {score: 0,   color: "green"}
+    
+    evidence:
+      require_pinpoint: true
+      snippet_max_chars: 480
+      require_quote_if_fail: true
+    
+    formats:
+      enums:
+        pass_fail_unclear_na: "заполняется юристом дополнительно"
+        risk_color: "заполняется юристом дополнительно"
+        payment_method: "заполняется юристом дополнительно"
+        deposit_type: "заполняется юристом дополнительно"
+        property_kind: "заполняется юристом дополнительно"
+        assignment_restriction: "заполняется юристом дополнительно"
+        insurance_required: "заполняется юристом дополнительно"
+      patterns:
+        cadastral_number: "заполняется юристом дополнительно"
+    
+    legal_base:
+      primary:
+        - "Федеральный закон от 29.07.2004 № 98-ФЗ 'О коммерческой тайне'"
+        - "ст. 1465-1472 ГК РФ — секрет производства (ноу-хау)"
+      secondary:
+        - "ст. 421, 422 ГК РФ — свобода договора"
+        - "ст. 307-310 ГК РФ — общие положения об обязательствах"
+        - "ст. 393, 330, 333 ГК РФ — ответственность за нарушение обязательств"
+      related:
+        - "Федеральный закон от 27.07.2006 № 152-ФЗ 'О персональных данных' (если информация содержит ПДн)"
+        - "Трудовой кодекс РФ ст. 57, 81, 243 (конфиденциальность в трудовых отношениях)"
+        - "УК РФ ст. 183 (незаконное получение и разглашение коммерческой тайны)"
+        - "КоАП РФ ст. 13.14 (разглашение информации с ограниченным доступом)"
+        - "Постановление Пленума ВС РФ № 10 от 23.04.2019 (практика по защите коммерческой тайны)"
+
+  # ──────────────────────────────────────────────────────────
+  # ESSENTIAL ELEMENTS
+  # ──────────────────────────────────────────────────────────
+  
+  essential_elements:
+    - element: "parties"
+      required: true
+      legal_base: "ст. 432 ГК РФ"
+      validation_rules:
+        - "presence_check"
+        - "legal_capacity_indicators"
+        - "party_roles_defined"      
+      extraction_hints: {}
+      description: "Стороны NDA: раскрывающая и получающая сторона (или обе в двустороннем NDA)"
+      conditional_checks: []
+    
+    - element: "confidential_information_definition"
+      name: "Определение конфиденциальной информации"
+      required: true
+      legal_base: "ФЗ-98 ст. 3, ст. 1465 ГК РФ"
+      description: "Определение конфиденциальной информации — что именно защищается"
+      validation_rules:
+        - "presence_check"
+        - "definiteness_check"
+        - "scope_specified"
+      conditional_checks:
+        - trigger: "nda_agreement"
+          keywords: ["NDA", "неразглашение", "конфиденциальность"]
+          rule: "confidential_info_must_be_defined"
+          legal_base: "ФЗ-98 ст. 3"
+          severity: "critical"
+          risk_msg: "Без четкого определения конфиденциальной информации NDA неработоспособно"
+          validation_rules:
+            - "definition_present"
+            - "categories_or_list_specified"
+      extraction_hints: {}
+    - element: "purpose_of_disclosure"
+      name: "Цель раскрытия информации"
+      required: true
+      legal_base: "ст. 421 ГК РФ"
+      description: "Цель раскрытия информации — для каких целей она передается и может использоваться"
+      validation_rules:
+        - "purpose_specified"
+        - "permitted_use_defined"
+      conditional_checks: []
+      extraction_hints: {}
+    - element: "exceptions"
+      name: "Исключения из конфиденциальности"
+      required: true
+      legal_base: "ФЗ-98 ст. 3, судебная практика"
+      description: "Исключения — информация, которая не считается конфиденциальной"
+      validation_rules:
+        - "exceptions_listed"
+      conditional_checks:
+        - trigger: "standard_exceptions"
+          keywords: ["общедоступная", "от третьих лиц", "независимо разработанная", "была известна"]
+          rule: "standard_exceptions_present"
+          legal_base: "ФЗ-98, международная практика"
+          severity: "high"
+          validation_rules:
+            - "public_domain_exception"
+            - "third_party_lawful_source"
+            - "independent_development"
+            - "prior_knowledge"
+      extraction_hints: {}
+    - element: "term"
+      name: "Срок действия"
+      required: true
+      legal_base: "ст. 425 ГК РФ"
+      description: "Срок действия NDA и срок действия режима конфиденциальности (могут различаться)"
+      validation_rules:
+        - "term_specified"
+        - "confidentiality_period_specified"
+      conditional_checks: []
+      extraction_hints: {}
+
+  transaction_mechanics_clauses:
+    both_parties:
+      - clause_id: "closing_date_long_stop"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "conditions_precedent_list"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "deliverables_closing_package"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "termination_and_consequences"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "assignment_restriction"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        extraction_hints:
+          outputs:
+            - {field: "assignment_restriction", format: "enum(prohibited/allowed_with_consent/allowed/unclear/not_found)"}
+      - clause_id: "confidentiality"
+        name: "заполняется юристом дополнительно"
+        risk_if_missing: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "notices_and_communications"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "force_majeure"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+    buyer_protection:
+      - clause_id: "deposit_advance_security_payment"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        extraction_hints:
+          outputs:
+            - {field: "deposit_type", format: "enum(advance/deposit_zadatok/security_payment/other/not_found)"}
+            - {field: "deposit_amount", format: "money_or_not_found"}
+            - {field: "deposit_refund_rule", format: "short_text_or_not_found"}
+      - clause_id: "risk_of_loss_before_registration"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "insurance_before_registration"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        extraction_hints:
+          outputs:
+            - {field: "insurance_required", format: "enum(yes/no/unclear/not_found)"}
+            - {field: "insurance_payer", format: "string_or_not_found"}
+      - clause_id: "possession_vacant_delivery"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "prorations_settlements"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "defects_condition_disclosure"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+    seller_protection:
+      - clause_id: "buyer_payment_default_remedies"
+        name: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+      - clause_id: "no_change_of_land_purpose_without_consent"
+        name: "заполняется юристом дополнительно"
+        risk_if_missing: "заполняется юристом дополнительно"
+        legal_base: "заполняется юристом дополнительно"
+        severity: "заполняется юристом дополнительно"
+        affected_party: "заполняется юристом дополнительно"
+        detection:
+          positive_keywords: ["заполняется юристом дополнительно"]
+          context_patterns: ["заполняется юристом дополнительно"]
+        conditional_checks:
+          - trigger: "land_plot_sale"
+            keywords: ["земельный участок", "категория земель", "вид разрешенного использования", "ВРИ"]
+            rule: "seller_land_use_change_restriction_applicable"
+            severity: "low"
+
+  protective_clauses:
+    buyer_protection:
+      - clause_id: "clear_exceptions"
+        name: "Четкие исключения из конфиденциальности"
+        risk_if_missing: |
+          Без стандартных исключений получающая сторона может нести ответственность за информацию, которая была ей известна ранее,
+          получена законно от третьих лиц, стала общедоступной не по ее вине или разработана независимо. Отсутствие исключений
+          создает неоправданные риски и может ограничить законную деятельность получающей стороны.
+        legal_base: "ФЗ-98 ст. 3, международная практика"
+        severity: "critical"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "не является конфиденциальной"
+            - "исключения"
+            - "общедоступная информация"
+            - "была известна до раскрытия"
+            - "получена от третьих лиц"
+            - "независимо разработана"
+            - "раскрыта без нарушения"
+          context_patterns:
+            - '(?i)не\s+(является|считается)\s+конфиденциальной\s+информация.*которая'
+            - '(?i)обязательство\s+о\s+неразглашении\s+не\s+распространяется\s+на'
+        extraction_hints: {}
+      - clause_id: "government_disclosure_procedure"
+        name: "Порядок раскрытия по требованию государственных органов"
+        risk_if_missing: |
+          Получающая сторона может быть обязана раскрыть информацию по запросу суда, налоговых органов, следствия.
+          Без четкого порядка (уведомление раскрывающей стороны, попытка ограничить объем раскрытия) получающая сторона
+          рискует нарушить NDA или подвергнуться санкциям за неисполнение требований госорганов. Риск конфликта юридических обязанностей.
+        legal_base: "Процессуальное законодательство, ФЗ-98 ст. 6"
+        severity: "high"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "раскрытие по требованию суда"
+            - "по требованию государственных органов"
+            - "обязательное раскрытие"
+            - "уведомление о запросе"
+            - "минимально необходимый объем"
+            - "содействие в защите"
+            - "судебный запрос"
+          context_patterns:
+            - '(?i)если\s+получающая\s+сторона\s+обязана\s+раскрыть.*по\s+требованию'
+            - '(?i)уведомить\s+раскрывающую\s+сторону.*о\s+получении\s+запроса'
+        extraction_hints: {}
+    seller_protection:
+      - clause_id: "strict_protection_obligations"
+        name: "Строгие обязательства по защите информации"
+        risk_if_missing: |
+          Общее обязательство «не разглашать» недостаточно. Получающая сторона должна применять конкретные меры защиты:
+          ограничение доступа, хранение, использование не ниже мер для собственной информации. Без детализации сложно
+          доказать нарушение обязательств. Особенно критично для защиты ноу-хау и коммерческой тайны.
+        legal_base: "ФЗ-98 ст. 10, ст. 1467 ГК РФ"
+        severity: "critical"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "меры защиты"
+            - "ограничение доступа"
+            - "не ниже мер для собственной информации"
+            - "надлежащая защита"
+            - "физическая безопасность"
+            - "информационная безопасность"
+            - "need-to-know basis"
+            - "перечень допущенных лиц"
+          context_patterns:
+            - '(?i)получающая\s+сторона\s+обязуется\s+обеспечить\s+защиту'
+            - '(?i)применять\s+меры\s+защиты.*не\s+ниже'
+        extraction_hints: {}
+      - clause_id: "affiliate_and_advisor_binding"
+        name: "Распространение обязательств на аффилированных лиц и консультантов"
+        risk_if_missing: |
+          Получающая сторона может передать информацию своим консультантам (юристам, аудиторам, инвесторам),
+          аффилированным лицам без их связывания обязательствами. Без условия об обязательности NDA для таких лиц
+          информация может быть разглашена через них. Особенно важно при привлечении внешних экспертов для due diligence.
+        legal_base: "ФЗ-98 ст. 11, судебная практика"
+        severity: "high"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "аффилированные лица"
+            - "консультанты"
+            - "юристы"
+            - "аудиторы"
+            - "инвесторы"
+            - "подрядчики"
+            - "обязательство о неразглашении"
+            - "связывание третьих лиц"
+          context_patterns:
+            - '(?i)получающая\s+сторона\s+вправе\s+раскрыть.*консультантам.*при\s+условии'
+            - '(?i)аффилированные\s+лица\s+обязаны\s+соблюдать.*режим\s+конфиденциальности'
+        extraction_hints: {}
+
+  additional_protective_clauses:
+    buyer_protection:
+      - clause_id: "residuals_clause"
+        name: "Оговорка о неосязаемых остатках (Residuals Clause)"
+        risk_if_missing: |
+          Сотрудники получающей стороны неизбежно запоминают часть информации. Без residuals clause получающая сторона
+          формально нарушает NDA, если ее сотрудники используют общие знания и навыки, приобретенные при работе с конфиденциальной
+          информацией. Особенно важно в IT, R&D и других знания-интенсивных отраслях.
+        legal_base: "Международная практика (США, ЕС), договорная практика"
+        severity: "medium"
+        affected_party: "buyer"
+        detection:
+          positive_keywords:
+            - "residuals"
+            - "неосязаемые остатки"
+            - "общие знания и навыки"
+            - "запомненная информация"
+            - "unaided memory"
+            - "general knowledge"
+          context_patterns:
+            - '(?i)не\s+распространяется\s+на.*общие\s+знания\s+и\s+навыки'
+            - '(?i)residuals.*не\s+является\s+нарушением'
+        extraction_hints: {}
+      - clause_id: "no_warranty_of_accuracy"
+        name: "Отсутствие гарантий полноты и достоверности информации"
+        risk_if_missing: |
+          Раскрывающая сторона может передать неполную или неточную информацию. Получающая сторона, полагаясь на нее,
+          может принять неверные решения. Без оговорки об отсутствии гарантий получающая сторона может требовать компенсации
+          за ненадлежащую информацию. Особенно важно при due diligence и оценке потенциальных инвестиций.
+        legal_base: "ст. 431.2 ГК РФ"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords:
+            - "без гарантий"
+            - "as is"
+            - "отказ от гарантий"
+            - "не гарантирует полноту"
+            - "не гарантирует достоверность"
+            - "disclaimer"
+          context_patterns:
+            - '(?i)раскрывающая\s+сторона\s+не\s+гарантирует.*полноту\s+или\s+достоверность'
+            - '(?i)информация\s+предоставляется.*as\s+is|без\s+гарантий'
+        extraction_hints: {}
+    seller_protection:
+      - clause_id: "breach_liability_and_penalties"
+        name: "Ответственность и штрафные санкции за нарушение"
+        risk_if_missing: |
+          Доказать убытки от разглашения конфиденциальной информации крайне сложно. Без штрафной неустойки (penalty clause)
+          раскрывающая сторона может остаться без компенсации даже при явном нарушении. Штраф создает дополнительный стимул
+          к соблюдению обязательств и упрощает процедуру взыскания.
+        legal_base: "ст. 330, 393 ГК РФ, ст. 1472 ГК РФ"
+        severity: "critical"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "штраф"
+            - "неустойка"
+            - "штрафные санкции"
+            - "компенсация убытков"
+            - "ответственность за нарушение"
+            - "penalty"
+            - "liquidated damages"
+          context_patterns:
+            - '(?i)за\s+нарушение.*получающая\s+сторона\s+уплачивает\s+штраф'
+            - '(?i)неустойка\s+за\s+разглашение\s+составляет'
+        extraction_hints: {}
+      - clause_id: "breach_notification"
+        name: "Обязанность уведомления о нарушении или утечке"
+        risk_if_missing: |
+          Получающая сторона может обнаружить утечку (взлом, кража, ошибка сотрудника), но не уведомить раскрывающую сторону.
+          Без обязательства немедленного уведомления раскрывающая сторона не сможет принять меры по минимизации ущерба
+          (отзыв информации, предупреждение контрагентов, обращение в правоохранительные органы).
+        legal_base: "ФЗ-152 ст. 21 (для ПД), практика кибербезопасности"
+        severity: "high"
+        affected_party: "seller"
+        detection:
+          positive_keywords:
+            - "уведомление о нарушении"
+            - "уведомление об утечке"
+            - "breach notification"
+            - "немедленное уведомление"
+            - "сообщить о несанкционированном доступе"
+          context_patterns:
+            - '(?i)получающая\s+сторона\s+обязана\s+немедленно\s+уведомить.*об\s+(утечке|нарушении|несанкционированном)'
+        extraction_hints: {}
+    both_protection:
+      - clause_id: "return_or_destruction_procedure"
+        name: "Порядок возврата или уничтожения информации"
+        risk_if_missing: |
+          По окончании срока или при досрочном прекращении обязательств по хранению информации должны быть четкие процедуры
+          возврата или уничтожения носителей. Без этого получающая сторона может невольно нарушать соглашение, храня информацию,
+          а раскрывающая сторона не может подтвердить прекращение доступа. Споры о том, что было возвращено/уничтожено.
+        legal_base: "ФЗ-98 ст. 10, судебная практика"
+        severity: "high"
+        affected_party: "both"
+        detection:
+          positive_keywords:
+            - "возврат информации"
+            - "уничтожение информации"
+            - "срок возврата"
+            - "подтверждение уничтожения"
+            - "сертификат об уничтожении"
+            - "право сохранять копии для архивных целей"
+            - "исключения для электронных резервных копий"
+          context_patterns:
+            - '(?i)в\s+течение\s+\d+\s+дней\s+после\s+прекращения.*(вернуть|уничтожить).*информацию'
+            - '(?i)получающая\s+сторона\s+предоставляет\s+письменное\s+подтверждение.*уничтожения'
+        extraction_hints: {}
+      - clause_id: "governing_law_and_dispute_resolution"
+        name: "Применимое право и порядок разрешения споров"
+        risk_if_missing: |
+          Споры о нарушении конфиденциальности часто требуют оперативного разрешения и специальных знаний. Без указания применимого права,
+          подсудности (особенно важно для иностранных сторон) и возможности обращения в суд за обеспечительными мерами процесс защиты
+          прав становится длительным и неэффективным.
+        legal_base: "ст. 1210 ГК РФ, АПК РФ, ГПК РФ"
+        severity: "medium"
+        affected_party: "both"
+        detection:
+          positive_keywords:
+            - "применимое право"
+            - "подсудность"
+            - "разрешение споров"
+            - "арбитраж"
+            - "третейский суд"
+            - "обеспечительные меры"
+            - "претензионный порядок"
+          context_patterns:
+            - '(?i)споры.*подлежат\s+разрешению.*в\s+(арбитражном|третейском)\s+суде'
+            - '(?i)применимым\s+правом\s+является.*законодательство.*Российской\s+Федерации'
+        extraction_hints: {}
+
+  outputs:
+    dd_grid:
+      column_convention:
+        per_check_columns: ["status", "value", "evidence", "severity"]
+        status_values: "pass_fail_unclear_na"
+        evidence_required: true
+      profiles:
+        core:
+          include_sections: []
+          include_checks: []
+        full:
+          include_sections: []
+          add_management_columns: []
+        max:
+          include_sections: []
+          add_columns: []
+          enforce: {}
+      client_output_overrides:
+        enabled: true
+        fields: []
+        defaults:
+          client.format.date: "DD.MM.YYYY"
+          client.format.money: "ru_RU"
+    executive_summary:
+      enabled: true
+      format: "markdown"
+      sections: []
+      color_legend: {}
+    risk_aggregation:
+      method: "max_severity"
+      red_if_any: []
+      yellow_if_any: []
+      green_if_only: []
+      allow_manual_override: true
+      override_fields: []
+    dd_requests:
+      mapping_examples: {}
