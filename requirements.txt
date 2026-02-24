@@ -25,6 +25,7 @@ structlog==24.4.0
 pytest==8.3.4
 pytest-asyncio==0.25.0
 pytest-cov==6.0.0
+pytest-mock==3.14.0
 
 # Linting
 ruff==0.8.6
@@ -53,3 +54,6 @@ openpyxl==3.1.5
 
 # PDF generation for test fixtures
 reportlab==4.2.5       
+
+# Import Worker ---
+python-docx==1.1.2

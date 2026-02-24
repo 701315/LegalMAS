@@ -36,7 +36,8 @@ import uuid
 
 from src.core.constants import CheckResultStatus, DocumentStatus, Severity
 from src.core.logging import get_logger
-from src.queue.async_helpers import get_worker_session, run_async
+from src.db.session import get_session
+from src.queue.async_helpers import run_async
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -222,7 +223,7 @@ async def _save_results(run_id, document_id, check_results) -> None:
         return
     from src.db.repositories import ResultRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         repo = ResultRepository(session)
         for cr in check_results:
             await repo.create(
@@ -253,6 +254,6 @@ async def _finalize(run_id, document_id, check_results) -> None:
 async def _update_document_status(document_id: str) -> None:
     from src.db.repositories import DocumentRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         repo = DocumentRepository(session)
         await repo.update_status(uuid.UUID(document_id), DocumentStatus.COMPLETED.value)

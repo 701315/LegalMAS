@@ -27,7 +27,8 @@ from src.core.constants import JobStatus
 from src.core.exceptions import PermanentError, QuarantineError, TransientError
 from src.core.logging import deal_id_var, document_id_var, get_logger
 from src.db.models.run import Job
-from src.queue.async_helpers import get_worker_session, run_async
+from src.db.session import get_session
+from src.queue.async_helpers import run_async
 from src.queue.dlq import DLQManager
 
 logger = get_logger(__name__)
@@ -279,7 +280,7 @@ class MASBaseTask(Task):
         failure_type: str,
         error_details: dict,
     ) -> None:
-        async with get_worker_session() as session:
+        async with get_session() as session:
             dlq = DLQManager(session)
             await dlq.send_to_dlq(
                 task_type=task_type,
@@ -298,7 +299,7 @@ class MASBaseTask(Task):
     ) -> None:
         from sqlalchemy import update as sa_update
 
-        async with get_worker_session() as session:
+        async with get_session() as session:
             values: dict = {"status": status}
             if worker_id:
                 values["worker_id"] = worker_id

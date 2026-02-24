@@ -52,6 +52,27 @@ class Settings(BaseSettings):
     CIRCUIT_BREAKER_THRESHOLD: int = 5
     CIRCUIT_BREAKER_TIMEOUT: int = 60
 
+    # Import Worker ---
+    IMPORT_MAX_FILE_SIZE_MB: int = 200
+    # Максимальный размер одного файла в мегабайтах
+    # Import Worker использует folder_path из структуры ZIP (например, 02. Contracts/SPA/)
+    # как сигнал предварительной классификации — эта информация сохраняется в
+    # Document.folder_path и впоследствии используется L1-классификатором для folder_patterns
+    # из YAML-реестра
+
+    IMPORT_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
+    # Разрешённые расширения файлов через запятую
+
+    IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
+    # Максимальное количество файлов в одном ZIP-пакете
+
+    #  Registry path (используется Classifier) ---
+    CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
+    # Путь к YAML-реестру типов документов.
+    # Устанавливается уже здесь, т.к. Import Worker на шаге folder_path-разбора
+    # может использовать folder_patterns из реестра для предварительной маршрутизации.
+    # Читается Classifier'ом (Stage 6), но путь объявляется глобально.
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

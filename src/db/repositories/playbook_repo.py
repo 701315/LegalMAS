@@ -4,7 +4,7 @@ Repository for PlaybookVersion and ModelConfig operations.
 
 import uuid
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.constants import PlaybookStatus
@@ -101,3 +101,27 @@ class PlaybookRepository:
 
         # 2) глобальный default
         return await self.get_default()
+
+    async def promote_to_default(self, version_id) -> "PlaybookVersion | None":
+        """
+        Переводит все текущие DEFAULT-версии в STABLE,
+        затем устанавливает DEFAULT для version_id.
+        """
+        await self.session.execute(
+            update(PlaybookVersion)
+            .where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
+            .values(status=PlaybookStatus.STABLE.value)
+        )
+
+        await self.session.execute(
+            update(PlaybookVersion)
+            .where(PlaybookVersion.id == version_id)
+            .values(status=PlaybookStatus.DEFAULT.value)
+        )
+
+        await self.session.flush()
+
+        result = await self.session.execute(
+            select(PlaybookVersion).where(PlaybookVersion.id == version_id)
+        )
+        return result.scalar_one_or_none()

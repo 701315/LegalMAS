@@ -6,7 +6,8 @@ Simplified version for vertical slice.
 import uuid
 
 from src.core.logging import get_logger
-from src.queue.async_helpers import get_worker_session, run_async
+from src.db.session import get_session
+from src.queue.async_helpers import run_async
 
 logger = get_logger(__name__)
 
@@ -27,7 +28,7 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict:
 async def _create_run(deal_id: str, tenant_id: str) -> str:
     from src.db.repositories import PlaybookRepository, RunRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         playbook_repo = PlaybookRepository(session)
         run_repo = RunRepository(session)
 

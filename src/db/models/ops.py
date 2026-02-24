@@ -8,7 +8,7 @@ DLQRecord — dead letter queue for failed tasks.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,6 +52,7 @@ class IdempotencyKey(Base):
     )
 
     expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),  # ← добавить DateTime с timezone=True
         nullable=True,
     )
 

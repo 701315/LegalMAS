@@ -11,7 +11,8 @@ import uuid
 
 from src.core.constants import DocumentStatus
 from src.core.logging import get_logger
-from src.queue.async_helpers import get_worker_session, run_async
+from src.db.session import get_session
+from src.queue.async_helpers import run_async
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -121,7 +122,7 @@ async def _update_sanitization_result(
 ) -> None:
     from src.db.repositories import DocumentRepository, DocumentVersionRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         ver_repo = DocumentVersionRepository(session)
         doc_repo = DocumentRepository(session)
         await ver_repo.update_refs(uuid.UUID(document_version_id), sanitized_ref=sanitized_ref)

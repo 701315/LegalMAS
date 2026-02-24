@@ -3,7 +3,7 @@ Repository for IdempotencyKey operations.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime  # ← изменено
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,7 +78,9 @@ class IdempotencyRepository:
 
     async def cleanup_expired(self) -> int:
         """Delete expired keys. Returns count of deleted rows."""
-        stmt = delete(IdempotencyKey).where(IdempotencyKey.expires_at < datetime.now(UTC))
+        stmt = delete(IdempotencyKey).where(
+            IdempotencyKey.expires_at < datetime.now(UTC)
+        )  # ← изменено
         result = await self.session.execute(stmt)
         await self.session.flush()
         return result.rowcount

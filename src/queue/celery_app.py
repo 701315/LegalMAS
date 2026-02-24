@@ -3,6 +3,33 @@ Celery application configuration.
 
 Defines the Celery instance, queues, and serialization settings.
 All workers import this module to get the shared Celery app.
+
+Backlog: что занести
+Задача 1 — Рефакторинг Celery-задач (высокий приоритет)
+Название: Убрать run_async из тела Celery-задач, перейти на asyncio.run(_async_fn())
+
+Описание: Текущий паттерн хрупок при использовании разных Celery pool-стратегий (gevent, eventlet, solo) и создаёт неочевидные зависимости от состояния event loop. Каждая Celery-задача должна иметь вид:
+
+python
+@app.task
+def import_bundle(deal_id, tenant_id, source_path, run_id):
+    asyncio.run(_import_bundle_async(deal_id, tenant_id, source_path, run_id))
+
+async def _import_bundle_async(deal_id, tenant_id, source_path, run_id):
+    # вся логика здесь, чисто async
+    ...
+Затрагиваемые файлы: все воркеры в src/workers/, src/workers/orchestrator.py, src/queue/async_helpers.py
+
+Задача 2 — Изолировать engine/session factory в тестах (средний приоритет)
+Название: Тесты должны использовать отдельный engine, а не тот же singleton что и продакшн-код
+
+Описание: _engine и _session_factory в async_helpers.py — глобальные синглтоны. В тестах они создаются один раз и живут через все тесты, что приводит к проблемам с состоянием соединений между тестами. Нужен механизм подмены engine в тестовом окружении (через DI или переменную окружения).
+
+Задача 3 — Покрыть run_async unit-тестами (низкий приоритет)
+Название: Добавить тесты для run_async на все ветки: нормальный loop, закрытый loop, работающий loop
+
+Описание: После нескольких фиксов run_async стал нетривиальным. Нужны изолированные unit-тесты для каждой ветки условия, чтобы регрессии ловились сразу.
+
 """
 
 from celery import Celery

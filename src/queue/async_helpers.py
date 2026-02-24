@@ -3,6 +3,10 @@ Helpers for running async code inside synchronous Celery tasks.
 
 Celery workers are synchronous. Our repositories use async SQLAlchemy.
 This module provides a bridge between the two worlds.
+
+IMPORTANT:
+    - For new async workers and tests, DO NOT use run_async/get_worker_session.
+    - Use src.db.session.get_session / get_db instead and native async tasks.
 """
 
 import asyncio
@@ -50,34 +54,39 @@ def run_async(coro: Coroutine[Any, Any, T]) -> T:
     """
     Run an async coroutine from synchronous Celery task code.
 
-    Usage in a Celery task:
-        result = run_async(some_async_function(arg1, arg2))
+    IMPORTANT:
+        - Use only from *purely synchronous* worker processes.
+        - Do not call from within already running event loops (pytest-asyncio, uvicorn, etc.).
     """
+    # Всегда создаём свой loop для конкретного вызова,
+    # не зависим от глобального event loop текущего потока.
+    loop = asyncio.new_event_loop()
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're inside an already-running loop (shouldn't happen in Celery,
-            # but handle gracefully)
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                return pool.submit(asyncio.run, coro).result()
-        else:
-            return loop.run_until_complete(coro)
-    except RuntimeError:
-        # No event loop exists — create one
-        return asyncio.run(coro)
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(coro)
+    finally:
+        loop.run_until_complete(loop.shutdown_asyncgens())
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 @asynccontextmanager
-async def get_worker_session():
+async def get_legacy_worker_session():
     """
-    Get a database session for use in Celery workers.
+    LEGACY: Get a database session for use in *synchronous* Celery workers
+    together with run_async().
 
-    Usage:
-        async with get_worker_session() as session:
-            repo = DealRepository(session)
-            deal = await repo.get_by_id(deal_id)
+    Do NOT use in:
+        - FastAPI handlers
+        - async workers (asyncio.run + get_session)
+        - tests (use src.db.session.get_session instead)
+
+    В async‑воркерах и тестах используется только src.db.session.get_session /
+    get_db,
+
+    get_worker_session и run_async остаются только в старых sync Celery‑тасках,
+    которые ты постепенно заменишь.
+
     """
     factory = _get_session_factory()
     session = factory()

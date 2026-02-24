@@ -14,7 +14,7 @@ import uuid
 from src.core.constants import DocumentStatus
 from src.core.exceptions import PermanentError, QuarantineError
 from src.core.logging import get_logger
-from src.queue.async_helpers import get_worker_session, run_async
+from src.db.session import get_session
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -36,13 +36,29 @@ except ImportError:
     track_job=False,
     queue="default",
 )
-def extract_document(
+async def extract_document(
     self,
     document_version_id: str,
     document_id: str,
     deal_id: str,
     tenant_id: str,
     run_id: str = None,
+) -> dict:
+    return await _extract_document_async(
+        document_version_id=document_version_id,
+        document_id=document_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+    )
+
+
+async def _extract_document_async(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
 ) -> dict:
     """Extract text from PDF and produce textlayoutraw artifact."""
     logger.info("Starting extraction", document_id=document_id)
@@ -52,14 +68,14 @@ def extract_document(
 
     store = ArtifactStore()
 
-    original_ref = run_async(get_original_ref(document_version_id))
+    original_ref = await get_original_ref(document_version_id)
     if not original_ref:
         raise PermanentError(f"No originalref for version {document_version_id}")
 
     s3_path = original_ref.replace(f"s3://{store.bucket}/", "")
     pdf_bytes = store.get_file(s3_path)
 
-    elements = []
+    elements: list[dict] = []
     total_pages = 0
     element_index = 0
 
@@ -113,13 +129,11 @@ def extract_document(
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
     raw_ref = store.put_json(raw_path, text_layout_raw)
 
-    run_async(
-        update_extraction_result(
-            document_version_id=document_version_id,
-            document_id=document_id,
-            raw_ref=raw_ref,
-            page_count=total_pages,
-        )
+    await update_extraction_result(
+        document_version_id=document_version_id,
+        document_id=document_id,
+        raw_ref=raw_ref,
+        page_count=total_pages,
     )
 
     logger.info(
@@ -176,7 +190,7 @@ def _build_line(words: list) -> tuple:
 async def get_original_ref(document_version_id: str) -> str | None:
     from src.db.repositories import DocumentVersionRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         repo = DocumentVersionRepository(session)
         version = await repo.get_by_id(uuid.UUID(document_version_id))
         return version.original_ref if version else None
@@ -187,7 +201,7 @@ async def update_extraction_result(
 ) -> None:
     from src.db.repositories import DocumentRepository, DocumentVersionRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         ver_repo = DocumentVersionRepository(session)
         doc_repo = DocumentRepository(session)
         await ver_repo.update_refs(

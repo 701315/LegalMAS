@@ -53,3 +53,19 @@ async def db_session():
 def tenant_id() -> uuid.UUID:
     """Fixed tenant ID for tests."""
     return uuid.UUID("00000000-0000-0000-0000-000000000099")
+
+
+@pytest.fixture(autouse=True)
+def reset_context_vars():
+    """Сбрасывает ContextVar между тестами чтобы избежать утечки состояния."""
+    from src.core.logging import deal_id_var, document_id_var, request_id_var
+
+    request_id_var.set(None)
+    deal_id_var.set(None)
+    document_id_var.set(None)
+
+    yield
+
+    request_id_var.set(None)
+    deal_id_var.set(None)
+    document_id_var.set(None)

@@ -6,7 +6,8 @@ Simplified version for vertical slice. Full version in Stage 9.
 import uuid
 
 from src.core.logging import get_logger
-from src.queue.async_helpers import get_worker_session, run_async
+from src.db.session import get_session
+from src.queue.async_helpers import run_async
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -89,7 +90,7 @@ def export_results(
 async def _load_results(run_id: str) -> list:
     from src.db.repositories import ResultRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         repo = ResultRepository(session)
         return await repo.get_by_run(uuid.UUID(run_id))
 
@@ -98,7 +99,7 @@ async def _save_export(run_id: str, export_ref: str) -> None:
     from src.db.models.export import Export
     from src.db.repositories import RunRepository
 
-    async with get_worker_session() as session:
+    async with get_session() as session:
         run = await RunRepository(session).get_by_id(uuid.UUID(run_id))
         if run:
             export = Export(run_id=run.id, ref=export_ref, format="xlsx")
