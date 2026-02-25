@@ -16,10 +16,11 @@ clause_tree_ref is stored on DocumentVersion and is read by:
 import re
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.constants import DocumentStatus
 from src.core.logging import get_logger
-from src.db.session import get_session
-from src.queue.async_helpers import run_async
+from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -40,25 +41,58 @@ CLAUSE_PATTERNS = [
     track_job=False,
     queue="default",
 )
-def build_structure(
+async def build_structure(
     self,
     document_version_id: str,
     document_id: str,
     deal_id: str,
     tenant_id: str,
-    run_id: str = None,
+    run_id: str | None = None,
 ) -> dict:
+    """
+    Celery entrypoint: async wrapper around structure-building core.
+
+    Для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
+    внутри которого выполняются все операции с БД для данного документа.
+    """
     logger.info("Starting structure building", document_id=document_id)
+
+    async with db_uow() as uow:
+        return await _build_structure_async(
+            document_version_id=document_version_id,
+            document_id=document_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            db=uow.session,
+        )
+
+
+async def _build_structure_async(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None,
+    db: AsyncSession,
+) -> dict:
+    """
+    Async core: builds clause tree, updates textlayoutraw,
+    writes clause_tree_ref and chains classifier.
+
+    Все операции с БД выполняются через переданную AsyncSession (db),
+    чтобы одна задача Structure Builder'а работала в рамках одного unit of work.
+    """
     store = ArtifactStore()
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
     text_layout_raw = store.get_json(raw_path)
     elements = text_layout_raw["elements"]
 
-    root_children = []
-    current_stack = []
+    root_children: list[dict] = []
+    current_stack: list[tuple[int, dict]] = []
 
     # Build clause tree and populate clause_uid on elements
-    element_clause_map = {}  # element_id → clause_uid
+    element_clause_map: dict[str, str] = {}  # element_id → clause_uid
 
     for element in elements:
         text = element.get("text", "").strip()
@@ -126,7 +160,12 @@ def build_structure(
     tree_path = ArtifactPath.clause_tree(tenant_id, deal_id, document_id)
     tree_ref = store.put_json(tree_path, clause_tree)
 
-    run_async(_update_structure_result(document_version_id, document_id, tree_ref))
+    await _update_structure_result(
+        document_version_id=document_version_id,
+        document_id=document_id,
+        tree_ref=tree_ref,
+        db=db,
+    )
 
     total_clauses = _count_clauses(root_children)
     logger.info(
@@ -172,12 +211,20 @@ def _count_clauses(nodes):
 
 
 async def _update_structure_result(
-    document_version_id: str, document_id: str, tree_ref: str
+    document_version_id: str,
+    document_id: str,
+    tree_ref: str,
+    db: AsyncSession,
 ) -> None:
     from src.db.repositories import DocumentRepository, DocumentVersionRepository
 
-    async with get_session() as session:
-        ver_repo = DocumentVersionRepository(session)
-        doc_repo = DocumentRepository(session)
-        await ver_repo.update_refs(uuid.UUID(document_version_id), clause_tree_ref=tree_ref)
-        await doc_repo.update_status(uuid.UUID(document_id), DocumentStatus.STRUCTURED.value)
+    ver_repo = DocumentVersionRepository(db)
+    doc_repo = DocumentRepository(db)
+    await ver_repo.update_refs(
+        uuid.UUID(document_version_id),
+        clause_tree_ref=tree_ref,
+    )
+    await doc_repo.update_status(
+        uuid.UUID(document_id),
+        DocumentStatus.STRUCTURED.value,
+    )

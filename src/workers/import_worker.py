@@ -33,6 +33,8 @@ import uuid
 import zipfile
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.constants import DocumentStatus
 from src.core.exceptions import IdempotencyConflictError, PermanentError
 from src.core.logging import get_logger
@@ -43,7 +45,7 @@ from src.db.repositories import (
     DocumentVersionRepository,
     IdempotencyRepository,
 )
-from src.db.session import get_session
+from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.services.file_validator import (
@@ -81,22 +83,31 @@ async def import_bundle(
     deal_id: str,
     tenant_id: str,
     source_path: str,
-    idempotency_key: str = None,
-    run_id: str = None,
+    idempotency_key: str | None = None,
+    run_id: str | None = None,
 ) -> dict:
-    return await _import_bundle_async(
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        source_path=source_path,
-        idempotency_key=idempotency_key,
-        run_id=run_id,
-    )
+    """
+    Celery entrypoint: async wrapper вокруг основного импорта.
+
+    Для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
+    внутри которого выполняются все операции с БД для данного импорта.
+    """
+    async with db_uow() as uow:
+        return await _import_bundle_async(
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            source_path=source_path,
+            idempotency_key=idempotency_key,
+            run_id=run_id,
+            db=uow.session,
+        )
 
 
 async def _import_bundle_async(
     deal_id: str,
     tenant_id: str,
     source_path: str,
+    db: AsyncSession,
     idempotency_key: str | None = None,
     run_id: str | None = None,
 ) -> dict:
@@ -112,6 +123,7 @@ async def _import_bundle_async(
         cached = await _check_idempotency(
             tenant_id=tenant_id,
             key=idempotency_key,
+            db=db,
         )
         if cached is not None:
             logger.info(
@@ -137,6 +149,7 @@ async def _import_bundle_async(
         deal_id=deal_id,
         tenant_id=tenant_id,
         file_list=file_list,
+        db=db,
         run_id=run_id,
         idempotency_key=idempotency_key,
     )
@@ -152,7 +165,7 @@ async def _import_bundle_async(
     return result
 
 
-def _extract_zip(zip_path: str) -> list:
+def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
     """
     Extract ZIP and return list of (folder_path, filepath) tuples.
 
@@ -164,7 +177,7 @@ def _extract_zip(zip_path: str) -> list:
     (Stage 6) for folder_patterns routing in registry.yaml.
     """
     tmp_dir = tempfile.mkdtemp(prefix="mas_import_")
-    file_list = []
+    file_list: list[tuple[str, str]] = []
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(tmp_dir)
@@ -185,42 +198,44 @@ def _extract_zip(zip_path: str) -> list:
     return file_list
 
 
-async def _check_idempotency(tenant_id: str, key: str) -> dict | None:
+async def _check_idempotency(
+    tenant_id: str,
+    key: str,
+    db: AsyncSession,
+) -> dict | None:
     """
     Check idempotency key.
     Returns cached result if already completed, None if new.
     Raises IdempotencyConflictError if currently being processed.
     """
-    from src.db.repositories import IdempotencyRepository
-
     expires_at = datetime.now(UTC) + timedelta(days=7)
 
-    async with get_session() as session:
-        repo = IdempotencyRepository(session)
-        record, is_new = await repo.get_or_create(
-            tenant_id=uuid.UUID(tenant_id),
-            endpoint="import",
-            key=key,
-            expires_at=expires_at,
-        )
-        if is_new:
-            return None
-        if record.status == "completed":
-            return record.result
-        if record.status == "processing":
-            raise IdempotencyConflictError(f"Import with key '{key}' is already in progress")
-        if record.status == "failed":
-            # Allow retry
-            return None
+    repo = IdempotencyRepository(db)
+    record, is_new = await repo.get_or_create(
+        tenant_id=uuid.UUID(tenant_id),
+        endpoint="import",
+        key=key,
+        expires_at=expires_at,
+    )
+    if is_new:
+        return None
+    if record.status == "completed":
+        return record.result
+    if record.status == "processing":
+        raise IdempotencyConflictError(f"Import with key '{key}' is already in progress")
+    if record.status == "failed":
+        # Allow retry
+        return None
     return None
 
 
 async def _async_import(
     deal_id: str,
     tenant_id: str,
-    file_list: list,
-    run_id: str = None,
-    idempotency_key: str = None,
+    file_list: list[tuple[str, str]],
+    db: AsyncSession,
+    run_id: str | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:
     """
     Main import logic. For each file:
@@ -238,215 +253,218 @@ async def _async_import(
     """
 
     store = ArtifactStore()
-    imported_ids = []
-    quarantine_ids = []
+    imported_ids: list[str] = []
+    quarantine_ids: list[str] = []
     duplicate_count = 0
     skipped_count = 0
-    tasks_to_dispatch = []
+    tasks_to_dispatch: list[dict] = []
 
-    async with get_session() as session:
-        doc_repo = DocumentRepository(session)
-        ver_repo = DocumentVersionRepository(session)
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
 
-        # Create Bundle
-        bundle = Bundle(
-            deal_id=uuid.UUID(deal_id),
-            source_type="zip" if len(file_list) > 1 else "local",
-            status="processing",
-            idempotency_key=idempotency_key,
-            file_count=0,
-        )
-        session.add(bundle)
-        await session.flush()
+    # Create Bundle
+    bundle = Bundle(
+        deal_id=uuid.UUID(deal_id),
+        source_type="zip" if len(file_list) > 1 else "local",
+        status="processing",
+        idempotency_key=idempotency_key,
+        file_count=0,
+    )
+    db.add(bundle)
+    await db.flush()
 
-        for folder_path, filepath in file_list:
-            filename = os.path.basename(filepath)
-            validation = validate_file(filepath)
+    for folder_path, filepath in file_list:
+        filename = os.path.basename(filepath)
+        validation = validate_file(filepath)
 
-            # Step 1: Skip
-            if validation.status == FileStatus.SKIP:
-                skipped_count += 1
-                logger.debug("File skipped", filename=filename, reason=validation.reason)
-                continue
+        # Step 1: Skip
+        if validation.status == FileStatus.SKIP:
+            skipped_count += 1
+            logger.debug(
+                "File skipped",
+                filename=filename,
+                reason=validation.reason,
+            )
+            continue
 
-            # Step 2: Quarantine invalid files
-            if validation.status == FileStatus.QUARANTINE:
-                q_doc = await doc_repo.create(
-                    deal_id=uuid.UUID(deal_id),
-                    bundle_id=bundle.id,
-                    filename=filename,
-                    folder_path=folder_path or None,
-                    status=DocumentStatus.QUARANTINE.value,
-                )
-                await ver_repo.create(document_id=q_doc.id, version_num=1)
-                # Best-effort upload for manual review
-                try:
-                    with open(filepath, "rb") as f:
-                        file_bytes = f.read()
-                    artifact_path = ArtifactPath.original(tenant_id, deal_id, str(q_doc.id))
-                    store.put_file(
-                        artifact_path + (validation.original_extension or ".bin"),
-                        file_bytes,
-                    )
-                except Exception:
-                    pass
-                quarantine_ids.append(str(q_doc.id))
-                logger.warning(
-                    "File quarantined",
-                    filename=filename,
-                    reason=validation.reason,
-                    doc_id=str(q_doc.id),
-                )
-                continue
-
-            # Step 3: SHA-256 deduplication within deal
-            sha256 = compute_sha256(filepath)
-            existing = await doc_repo.get_by_sha256(uuid.UUID(deal_id), sha256)
-            if existing:
-                duplicate_count += 1
-                logger.info(
-                    "Duplicate file detected",
-                    filename=filename,
-                    sha256=sha256[:16],
-                    existing_doc=str(existing.id),
-                )
-                continue
-
-            # Step 4: Upload original to MinIO
-            with open(filepath, "rb") as f:
-                file_bytes = f.read()
-
-            doc = await doc_repo.create(
+        # Step 2: Quarantine invalid files
+        if validation.status == FileStatus.QUARANTINE:
+            q_doc = await doc_repo.create(
                 deal_id=uuid.UUID(deal_id),
                 bundle_id=bundle.id,
                 filename=filename,
-                folder_path=folder_path or None,  # ← preserved for L1 Classifier
-                sha256_file=sha256,
-                status=DocumentStatus.PENDING.value,
+                folder_path=folder_path or None,
+                status=DocumentStatus.QUARANTINE.value,
             )
-            ext = validation.original_extension or ".pdf"
-            artifact_path = ArtifactPath.original(tenant_id, deal_id, str(doc.id))
-            original_ref = store.put_file(
-                artifact_path + ext,
-                file_bytes,
-                content_type=_get_content_type(validation.filetype),
-            )
-
-            # Step 5: Create DocumentVersion
-            doc_version = await ver_repo.create(
-                document_id=doc.id,
-                version_num=1,
-                original_ref=original_ref,
-            )
-            imported_ids.append(str(doc.id))
-            logger.info(
-                "Document imported",
-                doc_id=str(doc.id),
+            await ver_repo.create(document_id=q_doc.id, version_num=1)
+            # Best-effort upload for manual review
+            try:
+                with open(filepath, "rb") as f:
+                    file_bytes = f.read()
+                artifact_path = ArtifactPath.original(tenant_id, deal_id, str(q_doc.id))
+                store.put_file(
+                    artifact_path + (validation.original_extension or ".bin"),
+                    file_bytes,
+                )
+            except Exception:
+                pass
+            quarantine_ids.append(str(q_doc.id))
+            logger.warning(
+                "File quarantined",
                 filename=filename,
-                folder_path=folder_path,  # logged for traceability → L1 routing
-                filetype=validation.filetype,
-                sha256=sha256[:16],
+                reason=validation.reason,
+                doc_id=str(q_doc.id),
             )
+            continue
 
-            # Step 6: Queue next step based on file type
-            if can_process_directly(validation.filetype):
-                # PDF → Extractor (Stage 4)
-                tasks_to_dispatch.append(
-                    {
-                        "document_version_id": str(doc_version.id),
-                        "document_id": str(doc.id),
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "run_id": run_id,
-                    }
-                )
+        # Step 3: SHA-256 deduplication within deal
+        sha256 = compute_sha256(filepath)
+        existing = await doc_repo.get_by_sha256(uuid.UUID(deal_id), sha256)
+        if existing:
+            duplicate_count += 1
+            logger.info(
+                "Duplicate file detected",
+                filename=filename,
+                sha256=sha256[:16],
+                existing_doc=str(existing.id),
+            )
+            continue
 
-            elif needs_conversion(validation.filetype):
-                # DOCX/DOC → quarantine with needs_conversion reason
-                await doc_repo.update_status(
-                    doc.id,
-                    DocumentStatus.QUARANTINE.value,
-                )
-                quarantine_ids.append(str(doc.id))
-                imported_ids.remove(str(doc.id))
-                logger.info(
-                    "File needs conversion — quarantined for now",
-                    filename=filename,
-                    filetype=validation.filetype,
-                )
-            elif is_spreadsheet(validation.filetype):
-                # XLSX/XLS → stored, processing deferred
-                await doc_repo.update_status(
-                    doc.id,
-                    DocumentStatus.QUARANTINE.value,
-                )
-                quarantine_ids.append(str(doc.id))
-                imported_ids.remove(str(doc.id))
-                logger.info(
-                    "Spreadsheet stored — processing not yet supported",
-                    filename=filename,
-                )
-            elif is_image(validation.filetype):
-                # Image → OCR pipeline in future stages
-                await doc_repo.update_status(
-                    doc.id,
-                    DocumentStatus.QUARANTINE.value,
-                )
-                quarantine_ids.append(str(doc.id))
-                imported_ids.remove(str(doc.id))
-                logger.info(
-                    "Image stored — OCR processing in future stages",
-                    filename=filename,
-                )
+        # Step 4: Upload original to MinIO
+        with open(filepath, "rb") as f:
+            file_bytes = f.read()
 
-        # Finalize bundle
-        bundle.file_count = len(imported_ids) + len(quarantine_ids)
-        bundle.status = "completed"
-        bundle.completed_at = datetime.now(UTC)
-        await session.flush()
-
-        # Audit log
-        audit_repo = AuditRepository(session)
-        await audit_repo.log(
-            tenant_id=uuid.UUID(tenant_id),
+        doc = await doc_repo.create(
             deal_id=uuid.UUID(deal_id),
-            action="IMPORT",
-            actor="system",
-            actor_role="system",
-            details={
-                "bundle_id": str(bundle.id),
-                "total_files": len(file_list),
-                "imported_count": len(imported_ids),
-                "quarantine_count": len(quarantine_ids),
-                "duplicate_count": duplicate_count,
-                "skipped_count": skipped_count,
-            },
+            bundle_id=bundle.id,
+            filename=filename,
+            folder_path=folder_path or None,  # ← preserved for L1 Classifier
+            sha256_file=sha256,
+            status=DocumentStatus.PENDING.value,
+        )
+        ext = validation.original_extension or ".pdf"
+        artifact_path = ArtifactPath.original(tenant_id, deal_id, str(doc.id))
+        original_ref = store.put_file(
+            artifact_path + ext,
+            file_bytes,
+            content_type=_get_content_type(validation.filetype),
         )
 
-        result = {
+        # Step 5: Create DocumentVersion
+        doc_version = await ver_repo.create(
+            document_id=doc.id,
+            version_num=1,
+            original_ref=original_ref,
+        )
+        imported_ids.append(str(doc.id))
+        logger.info(
+            "Document imported",
+            doc_id=str(doc.id),
+            filename=filename,
+            folder_path=folder_path,  # logged for traceability → L1 routing
+            filetype=validation.filetype,
+            sha256=sha256[:16],
+        )
+
+        # Step 6: Queue next step based on file type
+        if can_process_directly(validation.filetype):
+            # PDF → Extractor (Stage 4)
+            tasks_to_dispatch.append(
+                {
+                    "document_version_id": str(doc_version.id),
+                    "document_id": str(doc.id),
+                    "deal_id": deal_id,
+                    "tenant_id": tenant_id,
+                    "run_id": run_id,
+                }
+            )
+
+        elif needs_conversion(validation.filetype):
+            # DOCX/DOC → quarantine with needs_conversion reason
+            await doc_repo.update_status(
+                doc.id,
+                DocumentStatus.QUARANTINE.value,
+            )
+            quarantine_ids.append(str(doc.id))
+            imported_ids.remove(str(doc.id))
+            logger.info(
+                "File needs conversion — quarantined for now",
+                filename=filename,
+                filetype=validation.filetype,
+            )
+        elif is_spreadsheet(validation.filetype):
+            # XLSX/XLS → stored, processing deferred
+            await doc_repo.update_status(
+                doc.id,
+                DocumentStatus.QUARANTINE.value,
+            )
+            quarantine_ids.append(str(doc.id))
+            imported_ids.remove(str(doc.id))
+            logger.info(
+                "Spreadsheet stored — processing not yet supported",
+                filename=filename,
+            )
+        elif is_image(validation.filetype):
+            # Image → OCR pipeline in future stages
+            await doc_repo.update_status(
+                doc.id,
+                DocumentStatus.QUARANTINE.value,
+            )
+            quarantine_ids.append(str(doc.id))
+            imported_ids.remove(str(doc.id))
+            logger.info(
+                "Image stored — OCR processing in future stages",
+                filename=filename,
+            )
+
+    # Finalize bundle
+    bundle.file_count = len(imported_ids) + len(quarantine_ids)
+    bundle.status = "completed"
+    bundle.completed_at = datetime.now(UTC)
+    await db.flush()
+
+    # Audit log
+    audit_repo = AuditRepository(db)
+    await audit_repo.log(
+        tenant_id=uuid.UUID(tenant_id),
+        deal_id=uuid.UUID(deal_id),
+        action="IMPORT",
+        actor="system",
+        actor_role="system",
+        details={
             "bundle_id": str(bundle.id),
-            "document_ids": imported_ids,
-            "quarantined_ids": quarantine_ids,
+            "total_files": len(file_list),
             "imported_count": len(imported_ids),
             "quarantine_count": len(quarantine_ids),
             "duplicate_count": duplicate_count,
             "skipped_count": skipped_count,
-        }
+        },
+    )
 
-        # Mark idempotency key as completed
-        if idempotency_key:
-            idem_repo = IdempotencyRepository(session)
-            record, _ = await idem_repo.get_or_create(
-                uuid.UUID(tenant_id),
-                "import",
-                idempotency_key,
-            )
-            response_hash = hashlib.sha256(str(result).encode()).hexdigest()
-            await idem_repo.mark_completed(
-                record.id,
-                response_hash=response_hash,
-                result=result,
-            )
+    result = {
+        "bundle_id": str(bundle.id),
+        "document_ids": imported_ids,
+        "quarantined_ids": quarantine_ids,
+        "imported_count": len(imported_ids),
+        "quarantine_count": len(quarantine_ids),
+        "duplicate_count": duplicate_count,
+        "skipped_count": skipped_count,
+    }
+
+    # Mark idempotency key as completed
+    if idempotency_key:
+        idem_repo = IdempotencyRepository(db)
+        record, _ = await idem_repo.get_or_create(
+            uuid.UUID(tenant_id),
+            "import",
+            idempotency_key,
+        )
+        response_hash = hashlib.sha256(str(result).encode()).hexdigest()
+        await idem_repo.mark_completed(
+            record.id,
+            response_hash=response_hash,
+            result=result,
+        )
 
     # Транзакция закоммичена — теперь безопасно публиковать задачи
     for kw in tasks_to_dispatch:

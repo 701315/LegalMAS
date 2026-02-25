@@ -9,10 +9,11 @@ No KMS encryption — added in Stage 5.
 import re
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.constants import DocumentStatus
 from src.core.logging import get_logger
-from src.db.session import get_session
-from src.queue.async_helpers import run_async
+from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -32,20 +33,68 @@ EMAIL = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}")
     track_job=False,
     queue="default",
 )
-def sanitize_document(
+async def sanitize_document(
     self,
     document_version_id: str,
     document_id: str,
     deal_id: str,
     tenant_id: str,
-    run_id: str = None,
+    run_id: str | None = None,
 ) -> dict:
+    """
+    Celery entrypoint: async wrapper around PII sanitization core.
+
+    Для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
+    внутри которого выполняются все операции с БД для данного документа.
+    """
+    async with db_uow() as uow:
+        result = await sanitize_document_core(
+            document_version_id=document_version_id,
+            document_id=document_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            db=uow.session,
+        )
+
+    logger.info(
+        "PII sanitization complete",
+        document_id=document_id,
+        entities_found=result["pii_entities"],
+    )
+
+    from src.workers.structure_builder import build_structure
+
+    build_structure.delay(
+        document_version_id=document_version_id,
+        document_id=document_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+    )
+
+    return {
+        "document_id": document_id,
+        "pii_entities": result["pii_entities"],
+    }
+
+
+async def sanitize_document_core(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+) -> dict:
+    """
+    Основная логика санитайзера: читает textlayoutraw, заменяет PII токенами,
+    пишет text_layout_sanitized и обновляет БД через переданный AsyncSession.
+    """
     logger.info("Starting PII sanitization", document_id=document_id)
     store = ArtifactStore()
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
     text_layout_raw = store.get_json(raw_path)
 
-    pii_mapping = {}
+    pii_mapping: dict[str, str] = {}
     counters = {"PERSON": 0, "PHONE": 0, "EMAIL": 0}
     sanitized_elements = []
 
@@ -97,33 +146,35 @@ def sanitize_document(
     mapping_path = ArtifactPath.pii_mapping(tenant_id, deal_id, document_id)
     store.put_json(mapping_path, pii_mapping)
 
-    run_async(_update_sanitization_result(document_version_id, document_id, sanitized_ref))
-
-    logger.info(
-        "PII sanitization complete",
-        document_id=document_id,
-        entities_found=sum(counters.values()),
-    )
-
-    from src.workers.structure_builder import build_structure
-
-    build_structure.delay(
+    await _update_sanitization_result(
         document_version_id=document_version_id,
         document_id=document_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
+        sanitized_ref=sanitized_ref,
+        db=db,
     )
-    return {"document_id": document_id, "pii_entities": sum(counters.values())}
+
+    return {
+        "sanitized_ref": sanitized_ref,
+        "pii_entities": sum(counters.values()),
+    }
 
 
 async def _update_sanitization_result(
-    document_version_id: str, document_id: str, sanitized_ref: str
+    document_version_id: str,
+    document_id: str,
+    sanitized_ref: str,
+    db: AsyncSession,
 ) -> None:
     from src.db.repositories import DocumentRepository, DocumentVersionRepository
 
-    async with get_session() as session:
-        ver_repo = DocumentVersionRepository(session)
-        doc_repo = DocumentRepository(session)
-        await ver_repo.update_refs(uuid.UUID(document_version_id), sanitized_ref=sanitized_ref)
-        await doc_repo.update_status(uuid.UUID(document_id), DocumentStatus.SANITIZED.value)
+    ver_repo = DocumentVersionRepository(db)
+    doc_repo = DocumentRepository(db)
+
+    await ver_repo.update_refs(
+        uuid.UUID(document_version_id),
+        sanitized_ref=sanitized_ref,
+    )
+    await doc_repo.update_status(
+        uuid.UUID(document_id),
+        DocumentStatus.SANITIZED.value,
+    )

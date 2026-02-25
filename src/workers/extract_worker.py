@@ -1,32 +1,42 @@
 """
-Extract Worker — simplified version for vertical slice.
+Extract Worker — production (async worker API preserved).
 
-Extracts text from PDF using pdfplumber with word-grouping into lines.
-Produces textlayoutraw JSON artifact in MinIO.
+Extracts text and tables from a PDF document stored in MinIO.
 
-NOTE: element.clause_uid is null here — set by Structure Builder.
-Full production version with OCR, Tesseract, strategy detection in Stage 4.
+Features:
+  - Strategy detection per page: text / OCR / hybrid
+  - pdfplumber for native-text PDFs
+  - Tesseract OCR for scanned pages (graceful fallback if not installed)
+  - Table extraction
+  - Deterministic element IDs (SHA-256 based, reproducible)
+  - Quarantine: 0 elements | low OCR confidence | parse errors
+  - Structured logging with deal_id / document_id context
+  - Triggers PII Sanitizer on success
+
+textlayoutraw schema produced: see src.services.pdf_extractor.build_text_layout_raw
+NOTE: element.clause_uid is null at this stage — set by Structure Builder (Stage 6).
 """
 
-import io
+import time
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.core.config import settings
 from src.core.constants import DocumentStatus
 from src.core.exceptions import PermanentError, QuarantineError
 from src.core.logging import get_logger
-from src.db.session import get_session
+from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
+from src.services.pdf_extractor import (
+    ExtractionResult,
+    build_text_layout_raw,
+    extract_pdf,
+)
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
-
-try:
-    import pdfplumber
-
-    HAS_PDFPLUMBER = True
-except ImportError:
-    HAS_PDFPLUMBER = False
 
 
 @celery_app.task(
@@ -42,15 +52,26 @@ async def extract_document(
     document_id: str,
     deal_id: str,
     tenant_id: str,
-    run_id: str = None,
+    run_id: str | None = None,
 ) -> dict:
-    return await _extract_document_async(
-        document_version_id=document_version_id,
-        document_id=document_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-    )
+    """
+    Async entrypoint kept for compatibility with existing pipeline/tests.
+
+    Thin async wrapper around _extract_document_async which implements
+    full Stage 4 extraction logic.
+
+    Важно: для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
+    внутри которого выполняются все операции с БД для данного документа.
+    """
+    async with db_uow() as uow:
+        return await _extract_document_async(
+            document_version_id=document_version_id,
+            document_id=document_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            db=uow.session,
+            run_id=run_id,
+        )
 
 
 async def _extract_document_async(
@@ -58,159 +79,174 @@ async def _extract_document_async(
     document_id: str,
     deal_id: str,
     tenant_id: str,
+    db: AsyncSession,
     run_id: str | None = None,
 ) -> dict:
-    """Extract text from PDF and produce textlayoutraw artifact."""
-    logger.info("Starting extraction", document_id=document_id)
+    """
+    Extract text and tables from PDF and produce textlayoutraw artifact.
 
-    if not HAS_PDFPLUMBER:
-        raise PermanentError("pdfplumber not installed")
+    Все операции с БД выполняются через переданную AsyncSession (db),
+    чтобы одна задача worker'а работала в рамках одного unit of work.
+    """
+    logger.info(
+        "Starting extraction",
+        document_id=document_id,
+        version_id=document_version_id,
+    )
+    start_time = time.time()
+    store = ArtifactStore(settings)
 
-    store = ArtifactStore()
-
-    original_ref = await get_original_ref(document_version_id)
+    # 1. Load original PDF from MinIO (original_ref из БД)
+    original_ref = await get_original_ref(document_version_id, db)
     if not original_ref:
         raise PermanentError(f"No originalref for version {document_version_id}")
 
     s3_path = original_ref.replace(f"s3://{store.bucket}/", "")
     pdf_bytes = store.get_file(s3_path)
 
-    elements: list[dict] = []
-    total_pages = 0
-    element_index = 0
+    # 2. Extract (Stage 4 PDF extractor: text / OCR / hybrid + tables)
+    extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
 
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        total_pages = len(pdf.pages)
-        for page_num, page in enumerate(pdf.pages, start=1):
-            words = (
-                page.extract_words(
-                    keep_blank_chars=False,
-                    extra_attrs=["fontname", "size"],
-                )
-                or []
-            )
-            lines = _group_words_into_lines(words)
-            for line_text, line_bbox in lines:
-                stripped = line_text.strip()
-                if not stripped:
-                    continue
-                elements.append(
-                    {
-                        "element_id": f"e{element_index:05d}",
-                        "type": "text",
-                        "text": stripped,
-                        "page": page_num,
-                        "bbox": line_bbox,
-                        "confidence": 1.0,
-                        "clause_uid": None,  # set by Structure Builder
-                    }
-                )
-                element_index += 1
+    # 3. Quarantine check
+    _check_quarantine(extraction, document_id)
 
-    if not elements:
-        raise QuarantineError(
-            "No text extracted from PDF",
-            document_id=document_id,
-            reason="no_text_extracted",
-        )
+    # 4. Build textlayoutraw JSON (clause_uid = null at this stage)
+    text_layout_raw = build_text_layout_raw(
+        extraction,
+        document_id=document_id,
+        document_version_id=document_version_id,
+    )
 
-    text_layout_raw = {
-        "document_version_id": document_version_id,
-        "document_id": document_id,
-        "elements": elements,
-        "tables": [],
-        "metadata": {
-            "pages": total_pages,
-            "strategy": "pdfplumber",
-            "element_count": len(elements),
-        },
-    }
-
+    # 5. Upload to MinIO
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
     raw_ref = store.put_json(raw_path, text_layout_raw)
 
+    # 6. Update DB (используем ту же сессию db)
     await update_extraction_result(
         document_version_id=document_version_id,
         document_id=document_id,
         raw_ref=raw_ref,
-        page_count=total_pages,
+        page_count=extraction.page_count,
+        strategy=extraction.strategy,
+        ocr_confidence=extraction.avg_ocr_confidence,
+        db=db,
     )
 
+    duration = time.time() - start_time
     logger.info(
         "Extraction complete",
         document_id=document_id,
-        elements=len(elements),
-        pages=total_pages,
+        elements=len(extraction.elements),
+        tables=len(extraction.tables),
+        pages=extraction.page_count,
+        strategy=extraction.strategy,
+        ocr_confidence=round(extraction.avg_ocr_confidence, 3),
+        duration_seconds=round(duration, 2),
     )
 
-    from src.workers.pii_sanitizer import sanitize_document
+    # 7. Trigger PII Sanitizer (Stage 5)
+    if not settings.DISABLE_DOWNSTREAM_TASKS:
+        from src.workers.pii_sanitizer import sanitize_document
 
-    sanitize_document.delay(
-        document_version_id=document_version_id,
-        document_id=document_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-    )
-    return {"document_id": document_id, "elements": len(elements), "pages": total_pages}
+        sanitize_document.delay(
+            document_version_id=document_version_id,
+            document_id=document_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
 
-
-def _group_words_into_lines(words: list) -> list:
-    if not words:
-        return []
-    sorted_words = sorted(words, key=lambda w: (round(w["top"], 1), w["x0"]))
-    lines = []
-    current = [sorted_words[0]]
-    current_top = round(sorted_words[0]["top"], 1)
-    for word in sorted_words[1:]:
-        wt = round(word["top"], 1)
-        if abs(wt - current_top) <= 3:
-            current.append(word)
-        else:
-            lines.append(_build_line(current))
-            current = [word]
-            current_top = wt
-    if current:
-        lines.append(_build_line(current))
-    return lines
+    return {
+        "document_id": document_id,
+        "elements": len(extraction.elements),
+        "tables": len(extraction.tables),
+        "pages": extraction.page_count,
+        "strategy": extraction.strategy,
+        "duration_seconds": round(duration, 2),
+    }
 
 
-def _build_line(words: list) -> tuple:
-    ws = sorted(words, key=lambda w: w["x0"])
-    text = " ".join(w["text"] for w in ws)
-    bbox = [
-        min(w["x0"] for w in ws),
-        min(w["top"] for w in ws),
-        max(w["x1"] for w in ws),
-        max(w["bottom"] for w in ws),
-    ]
-    return text, [round(v, 2) for v in bbox]
+def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
+    """Raise QuarantineError if extraction results are below quality thresholds."""
+    # Parse errors + no elements
+    if extraction.errors and not extraction.elements:
+        raise QuarantineError(
+            f"PDF extraction failed: {'; '.join(extraction.errors)}",
+            document_id=document_id,
+            reason="extraction_failed",
+        )
+
+    # 0 elements at all
+    if not extraction.elements:
+        raise QuarantineError(
+            "No text extracted from PDF — 0 elements",
+            document_id=document_id,
+            reason="no_text_extracted",
+        )
+
+    # Low OCR confidence for OCR/hybrid strategies
+    if extraction.strategy in ("ocr", "hybrid") and (
+        extraction.avg_ocr_confidence < settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD
+    ):
+        raise QuarantineError(
+            (
+                f"OCR confidence too low: "
+                f"{extraction.avg_ocr_confidence:.2f} < "
+                f"threshold {settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD}"
+            ),
+            document_id=document_id,
+            reason="ocr_low_confidence",
+            details={
+                "avg_confidence": extraction.avg_ocr_confidence,
+                "threshold": settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD,
+            },
+        )
 
 
-async def get_original_ref(document_version_id: str) -> str | None:
+async def get_original_ref(
+    document_version_id: str,
+    db: AsyncSession,
+) -> str | None:
+    """
+    Получить ссылку на исходный PDF (original_ref) для версии документа.
+
+    Работает через переданную AsyncSession, не создаёт собственных сессий.
+    """
     from src.db.repositories import DocumentVersionRepository
 
-    async with get_session() as session:
-        repo = DocumentVersionRepository(session)
-        version = await repo.get_by_id(uuid.UUID(document_version_id))
-        return version.original_ref if version else None
+    repo = DocumentVersionRepository(db)
+    version = await repo.get_by_id(uuid.UUID(document_version_id))
+    return version.original_ref if version else None
 
 
 async def update_extraction_result(
-    document_version_id: str, document_id: str, raw_ref: str, page_count: int
+    document_version_id: str,
+    document_id: str,
+    raw_ref: str,
+    page_count: int,
+    strategy: str,
+    ocr_confidence: float,
+    db: AsyncSession,
 ) -> None:
+    """
+    Обновить результаты извлечения в БД (version + document).
+
+    Работает через переданную AsyncSession в рамках одного unit of work.
+    """
     from src.db.repositories import DocumentRepository, DocumentVersionRepository
 
-    async with get_session() as session:
-        ver_repo = DocumentVersionRepository(session)
-        doc_repo = DocumentRepository(session)
-        await ver_repo.update_refs(
-            uuid.UUID(document_version_id),
-            raw_ref=raw_ref,
-            extraction_strategy="pdfplumber",
-        )
-        await doc_repo.update_status(
-            uuid.UUID(document_id),
-            DocumentStatus.EXTRACTED.value,
-            page_count=page_count,
-        )
+    ver_repo = DocumentVersionRepository(db)
+    doc_repo = DocumentRepository(db)
+
+    await ver_repo.update_refs(
+        uuid.UUID(document_version_id),
+        raw_ref=raw_ref,
+        extraction_strategy=strategy,
+        ocr_confidence=ocr_confidence,
+    )
+
+    await doc_repo.update_status(
+        uuid.UUID(document_id),
+        DocumentStatus.EXTRACTED.value,
+        page_count=page_count,
+    )

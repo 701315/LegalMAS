@@ -4,9 +4,9 @@ Runner — simplified version for vertical slice.
 Executes one hardcoded DD check: Change of Control (coc001).
 Rules-only detection via keyword search.
 Writes check result with new fields:
-  - structured_data          = None  (populated in Stage 8)
-  - conditional_check_triggered = False (populated in Stage 8)
-  - trigger_name             = None  (populated in Stage 8)
+  - structured_data              = None  (populated in Stage 8)
+  - conditional_check_triggered  = False (populated in Stage 8)
+  - trigger_name                 = None  (populated in Stage 8)
 
 applicable_triggers routing:
   In this stage: Runner checks all documents regardless of applicable_triggers.
@@ -16,28 +16,16 @@ applicable_triggers routing:
   validate the contract with the production Runner (Stage 8).
 
 Full Runner with check_catalogue.yaml routing in Stage 8.
-
-В продакшене Runner не ограничивается одним CoC‑чеком.
-Для каждого юридического кейса (смена контроля, золотой парашют, штрафы за неподачу отчётности и т.п.)
-будет отдельный YAML‑файл/блок с описанием:
-check_id, check_name, severity;
-целевых типов документов (doc_types);
-триггеров запуска (профиль DD, юрисдикция, роль контрагента);
-набора ключевых слов / паттернов / LLM‑промптов (аналог COC_KEYWORDS).
-
-UI конструктора плейбука показывает эти кейсы как чек‑боксы/список сценариев анализа.
-Пользователь при формировании плейбука выбирает нужные кейсы, а Runner по выбранному
-набору YAML‑описаний формирует набор проверок, который будет запускаться для документов.
-
 """
 
 import json
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.constants import CheckResultStatus, DocumentStatus, Severity
 from src.core.logging import get_logger
-from src.db.session import get_session
-from src.queue.async_helpers import run_async
+from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
@@ -64,12 +52,12 @@ COC_KEYWORDS = [
     track_job=False,
     queue="default",
 )
-def run_checks(
+async def run_checks(
     self,
     document_id: str,
     deal_id: str,
     tenant_id: str,
-    run_id: str = None,
+    run_id: str | None = None,
     doctype: str = "Other",
 ) -> dict:
     """
@@ -82,6 +70,32 @@ def run_checks(
     intentional — they validate the DB field contract with Stage 8.
     """
     logger.info("Starting checks", document_id=document_id, doctype=doctype)
+
+    async with db_uow() as uow:
+        return await _run_checks_async(
+            document_id=document_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            doctype=doctype,
+            db=uow.session,
+        )
+
+
+async def _run_checks_async(
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None,
+    doctype: str,
+    db: AsyncSession,
+) -> dict:
+    """
+    Async core: loads artifacts, runs checks, saves results and triggers exporter.
+
+    Все операции с БД выполняются через переданную AsyncSession (db),
+    чтобы одна задача Runner'а работала в рамках одного unit of work.
+    """
     store = ArtifactStore()
 
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
@@ -91,20 +105,19 @@ def run_checks(
     tree_path = ArtifactPath.clause_tree(tenant_id, deal_id, document_id)
     clause_tree = store.get_json(tree_path)
 
-    check_results = []
-    evidence_records = []
+    check_results: list[dict] = []
+    evidence_records: list[dict] = []
 
     coc_result = _check_change_of_control(elements, clause_tree, document_id)
     check_results.append(coc_result["check_result"])
     if coc_result.get("evidence"):
         evidence_records.append(coc_result["evidence"])
 
-    run_async(
-        _finalize(
-            run_id=run_id,
-            document_id=document_id,
-            check_results=check_results,
-        )
+    await _finalize(
+        run_id=run_id,
+        document_id=document_id,
+        check_results=check_results,
+        db=db,
     )
 
     if run_id:
@@ -172,7 +185,7 @@ def _check_change_of_control(elements, clause_tree, document_id) -> dict:
                         "check_name": "Change of Control Clause",
                         "result": CheckResultStatus.FAIL.value,
                         "severity": Severity.CRITICAL.value,
-                        "value_text": f"Change of control clause found: '{keyword}'",
+                        "value_text": (f"Change of control clause found: '{keyword}'"),
                         "evidence_snippet": element.get("text", "")[:300],
                         "evidence_page": element.get("page"),
                         "confidence": 0.85,
@@ -217,43 +230,57 @@ def _find_clause_for_element(clause_tree, element_id) -> str | None:
     return search(root_children)
 
 
-async def _save_results(run_id, document_id, check_results) -> None:
+async def _save_results(
+    run_id: str | None,
+    document_id: str,
+    check_results: list[dict],
+    db: AsyncSession,
+) -> None:
     """Save check results to DB including new fields."""
     if not run_id:
         return
+
     from src.db.repositories import ResultRepository
 
-    async with get_session() as session:
-        repo = ResultRepository(session)
-        for cr in check_results:
-            await repo.create(
-                run_id=uuid.UUID(run_id),
-                document_id=uuid.UUID(document_id),
-                check_id=cr["check_id"],
-                check_name=cr["check_name"],
-                result=cr["result"],
-                severity=cr["severity"],
-                value_text=cr.get("value_text"),
-                confidence=cr.get("confidence"),
-                detector_used=cr.get("detector_used"),
-                quality_flags=cr.get("quality_flags"),
-                # New fields — contract with Stage 8
-                structured_data=cr.get("structured_data"),
-                conditional_check_triggered=cr.get("conditional_check_triggered", False),
-                trigger_name=cr.get("trigger_name"),
-            )
+    repo = ResultRepository(db)
+    for cr in check_results:
+        await repo.create(
+            run_id=uuid.UUID(run_id),
+            document_id=uuid.UUID(document_id),
+            check_id=cr["check_id"],
+            check_name=cr["check_name"],
+            result=cr["result"],
+            severity=cr["severity"],
+            value_text=cr.get("value_text"),
+            confidence=cr.get("confidence"),
+            detector_used=cr.get("detector_used"),
+            quality_flags=cr.get("quality_flags"),
+            # New fields — contract with Stage 8
+            structured_data=cr.get("structured_data"),
+            conditional_check_triggered=cr.get("conditional_check_triggered", False),
+            trigger_name=cr.get("trigger_name"),
+        )
 
 
-async def _finalize(run_id, document_id, check_results) -> None:
-    # TODO Stage 8: рефакторинг — весь run_checks в единый run_async(_run_checks_async())
-    # Текущий _finalize — временный фикс проблемы event loop при двух run_async() подряд.
-    await _save_results(run_id, document_id, check_results)
-    await _update_document_status(document_id)
+async def _finalize(
+    run_id: str | None,
+    document_id: str,
+    check_results: list[dict],
+    db: AsyncSession,
+) -> None:
+    # TODO Stage 8: рефакторинг — возможно, объединить всё в один _run_checks_async
+    await _save_results(run_id, document_id, check_results, db)
+    await _update_document_status(document_id, db)
 
 
-async def _update_document_status(document_id: str) -> None:
+async def _update_document_status(
+    document_id: str,
+    db: AsyncSession,
+) -> None:
     from src.db.repositories import DocumentRepository
 
-    async with get_session() as session:
-        repo = DocumentRepository(session)
-        await repo.update_status(uuid.UUID(document_id), DocumentStatus.COMPLETED.value)
+    repo = DocumentRepository(db)
+    await repo.update_status(
+        uuid.UUID(document_id),
+        DocumentStatus.COMPLETED.value,
+    )

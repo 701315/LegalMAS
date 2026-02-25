@@ -9,26 +9,28 @@ Provides:
 
 Retry lifecycle:
     __call__() intercepts exceptions BEFORE Celery sees them.
-    - TransientError / unknown  → self.retry() with exponential backoff
-    - PermanentError            → re-raise, on_failure → DLQ
-    - QuarantineError           → re-raise, on_failure → COMPLETED + quarantine
+    - TransientError / unknown  -> self.retry() with exponential backoff
+    - PermanentError            -> re-raise, on_failure -> DLQ
+    - QuarantineError           -> re-raise, on_failure -> COMPLETED + quarantine
     on_failure() is called ONLY for the final failure (retries exhausted).
     on_retry()   is called by Celery each time self.retry() is raised.
 """
 
+import asyncio
 import traceback
 import uuid
 from datetime import UTC, datetime
 
 from celery import Task
 from celery.exceptions import Retry
+from sqlalchemy import update as sa_update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.constants import JobStatus
 from src.core.exceptions import PermanentError, QuarantineError, TransientError
 from src.core.logging import deal_id_var, document_id_var, get_logger
 from src.db.models.run import Job
-from src.db.session import get_session
-from src.queue.async_helpers import run_async
+from src.db.uow import db_uow
 from src.queue.dlq import DLQManager
 
 logger = get_logger(__name__)
@@ -91,7 +93,7 @@ class MASBaseTask(Task):
             )
             if self.track_job and "job_id" in kwargs:
                 try:
-                    run_async(
+                    asyncio.run(
                         self._update_job_status(
                             kwargs["job_id"],
                             JobStatus.QUEUED.value,
@@ -99,7 +101,10 @@ class MASBaseTask(Task):
                         )
                     )
                 except Exception as e:
-                    logger.warning("Failed to update job status for retry", error=str(e))
+                    logger.warning(
+                        "Failed to update job status for retry",
+                        error=str(e),
+                    )
 
             raise self.retry(exc=exc, countdown=delay)
         else:
@@ -116,7 +121,7 @@ class MASBaseTask(Task):
             )
             if self.track_job and "job_id" in kwargs:
                 try:
-                    run_async(
+                    asyncio.run(
                         self._update_job_status(
                             kwargs["job_id"],
                             JobStatus.DLQ.value,
@@ -124,7 +129,11 @@ class MASBaseTask(Task):
                         )
                     )
                 except Exception as e:
-                    logger.warning("Failed to update job for DLQ", error=str(e))
+                    logger.warning(
+                        "Failed to update job for DLQ",
+                        error=str(e),
+                    )
+
             raise
 
     # ------------------------------------------------------------------
@@ -146,7 +155,7 @@ class MASBaseTask(Task):
 
         if self.track_job and "job_id" in kwargs:
             try:
-                run_async(
+                asyncio.run(
                     self._update_job_status(
                         kwargs["job_id"],
                         JobStatus.RUNNING.value,
@@ -154,21 +163,27 @@ class MASBaseTask(Task):
                     )
                 )
             except Exception as e:
-                logger.warning("Failed to update job status on start", error=str(e))
+                logger.warning(
+                    "Failed to update job status on start",
+                    error=str(e),
+                )
 
     def on_success(self, retval, task_id, args, kwargs):
         logger.info("Task completed", task_name=self.name, task_id=task_id)
 
         if self.track_job and "job_id" in kwargs:
             try:
-                run_async(
+                asyncio.run(
                     self._update_job_status(
                         kwargs["job_id"],
                         JobStatus.COMPLETED.value,
                     )
                 )
             except Exception as e:
-                logger.warning("Failed to update job status on success", error=str(e))
+                logger.warning(
+                    "Failed to update job status on success",
+                    error=str(e),
+                )
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """
@@ -181,7 +196,7 @@ class MASBaseTask(Task):
             logger.warning("Task resulted in quarantine", **error_info)
             if self.track_job and "job_id" in kwargs:
                 try:
-                    run_async(
+                    asyncio.run(
                         self._update_job_status(
                             kwargs["job_id"],
                             JobStatus.COMPLETED.value,
@@ -189,7 +204,10 @@ class MASBaseTask(Task):
                         )
                     )
                 except Exception as e:
-                    logger.warning("Failed to update job for quarantine", error=str(e))
+                    logger.warning(
+                        "Failed to update job for quarantine",
+                        error=str(e),
+                    )
             return
 
         failure_type = "permanent" if isinstance(exc, PermanentError) else "transient"
@@ -206,7 +224,7 @@ class MASBaseTask(Task):
         )
         if self.track_job and "job_id" in kwargs:
             try:
-                run_async(
+                asyncio.run(
                     self._update_job_status(
                         kwargs["job_id"],
                         JobStatus.DLQ.value,
@@ -214,7 +232,10 @@ class MASBaseTask(Task):
                     )
                 )
             except Exception as e:
-                logger.warning("Failed to update job status for DLQ", error=str(e))
+                logger.warning(
+                    "Failed to update job status for DLQ",
+                    error=str(e),
+                )
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         logger.info(
@@ -258,7 +279,7 @@ class MASBaseTask(Task):
     ) -> None:
         job_id = kwargs.get("job_id")
         try:
-            run_async(
+            asyncio.run(
                 self._async_send_to_dlq(
                     job_id=uuid.UUID(job_id) if job_id else None,
                     task_type=task_type,
@@ -280,8 +301,9 @@ class MASBaseTask(Task):
         failure_type: str,
         error_details: dict,
     ) -> None:
-        async with get_session() as session:
-            dlq = DLQManager(session)
+        async with db_uow() as uow:
+            db: AsyncSession = uow.session
+            dlq = DLQManager(db)
             await dlq.send_to_dlq(
                 task_type=task_type,
                 failure_type=failure_type,
@@ -297,15 +319,19 @@ class MASBaseTask(Task):
         error_details: dict | None = None,
         retry_count: int | None = None,
     ) -> None:
-        from sqlalchemy import update as sa_update
+        async with db_uow() as uow:
+            db: AsyncSession = uow.session
 
-        async with get_session() as session:
             values: dict = {"status": status}
             if worker_id:
                 values["worker_id"] = worker_id
             if status == JobStatus.RUNNING.value:
                 values["started_at"] = datetime.now(UTC)
-            if status in (JobStatus.COMPLETED.value, JobStatus.FAILED.value, JobStatus.DLQ.value):
+            if status in (
+                JobStatus.COMPLETED.value,
+                JobStatus.FAILED.value,
+                JobStatus.DLQ.value,
+            ):
                 values["finished_at"] = datetime.now(UTC)
             if error_details:
                 values["error_details"] = error_details
@@ -313,4 +339,4 @@ class MASBaseTask(Task):
                 values["retry_count"] = retry_count
 
             stmt = sa_update(Job).where(Job.id == uuid.UUID(job_id)).values(**values)
-            await session.execute(stmt)
+            await db.execute(stmt)

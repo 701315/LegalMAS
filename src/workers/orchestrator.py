@@ -3,17 +3,23 @@ Orchestrator — creates Run and chains all workers.
 Simplified version for vertical slice.
 """
 
+import asyncio
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.core.logging import get_logger
-from src.db.session import get_session
-from src.queue.async_helpers import run_async
+from src.db.uow import db_uow
 
 logger = get_logger(__name__)
 
 
 def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict:
-    run_id = run_async(_create_run(deal_id, tenant_id))
+    """
+    Sync entrypoint: creates Run and kicks off import worker.
+    """
+    run_id = asyncio.run(_create_run(deal_id, tenant_id))
+
     from src.workers.import_worker import import_bundle
 
     import_bundle.delay(
@@ -28,9 +34,11 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict:
 async def _create_run(deal_id: str, tenant_id: str) -> str:
     from src.db.repositories import PlaybookRepository, RunRepository
 
-    async with get_session() as session:
-        playbook_repo = PlaybookRepository(session)
-        run_repo = RunRepository(session)
+    async with db_uow() as uow:
+        db: AsyncSession = uow.session
+
+        playbook_repo = PlaybookRepository(db)
+        run_repo = RunRepository(db)
 
         deal_uuid = uuid.UUID(deal_id)
         playbook = await playbook_repo.get_for_deal(deal_uuid)
@@ -39,7 +47,7 @@ async def _create_run(deal_id: str, tenant_id: str) -> str:
         run = await run_repo.create(
             deal_id=deal_uuid,
             playbook_version_id=playbook.id,
-            model_config_id=playbook.model_config_id,  # либо None, если сделал опциональным
+            model_config_id=playbook.model_config_id,
             bundle_id=None,
             environment_hash=None,
             profile="full",

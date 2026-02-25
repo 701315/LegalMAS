@@ -73,6 +73,36 @@ class Settings(BaseSettings):
     # может использовать folder_patterns из реестра для предварительной маршрутизации.
     # Читается Classifier'ом (Stage 6), но путь объявляется глобально.
 
+    # --- Stage 4: Extractor ---
+    EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE: int = 50
+    # Символов на странице ниже этого → стратегия OCR
+
+    EXTRACTION_OCR_QUARANTINE_THRESHOLD: float = 0.6
+    # Средняя OCR-уверенность ниже → документ в карантин
+
+    EXTRACTION_OCR_DPI: int = 300
+    # DPI при конвертации страниц в изображения для OCR
+
+    EXTRACTION_MAX_PAGES: int = 500
+    # Максимум страниц в одном документе
+
+    EXTRACTION_OCR_ENABLED: bool = True
+    # False → отключить OCR полностью, только pdfplumber
+
+    # --- Stage 4: Element enrichment для Classifier/Structure Builder ---
+    EXTRACTION_ENRICH_ELEMENT_TYPES: bool = True
+    # True → классифицировать каждый элемент как heading/text/listitem
+    # Используется на Этапах 6 (Structure Builder) и 7 (Dedup)
+    # Добавлен флаг EXTRACTION_ENRICH_ELEMENT_TYPES. Structure Builder (Этап 6)
+    # использует element.type для разбиения на clause_uid, классификатор L2 (Этап 6)
+    # — первые 1500 символов elements. Обогащение типов критично для качества обоих.
+
+    # --- Testing / Integration ---
+    DISABLE_DOWNSTREAM_TASKS: bool = False
+    # True → отключить запуск downstream-тасок (PII Sanitizer, Structure Builder и т.д.)
+    # из воркеров для изолированного тестирования отдельных стадий pipeline.
+    # Используется в интеграционных тестах.
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

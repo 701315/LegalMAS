@@ -1,21 +1,37 @@
-"""
-Shared test fixtures.
-Provides database session with automatic rollback for each test.
-"""
-
-# Register test tasks into Celery app — test scope only, never in production
+import os
 import uuid
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import create_engine as create_sync_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
+    async_sessionmaker,
     create_async_engine,
 )
 
-import tests.tasks_for_testing  # noqa: F401
 from src.core.config import settings
-from src.db.base import Base
+from src.core.logging import deal_id_var, document_id_var, request_id_var
+
+# --- Sync engine для инициализации схемы (DDL один раз перед тестами) ---
+sync_engine = create_sync_engine(settings.DATABASE_URL.replace("+asyncpg", ""), future=True)
+
+# --- Async engine только для тестов (используется в коде) ---
+test_engine = create_async_engine(settings.DATABASE_URL, future=True)
+TestSession = async_sessionmaker(
+    bind=test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+
+@pytest.mark.asyncio
+async def test__sanity_db_session(db_session: AsyncSession):
+    from src.db.repositories import PlaybookRepository
+
+    repo = PlaybookRepository(db_session)
+    pb = await repo.get_default()
+    assert pb is not None
 
 
 @pytest.fixture
@@ -23,49 +39,51 @@ def anyio_backend():
     return "asyncio"
 
 
-@pytest_asyncio.fixture
+# @pytest.fixture(scope="session", autouse=True)
+# def prepare_db_schema():
+#    """Один раз создаёт схему БД синхронно перед всеми тестами."""
+#    with sync_engine.begin() as conn:
+#        Base.metadata.create_all(bind=conn)
+#    yield
+#    # при желании можно дропнуть таблицы после тестов:
+#    # with sync_engine.begin() as conn:
+#    #     Base.metadata.drop_all(bind=conn)
+
+
+@pytest_asyncio.fixture(scope="function")
 async def db_session():
-    """
-    Creates a fresh database session for each test.
-    Uses a transaction that is rolled back after the test,
-    so tests don't affect each other.
-    """
-    engine = create_async_engine(settings.DATABASE_URL)
-
-    async with engine.begin() as conn:
-        # Create all tables (if not exist)
-        await conn.run_sync(Base.metadata.create_all)
-
-    async with engine.connect() as conn:
-        trans = await conn.begin()
-        session = AsyncSession(bind=conn, expire_on_commit=False)
-
-        try:
-            yield session
-        finally:
-            await session.close()
-            await trans.rollback()
-
-    await engine.dispose()
+    async with TestSession() as session:
+        yield session
 
 
 @pytest.fixture
 def tenant_id() -> uuid.UUID:
-    """Fixed tenant ID for tests."""
     return uuid.UUID("00000000-0000-0000-0000-000000000099")
 
 
 @pytest.fixture(autouse=True)
 def reset_context_vars():
-    """Сбрасывает ContextVar между тестами чтобы избежать утечки состояния."""
-    from src.core.logging import deal_id_var, document_id_var, request_id_var
-
     request_id_var.set(None)
     deal_id_var.set(None)
     document_id_var.set(None)
+    yield
+    request_id_var.set(None)
+    deal_id_var.set(None)
+    document_id_var.set(None)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_downstream_tasks():
+    """
+    Отключить запуск downstream-тасок (PII Sanitizer, Structure Builder)
+    в интеграционных тестах для изоляции стадий pipeline.
+    """
+    original_value = settings.DISABLE_DOWNSTREAM_TASKS
+    os.environ["DISABLE_DOWNSTREAM_TASKS"] = "true"
+    settings.DISABLE_DOWNSTREAM_TASKS = True
 
     yield
 
-    request_id_var.set(None)
-    deal_id_var.set(None)
-    document_id_var.set(None)
+    settings.DISABLE_DOWNSTREAM_TASKS = original_value
+    if "DISABLE_DOWNSTREAM_TASKS" in os.environ:
+        os.environ.pop("DISABLE_DOWNSTREAM_TASKS")
