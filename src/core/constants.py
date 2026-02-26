@@ -156,3 +156,21 @@ CLASSIFICATION_THRESHOLDS = {
     "voting_threshold": 0.75,  # Порог для weighted voting
     "uncertain_threshold": 0.50,  # Ниже — UNKNOWN
 }
+
+
+class PIIEntityType(str, Enum):
+    PERSON_NAME = "person_name"
+    PASSPORT = "passport"
+    PHONE = "phone"
+    EMAIL = "email"
+    ADDRESS = "address"
+    # Preserve-сущности — НЕ токенизируются
+    INN = "inn"
+    OGRN = "ogrn"
+    CADASTRAL = "cadastral"
+
+
+class PIITokenPolicy(str, Enum):
+    TOKENIZE = "tokenize"  # заменить на TYPE_N
+    PRESERVE = "preserve"  # оставить как есть
+    ROLE_MAP = "role_map"  # заменить на роль стороны договора

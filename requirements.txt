@@ -57,3 +57,8 @@ reportlab==4.2.5
 
 # Import Worker ---
 python-docx==1.1.2
+
+# PII Sanitization
+cryptography==44.0.0
+natasha==1.6.0
+langdetect==1.0.9    # нужен для определения языка в PreservePolicy

@@ -64,6 +64,26 @@ class DocumentTypeConfig:
         self.language: str = metadata.get("language", "ru")
         self.jurisdiction: str = metadata.get("jurisdiction", "RU")
 
+        # NEW: party role keywords from essential_elements.parties
+        self.party_role_keywords: dict[str, str] = self._build_party_role_keywords(raw)
+
+    @staticmethod
+    def _build_party_role_keywords(raw: dict) -> dict[str, str]:
+        """
+        Build {keyword_lower: ROLE_ID} from essential_elements.parties.party_roles.
+        """
+        mapping: dict[str, str] = {}
+        for elem in raw.get("essential_elements") or []:
+            if elem.get("element") != "parties":
+                continue
+            for role in elem.get("party_roles", []) or []:
+                role_id = role.get("id")
+                if not role_id:
+                    continue
+                for kw in role.get("keywords", []) or []:
+                    mapping[kw.lower()] = role_id
+        return mapping
+
 
 class YAMLRegistry:
     """

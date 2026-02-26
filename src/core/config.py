@@ -103,6 +103,36 @@ class Settings(BaseSettings):
     # из воркеров для изолированного тестирования отдельных стадий pipeline.
     # Используется в интеграционных тестах.
 
+    # ═══════════════════════════════════════════════════════════════
+    # PII Sanitization settings (Stage 5)
+    # ═══════════════════════════════════════════════════════════════
+
+    # --- PII Sanitization (Stage 5) ---
+    PII_ENCRYPTION_KEY: str = ""
+    # Fernet key (base64). Пустой = dev mode (plaintext mapping).
+    # Генерация: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+    PII_NER_ENABLED: bool = True
+    # Использовать natasha NER для обнаружения имён
+
+    PII_PRESERVE_INN: bool = True
+    # Не токенизировать ИНН (10/12 цифр) — используется в playbook positive_keywords
+
+    PII_PRESERVE_OGRN: bool = True
+    # Не токенизировать ОГРН (13/15 цифр)
+
+    PII_PRESERVE_CADASTRAL: bool = True
+    # Не токенизировать кадастровые номера
+
+    PII_PRESERVE_PARTY_ROLES: bool = True
+    # Заменять person_name → роль договора (SELLER/BUYER), если обнаружена в контексте
+
+    PII_AUDIT_ENABLED: bool = True
+    # Писать AuditLog при каждой санитации
+
+    PII_SKIP_IF_ALREADY_SANITIZED: bool = True
+    # Идемпотентность: пропустить если doc.status == sanitized
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

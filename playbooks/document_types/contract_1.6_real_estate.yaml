@@ -280,6 +280,25 @@ validation_engine_v3_2:
       required: true
       legal_base: "ст. 432, 549 ГК РФ"
       validation_rules: ["presence_check", "legal_capacity_indicators"]
+      party_roles:
+        - id: "SELLER"
+          labels:
+            - "Продавец"
+            - "Продавца"
+            - "Seller"
+          keywords:
+            - "продавец"
+            - "продавца"
+            - "сторона-1"
+        - id: "BUYER"
+          labels:
+            - "Покупатель"
+            - "Покупателя"
+            - "Buyer"
+          keywords:
+            - "покупатель"
+            - "покупателя"
+            - "сторона-2"
       extraction_hints:
         outputs:
           - {field: "seller_name",  format: "string_or_not_found"}

@@ -5,7 +5,7 @@ All classifiers are SYNCHRONOUS — designed for Celery workers.
 Full 4-level cascade (L1+L2+L3+L4) implemented in Stage 6.
 
 Classification levels:
-  L1  — Rule-Based: filename + folder_path + keyword matching (this stage)
+  L1  — Rule-Based: filename + folder_path + keyword matching (Stage 2.5)
   L2  — Header Analyzer: reads first 1500 chars for document title (Stage 6)
   L3  — Semantic: cosine similarity with type embeddings (Stage 6)
   L4  — LLM: GPT-4o-mini with structured output (Stage 6, fallback only)
