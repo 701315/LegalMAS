@@ -86,7 +86,7 @@ class SemanticMatcher(BaseClassifier):
         parts.extend(cfg.get("aliases", []))
 
         # Очистка и сборка
-        clean_parts = [str(p) for p in parts if p and isinstance(p, (str, int, float))]
+        clean_parts = [str(p) for p in parts if p and isinstance(p, str | int | float)]
         return " ".join(clean_parts)[:4000]
 
     async def classify(

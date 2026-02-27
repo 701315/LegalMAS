@@ -121,62 +121,30 @@ class DetectorType(str, Enum):
     HYBRID = "hybrid"
 
 
-class ClassificationLevel(str, Enum):
-    """Уровень каскада классификации документов."""
-
-    L1_RULES = "L1"  # Filename + folder rules
-    L2_HEADER = "L2"  # Header regex
-    L3_SEMANTIC = "L3"  # Embeddings similarity
-    L4_LLM = "L4"  # LLM fallback
-    HYBRID = "HYBRID"  # Weighted voting из нескольких уровней
-
-
-class TriggerType(str, Enum):
-    """Типы триггеров для conditional checks из YAML."""
-
-    RESIDENTIAL_PROPERTY = "residential_property"
-    LAND_PLOT_SALE = "land_plot_sale"
-    BUILDING_SALE = "building_sale"
-    SHARE_IN_RIGHT_SALE = "share_in_right_sale"
-    LEGAL_ENTITY_PARTY = "legal_entity_party"
-    INDIVIDUAL_PARTY = "individual_party"
-    MORTGAGE_RELATED = "mortgage_related"
-    LEASE_RELATED = "lease_related"
-    FOREIGN_BUYER = "foreign_buyer_keywords"
-    AGRICULTURAL_LAND = "agricultural_land_keywords"
-    BORDER_ZONE = "border_zone_keywords"
-    MCD_COMMON_PROPERTY = "mcd_common_property_sale"
-
-
-# Пороги классификации (будут использоваться в HybridClassifier)
-CLASSIFICATION_THRESHOLDS = {
-    "L1_accept": 0.90,  # L1 уверен → стоп
-    "L2_accept": 0.85,  # L2 уверен → стоп
-    "L3_accept": 0.80,  # L3 уверен → стоп
-    "voting_threshold": 0.75,  # Порог для weighted voting
-    "uncertain_threshold": 0.50,  # Ниже — UNKNOWN
-}
-
-
 class PIIEntityType(str, Enum):
+    """Сущности для детекции PII."""
+
     PERSON_NAME = "person_name"
     PASSPORT = "passport"
     PHONE = "phone"
     EMAIL = "email"
     ADDRESS = "address"
-    # Preserve-сущности — НЕ токенизируются
     INN = "inn"
     OGRN = "ogrn"
     CADASTRAL = "cadastral"
 
 
 class PIITokenPolicy(str, Enum):
+    """Политика токенизации PII."""
+
     TOKENIZE = "tokenize"  # заменить на TYPE_N
     PRESERVE = "preserve"  # оставить как есть
     ROLE_MAP = "role_map"  # заменить на роль стороны договора
 
 
 class ClassificationLevel(str, Enum):
+    """Уровни каскада классификации."""
+
     L1_RULES = "L1"  # Filename/path/extension — weak hint only
     L2_KEYWORDS = "L2"  # Keywords/phrases/regex from YAML
     L3_SEMANTIC = "L3"  # Embeddings similarity
@@ -184,13 +152,7 @@ class ClassificationLevel(str, Enum):
     HYBRID = "HYBRID"  # Weighted voting across levels
 
 
-# NOTE: TriggerType is NOT hardcoded here.
-# Triggers are loaded dynamically from YAML trigger_definitions
-# in each document type instruction file.
-# Examples: "residential_property", "mortgage_related", etc.
-# See: playbooks/document_types/<type>.yaml → trigger_definitions
-
-
+# Настройки классификации
 CLASSIFICATION_WEIGHTS = {
     "L1": 0.20,  # Weak hint — NEVER final verdict
     "L2": 0.40,  # Keywords/regex from YAML — primary signal
@@ -203,3 +165,7 @@ CLASSIFICATION_THRESHOLDS = {
     "voting_threshold": 0.75,
     "uncertain_threshold": 0.50,
 }
+
+# NOTE: TriggerType удален. 
+# Триггеры определяются динамически на основе YAML-файлов инструкций.
+
