@@ -1,230 +1,121 @@
 """
-Structure Builder — simplified version for vertical slice.
+Structure Builder Worker.
+Reads textlayoutraw from MinIO, builds clause tree via StructureBuilder service,
+saves result to MinIO and updates document status.
 
-Builds clause tree from numbered headings (regex-based).
-Populates element.clause_uid in textlayoutraw artifact.
-
-NOTE: Output format is compatible with production ClauseTree
-from src/services/structure_models.py (Stage 6).
-
-clause_tree_ref is stored on DocumentVersion and is read by:
-  - Classifier Worker (this stage): NOT used in L1
-  - Runner (Stage 8): used to cite evidence by clause_uid
-  - Structure Builder production (Stage 6): replaces this implementation
+Status transition: sanitized -> structured.
+Next step: classify_document.
 """
 
-import re
+import asyncio
+import time
 import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from src.core.config import settings
 from src.core.constants import DocumentStatus
+from src.core.exceptions import PermanentError
 from src.core.logging import get_logger
+from src.db.repositories.document_repo import DocumentRepository
+from src.db.repositories.document_version_repo import DocumentVersionRepository
 from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
+from src.services.structure.builder import StructureBuilder
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
-
-CLAUSE_PATTERNS = [
-    (re.compile(r"^(\d{1,2})\.\s+(.+)"), 1),
-    (re.compile(r"^(\d{1,2}\.\d{1,2})\.?\s+(.+)"), 2),
-    (re.compile(r"^(\d{1,2}\.\d{1,2}\.\d{1,2})\.?\s+(.+)"), 3),
-]
 
 
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
     name="workers.build_structure",
-    track_job=False,
     queue="default",
 )
-async def build_structure(
+def build_structure(
     self,
     document_version_id: str,
-    document_id: str,
-    deal_id: str,
-    tenant_id: str,
-    run_id: str | None = None,
+    **kwargs,  # принимаем остальные аргументы (deal_id, run_id и т.д.) для совместимости
 ) -> dict:
-    """
-    Celery entrypoint: async wrapper around structure-building core.
+    """Sync Celery entry point."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_build_structure_async(self, document_version_id, kwargs))
+    finally:
+        loop.close()
 
-    Для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
-    внутри которого выполняются все операции с БД для данного документа.
-    """
-    logger.info("Starting structure building", document_id=document_id)
+
+async def _build_structure_async(task, document_version_id: str, extra_args: dict) -> dict:
+    store = ArtifactStore(settings)
+    start = time.time()
+    v_id = (
+        uuid.UUID(document_version_id)
+        if isinstance(document_version_id, str)
+        else document_version_id
+    )
 
     async with db_uow() as uow:
-        return await _build_structure_async(
-            document_version_id=document_version_id,
-            document_id=document_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
-            db=uow.session,
+        ver_repo = DocumentVersionRepository(uow.session)
+        doc_repo = DocumentRepository(uow.session)
+
+        # 1. Загрузка версии и документа
+        version = await ver_repo.get_by_id(v_id)
+        if not version:
+            raise PermanentError(f"DocumentVersion {v_id} not found")
+
+        doc = await doc_repo.get_by_id(version.document_id)
+        if not doc:
+            raise PermanentError(f"Document {version.document_id} not found")
+
+        # Идемпотентность: не перестраиваем, если уже готово
+        if doc.status in (
+            DocumentStatus.STRUCTURED.value,
+            DocumentStatus.CLASSIFIED.value,
+            "analyzing",
+        ):
+            logger.info("Already structured, skipping", document_id=str(doc.id))
+            return {"document_id": str(doc.id), "skipped": True}
+
+        # 2. Получение сырого макета из MinIO
+        if not version.text_layout_raw_ref:
+            raise PermanentError(f"text_layout_raw_ref missing for version {v_id}")
+
+        raw_layout = await store.get_json(version.text_layout_raw_ref)
+        elements = raw_layout.get("elements", [])
+        if not elements:
+            raise PermanentError(f"No elements in raw layout for version {v_id}")
+
+        # 3. Вызов сервиса построения структуры
+        builder = StructureBuilder()
+        clause_tree = builder.build(
+            document_id=str(doc.id),
+            elements=elements,
         )
 
+        # 4. Сохранение ClauseTree как отдельного артефакта
+        clause_tree_path = ArtifactPath.clause_tree(
+            tenant_id=str(doc.deal_id),
+            deal_id=str(doc.deal_id),
+            document_id=str(doc.id),
+        )
+        await store.put_json(clause_tree_path, clause_tree.to_dict())
 
-async def _build_structure_async(
-    document_version_id: str,
-    document_id: str,
-    deal_id: str,
-    tenant_id: str,
-    run_id: str | None,
-    db: AsyncSession,
-) -> dict:
-    """
-    Async core: builds clause tree, updates textlayoutraw,
-    writes clause_tree_ref and chains classifier.
+        # 5. Обновление БД
+        await ver_repo.update_refs(version_id=v_id, clause_tree_ref=clause_tree_path)
+        await doc_repo.update_status(doc.id, DocumentStatus.STRUCTURED.value)
 
-    Все операции с БД выполняются через переданную AsyncSession (db),
-    чтобы одна задача Structure Builder'а работала в рамках одного unit of work.
-    """
-    store = ArtifactStore()
-    raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
-    text_layout_raw = store.get_json(raw_path)
-    elements = text_layout_raw["elements"]
+        # UoW зафиксирует изменения (commit) при выходе из блока
 
-    root_children: list[dict] = []
-    current_stack: list[tuple[int, dict]] = []
+    # 6. Запуск следующего этапа (Классификация)
+    from src.workers.classifier import classify_document
 
-    # Build clause tree and populate clause_uid on elements
-    element_clause_map: dict[str, str] = {}  # element_id → clause_uid
+    # Передаем контекст дальше (run_id важен для аналитики)
+    classify_document.delay(document_id=str(doc.id), run_id=extra_args.get("run_id"))
 
-    for element in elements:
-        text = element.get("text", "").strip()
-        elem_id = element.get("element_id")
-        if not text:
-            continue
-
-        matched = False
-        for pattern, level in CLAUSE_PATTERNS:
-            m = pattern.match(text)
-            if m:
-                clause_uid = m.group(1)
-                title = m.group(2).strip() if m.group(2) else text
-                node = {
-                    "clause_uid": clause_uid,
-                    "title": title[:200],
-                    "full_text": text,
-                    "level": level,
-                    "element_ids": [elem_id],
-                    "start_page": element.get("page", 1),
-                    "end_page": element.get("page", 1),
-                    "children": [],
-                }
-                _insert_into_tree(root_children, current_stack, node, level)
-                element_clause_map[elem_id] = clause_uid
-                matched = True
-                break
-
-        if not matched and current_stack:
-            current_node = current_stack[-1][1]
-            current_node["element_ids"].append(elem_id)
-            current_node["end_page"] = max(current_node["end_page"], element.get("page", 1))
-            current_node["full_text"] += " " + text
-            element_clause_map[elem_id] = current_node["clause_uid"]
-
-    # Write clause_uid back into elements
-    updated_elements = []
-    for element in elements:
-        eid = element.get("element_id")
-        clause_uid = element_clause_map.get(eid)
-        updated_elements.append({**element, "clause_uid": clause_uid})
-
-    # Update textlayoutraw with populated clause_uid
-    updated_layout = {**text_layout_raw, "elements": updated_elements}
-    store.put_json(raw_path, updated_layout)
-
-    total_elements = len(elements)
-    covered_elements = len(element_clause_map)
-    coverage = covered_elements / total_elements if total_elements else 0.0
-    confidence = "HIGH" if coverage >= 0.8 else "MEDIUM" if coverage >= 0.6 else "LOW"
-
-    clause_tree = {
-        "document_version_id": document_version_id,
-        "root": {"children": root_children},
-        "references_index": {},
-        "quality": {
-            "coverage": round(coverage, 3),
-            "confidence": confidence,
-            "total_elements": total_elements,
-            "covered_elements": covered_elements,
-            "is_degraded": confidence == "LOW",
-        },
-    }
-
-    tree_path = ArtifactPath.clause_tree(tenant_id, deal_id, document_id)
-    tree_ref = store.put_json(tree_path, clause_tree)
-
-    await _update_structure_result(
-        document_version_id=document_version_id,
-        document_id=document_id,
-        tree_ref=tree_ref,
-        db=db,
-    )
-
-    total_clauses = _count_clauses(root_children)
-    logger.info(
-        "Structure building complete",
-        document_id=document_id,
-        clauses=total_clauses,
-        coverage=coverage,
-        confidence=confidence,
-    )
-
-    from src.workers.classifier import classify_document_task
-
-    classify_document_task.delay(
-        document_id=document_id,
-        document_version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-    )
     return {
-        "document_id": document_id,
-        "clauses": total_clauses,
-        "coverage": coverage,
-        "confidence": confidence,
+        "document_id": str(doc.id),
+        "clause_tree_ref": clause_tree_path,
+        "confidence": clause_tree.structure_confidence,
+        "is_degraded": clause_tree.degraded,
+        "duration": round(time.time() - start, 2),
     }
-
-
-def _insert_into_tree(root_children, stack, node, level):
-    while stack and stack[-1][0] >= level:
-        stack.pop()
-    if stack:
-        stack[-1][1]["children"].append(node)
-    else:
-        root_children.append(node)
-    stack.append((level, node))
-
-
-def _count_clauses(nodes):
-    count = len(nodes)
-    for node in nodes:
-        count += _count_clauses(node.get("children", []))
-    return count
-
-
-async def _update_structure_result(
-    document_version_id: str,
-    document_id: str,
-    tree_ref: str,
-    db: AsyncSession,
-) -> None:
-    from src.db.repositories import DocumentRepository, DocumentVersionRepository
-
-    ver_repo = DocumentVersionRepository(db)
-    doc_repo = DocumentRepository(db)
-    await ver_repo.update_refs(
-        uuid.UUID(document_version_id),
-        clause_tree_ref=tree_ref,
-    )
-    await doc_repo.update_status(
-        uuid.UUID(document_id),
-        DocumentStatus.STRUCTURED.value,
-    )

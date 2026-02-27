@@ -174,3 +174,32 @@ class PIITokenPolicy(str, Enum):
     TOKENIZE = "tokenize"  # заменить на TYPE_N
     PRESERVE = "preserve"  # оставить как есть
     ROLE_MAP = "role_map"  # заменить на роль стороны договора
+
+
+class ClassificationLevel(str, Enum):
+    L1_RULES = "L1"  # Filename/path/extension — weak hint only
+    L2_KEYWORDS = "L2"  # Keywords/phrases/regex from YAML
+    L3_SEMANTIC = "L3"  # Embeddings similarity
+    L4_LLM = "L4"  # LLM fallback (local GGUF or cloud API)
+    HYBRID = "HYBRID"  # Weighted voting across levels
+
+
+# NOTE: TriggerType is NOT hardcoded here.
+# Triggers are loaded dynamically from YAML trigger_definitions
+# in each document type instruction file.
+# Examples: "residential_property", "mortgage_related", etc.
+# See: playbooks/document_types/<type>.yaml → trigger_definitions
+
+
+CLASSIFICATION_WEIGHTS = {
+    "L1": 0.20,  # Weak hint — NEVER final verdict
+    "L2": 0.40,  # Keywords/regex from YAML — primary signal
+    "L3": 0.40,  # Embeddings similarity
+}
+
+CLASSIFICATION_THRESHOLDS = {
+    "L2_accept": 0.85,
+    "L3_accept": 0.80,
+    "voting_threshold": 0.75,
+    "uncertain_threshold": 0.50,
+}

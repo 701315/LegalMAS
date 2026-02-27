@@ -1,64 +1,92 @@
 """
-Trigger Detector.
+Trigger detector — loads trigger_definitions dynamically from YAML.
 
-Detects applicable triggers from YAML trigger_definitions.
-
-In Stage 2.5: used by HybridClassifier after L1 classification.
-In Stage 8: TriggerDetector results are cross-referenced with
-check_catalogue.yaml to build the final list of checks to run.
-
-trigger_definitions schema (in type YAML):
-  trigger_definitions:
-    change_of_control:
-      any_keywords: ["смена контроля", "change of control"]
-    legal_entity_party:
-      any_keywords: ["ООО", "АО", "LLC"]
-
-Output: list of trigger IDs that matched in the document text.
-  → Stored in Document.applicable_triggers (JSON array)
-  → Read by Runner to decide which checks to execute
+Each document type instruction file may contain a trigger_definitions section.
+Triggers are string identifiers (e.g. "residential_property")
+NOT hardcoded in Python Enums.
 """
 
-from src.classifiers.yaml_registry import DocumentTypeConfig
-from src.core.logging import get_logger
+import re
 
-logger = get_logger(__name__)
+from src.classifiers.registry_loader import get_doc_type_config
 
 
-class TriggerDetector:
+def _is_trigger_active(trigger_cfg: dict, text_lower: str) -> bool:
+    """Helper to check if a single trigger matches the text."""
+    if not isinstance(trigger_cfg, dict):
+        return False
+
+    keywords = trigger_cfg.get("any_keywords", [])
+    if not isinstance(keywords, list):
+        return False
+
+    # Проверяем каждое ключевое слово/паттерн
+    for kw in keywords:
+        kw_lower = kw.lower()
+        # Если в ключевом слове есть спецсимволы регулярки (например, | или ( ),
+        # используем re.search, иначе быстрый 'in'
+        if any(c in kw_lower for c in ".+*?^$()[]{}|"):
+            try:
+                if re.search(kw_lower, text_lower):
+                    return True
+            except re.error:
+                if kw_lower in text_lower:
+                    return True
+        elif kw_lower in text_lower:
+            return True
+
+    return False
+
+
+def detect_triggers(
+    registry: dict,
+    text: str,
+    doctype: str,
+) -> list[str]:
     """
-    Detects applicable triggers for a classified document type.
-
-    Usage:
-        detector = TriggerDetector()
-        triggers = detector.detect(text, winner_config)
+    Determines applicable conditional triggers for a specific doctype.
     """
+    cfg = get_doc_type_config(registry, doctype)
+    if not cfg:
+        return []
 
-    def detect(self, text: str, cfg: DocumentTypeConfig) -> list:
-        """
-        Detect triggered conditions from document text.
+    trigger_defs = cfg.get("trigger_definitions", {})
+    if not trigger_defs:
+        return []
 
-        Args:
-            text: Full document text (lowercased internally)
-            cfg:  DocumentTypeConfig of the winner type
+    text_lower = text.lower()
+    triggered: list[str] = []
 
-        Returns:
-            List of trigger IDs that matched, e.g. ['change_of_control']
-        """
-        if not cfg or not cfg.trigger_definitions:
-            return []
+    for trigger_name, trigger_cfg in trigger_defs.items():
+        if _is_trigger_active(trigger_cfg, text_lower):
+            triggered.append(trigger_name)
 
-        text_lower = text.lower()
-        matched_ids = []
+    return triggered
 
-        for trigger_id, trigger_cfg in cfg.trigger_definitions.items():
-            any_keywords = trigger_cfg.get("any_keywords", [])
-            if any(kw.lower() in text_lower for kw in any_keywords):
-                matched_ids.append(trigger_id)
-                logger.debug(
-                    "Trigger matched",
-                    trigger_id=trigger_id,
-                    type_code=cfg.type_code,
-                )
 
-        return matched_ids
+def detect_all_triggers(
+    registry: dict,
+    text: str,
+) -> dict[str, list[str]]:
+    """
+    Detects triggers across ALL document types.
+    Useful when doctype is UNKNOWN.
+    """
+    result: dict[str, list[str]] = {}
+    text_lower = text.lower()  # Оптимизация: один раз для всего процесса
+
+    for cfg in registry.get("document_types", []):
+        doctype = cfg.get("type", "")
+        trigger_defs = cfg.get("trigger_definitions", {})
+        if not trigger_defs:
+            continue
+
+        triggered: list[str] = []
+        for trigger_name, trigger_cfg in trigger_defs.items():
+            if _is_trigger_active(trigger_cfg, text_lower):
+                triggered.append(trigger_name)
+
+        if triggered:
+            result[doctype] = triggered
+
+    return result

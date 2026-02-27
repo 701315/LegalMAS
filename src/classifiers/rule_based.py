@@ -1,185 +1,220 @@
 """
 L1 Rule-Based Classifier.
 
-Scores document types using weighted signal matching:
-  - filename_patterns : 40 pts each match
-  - folder_patterns   : 30 pts each match
-  - keywords high     : 20 pts each
-  - keywords medium   : 10 pts each
-  - keywords low      :  5 pts each
-  - exclusions        : -50 pts each
+IMPORTANT: L1 is a WEAK HINT only. It never produces a final verdict.
+A file named 'spa_draft1.docx' may be an appendix, not an actual SPA.
+L1 confidence is CAPPED at 0.60 and serves only as a weighted signal
+in the voting cascade (weight 0.20).
 
-Confidence = winner_score / max_possible_score (capped at 1.0).
-If no type scores > 0 → returns Generic with confidence 0.1.
-
-This is the only classifier in Stage 2.5.
-Full cascade L1+L2+L3+L4 implemented in Stage 6.
+Uses filename_patterns and folder_patterns from per-type YAML instructions.
 """
 
+import hashlib
+import re
+
 from src.classifiers.base import BaseClassifier, ClassificationResult
-from src.classifiers.yaml_registry import YAMLRegistry
+from src.classifiers.registry_loader import load_registry
 from src.core.constants import ClassificationLevel
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Scoring weights
-W_FILENAME = 40
-W_FOLDER = 30
-W_KW_HIGH = 20
-W_KW_MED = 10
-W_KW_LOW = 5
-W_EXCLUSION = -50
-
-# Minimum score threshold to claim a type
-MIN_SCORE_THRESHOLD = 20
+# L1 confidence is NEVER higher than this
+_L1_CONFIDENCE_CAP = 0.60
 
 
 class RuleBasedClassifier(BaseClassifier):
-    """
-    L1 Rule-Based Classifier using YAML-configured rules.
+    """L1: filename + folder pattern matching (hint only)."""
 
-    Loaded from playbooks/document_types/*.yaml via YAMLRegistry.
-    No ML — pure weighted scoring on text features.
-    """
-
-    def __init__(self, registry: YAMLRegistry | None = None):
-        self._registry = registry or YAMLRegistry.get_instance()
+    def __init__(self, registry_path: str):
+        self.registry = load_registry(registry_path)
+        self._cache: dict[str, ClassificationResult] = {}
 
     @property
     def level(self) -> ClassificationLevel:
         return ClassificationLevel.L1_RULES
 
-    def classify(
+    async def classify(
         self,
         text: str,
         filename: str,
         folder_path: str,
-        text_sanitized: str = None,
-        metadata: dict = None,
+        text_sanitized: str | None = None,
+        metadata: dict | None = None,
     ) -> ClassificationResult:
-        """
-        Classify document by scoring all known types.
+        cache_key = self._compute_cache_key(filename, folder_path)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
 
-        Args:
-            text:           Full text from textlayoutraw (elements joined)
-            filename:       Original filename, e.g. "SPA_final.pdf"
-            folder_path:    Folder path from ZIP structure, e.g. "02. Contracts/SPA"
-            text_sanitized: Sanitized text (not used in L1, reserved for L4)
-            metadata:       Extra metadata (not used in L1)
+        type_scores: dict[str, float] = {}
 
-        Returns:
-            ClassificationResult with:
-              - doctype:             winner type code or "Generic"
-              - confidence:          normalized score [0.0 … 1.0]
-              - level:               ClassificationLevel.L1
-              - applicable_triggers: trigger IDs from winner's trigger_definitions
-              - evidence:            summary of matched signals
-        """
-        configs = self._registry.get_all_configs()
-        if not configs:
-            logger.warning("YAML registry is empty — returning Generic")
-            return self._make_generic()
+        for doc_cfg in self.registry.get("document_types", []):
+            doctype = doc_cfg.get("type", "")
+            if not doctype:
+                continue
 
-        text_lower = text.lower()
-        filename_lower = filename.lower()
-        folder_lower = (folder_path or "").lower()
+            # L1 scores ONLY from filename and folder — NOT from text
+            score = self._score_filename_folder(doc_cfg, filename, folder_path)
+            if score > 0:
+                type_scores[doctype] = score
 
-        scores: dict = {}
-        evidence_log: dict = {}
+        if not type_scores:
+            result = ClassificationResult(
+                doctype="UNKNOWN",
+                confidence=0.0,
+                level=self.level,
+                method="no_filename_match",
+            )
+            self._cache[cache_key] = result
+            return result
 
-        for cfg in configs:
-            score = 0
-            evidence = []
+        best_type = max(type_scores, key=type_scores.get)
+        confidence = self._calculate_confidence(best_type, type_scores)
+        # CAP: L1 is never a final verdict
+        confidence = min(confidence, _L1_CONFIDENCE_CAP)
 
-            # filename_patterns
-            for pattern in cfg.filename_patterns:
-                if pattern.search(filename_lower):
-                    score += W_FILENAME
-                    evidence.append(f"filename~{pattern.pattern}")
-
-            # folder_patterns
-            for pattern in cfg.folder_patterns:
-                if pattern.search(folder_lower):
-                    score += W_FOLDER
-                    evidence.append(f"folder~{pattern.pattern}")
-
-            # keywords
-            for kw in cfg.keywords_high:
-                if kw.lower() in text_lower:
-                    score += W_KW_HIGH
-                    evidence.append(f"kw_high:{kw}")
-            for kw in cfg.keywords_medium:
-                if kw.lower() in text_lower:
-                    score += W_KW_MED
-                    evidence.append(f"kw_med:{kw}")
-            for kw in cfg.keywords_low:
-                if kw.lower() in text_lower:
-                    score += W_KW_LOW
-                    evidence.append(f"kw_low:{kw}")
-
-            # exclusions
-            for excl in cfg.exclusions:
-                if excl.lower() in text_lower:
-                    score += W_EXCLUSION
-                    evidence.append(f"excl:{excl}")
-
-            scores[cfg.type_code] = score
-            evidence_log[cfg.type_code] = evidence
-
-        if not scores:
-            return self._make_generic()
-
-        winner = max(scores, key=lambda t: scores[t])
-        best_score = scores[winner]
-
-        if best_score < MIN_SCORE_THRESHOLD:
-            return self._make_generic()
-
-        # Normalize confidence
-        max_possible = W_FILENAME * 2 + W_FOLDER * 2 + W_KW_HIGH * 3
-        confidence = min(best_score / max_possible, 1.0)
-
-        winner_cfg = self._registry.get_config(winner)
-        triggers = winner_cfg.trigger_ids if winner_cfg else []
-
-        # Runner routing: applicable_triggers tells Runner which checks to run
-        # e.g. ['change_of_control'] → Runner will run check coc001
-        logger.debug(
-            "L1 classification result",
-            winner=winner,
-            score=best_score,
-            confidence=round(confidence, 3),
-            triggers=triggers,
-            top_evidence=evidence_log[winner][:5],
+        result = ClassificationResult(
+            doctype=best_type,
+            confidence=confidence,
+            level=self.level,
+            method=self._get_match_method(best_type, filename, folder_path),
+            evidence=self._get_match_evidence(best_type, filename, folder_path),
+            alternative_types=self._get_alternatives(type_scores, best_type),
         )
+        self._cache[cache_key] = result
+        return result
 
-        # Sort alternatives for details
-        sorted_types = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        alternatives = [
-            {"type": t, "score": s, "confidence": round(min(s / max_possible, 1.0), 3)}
-            for t, s in sorted_types[1:4]
-            if s > 0
-        ]
+    def _score_filename_folder(
+        self,
+        cfg: dict,
+        filename: str,
+        folder_path: str,
+    ) -> float:
+        """Score based ONLY on filename and folder patterns from YAML."""
+        weights = cfg.get("weights", {})
+        score = 0.0
 
-        return ClassificationResult(
-            doctype=winner,
-            confidence=round(confidence, 3),
-            level=ClassificationLevel.L1_RULES,
-            method="rule_based_weighted",
-            language=winner_cfg.language if winner_cfg else "ru",
-            jurisdiction=winner_cfg.jurisdiction if winner_cfg else "RU",
-            evidence="; ".join(evidence_log[winner][:10]),
-            alternative_types=alternatives,
-        )
+        # Filename patterns
+        for pattern in cfg.get("filename_patterns", []):
+            try:
+                if re.search(pattern, filename, re.IGNORECASE):
+                    score += weights.get("filename", 2.0)
+                    break  # one match is enough
+            except re.error:
+                if pattern.lower() in filename.lower():
+                    score += weights.get("filename", 2.0)
+                    break
 
-    def _make_generic(self) -> ClassificationResult:
-        return ClassificationResult(
-            doctype="Generic",
-            confidence=0.1,
-            level=ClassificationLevel.L1_RULES,
-            method="fallback_generic",
-            language="ru",
-            jurisdiction="RU",
-            evidence="No matching type found",
-        )
+        # Folder patterns
+        if folder_path:
+            for pattern in cfg.get("folder_patterns", []):
+                try:
+                    if re.search(pattern, folder_path, re.IGNORECASE):
+                        score += weights.get("folder", 1.5)
+                        break
+                except re.error:
+                    if pattern.lower() in folder_path.lower():
+                        score += weights.get("folder", 1.5)
+                        break
+
+        return score
+
+    def _calculate_confidence(
+        self,
+        best_type: str,
+        type_scores: dict[str, float],
+    ) -> float:
+        best_score = type_scores[best_type]
+        if best_score <= 0:
+            return 0.0
+
+        other_scores = [s for t, s in type_scores.items() if t != best_type]
+        second_best = max(other_scores) if other_scores else 0.0
+
+        # Normalize: max filename(2.0)+folder(1.5) = 3.5 → confidence ~1.0
+        base_confidence = min(best_score / 3.5, 1.0)
+
+        if second_best > 0:
+            competition_penalty = (second_best / best_score) * 0.3
+            base_confidence -= competition_penalty
+
+        return max(0.0, min(1.0, base_confidence))
+
+    def _compute_cache_key(self, filename: str, folder_path: str) -> str:
+        content = f"{filename}|{folder_path}"
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def _get_match_method(
+        self,
+        doctype: str,
+        filename: str,
+        folder_path: str,
+    ) -> str:
+        cfg = self._find_cfg(doctype)
+        for pattern in cfg.get("filename_patterns", []):
+            try:
+                if re.search(pattern, filename, re.IGNORECASE):
+                    return "filename_pattern"
+            except re.error:
+                pass
+
+        if folder_path:
+            for pattern in cfg.get("folder_patterns", []):
+                try:
+                    if re.search(pattern, folder_path, re.IGNORECASE):
+                        return "folder_pattern"
+                except re.error:
+                    pass
+
+        return "filename_pattern"
+
+    def _get_match_evidence(
+        self,
+        doctype: str,
+        filename: str,
+        folder_path: str,
+    ) -> str:
+        cfg = self._find_cfg(doctype)
+        for pattern in cfg.get("filename_patterns", []):
+            try:
+                match = re.search(pattern, filename, re.IGNORECASE)
+                if match:
+                    return f"filename: '{match.group()}' in '{filename}'"
+            except re.error:
+                pass
+
+        if folder_path:
+            for pattern in cfg.get("folder_patterns", []):
+                try:
+                    match = re.search(pattern, folder_path, re.IGNORECASE)
+                    if match:
+                        return f"folder: '{match.group()}' in '{folder_path}'"
+                except re.error:
+                    pass
+
+        return f"filename: {filename}"
+
+    def _get_alternatives(
+        self,
+        type_scores: dict[str, float],
+        best_type: str,
+    ) -> list:
+        best_score = type_scores[best_type]
+        if best_score <= 0:
+            return []
+
+        return [
+            {"type": dt, "confidence": round(s / best_score, 2)}
+            for dt, s in sorted(
+                type_scores.items(),
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            if dt != best_type and s > best_score * 0.3
+        ][:3]
+
+    def _find_cfg(self, doctype: str) -> dict:
+        for c in self.registry.get("document_types", []):
+            if c.get("type") == doctype:
+                return c
+        return {}

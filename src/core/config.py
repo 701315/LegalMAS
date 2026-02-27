@@ -103,9 +103,7 @@ class Settings(BaseSettings):
     # из воркеров для изолированного тестирования отдельных стадий pipeline.
     # Используется в интеграционных тестах.
 
-    # ═══════════════════════════════════════════════════════════════
     # PII Sanitization settings (Stage 5)
-    # ═══════════════════════════════════════════════════════════════
 
     # --- PII Sanitization (Stage 5) ---
     PII_ENCRYPTION_KEY: str = ""
@@ -132,6 +130,28 @@ class Settings(BaseSettings):
 
     PII_SKIP_IF_ALREADY_SANITIZED: bool = True
     # Идемпотентность: пропустить если doc.status == sanitized
+
+    # --- Stage 6: Structure Builder ---
+    STRUCTURE_MIN_CLAUSE_COVERAGE: float = 0.60
+    STRUCTURE_DEGRADED_CHUNK_TOKENS: int = 500
+    STRUCTURE_MAX_CLAUSE_TITLE_LEN: int = 100
+
+    # --- Stage 6: Classifier ---
+    CLASSIFIER_L1_WEIGHT: float = 0.20  # L1 — слабый hint, не финальный вердикт
+    CLASSIFIER_L2_ACCEPT_THRESHOLD: float = 0.85
+    CLASSIFIER_L3_ACCEPT_THRESHOLD: float = 0.80
+    CLASSIFIER_VOTING_THRESHOLD: float = 0.75
+    CLASSIFIER_UNCERTAIN_THRESHOLD: float = 0.50
+    CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"  # L3
+    CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
+
+    # --- Stage 6: LLM Provider (L4) ---
+    LLM_PROVIDER: str = "none"  # "none" | "local" | "openai" | "anthropic"
+    LLM_LOCAL_MODEL_PATH: str = "C:/LegalMAS/LLMmodel/model.gguf"
+    LLM_LOCAL_N_CTX: int = 4096  # context window for GGUF model
+    LLM_LOCAL_N_GPU_LAYERS: int = 0  # 0 = CPU only, >0 = GPU offload
+    LLM_CLOUD_MODEL: str = "gpt-4o-mini"
+    LLM_CLOUD_API_KEY: str = ""
 
 
 # Singleton: one settings instance for the whole application

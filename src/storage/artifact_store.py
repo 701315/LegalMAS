@@ -80,6 +80,14 @@ class ArtifactPath:
         """Путь к конфигурации playbook."""
         return f"playbooks/{playbook_name}/{version}/config.yaml"
 
+    @staticmethod
+    def clause_tree(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+    ) -> str:
+        return f"{tenant_id}/{deal_id}/{document_id}/clause_tree.json"
+
 
 class ArtifactStore:
     """

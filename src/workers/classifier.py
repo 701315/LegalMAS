@@ -1,29 +1,30 @@
 """
-Classifier Worker — simplified version for vertical slice.
+Classifier Worker.
+4-level cascade: L1 (Rules) → L2 (Keywords) → L3 (Semantic) → L4 (LLM).
 
-Uses HybridClassifier (L1 only) with YAML-driven rules.
-Saves classification results to new DB fields:
-  - classification_confidence
-  - classification_level
-  - classification_details  (JSON)
-  - applicable_triggers     (JSON array)
+Updates document with:
+  - doctype, language, jurisdiction, confidence, levels tried, applicable triggers.
+  - Links correct playbook_version_id based on doctype and language.
 
-applicable_triggers drives Runner routing:
-  Runner reads this field to decide which checks to execute.
-  In Stage 8: cross-referenced with check_catalogue.yaml.
-
-Full 4-level cascade (L1+L2+L3+L4) in Stage 6.
+Status: structured -> classified.
 """
 
+import asyncio
 import time
 import uuid
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.classifiers import HybridClassifier
+from src.classifiers.hybrid_classifier import HybridClassifier
+from src.classifiers.keyword_analyzer import KeywordAnalyzer
+from src.classifiers.llm_classifier import create_llm_classifier
+from src.classifiers.rule_based import RuleBasedClassifier
+from src.classifiers.semantic_matcher import SemanticMatcher
+from src.core.config import settings
 from src.core.constants import DocumentStatus
 from src.core.exceptions import PermanentError
 from src.core.logging import get_logger
+from src.db.repositories.document_repo import DocumentRepository
+from src.db.repositories.document_version_repo import DocumentVersionRepository
+from src.db.repositories.playbook_repo import PlaybookRepository
 from src.db.uow import db_uow
 from src.queue.base_task import MASBaseTask
 from src.queue.celery_app import celery_app
@@ -31,160 +32,136 @@ from src.storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
 
-_classifier: HybridClassifier | None = None
+# Кэшируем экземпляр классификатора в рамках процесса воркера
+_classifier_instance: HybridClassifier | None = None
 
 
 def _get_classifier() -> HybridClassifier:
-    global _classifier
-    if _classifier is None:
-        _classifier = HybridClassifier()
-    return _classifier
-
-
-async def _classify_document_async(
-    document_id: str,
-    document_version_id: str,
-    deal_id: str,
-    tenant_id: str,
-    db: AsyncSession,
-    run_id: str | None,
-) -> dict:
-    """
-    Async core: loads artifacts, runs HybridClassifier, updates DB and queues Runner.
-
-    Все операции с БД выполняются через переданную AsyncSession (db),
-    чтобы одна задача worker'а работала в рамках одного unit of work.
-    """
-    from src.db.repositories import (
-        DocumentRepository,
-        DocumentVersionRepository,
-    )
-    from src.workers.runner import run_checks
-
-    start_time = time.time()
-    store = ArtifactStore()
-
-    doc_repo = DocumentRepository(db)
-    ver_repo = DocumentVersionRepository(db)
-
-    doc = await doc_repo.get_by_id(uuid.UUID(document_id))
-    if not doc:
-        raise PermanentError(f"Document {document_id} not found")
-
-    version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
-    if not version:
-        raise PermanentError(f"Version {document_version_id} not found")
-
-    if not version.text_layout_raw_ref:
-        raise PermanentError(f"No textlayoutraw for {document_id}")
-
-    # 1. Load textlayoutraw
-    raw_key = version.text_layout_raw_ref.replace(f"s3://{store.bucket}/", "")
-    text_layout_raw = store.get_json(raw_key)
-
-    # 2. Load sanitized (optional, for future L4)
-    text_sanitized = ""
-    if version.text_layout_sanitized_ref:
-        try:
-            san_key = version.text_layout_sanitized_ref.replace(f"s3://{store.bucket}/", "")
-            sanitized_layout = store.get_json(san_key)
-            text_sanitized = _extract_text(sanitized_layout)
-        except Exception:
-            # Санитайзер — не критичен для L1, падаем мягко
-            pass
-
-    # 3. Run HybridClassifier
-    full_text = _extract_text(text_layout_raw)
-    result = _get_classifier().classify(
-        text=full_text,
-        text_sanitized=text_sanitized,
-        filename=doc.filename,
-        folder_path=doc.folder_path or "",
-    )
-
-    # 4. Update document with ALL classification fields
-    await doc_repo.update_classification(
-        doc_id=doc.id,
-        doc_type=result.doctype,
-        classification_confidence=result.confidence,
-        classification_level=result.level.value,
-        classification_details=result.details,
-        applicable_triggers=result.applicable_triggers,
-    )
-    await doc_repo.update_status(
-        doc.id,
-        status=DocumentStatus.CLASSIFIED.value,
-        language=result.language,
-        jurisdiction_guess=result.jurisdiction,
-    )
-
-    duration_ms = int((time.time() - start_time) * 1000)
-    logger.info(
-        "Classification complete",
-        document_id=document_id,
-        doctype=result.doctype,
-        confidence=result.confidence,
-        level=result.level.value,
-        language=result.language,
-        triggers=result.applicable_triggers,
-        duration_ms=duration_ms,
-    )
-
-    # 5. Queue Runner
-    run_checks.delay(
-        document_id=document_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-        doctype=result.doctype,
-    )
-
-    return {
-        "document_id": document_id,
-        "doctype": result.doctype,
-        "confidence": result.confidence,
-        "level": result.level.value,
-        "language": result.language,
-        "jurisdiction": result.jurisdiction,
-        "triggers": result.applicable_triggers,
-        "duration_ms": duration_ms,
-    }
+    """Lazy singleton: инициализирует тяжелые модели L3/L4 один раз."""
+    global _classifier_instance
+    if _classifier_instance is None:
+        reg_path = settings.CLASSIFIER_REGISTRY_PATH
+        _classifier_instance = HybridClassifier(
+            rule_based=RuleBasedClassifier(registry_path=reg_path),
+            keyword_analyzer=KeywordAnalyzer(registry_path=reg_path),
+            semantic_matcher=SemanticMatcher(
+                model_name=settings.CLASSIFIER_EMBEDDINGS_MODEL, registry_path=reg_path
+            ),
+            llm_classifier=create_llm_classifier(registry_path=reg_path),
+            registry_path=reg_path,
+        )
+    return _classifier_instance
 
 
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
     name="workers.classify_document",
-    track_job=False,
     queue="default",
 )
-async def classify_document_task(
-    self,
-    document_id: str,
-    document_version_id: str,
-    deal_id: str,
-    tenant_id: str,
-    run_id: str | None = None,
-) -> dict:
-    """
-    Celery entrypoint: async wrapper around classification core.
+def classify_document(self, document_id: str, **kwargs) -> dict:
+    """Sync Celery entry point: обертка над асинхронным ядром."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_classify_document_async(self, document_id, kwargs))
+    finally:
+        loop.close()
 
-    Для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
-    внутри которого выполняются все операции с БД для данного документа.
-    """
-    logger.info("Starting classification", document_id=document_id)
+
+async def _classify_document_async(task, document_id: str, extra_args: dict) -> dict:
+    store = ArtifactStore(settings)
+    start_time = time.time()
+    doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
 
     async with db_uow() as uow:
-        return await _classify_document_async(
-            document_id=document_id,
-            document_version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            db=uow.session,
-            run_id=run_id,
+        doc_repo = DocumentRepository(uow.session)
+        ver_repo = DocumentVersionRepository(uow.session)
+        playbook_repo = PlaybookRepository(uow.session)
+
+        # 1. Загрузка документа и версии
+        doc = await doc_repo.get_by_id(doc_uuid)
+        if not doc:
+            raise PermanentError(f"Document {document_id} not found")
+
+        # Идемпотентность
+        if doc.status in (DocumentStatus.CLASSIFIED.value, "analyzing"):
+            logger.info("Already classified, skipping", document_id=document_id)
+            return {"document_id": document_id, "skipped": True}
+
+        version = await ver_repo.get_latest(doc.id)
+        if not version:
+            raise PermanentError(f"No version found for document {document_id}")
+
+        # 2. Получение текстов (Raw для L1-L3, Sanitized для L4)
+        raw_layout = await store.get_json(version.text_layout_raw_ref)
+        san_layout = raw_layout
+        if version.text_layout_sanitized_ref:
+            try:
+                san_layout = await store.get_json(version.text_layout_sanitized_ref)
+            except Exception as e:
+                logger.warning("Failed to load sanitized layout, using raw", error=str(e))
+
+        text_raw = _extract_text(raw_layout)
+        text_san = _extract_text(san_layout)
+
+        # 3. Запуск каскадной классификации
+        classifier = _get_classifier()
+        result = await classifier.classify(
+            text=text_raw,
+            text_sanitized=text_san,
+            filename=doc.filename,
+            folder_path=doc.folder_path or "",
         )
+
+        # 4. Маршрутизация на плейбук
+        playbook = await playbook_repo.get_for_doctype(
+            doctype=result.doctype, language=result.language
+        )
+
+        # 5. Атомарное сохранение результатов
+        await doc_repo.update_classification(
+            doc_id=doc.id,
+            doc_type=result.doctype,
+            classification_confidence=result.confidence,
+            classification_level=result.level.value,
+            classification_details=result.details,
+            applicable_triggers=result.applicable_triggers,
+            language=result.language,
+            jurisdiction=result.jurisdiction,
+            playbook_version_id=playbook.id if playbook else None,
+        )
+
+        await doc_repo.update_status(doc.id, DocumentStatus.CLASSIFIED.value)
+
+        # UoW зафиксирует транзакцию (commit)
+
+    # 6. Запуск Runner (Stage 8) - передаем doctype для оптимизации
+    run_id = extra_args.get("run_id")
+    if run_id:
+        from src.workers.runner import run_checks
+
+        run_checks.delay(
+            document_id=str(doc.id),
+            deal_id=extra_args.get("deal_id"),
+            tenant_id=extra_args.get("tenant_id"),
+            run_id=run_id,
+            doctype=result.doctype,
+        )
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    return {
+        "document_id": document_id,
+        "doctype": result.doctype,
+        "confidence": result.confidence,
+        "language": result.language,
+        "jurisdiction": result.jurisdiction,
+        "playbook_found": playbook is not None,
+        "duration_ms": duration_ms,
+    }
 
 
 def _extract_text(layout: dict) -> str:
-    elements = layout.get("elements", [])
-    return " ".join(elem.get("text", "") for elem in elements)
+    """Извлекает весь текст из JSON макета."""
+    if not layout or "elements" not in layout:
+        return ""
+    return " ".join([el.get("text", "") for el in layout.get("elements", []) if el.get("text")])

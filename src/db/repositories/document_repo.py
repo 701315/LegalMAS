@@ -77,20 +77,6 @@ class DocumentRepository:
             await self.session.flush()
         return doc
 
-    async def get_quarantined(self, deal_id: uuid.UUID) -> list[Document]:
-        """Get all quarantined documents for a deal."""
-        return await self.get_by_deal(deal_id, status="quarantine")
-
-    async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
-        """Count documents by status for a deal."""
-        stmt = (
-            select(Document.status, func.count(Document.id))
-            .where(Document.deal_id == deal_id)
-            .group_by(Document.status)
-        )
-        result = await self.session.execute(stmt)
-        return {row[0]: row[1] for row in result.all()}
-
     async def update_classification(
         self,
         doc_id: uuid.UUID,
@@ -99,6 +85,8 @@ class DocumentRepository:
         classification_level: str,
         classification_details: dict,
         applicable_triggers: list[str],
+        language: str | None = None,  # Добавлено
+        jurisdiction: str | None = None,  # Добавлено
         playbook_version_id: uuid.UUID | None = None,
     ) -> Document | None:
         """Update document classification results."""
@@ -109,6 +97,13 @@ class DocumentRepository:
             "classification_details": classification_details,
             "applicable_triggers": applicable_triggers,
         }
+
+        # Обновляем язык и юрисдикцию, если они переданы
+        if language:
+            values["language"] = language
+        if jurisdiction:
+            values["jurisdiction_guess"] = jurisdiction
+
         if playbook_version_id is not None:
             values["playbook_version_id"] = playbook_version_id
 
@@ -118,6 +113,16 @@ class DocumentRepository:
         if doc:
             await self.session.flush()
         return doc
+
+    async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
+        """Count documents by status for a deal."""
+        stmt = (
+            select(Document.status, func.count(Document.id))
+            .where(Document.deal_id == deal_id)
+            .group_by(Document.status)
+        )
+        result = await self.session.execute(stmt)
+        return {row[0]: row[1] for row in result.all()}
 
     async def get_by_type_and_confidence(
         self,

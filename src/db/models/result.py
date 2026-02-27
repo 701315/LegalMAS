@@ -18,9 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import (
-    QCStatus,
-)
+from src.core.constants import QCStatus
 from src.db.base import Base
 
 
@@ -97,7 +95,7 @@ class CheckResult(Base):
     structured_data: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
-        comment="Extracted structured fields from check (e.g. cadastral_number, price_amount)",
+        comment="Extracted structured fields from check",
     )
 
     conditional_check_triggered: Mapped[bool] = mapped_column(
@@ -110,7 +108,7 @@ class CheckResult(Base):
     trigger_name: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
-        comment="Name of the trigger that activated this check (if conditional)",
+        comment="Name of the trigger that activated this check",
     )
 
     # --- QC fields ---

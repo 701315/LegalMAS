@@ -30,6 +30,13 @@ class DocumentVersionRepository:
         await self.session.flush()
         return version
 
+    async def get_by_id(self, version_id: uuid.UUID) -> DocumentVersion | None:
+        """Get document version by ID."""
+        result = await self.session.execute(
+            select(DocumentVersion).where(DocumentVersion.id == version_id)
+        )
+        return result.scalar_one_or_none()
+
     async def get_latest(self, document_id: uuid.UUID) -> DocumentVersion | None:
         """Get the latest version of a document."""
         result = await self.session.execute(
@@ -49,7 +56,10 @@ class DocumentVersionRepository:
         extraction_strategy: str | None = None,
         ocr_confidence: float | None = None,
     ) -> DocumentVersion | None:
-        """Update S3 references on a document version."""
+        """
+        Update S3 references on a document version.
+        Used by Stage 4 (raw), Stage 5 (sanitized), and Stage 6 (clause_tree).
+        """
         values = {}
         if raw_ref is not None:
             values["text_layout_raw_ref"] = raw_ref
@@ -76,10 +86,3 @@ class DocumentVersionRepository:
         if ver:
             await self.session.flush()
         return ver
-
-    async def get_by_id(self, version_id: uuid.UUID) -> DocumentVersion | None:
-        """Get document version by ID."""
-        result = await self.session.execute(
-            select(DocumentVersion).where(DocumentVersion.id == version_id)
-        )
-        return result.scalar_one_or_none()
