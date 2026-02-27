@@ -65,3 +65,7 @@ langdetect==1.0.9
 
 # Structure + Classifier
 llama-cpp-python>=0.2.0
+
+# Dedup & Relations
+thefuzz==0.22.1
+python-Levenshtein==0.25.1

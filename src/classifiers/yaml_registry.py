@@ -147,6 +147,38 @@ class YAMLRegistry:
                     _instance = cls(path)
         return _instance
 
+    def get_master_doc_types(self) -> list[str]:
+        """
+        Stage 7: Return doc_types suitable as family master documents.
+
+        A doc_type is a master candidate if:
+        - Its YAML config exists (already loaded in _configs)
+        - classification.level is "L2" or "L3"
+        - No "parent_doc_type" key is set (meaning it's not subordinate)
+        """
+        master_types: list[str] = []
+
+        for type_code, cfg in self._configs.items():
+            raw = cfg.raw or {}
+            classification = raw.get("classification", {}) or {}
+            level = classification.get("level", "L0")
+
+            if level not in ("L2", "L3"):
+                continue
+
+            # subordinate if has parent_doc_type
+            if raw.get("parent_doc_type"):
+                continue
+
+            master_types.append(type_code)
+
+        logger.debug(
+            "YAMLRegistry.get_master_doc_types",
+            yaml_master_types=master_types,
+        )
+        return master_types
+
+
     @classmethod
     def reset(cls):
         """Reset singleton — used in tests to reload registry between runs."""

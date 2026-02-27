@@ -153,6 +153,32 @@ class Settings(BaseSettings):
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
 
+    # --- Dedup & Relations settings ---
+    DEDUP_EXACT_ENABLED: bool = True
+    RELATIONS_FILENAME_ENABLED: bool = True
+    RELATIONS_TEXT_ENABLED: bool = True
+    RELATIONS_FILENAME_SIMILARITY_THRESHOLD: int = 75
+    RELATIONS_MAX_HOPS: int = 2
+    RELATIONS_MAX_FAMILY_SIZE: int = 20
+
+    # Fallback list — used when YAML instructions are not loaded yet.
+    # Primary source: YAMLPlaybookLoader.get_master_doc_types()
+    FAMILY_MASTER_DOC_TYPES: list[str] = [
+        "SPA", "SHA", "Loan", "RealEstate", "ServiceAgreement",
+    ]
+
+    # Minimum classification_level for master document candidate
+    # L0 = unclassified, L1 = generic, L2 = identified type, L3 = full analysis
+    FAMILY_MASTER_MIN_CLASSIFICATION_LEVEL: str = "L1"
+
+    # Classification levels priority for master selection
+    # Higher index = higher priority when multiple candidates exist
+    FAMILY_CLASSIFICATION_LEVEL_PRIORITY: list[str] = [
+        "L0", "L1", "L2", "L3",
+    ]
+
+
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

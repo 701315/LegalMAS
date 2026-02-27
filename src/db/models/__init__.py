@@ -9,7 +9,12 @@ from src.db.models.document import Document, DocumentVersion
 from src.db.models.export import Export
 from src.db.models.ops import AuditLog, DLQRecord, IdempotencyKey
 from src.db.models.playbook import ModelConfig, PlaybookVersion
-from src.db.models.relation import DocumentRelation, Family
+from src.db.models.relation import (
+    DocumentRelation,
+    DocumentFamily,
+    DocumentFamilyMember,
+)
+
 from src.db.models.result import CheckResult
 from src.db.models.run import Job, Run
 
