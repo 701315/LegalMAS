@@ -9,10 +9,10 @@ Database Unit of Work (UoW).
 - гарантировать целостность: либо все изменения в рамках операции
   фиксируются (commit), либо полностью откатываются (rollback);
 - централизованно управлять жизненным циклом сессии (открытие,
-  commit/rollback, закрытие), чтобы доменный код не трогал глобальный
-  engine/get_session и не создавал скрытых транзакций.
+  commit/rollback, закрытие), чтобы доменный код работал только с
+  репозиториями (documents, check_results и др.), а не напрямую с session.
 
-Используется worker'ами и сервисами для явного разделения
+Используется worker'ами, Runner'ом и сервисами для явного разделения
 "одна задача — один unit of work".
 """
 
@@ -22,11 +22,17 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import AsyncSessionLocal
+from src.db.repositories.check_result_repo import CheckResultRepository
+from src.db.repositories.document_repo import DocumentRepository
 
 
 class UnitOfWork:
     def __init__(self, session: AsyncSession):
         self.session = session
+        # Репозиторий документов — источник истины для Runner / HybridClassifier.
+        self.documents = DocumentRepository(session)
+        # Репозиторий результатов проверок — для Runner / CheckRunner.
+        self.check_results = CheckResultRepository(session)
 
     async def commit(self) -> None:
         await self.session.commit()
@@ -37,6 +43,15 @@ class UnitOfWork:
 
 @asynccontextmanager
 async def db_uow() -> AsyncGenerator[UnitOfWork, None]:
+    """
+    Асинхронный контекстный менеджер UoW.
+
+    Пример использования:
+
+        async with db_uow() as uow:
+            runner = Runner(uow)
+            stats = await runner.run_deal(deal_id)
+    """
     session = AsyncSessionLocal()
     uow = UnitOfWork(session)
     try:

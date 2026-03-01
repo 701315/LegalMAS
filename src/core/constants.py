@@ -4,7 +4,7 @@ Every Enum inherits from (str, Enum) for JSON/DB serialization.
 """
 
 from enum import Enum
-
+from src.core.generated_trigger_types import TriggerType
 
 class DocumentStatus(str, Enum):
     """Status of a document in the processing pipeline."""
@@ -166,6 +166,7 @@ CLASSIFICATION_THRESHOLDS = {
     "uncertain_threshold": 0.50,
 }
 
+
 # NOTE: TriggerType удален. 
 # Триггеры определяются динамически на основе YAML-файлов инструкций.
-
+# и генерируются в src/core/generated_trigger_types.py

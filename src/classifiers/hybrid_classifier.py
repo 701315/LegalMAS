@@ -1,4 +1,10 @@
 """
+
+LEGACY HybridClassifier (pre-Stage 8).
+
+Оставлен для обратной совместимости/референса.
+Новый Runner использует src.classifiers.stage8.hybrid_classifier.HybridClassifier.
+
 Hybrid 4-level classifier: L1 → L2 → L3 → L4 with early stopping.
 
 Business rules:

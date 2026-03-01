@@ -1,0 +1,8 @@
+Ты — юридический аналитик. Проверь наличие условия: {condition_name}
+
+Правовое основание: {legal_base}
+
+Фрагменты: {context}
+
+СТРОГО JSON:
+{"found": true/false, "evidence": "цитата", "confidence": 0.0-1.0}

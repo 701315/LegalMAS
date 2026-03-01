@@ -36,14 +36,14 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"  # "console" for dev, "json" for production
 
-    # --- PII ---
+    # --- PII (legacy default for dev) ---
     PII_ENCRYPTION_KEY: str = "dev-encryption-key-change-in-production"
 
-    # --- Classification & Embeddings ---
+    # --- Classification & Embeddings (общие) ---
     EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"
     CLASSIFICATION_REGISTRY_PATH: str = "playbooks/document_types/registry.yaml"
 
-    # --- LLM Providers ---
+    # --- LLM Providers (общий верхнеуровневый) ---
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     LOCAL_LLM_ENDPOINT: str = "http://localhost:11434"
@@ -52,91 +52,44 @@ class Settings(BaseSettings):
     CIRCUIT_BREAKER_THRESHOLD: int = 5
     CIRCUIT_BREAKER_TIMEOUT: int = 60
 
-    # Import Worker ---
+    # --- Import Worker ---
     IMPORT_MAX_FILE_SIZE_MB: int = 200
-    # Максимальный размер одного файла в мегабайтах
-    # Import Worker использует folder_path из структуры ZIP (например, 02. Contracts/SPA/)
-    # как сигнал предварительной классификации — эта информация сохраняется в
-    # Document.folder_path и впоследствии используется L1-классификатором для folder_patterns
-    # из YAML-реестра
-
-    IMPORT_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
-    # Разрешённые расширения файлов через запятую
-
+    IMPORT_ALLOWED_EXTENSIONS: str = (
+        ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
+    )
     IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
-    # Максимальное количество файлов в одном ZIP-пакете
+    # CLASSIFIER_REGISTRY_PATH уже задан выше и используется Import Worker'ом.
 
-    #  Registry path (используется Classifier) ---
-    CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
-    # Путь к YAML-реестру типов документов.
-    # Устанавливается уже здесь, т.к. Import Worker на шаге folder_path-разбора
-    # может использовать folder_patterns из реестра для предварительной маршрутизации.
-    # Читается Classifier'ом (Stage 6), но путь объявляется глобально.
-
-    # --- Stage 4: Extractor ---
+    # --- Extractor (Stage 4) ---
     EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE: int = 50
-    # Символов на странице ниже этого → стратегия OCR
-
     EXTRACTION_OCR_QUARANTINE_THRESHOLD: float = 0.6
-    # Средняя OCR-уверенность ниже → документ в карантин
-
     EXTRACTION_OCR_DPI: int = 300
-    # DPI при конвертации страниц в изображения для OCR
-
     EXTRACTION_MAX_PAGES: int = 500
-    # Максимум страниц в одном документе
-
     EXTRACTION_OCR_ENABLED: bool = True
-    # False → отключить OCR полностью, только pdfplumber
 
-    # --- Stage 4: Element enrichment для Classifier/Structure Builder ---
+    # --- Element enrichment ---
     EXTRACTION_ENRICH_ELEMENT_TYPES: bool = True
-    # True → классифицировать каждый элемент как heading/text/listitem
-    # Используется на Этапах 6 (Structure Builder) и 7 (Dedup)
-    # Добавлен флаг EXTRACTION_ENRICH_ELEMENT_TYPES. Structure Builder (Этап 6)
-    # использует element.type для разбиения на clause_uid, классификатор L2 (Этап 6)
-    # — первые 1500 символов elements. Обогащение типов критично для качества обоих.
 
     # --- Testing / Integration ---
     DISABLE_DOWNSTREAM_TASKS: bool = False
-    # True → отключить запуск downstream-тасок (PII Sanitizer, Structure Builder и т.д.)
-    # из воркеров для изолированного тестирования отдельных стадий pipeline.
-    # Используется в интеграционных тестах.
-
-    # PII Sanitization settings (Stage 5)
 
     # --- PII Sanitization (Stage 5) ---
-    PII_ENCRYPTION_KEY: str = ""
     # Fernet key (base64). Пустой = dev mode (plaintext mapping).
-    # Генерация: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-
+    PII_ENCRYPTION_KEY: str = ""
     PII_NER_ENABLED: bool = True
-    # Использовать natasha NER для обнаружения имён
-
     PII_PRESERVE_INN: bool = True
-    # Не токенизировать ИНН (10/12 цифр) — используется в playbook positive_keywords
-
     PII_PRESERVE_OGRN: bool = True
-    # Не токенизировать ОГРН (13/15 цифр)
-
     PII_PRESERVE_CADASTRAL: bool = True
-    # Не токенизировать кадастровые номера
-
     PII_PRESERVE_PARTY_ROLES: bool = True
-    # Заменять person_name → роль договора (SELLER/BUYER), если обнаружена в контексте
-
     PII_AUDIT_ENABLED: bool = True
-    # Писать AuditLog при каждой санитации
-
     PII_SKIP_IF_ALREADY_SANITIZED: bool = True
-    # Идемпотентность: пропустить если doc.status == sanitized
 
-    # --- Stage 6: Structure Builder ---
+    # --- Structure Builder (Stage 6) ---
     STRUCTURE_MIN_CLAUSE_COVERAGE: float = 0.60
     STRUCTURE_DEGRADED_CHUNK_TOKENS: int = 500
     STRUCTURE_MAX_CLAUSE_TITLE_LEN: int = 100
 
-    # --- Stage 6: Classifier ---
+    # --- Classifier (Stage 6) ---
     CLASSIFIER_L1_WEIGHT: float = 0.20  # L1 — слабый hint, не финальный вердикт
     CLASSIFIER_L2_ACCEPT_THRESHOLD: float = 0.85
     CLASSIFIER_L3_ACCEPT_THRESHOLD: float = 0.80
@@ -145,15 +98,16 @@ class Settings(BaseSettings):
     CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"  # L3
     CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
 
-    # --- Stage 6: LLM Provider (L4) ---
+    # --- LLM Provider (Stage 6 L4) ---
     LLM_PROVIDER: str = "none"  # "none" | "local" | "openai" | "anthropic"
     LLM_LOCAL_MODEL_PATH: str = "C:/LegalMAS/LLMmodel/model.gguf"
     LLM_LOCAL_N_CTX: int = 4096  # context window for GGUF model
     LLM_LOCAL_N_GPU_LAYERS: int = 0  # 0 = CPU only, >0 = GPU offload
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
-
-    # --- Dedup & Relations settings ---
+    LLM_TIMEOUT_SECONDS: int = 30
+    
+    # --- Dedup & Relations (Stage 7) ---
     DEDUP_EXACT_ENABLED: bool = True
     RELATIONS_FILENAME_ENABLED: bool = True
     RELATIONS_TEXT_ENABLED: bool = True
@@ -161,24 +115,55 @@ class Settings(BaseSettings):
     RELATIONS_MAX_HOPS: int = 2
     RELATIONS_MAX_FAMILY_SIZE: int = 20
 
-    # Fallback list — used when YAML instructions are not loaded yet.
-    # Primary source: YAMLPlaybookLoader.get_master_doc_types()
+    # Fallback list — Primary source: YAMLRegistry.get_master_doc_types()
     FAMILY_MASTER_DOC_TYPES: list[str] = [
-        "SPA", "SHA", "Loan", "RealEstate", "ServiceAgreement",
+        "SPA",
+        "SHA",
+        "Loan",
+        "RealEstate",
+        "ServiceAgreement",
     ]
-
-    # Minimum classification_level for master document candidate
-    # L0 = unclassified, L1 = generic, L2 = identified type, L3 = full analysis
     FAMILY_MASTER_MIN_CLASSIFICATION_LEVEL: str = "L1"
-
-    # Classification levels priority for master selection
-    # Higher index = higher priority when multiple candidates exist
     FAMILY_CLASSIFICATION_LEVEL_PRIORITY: list[str] = [
-        "L0", "L1", "L2", "L3",
+        "L0",
+        "L1",
+        "L2",
+        "L3",
     ]
 
+    # --- Runner / Core Engine (Stage 8) ---
 
+    # Интеграция со Stage 7
+    RELATIONS_DEDUP_ENABLED: bool = True          # использовать dedup слоя Stage 7
+    RELATIONS_ENABLED: bool = True                # учитывать relations/families
 
+    # Runner: retrieval и весовые коэффициенты
+    RUNNER_RETRIEVAL_TOP_K: int = 5
+    RUNNER_DENSE_WEIGHT: float = 0.6             # embeddings (shared)
+    RUNNER_SPARSE_WEIGHT: float = 0.3            # BM25
+    RUNNER_METADATA_WEIGHT: float = 0.1          # doc_type / meta
+
+    # Runner: классификационные пороги (для HybridClassifier Stage 8)
+    CLASSIFICATION_L1_ACCEPT: float = 0.90
+    CLASSIFICATION_L2_ACCEPT: float = 0.85
+    CLASSIFICATION_L3_ACCEPT: float = 0.80
+    CLASSIFICATION_L4_ACCEPT: float = 0.70
+    CLASSIFICATION_VOTING_THRESHOLD: float = 0.75
+
+    # Embeddings для Runner/Stage 8 (shared с L3-классификатором)
+    RUNNER_EMBEDDINGS_ENABLED: bool = True
+    RUNNER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"
+    RUNNER_EMBEDDINGS_CACHE_DIR: str = ".cache/embeddings"
+
+    # Playbooks / Prompts
+    PLAYBOOK_DOCUMENT_TYPES_DIR: str = "playbooks/document_types"
+    PLAYBOOK_DEFAULT_PATH: str = "playbooks/test/v1.0/playbook.yaml"
+    PROMPTS_DIR: str = "prompts"
+
+    # Порог уверенности rules, при котором LLM не вызывается.
+    RULES_CONFIDENCE_THRESHOLD: float = 0.7
+    CHECK_PASS_THRESHOLD: float = 0.6
+    CHECK_UNCLEAR_THRESHOLD: float = 0.3
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

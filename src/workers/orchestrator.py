@@ -16,22 +16,46 @@ logger = get_logger(__name__)
 
 def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict:
     """
-    Sync entrypoint: creates Run and kicks off import worker.
+    Sync entrypoint: создает Run через async run_async и
+    ставит в очередь начальный импорт документов.
     """
-    run_id = asyncio.run(_create_run(deal_id, tenant_id))
-
     from src.workers.import_worker import import_bundle
 
+    # 1. Создаём Run в async-уровне
+    run_id = asyncio.run(run_async(deal_id, tenant_id))
+
+    # 2. Стартуем импорт как первую Celery-таску пайплайна
     import_bundle.delay(
         deal_id=deal_id,
         tenant_id=tenant_id,
         source_path=source_path,
         run_id=run_id,
     )
+
+    logger.info(
+        "Pipeline started",
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+        source_path=source_path,
+    )
+
     return {"status": "started", "run_id": run_id}
 
 
+async def run_async(deal_id: str, tenant_id: str) -> str:
+    """
+    Async entrypoint: создает Run и возвращает run_id.
+
+    Не знает про Celery/импорт — только про бизнес-логику создания Run.
+    """
+    return await _create_run(deal_id, tenant_id)
+
+
 async def _create_run(deal_id: str, tenant_id: str) -> str:
+    """
+    Внутренний helper: создает Run запись в БД для сделки.
+    """
     from src.db.repositories import PlaybookRepository, RunRepository
 
     async with db_uow() as uow:
@@ -52,4 +76,12 @@ async def _create_run(deal_id: str, tenant_id: str) -> str:
             environment_hash=None,
             profile="full",
         )
+
+        logger.info(
+            "Run created",
+            run_id=str(run.id),
+            deal_id=deal_id,
+            playbook_id=str(playbook.id),
+        )
+
         return str(run.id)

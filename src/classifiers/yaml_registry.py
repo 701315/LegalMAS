@@ -178,6 +178,35 @@ class YAMLRegistry:
         )
         return master_types
 
+    def get_classification_rules(self, type_code: str) -> dict:
+        """Получить правила классификации для HybridClassifier/L1/L2/L3."""
+        config = self.get_config(type_code)
+        if not config:
+            return {
+                "filename_patterns": [],
+                "folder_patterns": [],
+                "keywords_high": [],
+                "keywords_medium": [],
+                "keywords_low": [],
+                "exclusions": [],
+            }
+
+        return {
+            "filename_patterns": config.filename_patterns,
+            "folder_patterns": config.folder_patterns,
+            "keywords_high": config.keywords_high,
+            "keywords_medium": config.keywords_medium,
+            "keywords_low": config.keywords_low,
+            "exclusions": config.exclusions,
+        }
+
+    def list_types(self) -> list[str]:
+        """
+        Вернуть список всех type_code, известных реестру.
+
+        Используется L1/L2/L3/HybridClassifier для обхода всех типов.
+        """
+        return list(self._configs.keys())
 
     @classmethod
     def reset(cls):

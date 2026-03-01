@@ -1,0 +1,6 @@
+Классифицируй документ. Доступные типы: {available_types}
+
+Фрагмент: {document_fragment}
+
+СТРОГО JSON:
+{"type_code": "SPA", "confidence": 0.95, "reasoning": "обоснование"}

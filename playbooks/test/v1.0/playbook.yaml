@@ -1,0 +1,49 @@
+name: "Test Playbook"
+version: "1.0.0"
+description: "Minimal playbook for CheckRunner smoke tests"
+jurisdiction: "RU"
+languages: ["RU"]
+
+checks:
+  - id: test_presence_clause
+    name: "Test: presence of word 'contract'"
+    description: "Checks if document contains the word 'contract' or 'договор'"
+    doc_types: []          # пусто = для всех типов
+    severity: "medium"
+    severity_if_fail: "high"
+    severity_if_pass: "medium"
+    severity_if_unclear: "medium"
+
+    detector_type: "rules"
+    rules:
+      keywords: ["contract", "договор"]
+      keyword_mode: "any"
+      regex_patterns: []
+      clause_patterns: []
+
+    llm:
+      prompt_template: ""
+      prompt_file: null
+      context_k: 3
+      temperature: 0.0
+      max_tokens: 256
+
+    evidence:
+      required: true
+      min_snippet_length: 20
+      max_snippet_length: 500
+
+    retrieval:
+      context_k: 3
+      max_chunks: null
+      boost_keywords: []
+      rerank: true
+      filters: {}
+
+    conditional: null
+
+    extraction:
+      enabled: false
+      mode: "hybrid"
+      fields: []
+      store_payload: true

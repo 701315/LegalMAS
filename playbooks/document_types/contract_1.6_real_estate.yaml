@@ -1168,4 +1168,216 @@ validation_engine_v3_2:
         - if_check_fails: "mcd_common_property_approval"
           request: "Протокол общего собрания собственников + подтверждение кворума/голосования + правовой режим объекта + согласования (если нужны)"
 
+
+# ════════════════════════════════
+# RUNTIME L2 / Stage 8 — checks_v8
+# ════════════════════════════════
+
+checks_v8:
+  - id: land_subject_extraction
+    name: "Земля: базовое извлечение предмета"
+    description: "Извлекает кадастровый номер, адрес и ключевые параметры земельного участка"
+    applies_if:
+      any_triggers: ["land_plot_sale"]
+    severity: "high"
+
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "земельный участок"
+        - "кадастровый номер"
+        - "категория земель"
+        - "разрешенное использование"
+        - "вид разрешенного использования"
+        - "ВРИ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "{{ validation_engine_v3_2.formats.patterns.cadastral_number }}"
+      clause_patterns: []
+
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор купли-продажи недвижимости (земельный участок).
+        Твоя задача — найти в тексте договора сведения о предмете: кадастровый номер, адрес, площадь,
+        категорию земель и вид разрешенного использования (ВРИ), если они указаны.
+
+        Ответ верни строго в JSON-формате с ключами:
+        - property_kind
+        - cadastral_number
+        - address
+        - area
+        - land_category
+        - permitted_use_vri
+
+        Если какое-то поле не найдено, ставь значение "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 512
+
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "земельный участок"
+        - "кадастровый номер"
+        - "категория земель"
+        - "разрешенное использование"
+        - "вид разрешенного использования"
+        - "ВРИ"
+      rerank: true
+      filters: {}
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "property_kind"
+          type: "string"
+        - name: "cadastral_number"
+          type: "string"
+        - name: "address"
+          type: "string"
+        - name: "area"
+          type: "string"
+        - name: "land_category"
+          type: "string"
+        - name: "permitted_use_vri"
+          type: "string"
+      store_payload: true
+
+
+  - id: cadastral_number_required_for_land_plot
+    name: "Земля: кадастровый номер обязателен"
+    description: "Проверяет, что для земельного участка явно указан кадастровый номер"
+    applies_if:
+      any_triggers: ["land_plot_sale"]
+    severity: "critical"
+
+    detector_type: "rules"
+
+    rules:
+      keywords:
+        - "земельный участок"
+        - "кадастровый номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "{{ validation_engine_v3_2.formats.patterns.cadastral_number }}"
+      clause_patterns: []
+
+    llm:
+      prompt_template: ""
+      prompt_file: null
+      context_k: 3
+      temperature: 0.0
+      max_tokens: 128
+
+    retrieval:
+      context_k: 3
+      max_chunks: 6
+      boost_keywords:
+        - "земельный участок"
+        - "кадастровый номер"
+      rerank: true
+      filters: {}
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+
+    extraction:
+      enabled: false
+      mode: "hybrid"
+      fields: []
+      store_payload: false
+
+  - id: land_vri_and_category_required
+    name: "Земля: категория и ВРИ соответствуют целям"
+    description: "Проверяет, что для земельного участка указаны категория земель и вид разрешенного использования (ВРИ), и фиксирует их для анализа соответствия целям покупателя"
+    applies_if:
+      any_triggers: ["land_plot_sale"]
+    severity: "high"
+
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "земельный участок"
+        - "категория земель"
+        - "разрешенное использование"
+        - "вид разрешенного использования"
+        - "ВРИ"
+      keyword_mode: "any"
+      regex_patterns: []
+      clause_patterns: []
+
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор купли-продажи земельного участка.
+        Нужно найти в договоре:
+        - категорию земель;
+        - вид разрешенного использования (ВРИ);
+        - при наличии — явное указание на допустимость использования участка под цели покупателя.
+
+        Ответ верни строго в JSON-формате с ключами:
+        - land_category
+        - permitted_use_vri
+        - intended_use_fit   # yes / no / unclear / not_found
+
+        Если какое-то поле не найдено, используй "not_found".
+        Если нельзя однозначно понять, подходит ли ВРИ под цели покупателя, используй "unclear".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "категория земель"
+        - "разрешенное использование"
+        - "вид разрешенного использования"
+        - "ВРИ"
+        - "целевое назначение"
+        - "назначение участка"
+      rerank: true
+      filters: {}
+
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "land_category"
+          type: "string"
+        - name: "permitted_use_vri"
+          type: "string"
+        - name: "intended_use_fit"
+          type: "string"
+      store_payload: true
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Конец файла

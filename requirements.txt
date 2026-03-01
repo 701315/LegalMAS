@@ -37,7 +37,6 @@ mypy==1.14.1
 sentence-transformers==3.3.1
 torch==2.5.1
 transformers==4.47.1
-numpy==2.2.1
 
 # Document processing
 pdfplumber==0.11.4
@@ -69,3 +68,11 @@ llama-cpp-python>=0.2.0
 # Dedup & Relations
 thefuzz==0.22.1
 python-Levenshtein==0.25.1
+
+# Runner Core Engine
+PyYAML==6.0.2
+rank-bm25==0.2.2
+httpx==0.28.1
+numpy==2.2.3
+tiktoken==0.9.0
+jsonschema==4.23.0
