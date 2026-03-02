@@ -27,7 +27,7 @@ playbook_converter.py
   в Runner/CheckExecutor для выполнения Stage 8 проверок.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
 
@@ -46,17 +46,16 @@ class PlaybookConverter:
     могут продолжать обрабатываться по существующей логике в других частях кода.
     """
 
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
 
-    def load_yaml(self, path: str) -> Dict[str, Any]:
+    def load_yaml(self, path: str) -> dict[str, Any]:
         """
         Прочитать YAML-файл playbook'а с диска и вернуть его как dict.
         """
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f)
 
-    def convert_checks_v8(self, raw_playbook: Dict[str, Any]) -> List[CheckDefinition]:
+    def convert_checks_v8(self, raw_playbook: dict[str, Any]) -> list[CheckDefinition]:
         """
         Читает секцию checks_v8 из сырого YAML-словари и возвращает
         список CheckDefinition, готовых к передаче в Runner.
@@ -64,14 +63,14 @@ class PlaybookConverter:
         Если секция checks_v8 отсутствует или пуста, вернёт пустой список.
         """
         raw_checks = raw_playbook.get("checks_v8") or []
-        check_definitions: List[CheckDefinition] = []
+        check_definitions: list[CheckDefinition] = []
 
         for raw_check in raw_checks:
             check_definitions.append(self._build_check_definition_from_yaml(raw_check))
 
         return check_definitions
 
-    def _build_check_definition_from_yaml(self, raw_check: Dict[str, Any]) -> CheckDefinition:
+    def _build_check_definition_from_yaml(self, raw_check: dict[str, Any]) -> CheckDefinition:
         """
         Конвертация одного YAML-узла checks_v8[*] в CheckDefinition.
 
@@ -106,11 +105,15 @@ class PlaybookConverter:
             severity_if_unclear=raw_check.get("severity_if_unclear"),
             # detector_type / rules / llm / evidence / retrieval можно
             # оставить по умолчанию, если в checks_v8 они не задаются:
-            detector_type=raw_check.get("detector_type") or None or CheckDefinition.model_fields["detector_type"].default,
+            detector_type=raw_check.get("detector_type")
+            or None
+            or CheckDefinition.model_fields["detector_type"].default,
             rules=raw_check.get("rules") or CheckDefinition.model_fields["rules"].default_factory(),
             llm=raw_check.get("llm") or CheckDefinition.model_fields["llm"].default_factory(),
-            evidence=raw_check.get("evidence") or CheckDefinition.model_fields["evidence"].default_factory(),
-            retrieval=raw_check.get("retrieval") or CheckDefinition.model_fields["retrieval"].default_factory(),
+            evidence=raw_check.get("evidence")
+            or CheckDefinition.model_fields["evidence"].default_factory(),
+            retrieval=raw_check.get("retrieval")
+            or CheckDefinition.model_fields["retrieval"].default_factory(),
             conditional=conditional_cfg,
             extraction=extraction_cfg,
         )

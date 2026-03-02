@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.models.relation import (
-    DocumentRelation,
     DocumentFamily,
     DocumentFamilyMember,
+    DocumentRelation,
 )
 
 
@@ -54,8 +54,7 @@ class RelationRepository:
         """Get all relations where doc_id is source OR target."""
         stmt = select(DocumentRelation).where(
             DocumentRelation.deal_id == deal_id,
-            (DocumentRelation.source_doc_id == doc_id)
-            | (DocumentRelation.target_doc_id == doc_id),
+            (DocumentRelation.source_doc_id == doc_id) | (DocumentRelation.target_doc_id == doc_id),
         )
         if relation_types:
             stmt = stmt.where(DocumentRelation.relation_type.in_(relation_types))

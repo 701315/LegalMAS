@@ -35,15 +35,13 @@ Stage 8 HybridClassifier (L1 → L2 → L3) с интеграцией Stage 7 и
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
 from src.classifiers.stage8.l1_filename import L1FilenameClassifier
 from src.classifiers.stage8.l2_header import L2HeaderClassifier
 from src.classifiers.stage8.l3_semantic import L3SemanticClassifier
-from src.db.repositories.runner_repo import RunnerRepository
-from src.engine.content.document_content_service import DocumentContentService
 from src.core.config import settings
 from src.core.logging import get_logger
+from src.db.repositories.runner_repo import RunnerRepository
+from src.engine.content.document_content_service import DocumentContentService
 
 logger = get_logger(__name__)
 
@@ -66,13 +64,13 @@ class HybridClassifier:
         self.l3 = L3SemanticClassifier()
 
         # Веса уровней для взвешенного голосования
-        self.level_weights: Dict[str, float] = {
+        self.level_weights: dict[str, float] = {
             "L1": getattr(settings, "CLASSIFIER_L1_WEIGHT", 0.20),
             "L2": 0.40,
             "L3": 0.40,
         }
 
-    async def classify_document(self, doc_id: str) -> Dict:
+    async def classify_document(self, doc_id: str) -> dict:
         """
         Основной метод классификации одного документа с учётом Stage 7 и каскада L1→L2→L3.
         """
@@ -91,13 +89,13 @@ class HybridClassifier:
                 "details": {"levels_tried": [], "candidates": []},
             }
 
-        details: Dict = {"levels_tried": [], "candidates": []}
-        candidates: List[Dict] = []
+        details: dict = {"levels_tried": [], "candidates": []}
+        candidates: list[dict] = []
 
         # Аккумуляторы для языка / юрисдикции / триггеров
-        language: Optional[str] = None
-        jurisdiction: Optional[str] = None
-        applicable_triggers: List[str] = []
+        language: str | None = None
+        jurisdiction: str | None = None
+        applicable_triggers: list[str] = []
 
         # --- Stage 7: обработка дубликатов ---
         if getattr(doc, "is_duplicate", False):
@@ -119,26 +117,18 @@ class HybridClassifier:
                     "levels_tried": details["levels_tried"],
                     "candidates": [],
                     "final_type": master.doc_type,
-                    "final_confidence": float(
-                        master.classification_confidence or 0.0
-                    ),
+                    "final_confidence": float(master.classification_confidence or 0.0),
                     "level": "COPIED",
                     "copied_from_master": str(master.id),
                     "language": getattr(master, "language", None),
                     "jurisdiction": getattr(master, "jurisdiction", None),
-                    "applicable_triggers": list(
-                        getattr(master, "applicable_triggers", []) or []
-                    ),
+                    "applicable_triggers": list(getattr(master, "applicable_triggers", []) or []),
                     "details": details,
                 }
 
         # Нормализуем filename / folder
         filename = getattr(doc, "filename", "") or ""
-        folder = (
-            getattr(doc, "folder_path", None)
-            or getattr(doc, "folder", "")
-            or ""
-        )
+        folder = getattr(doc, "folder_path", None) or getattr(doc, "folder", "") or ""
 
         # --- L1: filename/folder ---
         l1_results = self.l1.classify(filename, folder)
@@ -169,8 +159,7 @@ class HybridClassifier:
             header_text, snippet_text = await self.content_service.get_header_and_snippet(doc.id)
         else:
             logger.warning(
-                "HybridClassifier: content_service is not configured, "
-                "L2/L3 will be skipped",
+                "HybridClassifier: content_service is not configured, " "L2/L3 will be skipped",
                 doc_id=str(doc.id),
             )
 
@@ -225,9 +214,7 @@ class HybridClassifier:
             jurisdiction = getattr(l3_result, "jurisdiction", "RU")
 
             if hasattr(l3_result, "applicable_triggers"):
-                applicable_triggers = list(
-                    getattr(l3_result, "applicable_triggers") or []
-                )
+                applicable_triggers = list(getattr(l3_result, "applicable_triggers") or [])
 
             details["L3"] = {
                 "type": l3_result.doctype,
@@ -236,9 +223,7 @@ class HybridClassifier:
                 "evidence": l3_result.evidence,
                 "language": language,
                 "jurisdiction": jurisdiction,
-                "alternative_types": getattr(
-                    l3_result, "alternative_types", []
-                ),
+                "alternative_types": getattr(l3_result, "alternative_types", []),
             }
 
             if l3_result.doctype != "UNKNOWN":
@@ -258,11 +243,7 @@ class HybridClassifier:
                 "confidence": 0.0,
                 "method": "embedding_similarity",
                 "evidence": None,
-                "note": (
-                    "empty_text"
-                    if not snippet_text
-                    else "embeddings_disabled"
-                ),
+                "note": ("empty_text" if not snippet_text else "embeddings_disabled"),
             }
 
         # --- Fallback: взвешенное голосование или UNKNOWN ---
@@ -300,7 +281,7 @@ class HybridClassifier:
             "details": details,
         }
 
-    def _weighted_voting(self, candidates: List[Dict]) -> Optional[Dict]:
+    def _weighted_voting(self, candidates: list[dict]) -> dict | None:
         """
         Взвешенное голосование по кандидатам.
 
@@ -310,8 +291,8 @@ class HybridClassifier:
         if not candidates:
             return None
 
-        type_scores: Dict[str, float] = {}
-        type_meta: Dict[str, Dict] = {}
+        type_scores: dict[str, float] = {}
+        type_meta: dict[str, dict] = {}
         total_weight = 0.0
 
         for c in candidates:

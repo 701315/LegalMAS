@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
-from uuid import uuid4
+from typing import Any
 
 import pytest
 
@@ -23,7 +22,7 @@ class DummyDoc:
         classification_confidence: float | None = None,
         language: str | None = None,
         jurisdiction: str | None = None,
-        applicable_triggers: List[str] | None = None,
+        applicable_triggers: list[str] | None = None,
     ) -> None:
         self.id = id
         self.filename = filename
@@ -40,7 +39,7 @@ class DummyDoc:
 class DummyDocumentsRepo:
     """Простая заглушка uow.documents с in-memory хранилищем."""
 
-    def __init__(self, docs: Dict[Any, DummyDoc]) -> None:
+    def __init__(self, docs: dict[Any, DummyDoc]) -> None:
         self._docs = docs
 
     def get_by_id(self, doc_id: str) -> DummyDoc | None:
@@ -50,7 +49,7 @@ class DummyDocumentsRepo:
 class DummyRunnerRepo:
     """Заглушка RunnerRepository для тестов HybridClassifier."""
 
-    def __init__(self, docs: Dict[Any, DummyDoc]) -> None:
+    def __init__(self, docs: dict[Any, DummyDoc]) -> None:
         self._docs = docs
 
     def get_master_document(self, doc_id: str) -> DummyDoc | None:
@@ -61,7 +60,7 @@ class DummyRunnerRepo:
 class DummyUoW:
     """Минимальный UoW для HybridClassifier: session + documents."""
 
-    def __init__(self, docs: Dict[Any, DummyDoc]) -> None:
+    def __init__(self, docs: dict[Any, DummyDoc]) -> None:
         self.session = None
         self.documents = DummyDocumentsRepo(docs)
 
@@ -115,7 +114,6 @@ async def test_hybrid_classifier_copied_from_master(monkeypatch):
     assert result["jurisdiction"] == "RU"
     assert result["copied_from_master"] == "master"
     assert set(result["applicable_triggers"]) == {"t1"}
-
 
 
 @pytest.mark.asyncio

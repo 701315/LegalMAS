@@ -1,5 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 from src.classifiers.stage8.hybrid_classifier import HybridClassifier
 from src.core.config import settings
@@ -123,9 +124,7 @@ async def test_hybrid_classifier_l1_confident_stops_early(uow_mock):
     result = await clf.classify_document(doc.id)
 
     assert result["final_type"] == "SPA"
-    assert result["final_confidence"] == pytest.approx(
-        settings.CLASSIFICATION_L1_ACCEPT + 0.01
-    )
+    assert result["final_confidence"] == pytest.approx(settings.CLASSIFICATION_L1_ACCEPT + 0.01)
     assert "L1" in result["details"]["levels_tried"]
     l2_mock.classify.assert_not_called()
     l3_mock.classify.assert_not_called()
@@ -165,9 +164,7 @@ async def test_hybrid_classifier_l2_confident_skips_l3(uow_mock):
     l3_mock.classify = AsyncMock(return_value=[])
 
     content_service_mock = MagicMock()
-    content_service_mock.get_header_and_snippet = AsyncMock(
-        return_value=("Some header text", None)
-    )
+    content_service_mock.get_header_and_snippet = AsyncMock(return_value=("Some header text", None))
 
     clf = _make_dummy_hybrid(
         hc_module, uow_mock, l1_mock, l2_mock, l3_mock, content_service=content_service_mock

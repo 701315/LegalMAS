@@ -35,18 +35,15 @@ L2 Header Classifier — классификация по заголовку до
 - Если L2 не даёт уверенного результата, каскад передаёт управление на L3 (эмбеддинги).
 """
 
-
 from __future__ import annotations
 
 import re
-from typing import Optional
-from src.core.config import settings
 
 from src.classifiers.base import BaseClassifier, ClassificationResult
 from src.classifiers.yaml_registry import YAMLRegistry
+from src.core.config import settings
 from src.core.constants import ClassificationLevel
 from src.core.logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -60,7 +57,7 @@ class L2HeaderClassifier(BaseClassifier):
       - metadata.doc_types_supported
     """
 
-    def __init__(self, registry: Optional[YAMLRegistry] = None) -> None:
+    def __init__(self, registry: YAMLRegistry | None = None) -> None:
         # Используем singleton по умолчанию, но даём возможность подменять в тестах
         self._registry = registry or YAMLRegistry.get_instance()
 
@@ -121,7 +118,6 @@ class L2HeaderClassifier(BaseClassifier):
                         pattern=p,
                         type_code=cfg.type_code,
                     )
-
 
         return ClassificationResult(
             doctype=best_type,

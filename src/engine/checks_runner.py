@@ -24,15 +24,13 @@ Stage 8 CheckRunner: playbook-based checks executor.
         summary = await runner.run_deal_checks(deal_id, run_id)
 """
 
-from typing import Dict, List, Tuple
 import uuid
 
 from src.core.logging import get_logger
-from src.db.uow import db_uow
 from src.db.repositories.runner_repo import RunnerRepository
+from src.db.uow import db_uow
 from src.engine.checks.executor import CheckExecutor
 from src.engine.playbook.loader import load_default_playbook
-
 
 logger = get_logger(__name__)
 
@@ -64,7 +62,7 @@ class CheckRunner:
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
 
-    async def run_deal_checks(self, deal_id: uuid.UUID, run_id: uuid.UUID) -> Dict:
+    async def run_deal_checks(self, deal_id: uuid.UUID, run_id: uuid.UUID) -> dict:
         """
         Выполнить checks по всем non-duplicate документам сделки.
 
@@ -95,7 +93,7 @@ class CheckRunner:
             run_id=str(run_id),
         )
 
-        summary: Dict = {
+        summary: dict = {
             "deal_id": str(deal_id),
             "run_id": str(run_id),
             "processed_docs": 0,
@@ -145,7 +143,7 @@ class CheckRunner:
         doc,
         run_id: uuid.UUID,
         playbook,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Выполнить все релевантные checks для одного документа в отдельном UoW.
 
@@ -160,9 +158,7 @@ class CheckRunner:
             runner_repo = RunnerRepository(uow.session)  # если понадобится дополнительно
 
             doc_type = getattr(doc, "doc_type", "") or ""
-            applicable_triggers: List[str] = (
-                getattr(doc, "applicable_triggers", None) or []
-            )
+            applicable_triggers: list[str] = getattr(doc, "applicable_triggers", None) or []
 
             # Выбираем checks с учётом doc_type и триггеров
             checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
@@ -226,7 +222,9 @@ class CheckRunner:
                 else:
                     # Pydantic-модель ConditionalConfig или None
                     is_conditional = bool(conditional)
-                    trigger_name = getattr(conditional, "trigger", None) if conditional is not None else None
+                    trigger_name = (
+                        getattr(conditional, "trigger", None) if conditional is not None else None
+                    )
 
                 dto = {
                     "run_id": run_id,

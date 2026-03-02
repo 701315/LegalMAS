@@ -15,13 +15,13 @@ Hybrid detector: сначала rules, затем LLM при необходим�
   с большей confidence. В raw можно хранить обе уверенности для анализа.
 """
 
-from typing import Dict, Any, List
-from src.core.config import settings
-from src.engine.detectors.rules_detector import RulesDetector
-from src.engine.detectors.llm_detector import LLMDetector
-from src.engine.playbook.models import CheckDefinition
-from src.engine.detectors.models import RetrievedChunk
+from typing import Any
 
+from src.core.config import settings
+from src.engine.detectors.llm_detector import LLMDetector
+from src.engine.detectors.models import RetrievedChunk
+from src.engine.detectors.rules_detector import RulesDetector
+from src.engine.playbook.models import CheckDefinition
 
 # Порог уверенности rules, при котором LLM не вызывается.
 RULES_CONFIDENCE_THRESHOLD = getattr(settings, "RULES_CONFIDENCE_THRESHOLD", 0.7)
@@ -62,9 +62,9 @@ class HybridDetector:
     def run(
         self,
         text: str,
-        chunks: List[RetrievedChunk],
+        chunks: list[RetrievedChunk],
         check: CheckDefinition,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Запустить гибридную детекцию для одного check.
 
@@ -165,9 +165,8 @@ class HybridDetector:
             rules_result["raw"]["llm_confidence"] = conf_llm
             return rules_result
 
-
     @staticmethod
-    def _flatten_llm_result(llm_result, check: CheckDefinition) -> Dict[str, Any]:
+    def _flatten_llm_result(llm_result, check: CheckDefinition) -> dict[str, Any]:
         """
         Привести результат LLMDetector (с evidence_chunks и details)
         к "плоскому" DetectionResult‑подобному словарю, совместимому с rules‑результатом.

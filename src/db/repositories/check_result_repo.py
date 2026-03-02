@@ -1,5 +1,5 @@
-from typing import Any, Dict, List
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ class CheckResultRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, data: Dict[str, Any]) -> CheckResult:
+    async def create(self, data: dict[str, Any]) -> CheckResult:
         """
         Создать новую запись в check_results.
 
@@ -60,7 +60,7 @@ class CheckResultRepository:
         self,
         run_id: uuid.UUID,
         document_id: uuid.UUID,
-    ) -> List[CheckResult]:
+    ) -> list[CheckResult]:
         """Получить все результаты для документа в рамках одного run."""
         stmt = (
             select(CheckResult)
@@ -76,8 +76,8 @@ class CheckResultRepository:
     async def for_deal(
         self,
         run_id: uuid.UUID,
-        document_ids: List[uuid.UUID],
-    ) -> List[CheckResult]:
+        document_ids: list[uuid.UUID],
+    ) -> list[CheckResult]:
         """
         Получить результаты по списку документов сделки
         в рамках одного run.
@@ -85,12 +85,9 @@ class CheckResultRepository:
         if not document_ids:
             return []
 
-        stmt = (
-            select(CheckResult)
-            .where(
-                CheckResult.run_id == run_id,
-                CheckResult.document_id.in_(document_ids),
-            )
+        stmt = select(CheckResult).where(
+            CheckResult.run_id == run_id,
+            CheckResult.document_id.in_(document_ids),
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

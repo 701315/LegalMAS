@@ -21,9 +21,9 @@ from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.session import AsyncSessionLocal
 from src.db.repositories.check_result_repo import CheckResultRepository
 from src.db.repositories.document_repo import DocumentRepository
+from src.db.session import AsyncSessionLocal
 
 
 class UnitOfWork:

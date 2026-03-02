@@ -2,15 +2,14 @@
 
 """Repository for Runner integration with Stage 7 (dedup / relations / families)."""
 
-from typing import List, Optional
 import uuid
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.classifiers.yaml_registry import YAMLRegistry
 from src.db.models.document import Document
 from src.db.models.relation import DocumentFamily, DocumentFamilyMember
-from src.classifiers.yaml_registry import YAMLRegistry
 
 
 class RunnerRepository:
@@ -21,7 +20,7 @@ class RunnerRepository:
         # Используем singleton, который сам возьмёт путь из settings.CLASSIFIER_REGISTRY_PATH
         self._registry = YAMLRegistry.get_instance()
 
-    async def get_non_duplicate_docs(self, deal_id: uuid.UUID) -> List[Document]:
+    async def get_non_duplicate_docs(self, deal_id: uuid.UUID) -> list[Document]:
         """
         Получить документы для Runner.
 
@@ -35,16 +34,11 @@ class RunnerRepository:
         или отдельная таблица, здесь можно будет добавить соответствующую
         фильтрацию.
         """
-        stmt = (
-            select(Document)
-            .where(Document.deal_id == deal_id)
-            .order_by(Document.created_at)
-        )
+        stmt = select(Document).where(Document.deal_id == deal_id).order_by(Document.created_at)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-
-    async def get_document_family(self, doc_id: uuid.UUID) -> Optional[List[Document]]:
+    async def get_document_family(self, doc_id: uuid.UUID) -> list[Document] | None:
         """
         Получить семью документа (все документы семейства).
 
@@ -72,7 +66,7 @@ class RunnerRepository:
         result_docs = await self.session.execute(stmt_docs)
         return list(result_docs.scalars().all())
 
-    async def get_master_document(self, doc_id: uuid.UUID) -> Optional[Document]:
+    async def get_master_document(self, doc_id: uuid.UUID) -> Document | None:
         """
         Найти master-документ семьи.
 

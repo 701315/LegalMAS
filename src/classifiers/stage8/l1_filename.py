@@ -35,6 +35,7 @@ L1: Filename classifier с YAMLRegistry (Stage 8).
 from src.classifiers.yaml_registry import YAMLRegistry
 from src.core.config import settings
 
+
 class L1FilenameClassifier:
     def __init__(self):
         # используем singleton, который сам знает про registry_path из настроек
@@ -44,20 +45,22 @@ class L1FilenameClassifier:
         """Вернуть список кандидатов {type_code, confidence, method}"""
         candidates = []
         all_types = self.registry.list_types()
-        
+
         for type_code in all_types:
             rules = self.registry.get_classification_rules(type_code)
-            patterns = rules.get('filename_patterns', [])
-            
+            patterns = rules.get("filename_patterns", [])
+
             for pattern in patterns:
                 if pattern.match(filename) or pattern.match(folder):
                     confidence = settings.CLASSIFICATION_L1_ACCEPT
-                    candidates.append({
-                        'type_code': type_code,
-                        'confidence': confidence,
-                        'level': 'L1',
-                        'method': 'filename'
-                    })
+                    candidates.append(
+                        {
+                            "type_code": type_code,
+                            "confidence": confidence,
+                            "level": "L1",
+                            "method": "filename",
+                        }
+                    )
                     break
-        
-        return sorted(candidates, key=lambda x: x['confidence'], reverse=True)
+
+        return sorted(candidates, key=lambda x: x["confidence"], reverse=True)

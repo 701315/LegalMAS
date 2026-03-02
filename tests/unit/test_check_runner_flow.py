@@ -3,14 +3,13 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from src.engine.runner import Runner
-from src.engine.checks_runner import CheckRunner
-from tests.util.mock_llm_client import MockLLMClient
-
+from src.db.models.playbook import ModelConfig, PlaybookVersion
+from src.db.models.run import Run
 from src.db.repositories.runner_repo import RunnerRepository
 from src.db.uow import db_uow
-from src.db.models.run import Run
-from src.db.models.playbook import PlaybookVersion, ModelConfig
+from src.engine.checks_runner import CheckRunner
+from src.engine.runner import Runner
+from tests.util.mock_llm_client import MockLLMClient
 
 
 @pytest.mark.asyncio
@@ -29,17 +28,9 @@ async def test_check_runner_flow():
     async with db_uow() as uow_setup:
         session = uow_setup.session
 
-        pv_id = (
-            await session.execute(
-                select(PlaybookVersion.id).limit(1)
-            )
-        ).scalar_one()
+        pv_id = (await session.execute(select(PlaybookVersion.id).limit(1))).scalar_one()
 
-        mc_id = (
-            await session.execute(
-                select(ModelConfig.id).limit(1)
-            )
-        ).scalar_one()
+        mc_id = (await session.execute(select(ModelConfig.id).limit(1))).scalar_one()
 
         run = Run(
             id=uuid.uuid4(),

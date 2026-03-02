@@ -1,17 +1,16 @@
 import uuid
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.constants import DocumentStatus
 from src.db.models.bundle import Bundle
 from src.db.models.deal import Deal
+from src.db.models.relation import DocumentFamily
 from src.db.repositories import DocumentRepository
 from src.db.uow import db_uow
 from src.workers.relations_worker import build_relations
-
-import sqlalchemy as sa
-from src.db.models.relation import DocumentFamily
 
 
 @pytest.mark.asyncio
@@ -94,7 +93,6 @@ async def test_relations_worker_basic_flow(tenant_id):
     assert result["families"] >= 1
 
 
-
 @pytest.mark.asyncio
 async def test_relations_worker_classification_awareness(tenant_id):
     """
@@ -157,12 +155,10 @@ async def test_relations_worker_classification_awareness(tenant_id):
 
         # Читаем семьи через тот же AsyncSession
         families = (
-            await db.execute(
-                sa.select(DocumentFamily).where(
-                    DocumentFamily.deal_id == deal.id
-                )
-            )
-        ).scalars().all()
+            (await db.execute(sa.select(DocumentFamily).where(DocumentFamily.deal_id == deal.id)))
+            .scalars()
+            .all()
+        )
 
         assert families
         levels = {f.master_classification_level for f in families}

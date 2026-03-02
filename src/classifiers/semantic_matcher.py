@@ -12,8 +12,6 @@ Stage 8: вместо локальной SentenceTransformer используе�
 
 from __future__ import annotations
 
-from typing import Dict
-
 import numpy as np
 
 from src.classifiers.base import BaseClassifier, ClassificationResult
@@ -91,7 +89,7 @@ class SemanticMatcher(BaseClassifier):
         parts.append(cfg.get("description", ""))
 
         # 2. Ключевые слова и фразы (из нормализованного rules)
-        rules: Dict = cfg.get("rules", {}) or {}
+        rules: dict = cfg.get("rules", {}) or {}
         for impact in ("high", "medium", "low"):
             parts.extend(rules.get("keywords", {}).get(impact, []))
             parts.extend(rules.get("phrases", {}).get(impact, []))
@@ -103,9 +101,7 @@ class SemanticMatcher(BaseClassifier):
         parts.extend(cfg.get("aliases", []))
 
         # Очистка и сборка
-        clean_parts = [
-            str(p) for p in parts if p and isinstance(p, (str, int, float))
-        ]
+        clean_parts = [str(p) for p in parts if p and isinstance(p, str | int | float)]
         return " ".join(clean_parts)[:4000]
 
     async def classify(
@@ -150,10 +146,7 @@ class SemanticMatcher(BaseClassifier):
 
         # Нормализация и косинусные схожести
         doc_vec = doc_vec / (np.linalg.norm(doc_vec) + 1e-9)
-        similarities = {
-            dt: float(np.dot(doc_vec, proto))
-            for dt, proto in self._prototypes.items()
-        }
+        similarities = {dt: float(np.dot(doc_vec, proto)) for dt, proto in self._prototypes.items()}
 
         if not similarities:
             return ClassificationResult(
@@ -183,8 +176,7 @@ class SemanticMatcher(BaseClassifier):
             language=meta.get("language", "ru"),
             jurisdiction=meta.get("jurisdiction", "RU"),
             alternative_types=[
-                {"type": t, "confidence": round(s, 3)}
-                for t, s in sorted_types[1:4]
+                {"type": t, "confidence": round(s, 3)} for t, s in sorted_types[1:4]
             ],
         )
 

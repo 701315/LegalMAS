@@ -19,8 +19,6 @@ LLM-based detector for complex checks.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
 from src.core.logging import get_logger
 from src.engine.detectors.models import DetectionResult, EvidenceChunk, RetrievedChunk
 from src.engine.llm.client import LLMClient, LLMResponse
@@ -36,16 +34,16 @@ DEFAULT_PROMPT_FILE = "detection/genericclause"
 class LLMDetector:
     """LLM-based detector for checks described by LLMConfig."""
 
-    def __init__(self, client: Optional[LLMClient] = None) -> None:
+    def __init__(self, client: LLMClient | None = None) -> None:
         self.client = client or LLMClient()
         self.promptloader = get_promptloader()
 
     def detect(
         self,
         config: LLMConfig,
-        chunks: List[RetrievedChunk],
+        chunks: list[RetrievedChunk],
         use_sanitized: bool = True,  # задел на будущую работу с PII
-    ) -> Optional[DetectionResult]:
+    ) -> DetectionResult | None:
         """
         Run LLM-based detection on retrieved chunks.
 
@@ -89,7 +87,7 @@ class LLMDetector:
             return None
 
         try:
-            response: Optional[LLMResponse] = self.client.call(
+            response: LLMResponse | None = self.client.call(
                 prompt=prompt,
                 temperature=config.temperature,
                 max_tokens=config.max_tokens,
@@ -106,9 +104,9 @@ class LLMDetector:
     def detect_with_variables(
         self,
         config: LLMConfig,
-        chunks: List[RetrievedChunk],
-        extra_variables: Dict[str, object],
-    ) -> Optional[DetectionResult]:
+        chunks: list[RetrievedChunk],
+        extra_variables: dict[str, object],
+    ) -> DetectionResult | None:
         """
         Вариант detect, когда промпт ожидает дополнительные переменные.
 
@@ -166,7 +164,7 @@ class LLMDetector:
 
     # --- internal helpers ---
 
-    def _resolve_prompt(self, config: LLMConfig) -> Optional[str]:
+    def _resolve_prompt(self, config: LLMConfig) -> str | None:
         """
         Выбрать источник промпта по приоритету:
         1. config.prompt_template (inline)
@@ -204,13 +202,13 @@ class LLMDetector:
             return None
 
     @staticmethod
-    def _build_context(chunks: List[RetrievedChunk]) -> str:
+    def _build_context(chunks: list[RetrievedChunk]) -> str:
         """
         Построить текст контекста для LLM из чанков.
 
         Формат: пронумерованные части с указанием страницы/клаузы.
         """
-        parts: List[str] = []
+        parts: list[str] = []
         for i, chunk in enumerate(chunks, start=1):
             clause_info = f" [clause {chunk.clause_uid}]" if chunk.clause_uid else ""
             header = f"[{i}] page {chunk.page}{clause_info}:"
@@ -220,7 +218,7 @@ class LLMDetector:
     def _build_result(
         self,
         response: LLMResponse,
-        context_chunks: List[RetrievedChunk],
+        context_chunks: list[RetrievedChunk],
     ) -> DetectionResult:
         """
         Превратить LLMResponse в DetectionResult.
@@ -228,7 +226,7 @@ class LLMDetector:
         Если LLM дал текст evidence, пытаемся найти подходящий chunk,
         иначе создаём evidence без привязки к элементу.
         """
-        evidence_chunks: List[EvidenceChunk] = []
+        evidence_chunks: list[EvidenceChunk] = []
 
         if response.found and response.evidence:
             best_chunk = self._find_evidence_chunk(response.evidence, context_chunks)
@@ -271,12 +269,11 @@ class LLMDetector:
             },
         )
 
-
     @staticmethod
     def _find_evidence_chunk(
         evidence_text: str,
-        chunks: List[RetrievedChunk],
-    ) -> Optional[RetrievedChunk]:
+        chunks: list[RetrievedChunk],
+    ) -> RetrievedChunk | None:
         """
         Найти chunk, который лучше всего соответствует evidence_text.
 
@@ -293,7 +290,7 @@ class LLMDetector:
 
         # 2. Пересечение слов
         evidence_words = set(evidence_lower.split())
-        best_chunk: Optional[RetrievedChunk] = None
+        best_chunk: RetrievedChunk | None = None
         best_overlap = 0
 
         for chunk in chunks:

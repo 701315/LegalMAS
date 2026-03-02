@@ -10,17 +10,17 @@ ExtractionExecutor: structured data extraction for a check.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from src.core.logging import get_logger
+from src.engine.detectors.extraction_llm_detector import ExtractionLLMDetector
+from src.engine.llm.client import LLMClient
 from src.engine.playbook.models import (
     CheckDefinition,
     ExtractionConfig,
     ExtractionFieldConfig,
     ExtractionFieldType,
 )
-from src.core.logging import get_logger
-from src.engine.llm.client import LLMClient
-from src.engine.detectors.extraction_llm_detector import ExtractionLLMDetector
 
 logger = get_logger(__name__)
 
@@ -51,10 +51,10 @@ class ExtractionExecutor:
         self,
         doc: Any,
         check: CheckDefinition,
-        contexts: List[Dict[str, Any]],
-        detection: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
-        extraction_cfg: Optional[ExtractionConfig] = getattr(check, "extraction", None)
+        contexts: list[dict[str, Any]],
+        detection: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        extraction_cfg: ExtractionConfig | None = getattr(check, "extraction", None)
         if not extraction_cfg or not extraction_cfg.enabled:
             return None
 
@@ -71,7 +71,7 @@ class ExtractionExecutor:
         if not base_text:
             return None
 
-        structured: Dict[str, Dict[str, Any]] = {}
+        structured: dict[str, dict[str, Any]] = {}
 
         # 1. RULES часть (работает для mode == rules и для hybrid/llm как baseline)
         for field_cfg in extraction_cfg.fields or []:
@@ -134,8 +134,8 @@ class ExtractionExecutor:
 
     def _build_extraction_text(
         self,
-        detection: Dict[str, Any],
-        contexts: List[Dict[str, Any]],
+        detection: dict[str, Any],
+        contexts: list[dict[str, Any]],
     ) -> str:
         """
         Сформировать текст, по которому будем делать extraction.
@@ -148,7 +148,7 @@ class ExtractionExecutor:
         if evidence.strip():
             return evidence
 
-        parts: List[str] = []
+        parts: list[str] = []
         for c in contexts:
             text = c.get("text") or ""
             if text:
@@ -159,7 +159,7 @@ class ExtractionExecutor:
         self,
         field_cfg: ExtractionFieldConfig,
         text: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Извлечь одно поле по regex_patterns и keyword_hints.
 

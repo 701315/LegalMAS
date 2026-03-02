@@ -14,12 +14,12 @@ The client handles timeouts, retries, and error normalization.
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
 from src.core.config import settings
-from src.core.exceptions import TransientError, PermanentError
+from src.core.exceptions import PermanentError, TransientError
 from src.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -29,15 +29,15 @@ logger = get_logger(__name__)
 class LLMResponse:
     """Standardized response from an LLM call."""
 
-    text: str                      # Raw response text
-    found: Optional[bool] = None   # Parsed: was the condition found?
-    evidence: str = ""             # Parsed: evidence snippet from response
-    clause: str = ""               # Parsed: clause reference
-    confidence: float = 0.0        # Parsed: confidence (if LLM provides it)
-    provider: str = ""             # Which provider was used
-    model: str = ""                # Which model was used
-    tokens_used: int = 0           # Approximate tokens consumed
-    parse_success: bool = False    # Was the JSON response parsed successfully?
+    text: str  # Raw response text
+    found: bool | None = None  # Parsed: was the condition found?
+    evidence: str = ""  # Parsed: evidence snippet from response
+    clause: str = ""  # Parsed: clause reference
+    confidence: float = 0.0  # Parsed: confidence (if LLM provides it)
+    provider: str = ""  # Which provider was used
+    model: str = ""  # Which model was used
+    tokens_used: int = 0  # Approximate tokens consumed
+    parse_success: bool = False  # Was the JSON response parsed successfully?
     raw_response: dict = field(default_factory=dict)
 
 
@@ -57,9 +57,9 @@ class LLMClient:
     def call(
         self,
         prompt: str,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-    ) -> Optional[LLMResponse]:
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> LLMResponse | None:
         """
         Call the configured LLM provider.
 
@@ -136,9 +136,7 @@ class LLMClient:
         if response.status_code >= 500:
             raise TransientError(f"OpenAI server error: {response.status_code}")
         if response.status_code != 200:
-            raise PermanentError(
-                f"OpenAI error {response.status_code}: {response.text[:200]}"
-            )
+            raise PermanentError(f"OpenAI error {response.status_code}: {response.text[:200]}")
 
         data = response.json()
         text = data["choices"][0]["message"]["content"]
@@ -182,9 +180,7 @@ class LLMClient:
                 f"Run `ollama pull {settings.LLM_OLLAMA_MODEL}`."
             )
         if response.status_code != 200:
-            raise TransientError(
-                f"Ollama error {response.status_code}: {response.text[:200]}"
-            )
+            raise TransientError(f"Ollama error {response.status_code}: {response.text[:200]}")
 
         data = response.json()
         text = data.get("response", "")
@@ -213,9 +209,7 @@ class LLMClient:
         # Нормализуем путь под Linux/Windows
         normalized = model_path.replace("\\", "/")
         if not os.path.exists(normalized):
-            raise PermanentError(
-                f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)"
-            )
+            raise PermanentError(f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)")
 
         # Lazy-load модели
         if self._llama_model is None:
@@ -223,8 +217,7 @@ class LLMClient:
                 from llamacpp import Llama  # type: ignore
             except ImportError as e:
                 raise PermanentError(
-                    "llama-cpp-python is not installed. "
-                    "Install it or switch LLM_PROVIDER."
+                    "llama-cpp-python is not installed. " "Install it or switch LLM_PROVIDER."
                 ) from e
 
             logger.info(
@@ -298,7 +291,7 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
     return response
 
 
-def _extract_json(text: str) -> Optional[dict]:
+def _extract_json(text: str) -> dict | None:
     """
     Extract JSON object from LLM response text.
 

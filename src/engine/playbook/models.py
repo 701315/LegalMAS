@@ -13,28 +13,31 @@ typed access to check definitions.
 """
 
 from enum import Enum
-from typing import Any, List, Optional, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ────────────────────────── DETECTOR CONFIG ──────────────────────────
+
 
 class DetectorType(str, Enum):
     """How the check is performed."""
-    RULES = "rules"          # Keyword/regex search only
-    LLM = "llm"              # LLM-only analysis
-    HYBRID = "hybrid"        # Rules first, LLM as fallback
+
+    RULES = "rules"  # Keyword/regex search only
+    LLM = "llm"  # LLM-only analysis
+    HYBRID = "hybrid"  # Rules first, LLM as fallback
 
 
 class KeywordMode(str, Enum):
     """How multiple keywords are combined."""
-    ANY = "any"              # At least one keyword found → match
-    ALL = "all"              # All keywords must be found → match
+
+    ANY = "any"  # At least one keyword found → match
+    ALL = "all"  # All keywords must be found → match
 
 
 class RulesConfig(BaseModel):
     """Configuration for rules-based detection."""
+
     keywords: list[str] = Field(default_factory=list)
     keyword_mode: KeywordMode = KeywordMode.ANY
     regex_patterns: list[str] = Field(default_factory=list)
@@ -43,6 +46,7 @@ class RulesConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """Configuration for LLM-based detection."""
+
     # Inline prompt text (has highest priority if not empty)
     prompt_template: str = ""
 
@@ -57,7 +61,8 @@ class LLMConfig(BaseModel):
 
 class EvidenceConfig(BaseModel):
     """Configuration for evidence requirements."""
-    required: bool = True               # Must provide evidence snippet
+
+    required: bool = True  # Must provide evidence snippet
     min_snippet_length: int = 20
     max_snippet_length: int = 500
 
@@ -72,6 +77,7 @@ class RetrievalConfig(BaseModel):
     - включён ли rerank,
     - фильтрами по metadata (page, section_title, clause_uid, и т.д.).
     """
+
     context_k: int = 5
     max_chunks: int | None = None
     boost_keywords: list[str] = Field(default_factory=list)
@@ -81,6 +87,7 @@ class RetrievalConfig(BaseModel):
 
 # ────────────────────────── NEW CONDITIONAL ──────────────────────────
 
+
 class TriggerCondition(BaseModel):
     """
     Условие по триггеру (Stage 8).
@@ -89,6 +96,7 @@ class TriggerCondition(BaseModel):
       - name: "land_plot_sale"
         state: "on"
     """
+
     name: str
     state: Literal["on", "off"] = "on"
 
@@ -96,11 +104,18 @@ class TriggerCondition(BaseModel):
 class StructuredDataCondition(BaseModel):
     field: str
     op: Literal[
-        "==", "!=", ">", ">=", "<", "<=",
-        "in", "not_in",
-        "is_null", "not_null",
+        "==",
+        "!=",
+        ">",
+        ">=",
+        "<",
+        "<=",
+        "in",
+        "not_in",
+        "is_null",
+        "not_null",
     ]
-    value: Optional[Any] = None
+    value: Any | None = None
 
     @field_validator("value")
     @classmethod
@@ -113,7 +128,6 @@ class StructuredDataCondition(BaseModel):
         if op in ("in", "not_in") and v is not None and not isinstance(v, list):
             raise ValueError(f"value для op={op} должен быть списком")
         return v
-
 
 
 class ConditionalConfig(BaseModel):
@@ -143,12 +157,13 @@ class ConditionalConfig(BaseModel):
     Группы triggers и when внутри себя объединяются по AND.
     Между группами работает logic: AND/OR.
     """
+
     # ── старое поле для совместимости ──
-    trigger: str | None = None          # имя триггера из applicable_triggers
+    trigger: str | None = None  # имя триггера из applicable_triggers
 
     # ── новая логика Stage 8 ──
-    triggers: List[TriggerCondition] = Field(default_factory=list)
-    when: List[StructuredDataCondition] = Field(default_factory=list)
+    triggers: list[TriggerCondition] = Field(default_factory=list)
+    when: list[StructuredDataCondition] = Field(default_factory=list)
 
     # Границы по уровню классификации (как раньше), можно использовать и дальше
     min_level: str | None = None
@@ -181,13 +196,15 @@ class ConditionalConfig(BaseModel):
 
 # ────────────────────────── EXTRACTION ───────────────────────────────
 
+
 class ExtractionFieldType(str, Enum):
     """Тип значения, которое мы хотим извлечь."""
+
     STRING = "string"
     NUMBER = "number"
     DATE = "date"
     BOOLEAN = "boolean"
-    CLAUSE_REF = "clause_ref"   # ссылка на клаузу / chunk id
+    CLAUSE_REF = "clause_ref"  # ссылка на клаузу / chunk id
 
 
 class ExtractionFieldConfig(BaseModel):
@@ -198,6 +215,7 @@ class ExtractionFieldConfig(BaseModel):
     - termination_notice_days: NUMBER, unit="days"
     - governing_law: STRING, allowed_values=["RU", "EN", "DE"]
     """
+
     name: str
     type: ExtractionFieldType = ExtractionFieldType.STRING
     description: str = ""
@@ -212,15 +230,16 @@ class ExtractionFieldConfig(BaseModel):
     # Пост-условия / валидация
     required: bool = False
     allowed_values: list[str] = Field(default_factory=list)
-    unit: str | None = None          # "days", "%", "RUB", и т.п.
+    unit: str | None = None  # "days", "%", "RUB", и т.п.
 
     # Дополнительные поля Stage 8 (если захочешь использовать):
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
+    min_value: float | None = None
+    max_value: float | None = None
 
 
 class ExtractionMode(str, Enum):
     """Режим извлечения значений."""
+
     RULES = "rules"
     LLM = "llm"
     HYBRID = "hybrid"
@@ -233,6 +252,7 @@ class ExtractionConfig(BaseModel):
     Если enabled=False — check работает как обычная проверка (pass/fail),
     без попытки вытащить дополнительные поля.
     """
+
     enabled: bool = False
     mode: ExtractionMode = ExtractionMode.HYBRID
     fields: list[ExtractionFieldConfig] = Field(default_factory=list)
@@ -252,6 +272,7 @@ class ExtractionConfig(BaseModel):
 
 # ────────────────────────── CHECK & PLAYBOOK ─────────────────────────
 
+
 class CheckDefinition(BaseModel):
     """
     A single check (inspection) defined in a playbook.
@@ -269,13 +290,14 @@ class CheckDefinition(BaseModel):
             llm:
                 prompt_template: "Does this contract contain..."
     """
+
     id: str
     name: str
     description: str = ""
-    doc_types: list[str] = Field(default_factory=list)    # Empty = all types
+    doc_types: list[str] = Field(default_factory=list)  # Empty = all types
 
     # Базовая severity по умолчанию
-    severity: str = "medium"          # critical, high, medium
+    severity: str = "medium"  # critical, high, medium
 
     # Outcome-зависимая severity (опционально)
     severity_if_fail: str | None = None
@@ -298,6 +320,7 @@ class PlaybookDefinition(BaseModel):
 
     Loaded from a YAML file and validated via Pydantic.
     """
+
     name: str = "Default Playbook"
     version: str = "1.0.0"
     description: str = ""
@@ -333,11 +356,7 @@ class PlaybookDefinition(BaseModel):
         base_checks = self.get_checks_for_doc_type(doc_type)
         if not applicable_triggers:
             # Если триггеров нет, возвращаем только безусловные проверки
-            return [
-                check
-                for check in base_checks
-                if not getattr(check, "conditional", None)
-            ]
+            return [check for check in base_checks if not getattr(check, "conditional", None)]
 
         trigger_set = set(applicable_triggers or [])
         result: list[CheckDefinition] = []

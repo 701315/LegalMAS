@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.engine.detectors.llm_detector import LLMDetector, DEFAULT_PROMPT_FILE
-from src.engine.detectors.models import RetrievedChunk, DetectionResult
+from src.engine.detectors.llm_detector import DEFAULT_PROMPT_FILE, LLMDetector
+from src.engine.detectors.models import DetectionResult, RetrievedChunk
 
 
 class DummyLLMClient:
@@ -44,6 +44,7 @@ class DummyLLMClient:
 
 class DummyPromptLoader:
     """Мок PromptLoader, чтобы не читать реальные файлы."""
+
     def __init__(self, template: str):
         self.template = template
 
@@ -88,6 +89,7 @@ def test_detect_returns_none_when_llm_unavailable(monkeypatch, sample_chunks):
     monkeypatch.setattr(detector, "promptloader", DummyPromptLoader("Prompt: {context}"))
 
     from src.engine.playbook.models import LLMConfig
+
     cfg = LLMConfig(prompt_template="Prompt: {context}")
 
     result = detector.detect(cfg, sample_chunks)
@@ -103,6 +105,7 @@ def test_detect_with_variables_no_chunks_returns_empty_detection(monkeypatch):
     monkeypatch.setattr(detector, "promptloader", DummyPromptLoader("Prompt: {context}"))
 
     from src.engine.playbook.models import LLMConfig
+
     cfg = LLMConfig(prompt_template="Prompt: {context}")
 
     result = detector.detect_with_variables(cfg, chunks=[], extra_variables={})
@@ -136,6 +139,7 @@ def test_detect_with_variables_success(monkeypatch, sample_chunks):
     )
 
     from src.engine.playbook.models import LLMConfig
+
     cfg = LLMConfig(prompt_template="Check {condition_name}:\n\n{context}")
 
     extra_vars = {"condition_name": "Test check"}
@@ -166,6 +170,7 @@ def test_detect_with_variables_missing_variable(monkeypatch, sample_chunks):
     )
 
     from src.engine.playbook.models import LLMConfig
+
     cfg = LLMConfig(prompt_template="Check {condition_name}:\n\n{context}")
 
     # не передаем condition_name

@@ -6,10 +6,10 @@ import pytest
 from src.engine.checks_runner import CheckRunner
 from src.engine.playbook.models import (
     CheckDefinition,
-    RulesConfig,
+    ConditionalConfig,
     LLMConfig,
     RetrievalConfig,
-    ConditionalConfig,
+    RulesConfig,
 )
 
 
@@ -80,7 +80,6 @@ async def test_run_checks_for_document_builds_correct_dto(monkeypatch, sample_do
 
     monkeypatch.setattr("src.engine.checks_runner.db_uow", fake_db_uow)
 
-
     # 2. Мокаем executor.execute, чтобы он вернул контролируемый exec_result
     def fake_execute(doc, check, chunks):
         return {
@@ -106,9 +105,7 @@ async def test_run_checks_for_document_builds_correct_dto(monkeypatch, sample_do
     runner.executor.execute = fake_execute
 
     run_id = uuid.uuid4()
-    playbook = SimpleNamespace(
-        get_conditional_checks=lambda doc_type, triggers: [sample_check]
-    )
+    playbook = SimpleNamespace(get_conditional_checks=lambda doc_type, triggers: [sample_check])
 
     total, failed = await runner._run_checks_for_document(
         doc=sample_doc,

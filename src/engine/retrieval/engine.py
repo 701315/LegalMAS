@@ -7,17 +7,16 @@
 - Базовый metadata-boost по section_title / позиции (если есть)
 """
 
-from typing import List, Dict, Optional
 
 import numpy as np
 from rank_bm25 import BM25Okapi
 
-from src.services.embeddings.embedding_service import embedding_service
 from src.core.config import settings
+from src.services.embeddings.embedding_service import embedding_service
 
 
 class RetrievalEngine:
-    def __init__(self, chunks: List[Dict]):
+    def __init__(self, chunks: list[dict]):
         """
         chunks: список чанков вида:
             [{"id": ..., "text": "...", "metadata": {...}}, ...]
@@ -26,8 +25,8 @@ class RetrievalEngine:
         page, position_ratio и другие поля из layout/clause_tree.
         """
         # Безопасно приводим текст к строке и гарантируем наличие metadata
-        texts: List[str] = [str(c.get("text", "") or "") for c in chunks]
-        self.chunks: List[Dict] = [
+        texts: list[str] = [str(c.get("text", "") or "") for c in chunks]
+        self.chunks: list[dict] = [
             {
                 "id": c.get("id"),
                 "text": t,
@@ -38,9 +37,9 @@ class RetrievalEngine:
 
         # Если чанков нет — деградирующий режим
         if not self.chunks:
-            self.tokenized: List[List[str]] = []
-            self.bm25: Optional[BM25Okapi] = None
-            self.emb_vectors: Optional[np.ndarray] = None
+            self.tokenized: list[list[str]] = []
+            self.bm25: BM25Okapi | None = None
+            self.emb_vectors: np.ndarray | None = None
             return
 
         # BM25 ожидает список списков токенов
@@ -62,7 +61,7 @@ class RetrievalEngine:
         else:
             self.emb_vectors = None
 
-    def search(self, query: str, top_k: Optional[int] = None) -> List[Dict]:
+    def search(self, query: str, top_k: int | None = None) -> list[dict]:
         """
         Выполняет гибридный поиск по BM25 + dense + metadata.
 
@@ -122,7 +121,7 @@ class RetrievalEngine:
         # Top-K по комбинированному score
         idx = np.argsort(-scores)[:top_k]
 
-        result: List[Dict] = []
+        result: list[dict] = []
         for i in idx:
             i_int = int(i)
             chunk = self.chunks[i_int].copy()

@@ -7,7 +7,6 @@ Components exchange S3 URIs (references), not raw files.
 
 import io
 import json
-from datetime import timedelta
 
 from minio import Minio
 from minio.error import S3Error
@@ -135,7 +134,7 @@ class ArtifactStore:
         try:
             # Очистка пути от префикса s3:// если он передан
             clean_path = path.replace(f"s3://{self.bucket}/", "")
-            
+
             response = self.client.get_object(
                 bucket_name=self.bucket,
                 object_name=clean_path,
@@ -213,5 +212,3 @@ class ArtifactStore:
             self.client.remove_object(bucket_name=self.bucket, object_name=clean_path)
         except S3Error as e:
             raise TransientError(f"Failed to delete artifact: {e}")
-        
-        

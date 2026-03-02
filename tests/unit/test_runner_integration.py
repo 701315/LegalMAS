@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.engine.runner import Runner
-from src.db.repositories.runner_repo import RunnerRepository
 from src.classifiers.hybrid_classifier import HybridClassifier
+from src.db.repositories.runner_repo import RunnerRepository
+from src.engine.runner import Runner
 
 
 @pytest.mark.asyncio

@@ -9,11 +9,11 @@ ExtractionLLMDetector: LLM-based structured data extractor.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 from src.core.logging import get_logger
 from src.engine.llm.client import LLMClient, LLMResponse
-from src.engine.playbook.models import CheckDefinition, ExtractionConfig, ExtractionFieldConfig
+from src.engine.playbook.models import CheckDefinition, ExtractionConfig
 
 logger = get_logger(__name__)
 
@@ -22,7 +22,7 @@ class ExtractionLLMDetector:
     def __init__(self, client: LLMClient) -> None:
         self.client = client
 
-    def extract(self, check: CheckDefinition, text: str) -> Dict[str, Dict[str, Any]]:
+    def extract(self, check: CheckDefinition, text: str) -> dict[str, dict[str, Any]]:
         """
         Выполнить LLM-извлечение structured_data.
 
@@ -88,9 +88,7 @@ class ExtractionLLMDetector:
             if field.allowed_values:
                 allowed = f" Allowed values: {', '.join(map(str, field.allowed_values))}."
             unit = f" Unit: {field.unit}." if field.unit else ""
-            lines.append(
-                f"- {field.name}: type={type_name}. {desc}{allowed}{unit}"
-            )
+            lines.append(f"- {field.name}: type={type_name}. {desc}{allowed}{unit}")
 
         lines.append("")
         lines.append("Text:")
@@ -98,9 +96,7 @@ class ExtractionLLMDetector:
         lines.append(context_text)
         lines.append("---")
         lines.append("")
-        lines.append(
-            "Return ONLY valid JSON in this exact format:"
-        )
+        lines.append("Return ONLY valid JSON in this exact format:")
         # Структура ожидаемого JSON
         # fields: field_name -> {value, confidence}
         lines.append(
@@ -109,7 +105,7 @@ class ExtractionLLMDetector:
 
         return "\n".join(lines)
 
-    def _parse_response(self, text: str) -> Dict[str, Dict[str, Any]]:
+    def _parse_response(self, text: str) -> dict[str, dict[str, Any]]:
         """
         Распарсить JSON-ответ LLM.
 
@@ -130,6 +126,7 @@ class ExtractionLLMDetector:
         except json.JSONDecodeError:
             # Попробуем вытащить JSON "изнутри" как в LLMClient._extract_json (можно переиспользовать идею)
             from src.engine.llm.client import _extract_json  # если не хочешь, можно скопировать
+
             candidate = _extract_json(text)
             if not candidate:
                 logger.warning("Failed to parse LLM extraction JSON", raw=text[:500])
@@ -143,7 +140,7 @@ class ExtractionLLMDetector:
         if not isinstance(fields, dict):
             return {}
 
-        result: Dict[str, Dict[str, Any]] = {}
+        result: dict[str, dict[str, Any]] = {}
         for name, payload in fields.items():
             if not isinstance(payload, dict):
                 continue

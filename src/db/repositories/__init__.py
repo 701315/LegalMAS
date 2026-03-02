@@ -12,6 +12,7 @@ from src.db.repositories.playbook_repo import PlaybookRepository
 from src.db.repositories.relation_repo import RelationRepository
 from src.db.repositories.result_repo import ResultRepository
 from src.db.repositories.run_repo import JobRepository, RunRepository
+from src.db.repositories.runner_repo import RunnerRepository
 
 __all__ = [
     "DealRepository",
@@ -25,4 +26,5 @@ __all__ = [
     "IdempotencyRepository",
     "AuditRepository",
     "CalibrationRepository",
+    "RunnerRepository",
 ]

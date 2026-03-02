@@ -3,11 +3,12 @@ from types import SimpleNamespace
 import pytest
 
 from src.engine.checks.executor import CheckExecutor
-from src.engine.playbook.models import CheckDefinition, RulesConfig, LLMConfig, RetrievalConfig
+from src.engine.playbook.models import CheckDefinition, LLMConfig, RetrievalConfig, RulesConfig
 
 
 class DummyHybridDetector:
     """Мок HybridDetector, который возвращает заранее заданный detection."""
+
     def __init__(self, detection_result):
         self.detection_result = detection_result
         self.called_with = None

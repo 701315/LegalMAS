@@ -1,11 +1,13 @@
-import pytest
 from types import SimpleNamespace
 
-from src.engine.detectors.hybrid_detector import HybridDetector, RULES_CONFIDENCE_THRESHOLD
+import pytest
+
+from src.engine.detectors.hybrid_detector import RULES_CONFIDENCE_THRESHOLD, HybridDetector
 
 
 class DummyCheck:
     """Простейший объект, имитирующий CheckDefinition."""
+
     def __init__(
         self,
         id: str = "chk_1",
@@ -39,6 +41,7 @@ def dummy_chunks():
 
 class FakeRulesDetector:
     """Мокнутый RulesDetector, возвращающий заранее заданный результат."""
+
     def __init__(self, result):
         self.result = result
         self.called = False
@@ -50,6 +53,7 @@ class FakeRulesDetector:
 
 class FakeLLMDetector:
     """Мокнутый LLMDetector, возвращающий заранее заданный результат или None."""
+
     def __init__(self, result):
         self.result = result
         self.called = False
@@ -60,6 +64,7 @@ class FakeLLMDetector:
         self.last_extra_variables = extra_variables
         return self.result
 
+
 class DummyLLMClient:
     def is_available(self) -> bool:
         return True
@@ -69,6 +74,7 @@ class DummyLLMClient:
         # так что можно просто вернуть None или бросить, если захотим отследить.
         return None
 
+
 def make_hybrid_detector(rules_result, llm_result):
     """Удобный конструктор HybridDetector с подменой детекторов."""
     dummy_client = DummyLLMClient()
@@ -76,7 +82,6 @@ def make_hybrid_detector(rules_result, llm_result):
     hd.rules = FakeRulesDetector(rules_result)
     hd.llm = FakeLLMDetector(llm_result)
     return hd
-
 
 
 def test_rules_confident_llm_not_called(dummy_chunks):

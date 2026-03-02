@@ -8,14 +8,13 @@ CheckExecutor: запуск одной проверки (check) для одно�
   и дальнейшего отображения в UI/отчётах.
 """
 
-from typing import Dict, List
 
-from src.engine.retrieval.engine import RetrievalEngine
-from src.engine.detectors.hybrid_detector import HybridDetector
-from src.engine.playbook.models import CheckDefinition
 from src.core.config import settings
 from src.core.logging import get_logger
 from src.engine.checks.extraction import ExtractionExecutor
+from src.engine.detectors.hybrid_detector import HybridDetector
+from src.engine.playbook.models import CheckDefinition
+from src.engine.retrieval.engine import RetrievalEngine
 
 logger = get_logger(__name__)
 
@@ -25,7 +24,7 @@ class CheckExecutor:
         self.detector = HybridDetector(llm_client)
         self.extractor = ExtractionExecutor(llm_client)
 
-    def execute(self, doc, check: CheckDefinition, chunks: List[Dict]) -> Dict:
+    def execute(self, doc, check: CheckDefinition, chunks: list[dict]) -> dict:
         """
         Выполнить один check для одного документа.
 

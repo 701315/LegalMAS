@@ -33,20 +33,18 @@ Stage 8 Runner: classification + triggers (Stage 7 integrated).
         stats = await runner.run_deal(deal_id)
 """
 
-from typing import Dict
 import uuid
 
-from src.db.repositories.runner_repo import RunnerRepository
 from src.classifiers.stage8.hybrid_classifier import HybridClassifier
-from src.engine.playbook.loader import load_default_playbook
-from src.engine.checks.executor import CheckExecutor
-from src.engine.triggers.detector import TriggerDetector
-from src.engine.content.document_content_service import (
-    DocumentContentService,
-    ClauseTreeStorageClient,
-)
 from src.core.logging import get_logger
-
+from src.db.repositories.runner_repo import RunnerRepository
+from src.engine.checks.executor import CheckExecutor
+from src.engine.content.document_content_service import (
+    ClauseTreeStorageClient,
+    DocumentContentService,
+)
+from src.engine.playbook.loader import load_default_playbook
+from src.engine.triggers.detector import TriggerDetector
 
 logger = get_logger(__name__)
 
@@ -90,7 +88,7 @@ class Runner:
         def complete(prompt: str) -> str:
             return '{"found": false, "evidence": "", "confidence": 0.0}'
 
-    async def run_deal(self, deal_id: str, run_id: uuid.UUID) -> Dict:
+    async def run_deal(self, deal_id: str, run_id: uuid.UUID) -> dict:
         """
         Полный async‑пайплайн по сделке (без выполнения checks):
         - классификация (HybridClassifier, L1–L3 + Stage 7 dedup),
@@ -105,7 +103,7 @@ class Runner:
 
         docs = await self.repo.get_non_duplicate_docs(deal_id)
 
-        stats: Dict = {
+        stats: dict = {
             "deal_id": str(deal_id),
             "docs_total": len(docs),
             "docs_classified": 0,

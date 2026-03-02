@@ -17,7 +17,6 @@ used by the Family Builder to group documents.
 """
 
 import re
-from typing import Dict, List, Optional, Tuple
 
 from thefuzz import fuzz
 
@@ -36,14 +35,12 @@ logger = get_logger(__name__)
 
 # Appendix patterns (Russian)
 _RE_APPENDIX_RU = re.compile(
-    r"(?i)(?:приложение|прилож)\s*(?:№\s*)?(\d+)"
-    r"(?:\s+к\s+(.+?))?(?:\.\w+)?$"
+    r"(?i)(?:приложение|прилож)\s*(?:№\s*)?(\d+)" r"(?:\s+к\s+(.+?))?(?:\.\w+)?$"
 )
 
 # Appendix patterns (English)
 _RE_APPENDIX_EN = re.compile(
-    r"(?i)(?:appendix|annex|exhibit|schedule)\s*(?:No\.?\s*)?(\d+)"
-    r"(?:\s+to\s+(.+?))?(?:\.\w+)?$"
+    r"(?i)(?:appendix|annex|exhibit|schedule)\s*(?:No\.?\s*)?(\d+)" r"(?:\s+to\s+(.+?))?(?:\.\w+)?$"
 )
 
 # Amendment patterns (Russian)
@@ -54,24 +51,17 @@ _RE_AMENDMENT_RU = re.compile(
 
 # Amendment patterns (English)
 _RE_AMENDMENT_EN = re.compile(
-    r"(?i)(?:amendment|addendum|supplement)\s*(?:No\.?\s*)?(\d+)"
-    r"(?:\s+to\s+(.+?))?(?:\.\w+)?$"
+    r"(?i)(?:amendment|addendum|supplement)\s*(?:No\.?\s*)?(\d+)" r"(?:\s+to\s+(.+?))?(?:\.\w+)?$"
 )
 
 # Version patterns: filename_v1.pdf, filename_v2.pdf
-_RE_VERSION = re.compile(
-    r"(?i)(.+?)[\s_]*v(?:er(?:sion)?)?[\s._]*(\d+)(?:\.\w+)?$"
-)
+_RE_VERSION = re.compile(r"(?i)(.+?)[\s_]*v(?:er(?:sion)?)?[\s._]*(\d+)(?:\.\w+)?$")
 
 # Draft patterns: filename_draft.pdf, filename_проект.pdf
-_RE_DRAFT = re.compile(
-    r"(?i)(.+?)[\s_]*(draft|проект|черновик)(?:\.\w+)?$"
-)
+_RE_DRAFT = re.compile(r"(?i)(.+?)[\s_]*(draft|проект|черновик)(?:\.\w+)?$")
 
 # Counterpart patterns: filename_counterpart.pdf
-_RE_COUNTERPART = re.compile(
-    r"(?i)(.+?)[\s_]*(counterpart|контрагент|экземпляр\s*\d*)(?:\.\w+)?$"
-)
+_RE_COUNTERPART = re.compile(r"(?i)(.+?)[\s_]*(counterpart|контрагент|экземпляр\s*\d*)(?:\.\w+)?$")
 
 # ============================================================
 # Text patterns for relation detection
@@ -87,15 +77,12 @@ _RE_TEXT_REF_CONTRACT_RU = re.compile(
 
 # "является неотъемлемой частью" (Russian)
 _RE_TEXT_INTEGRAL_PART_RU = re.compile(
-    r"(?i)(?:является|составляет)\s+"
-    r"(?:неотъемлемой|неотделимой)\s+"
-    r"(?:частью|приложением)"
+    r"(?i)(?:является|составляет)\s+" r"(?:неотъемлемой|неотделимой)\s+" r"(?:частью|приложением)"
 )
 
 # "в дополнение к" (Russian)
 _RE_TEXT_SUPPLEMENT_RU = re.compile(
-    r"(?i)(?:в\s+дополнение|дополнительно)\s+к\s+"
-    r"(?:договор[уа]|соглашени[юя])"
+    r"(?i)(?:в\s+дополнение|дополнительно)\s+к\s+" r"(?:договор[уа]|соглашени[юя])"
 )
 
 # English text patterns
@@ -106,9 +93,7 @@ _RE_TEXT_REF_CONTRACT_EN = re.compile(
     r"(?:\s+(?:No\.?|number)\s*\S+)?"
 )
 
-_RE_TEXT_INTEGRAL_PART_EN = re.compile(
-    r"(?i)(?:forms?\s+an?\s+)?integral\s+part\s+of"
-)
+_RE_TEXT_INTEGRAL_PART_EN = re.compile(r"(?i)(?:forms?\s+an?\s+)?integral\s+part\s+of")
 
 
 class RelationDetector:
@@ -119,8 +104,8 @@ class RelationDetector:
 
     def detect_all_relations(
         self,
-        documents: List[Dict],
-    ) -> List[DetectedRelation]:
+        documents: list[dict],
+    ) -> list[DetectedRelation]:
         """
         Detect all relations between documents in a deal.
 
@@ -136,7 +121,7 @@ class RelationDetector:
             List of detected relations (may contain duplicates,
             caller should deduplicate)
         """
-        relations: List[DetectedRelation] = []
+        relations: list[DetectedRelation] = []
 
         if not documents or len(documents) < 2:
             return relations
@@ -168,10 +153,10 @@ class RelationDetector:
 
     def _detect_filename_relations(
         self,
-        documents: List[Dict],
-    ) -> List[DetectedRelation]:
+        documents: list[dict],
+    ) -> list[DetectedRelation]:
         """Detect relations from filenames."""
-        relations: List[DetectedRelation] = []
+        relations: list[DetectedRelation] = []
 
         for doc in documents:
             filename = doc.get("filename", "")
@@ -207,8 +192,8 @@ class RelationDetector:
         self,
         doc_id: str,
         filename: str,
-        all_docs: List[Dict],
-    ) -> Optional[DetectedRelation]:
+        all_docs: list[dict],
+    ) -> DetectedRelation | None:
         """Check if filename matches appendix pattern."""
         match = _RE_APPENDIX_RU.search(filename)
         if not match:
@@ -229,10 +214,7 @@ class RelationDetector:
             target_doc_id=master_id,
             relation_type="appendix",
             confidence=0.85,
-            evidence_text=(
-                f"Filename pattern: '{filename}' → "
-                f"appendix #{appendix_num}"
-            ),
+            evidence_text=(f"Filename pattern: '{filename}' → " f"appendix #{appendix_num}"),
             method=RelationDetectionMethod.FILENAME_PATTERN,
         )
 
@@ -240,8 +222,8 @@ class RelationDetector:
         self,
         doc_id: str,
         filename: str,
-        all_docs: List[Dict],
-    ) -> Optional[DetectedRelation]:
+        all_docs: list[dict],
+    ) -> DetectedRelation | None:
         """Check if filename matches amendment pattern."""
         match = _RE_AMENDMENT_RU.search(filename)
         if not match:
@@ -262,10 +244,7 @@ class RelationDetector:
             target_doc_id=master_id,
             relation_type="amendment",
             confidence=0.85,
-            evidence_text=(
-                f"Filename pattern: '{filename}' → "
-                f"amendment #{amendment_num}"
-            ),
+            evidence_text=(f"Filename pattern: '{filename}' → " f"amendment #{amendment_num}"),
             method=RelationDetectionMethod.FILENAME_PATTERN,
         )
 
@@ -273,8 +252,8 @@ class RelationDetector:
         self,
         doc_id: str,
         filename: str,
-        all_docs: List[Dict],
-    ) -> Optional[DetectedRelation]:
+        all_docs: list[dict],
+    ) -> DetectedRelation | None:
         """Check if filename matches draft pattern."""
         match = _RE_DRAFT.search(filename)
         if not match:
@@ -291,10 +270,7 @@ class RelationDetector:
             target_doc_id=final_id,
             relation_type="draft",
             confidence=0.75,
-            evidence_text=(
-                f"Filename pattern: '{filename}' → "
-                f"draft of '{base_name}'"
-            ),
+            evidence_text=(f"Filename pattern: '{filename}' → " f"draft of '{base_name}'"),
             method=RelationDetectionMethod.FILENAME_PATTERN,
         )
 
@@ -302,8 +278,8 @@ class RelationDetector:
         self,
         doc_id: str,
         filename: str,
-        all_docs: List[Dict],
-    ) -> Optional[DetectedRelation]:
+        all_docs: list[dict],
+    ) -> DetectedRelation | None:
         """Check if filename matches counterpart pattern."""
         match = _RE_COUNTERPART.search(filename)
         if not match:
@@ -320,26 +296,23 @@ class RelationDetector:
             target_doc_id=original_id,
             relation_type="counterpart",
             confidence=0.70,
-            evidence_text=(
-                f"Filename pattern: '{filename}' → "
-                f"counterpart of '{base_name}'"
-            ),
+            evidence_text=(f"Filename pattern: '{filename}' → " f"counterpart of '{base_name}'"),
             method=RelationDetectionMethod.FILENAME_PATTERN,
         )
 
     def _detect_version_groups(
         self,
-        documents: List[Dict],
-    ) -> List[DetectedRelation]:
+        documents: list[dict],
+    ) -> list[DetectedRelation]:
         """
         Detect version groups: SPA_v1.pdf, SPA_v2.pdf, SPA_v3.pdf.
 
         Groups documents by base name, then creates version relations
         between consecutive versions.
         """
-        relations: List[DetectedRelation] = []
+        relations: list[DetectedRelation] = []
 
-        versioned: Dict[str, List[Tuple[int, Dict]]] = {}
+        versioned: dict[str, list[tuple[int, dict]]] = {}
         for doc in documents:
             filename = doc.get("filename", "")
             match = _RE_VERSION.search(filename)
@@ -380,9 +353,9 @@ class RelationDetector:
     def _find_master_document(
         self,
         exclude_id: str,
-        master_hint: Optional[str],
-        all_docs: List[Dict],
-    ) -> Optional[str]:
+        master_hint: str | None,
+        all_docs: list[dict],
+    ) -> str | None:
         """
         Find the master document for an appendix/amendment.
 
@@ -400,7 +373,7 @@ class RelationDetector:
         if master_hint:
             master_hint_clean = self._normalize_filename(master_hint)
             best_score = 0
-            best_id: Optional[str] = None
+            best_id: str | None = None
 
             for doc in candidates:
                 doc_name = self._normalize_filename(doc.get("filename", ""))
@@ -413,16 +386,11 @@ class RelationDetector:
                 return best_id
 
         # --- Priority 2+3: master doc_type + highest classification_level ---
-        exclude_doc = next(
-            (d for d in all_docs if d["id"] == exclude_id), None
-        )
+        exclude_doc = next((d for d in all_docs if d["id"] == exclude_id), None)
         exclude_folder = exclude_doc.get("folder_path", "") if exclude_doc else ""
 
         level_priority = {
-            level: idx
-            for idx, level in enumerate(
-                settings.FAMILY_CLASSIFICATION_LEVEL_PRIORITY
-            )
+            level: idx for idx, level in enumerate(settings.FAMILY_CLASSIFICATION_LEVEL_PRIORITY)
         }
 
         folder_masters = [
@@ -435,23 +403,17 @@ class RelationDetector:
         if folder_masters:
             return max(
                 folder_masters,
-                key=lambda d: level_priority.get(
-                    d.get("classification_level", "L0"), 0
-                ),
+                key=lambda d: level_priority.get(d.get("classification_level", "L0"), 0),
             )["id"]
 
         # --- Priority 4: any master-type, highest classification_level ---
         any_masters = [
-            doc
-            for doc in candidates
-            if doc.get("doc_type", "") in settings.FAMILY_MASTER_DOC_TYPES
+            doc for doc in candidates if doc.get("doc_type", "") in settings.FAMILY_MASTER_DOC_TYPES
         ]
         if any_masters:
             return max(
                 any_masters,
-                key=lambda d: level_priority.get(
-                    d.get("classification_level", "L0"), 0
-                ),
+                key=lambda d: level_priority.get(d.get("classification_level", "L0"), 0),
             )["id"]
 
         return None
@@ -460,12 +422,12 @@ class RelationDetector:
         self,
         exclude_id: str,
         base_name: str,
-        all_docs: List[Dict],
-    ) -> Optional[str]:
+        all_docs: list[dict],
+    ) -> str | None:
         """Find a document with a similar filename (fuzzy match)."""
         base_clean = self._normalize_filename(base_name)
         best_score = 0
-        best_id: Optional[str] = None
+        best_id: str | None = None
 
         for doc in all_docs:
             if doc["id"] == exclude_id:
@@ -485,10 +447,10 @@ class RelationDetector:
 
     def _detect_text_relations(
         self,
-        documents: List[Dict],
-    ) -> List[DetectedRelation]:
+        documents: list[dict],
+    ) -> list[DetectedRelation]:
         """Detect relations from document text content."""
-        relations: List[DetectedRelation] = []
+        relations: list[DetectedRelation] = []
 
         for doc in documents:
             doc_id = doc["id"]
@@ -545,21 +507,17 @@ class RelationDetector:
     def _text_is_appendix(self, text: str) -> bool:
         """Check if text indicates document is an appendix."""
         return bool(
-            _RE_TEXT_INTEGRAL_PART_RU.search(text)
-            or _RE_TEXT_INTEGRAL_PART_EN.search(text)
+            _RE_TEXT_INTEGRAL_PART_RU.search(text) or _RE_TEXT_INTEGRAL_PART_EN.search(text)
         )
 
     def _text_is_amendment(self, text: str) -> bool:
         """Check if text indicates document is an amendment."""
-        return bool(
-            _RE_TEXT_SUPPLEMENT_RU.search(text)
-            or _RE_TEXT_REF_CONTRACT_RU.search(text)
-        )
+        return bool(_RE_TEXT_SUPPLEMENT_RU.search(text) or _RE_TEXT_REF_CONTRACT_RU.search(text))
 
     def _extract_evidence_snippet(
         self,
         text: str,
-        patterns: List[re.Pattern],
+        patterns: list[re.Pattern],
     ) -> str:
         """Extract snippet around the first matching pattern."""
         for pattern in patterns:
@@ -587,15 +545,15 @@ class RelationDetector:
 
     def _deduplicate_relations(
         self,
-        relations: List[DetectedRelation],
-    ) -> List[DetectedRelation]:
+        relations: list[DetectedRelation],
+    ) -> list[DetectedRelation]:
         """
         Deduplicate relations: keep highest confidence for each pair.
 
         If the same source→target pair is detected by multiple methods,
         keep the one with highest confidence.
         """
-        best: Dict[Tuple[str, str], DetectedRelation] = {}
+        best: dict[tuple[str, str], DetectedRelation] = {}
 
         for rel in relations:
             key = (rel.source_doc_id, rel.target_doc_id)

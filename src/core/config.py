@@ -54,9 +54,7 @@ class Settings(BaseSettings):
 
     # --- Import Worker ---
     IMPORT_MAX_FILE_SIZE_MB: int = 200
-    IMPORT_ALLOWED_EXTENSIONS: str = (
-        ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
-    )
+    IMPORT_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
     IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
     # CLASSIFIER_REGISTRY_PATH уже задан выше и используется Import Worker'ом.
 
@@ -106,7 +104,7 @@ class Settings(BaseSettings):
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
     LLM_TIMEOUT_SECONDS: int = 30
-    
+
     # --- Dedup & Relations (Stage 7) ---
     DEDUP_EXACT_ENABLED: bool = True
     RELATIONS_FILENAME_ENABLED: bool = True
@@ -134,14 +132,14 @@ class Settings(BaseSettings):
     # --- Runner / Core Engine (Stage 8) ---
 
     # Интеграция со Stage 7
-    RELATIONS_DEDUP_ENABLED: bool = True          # использовать dedup слоя Stage 7
-    RELATIONS_ENABLED: bool = True                # учитывать relations/families
+    RELATIONS_DEDUP_ENABLED: bool = True  # использовать dedup слоя Stage 7
+    RELATIONS_ENABLED: bool = True  # учитывать relations/families
 
     # Runner: retrieval и весовые коэффициенты
     RUNNER_RETRIEVAL_TOP_K: int = 5
-    RUNNER_DENSE_WEIGHT: float = 0.6             # embeddings (shared)
-    RUNNER_SPARSE_WEIGHT: float = 0.3            # BM25
-    RUNNER_METADATA_WEIGHT: float = 0.1          # doc_type / meta
+    RUNNER_DENSE_WEIGHT: float = 0.6  # embeddings (shared)
+    RUNNER_SPARSE_WEIGHT: float = 0.3  # BM25
+    RUNNER_METADATA_WEIGHT: float = 0.1  # doc_type / meta
 
     # Runner: классификационные пороги (для HybridClassifier Stage 8)
     CLASSIFICATION_L1_ACCEPT: float = 0.90
@@ -164,6 +162,23 @@ class Settings(BaseSettings):
     RULES_CONFIDENCE_THRESHOLD: float = 0.7
     CHECK_PASS_THRESHOLD: float = 0.6
     CHECK_UNCLEAR_THRESHOLD: float = 0.3
+
+    # --- Aggregator & Exporter settings ---
+    EXPORT_TOP_RISKS_COUNT: int = 20
+    EXPORT_EVIDENCE_MAX_LENGTH: int = 300
+    EXPORT_DD_REQUEST_DEDUP: bool = True
+    EXPORT_DEFAULT_REQUESTER_ROLE: str = "deal_owner"
+
+    # --- DD Request templates ---
+    # "yaml" = load from playbooks/document_types/*.yaml (dd_request_templates section)
+    # "builtin" = use hardcoded dict in aggregator.py
+    EXPORT_DD_REQUEST_SOURCE: str = "yaml"
+
+    # --- Structured data export ---
+    EXPORT_STRUCTURED_DATA_ENABLED: bool = True  # Include structured_data fields in Excel
+    EXPORT_CONDITIONAL_CHECKS_SHEET: bool = True  # Separate sheet for conditional check results
+    EXPORT_CLASSIFICATION_METADATA: bool = True  # Include classification_level, confidence in grid
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

@@ -11,7 +11,6 @@ This runs BEFORE relation detection and family building.
 """
 
 from collections import defaultdict
-from typing import Dict, List, Tuple
 
 from src.core.logging import get_logger
 from src.services.relations.models import (
@@ -28,8 +27,8 @@ class ExactDedupService:
 
     def find_duplicates(
         self,
-        documents: List[Dict],
-    ) -> Tuple[DedupResult, List[DetectedRelation]]:
+        documents: list[dict],
+    ) -> tuple[DedupResult, list[DetectedRelation]]:
         """
         Find exact duplicates by SHA256 hash.
 
@@ -44,13 +43,13 @@ class ExactDedupService:
             Tuple of (DedupResult, list of DetectedRelation for duplicates)
         """
         result = DedupResult(total_documents=len(documents))
-        relations: List[DetectedRelation] = []
+        relations: list[DetectedRelation] = []
 
         if not documents:
             return result, relations
 
         # Group documents by SHA256
-        hash_groups: Dict[str, List[Dict]] = defaultdict(list)
+        hash_groups: dict[str, list[dict]] = defaultdict(list)
         for doc in documents:
             sha256 = doc.get("sha256_file")
             if sha256:
@@ -110,4 +109,3 @@ class ExactDedupService:
         )
 
         return result, relations
-

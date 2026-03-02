@@ -1,4 +1,3 @@
-from typing import Optional
 
 from src.engine.llm.client import LLMResponse
 
@@ -24,7 +23,7 @@ class MockLLMClient:
         prompt: str,
         temperature: float = 0.0,
         max_tokens: int = 256,
-    ) -> Optional[LLMResponse]:
+    ) -> LLMResponse | None:
         # В этом mock-е мы не обращаемся к реальному LLM.
         # Возвращаем None, чтобы LLMDetector пропустил LLM-ветку.
         return None

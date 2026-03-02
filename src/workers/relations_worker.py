@@ -16,13 +16,11 @@ Pipeline:
 
 import time
 import uuid
-from typing import List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.core.constants import DocumentStatus
-from src.core.exceptions import PermanentError
 from src.core.logging import get_logger
 from src.db.repositories import DocumentRepository, RelationRepository
 from src.db.uow import db_uow
@@ -32,9 +30,9 @@ from src.services.relations.dedup import ExactDedupService
 from src.services.relations.detector import RelationDetector
 from src.services.relations.family_builder import FamilyBuilder
 from src.services.relations.models import (
+    DedupResult,
     DetectedRelation,
     FamilyGroup,
-    DedupResult,
     RelationsReport,
 )
 from src.storage.artifact_store import ArtifactStore
@@ -45,6 +43,7 @@ logger = get_logger(__name__)
 # =====================================================================
 # Celery task (async, как import_worker / extract_worker)
 # =====================================================================
+
 
 @celery_app.task(
     base=MASBaseTask,
@@ -81,7 +80,7 @@ async def build_relations(
         original_total = len(docs)  # <-- вот здесь
 
         # Step 2: Exact dedup (SHA-256)
-        dedup_relations: List[DetectedRelation] = []
+        dedup_relations: list[DetectedRelation] = []
         dedup_result: DedupResult | None = None
 
         if settings.DEDUP_EXACT_ENABLED:
@@ -111,11 +110,11 @@ async def build_relations(
         detected_relations = detector.detect_all_relations(docs)
 
         # Add version relations from dedup
-        all_relations: List[DetectedRelation] = detected_relations + dedup_relations
+        all_relations: list[DetectedRelation] = detected_relations + dedup_relations
 
         # Step 5: family building
         family_builder = FamilyBuilder()
-        families: List[FamilyGroup] = family_builder.build_families(docs, all_relations)
+        families: list[FamilyGroup] = family_builder.build_families(docs, all_relations)
 
         # Step 6: save relations and families using repositories
         await _save_relations(deal_id, all_relations, db)
@@ -135,9 +134,7 @@ async def build_relations(
         if families:
             masters_with_yaml = sum(1 for f in families if f.master_yaml_available)
             master_levels = [
-                f.master_classification_level
-                for f in families
-                if f.master_classification_level
+                f.master_classification_level for f in families if f.master_classification_level
             ]
             logger.info(
                 "Family masters classification summary",
@@ -169,6 +166,7 @@ async def build_relations(
 # DB helpers (работают на AsyncSession через db_uow)
 # =====================================================================
 
+
 async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
     """Load all classified documents for a deal."""
     repo = DocumentRepository(db)
@@ -185,12 +183,8 @@ async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
             "status": d.status,
             # Classification fields from HybridClassifier (Stage 6)
             "classification_level": d.classification_level or "L0",
-            "classification_confidence": float(
-                d.classification_confidence or 0.0
-            ),
-            "yaml_instruction_available": bool(
-                getattr(d, "yaml_instruction_available", False)
-            ),
+            "classification_confidence": float(d.classification_confidence or 0.0),
+            "yaml_instruction_available": bool(getattr(d, "yaml_instruction_available", False)),
             "applicable_triggers": d.applicable_triggers or [],
         }
         for d in docs
@@ -217,14 +211,10 @@ async def _load_text_snippets(
         try:
             version = await ver_repo.get_latest(uuid.UUID(doc["id"]))
             if version and version.text_layout_raw_ref:
-                raw_path = version.text_layout_raw_ref.replace(
-                    f"s3://{store.bucket}/", ""
-                )
+                raw_path = version.text_layout_raw_ref.replace(f"s3://{store.bucket}/", "")
                 layout = store.get_json(raw_path)
                 elements = layout.get("elements", [])
-                text_parts = [
-                    e.get("text", "") for e in elements[:20]
-                ]
+                text_parts = [e.get("text", "") for e in elements[:20]]
                 doc["text_first_2000"] = " ".join(text_parts)[:2000]
             else:
                 doc["text_first_2000"] = ""
@@ -253,7 +243,7 @@ async def _mark_duplicates(doc_ids: list[str], db: AsyncSession) -> None:
 
 async def _save_relations(
     deal_id: str,
-    relations: List[DetectedRelation],
+    relations: list[DetectedRelation],
     db: AsyncSession,
 ) -> None:
     """Save detected relations to DB."""
@@ -274,10 +264,9 @@ async def _save_relations(
 
 async def _save_families(
     deal_id: str,
-    families: List[FamilyGroup],
+    families: list[FamilyGroup],
     db: AsyncSession,
 ) -> None:
-
     repo = RelationRepository(db)
     for family in families:
         db_family = await repo.create_family(

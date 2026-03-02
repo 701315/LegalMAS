@@ -14,13 +14,13 @@ DocumentContentService: предоставляет текстовые чанки
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, List, Tuple, Optional
-from src.storage.artifact_store import ArtifactStore
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models.document import DocumentVersion
 from src.db.repositories.document_version_repo import DocumentVersionRepository
+from src.storage.artifact_store import ArtifactStore
 
 
 class ClauseTreeStorageClientProtocol:
@@ -29,8 +29,9 @@ class ClauseTreeStorageClientProtocol:
     по URI вида s3://bucket/path/to/file.json.
     """
 
-    async def load_json(self, uri: str) -> Dict[str, Any]:
+    async def load_json(self, uri: str) -> dict[str, Any]:
         raise NotImplementedError
+
 
 class ClauseTreeStorageClient(ClauseTreeStorageClientProtocol):
     """
@@ -41,13 +42,13 @@ class ClauseTreeStorageClient(ClauseTreeStorageClientProtocol):
         # ArtifactStore сам подтянет settings (MINIO_*)
         self.store = store or ArtifactStore()
 
-    async def load_json(self, uri: str) -> Dict[str, Any]:
+    async def load_json(self, uri: str) -> dict[str, Any]:
         # ArtifactStore.get_json уже умеет принимать полный s3://... путь
         # и сам вырезает префикс s3://{bucket}/
         # Обёртка async нужна, чтобы не менять интерфейс DocumentContentService.
         from anyio.to_thread import run_sync
 
-        def _get() -> Dict[str, Any]:
+        def _get() -> dict[str, Any]:
             return self.store.get_json(uri)
 
         return await run_sync(_get)
@@ -63,13 +64,13 @@ class DocumentContentService:
         self.versions = DocumentVersionRepository(session)
         self.storage = storage_client
 
-    async def _get_latest_version(self, doc_id: uuid.UUID) -> Optional[DocumentVersion]:
+    async def _get_latest_version(self, doc_id: uuid.UUID) -> DocumentVersion | None:
         """
         Получить последнюю версию документа (по version_num).
         """
         return await self.versions.get_latest(doc_id)
 
-    async def _load_clause_tree(self, doc_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    async def _load_clause_tree(self, doc_id: uuid.UUID) -> dict[str, Any] | None:
         """
         Загрузить clause tree JSON по document_id.
         """
@@ -79,7 +80,7 @@ class DocumentContentService:
 
         return await self.storage.load_json(version.clause_tree_ref)
 
-    async def get_chunks(self, doc_id: uuid.UUID) -> List[Dict[str, Any]]:
+    async def get_chunks(self, doc_id: uuid.UUID) -> list[dict[str, Any]]:
         """
         Построить чанки для Retrieval/Checks:
         - один чанк на каждую листовую клаузу в clause tree;
@@ -111,15 +112,15 @@ class DocumentContentService:
                 }
             ]
 
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
         self._collect_leaf_chunks(doc_id, root, chunks)
         return chunks
 
     def _collect_leaf_chunks(
         self,
         doc_id: uuid.UUID,
-        node: Dict[str, Any],
-        out: List[Dict[str, Any]],
+        node: dict[str, Any],
+        out: list[dict[str, Any]],
     ) -> None:
         """
         Рекурсивно обойти дерево и добавить чанки для всех листовых клауз
@@ -156,7 +157,7 @@ class DocumentContentService:
         doc_id: uuid.UUID,
         max_snippet_len: int = 1500,
         max_leaf_clauses: int = 3,
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """
         Вернуть:
         - header_text: заголовки верхнего уровня (level 1) склеенные построчно;
@@ -168,12 +169,12 @@ class DocumentContentService:
             return None, None
 
         root = tree.get("root") or {}
-        root_children: List[Dict[str, Any]] = root.get("children") or []
+        root_children: list[dict[str, Any]] = root.get("children") or []
         if not root_children:
             return None, None
 
         # Header: заголовки верхнего уровня (level == 1)
-        header_titles: List[str] = []
+        header_titles: list[str] = []
         for child in root_children:
             title = child.get("title")
             if title:
@@ -181,7 +182,7 @@ class DocumentContentService:
         header_text = "\n".join(header_titles) if header_titles else None
 
         # Snippet: первые несколько листовых клауз в порядке обхода
-        leaf_chunks: List[Dict[str, Any]] = []
+        leaf_chunks: list[dict[str, Any]] = []
         for child in root_children:
             self._collect_leaf_chunks(doc_id, child, leaf_chunks)
             if len(leaf_chunks) >= max_leaf_clauses:

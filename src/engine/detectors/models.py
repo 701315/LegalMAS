@@ -13,21 +13,21 @@ from typing import Any
 class EvidenceChunk:
     """A piece of evidence found by a detector."""
 
-    element_id: str           # Element where evidence was found
-    text: str                 # The evidence text snippet
-    page: int                 # Page number
-    clause_uid: str = ""      # Clause that contains this evidence
+    element_id: str  # Element where evidence was found
+    text: str  # The evidence text snippet
+    page: int  # Page number
+    clause_uid: str = ""  # Clause that contains this evidence
     bbox: list[float] = field(default_factory=list)
-    score: float = 0.0        # Retrieval score (how relevant)
+    score: float = 0.0  # Retrieval score (how relevant)
 
 
 @dataclass
 class DetectionResult:
     """Result of a single detector (Rules or LLM)."""
 
-    found: bool                   # Was the checked condition found?
+    found: bool  # Was the checked condition found?
     evidence_chunks: list[EvidenceChunk] = field(default_factory=list)
-    confidence: float = 0.0       # 0.0 to 1.0
+    confidence: float = 0.0  # 0.0 to 1.0
     detector_type: str = "rules"  # "rules", "llm"
     details: dict[str, Any] = field(default_factory=dict)  # Extra info for debugging
 
@@ -41,8 +41,8 @@ class RetrievedChunk:
     page: int
     clause_uid: str = ""
     bbox: list[float] = field(default_factory=list)
-    dense_score: float = 0.0     # Embeddings similarity
-    sparse_score: float = 0.0    # BM25 score
+    dense_score: float = 0.0  # Embeddings similarity
+    sparse_score: float = 0.0  # BM25 score
     metadata_score: float = 0.0  # Metadata boost
     combined_score: float = 0.0  # Weighted combination
 

@@ -10,11 +10,10 @@ from src.db.models.export import Export
 from src.db.models.ops import AuditLog, DLQRecord, IdempotencyKey
 from src.db.models.playbook import ModelConfig, PlaybookVersion
 from src.db.models.relation import (
-    DocumentRelation,
     DocumentFamily,
     DocumentFamilyMember,
+    DocumentRelation,
 )
-
 from src.db.models.result import CheckResult
 from src.db.models.run import Job, Run
 
@@ -24,6 +23,8 @@ __all__ = [
     "Document",
     "DocumentVersion",
     "Family",
+    "DocumentFamily",
+    "DocumentFamilyMember",
     "DocumentRelation",
     "ModelConfig",
     "PlaybookVersion",

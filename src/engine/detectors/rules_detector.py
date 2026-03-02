@@ -13,15 +13,14 @@ Rules-based detector: ищет риски по keywords и regex.
 - raw с полным списком hits, spans и использованных паттернов.
 """
 
-
-from typing import Dict, List, Any
 import re
+from typing import Any
 
-from src.engine.playbook.models import RulesConfig, KeywordMode
+from src.engine.playbook.models import KeywordMode, RulesConfig
 
 
 class RulesDetector:
-    def detect(self, text: str, rules: RulesConfig) -> Dict[str, Any]:
+    def detect(self, text: str, rules: RulesConfig) -> dict[str, Any]:
         """
         Вернуть DetectionResult-подобный словарь.
 
@@ -62,11 +61,11 @@ class RulesDetector:
             }
 
         text_lower = text.lower()
-        hits: List[str] = []
-        spans: List[dict] = []  # позиции всех совпадений
+        hits: list[str] = []
+        spans: list[dict] = []  # позиции всех совпадений
 
         # 1. Positive keywords с учётом keyword_mode
-        pos_hits: List[str] = []
+        pos_hits: list[str] = []
         for kw in rules.keywords:
             kw_lower = kw.lower()
             idx = text_lower.find(kw_lower)
@@ -83,8 +82,8 @@ class RulesDetector:
         hits.extend(pos_hits)
 
         # 2. Regex patterns
-        regex_hits: List[str] = []
-        regex_spans: List[dict] = []
+        regex_hits: list[str] = []
+        regex_spans: list[dict] = []
         for pattern in rules.regex_patterns:
             m = re.search(pattern, text, flags=re.IGNORECASE)
             if m:
@@ -152,11 +151,11 @@ class RulesDetector:
             "method": "rules",
             "reason": f"matched rules: keywords/regex, total_hits={len(hits)}",
             "rule_name": getattr(rules, "name", None),
-            "check_id": None,        # заполнит HybridDetector
-            "severity": None,        # заполнит CheckExecutor/playbook
+            "check_id": None,  # заполнит HybridDetector
+            "severity": None,  # заполнит CheckExecutor/playbook
             "span": span,
-            "location": None,        # можно будет заполнить chunk_id/page/clause_uid выше по стеку
-            "sources": None,         # список чанков/источников — тоже выше
+            "location": None,  # можно будет заполнить chunk_id/page/clause_uid выше по стеку
+            "sources": None,  # список чанков/источников — тоже выше
             "raw": {
                 "hits": hits,
                 "spans": spans,

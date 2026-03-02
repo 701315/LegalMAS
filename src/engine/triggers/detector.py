@@ -1,9 +1,8 @@
 """Trigger detector: использует Stage 7 relations/families."""
 
-from typing import List
 
-from src.db.repositories.runner_repo import RunnerRepository
 from src.core.logging import get_logger
+from src.db.repositories.runner_repo import RunnerRepository
 
 logger = get_logger(__name__)
 
@@ -20,7 +19,7 @@ class TriggerDetector:
         self.uow = uow
         self.repo = RunnerRepository(uow.session)
 
-    async def detect_triggers(self, doc) -> List[str]:
+    async def detect_triggers(self, doc) -> list[str]:
         """
         Определить список триггеров для документа.
 
@@ -30,7 +29,7 @@ class TriggerDetector:
         Returns:
             Отсортированный список уникальных строк-триггеров.
         """
-        triggers: List[str] = []
+        triggers: list[str] = []
 
         # 1. Триггеры по семейным связям (relations/families)
         family = await self.repo.get_document_family(doc.id) or []

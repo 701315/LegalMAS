@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from src.core.config import settings
 from src.core.logging import get_logger
@@ -51,7 +50,9 @@ def _get_prompts_root() -> Path:
         # Относительный путь — считаем от корня проекта (родитель src/)
         # file = этот файл (loader.py)
         file_path = Path(__file__).resolve()
-        project_root = file_path.parent.parent.parent.parent  # src/engine/prompts/ -> src/engine -> src -> root
+        project_root = (
+            file_path.parent.parent.parent.parent
+        )  # src/engine/prompts/ -> src/engine -> src -> root
         return project_root / prompts_dir
     except Exception:
         # Fallback: текущая директория + "prompts"
@@ -67,13 +68,13 @@ class PromptLoader:
     вида {variable_name} для .format(**variables).
     """
 
-    def __init__(self, prompts_root: Optional[Path] = None) -> None:
+    def __init__(self, prompts_root: Path | None = None) -> None:
         self.root: Path = prompts_root or _get_prompts_root()
-        self._cache: Dict[str, str] = {}  # normalized_name -> template_text
+        self._cache: dict[str, str] = {}  # normalized_name -> template_text
 
     # --- публичные методы ---
 
-    def load(self, prompt_name: str, variables: Dict[str, object]) -> str:
+    def load(self, prompt_name: str, variables: dict[str, object]) -> str:
         """
         Загрузить промпт и подставить переменные.
 
@@ -116,7 +117,7 @@ class PromptLoader:
         path = self._resolve_path(prompt_name)
         return path.exists()
 
-    def list_prompts(self, category: Optional[str] = None) -> List[str]:
+    def list_prompts(self, category: str | None = None) -> list[str]:
         """
         Перечислить все доступные промпты.
 
@@ -132,7 +133,7 @@ class PromptLoader:
         if not search_root.exists():
             return []
 
-        prompts: List[str] = []
+        prompts: list[str] = []
         for path in search_root.rglob("*.txt"):
             # относительный путь относительно root
             rel = path.relative_to(self.root)
@@ -142,7 +143,7 @@ class PromptLoader:
 
         return sorted(prompts)
 
-    def get_variables(self, prompt_name: str) -> List[str]:
+    def get_variables(self, prompt_name: str) -> list[str]:
         """
         Вернуть список имён переменных, используемых в шаблоне.
 
@@ -220,7 +221,7 @@ class PromptLoader:
 
 # --- глобальный singleton для удобства ---
 
-_prompt_loader: Optional[PromptLoader] = None
+_prompt_loader: PromptLoader | None = None
 
 
 def get_promptloader() -> PromptLoader:
@@ -239,7 +240,7 @@ def get_promptloader() -> PromptLoader:
     return _prompt_loader
 
 
-def load_prompt(prompt_name: str, variables: Dict[str, object]) -> str:
+def load_prompt(prompt_name: str, variables: dict[str, object]) -> str:
     """
     Утилитарная функция для одноразовой загрузки промпта.
 

@@ -7,20 +7,20 @@ DocumentFamily / DocumentFamilyMember — группа связанных док
 
 import uuid
 from datetime import datetime
-from typing import Optional, List
 
 from sqlalchemy import (
+    DateTime,
     Float,
     ForeignKey,
     Index,
     String,
     Text,
-    DateTime,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import UniqueConstraint
+
 from src.db.base import Base
 
 
@@ -32,7 +32,7 @@ class DocumentFamily(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
-    
+
     deal_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("deals.id", ondelete="CASCADE"),
@@ -44,7 +44,7 @@ class DocumentFamily(Base):
         ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
     )
-    master_classification_level: Mapped[Optional[str]] = mapped_column(
+    master_classification_level: Mapped[str | None] = mapped_column(
         String(10),
         nullable=True,
         comment="L0, L1, L2, L3 from HybridClassifier result",
@@ -59,7 +59,7 @@ class DocumentFamily(Base):
         server_default=text("now()"),
         nullable=False,
     )
-    members: Mapped[List["DocumentFamilyMember"]] = relationship(
+    members: Mapped[list["DocumentFamilyMember"]] = relationship(
         "DocumentFamilyMember",
         back_populates="family",
         lazy="selectin",
@@ -87,7 +87,7 @@ class DocumentFamilyMember(Base):
         nullable=False,
     )
 
-    relation_to_master: Mapped[Optional[str]] = mapped_column(
+    relation_to_master: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
@@ -158,7 +158,7 @@ class DocumentRelation(Base):
         comment="Detection confidence 0.0-1.0",
     )
 
-    evidence_text: Mapped[Optional[str]] = mapped_column(
+    evidence_text: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Why this relation was detected",
@@ -175,9 +175,6 @@ class DocumentRelation(Base):
         server_default=text("now()"),
         nullable=False,
     )
-
-
-
 
     # Если потом захочешь связать relation с family, можно добавить поле family_id -> DocumentFamily.id.
     # Сейчас оставляем без этого, чтобы точно совпадать с существующей таблицей document_relations.

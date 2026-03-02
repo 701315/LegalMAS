@@ -41,15 +41,12 @@ L3 SemanticClassifier — семантическая классификация 
   чтобы решать, когда L3 может дать финальный вердикт или перебить L1/L2.
 """
 
-
 from __future__ import annotations
-
-from typing import Dict, List, Optional
 
 import numpy as np
 
 from src.classifiers.base import BaseClassifier, ClassificationResult
-from src.classifiers.yaml_registry import YAMLRegistry, DocumentTypeConfig
+from src.classifiers.yaml_registry import DocumentTypeConfig, YAMLRegistry
 from src.core.config import settings
 from src.core.constants import ClassificationLevel
 from src.core.logging import get_logger
@@ -61,11 +58,11 @@ logger = get_logger(__name__)
 class L3SemanticClassifier(BaseClassifier):
     """L3: cosine similarity between doc embedding and type prototypes."""
 
-    def __init__(self, registry: Optional[YAMLRegistry] = None) -> None:
+    def __init__(self, registry: YAMLRegistry | None = None) -> None:
         # Используем singleton по умолчанию, но даём возможность подменять в тестах
         self._registry = registry or YAMLRegistry.get_instance()
         self._prototypes: dict[str, np.ndarray] = {}
-        self._meta: dict[str, Dict] = {}  # метаданные типа (язык, юрисдикция и др.)
+        self._meta: dict[str, dict] = {}  # метаданные типа (язык, юрисдикция и др.)
         self._threshold: float = settings.CLASSIFICATION_L3_ACCEPT
 
         self._load_prototypes()
@@ -76,14 +73,14 @@ class L3SemanticClassifier(BaseClassifier):
 
     def _load_prototypes(self) -> None:
         """Строим embedding-прототипы для каждого типа из YAMLRegistry."""
-        configs: List[DocumentTypeConfig] = self._registry.get_all_configs()
+        configs: list[DocumentTypeConfig] = self._registry.get_all_configs()
         if not configs:
             logger.warning("L3SemanticClassifier: no configs in YAMLRegistry")
             return
 
-        texts: List[str] = []
-        type_codes: List[str] = []
-        meta_list: List[Dict] = []
+        texts: list[str] = []
+        type_codes: list[str] = []
+        meta_list: list[dict] = []
 
         for cfg in configs:
             # cfg.raw — оригинальный YAML-конфиг
@@ -121,7 +118,7 @@ class L3SemanticClassifier(BaseClassifier):
 
         logger.info("L3 prototypes loaded", count=len(self._prototypes))
 
-    def _create_enriched_prototype(self, cfg: Dict) -> str:
+    def _create_enriched_prototype(self, cfg: dict) -> str:
         """
         Обогащённый прототип, аналогичный твоему SemanticMatcher:
 
@@ -129,14 +126,14 @@ class L3SemanticClassifier(BaseClassifier):
         - rules.keywords/phrases (по уровням high/medium/low)
         - semantic маркеры (party_roles, essential_terms, aliases и т.п.)
         """
-        parts: List[str] = []
+        parts: list[str] = []
 
         # 1. Основная информация
         parts.append(str(cfg.get("name", "") or ""))
         parts.append(str(cfg.get("description", "") or ""))
 
         # 2. Ключевые слова и фразы
-        rules: Dict = cfg.get("rules", {}) or {}
+        rules: dict = cfg.get("rules", {}) or {}
         for impact in ("high", "medium", "low"):
             parts.extend(rules.get("keywords", {}).get(impact, []) or [])
             parts.extend(rules.get("phrases", {}).get(impact, []) or [])
@@ -152,7 +149,7 @@ class L3SemanticClassifier(BaseClassifier):
             parts.extend(elem.get("keywords", []) or [])
             parts.extend(elem.get("phrases", []) or [])
 
-        clean_parts = [str(p) for p in parts if p and isinstance(p, (str, int, float))]
+        clean_parts = [str(p) for p in parts if p and isinstance(p, str | int | float)]
         return " ".join(clean_parts)[:4000]
 
     async def classify(
@@ -200,9 +197,8 @@ class L3SemanticClassifier(BaseClassifier):
         doc_vec = doc_vec / (np.linalg.norm(doc_vec) + 1e-9)
 
         # Косинусная близость со всеми прототипами
-        sims: Dict[str, float] = {
-            tc: float(np.dot(doc_vec, proto))
-            for tc, proto in self._prototypes.items()
+        sims: dict[str, float] = {
+            tc: float(np.dot(doc_vec, proto)) for tc, proto in self._prototypes.items()
         }
 
         if not sims:
@@ -221,10 +217,7 @@ class L3SemanticClassifier(BaseClassifier):
 
         # Порог L3 применяем на уровне HybridClassifier, здесь отдаём сырую оценку
         meta = self._meta.get(best_type, {})
-        alternatives = [
-            {"type": t, "confidence": round(s, 3)}
-            for t, s in sorted_types[1:4]
-        ]
+        alternatives = [{"type": t, "confidence": round(s, 3)} for t, s in sorted_types[1:4]]
 
         return ClassificationResult(
             doctype=best_type,

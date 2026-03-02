@@ -19,7 +19,6 @@ Algorithm:
 """
 
 from collections import defaultdict, deque
-from typing import Dict, List, Optional, Set
 
 from src.classifiers.yaml_registry import YAMLRegistry
 from src.core.config import settings
@@ -60,9 +59,9 @@ class FamilyBuilder:
 
     def build_families(
         self,
-        documents: List[Dict],
-        relations: List[DetectedRelation],
-    ) -> List[FamilyGroup]:
+        documents: list[dict],
+        relations: list[DetectedRelation],
+    ) -> list[FamilyGroup]:
         """
         Build family groups from documents and relations.
 
@@ -89,8 +88,8 @@ class FamilyBuilder:
         adjacency = self._build_adjacency(relations)
         masters = self._find_masters(documents, relations)
 
-        assigned: Set[str] = set()
-        families: List[FamilyGroup] = []
+        assigned: set[str] = set()
+        families: list[FamilyGroup] = []
 
         for master_doc in masters:
             master_id = master_doc["id"]
@@ -109,8 +108,7 @@ class FamilyBuilder:
             family_relations = [
                 r
                 for r in relations
-                if r.source_doc_id in family_members
-                and r.target_doc_id in family_members
+                if r.source_doc_id in family_members and r.target_doc_id in family_members
             ]
 
             family = FamilyGroup(
@@ -118,15 +116,9 @@ class FamilyBuilder:
                 master_doc_type=master_doc.get("doc_type", ""),
                 member_doc_ids=list(family_members),
                 relations=family_relations,
-                master_classification_level=master_doc.get(
-                    "classification_level"
-                ),
-                master_yaml_available=master_doc.get(
-                    "yaml_instruction_available", False
-                ),
-                master_applicable_triggers=master_doc.get(
-                    "applicable_triggers", []
-                ),
+                master_classification_level=master_doc.get("classification_level"),
+                master_yaml_available=master_doc.get("yaml_instruction_available", False),
+                master_applicable_triggers=master_doc.get("applicable_triggers", []),
             )
             families.append(family)
             assigned.update(family_members)
@@ -142,9 +134,9 @@ class FamilyBuilder:
 
     def _find_masters(
         self,
-        documents: List[Dict],
-        relations: List[DetectedRelation],
-    ) -> List[Dict]:
+        documents: list[dict],
+        relations: list[DetectedRelation],
+    ) -> list[dict]:
         """
         Find master document candidates.
 
@@ -152,20 +144,17 @@ class FamilyBuilder:
         descending (L3 > L2 > L1 > L0) so highest-quality classified
         documents become masters first.
         """
-        has_master: Set[str] = set()
+        has_master: set[str] = set()
         for rel in relations:
             if rel.relation_type == "master":
                 has_master.add(rel.source_doc_id)
 
         level_priority = {
-            level: idx
-            for idx, level in enumerate(
-                settings.FAMILY_CLASSIFICATION_LEVEL_PRIORITY
-            )
+            level: idx for idx, level in enumerate(settings.FAMILY_CLASSIFICATION_LEVEL_PRIORITY)
         }
 
-        masters: List[Dict] = []
-        non_masters: List[Dict] = []
+        masters: list[dict] = []
+        non_masters: list[dict] = []
 
         for doc in documents:
             doc_type = doc.get("doc_type", "")
@@ -177,9 +166,7 @@ class FamilyBuilder:
 
         # Sort masters by classification_level descending
         masters.sort(
-            key=lambda d: level_priority.get(
-                d.get("classification_level", "L0"), 0
-            ),
+            key=lambda d: level_priority.get(d.get("classification_level", "L0"), 0),
             reverse=True,
         )
 
@@ -196,15 +183,15 @@ class FamilyBuilder:
 
     def _build_adjacency(
         self,
-        relations: List[DetectedRelation],
-    ) -> Dict[str, Set[str]]:
+        relations: list[DetectedRelation],
+    ) -> dict[str, set[str]]:
         """
         Build undirected adjacency list for relations graph.
 
         Each relation connects source and target in both directions
         for purposes of family grouping.
         """
-        adjacency: Dict[str, Set[str]] = defaultdict(set)
+        adjacency: dict[str, set[str]] = defaultdict(set)
 
         for rel in relations:
             s = rel.source_doc_id
@@ -217,14 +204,14 @@ class FamilyBuilder:
     def _bfs_collect(
         self,
         start_id: str,
-        adjacency: Dict[str, Set[str]],
-        assigned: Set[str],
-    ) -> Set[str]:
+        adjacency: dict[str, set[str]],
+        assigned: set[str],
+    ) -> set[str]:
         """
         Collect all documents reachable from start_id using BFS,
         with limits on max_hops and max_family_size.
         """
-        visited: Set[str] = set()
+        visited: set[str] = set()
         queue = deque([(start_id, 0)])
 
         while queue and len(visited) < self.max_family_size:

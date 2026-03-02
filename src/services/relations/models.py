@@ -14,17 +14,16 @@ and then persisted through repositories.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, List
 
 
 class RelationDetectionMethod(str, Enum):
     """How the relation was detected."""
 
-    EXACT_HASH = "exact_hash"              # SHA256 match
+    EXACT_HASH = "exact_hash"  # SHA256 match
     FILENAME_PATTERN = "filename_pattern"  # Regex on filename
     FILENAME_SIMILARITY = "filename_similarity"  # Fuzzy filename match
-    TEXT_REFERENCE = "text_reference"      # Reference found in document text
-    MANUAL = "manual"                      # Manually created by user
+    TEXT_REFERENCE = "text_reference"  # Reference found in document text
+    MANUAL = "manual"  # Manually created by user
 
 
 @dataclass
@@ -53,11 +52,11 @@ class DedupResult:
     # Same SHA256
     exact_duplicates: int = 0
     # Groups of doc IDs
-    duplicate_groups: List[List[str]] = field(default_factory=list)
+    duplicate_groups: list[list[str]] = field(default_factory=list)
     # First in each group (kept)
-    kept_doc_ids: List[str] = field(default_factory=list)
+    kept_doc_ids: list[str] = field(default_factory=list)
     # Rest (marked as duplicate)
-    marked_doc_ids: List[str] = field(default_factory=list)
+    marked_doc_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -74,23 +73,23 @@ class FamilyGroup:
     """A group of related documents with a master document."""
 
     # UUID, assigned after saving
-    family_id: Optional[str] = None
+    family_id: str | None = None
     # The main document
     master_doc_id: str = ""
     # Doc type of master
     master_doc_type: str = ""
     # All members including master
-    member_doc_ids: List[str] = field(default_factory=list)
+    member_doc_ids: list[str] = field(default_factory=list)
     # Relations in family
-    relations: List[DetectedRelation] = field(default_factory=list)
+    relations: list[DetectedRelation] = field(default_factory=list)
 
     # NEW: classification metadata from HybridClassifier (Stage 6)
     # "L0"…"L3"
-    master_classification_level: Optional[str] = None
+    master_classification_level: str | None = None
     # YAML instruction loaded
     master_yaml_available: bool = False
     # Trigger IDs applicable to master
-    master_applicable_triggers: List[str] = field(default_factory=list)
+    master_applicable_triggers: list[str] = field(default_factory=list)
 
     @property
     def size(self) -> int:
@@ -117,8 +116,8 @@ class RelationsReport:
     dedup_result: DedupResult
     relations_found: int = 0
     families_created: int = 0
-    family_groups: List[FamilyGroup] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    family_groups: list[FamilyGroup] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -129,4 +128,3 @@ class RelationsReport:
             "family_groups": [f.to_dict() for f in self.family_groups],
             "errors": self.errors,
         }
-
