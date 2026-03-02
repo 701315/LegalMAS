@@ -1,12 +1,29 @@
-# src/db/repositories/runner_repo.py
+"""
+Repository for Runner integration (Stage 7–10).
 
-"""Repository for Runner integration with Stage 7 (dedup / relations / families)."""
+Этот репозиторий инкапсулирует всю работу Runner‑слоя с документами:
+
+- для Stage 7:
+  - получение non‑duplicate документов для запуска пайплайна;
+  - работа с семьями документов (DocumentFamily / DocumentFamilyMember);
+  - поиск master‑документа в семье по правилам из YAMLRegistry.
+
+- для Stage 9–10:
+  - загрузка документов и результатов проверок по run_id
+    в удобном для Aggregator формате;
+  - подготовка данных для UI‑API (обзор сделки, грид проверок,
+    условные проверки, извлечённые значения).
+
+Таким образом, бизнес‑логика Runner и UI‑слой не обращаются к ORM
+напрямую, а используют этот репозиторий как единую точку доступа.
+"""
+
 
 import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from src.db.models.result import CheckResult
 from src.classifiers.yaml_registry import YAMLRegistry
 from src.db.models.document import Document
 from src.db.models.relation import DocumentFamily, DocumentFamilyMember
@@ -88,3 +105,68 @@ class RunnerRepository:
                 return doc
 
         return family_docs[0] if family_docs else None
+
+
+    async def load_documents_for_run(self, run_id: uuid.UUID) -> dict[str, dict]:
+        """
+        Вернуть словарь {document_id: {...}} для всех документов,
+        участвовавших в указанном run_id.
+
+        Эти данные используются Aggregator'ом и UI‑API для построения
+        обзора сделки.
+        """
+        stmt = (
+            select(Document)
+            .join(CheckResult, CheckResult.document_id == Document.id)
+            .where(CheckResult.run_id == run_id)
+            .distinct()
+        )
+        result = await self.session.execute(stmt)
+        docs = result.scalars().all()
+
+        docs_dict: dict[str, dict] = {}
+        for d in docs:
+            docs_dict[str(d.id)] = {
+                "name": d.filename,
+                "folder_path": d.folder_path,
+                "doc_type": d.doc_type or "",
+                "status": d.status or "",
+                "classification_level": d.classification_level or "",
+                "classification_confidence": d.classification_confidence or 0.0,
+                "applicable_triggers": d.applicable_triggers or [],
+            }
+        return docs_dict
+
+
+    async def load_check_results_for_run(self, run_id: uuid.UUID) -> list[dict]:
+        """
+        Вернуть список словарей с результатами проверок для run_id
+        в формате, который ожидает Aggregator (Stage 9).
+
+        Эти данные затем передаются в aggregate_results(...).
+        """
+        stmt = select(CheckResult).where(CheckResult.run_id == run_id)
+        result = await self.session.execute(stmt)
+        rows = result.scalars().all()
+
+        out: list[dict] = []
+        for r in rows:
+            out.append(
+                {
+                    "check_id": r.check_id,
+                    "check_name": r.check_name,
+                    "result": r.result,
+                    "severity": r.severity,
+                    "value_text": r.value_text,
+                    "confidence": r.confidence or 0.0,
+                    "detector_used": r.detector_used or "",
+                    "quality_flags": r.quality_flags or {},
+                    "qc_status": r.qc_status or "pending",
+                    "document_id": str(r.document_id),
+                    "structured_data": r.structured_data or {},
+                    "conditional_check_triggered": r.conditional_check_triggered or False,
+                    "trigger_name": r.trigger_name or "",
+                }
+            )
+        return out
+

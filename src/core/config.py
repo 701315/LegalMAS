@@ -179,6 +179,11 @@ class Settings(BaseSettings):
     EXPORT_CONDITIONAL_CHECKS_SHEET: bool = True  # Separate sheet for conditional check results
     EXPORT_CLASSIFICATION_METADATA: bool = True  # Include classification_level, confidence in grid
 
+    # --- Classification API settings ---
+    API_EXPOSE_YAML_METADATA: bool = True  # показывать метаданные YAML в ответах
+    API_ALLOW_FORCE_RECLASSIFY: bool = True  # разрешать force_reclassify в /runs
+    API_RECLASSIFY_BATCH_LIMIT: int = 50     # максимум документов в batch reclassify
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()

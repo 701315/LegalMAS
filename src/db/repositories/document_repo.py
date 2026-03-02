@@ -1,6 +1,19 @@
 """
-Repository for Document CRUD operations.
+Repository for Document CRUD and classification operations.
+
+Этот модуль инкапсулирует всю работу с таблицей документов:
+- создание записей о документах сделки;
+- получение документов по id, по сделке, по SHA‑256 (для дедупликации);
+- обновление статуса документа (pending, classified, quarantined и т.д.);
+- обновление результатов классификации (doc_type, уровень и уверенность,
+  детали классификации, applicable_triggers, язык, юрисдикция, версия playbook);
+- вспомогательные выборки для аналитики (количество по статусам,
+  выборка по типу и минимальной уверенности).
+
+Репозиторий используется бизнес‑логикой анализа и API‑слоем,
+чтобы не работать с ORM напрямую из обработчиков HTTP и воркеров.
 """
+
 
 import uuid
 
@@ -8,7 +21,6 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models.document import Document
-
 
 class DocumentRepository:
     def __init__(self, session: AsyncSession):
@@ -142,3 +154,24 @@ class DocumentRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+
+    async def get_low_confidence_docs(
+        self,
+        deal_id: uuid.UUID,
+        threshold: float = 0.6,
+    ) -> list[Document]:
+        """
+        Вернуть документы с низкой уверенностью классификации
+        для указанной сделки.
+        """
+        stmt = (
+            select(Document)
+            .where(Document.deal_id == deal_id)
+            .where(Document.classification_confidence < threshold)
+            .where(Document.classification_confidence > 0)
+            .order_by(Document.classification_confidence.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+

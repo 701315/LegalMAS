@@ -171,6 +171,7 @@ def aggregate_results(
                             page=cr.get("page"),
                             clause_uid=cr.get("clause_uid", ""),
                             document_id=doc_id,
+                            check_id=cr.get("check_id", ""),  # NEW
                         )
                     )
 

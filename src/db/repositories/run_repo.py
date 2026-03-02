@@ -5,11 +5,11 @@ Repository for Run and Job operations.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from src.db.models.result import CheckResult
 from src.db.models.run import Job, Run
-
+from src.db.models.document import Document
 
 class RunRepository:
     def __init__(self, session: AsyncSession):
@@ -69,6 +69,94 @@ class RunRepository:
         new_count = result.scalar_one()
         await self.session.flush()
         return new_count
+
+    async def get_document_ids_for_run(self, run_id: uuid.UUID) -> list[uuid.UUID]:
+        """
+        Вернуть уникальные document_id, для которых есть CheckResult с данным run_id.
+        Используется в отчёте по классификации, чтобы ограничить выборку документов.
+        """
+        subq = (
+            select(CheckResult.document_id)
+            .where(CheckResult.run_id == run_id)
+            .distinct()
+        )
+        result = await self.session.execute(subq)
+        return [row[0] for row in result.all()]
+
+
+    async def get_latest_for_deal(self, deal_id: uuid.UUID) -> Run | None:
+        """
+        Вернуть последний run для сделки по дате создания/ID.
+
+        Используется, например, при ручной переклассификации, чтобы
+        при необходимости переиспользовать последний run.
+        """
+        stmt = (
+            select(Run)
+            .where(Run.deal_id == deal_id)
+            .order_by(desc(Run.created_at))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+
+    async def get_classification_stats_for_run(self, run_id: uuid.UUID) -> dict:
+        """
+        Посчитать статистику классификации по всем документам,
+        которые проверялись в этом run.
+        """
+        # все document_id, участвовавшие в run
+        subq = (
+            select(CheckResult.document_id)
+            .where(CheckResult.run_id == run_id)
+            .distinct()
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Document.classification_level,
+                Document.classification_confidence,
+                Document.doc_type,
+            )
+            .where(Document.id.in_(select(subq)))
+        )
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        stats = {
+            "total_documents": len(rows),
+            "l0_no_match": 0,
+            "l1_filename": 0,
+            "l2_keyword": 0,
+            "l3_semantic": 0,
+            "l4_llm": 0,
+            "low_confidence_count": 0,
+            "unknown_doc_type_count": 0,
+        }
+
+        level_map = {
+            "L0": "l0_no_match",
+            "L1": "l1_filename",
+            "L2": "l2_keyword",
+            "L3": "l3_semantic",
+            "L4": "l4_llm",
+            "LMANUAL": "l4_llm",  # manual treated as highest level
+        }
+
+        for level, confidence, doc_type in rows:
+            raw_level = level or "L0"
+            level_norm = raw_level.replace("_", "").upper()
+            key = level_map.get(level_norm, "l0_no_match")
+            stats[key] += 1
+
+            if confidence and 0 < confidence < 0.6:
+                stats["low_confidence_count"] += 1
+            if not doc_type or doc_type in ("Generic", "Unknown"):
+                stats["unknown_doc_type_count"] += 1
+
+        return stats
 
 
 class JobRepository:

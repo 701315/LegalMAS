@@ -198,6 +198,7 @@ class StructuredValueRow:
     page: int | None = None
     clause_uid: str = ""
     document_id: str = ""
+    check_id: str = ""  # NEW: link to specific check
 
 
 @dataclass
