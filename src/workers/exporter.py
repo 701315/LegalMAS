@@ -24,8 +24,8 @@ from src.db.models.export import Export
 from src.db.models.result import CheckResult
 from src.db.repositories import DealRepository, ResultRepository, RunnerRepository, RunRepository
 from src.db.uow import db_uow
-from src.queue.base_task import MASBaseTask
-from src.queue.celery_app import celery_app
+from src.mas_queue.base_task import MASBaseTask
+from src.mas_queue.celery_app import celery_app
 from src.services.export.aggregator import aggregate_results
 from src.services.export.grid_builder import build_grid_excel
 from src.services.export.report_builder import build_report_docx

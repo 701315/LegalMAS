@@ -11,7 +11,7 @@ import pytest
 from celery.exceptions import Retry as CeleryRetry
 
 from src.core.exceptions import PermanentError, TransientError
-from src.queue.celery_app import celery_app
+from src.mas_queue.celery_app import celery_app
 from tests.tasks_for_testing import (
     add_numbers,
     permanent_fail_task,

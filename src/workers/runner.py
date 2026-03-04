@@ -26,8 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.constants import CheckResultStatus, DocumentStatus, Severity
 from src.core.logging import get_logger
 from src.db.uow import db_uow
-from src.queue.base_task import MASBaseTask
-from src.queue.celery_app import celery_app
+from src.mas_queue.base_task import MASBaseTask
+from src.mas_queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)

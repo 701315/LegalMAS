@@ -31,7 +31,7 @@ from src.core.exceptions import PermanentError, QuarantineError, TransientError
 from src.core.logging import deal_id_var, document_id_var, get_logger
 from src.db.models.run import Job
 from src.db.uow import db_uow
-from src.queue.dlq import DLQManager
+from src.mas_queue.dlq import DLQManager
 
 logger = get_logger(__name__)
 

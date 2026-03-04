@@ -46,8 +46,8 @@ from src.db.repositories import (
     IdempotencyRepository,
 )
 from src.db.uow import db_uow
-from src.queue.base_task import MASBaseTask
-from src.queue.celery_app import celery_app
+from src.mas_queue.base_task import MASBaseTask
+from src.mas_queue.celery_app import celery_app
 from src.services.file_validator import (
     FileStatus,
     can_process_directly,

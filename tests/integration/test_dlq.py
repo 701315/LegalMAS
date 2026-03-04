@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import delete
 
 from src.db.models.ops import DLQRecord
-from src.queue.dlq import DLQManager
+from src.mas_queue.dlq import DLQManager
 
 
 @pytest.fixture(autouse=True)

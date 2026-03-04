@@ -22,7 +22,7 @@ from src.db.repositories import (
     DocumentVersionRepository,
     PlaybookRepository,
 )
-from src.queue.celery_app import celery_app
+from src.mas_queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
 from src.workers.extract_worker import _extract_document_async
 

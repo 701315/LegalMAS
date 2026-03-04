@@ -18,8 +18,8 @@ from src.core.logging import get_logger
 from src.db.repositories.document_repo import DocumentRepository
 from src.db.repositories.document_version_repo import DocumentVersionRepository
 from src.db.uow import db_uow
-from src.queue.base_task import MASBaseTask
-from src.queue.celery_app import celery_app
+from src.mas_queue.base_task import MASBaseTask
+from src.mas_queue.celery_app import celery_app
 from src.services.structure.builder import StructureBuilder
 from src.storage.artifact_store import ArtifactPath, ArtifactStore
 

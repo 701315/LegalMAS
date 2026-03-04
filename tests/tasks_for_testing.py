@@ -7,8 +7,8 @@ They are NOT part of the production worker registry.
 
 from src.core.exceptions import PermanentError, TransientError
 from src.core.logging import get_logger
-from src.queue.base_task import MASBaseTask
-from src.queue.celery_app import celery_app
+from src.mas_queue.base_task import MASBaseTask
+from src.mas_queue.celery_app import celery_app
 
 logger = get_logger(__name__)
 

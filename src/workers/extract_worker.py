@@ -27,8 +27,8 @@ from src.core.constants import DocumentStatus
 from src.core.exceptions import PermanentError, QuarantineError
 from src.core.logging import get_logger
 from src.db.uow import db_uow
-from src.queue.base_task import MASBaseTask
-from src.queue.celery_app import celery_app
+from src.mas_queue.base_task import MASBaseTask
+from src.mas_queue.celery_app import celery_app
 from src.services.pdf_extractor import (
     ExtractionResult,
     build_text_layout_raw,

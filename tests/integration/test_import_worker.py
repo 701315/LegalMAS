@@ -21,7 +21,7 @@ import pytest
 
 from src.core.constants import DocumentStatus
 from src.db.session import get_session
-from src.queue.celery_app import celery_app
+from src.mas_queue.celery_app import celery_app
 from src.storage.artifact_store import ArtifactStore
 from src.workers.import_worker import _import_bundle_async
 
