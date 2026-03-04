@@ -16,7 +16,7 @@ from functools import lru_cache
 
 import yaml
 
-from src.core.logging import get_logger
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

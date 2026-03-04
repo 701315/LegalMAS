@@ -45,12 +45,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.classifiers.base import BaseClassifier, ClassificationResult
-from src.classifiers.yaml_registry import DocumentTypeConfig, YAMLRegistry
-from src.core.config import settings
-from src.core.constants import ClassificationLevel
-from src.core.logging import get_logger
-from src.services.embeddings.embedding_service import embedding_service
+from classifiers.base import BaseClassifier, ClassificationResult
+from classifiers.yaml_registry import DocumentTypeConfig, YAMLRegistry
+from core.config import settings
+from core.constants import ClassificationLevel
+from core.logging import get_logger
+from services.embeddings.embedding_service import embedding_service
 
 logger = get_logger(__name__)
 

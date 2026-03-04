@@ -44,7 +44,7 @@ def mock_job_status_update():
     Tasks under test have track_job=False, but this guards against
     accidental track_job=True tasks in future.
     """
-    with patch("src.queue.base_task.run_async", return_value=None):
+    with patch("mas_queue.base_task.run_async", return_value=None):
         yield
 
 

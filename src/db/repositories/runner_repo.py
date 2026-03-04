@@ -23,10 +23,10 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.db.models.result import CheckResult
-from src.classifiers.yaml_registry import YAMLRegistry
-from src.db.models.document import Document
-from src.db.models.relation import DocumentFamily, DocumentFamilyMember
+from db.models.result import CheckResult
+from classifiers.yaml_registry import YAMLRegistry
+from db.models.document import Document
+from db.models.relation import DocumentFamily, DocumentFamilyMember
 
 
 class RunnerRepository:

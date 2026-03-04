@@ -6,9 +6,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.db.repositories.run_repo import RunRepository
-from src.db.models.document import Document
-from src.api.schemas.runs import ClassificationStats, ClassificationReportResponse
+from db.repositories.run_repo import RunRepository
+from db.models.document import Document
+from api.schemas.runs import ClassificationStats, ClassificationReportResponse
 
 
 class RunNotFoundError(Exception):

@@ -11,9 +11,9 @@ Supports:
 
 import re
 
-from src.core.config import settings
-from src.core.logging import get_logger
-from src.services.structure.models import ClauseNode, ClauseTree, CrossReference
+from core.config import settings
+from core.logging import get_logger
+from services.structure.models import ClauseNode, ClauseTree, CrossReference
 
 logger = get_logger(__name__)
 

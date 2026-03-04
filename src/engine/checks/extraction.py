@@ -12,10 +12,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from src.core.logging import get_logger
-from src.engine.detectors.extraction_llm_detector import ExtractionLLMDetector
-from src.engine.llm.client import LLMClient
-from src.engine.playbook.models import (
+from core.logging import get_logger
+from engine.detectors.extraction_llm_detector import ExtractionLLMDetector
+from engine.llm.client import LLMClient
+from engine.playbook.models import (
     CheckDefinition,
     ExtractionConfig,
     ExtractionFieldConfig,

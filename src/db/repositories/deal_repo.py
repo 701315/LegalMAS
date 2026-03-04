@@ -5,10 +5,10 @@ Thin wrapper over SQLAlchemy ORM — no business logic here.
 
 import uuid
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models.deal import Deal
+from db.models.deal import Deal
 
 
 class DealRepository:
@@ -61,6 +61,12 @@ class DealRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_all(self) -> list[Deal]:
+        """Вернуть все сделки (для dev / админских сценариев)."""
+        stmt = select(Deal).order_by(Deal.created_at.desc())
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def update_status(self, deal_id: uuid.UUID, status: str) -> Deal | None:
         """Update deal status. Returns updated deal or None if not found."""
         stmt = update(Deal).where(Deal.id == deal_id).values(status=status).returning(Deal)
@@ -69,3 +75,45 @@ class DealRepository:
         if deal:
             await self.session.flush()
         return deal
+
+    async def get_page(
+        self,
+        page: int,
+        per_page: int,
+        status: str | None = None,
+        tenant_id: uuid.UUID | None = None,
+    ) -> tuple[list[Deal], int]:
+        """
+        Вернуть одну страницу сделок + общее количество, опционально фильтруя по статусу.
+        """
+        offset = (page - 1) * per_page
+
+        filters = []
+        if status is not None:
+            filters.append(Deal.status == status)
+        if tenant_id is not None:
+            filters.append(Deal.tenant_id == tenant_id)
+
+        # 1) считаем total с учётом фильтров
+        count_stmt = select(func.count(Deal.id))
+        if filters:
+            count_stmt = count_stmt.where(*filters)
+
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar_one() or 0
+
+        if total == 0:
+            return [], 0
+
+        # 2) выбираем записи страницы
+        stmt = (
+            select(Deal)
+            .where(*filters)
+            .order_by(Deal.created_at.desc())
+            .offset(offset)
+            .limit(per_page)
+        )
+        result = await self.session.execute(stmt)
+        items = list(result.scalars().all())
+
+        return items, total

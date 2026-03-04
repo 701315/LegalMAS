@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from src.db.uow import db_uow
-from src.engine.runner import Runner
+from db.uow import db_uow
+from engine.runner import Runner
 
 router = APIRouter(prefix="/runner", tags=["runner"])
 

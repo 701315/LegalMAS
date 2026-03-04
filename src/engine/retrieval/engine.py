@@ -11,8 +11,8 @@
 import numpy as np
 from rank_bm25 import BM25Okapi
 
-from src.core.config import settings
-from src.services.embeddings.embedding_service import embedding_service
+from core.config import settings
+from services.embeddings.embedding_service import embedding_service
 
 
 class RetrievalEngine:

@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from engine.llm.client import _extract_json  # если не хочешь, можно скопировать
 
-from src.core.logging import get_logger
-from src.engine.llm.client import LLMClient, LLMResponse
-from src.engine.playbook.models import CheckDefinition, ExtractionConfig
+from core.logging import get_logger
+from engine.llm.client import LLMClient, LLMResponse
+from engine.playbook.models import CheckDefinition, ExtractionConfig
 
 logger = get_logger(__name__)
 
@@ -125,7 +126,6 @@ class ExtractionLLMDetector:
             data = json.loads(text)
         except json.JSONDecodeError:
             # Попробуем вытащить JSON "изнутри" как в LLMClient._extract_json (можно переиспользовать идею)
-            from src.engine.llm.client import _extract_json  # если не хочешь, можно скопировать
 
             candidate = _extract_json(text)
             if not candidate:

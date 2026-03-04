@@ -11,17 +11,18 @@ import asyncio
 import time
 import uuid
 
-from src.core.config import settings
-from src.core.constants import DocumentStatus
-from src.core.exceptions import PermanentError
-from src.core.logging import get_logger
-from src.db.repositories.document_repo import DocumentRepository
-from src.db.repositories.document_version_repo import DocumentVersionRepository
-from src.db.uow import db_uow
-from src.mas_queue.base_task import MASBaseTask
-from src.mas_queue.celery_app import celery_app
-from src.services.structure.builder import StructureBuilder
-from src.storage.artifact_store import ArtifactPath, ArtifactStore
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError
+from core.logging import get_logger
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from services.structure.builder import StructureBuilder
+from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers.classifier import classify_document
 
 logger = get_logger(__name__)
 
@@ -107,7 +108,6 @@ async def _build_structure_async(task, document_version_id: str, extra_args: dic
         # UoW зафиксирует изменения (commit) при выходе из блока
 
     # 6. Запуск следующего этапа (Классификация)
-    from src.workers.classifier import classify_document
 
     # Передаем контекст дальше (run_id важен для аналитики)
     classify_document.delay(document_id=str(doc.id), run_id=extra_args.get("run_id"))

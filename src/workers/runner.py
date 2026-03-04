@@ -22,13 +22,14 @@ import json
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.core.constants import CheckResultStatus, DocumentStatus, Severity
-from src.core.logging import get_logger
-from src.db.uow import db_uow
-from src.mas_queue.base_task import MASBaseTask
-from src.mas_queue.celery_app import celery_app
-from src.storage.artifact_store import ArtifactPath, ArtifactStore
+from workers.exporter import export_results
+from db.repositories import ResultRepository, DocumentRepository
+from core.constants import CheckResultStatus, DocumentStatus, Severity
+from core.logging import get_logger
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
 
@@ -145,7 +146,6 @@ async def _run_checks_async(
         evidence=len(evidence_records),
     )
 
-    from src.workers.exporter import export_results
 
     if run_id:
         export_results.delay(run_id=run_id, deal_id=deal_id, tenant_id=tenant_id)
@@ -240,7 +240,6 @@ async def _save_results(
     if not run_id:
         return
 
-    from src.db.repositories import ResultRepository
 
     repo = ResultRepository(db)
     for cr in check_results:
@@ -277,7 +276,6 @@ async def _update_document_status(
     document_id: str,
     db: AsyncSession,
 ) -> None:
-    from src.db.repositories import DocumentRepository
 
     repo = DocumentRepository(db)
     await repo.update_status(

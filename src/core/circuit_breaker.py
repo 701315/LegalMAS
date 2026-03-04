@@ -24,9 +24,9 @@ from enum import Enum
 
 import redis as redis_lib
 
-from src.core.config import settings
-from src.core.exceptions import CircuitOpenError
-from src.core.logging import get_logger
+from core.config import settings
+from core.exceptions import CircuitOpenError
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

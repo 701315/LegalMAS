@@ -9,7 +9,7 @@ Prompt Loader.
 - Кешировать загруженные шаблоны в памяти
 
 Использование:
-    from src.engine.prompts.loader import load_prompt, get_promptloader
+    from engine.prompts.loader import load_prompt, get_promptloader
 
     text = load_prompt("detection/genericpresence", {
         "condition_name": "...",
@@ -23,8 +23,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from src.core.config import settings
-from src.core.logging import get_logger
+from core.config import settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -229,7 +229,7 @@ def get_promptloader() -> PromptLoader:
     Вернуть глобальный PromptLoader (singleton).
 
     Используется, например, в:
-        from src.engine.prompts.loader import get_promptloader
+        from engine.prompts.loader import get_promptloader
 
         loader = get_promptloader()
         text = loader.load("detection/genericpresence", {...})

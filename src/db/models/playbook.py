@@ -11,8 +11,8 @@ from sqlalchemy import DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import PlaybookStatus
-from src.db.base import Base
+from core.constants import PlaybookStatus
+from db.base import Base
 
 
 class ModelConfig(Base):

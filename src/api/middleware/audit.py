@@ -21,8 +21,8 @@ from typing import Awaitable, Callable, Dict, Tuple
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.db.repositories.audit_repo import AuditRepository
-from src.db.session import get_session  # было get_db
+from db.repositories.audit_repo import AuditRepository
+from db.session import get_session  # было get_db
 
 # Точные пути (метод + путь), которые обязательно аудитим
 # ключ: (HTTP-метод, путь), значение: action для AuditLog

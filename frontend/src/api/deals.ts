@@ -16,10 +16,15 @@ export const dealApi = {
    * Список сделок.
    * GET /api/v1/deals?page=&per_page=
    */
-  list: (page = 1, perPage = 20) =>
+  list: (page = 1, perPage = 20, status?: string, tenantId?: string) =>
     client
       .get<PaginatedResponse<Deal>>("/api/v1/deals", {
-        params: { page, per_page: perPage },
+        params: { 
+          page, 
+          per_page: perPage,
+          status: status || undefined,
+          tenant_id: tenantId || undefined,
+        },
       })
       .then((response) => response.data),
 
@@ -42,10 +47,10 @@ export const dealApi = {
  * Пример:
  *   const { data, isLoading } = useDeals();
  */
-export function useDeals(page = 1) {
+export function useDeals(page = 1, status?: string, tenantId?: string) {
   return useQuery({
-    queryKey: ["deals", page],
-    queryFn: () => dealApi.list(page),
+    queryKey: ["deals", page, status, tenantId],
+    queryFn: () => dealApi.list(page, 20, status, tenantId),
   });
 }
 

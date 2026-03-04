@@ -35,16 +35,16 @@ Stage 8 Runner: classification + triggers (Stage 7 integrated).
 
 import uuid
 
-from src.classifiers.stage8.hybrid_classifier import HybridClassifier
-from src.core.logging import get_logger
-from src.db.repositories.runner_repo import RunnerRepository
-from src.engine.checks.executor import CheckExecutor
-from src.engine.content.document_content_service import (
+from classifiers.stage8.hybrid_classifier import HybridClassifier
+from core.logging import get_logger
+from db.repositories.runner_repo import RunnerRepository
+from engine.checks.executor import CheckExecutor
+from engine.content.document_content_service import (
     ClauseTreeStorageClient,
     DocumentContentService,
 )
-from src.engine.playbook.loader import load_default_playbook
-from src.engine.triggers.detector import TriggerDetector
+from engine.playbook.loader import load_default_playbook
+from engine.triggers.detector import TriggerDetector
 
 logger = get_logger(__name__)
 

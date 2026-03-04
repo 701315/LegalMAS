@@ -35,13 +35,13 @@ Stage 8 HybridClassifier (L1 → L2 → L3) с интеграцией Stage 7 и
 
 from __future__ import annotations
 
-from src.classifiers.stage8.l1_filename import L1FilenameClassifier
-from src.classifiers.stage8.l2_header import L2HeaderClassifier
-from src.classifiers.stage8.l3_semantic import L3SemanticClassifier
-from src.core.config import settings
-from src.core.logging import get_logger
-from src.db.repositories.runner_repo import RunnerRepository
-from src.engine.content.document_content_service import DocumentContentService
+from classifiers.stage8.l1_filename import L1FilenameClassifier
+from classifiers.stage8.l2_header import L2HeaderClassifier
+from classifiers.stage8.l3_semantic import L3SemanticClassifier
+from core.config import settings
+from core.logging import get_logger
+from db.repositories.runner_repo import RunnerRepository
+from engine.content.document_content_service import DocumentContentService
 
 logger = get_logger(__name__)
 

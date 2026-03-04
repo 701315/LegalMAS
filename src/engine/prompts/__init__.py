@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from src.core.config import settings
+from core.config import settings
 
 
 def load_prompt(prompt_name: str, **variables) -> str:

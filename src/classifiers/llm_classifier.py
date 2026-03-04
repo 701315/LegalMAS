@@ -12,11 +12,11 @@ Provider selection:
 import json
 import os
 
-from src.classifiers.base import BaseLLMClassifier, ClassificationResult
-from src.classifiers.registry_loader import get_doc_type_config, load_registry
-from src.core.config import settings
-from src.core.constants import ClassificationLevel
-from src.core.logging import get_logger
+from classifiers.base import BaseLLMClassifier, ClassificationResult
+from classifiers.registry_loader import get_doc_type_config, load_registry
+from core.config import settings
+from core.constants import ClassificationLevel
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -39,11 +39,11 @@ from __future__ import annotations
 
 import re
 
-from src.classifiers.base import BaseClassifier, ClassificationResult
-from src.classifiers.yaml_registry import YAMLRegistry
-from src.core.config import settings
-from src.core.constants import ClassificationLevel
-from src.core.logging import get_logger
+from classifiers.base import BaseClassifier, ClassificationResult
+from classifiers.yaml_registry import YAMLRegistry
+from core.config import settings
+from core.constants import ClassificationLevel
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

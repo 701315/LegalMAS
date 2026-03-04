@@ -7,9 +7,10 @@ import asyncio
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.core.logging import get_logger
-from src.db.uow import db_uow
+from workers.import_worker import import_bundle
+from db.repositories import PlaybookRepository, RunRepository
+from core.logging import get_logger
+from db.uow import db_uow
 
 logger = get_logger(__name__)
 
@@ -19,7 +20,6 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict:
     Sync entrypoint: создает Run через async run_async и
     ставит в очередь начальный импорт документов.
     """
-    from src.workers.import_worker import import_bundle
 
     # 1. Создаём Run в async-уровне
     run_id = asyncio.run(run_async(deal_id, tenant_id))
@@ -56,7 +56,6 @@ async def _create_run(deal_id: str, tenant_id: str) -> str:
     """
     Внутренний helper: создает Run запись в БД для сделки.
     """
-    from src.db.repositories import PlaybookRepository, RunRepository
 
     async with db_uow() as uow:
         db: AsyncSession = uow.session

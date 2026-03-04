@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models.result import CheckResult  # <-- ВАЖНО: models.result
+from db.models.result import CheckResult  # <-- ВАЖНО: models.result
 
 
 class CheckResultRepository:

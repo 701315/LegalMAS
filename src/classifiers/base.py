@@ -18,7 +18,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from src.core.constants import ClassificationLevel
+from core.constants import ClassificationLevel
 
 
 @dataclass

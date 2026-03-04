@@ -8,9 +8,9 @@ PII Tokenizer.
 """
 
 from dataclasses import dataclass, field
-
-from src.core.constants import PIIEntityType, PIITokenPolicy
-from src.services.pii_detector import PIIEntity, get_preserve_types
+from core.config import settings
+from core.constants import PIIEntityType, PIITokenPolicy
+from services.pii_detector import PIIEntity, get_preserve_types
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Party role keywords (дефолтный словарь, если в YAML ничего не задано)
@@ -191,7 +191,6 @@ class PIITokenizer:
         """
         # Читаем из settings если не передано явно
         if preserve_party_roles is None:
-            from src.core.config import settings
 
             preserve_party_roles = settings.PII_PRESERVE_PARTY_ROLES
 

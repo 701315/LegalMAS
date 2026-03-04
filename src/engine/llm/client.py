@@ -18,9 +18,9 @@ from typing import Any
 
 import httpx
 
-from src.core.config import settings
-from src.core.exceptions import PermanentError, TransientError
-from src.core.logging import get_logger
+from core.config import settings
+from core.exceptions import PermanentError, TransientError
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

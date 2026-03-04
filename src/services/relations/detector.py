@@ -20,9 +20,9 @@ import re
 
 from thefuzz import fuzz
 
-from src.core.config import settings
-from src.core.logging import get_logger
-from src.services.relations.models import (
+from core.config import settings
+from core.logging import get_logger
+from services.relations.models import (
     DetectedRelation,
     RelationDetectionMethod,
 )

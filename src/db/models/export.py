@@ -8,7 +8,7 @@ from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base
+from db.base import Base
 
 
 class Export(Base):

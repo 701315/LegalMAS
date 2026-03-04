@@ -16,7 +16,7 @@ Rules-based detector: ищет риски по keywords и regex.
 import re
 from typing import Any
 
-from src.engine.playbook.models import KeywordMode, RulesConfig
+from engine.playbook.models import KeywordMode, RulesConfig
 
 
 class RulesDetector:

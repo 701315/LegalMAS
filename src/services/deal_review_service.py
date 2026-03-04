@@ -11,18 +11,18 @@
 
 from typing import Any, Dict, List, Tuple
 
-from src.core.logging import get_logger
-from src.db.uow import db_uow
-from src.db.repositories.runner_repo import RunnerRepository
-from src.services.export.aggregator import aggregate_results
-from src.services.export.models import (
+from core.logging import get_logger
+from db.uow import db_uow
+from db.repositories.runner_repo import RunnerRepository
+from services.export.aggregator import aggregate_results
+from services.export.models import (
     AggregatedResults,
     ExportRow,
     DDRequest,
     ConditionalCheckRow,
     StructuredValueRow,
 )
-from src.api.schemas.deal_review import (
+from api.schemas.deal_review import (
     DocumentSummaryDTO,
     DocumentDetailDTO,
     CheckItemDTO,

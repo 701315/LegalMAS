@@ -31,7 +31,7 @@ from typing import Any
 
 import yaml
 
-from src.engine.playbook.models import (
+from engine.playbook.models import (
     CheckDefinition,
     ConditionalConfig,
     ExtractionConfig,

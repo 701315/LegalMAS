@@ -20,7 +20,7 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models.document import Document
+from db.models.document import Document
 
 class DocumentRepository:
     def __init__(self, session: AsyncSession):

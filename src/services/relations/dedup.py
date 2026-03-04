@@ -12,8 +12,8 @@ This runs BEFORE relation detection and family building.
 
 from collections import defaultdict
 
-from src.core.logging import get_logger
-from src.services.relations.models import (
+from core.logging import get_logger
+from services.relations.models import (
     DedupResult,
     DetectedRelation,
     RelationDetectionMethod,

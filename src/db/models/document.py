@@ -10,8 +10,8 @@ from sqlalchemy import Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import DocumentStatus
-from src.db.base import Base
+from core.constants import DocumentStatus
+from db.base import Base
 
 
 class Document(Base):

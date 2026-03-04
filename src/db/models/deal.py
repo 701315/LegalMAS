@@ -9,8 +9,8 @@ from sqlalchemy import Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import DealStatus, PIIMode
-from src.db.base import Base
+from core.constants import DealStatus, PIIMode
+from db.base import Base
 
 
 class Deal(Base):

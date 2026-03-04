@@ -18,8 +18,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import QCStatus
-from src.db.base import Base
+from core.constants import QCStatus
+from db.base import Base
 
 
 class CheckResult(Base):

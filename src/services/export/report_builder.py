@@ -19,8 +19,8 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
-from src.core.logging import get_logger
-from src.services.export.models import AggregatedResults
+from core.logging import get_logger
+from services.export.models import AggregatedResults
 
 logger = get_logger(__name__)
 

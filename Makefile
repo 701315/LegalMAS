@@ -62,11 +62,11 @@ clean:
 
 # Запустить production воркер
 worker:
-	celery -A src.queue.celery_app:celery_app worker --loglevel=info --queues=default,high_priority,low_priority --pool=solo
+	celery -A mas_queue.celery_app:celery_app worker --loglevel=info --queues=default,high_priority,low_priority --pool=solo
 
 # Запустить воркер с тестовыми задачами (разработка)
 worker-dev:
-	celery -A src.queue.celery_app:celery_app worker --loglevel=info --queues=default,high_priority,low_priority --include=tests.tasks_for_testing --pool=solo
+	celery -A mas_queue.celery_app:celery_app worker --loglevel=info --queues=default,high_priority,low_priority --include=tests.tasks_for_testing --pool=solo
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PII Sanitizer (Stage 5)
@@ -98,8 +98,8 @@ pii-keygen:  ## Generate a new Fernet key for PII_ENCRYPTION_KEY
 .PHONY: pii-smoke
 pii-smoke:  ## Quick smoke test of PII detector/tokenizer
 	python3 -c "\
-from src.services.pii_detector import PIIDetector; \
-from src.services.pii_tokenizer import PIITokenizer, PIIPolicy; \
+from services.pii_detector import PIIDetector; \
+from services.pii_tokenizer import PIITokenizer, PIIPolicy; \
 d = PIIDetector(ner_enabled=False); \
 t = PIITokenizer(); \
 text = 'Продавец Сидоров, тел. +7 912 345-67-89, ИНН 7707083893.'; \

@@ -17,11 +17,11 @@ Hybrid detector: сначала rules, затем LLM при необходим�
 
 from typing import Any
 
-from src.core.config import settings
-from src.engine.detectors.llm_detector import LLMDetector
-from src.engine.detectors.models import RetrievedChunk
-from src.engine.detectors.rules_detector import RulesDetector
-from src.engine.playbook.models import CheckDefinition
+from core.config import settings
+from engine.detectors.llm_detector import LLMDetector
+from engine.detectors.models import RetrievedChunk
+from engine.detectors.rules_detector import RulesDetector
+from engine.playbook.models import CheckDefinition
 
 # Порог уверенности rules, при котором LLM не вызывается.
 RULES_CONFIDENCE_THRESHOLD = getattr(settings, "RULES_CONFIDENCE_THRESHOLD", 0.7)

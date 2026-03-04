@@ -20,10 +20,10 @@ Algorithm:
 
 from collections import defaultdict, deque
 
-from src.classifiers.yaml_registry import YAMLRegistry
-from src.core.config import settings
-from src.core.logging import get_logger
-from src.services.relations.models import DetectedRelation, FamilyGroup
+from classifiers.yaml_registry import YAMLRegistry
+from core.config import settings
+from core.logging import get_logger
+from services.relations.models import DetectedRelation, FamilyGroup
 
 logger = get_logger(__name__)
 

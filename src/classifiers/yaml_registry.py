@@ -14,8 +14,8 @@ from typing import Optional
 
 import yaml
 
-from src.core.config import settings
-from src.core.logging import get_logger
+from core.config import settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 _lock = threading.Lock()

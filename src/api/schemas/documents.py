@@ -12,7 +12,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from src.core.constants import DocumentStatus, RelationType
+from core.constants import DocumentStatus, RelationType
 
 
 class ClassificationMetadata(BaseModel):

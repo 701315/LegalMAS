@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models.calibration import ClassificationCalibration
+from db.models.calibration import ClassificationCalibration
 
 
 class CalibrationRepository:

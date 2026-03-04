@@ -13,22 +13,23 @@ import asyncio
 import time
 import uuid
 
-from src.classifiers.hybrid_classifier import HybridClassifier
-from src.classifiers.keyword_analyzer import KeywordAnalyzer
-from src.classifiers.llm_classifier import create_llm_classifier
-from src.classifiers.rule_based import RuleBasedClassifier
-from src.classifiers.semantic_matcher import SemanticMatcher
-from src.core.config import settings
-from src.core.constants import DocumentStatus
-from src.core.exceptions import PermanentError
-from src.core.logging import get_logger
-from src.db.repositories.document_repo import DocumentRepository
-from src.db.repositories.document_version_repo import DocumentVersionRepository
-from src.db.repositories.playbook_repo import PlaybookRepository
-from src.db.uow import db_uow
-from src.mas_queue.base_task import MASBaseTask
-from src.mas_queue.celery_app import celery_app
-from src.storage.artifact_store import ArtifactStore
+from classifiers.hybrid_classifier import HybridClassifier
+from classifiers.keyword_analyzer import KeywordAnalyzer
+from classifiers.llm_classifier import create_llm_classifier
+from classifiers.rule_based import RuleBasedClassifier
+from classifiers.semantic_matcher import SemanticMatcher
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError
+from core.logging import get_logger
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.playbook_repo import PlaybookRepository
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from storage.artifact_store import ArtifactStore
+from workers.runner import run_checks
 
 logger = get_logger(__name__)
 
@@ -138,7 +139,6 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
     # 6. Запуск Runner (Stage 8) - передаем doctype для оптимизации
     run_id = extra_args.get("run_id")
     if run_id:
-        from src.workers.runner import run_checks
 
         run_checks.delay(
             document_id=str(doc.id),

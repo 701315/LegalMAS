@@ -9,7 +9,7 @@ Task registry — единая точка регистрации всех Celery
 """
 
 # Stage 3: Pipeline tasks will be imported here
-# from src.pipeline.extract.tasks import extract_document   # noqa: F401
-# from src.pipeline.classify.tasks import classify_document # noqa: F401
-# from src.pipeline.checks.tasks import run_checks          # noqa: F401
-# from src.pipeline.export.tasks import export_results      # noqa: F401
+# from pipeline.extract.tasks import extract_document   # noqa: F401
+# from pipeline.classify.tasks import classify_document # noqa: F401
+# from pipeline.checks.tasks import run_checks          # noqa: F401
+# from pipeline.export.tasks import export_results      # noqa: F401

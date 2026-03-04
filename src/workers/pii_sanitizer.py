@@ -16,18 +16,21 @@ from typing import Any
 
 from celery import shared_task
 
-from src.core.config import settings
-from src.core.exceptions import PermanentError, QuarantineError
-from src.core.logging import get_logger
-from src.db.repositories import (
+from core.config import settings
+from core.exceptions import PermanentError, QuarantineError
+from core.logging import get_logger
+from db.repositories import (
     AuditRepository,
     DocumentRepository,
     DocumentVersionRepository,
 )
-from src.db.uow import UnitOfWork, db_uow
-from src.services.pii_detector import get_pii_detector, get_preserve_types
-from src.services.pii_encryption import PIIEncryptionError, get_pii_encryptor
-from src.services.pii_tokenizer import PIIPolicy, PIITokenizer
+from db.uow import UnitOfWork, db_uow
+from services.pii_detector import get_pii_detector, get_preserve_types
+from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
+from services.pii_tokenizer import PIIPolicy, PIITokenizer
+from classifiers.yaml_registry import YAMLRegistry
+from storage.artifact_store import ArtifactStore
+from workers.structure_builder import build_structure
 
 logger = get_logger(__name__)
 
@@ -182,7 +185,6 @@ class PIISanitizer:
 
         if type_code:
             try:
-                from src.classifiers.yaml_registry import YAMLRegistry
 
                 registry = YAMLRegistry.get_instance()
                 cfg = registry.get_config(type_code)
@@ -336,7 +338,6 @@ def sanitize_document(self, document_version_id: str) -> dict:
     version_uuid = uuid.UUID(document_version_id)
 
     async def _run() -> dict:
-        from src.storage.artifact_store import ArtifactStore
 
         async with db_uow() as uow:
             store = ArtifactStore(settings)
@@ -347,7 +348,6 @@ def sanitize_document(self, document_version_id: str) -> dict:
 
                 # Запустить следующую стадию
                 if not result.get("skipped") and not settings.DISABLE_DOWNSTREAM_TASKS:
-                    from src.workers.structure_builder import build_structure
 
                     build_structure.delay(document_version_id=document_version_id)
 

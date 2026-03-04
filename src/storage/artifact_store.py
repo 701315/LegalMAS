@@ -11,9 +11,9 @@ import json
 from minio import Minio
 from minio.error import S3Error
 
-from src.core.config import Settings, settings
-from src.core.exceptions import PermanentError, TransientError
-from src.core.logging import get_logger
+from core.config import Settings, settings
+from core.exceptions import PermanentError, TransientError
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

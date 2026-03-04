@@ -32,8 +32,8 @@ L1: Filename classifier с YAMLRegistry (Stage 8).
   либо просто добавляет кандидатов, которые дальше подтверждаются L2/L3.
 """
 
-from src.classifiers.yaml_registry import YAMLRegistry
-from src.core.config import settings
+from classifiers.yaml_registry import YAMLRegistry
+from core.config import settings
 
 
 class L1FilenameClassifier:

@@ -6,8 +6,8 @@ Dev: если PII_ENCRYPTION_KEY пуст — маппинг хранится в
 """
 
 import json
-
-from src.core.logging import get_logger
+from core.config import settings
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -85,7 +85,7 @@ class PIIEncryptor:
         Сгенерировать новый Fernet-ключ.
 
         Использование:
-            python3 -c "from src.services.pii_encryption import PIIEncryptor; print(PIIEncryptor.generate_key())"
+            python3 -c "from services.pii_encryption import PIIEncryptor; print(PIIEncryptor.generate_key())"
         """
         from cryptography.fernet import Fernet
 
@@ -110,7 +110,6 @@ def get_pii_encryptor(encryption_key: str | None = None) -> PIIEncryptor:
 
     if _encryptor_instance is None:
         if encryption_key is None:
-            from src.core.config import settings
 
             encryption_key = settings.PII_ENCRYPTION_KEY
 

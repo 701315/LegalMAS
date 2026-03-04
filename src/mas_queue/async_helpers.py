@@ -16,7 +16,7 @@ from typing import Any, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.core.config import settings
+from core.config import settings
 
 T = TypeVar("T")
 

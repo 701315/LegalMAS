@@ -21,20 +21,21 @@ import time
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from src.core.config import settings
-from src.core.constants import DocumentStatus
-from src.core.exceptions import PermanentError, QuarantineError
-from src.core.logging import get_logger
-from src.db.uow import db_uow
-from src.mas_queue.base_task import MASBaseTask
-from src.mas_queue.celery_app import celery_app
-from src.services.pdf_extractor import (
+from workers.pii_sanitizer import sanitize_document
+from db.repositories import DocumentRepository, DocumentVersionRepository
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError, QuarantineError
+from core.logging import get_logger
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from services.pdf_extractor import (
     ExtractionResult,
     build_text_layout_raw,
     extract_pdf,
 )
-from src.storage.artifact_store import ArtifactPath, ArtifactStore
+from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
 
@@ -146,7 +147,6 @@ async def _extract_document_async(
 
     # 7. Trigger PII Sanitizer (Stage 5)
     if not settings.DISABLE_DOWNSTREAM_TASKS:
-        from src.workers.pii_sanitizer import sanitize_document
 
         sanitize_document.delay(
             document_version_id=document_version_id,
@@ -212,7 +212,6 @@ async def get_original_ref(
 
     Работает через переданную AsyncSession, не создаёт собственных сессий.
     """
-    from src.db.repositories import DocumentVersionRepository
 
     repo = DocumentVersionRepository(db)
     version = await repo.get_by_id(uuid.UUID(document_version_id))
@@ -233,7 +232,6 @@ async def update_extraction_result(
 
     Работает через переданную AsyncSession в рамках одного unit of work.
     """
-    from src.db.repositories import DocumentRepository, DocumentVersionRepository
 
     ver_repo = DocumentVersionRepository(db)
     doc_repo = DocumentRepository(db)

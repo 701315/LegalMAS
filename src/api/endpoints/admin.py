@@ -10,8 +10,8 @@ from pathlib import Path
 
 import yaml
 from fastapi import APIRouter
-from src.core.config import settings
-from src.api.schemas.admin import YamlInstructionDTO
+from core.config import settings
+from api.schemas.admin import YamlInstructionDTO
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

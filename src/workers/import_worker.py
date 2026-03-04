@@ -35,20 +35,20 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.constants import DocumentStatus
-from src.core.exceptions import IdempotencyConflictError, PermanentError
-from src.core.logging import get_logger
-from src.db.models.bundle import Bundle
-from src.db.repositories import (
+from core.constants import DocumentStatus
+from core.exceptions import IdempotencyConflictError, PermanentError
+from core.logging import get_logger
+from db.models.bundle import Bundle
+from db.repositories import (
     AuditRepository,
     DocumentRepository,
     DocumentVersionRepository,
     IdempotencyRepository,
 )
-from src.db.uow import db_uow
-from src.mas_queue.base_task import MASBaseTask
-from src.mas_queue.celery_app import celery_app
-from src.services.file_validator import (
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from services.file_validator import (
     FileStatus,
     can_process_directly,
     is_image,
@@ -56,8 +56,8 @@ from src.services.file_validator import (
     needs_conversion,
     validate_file,
 )
-from src.storage.artifact_store import ArtifactPath, ArtifactStore
-from src.workers.extract_worker import extract_document
+from storage.artifact_store import ArtifactPath, ArtifactStore
+from workers.extract_worker import extract_document
 
 logger = get_logger(__name__)
 

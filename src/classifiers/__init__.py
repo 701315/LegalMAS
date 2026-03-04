@@ -1,5 +1,5 @@
-from src.classifiers.hybrid_classifier import HybridClassifier
-from src.classifiers.rule_based import RuleBasedClassifier
-from src.classifiers.yaml_registry import YAMLRegistry
+from classifiers.hybrid_classifier import HybridClassifier
+from classifiers.rule_based import RuleBasedClassifier
+from classifiers.yaml_registry import YAMLRegistry
 
 __all__ = ["HybridClassifier", "RuleBasedClassifier", "YAMLRegistry"]

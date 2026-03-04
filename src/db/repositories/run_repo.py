@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 
 from sqlalchemy import select, update, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.db.models.result import CheckResult
-from src.db.models.run import Job, Run
-from src.db.models.document import Document
+from db.models.result import CheckResult
+from db.models.run import Job, Run
+from db.models.document import Document
 
 class RunRepository:
     def __init__(self, session: AsyncSession):

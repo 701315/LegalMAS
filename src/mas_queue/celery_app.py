@@ -35,7 +35,7 @@ async def _import_bundle_async(deal_id, tenant_id, source_path, run_id):
 from celery import Celery
 from kombu import Exchange, Queue
 
-from src.core.config import settings
+from core.config import settings
 
 # Create Celery app
 # Using Redis DB 0 as broker, Redis DB 1 as result backend

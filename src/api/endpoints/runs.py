@@ -12,18 +12,20 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from workers.classifier import classify_document
+from workers.runner import run_checks
 
-from src.api.schemas.runs import (
+from api.schemas.runs import (
     RunCreate,
     RunResponse,
     ClassificationReportResponse,
 )
-from src.db.session import get_db
-from src.db.repositories.run_repo import RunRepository
-from src.db.repositories.document_repo import DocumentRepository
-from src.core.config import settings
-from src.services.run_analytics_service import RunAnalyticsService, RunNotFoundError
-# from src.api.dependencies.deals import check_deal_access  # когда перейдёшь на реальную auth-модель
+from db.session import get_db
+from db.repositories.run_repo import RunRepository
+from db.repositories.document_repo import DocumentRepository
+from core.config import settings
+from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
+# from api.dependencies.deals import check_deal_access  # когда перейдёшь на реальную auth-модель
 
 # Заглушка пользователя — аналогично documents.py
 class CurrentUser:
@@ -80,7 +82,6 @@ async def start_run(
     if data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False):
         try:
             # Используем уже существующую Celery-таску классификатора
-            from src.workers.classifier import classify_document
 
             for d in docs:
                 classify_document.delay(
@@ -95,7 +96,6 @@ async def start_run(
     else:
         # Обычная постановка задач на проверки (Stage 8 Runner)
         try:
-            from src.workers.runner import run_checks
 
             for d in docs:
                 run_checks.delay(

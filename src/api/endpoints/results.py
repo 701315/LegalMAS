@@ -13,9 +13,9 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.schemas.results import CheckResultResponse
-from src.db.session import get_db
-from src.db.repositories.result_repo import ResultRepository
+from api.schemas.results import CheckResultResponse
+from db.session import get_db
+from db.repositories.result_repo import ResultRepository
 
 # auth-заглушка
 class CurrentUser:

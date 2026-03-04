@@ -26,11 +26,11 @@ Stage 8 CheckRunner: playbook-based checks executor.
 
 import uuid
 
-from src.core.logging import get_logger
-from src.db.repositories.runner_repo import RunnerRepository
-from src.db.uow import db_uow
-from src.engine.checks.executor import CheckExecutor
-from src.engine.playbook.loader import load_default_playbook
+from core.logging import get_logger
+from db.repositories.runner_repo import RunnerRepository
+from db.uow import db_uow
+from engine.checks.executor import CheckExecutor
+from engine.playbook.loader import load_default_playbook
 
 logger = get_logger(__name__)
 

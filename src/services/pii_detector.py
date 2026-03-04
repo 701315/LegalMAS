@@ -5,9 +5,9 @@ PII Detector.
 
 import re
 from dataclasses import dataclass
-
-from src.core.constants import PIIEntityType
-from src.core.logging import get_logger
+from core.config import settings
+from core.constants import PIIEntityType
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -88,7 +88,6 @@ def get_preserve_types() -> frozenset[PIIEntityType]:
 
     Строится динамически из настроек.
     """
-    from src.core.config import settings
 
     preserve = set()
     if settings.PII_PRESERVE_INN:
@@ -251,7 +250,6 @@ def get_pii_detector(ner_enabled: bool | None = None) -> PIIDetector:
 
     if _detector_instance is None:
         if ner_enabled is None:
-            from src.core.config import settings
 
             ner_enabled = settings.PII_NER_ENABLED
 

@@ -11,8 +11,8 @@ from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.core.constants import JobStatus
-from src.db.base import Base
+from core.constants import JobStatus
+from db.base import Base
 
 
 class Run(Base):

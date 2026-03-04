@@ -18,9 +18,9 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db.models.document import DocumentVersion
-from src.db.repositories.document_version_repo import DocumentVersionRepository
-from src.storage.artifact_store import ArtifactStore
+from db.models.document import DocumentVersion
+from db.repositories.document_version_repo import DocumentVersionRepository
+from storage.artifact_store import ArtifactStore
 
 
 class ClauseTreeStorageClientProtocol:

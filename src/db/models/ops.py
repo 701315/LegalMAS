@@ -12,7 +12,7 @@ from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base
+from db.base import Base
 
 
 class IdempotencyKey(Base):

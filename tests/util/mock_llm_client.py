@@ -1,5 +1,5 @@
 
-from src.engine.llm.client import LLMResponse
+from engine.llm.client import LLMResponse
 
 
 class MockLLMClient:

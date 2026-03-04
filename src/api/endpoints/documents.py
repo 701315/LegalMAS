@@ -13,18 +13,19 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from workers.runner import run_checks
 
-from src.api.schemas.documents import (
+from api.schemas.documents import (
     DocumentDetailResponse,
     DocumentResponse,
     ClassificationMetadata,
     ReclassifyRequest,
     ReclassifyResponse,
 )
-from src.db.repositories.document_repo import DocumentRepository
-from src.db.repositories.run_repo import RunRepository
-from src.db.repositories.audit_repo import AuditRepository
-from src.db.session import get_db
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.run_repo import RunRepository
+from db.repositories.audit_repo import AuditRepository
+from db.session import get_db
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -202,7 +203,6 @@ async def reclassify_document(
         latest_run = await run_repo.get_latest_for_deal(doc.deal_id)
         if latest_run:
             try:
-                from src.workers.runner import run_checks
 
                 run_checks.delay(
                     document_id=str(doc_id),

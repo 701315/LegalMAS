@@ -11,7 +11,7 @@ from contextvars import ContextVar
 
 import structlog
 
-from src.core.config import settings
+from core.config import settings
 
 # Context variables for request tracing.
 # These are set by workers/API handlers and automatically

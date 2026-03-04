@@ -1,8 +1,8 @@
 """Trigger detector: использует Stage 7 relations/families."""
 
 
-from src.core.logging import get_logger
-from src.db.repositories.runner_repo import RunnerRepository
+from core.logging import get_logger
+from db.repositories.runner_repo import RunnerRepository
 
 logger = get_logger(__name__)
 

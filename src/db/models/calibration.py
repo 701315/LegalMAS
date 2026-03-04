@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, Float, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.db.base import Base
+from db.base import Base
 
 
 class ClassificationCalibration(Base):

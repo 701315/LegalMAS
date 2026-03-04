@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.logging import get_logger
-from src.db.models.ops import DLQRecord
+from core.logging import get_logger
+from db.models.ops import DLQRecord
 
 logger = get_logger(__name__)
 

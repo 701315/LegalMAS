@@ -19,11 +19,11 @@ LLM-based detector for complex checks.
 
 from __future__ import annotations
 
-from src.core.logging import get_logger
-from src.engine.detectors.models import DetectionResult, EvidenceChunk, RetrievedChunk
-from src.engine.llm.client import LLMClient, LLMResponse
-from src.engine.playbook.models import LLMConfig
-from src.engine.prompts.loader import get_promptloader
+from core.logging import get_logger
+from engine.detectors.models import DetectionResult, EvidenceChunk, RetrievedChunk
+from engine.llm.client import LLMClient, LLMResponse
+from engine.playbook.models import LLMConfig
+from engine.prompts.loader import get_promptloader
 
 logger = get_logger(__name__)
 

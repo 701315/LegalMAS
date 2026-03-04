@@ -26,12 +26,12 @@ from celery.exceptions import Retry
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.constants import JobStatus
-from src.core.exceptions import PermanentError, QuarantineError, TransientError
-from src.core.logging import deal_id_var, document_id_var, get_logger
-from src.db.models.run import Job
-from src.db.uow import db_uow
-from src.mas_queue.dlq import DLQManager
+from core.constants import JobStatus
+from core.exceptions import PermanentError, QuarantineError, TransientError
+from core.logging import deal_id_var, document_id_var, get_logger
+from db.models.run import Job
+from db.uow import db_uow
+from mas_queue.dlq import DLQManager
 
 logger = get_logger(__name__)
 

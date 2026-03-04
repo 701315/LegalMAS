@@ -19,23 +19,28 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.config import settings
-from src.core.constants import DocumentStatus
-from src.core.logging import get_logger
-from src.db.repositories import DocumentRepository, RelationRepository
-from src.db.uow import db_uow
-from src.mas_queue.base_task import MASBaseTask
-from src.mas_queue.celery_app import celery_app
-from src.services.relations.dedup import ExactDedupService
-from src.services.relations.detector import RelationDetector
-from src.services.relations.family_builder import FamilyBuilder
-from src.services.relations.models import (
+from core.config import settings
+from core.constants import DocumentStatus
+from core.logging import get_logger
+from db.repositories import (
+    DocumentRepository, 
+    RelationRepository, 
+    DocumentVersionRepository,
+    AuditRepository,
+)
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from services.relations.dedup import ExactDedupService
+from services.relations.detector import RelationDetector
+from services.relations.family_builder import FamilyBuilder
+from services.relations.models import (
     DedupResult,
     DetectedRelation,
     FamilyGroup,
     RelationsReport,
 )
-from src.storage.artifact_store import ArtifactStore
+from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
 
@@ -202,7 +207,6 @@ async def _load_text_snippets(
     Load first 2000 chars of text_layout_raw for each document.
     This text is used for text-based relation detection.
     """
-    from src.db.repositories import DocumentVersionRepository
 
     store = ArtifactStore()
     ver_repo = DocumentVersionRepository(db)
@@ -231,7 +235,6 @@ async def _load_text_snippets(
 
 async def _mark_duplicates(doc_ids: list[str], db: AsyncSession) -> None:
     """Mark documents as duplicates in DB."""
-    from src.db.repositories import DocumentRepository
 
     repo = DocumentRepository(db)
     for doc_id in doc_ids:
@@ -247,7 +250,6 @@ async def _save_relations(
     db: AsyncSession,
 ) -> None:
     """Save detected relations to DB."""
-    from src.db.repositories import RelationRepository
 
     repo = RelationRepository(db)
     for rel in relations:
@@ -291,7 +293,6 @@ async def _write_audit_log(
     db: AsyncSession,
 ) -> None:
     """Write relations audit log entry."""
-    from src.db.repositories import AuditRepository
 
     repo = AuditRepository(db)
     await repo.log(

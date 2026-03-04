@@ -12,10 +12,14 @@
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
+
   page: number;
   per_page: number;
-  pages: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
 }
+
 
 /** Стандартная ошибка API */
 export interface ApiError {
