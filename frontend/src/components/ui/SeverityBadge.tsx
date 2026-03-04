@@ -13,11 +13,11 @@ interface Props {
 
 /**
  * Отображает уровень серьёзности:
- * - critical / high / medium / low / info
+ * - critical / high / medium / pass / unclear
  */
 export const SeverityBadge: React.FC<Props> = ({ severity, className }) => {
   let bg = "bg-gray-100 text-gray-700";
-  let label: string = severity; // <- ЯВНО строка, не SeverityLevel
+  let label: string = severity;
 
   switch (severity) {
     case "critical":
@@ -32,13 +32,13 @@ export const SeverityBadge: React.FC<Props> = ({ severity, className }) => {
       bg = "bg-yellow-100 text-yellow-700";
       label = "Medium";
       break;
-    case "low":
+    case "pass":
       bg = "bg-green-100 text-green-700";
-      label = "Low";
+      label = "Pass";
       break;
-    case "info":
+    case "unclear":
       bg = "bg-blue-100 text-blue-700";
-      label = "Info";
+      label = "Unclear";
       break;
   }
 

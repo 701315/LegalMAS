@@ -4,8 +4,9 @@
 // =============================================================
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Deal } from "../../types";
-import { useClassificationReport } from "../../api/runs";
+import { useClassificationReport, useStartRun } from "../../api/runs";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { canViewClassificationReport } from "../../constants";
 
@@ -165,19 +166,62 @@ const ClassificationQualityCard: React.FC<{
 
 /**
  * Основной компонент вкладки Overview.
- * Пока содержит только заголовок и ClassificationQualityCard.
+ * Содержит заголовок, кнопку запуска и ClassificationQualityCard.
  */
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
+  const qc = useQueryClient();
+  const startRun = useStartRun(deal.id);
+
+  const handleStart = () => {
+    const forceKey = `mas_dd_force_reclassify_${deal.id}`;
+    const forceReclassify =
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(forceKey) === "1";
+
+    startRun.mutate(
+      {
+        // RunCreateInput: при необходимости добавь profile / playbook_version_id
+        force_reclassify: forceReclassify,
+      },
+      {
+        onSuccess: (run) => {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(forceKey);
+          }
+          // Обновить информацию о текущем run
+          qc.invalidateQueries({
+            queryKey: ["run", run.id, true],
+          });
+          qc.invalidateQueries({
+            queryKey: ["run", run.id, false],
+          });
+          qc.invalidateQueries({
+            queryKey: ["classification-report", run.id],
+          });
+        },
+      },
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Заголовок / краткая информация о сделке */}
-      <div className="bg-white rounded-lg p-5 border">
-        <h1 className="text-xl font-bold text-gray-900 mb-1">
-          Обзор сделки
-        </h1>
-        <p className="text-sm text-gray-600">
-          {deal.name} · статус: {deal.status}
-        </p>
+      <div className="bg-white rounded-lg p-5 border flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 mb-1">
+            Обзор сделки
+          </h1>
+          <p className="text-sm text-gray-600">
+            {deal.name} · статус: {deal.status}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="px-3 py-1.5 rounded bg-blue-600 text-white text-xs hover:bg-blue-700"
+          onClick={handleStart}
+        >
+          Запустить анализ
+        </button>
       </div>
 
       {/* Карточка качества классификации */}

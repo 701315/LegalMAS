@@ -232,14 +232,15 @@ export interface Run {
 // РЕЗУЛЬТАТЫ ПРОВЕРОК (CHECK RESULTS)
 // -------------------------------------------------------------
 
-export type CheckResultValue =
-  | "ok"
-  | "warning"
-  | "critical"
-  | "missing"
-  | "not_applicable";
+export type CheckResultValue = "fail" | "pass" | "unclear";
 
-export type SeverityLevel = "critical" | "high" | "medium" | "low" | "info";
+export type SeverityLevel =
+  | "critical"
+  | "high"
+  | "medium"
+  | "pass"
+  | "unclear";
+
 
 export type QCStatus = "pending" | "approved" | "rejected" | "needs_review";
 
@@ -268,7 +269,34 @@ export interface CheckResult {
   // Условные проверки (Этап 10)
   conditional_check_triggered?: boolean;
   trigger_name?: string;
+  // Денормализованная классификация документа (новое)
+  doc_classification_level?: ClassificationLevel;
+  doc_classification_confidence?: number;
 }
+
+
+// -------------------------------------------------------------
+// EVIDENCE (ДОКАЗАТЕЛЬСТВА ДЛЯ РЕЗУЛЬТАТОВ ПРОВЕРОК)
+// -------------------------------------------------------------
+
+/**
+ * Базовый тип доказательства (evidence) для одного результата проверки.
+ * Поля синхронизированы по смыслу с Pydantic-схемой backend-а.
+ */
+export interface Evidence {
+  id: string;
+  result_id: string;
+  document_id: string;
+  // Краткий фрагмент текста (для списка / быстрого просмотра)
+  snippet?: string;
+  // Полная цитата или более длинный фрагмент
+  quote?: string;
+  // Страница документа, если backend её отдаёт
+  page?: number;
+  // Дополнительные произвольные поля (для расширений backend-а)
+  [key: string]: unknown;
+}
+
 
 // -------------------------------------------------------------
 // DD ЗАПРОСЫ (DUE DILIGENCE REQUESTS)
