@@ -111,6 +111,40 @@ async def start_run(
 
 
 @router.get(
+    "/deal/{deal_id}",
+    response_model=list[RunResponse],
+    summary="Список запусков анализа для сделки",
+)
+async def list_runs_for_deal(
+    deal_id: uuid.UUID,
+    include_classification_stats: bool = Query(
+        default=False,
+        description="Если true — добавить блок classification_stats к каждому run",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Вернуть все runs для указанной сделки (новые сначала).
+
+    Если include_classification_stats=True — для каждого run
+    дополнительно будет подсчитан блок статистики классификации.
+    """
+    run_repo = RunRepository(db)
+
+    runs = await run_repo.get_by_deal(deal_id)
+    result = [RunResponse.model_validate(r) for r in runs]
+
+    if include_classification_stats and runs:
+        # Подгружаем статистику классификации для каждого run
+        for i, run_obj in enumerate(runs):
+            stats = await run_repo.get_classification_stats_for_run(run_obj.id)
+            result[i].classification_stats = stats
+
+    return result
+
+
+@router.get(
     "/{run_id}",
     response_model=RunResponse,
     summary="Получить статус run и статистику классификации",

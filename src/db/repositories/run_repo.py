@@ -101,6 +101,19 @@ class RunRepository:
         return result.scalars().first()
 
 
+    async def get_by_deal(self, deal_id: uuid.UUID) -> list[Run]:
+        """
+        Вернуть все runs для указанной сделки, отсортированные по дате создания (новые сначала).
+        """
+        stmt = (
+            select(Run)
+            .where(Run.deal_id == deal_id)
+            .order_by(desc(Run.created_at))
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
     async def get_classification_stats_for_run(self, run_id: uuid.UUID) -> dict:
         """
         Посчитать статистику классификации по всем документам,
