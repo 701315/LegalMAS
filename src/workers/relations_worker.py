@@ -18,6 +18,7 @@ import time
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from ops.metrics import METRICS
 
 from core.config import settings
 from core.constants import DocumentStatus
@@ -111,6 +112,10 @@ async def build_relations(
         await _load_text_snippets(docs, tenant_id=tenant_id, deal_id=deal_id, db=db)
 
         # Step 4: relation detection
+
+        traversal_start = time.time()
+
+
         detector = RelationDetector()
         detected_relations = detector.detect_all_relations(docs)
 
@@ -120,6 +125,8 @@ async def build_relations(
         # Step 5: family building
         family_builder = FamilyBuilder()
         families: list[FamilyGroup] = family_builder.build_families(docs, all_relations)
+
+        METRICS.relation_traversal_latency.observe(time.time() - traversal_start)
 
         # Step 6: save relations and families using repositories
         await _save_relations(deal_id, all_relations, db)

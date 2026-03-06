@@ -20,7 +20,7 @@ Full Runner with check_catalogue.yaml routing in Stage 8.
 
 import json
 import uuid
-
+from src.ops.metrics import METRICS
 from sqlalchemy.ext.asyncio import AsyncSession
 from workers.exporter import export_results
 from db.repositories import ResultRepository, DocumentRepository
@@ -113,6 +113,17 @@ async def _run_checks_async(
     check_results.append(coc_result["check_result"])
     if coc_result.get("evidence"):
         evidence_records.append(coc_result["evidence"])
+
+    # --- Метрики выполнения проверок ---
+    for cr in check_results:
+        METRICS.checks_executed.labels(
+            detector_type=cr.get("detector_used", "unknown"),
+            result=cr.get("result", "unknown"),
+        ).inc()
+
+        METRICS.check_duration.labels(
+            detector_type=cr.get("detector_used", "unknown"),
+        ).observe(0.0)  # TODO: заменить на реальную длительность, когда появится
 
     await _finalize(
         run_id=run_id,

@@ -7,6 +7,7 @@ import uuid
 from typing import Any, Dict, List, Mapping
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.ops.metrics import METRICS
 
 from core.logging import get_logger
 from db.models.result import CheckResult
@@ -232,6 +233,7 @@ async def export_core(
             data=grid_bytes,
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+        METRICS.export_duration.labels(export_type="grid_xlsx").observe(0.0)
         logger.info("DD Grid Excel сохранён", ref=refs["dd_grid"])
     except Exception as e:  # noqa: BLE001
         logger.error("Ошибка генерации DD Grid Excel", error=str(e))
@@ -249,6 +251,7 @@ async def export_core(
             data=summary_bytes,
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+        METRICS.export_duration.labels(export_type="summary_xlsx").observe(0.0)
         logger.info("Summary Excel сохранён", ref=refs["summary"])
     except Exception as e:  # noqa: BLE001
         logger.error("Ошибка генерации Summary Excel", error=str(e))
@@ -266,6 +269,7 @@ async def export_core(
             data=report_bytes,
             content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
+        METRICS.export_duration.labels(export_type="report_docx").observe(0.0)
         logger.info("Word Report сохранён", ref=refs["report"])
     except Exception as e:  # noqa: BLE001
         logger.error("Ошибка генерации Word Report", error=str(e))
@@ -287,6 +291,7 @@ async def export_core(
             data=json_bytes,
             content_type="application/json",
         )
+        METRICS.export_duration.labels(export_type="aggregated_json").observe(0.0)
         logger.info("JSON-дамп сохранён", ref=refs["json"])
     except Exception as e:  # noqa: BLE001
         logger.error("Ошибка генерации JSON-дампа", error=str(e))

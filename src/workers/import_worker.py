@@ -34,6 +34,7 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from ops.metrics import METRICS
 
 from core.constants import DocumentStatus
 from core.exceptions import IdempotencyConflictError, PermanentError
@@ -133,6 +134,7 @@ async def _import_bundle_async(
             return cached
 
     if not os.path.exists(source_path):
+        METRICS.import_fail.labels(reason="source_not_found").inc()
         raise PermanentError(
             f"Source file not found: {source_path}",
             details={"source_path": source_path},
@@ -182,6 +184,7 @@ def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(tmp_dir)
     except zipfile.BadZipFile:
+        METRICS.import_fail.labels(reason="bad_zip").inc()
         raise PermanentError(
             "Invalid or corrupted ZIP file",
             details={"source_path": zip_path},
@@ -315,6 +318,11 @@ async def _async_import(
                 reason=validation.reason,
                 doc_id=str(q_doc.id),
             )
+            
+            METRICS.quarantine.labels(
+                reason=validation.reason or "import_quarantine"
+            ).inc()          
+            
             continue
 
         # Step 3: SHA-256 deduplication within deal
@@ -331,8 +339,17 @@ async def _async_import(
             continue
 
         # Step 4: Upload original to MinIO
-        with open(filepath, "rb") as f:
-            file_bytes = f.read()
+        try:
+            with open(filepath, "rb") as f:
+                file_bytes = f.read()
+        except Exception as e:
+            METRICS.import_fail.labels(reason="read_error").inc()
+            logger.error(
+                "Failed to read file during import",
+                filename=filename,
+                error=str(e),
+            )
+            continue
 
         doc = await doc_repo.create(
             deal_id=uuid.UUID(deal_id),

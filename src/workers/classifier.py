@@ -12,6 +12,7 @@ Status: structured -> classified.
 import asyncio
 import time
 import uuid
+from ops.metrics import METRICS
 
 from classifiers.hybrid_classifier import HybridClassifier
 from classifiers.keyword_analyzer import KeywordAnalyzer
@@ -131,6 +132,16 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             jurisdiction=result.jurisdiction,
             playbook_version_id=playbook.id if playbook else None,
         )
+
+        # --- Метрики классификации ---
+        METRICS.classification_duration.labels(
+            level=result.level.value if hasattr(result, "level") else "L_manual"
+        ).observe(time.time() - start_time)
+
+        METRICS.classification_level_distribution.labels(
+            level=result.level.value if hasattr(result, "level") else "L_manual",
+            doc_type=result.doctype or "UNKNOWN",
+        ).inc()
 
         await doc_repo.update_status(doc.id, DocumentStatus.CLASSIFIED.value)
 

@@ -19,7 +19,7 @@ NOTE: element.clause_uid is null at this stage — set by Structure Builder (Sta
 
 import time
 import uuid
-
+from src.ops.metrics import METRICS
 from sqlalchemy.ext.asyncio import AsyncSession
 from workers.pii_sanitizer import sanitize_document
 from db.repositories import DocumentRepository, DocumentVersionRepository
@@ -145,6 +145,19 @@ async def _extract_document_async(
         duration_seconds=round(duration, 2),
     )
 
+    # --- Метрики извлечения ---
+    METRICS.extraction_duration.labels(
+        strategy=extraction.strategy,
+    ).observe(duration)
+
+    METRICS.extraction_pages.labels(
+        strategy=extraction.strategy,
+    ).inc(extraction.page_count)
+
+    if extraction.strategy == "ocr" and extraction.avg_ocr_confidence is not None:
+        METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
+
+
     # 7. Trigger PII Sanitizer (Stage 5)
     if not settings.DISABLE_DOWNSTREAM_TASKS:
 
@@ -170,6 +183,7 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
     """Raise QuarantineError if extraction results are below quality thresholds."""
     # Parse errors + no elements
     if extraction.errors and not extraction.elements:
+        METRICS.quarantine.labels(reason="extraction_failed").inc()
         raise QuarantineError(
             f"PDF extraction failed: {'; '.join(extraction.errors)}",
             document_id=document_id,
@@ -178,6 +192,7 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
 
     # 0 elements at all
     if not extraction.elements:
+        METRICS.quarantine.labels(reason="no_text_extracted").inc()
         raise QuarantineError(
             "No text extracted from PDF — 0 elements",
             document_id=document_id,
@@ -188,6 +203,7 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
     if extraction.strategy in ("ocr", "hybrid") and (
         extraction.avg_ocr_confidence < settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD
     ):
+        METRICS.quarantine.labels(reason="ocr_low_confidence").inc()
         raise QuarantineError(
             (
                 f"OCR confidence too low: "

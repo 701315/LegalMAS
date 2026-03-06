@@ -23,6 +23,7 @@ import uuid
 from enum import Enum
 
 import redis as redis_lib
+from ops.metrics import METRICS
 
 from .config import settings
 from .exceptions import CircuitOpenError
@@ -173,8 +174,17 @@ class CircuitBreaker:
         old_state = self._redis.get(self._state_key) or CBState.CLOSED.value
         self._redis.set(self._state_key, new_state.value)
 
+        # Prometheus: текущее состояние circuit breaker
+        state_value = {
+            CBState.CLOSED: 0,
+            CBState.OPEN: 1,
+            CBState.HALF_OPEN: 2,
+        }[new_state]
+        METRICS.circuit_breaker_state.labels(provider=self.name).set(state_value)
+
         if new_state == CBState.OPEN:
             self._redis.set(self._opened_at_key, str(time.time()))
+            # При открытии фиксируем «старт»; накопление времени делаем лениво
             self._redis.delete(self._half_open_successes_key)
 
         elif new_state == CBState.HALF_OPEN:
@@ -204,6 +214,11 @@ class CircuitBreaker:
         time_in_open = 0.0
         if opened_at and self.state == CBState.OPEN:
             time_in_open = now - float(opened_at)
+
+        if time_in_open > 0:
+            METRICS.circuit_breaker_open_seconds.labels(
+                provider=self.name
+            ).inc(time_in_open)
 
         return {
             "name": self.name,

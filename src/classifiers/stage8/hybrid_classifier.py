@@ -34,10 +34,12 @@ Stage 8 HybridClassifier (L1 → L2 → L3) с интеграцией Stage 7 и
 """
 
 from __future__ import annotations
+import time
 
 from .l1_filename import L1FilenameClassifier
 from .l2_header import L2HeaderClassifier
 from .l3_semantic import L3SemanticClassifier
+from ops.metrics import METRICS
 
 from core.config import settings
 from core.logging import get_logger
@@ -75,6 +77,8 @@ class HybridClassifier:
         """
         Основной метод классификации одного документа с учётом Stage 7 и каскада L1→L2→L3.
         """
+        started_at = time.time()
+
         doc = await self.uow.documents.get_by_id(doc_id)
         if doc is None:
             logger.warning("HybridClassifier: document not found", doc_id=doc_id)
@@ -113,6 +117,10 @@ class HybridClassifier:
                     "confidence": float(master.classification_confidence or 0.0),
                     "copied_from_master": str(master.id),
                 }
+
+                METRICS.classification_duration.labels(level="L_manual").observe(
+                    time.time() - started_at
+                )
 
                 return {
                     "levels_tried": details["levels_tried"],
@@ -257,6 +265,10 @@ class HybridClassifier:
             language = voted.get("language", language)
             jurisdiction = voted.get("jurisdiction", jurisdiction)
 
+            METRICS.classification_duration.labels(level="L3").observe(
+                time.time() - started_at
+            )
+
             return {
                 "levels_tried": details["levels_tried"],
                 "candidates": candidates,
@@ -270,6 +282,11 @@ class HybridClassifier:
             }
 
         # Если голосование не сработало (нет кандидатов) — UNKNOWN
+
+        METRICS.classification_duration.labels(level="L0").observe(
+            time.time() - started_at
+        )
+
         return {
             "levels_tried": details["levels_tried"],
             "candidates": candidates,

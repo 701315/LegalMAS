@@ -185,5 +185,27 @@ class Settings(BaseSettings):
     API_RECLASSIFY_BATCH_LIMIT: int = 50     # максимум документов в batch reclassify
 
 
+    # --- Ops: Metrics & Regression ---
+    METRICS_ENABLED: bool = True               # Включить сбор метрик
+    METRICS_PREFIX: str = "mas_dd"             # Префикс всех метрик
+
+    # Promotion Gate — пороги качества
+    GATE_EVIDENCE_VALIDITY_MIN: float = 0.95    # Мин. доля FAIL/HIGH/CRITICAL с валидным evidence
+    GATE_PRECISION_CRITICAL_MIN: float = 0.90   # Мин. precision для critical‑проверок
+    GATE_RECALL_CRITICAL_MIN: float = 0.85      # Мин. recall для critical‑проверок
+    GATE_UNCLEAR_RATE_MAX: float = 0.10         # Макс. доля UNCLEAR по critical‑чекам
+    GATE_RETRIEVAL_HIT_RATE_MIN: float = 0.80   # Мин. доля попаданий evidence в топ‑5 retrieval
+    GATE_F1_DELTA_MIN: float = -0.05            # Макс. допустимое падение F1 vs базовой версии
+
+    # Пороги классификации для Promotion Gate
+    GATE_CLASSIFICATION_ACCURACY_MIN: float = 0.90  # Мин. точность doc_type классификации
+    GATE_YAML_COVERAGE_MIN: float = 0.70            # Мин. доля doc_type с YAML‑инструкцией
+    GATE_LOW_CONFIDENCE_RATE_MAX: float = 0.15      # Макс. доля документов с conf < 0.6
+
+    # Golden Dataset
+    GOLDEN_DATASET_PATH: str = "golden_dataset"     # Путь к golden dataset
+
+
+
 # Singleton: one settings instance for the whole application
 settings = Settings()

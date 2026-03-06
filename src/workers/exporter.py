@@ -18,12 +18,16 @@ Exporter Worker — Stage 9.
 #import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.ops.metrics import METRICS
 
 from core.logging import get_logger
 from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.export.core import export_core
+import time
+
+started_at = time.time()
 
 #from db.models.export import Export
 #from db.models.result import CheckResult
@@ -337,4 +341,8 @@ async def export_results(
             tenant_id=tenant_id,
             db=uow.session,
         )
+        
+        duration = time.time() - started_at
+        METRICS.export_duration.labels(export_type="full_deal_export").observe(duration)
+        
         return result

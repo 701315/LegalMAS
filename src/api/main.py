@@ -19,6 +19,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from src.ops.instrument import setup_metrics
 
 from .endpoints import (
     runner,
@@ -37,6 +38,10 @@ app = FastAPI(
     title="LegalMAS API",
     version="0.1.0",
 )
+
+# Prometheus metrics
+setup_metrics(app)
+
 
 # Разрешённые origin для фронтенда (Vite dev‑сервер)
 origins = [
