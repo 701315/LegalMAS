@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.ops import AuditLog
+from ..models.ops import AuditLog
 
 
 class AuditRepository:

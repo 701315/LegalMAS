@@ -4,11 +4,12 @@
 // =============================================================
 
 import React from "react";
+import { Link, useParams } from "react-router-dom";
 import { useDeals } from "../api/deals";
 import DealCard from "../components/DealCard";
 
 interface DealListPageProps {
-  /** Колбэк, вызывается при выборе сделки */
+  /** Колбэк, вызывается при выборе сделки (опционально, для master-detail) */
   onSelectDeal?: (dealId: string) => void;
 }
 
@@ -19,6 +20,10 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
   const [status, setStatus] = React.useState<string | undefined>(undefined);
   // Фильтр по tenant_id (undefined = все)
   const [tenantId, setTenantId] = React.useState<string | undefined>(undefined);
+
+  // Активная сделка берётся из URL /deals/:dealId
+  const params = useParams<{ dealId?: string }>();
+  const activeDealId = params.dealId;
 
   // Загружаем сделки с учетом страницы, статуса и tenantId
   const { data, isLoading, error } = useDeals(page, status, tenantId);
@@ -123,13 +128,20 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
           </div>
         ) : (
           <>
+            {/* Сетка плиток-сделок */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {deals.map((deal) => (
-                <DealCard
+                <Link
                   key={deal.id}
-                  deal={deal}
+                  to={`/deals/${deal.id}`}
                   onClick={() => onSelectDeal && onSelectDeal(deal.id)}
-                />
+                  className="block no-underline text-inherit"
+                >
+                  <DealCard
+                    deal={deal}
+                    isActive={activeDealId === deal.id}
+                  />
+                </Link>
               ))}
             </div>
 

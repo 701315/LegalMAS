@@ -11,10 +11,10 @@ The combined result is cached via lru_cache.
 All classifiers (L1, L2, L3) and TriggerDetector use this single cache.
 """
 
-import os
-from functools import lru_cache
-
 import yaml
+import os
+
+from functools import lru_cache
 
 from core.logging import get_logger
 

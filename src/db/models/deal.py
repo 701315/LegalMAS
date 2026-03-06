@@ -5,12 +5,12 @@ Each deal belongs to a tenant and contains bundles of documents.
 
 import uuid
 
-from sqlalchemy import Index, String
+from sqlalchemy import Index, String, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import DealStatus, PIIMode
-from db.base import Base
+from ..base import Base
 
 
 class Deal(Base):
@@ -69,6 +69,13 @@ class Deal(Base):
         UUID(as_uuid=True),
         nullable=True,
         comment="Selected playbook version (FK added after PlaybookVersion model)",
+    )
+
+    last_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("runs.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="ID of the latest analysis run for this deal",
     )
 
     metadata_: Mapped[dict | None] = mapped_column(

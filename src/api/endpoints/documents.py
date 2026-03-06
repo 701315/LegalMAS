@@ -10,31 +10,35 @@
 
 import uuid
 from pathlib import Path
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from workers.runner import run_checks
+from sqlalchemy.orm import selectinload
 
-from api.schemas.documents import (
+from workers.runner import run_checks
+from core.constants import DocumentStatus
+from db.models.relation import DocumentFamily, DocumentFamilyMember
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.run_repo import RunRepository
+from db.repositories.audit_repo import AuditRepository
+from db.repositories.relation_repo import RelationRepository  # NEW
+from db.session import get_db
+from storage.artifact_store import ArtifactStore, ArtifactPath
+from ..schemas.documents import (
     DocumentDetailResponse,
     DocumentResponse,
     ClassificationMetadata,
     ReclassifyRequest,
     ReclassifyResponse,
 )
-from db.repositories.document_repo import DocumentRepository
-from db.repositories.run_repo import RunRepository
-from db.repositories.audit_repo import AuditRepository
-from db.session import get_db
-
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
 
 # -------------------------------------------------------------------
 # Временные заглушки для пользователя (заменишь на свою auth-схему)
 # -------------------------------------------------------------------
-
 
 class CurrentUser:
     id: str = "system"
@@ -218,7 +222,7 @@ async def reclassify_document(
     audit_repo = AuditRepository(db)
     await audit_repo.log(
         tenant_id=user.tenant_id,
-        action="DOCUMENT_RECLASSIFIED",
+        action="RECLASSIFY",
         actor=str(getattr(user, "id", "unknown")),
         deal_id=doc.deal_id,
         actor_role=getattr(user, "role", None),
@@ -241,3 +245,153 @@ async def reclassify_document(
         yaml_instruction_found=yaml_found,
         checks_requeued=checks_requeued,
     )
+
+@router.get(
+    "/{doc_id}/family",
+    summary="Get document family (master + members)",
+)
+async def get_document_family(
+    doc_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Returns the family of a document:
+
+    - master: the main document
+    - appendices: all family members (no strict type yet)
+    - amendments: [] (reserved for future use)
+    - versions: [] (reserved for future use)
+
+    Семейства заранее строятся воркером build_relations и
+    сохраняются в таблицы document_families / document_family_members.
+    Этот эндпоинт только читает их.
+    """
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Здесь можно добавить check_deal_access(doc.deal_id, user, db),
+    # когда подключишь реальную авторизацию.
+
+    relation_repo = RelationRepository(db)
+
+    # Ищем family, где master_doc_id = doc_id, с подгруженными members
+    stmt = (
+        select(DocumentFamily)
+        .where(DocumentFamily.master_doc_id == doc_id)
+        .options(
+            # Подгружаем членов семьи (DocumentFamilyMember)
+            selectinload(DocumentFamily.members)
+        )
+    )
+    result = await db.execute(stmt)
+    family: DocumentFamily | None = result.scalars().first()
+
+    if not family:
+        # Для этого документа семьи нет — возвращаем только master
+        return {
+            "master": DocumentResponse.model_validate(doc),
+            "appendices": [],
+            "amendments": [],
+            "versions": [],
+        }
+
+    # Собираем ID всех членов семьи
+    member_doc_ids = [member.doc_id for member in family.members]
+
+    # Загружаем сами документы по этим ID
+    members_docs = []
+    if member_doc_ids:
+        # Если в DocumentRepository есть метод get_many/get_by_ids — можно использовать его.
+        # Здесь показываю вариант через прямой select по ORM-модели Document.
+        from db.models.document import Document as DocumentModel  # локальный импорт, чтобы не плодить круговые зависимости
+
+        stmt_members = select(DocumentModel).where(
+            DocumentModel.id.in_(member_doc_ids)
+        )
+        result_members = await db.execute(stmt_members)
+        members_docs = list(result_members.scalars().all())
+
+    # Пока все члены семьи кладём в appendices.
+    # Если позже начнёшь заполнять relation_to_master, можно будет
+    # разнести по appendices / amendments / versions.
+    appendices = [DocumentResponse.model_validate(d) for d in members_docs]
+
+    return {
+        "master": DocumentResponse.model_validate(doc),
+        "appendices": appendices,
+        "amendments": [],
+        "versions": [],
+    }
+
+@router.post(
+    "/{doc_id}/replace",
+    summary="Replace a quarantined document with a new file",
+)
+async def replace_document(
+    doc_id: UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Replace a quarantined document with a corrected file.
+
+    Resets status to 'pending' and clears classification fields so that
+    the document goes through the full pipeline again, including HybridClassifier.
+    """
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if doc.status != DocumentStatus.QUARANTINE.value:
+        raise HTTPException(
+            status_code=422,
+            detail="Only quarantined documents can be replaced",
+        )
+
+    # TODO: check_deal_access(doc.deal_id, user, db) — когда появится реальный ACL
+
+    # Сохраняем новый файл в ArtifactStore
+    store = ArtifactStore()
+    file_bytes = await file.read()
+    file_ref = store.put_file(
+        ArtifactPath.original(str(user.tenant_id), str(doc.deal_id), str(doc.id)),
+        file_bytes,
+    )
+
+    # Сбрасываем статус и классификацию
+    await doc_repo.reset_for_reprocessing(
+        doc.id,
+        new_status=DocumentStatus.PENDING.value,
+        clear_classification=True,
+    )
+
+    # Аудит
+    audit_repo = AuditRepository(db)
+    await audit_repo.log(
+        tenant_id=user.tenant_id,
+        deal_id=doc.deal_id,
+        action="DOCUMENT_REPLACE",
+        actor=str(getattr(user, "id", "unknown")),
+        actor_role=getattr(user, "role", None),
+        details={
+            "document_id": str(doc.id),
+            "filename": file.filename,
+            "previous_doc_type": doc.doc_type,
+            "classification_reset": True,
+            "artifact_ref": file_ref,
+        },
+    )
+
+    return {
+        "status": "ok",
+        "document_id": str(doc.id),
+        "new_status": DocumentStatus.PENDING.value,
+        "classification_reset": True,
+    }
+
+

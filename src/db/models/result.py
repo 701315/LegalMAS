@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import QCStatus
-from db.base import Base
+from ..base import Base
 
 
 class CheckResult(Base):

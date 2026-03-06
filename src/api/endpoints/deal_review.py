@@ -1,7 +1,10 @@
 # src/api/endpoints/deal_review.py
 
-from fastapi import APIRouter, HTTPException, Depends
 import uuid
+
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.deal_review_service import (
     load_aggregated_results,
     build_document_summaries,
@@ -10,7 +13,10 @@ from services.deal_review_service import (
     build_conditional_checks,
     build_extracted_values,
 )
-from api.schemas.deal_review import (
+
+from db.session import get_db
+from db.repositories.run_repo import RunRepository
+from ..schemas.deal_review import (
     DocumentSummaryDTO,
     DocumentDetailDTO,
     DDRequestDTO,
@@ -18,10 +24,6 @@ from api.schemas.deal_review import (
     ExtractedValueDTO,
     DocumentStructuredDataDTO,
 )
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from db.session import get_db
-from db.repositories.run_repo import RunRepository
 
 router = APIRouter(prefix="/deals", tags=["deal_review"])
 

@@ -114,8 +114,74 @@ export const DD_REQUEST_STATUS_DISPLAY: Record<string, string> = {
 };
 
 /** Читаемые источники DD-запросов для UI */
-export const DD_REQUEST_SOURCE_DISPLAY: Record<string, string> = {
-  yaml_template: "Шаблон YAML",
-  manual: "Создан вручную",
-  aggregator: "Автоматически",
+export const DD_REQUEST_SOURCE_DISPLAY: Record<
+  string,
+  { label: string; color: string; icon: string }
+> = {
+  yaml_template: {
+    label: "YAML-шаблон",
+    color: "bg-purple-100 text-purple-800",
+    icon: "⚡",
+  },
+  manual: {
+    label: "Вручную",
+    color: "bg-gray-100 text-gray-700",
+    icon: "✍️",
+  },
+  aggregator: {
+    label: "Автоматически",
+    color: "bg-blue-100 text-blue-800",
+    icon: "🤖",
+  },
 };
+
+
+export const DOCUMENT_STATUS_LABEL: Record<string, string> = {
+  pending: "Ожидает",
+  extracting: "Извлечение",
+  extracted: "Извлечён",
+  sanitized: "Обезличен",
+  structured: "Структурирован",
+  classified: "Классифицирован",
+  analyzing: "Анализируется",
+  completed: "Обработан",
+  quarantine: "Карантин",
+};
+
+export const DOCUMENT_STATUS_COLOR: Record<string, string> = {
+  pending: "bg-gray-100 text-gray-600",
+  extracting: "bg-yellow-100 text-yellow-800",
+  extracted: "bg-blue-100 text-blue-800",
+  sanitized: "bg-blue-100 text-blue-800",
+  structured: "bg-blue-100 text-blue-800",
+  classified: "bg-indigo-100 text-indigo-800",
+  analyzing: "bg-purple-100 text-purple-800",
+  completed: "bg-green-100 text-green-800",
+  quarantine: "bg-red-100 text-red-800",
+};
+
+export const AUDIT_ACTION_LABEL: Record<string, string> = {
+  IMPORT: "Импорт",
+  EXPORT: "Экспорт",
+  SANITIZE: "Обезличивание",
+  QC_CONFIRM: "QC подтверждение",
+  QC_REJECT: "QC отклонение",
+  QC_OVERRIDE: "QC изменение",
+  DOCUMENT_REPLACE: "Замена документа",
+  RUN_START: "Запуск анализа",
+  PLAYBOOK_PROMOTE: "Промоут playbook",
+  // классификация
+  RECLASSIFY: "Переклассификация",
+  YAML_INSTRUCTION_APPLY: "Применение YAML-инструкции",
+};
+
+// -------------------------------------------------------------
+// ЭКСПОРТЫ — ТИПЫ ФАЙЛОВ
+// -------------------------------------------------------------
+
+export const EXPORT_TYPE_LABEL: Record<string, string> = {
+  grid_xlsx: "DD Grid (Excel)",
+  deal_summary_xlsx: "Deal Summary (Excel)",
+  report_docx: "Отчёт DD (Word)",
+};
+

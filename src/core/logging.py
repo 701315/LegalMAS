@@ -6,12 +6,12 @@ In production:  JSON output for log aggregation (ELK, etc.).
 """
 
 import logging
+import structlog
 import sys
+
 from contextvars import ContextVar
 
-import structlog
-
-from core.config import settings
+from .config import settings
 
 # Context variables for request tracing.
 # These are set by workers/API handlers and automatically

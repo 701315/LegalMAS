@@ -23,11 +23,12 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.models.result import CheckResult
-from classifiers.yaml_registry import YAMLRegistry
-from db.models.document import Document
-from db.models.relation import DocumentFamily, DocumentFamilyMember
 
+from ..models.result import CheckResult
+from ..models.document import Document
+from ..models.relation import DocumentFamily, DocumentFamilyMember
+
+from classifiers.yaml_registry import YAMLRegistry
 
 class RunnerRepository:
     """Работает с non-duplicate документами и семьями документов."""

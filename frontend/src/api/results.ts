@@ -54,19 +54,20 @@ export const resultApi = {
       .get<CheckResult>(`/api/v1/results/${resultId}`)
       .then((r) => r.data),
 
+      
   /**
    * Список запусков для сделки.
-   * Использует наш новый эндпоинт GET /runs/deal/{deal_id}
-   * (реальный префикс /api/v1/ уже зашит внутри client.baseURL).
+   * GET /api/v1/runs/deal/{deal_id}
    */
   listRuns: (dealId: string, includeStats = false) =>
     client
-      .get<Run[]>(`/runs/deal/${dealId}`, {
+      .get<Run[]>(`/api/v1/runs/deal/${dealId}`, {
         params: includeStats
           ? { include_classification_stats: true }
           : {},
       })
       .then((r) => r.data),
+
 };
 
 /**

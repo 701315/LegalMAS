@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from classifiers.base import BaseClassifier, ClassificationResult
-from classifiers.registry_loader import load_registry
+from .base import BaseClassifier, ClassificationResult
+from .registry_loader import load_registry
 from core.constants import CLASSIFICATION_THRESHOLDS, ClassificationLevel
 from core.logging import get_logger
 from services.embeddings.embedding_service import embedding_service

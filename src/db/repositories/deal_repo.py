@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.deal import Deal
+from ..models.deal import Deal
 
 
 class DealRepository:
@@ -117,3 +117,19 @@ class DealRepository:
         items = list(result.scalars().all())
 
         return items, total
+    
+    async def set_last_run_id(
+        self,
+        deal_id: uuid.UUID,
+        run_id: uuid.UUID,
+    ) -> None:
+        """Set latest run id for a deal."""
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(last_run_id=run_id)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+
+

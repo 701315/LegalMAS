@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import DocumentStatus
-from db.base import Base
+from ..base import Base
 
 
 class Document(Base):

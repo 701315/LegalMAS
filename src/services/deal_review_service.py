@@ -12,8 +12,10 @@
 from typing import Any, Dict, List, Tuple
 
 from core.logging import get_logger
+
 from db.uow import db_uow
 from db.repositories.runner_repo import RunnerRepository
+
 from services.export.aggregator import aggregate_results
 from services.export.models import (
     AggregatedResults,
@@ -22,6 +24,7 @@ from services.export.models import (
     ConditionalCheckRow,
     StructuredValueRow,
 )
+
 from api.schemas.deal_review import (
     DocumentSummaryDTO,
     DocumentDetailDTO,

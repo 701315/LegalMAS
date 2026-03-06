@@ -3,7 +3,6 @@ Language Detector — simple Cyrillic ratio check.
 Full langdetect-based detection in Stage 6.
 """
 
-
 class LanguageDetector:
     """
     Detect document language by Cyrillic character ratio.

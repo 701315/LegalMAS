@@ -12,9 +12,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.circuit_breaker import CBState, CircuitBreaker
-from core.exceptions import CircuitOpenError
-from core.logging import get_logger
+from .circuit_breaker import CBState, CircuitBreaker
+from .exceptions import CircuitOpenError
+from .logging import get_logger
 
 logger = get_logger(__name__)
 

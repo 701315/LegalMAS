@@ -8,7 +8,7 @@ NOT hardcoded in Python Enums.
 
 import re
 
-from classifiers.registry_loader import get_doc_type_config
+from .registry_loader import get_doc_type_config
 
 
 def _is_trigger_active(trigger_cfg: dict, text_lower: str) -> bool:

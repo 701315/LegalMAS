@@ -35,5 +35,6 @@ class DealResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime | None = None
-
+    last_run_id: UUID | None = None
+    
     model_config = {"from_attributes": True}

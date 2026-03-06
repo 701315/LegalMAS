@@ -112,10 +112,14 @@ export interface ClassificationReport {
 
 export type DocumentStatus =
   | "pending"
-  | "processing"
-  | "processed"
-  | "error"
-  | "skipped";
+  | "extracting"
+  | "extracted"
+  | "sanitized"
+  | "structured"
+  | "classified"
+  | "analyzing"
+  | "completed"
+  | "quarantine";
 
 /** Краткая информация о документе (для списков) */
 export interface Document {
@@ -153,6 +157,14 @@ export interface DocumentDetail {
   family_id?: string;
   /** Полный блок классификации — включает triggers, yaml, low_confidence */
   classification?: ClassificationMetadata;
+}
+
+/** Семейство документов для правой панели DocumentsTab. */
+export interface DocumentFamily {
+  master: Document | null;
+  appendices: Document[];
+  amendments: Document[];
+  versions: Document[];
 }
 
 /** Входные данные для ручной переклассификации документа (Editor+) */
@@ -209,9 +221,13 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
-/** Входные данные для старта нового анализа */
+/**
+ * Входные данные для старта нового анализа.
+ * 
+ * Playbook и model_config берутся из настроек сделки (Deal.playbook_version_id),
+ * поэтому их не нужно передавать в запросе.
+ */
 export interface RunCreateInput {
-  playbook_version_id?: string;
   profile?: string;
   /** Если true — HybridClassifier перезапустится для всех документов */
   force_reclassify?: boolean;
@@ -326,6 +342,46 @@ export interface DDRequest {
   updated_at?: string;
 }
 
+export interface DDRequestCreateInput {
+  check_id: string;
+  check_name: string;
+  text: string;
+  priority: "critical" | "high" | "medium";
+  addressee?: string;
+  source?: "manual";
+}
+
+
+
+// ===== ЭКСПОРТЫ (REPORT / GRID / SUMMARY) =====
+
+export interface ExportRecord {
+  id: string;
+  deal_id: string;
+  run_id: string;
+  export_type: string;         // "grid_xlsx" | "deal_summary_xlsx" | "report_docx" | "report_pdf" и т.п.
+  file_ref: string;
+  file_size_bytes: number;
+  status: "pending" | "processing" | "completed" | "failed";
+  requested_by: string;
+  requester_role: string;
+  created_at: string;
+  download_url?: string;
+}
+
+
+export interface AuditLogEntry {
+  id: string;
+  tenant_id: string;
+  deal_id: string | null;
+  action: string;
+  actor: string;
+  actor_role: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+
 // -------------------------------------------------------------
 // СДЕЛКИ (DEALS)
 // -------------------------------------------------------------
@@ -341,6 +397,8 @@ export interface Deal {
   bundle_id?: string;
   /** ID последнего запуска — используется для overview и classification report */
   last_run_id?: string;
+  /** ID привязанной версии playbook (настройки сделки) */
+  playbook_version_id?: string;
   created_at: string;
   updated_at: string;
 }

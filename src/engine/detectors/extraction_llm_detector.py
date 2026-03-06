@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from engine.llm.client import _extract_json  # если не хочешь, можно скопировать
+
 
 from core.logging import get_logger
-from engine.llm.client import LLMClient, LLMResponse
-from engine.playbook.models import CheckDefinition, ExtractionConfig
+
+from ..llm.client import _extract_json
+from ..llm.client import LLMClient, LLMResponse
+from ..playbook.models import CheckDefinition, ExtractionConfig
 
 logger = get_logger(__name__)
 

@@ -56,9 +56,11 @@ export const runApi = {
 
 /**
  * Хук для старта нового run.
+ * Playbook и model_config берутся из настроек сделки на бэкенде.
+ *
  * Пример:
  *   const startRun = useStartRun(dealId);
- *   startRun.mutate({ profile: "base", force_reclassify: true });
+ *   startRun.mutate({ profile: "core", force_reclassify: true });
  */
 export function useStartRun(dealId: string) {
   return useMutation({

@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.document import DocumentVersion
+from ..models.document import DocumentVersion
 
 
 class DocumentVersionRepository:

@@ -20,7 +20,8 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.document import Document
+from core.constants import DocumentStatus
+from ..models.document import Document
 
 class DocumentRepository:
     def __init__(self, session: AsyncSession):
@@ -155,7 +156,6 @@ class DocumentRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-
     async def get_low_confidence_docs(
         self,
         deal_id: uuid.UUID,
@@ -175,3 +175,91 @@ class DocumentRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_quarantined(self, deal_id: uuid.UUID) -> list[Document]:
+        """Get all documents in quarantine status for a deal."""
+        stmt = select(Document).where(
+            Document.deal_id == deal_id,
+            Document.status == DocumentStatus.QUARANTINE.value,
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def reset_for_reprocessing(
+        self,
+        doc_id: uuid.UUID,
+        new_status: str = "pending",
+        clear_classification: bool = True,
+    ) -> Document | None:
+        """
+        Сбросить документ для повторной обработки:
+        - статус → new_status (по умолчанию 'pending');
+        - при clear_classification=True обнулить поля классификации.
+        """
+        values: dict[str, object] = {"status": new_status}
+
+        if clear_classification:
+            values.update(
+                {
+                    "doc_type": None,
+                    "classification_confidence": None,
+                    "classification_level": None,
+                    "classification_details": None,
+                    "applicable_triggers": None,
+                }
+            )
+
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(**values)
+            .returning(Document)
+        )
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+        return doc
+    
+    async def get_page_for_deal(
+        self,
+        deal_id: uuid.UUID,
+        page: int,
+        per_page: int,
+        include_classification: bool = False,
+    ) -> tuple[list[Document], int]:
+        """
+        Вернуть страницу документов сделки + общее количество.
+        """
+        offset = (page - 1) * per_page
+
+        # 1) total
+        count_stmt = select(func.count(Document.id)).where(Document.deal_id == deal_id)
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar_one() or 0
+
+        if total == 0:
+            return [], 0
+
+        # 2) страница
+        stmt = select(Document).where(Document.deal_id == deal_id)
+
+        if include_classification:
+            stmt = stmt.order_by(
+                Document.status,
+                Document.doc_type.is_(None),
+                Document.doc_type,
+                Document.classification_confidence.desc().nullslast(),
+                Document.folder_path,
+                Document.filename,
+            )
+        else:
+            stmt = stmt.order_by(
+                Document.folder_path,
+                Document.filename,
+            )
+
+        stmt = stmt.offset(offset).limit(per_page)
+        result = await self.session.execute(stmt)
+        items = list(result.scalars().all())
+
+        return items, total

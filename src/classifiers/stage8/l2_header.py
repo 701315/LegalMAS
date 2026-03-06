@@ -39,8 +39,8 @@ from __future__ import annotations
 
 import re
 
-from classifiers.base import BaseClassifier, ClassificationResult
-from classifiers.yaml_registry import YAMLRegistry
+from ..base import BaseClassifier, ClassificationResult
+from ..yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import ClassificationLevel
 from core.logging import get_logger

@@ -7,25 +7,37 @@
 - GET  /runs/{run_id}             — статус run + (опционально) stats классификации
 - GET  /runs/{run_id}/classification-report — подробный отчёт по классификации
 """
+from __future__ import annotations  # сильно упрощает жизнь с аннотациями
+
+from uuid import UUID
 
 import uuid
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from api.schemas.runs import DealRunSummaryResponse
+from db.session import get_db 
+from db.repositories.deal_repo import DealRepository
+from db.repositories.playbook_repo import PlaybookRepository
 from workers.classifier import classify_document
 from workers.runner import run_checks
-
-from api.schemas.runs import (
-    RunCreate,
-    RunResponse,
-    ClassificationReportResponse,
-)
 from db.session import get_db
 from db.repositories.run_repo import RunRepository
 from db.repositories.document_repo import DocumentRepository
 from core.config import settings
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
-# from api.dependencies.deals import check_deal_access  # когда перейдёшь на реальную auth-модель
+from db.repositories.export_repo import ExportRepository  # добавь рядом с другими импортами
+from workers.exporter import export_results               # импорт Celery-таски
+
+from ..schemas.runs import (
+    RunCreate,
+    RunResponse,
+    ClassificationReportResponse,
+)
+from ..schemas.results import CheckResultResponse
+from ..schemas.pagination import PaginatedResponse as PaginatedResponseSchema
+from db.repositories.result_repo import ResultRepository
 
 # Заглушка пользователя — аналогично documents.py
 class CurrentUser:
@@ -41,6 +53,98 @@ def get_current_user() -> CurrentUser:
 router = APIRouter(prefix="/runs", tags=["runs"])
 
 
+async def _start_run_core(
+    deal_uuid: uuid.UUID,
+    data: RunCreate,
+    db: AsyncSession,
+    user: CurrentUser,
+) -> RunResponse:
+    """
+    Общая логика запуска run для сделки.
+
+    1) проверяем существование сделки;
+    2) находим playbook для этой сделки (или default);
+    3) берём из него model_config_id;
+    4) создаём Run с обоими ID;
+    5) ставим Celery-задачи classifier/run_checks.
+    """
+    run_repo = RunRepository(db)
+    doc_repo = DocumentRepository(db)
+    deal_repo = DealRepository(db)
+    playbook_repo = PlaybookRepository(db)
+
+    # 1. Проверяем, что сделка существует
+    deal = await deal_repo.get_by_id(deal_uuid)
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # 2. Берём playbook для сделки (привязанный или default)
+    playbook = await playbook_repo.get_for_deal(deal_uuid)
+    if not playbook:
+        raise HTTPException(
+            status_code=400,
+            detail="Deal is not configured with a playbook",
+        )
+
+    # 3. Проверяем, что у playbook есть model_config
+    if not playbook.model_config_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Playbook is not configured with model_config",
+        )
+
+    playbook_version_id = playbook.id
+    model_config_id = playbook.model_config_id
+
+    # 4. Создаём run с обоими ID
+    run = await run_repo.create(
+        deal_id=deal_uuid,
+        playbook_version_id=playbook_version_id,
+        model_config_id=model_config_id,
+        bundle_id=None,
+        profile=data.profile,
+    )
+
+    # обновляем last_run_id у сделки
+    await deal_repo.set_last_run_id(deal_id=deal_uuid, run_id=run.id)
+
+    # 5. Загружаем документы сделки
+    docs = await doc_repo.get_by_deal(deal_uuid)
+
+    # Ветка: сначала (пере)классифицировать все документы
+    if data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False):
+        try:
+            for d in docs:
+                classify_document.delay(
+                    document_id=str(d.id),
+                    deal_id=str(d.deal_id),
+                    tenant_id=str(user.tenant_id),
+                    run_id=str(run.id),
+                )
+        except Exception:
+            # TODO: логирование
+            pass
+    else:
+        # Обычная постановка задач на проверки
+        try:
+            for d in docs:
+                run_checks.delay(
+                    document_id=str(d.id),
+                    deal_id=str(d.deal_id),
+                    tenant_id=str(user.tenant_id),
+                    run_id=str(run.id),
+                )
+        except Exception:
+            # TODO: логирование
+            pass
+
+    # фиксируем изменения и обновляем объект run
+    await db.commit()
+    await db.refresh(run)
+
+    return RunResponse.model_validate(run)
+
+
 @router.post(
     "",
     response_model=RunResponse,
@@ -53,61 +157,13 @@ async def start_run(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Запускает новый run для указанной сделки.
+    Старый эндпоинт запуска: POST /api/v1/runs?deal_id=...
 
-    Логика:
-    - создаём запись run в БД;
-    - если force_reclassify и API_ALLOW_FORCE_RECLASSIFY=True:
-        ставим задачи classifier_worker.classify_document для всех документов
-        (переклассификация перед проверками);
-    - иначе — запускаем обычные проверки (run_checks) как в Stage 8.
+    Теперь просто прокидывает запрос в общую функцию _start_run_core.
     """
-    run_repo = RunRepository(db)
-    doc_repo = DocumentRepository(db)
-
     deal_uuid = uuid.UUID(deal_id)
+    return await _start_run_core(deal_uuid, data, db, user)
 
-    # Создаём запись run в БД
-    run = await run_repo.create_run(
-        deal_id=deal_uuid,
-        playbook_version_id=data.playbook_version_id,
-        profile=data.profile,
-        created_by=str(user.id),
-    )
-
-    # Загружаем документы сделки
-    docs = await doc_repo.get_by_deal(deal_uuid)
-
-    # Ветка: сначала (пере)классифицировать все документы
-    if data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False):
-        try:
-            # Используем уже существующую Celery-таску классификатора
-
-            for d in docs:
-                classify_document.delay(
-                    document_id=str(d.id),
-                    deal_id=str(d.deal_id),
-                    tenant_id=str(user.tenant_id),
-                    run_id=str(run.id),
-                )
-        except Exception:
-            # В проде стоит залогировать ошибку
-            pass
-    else:
-        # Обычная постановка задач на проверки (Stage 8 Runner)
-        try:
-
-            for d in docs:
-                run_checks.delay(
-                    document_id=str(d.id),
-                    deal_id=str(d.deal_id),
-                    tenant_id=str(user.tenant_id),
-                    run_id=str(run.id),
-                )
-        except Exception:
-            pass
-
-    return RunResponse.model_validate(run)
 
 
 @router.get(
@@ -205,4 +261,168 @@ async def get_classification_report(
     # await check_deal_access(report.deal_id, user, db)
 
     return report
+
+
+class RunExportCreate(BaseModel):
+    export_type: str = "run_full"
+    requested_by: str | None = None
+    requester_role: str | None = None
+
+
+class RunExportResponse(BaseModel):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    deal_id: uuid.UUID
+    export_type: str
+    status: str
+    file_ref: str | None = None
+
+
+@router.post(
+    "/{run_id}/export",
+    response_model=RunExportResponse,
+    summary="Запустить экспорт результатов по run",
+)
+async def start_run_export(
+    run_id: uuid.UUID,
+    data: RunExportCreate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    run_repo = RunRepository(db)
+    export_repo = ExportRepository(db)
+
+    run = await run_repo.get_by_id(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run.status not in ("completed",):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Run status must be 'completed' to export, got '{run.status}'",
+        )
+
+    export = await export_repo.create(
+        deal_id=run.deal_id,
+        run_id=run.id,
+        export_type=data.export_type,
+        requested_by=data.requested_by or user.id,
+        requester_role=data.requester_role or user.role,
+        status="pending",
+    )
+
+    tenant_id = str(user.tenant_id)
+    export_results.delay(
+        run_id=str(run.id),
+        deal_id=str(run.deal_id),
+        tenant_id=tenant_id,
+    )
+
+    await db.commit()
+    await db.refresh(export)
+
+    return RunExportResponse(
+        id=export.id,
+        run_id=run.id,
+        deal_id=run.deal_id,
+        export_type=export.export_type,
+        status=export.status,
+        file_ref=export.file_ref,
+    )
+
+
+@router.get(
+    "/{run_id}/results",
+    response_model=PaginatedResponseSchema[CheckResultResponse],
+    summary="Пагинированный список результатов проверок для run (DD Grid)",
+)
+async def list_run_results(
+    run_id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(200, ge=1, le=1000),
+    doc_type: str | None = Query(
+        default=None,
+        description="Фильтр по типу документа (doc_type)",
+    ),
+    severity: str | None = Query(
+        default=None,
+        description="Фильтр по уровню риска (severity: critical/high/medium/pass/unclear)",
+    ),
+    conditional_only: bool | None = Query(
+        default=None,
+        description="Если true — только условные проверки",
+    ),
+    has_structured_data: bool | None = Query(
+        default=None,
+        description="Если true — только результаты с structured_data",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Результаты проверок для одного run в формате PaginatedResponse[CheckResultResponse],
+    пригодном для DD Grid.
+    """
+    run_repo = RunRepository(db)
+    run = await run_repo.get_by_id(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    result_repo = ResultRepository(db)
+    items_orm, total = await result_repo.get_page_for_run(
+        run_id=run_id,
+        page=page,
+        per_page=per_page,
+        doc_type=doc_type,
+        severity=severity,
+        conditional_only=conditional_only,
+        has_structured_data=has_structured_data,
+    )
+
+    items = [CheckResultResponse.model_validate(r) for r in items_orm]
+
+    total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+    has_next = page < total_pages
+    has_previous = page > 1
+
+    return PaginatedResponseSchema[CheckResultResponse](
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        has_next=has_next,
+        has_previous=has_previous,
+    )
+
+
+@router.get(
+    "/deal/{deal_id}",
+    response_model=DealRunSummaryResponse,
+)
+async def get_deal_run_summary(
+    deal_id: UUID,
+    include_classification_stats: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user = Depends(get_current_user),
+):
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(deal_id, user_id=user.id)
+
+    if not deal or not deal.last_run_id:
+        # если хочешь 404, оставь так
+        raise HTTPException(status_code=404, detail="Run not found for this deal")
+
+    run_repo = RunRepository(db)
+    run = await run_repo.get_by_id(deal.last_run_id, user_id=user.id)
+
+    # здесь run уже должен мапиться в RunResponse через from_attributes
+    run_response = RunResponse.model_validate(run)
+
+    if not include_classification_stats:
+        run_response.classification_stats = None
+
+    return DealRunSummaryResponse(run=run_response)
+
+
 

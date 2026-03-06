@@ -9,6 +9,7 @@ import client from "./client";
 import type {
   Document,
   DocumentDetail,
+  DocumentFamily,
   PaginatedResponse,
   ReclassifyInput,
   ReclassifyResult,
@@ -30,13 +31,24 @@ export const documentApi = {
    * (GET /deals/{deal_id}/runs/{run_id}/documents),
    * позже адаптируем сигнатуру: добавим runId.
    */
-  list: (dealId: string, page = 1, perPage = 50) =>
+list: (
+  dealId: string,
+  page = 1,
+  perPage = 50,
+  opts?: { include_classification?: boolean; status?: string; doc_type?: string
+},
+  ) =>
     client
-      .get<PaginatedResponse<Document>>(
-        `/api/v1/deals/${dealId}/documents`,
-        { params: { page, per_page: perPage } },
-      )
-      .then((response) => response.data),
+      .get<PaginatedResponse<Document>>(`/api/v1/deals/${dealId}/documents`, {
+        params: {
+          page,
+          per_page: perPage,
+          include_classification: opts?.include_classification,
+          status: opts?.status,
+          doc_type: opts?.doc_type,
+        },
+      })
+      .then((r) => r.data),
 
   /**
    * Детали документа.
@@ -52,6 +64,13 @@ export const documentApi = {
     client
       .get<DocumentDetail>(`/api/v1/documents/${docId}`)
       .then((response) => response.data),
+
+  // ...
+  getFamily: (docId: string) =>
+    client
+      .get<DocumentFamily>(`/api/v1/documents/${docId}/family`)
+      .then((response) => response.data),
+
 
   /**
    * Ручная переклассификация документа (Editor+).
@@ -81,6 +100,19 @@ export const documentApi = {
 // REACT QUERY ХУКИ
 // -------------------------------------------------------------
 
+
+export function useDocumentsWithClassification(dealId: string, page = 1) {
+  return useQuery({
+    queryKey: ["documents-classified", dealId, page],
+    queryFn: () =>
+      documentApi.list(dealId, page, 50, { include_classification: true }),
+    enabled: !!dealId,
+    staleTime: 2 * 60_000,
+  });
+}
+
+
+
 /**
  * Хук для получения списка документов по сделке.
  * Пример использования:
@@ -107,6 +139,15 @@ export function useDocumentDetail(docId: string | null) {
   });
 }
 
+export function useDocumentFamily(docId: string | null) {
+  return useQuery({
+    queryKey: ["document-family", docId],
+    queryFn: () => documentApi.getFamily(docId!),
+    enabled: !!docId,
+  });
+}
+
+
 /**
  * Хук для получения структурированных данных документа.
  * Загружается по требованию (enabled: !!docId).
@@ -130,9 +171,11 @@ export function useReclassifyDocument(docId: string) {
     mutationFn: (data: ReclassifyInput) =>
       documentApi.reclassify(docId, data),
     onSuccess: () => {
-      // Обновляем кэш документа и списка документов
       qc.invalidateQueries({ queryKey: ["document", docId] });
+      qc.invalidateQueries({ queryKey: ["documents"] }); // можно шире:
       qc.invalidateQueries({ queryKey: ["documents"] });
+      qc.invalidateQueries({ queryKey: ["documents-classified"] });
+      qc.invalidateQueries({ queryKey: ["audit"] });
     },
   });
 }

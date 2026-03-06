@@ -10,6 +10,7 @@ import json
 
 from minio import Minio
 from minio.error import S3Error
+from .exports import ExportSuffix, build_export_filename
 
 from core.config import Settings, settings
 from core.exceptions import PermanentError, TransientError
@@ -212,3 +213,28 @@ class ArtifactStore:
             self.client.remove_object(bucket_name=self.bucket, object_name=clean_path)
         except S3Error as e:
             raise TransientError(f"Failed to delete artifact: {e}")
+
+    def save_export_artifact(
+        self,
+        tenant_id: str,
+        deal_id: str,
+        run_id: str,
+        suffix: ExportSuffix,
+        data: bytes,
+        content_type: str,
+    ) -> str:
+        """
+        Сохраняет экспортируемый артефакт (classification-report, check-results и т.п.)
+        под именем {run_id}__{suffix}.{ext} в каталоге exports.
+        """
+        if content_type == "application/json":
+            ext = "json"
+        elif content_type == "text/csv":
+            ext = "csv"
+        else:
+            ext = "bin"
+
+        filename = build_export_filename(run_id, suffix, ext=ext)
+        path = ArtifactPath.export(tenant_id, deal_id, run_id, filename)
+        return self.put_file(path, data, content_type=content_type)
+

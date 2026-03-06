@@ -8,7 +8,7 @@ from datetime import UTC, datetime  # ← изменено
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.ops import IdempotencyKey
+from ..models.ops import IdempotencyKey
 
 
 class IdempotencyRepository:

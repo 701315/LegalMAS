@@ -4,11 +4,13 @@ Repository for CheckResult operations.
 
 import uuid
 from datetime import UTC, datetime
+from typing import Sequence
+from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models.result import CheckResult
+from ..models.result import CheckResult
 
 
 class ResultRepository:
@@ -128,3 +130,44 @@ class ResultRepository:
         )
         result = await self.session.execute(stmt)
         return {row[0]: row[1] for row in result.all()}
+
+    async def get_page_for_run(
+        self,
+        run_id: UUID,
+        page: int,
+        per_page: int,
+        doc_type: str | None = None,
+        severity: str | None = None,
+        conditional_only: bool | None = None,
+        has_structured_data: bool | None = None,
+    ) -> tuple[Sequence[CheckResult], int]:
+        """
+        Пагинированный список результатов для одного run с фильтрами.
+        Возвращает (items, total).
+        """
+        stmt = select(CheckResult).where(CheckResult.run_id == run_id)
+
+        if doc_type is not None:
+            stmt = stmt.where(CheckResult.doc_type == doc_type)
+
+        if severity is not None:
+            stmt = stmt.where(CheckResult.severity == severity)
+
+        if conditional_only is True:
+            stmt = stmt.where(CheckResult.conditional_check_triggered.is_(True))
+
+        if has_structured_data is True:
+            stmt = stmt.where(CheckResult.structured_data.isnot(None))
+
+        # total
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await self.session.execute(count_stmt)).scalar_one()
+
+        # сортировка + пагинация
+        stmt = stmt.order_by(CheckResult.created_at.desc())
+        stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+
+        result = await self.session.execute(stmt)
+        items = result.scalars().all()
+
+        return items, total

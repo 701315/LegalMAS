@@ -18,7 +18,7 @@ from pydantic import ValidationError
 
 from core.config import settings
 from core.logging import get_logger
-from engine.playbook.models import PlaybookDefinition
+from .models import PlaybookDefinition
 
 logger = get_logger(__name__)
 

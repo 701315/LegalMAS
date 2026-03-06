@@ -20,7 +20,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.endpoints import (
+from .endpoints import (
     runner,
     documents,
     deal_review,
@@ -28,8 +28,9 @@ from api.endpoints import (
     results,
     admin,
     deals,
+    requests,
 )
-from api.middleware.audit import AuditMiddleware
+from .middleware.audit import AuditMiddleware
 
 
 app = FastAPI(
@@ -63,4 +64,6 @@ app.include_router(runs.router, prefix="/api/v1")
 app.include_router(results.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(deals.router, prefix="/api/v1")
+app.include_router(requests.router, prefix="/api/v1")
+app.include_router(requests.requests_router, prefix="/api/v1")
 

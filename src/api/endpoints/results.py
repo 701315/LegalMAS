@@ -13,7 +13,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.schemas.results import CheckResultResponse
+from ..schemas.results import CheckResultResponse
 from db.session import get_db
 from db.repositories.result_repo import ResultRepository
 

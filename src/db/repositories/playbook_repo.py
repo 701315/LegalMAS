@@ -8,8 +8,8 @@ from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import PlaybookStatus
-from db.models.deal import Deal
-from db.models.playbook import ModelConfig, PlaybookVersion
+from ..models.deal import Deal
+from ..models.playbook import ModelConfig, PlaybookVersion
 
 
 class PlaybookRepository:

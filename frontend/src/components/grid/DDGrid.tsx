@@ -52,6 +52,8 @@ export const DDGrid: React.FC<DDGridProps> = ({
   onQcChange,
   onSelectionChange,
 }) => {
+    console.log("DDGrid rowData length:", results.length, results);
+
   const context: GridContext = {
     onEyeClick,
     onDocumentClick,
@@ -64,8 +66,6 @@ export const DDGrid: React.FC<DDGridProps> = ({
       // 0) Колонка выбора (чекбоксы)
       {
         headerName: "",
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
         width: 40,
         pinned: "left",
       },
@@ -251,20 +251,25 @@ export const DDGrid: React.FC<DDGridProps> = ({
     onSelectionChange(ids);
   };
 
-  return (
-    <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
-      <AgGridReact<CheckResult>
-        rowData={results}
-        columnDefs={columnDefs}
-        defaultColDef={defaultColDef}
-        context={context}
-        rowSelection="multiple"
-        rowMultiSelectWithClick={true}
-        suppressCellFocus={true}
-        onSelectionChanged={handleSelectionChanged}
-        getRowId={(params) => params.data.id}
-      />
-    </div>
+return (
+  <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+    <AgGridReact<CheckResult>
+      rowData={results}
+      columnDefs={columnDefs}
+      defaultColDef={defaultColDef}
+      context={context}
+      rowSelection={{
+        mode: "multiRow",                 // вместо "multiple"
+        enableSelectionWithoutKeys: true, // вместо rowMultiSelectWithClick
+        checkboxes: true,                 // вместо checkboxSelection в колонке
+        headerCheckbox: true,             // вместо headerCheckboxSelection
+      }}
+      suppressCellFocus={true}
+      onSelectionChanged={handleSelectionChanged}
+      getRowId={(params) => params.data.id}
+      theme="legacy"
+    />
+  </div>
   );
 };
 

@@ -15,16 +15,16 @@ Business rules:
   - Triggers: loaded dynamically from YAML trigger_definitions
 """
 
-from classifiers.base import (
+from .base import (
     BaseLLMClassifier,
     ClassificationResult,
     FinalClassification,
 )
-from classifiers.keyword_analyzer import KeywordAnalyzer
-from classifiers.registry_loader import load_registry
-from classifiers.rule_based import RuleBasedClassifier
-from classifiers.semantic_matcher import SemanticMatcher
-from classifiers.trigger_detector import detect_triggers
+from .keyword_analyzer import KeywordAnalyzer
+from .registry_loader import load_registry
+from .rule_based import RuleBasedClassifier
+from .semantic_matcher import SemanticMatcher
+from .trigger_detector import detect_triggers
 from core.constants import (
     CLASSIFICATION_THRESHOLDS,
     CLASSIFICATION_WEIGHTS,

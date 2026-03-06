@@ -11,10 +11,12 @@ CheckExecutor: запуск одной проверки (check) для одно�
 
 from core.config import settings
 from core.logging import get_logger
-from engine.checks.extraction import ExtractionExecutor
-from engine.detectors.hybrid_detector import HybridDetector
-from engine.playbook.models import CheckDefinition
-from engine.retrieval.engine import RetrievalEngine
+
+from .extraction import ExtractionExecutor
+
+from ..detectors.hybrid_detector import HybridDetector
+from ..playbook.models import CheckDefinition
+from ..retrieval.engine import RetrievalEngine
 
 logger = get_logger(__name__)
 

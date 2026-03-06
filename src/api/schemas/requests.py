@@ -54,7 +54,7 @@ class DDRequestResponse(BaseModel):
 
     check_id: str | None = None
     addressee: str = "Юридический советник"
-    structured_values: list[dict[str, Any]] = []
+    structured_values: list[dict[str, Any]] = Field(default_factory=list)
     source: str = "manual"          # "yaml_template" | "manual" | "aggregator"
 
     document_refs: list[UUID]

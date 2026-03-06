@@ -13,8 +13,8 @@ with per-type instruction files.
 
 import re
 
-from classifiers.base import BaseClassifier, ClassificationResult
-from classifiers.registry_loader import load_registry
+from .base import BaseClassifier, ClassificationResult
+from .registry_loader import load_registry
 from core.constants import ClassificationLevel
 from core.logging import get_logger
 

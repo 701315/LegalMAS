@@ -24,6 +24,7 @@ import MagicZoom from "../../components/evidence/MagicZoom";
 import EvidencePanel from "../../components/evidence/EvidencePanel";
 import BulkQCBar from "../../components/qc/BulkQCBar";
 import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
+import ExportButtons from "../../components/grid/ExportButtons";
 
 interface GridTabProps {
   dealId: string;
@@ -35,7 +36,8 @@ interface GridTabProps {
  * - загружает все результаты для выбранного run;
  * - даёт поиск и несколько быстрых фильтров;
  * - показывает DDGrid + Magic Zoom + EvidencePanel;
- * - поддерживает массовый QC через BulkQCBar.
+ * - поддерживает массовый QC через BulkQCBar;
+ * - позволяет экспортировать результаты (все или выбранные).
  */
 const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [searchText, setSearchText] = React.useState("");
@@ -140,6 +142,11 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const unclearCount = React.useMemo(
     () => allResults.filter((r) => r.result === "unclear").length,
     [allResults],
+  );
+
+  const selectedResults = React.useMemo(
+    () => filteredResults.filter((r) => selectedIds.includes(r.id)),
+    [filteredResults, selectedIds],
   );
 
   const handleEyeClick = (result: CheckResult) => {
@@ -250,6 +257,13 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       </div>
 
       <QualityFlagsLegend />
+
+      <ExportButtons
+        allResults={filteredResults}
+        selectedResults={selectedResults}
+        dealName={dealId}
+        runId={runId ?? undefined}
+      />
 
       <DDGrid
         results={filteredResults}

@@ -22,7 +22,7 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from db.repositories.audit_repo import AuditRepository
-from db.session import get_session  # было get_db
+from db.session import get_session
 
 # Точные пути (метод + путь), которые обязательно аудитим
 # ключ: (HTTP-метод, путь), значение: action для AuditLog

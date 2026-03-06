@@ -3,6 +3,8 @@
 // Карточка сделки для списка (DealListPage).
 // =============================================================
 
+// src/components/DealCard.tsx
+
 import React from "react";
 import type { Deal } from "../types";
 import { timeAgo } from "../utils";
@@ -10,19 +12,19 @@ import { timeAgo } from "../utils";
 interface Props {
   deal: Deal;
   onClick?: () => void;
+  isActive?: boolean;
 }
 
-/**
- * Простая карточка сделки:
- * - название
- * - статус
- * - последний run (по полю last_run_id пока только текст)
- * - время обновления
- */
-const DealCard: React.FC<Props> = ({ deal, onClick }) => {
+const DealCard: React.FC<Props> = ({ deal, onClick, isActive = false }) => {
+  const baseClasses =
+    "bg-white rounded-lg border p-4 cursor-pointer transition";
+  const stateClasses = isActive
+    ? "border-blue-500 ring-1 ring-blue-200 shadow-sm"
+    : "border-gray-200 hover:shadow-sm hover:border-blue-400";
+
   return (
     <div
-      className="bg-white rounded-lg border p-4 cursor-pointer hover:shadow-sm transition-shadow"
+      className={`${baseClasses} ${stateClasses}`}
       onClick={onClick}
     >
       <div className="flex items-center justify-between mb-1">

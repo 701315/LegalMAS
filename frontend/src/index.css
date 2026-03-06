@@ -7,3 +7,9 @@ body,
 #root {
   height: 100%;
 }
+
+/* Убираем подчёркивание и синий цвет у всех ссылок */
+a {
+  text-decoration: none;
+  color: inherit;
+}

@@ -88,3 +88,20 @@ class ClassificationReportResponse(BaseModel):
     low_confidence_docs: list[dict]   # [{doc_id, filename, doc_type, confidence, classification_level}]
     unknown_type_docs: list[dict]     # [{doc_id, filename, detected_type}]
     trigger_coverage: dict[str, int]  # {trigger_name: doc_count}
+
+class DealRunSummaryResponse(BaseModel):
+    """
+    Агрегированный статус последнего run по сделке.
+    Используется в GET /runs/deal/{deal_id}?include_classification_stats=true.
+    """
+
+    deal_id: UUID
+    run_id: UUID
+    status: str
+    profile: str
+    total_checks: int
+    completed_checks: int
+    started_at: datetime | None
+    completed_at: datetime | None
+    error_details: dict | None
+    classification_stats: ClassificationStats | None = None

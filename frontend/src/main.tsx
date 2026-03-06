@@ -1,19 +1,21 @@
 // =============================================================
 // src/main.tsx
-// Точка входа: QueryClientProvider + рендер <App />.
+// Точка входа: Router + QueryClientProvider + AppRoutes.
 // =============================================================
 
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import "./index.css";
+import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 
-// Создаём общий QueryClient для всего приложения
+ModuleRegistry.registerModules([AllCommunityModule]);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // базовые настройки можно будет подправить позже
       refetchOnWindowFocus: false,
     },
   },
@@ -21,8 +23,10 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 );

@@ -180,7 +180,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
 
     startRun.mutate(
       {
-        // RunCreateInput: при необходимости добавь profile / playbook_version_id
+        // RunCreateInput: profile и force_reclassify, playbook выбирается по сделке
+        profile: "core",
         force_reclassify: forceReclassify,
       },
       {
@@ -198,6 +199,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
           qc.invalidateQueries({
             queryKey: ["classification-report", run.id],
           });
+          qc.invalidateQueries({ 
+            queryKey: ["deal", deal.id],
+          });
+
         },
       },
     );

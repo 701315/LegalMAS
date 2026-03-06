@@ -12,8 +12,8 @@ Provider selection:
 import json
 import os
 
-from classifiers.base import BaseLLMClassifier, ClassificationResult
-from classifiers.registry_loader import get_doc_type_config, load_registry
+from .base import BaseLLMClassifier, ClassificationResult
+from .registry_loader import get_doc_type_config, load_registry
 from core.config import settings
 from core.constants import ClassificationLevel
 from core.logging import get_logger
