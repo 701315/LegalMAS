@@ -1,13 +1,10 @@
 // =============================================================
 // src/components/documents/DocumentDetails.tsx
-// Правая панель деталей документа на вкладке Documents.
-// Показывает:
-// - основную информацию о документе
-// - блок классификации (уровень, уверенность, YAML, триггеры)
-// - семейство документов (master + связанные)
-// - структурированные данные
-// - действия: открыть/скачать PDF, открыть в DD Grid
-// - каркас блока "Карантин / повторная загрузка"
+// Правая панель деталей документа на вкладке Documents (view).
+// View-компонент:
+// - не дергает API-хуки, не использует useAuth
+// - получает все данные и capabilities через пропсы
+// - содержит только UI и локальное состояние формы / DnD
 // =============================================================
 
 import React, { useState, useCallback } from "react";
@@ -21,59 +18,125 @@ import {
 } from "lucide-react";
 
 import {
-  useDocumentDetail,
-  useDocumentFamily,
-  useStructuredData,
-  useReclassifyDocument,
-  useDocumentPdfUrl,
-  useSetDocumentReviewed,
-} from "../../api/documents";
-
-import {
   DOCUMENT_STATUS_COLOR,
   DOCUMENT_STATUS_LABEL,
-  canReclassify as canReclassifyHelper,
 } from "../../constants";
 
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { TriggerList } from "../ui/TriggerList";
-import { useAuth } from "../../hooks/useAuth";
 
 import type {
   Document,
   ReclassifyInput,
+  ClassificationLevel,
+  StructuredDataResult,
+  DocumentDetail,
+  DocumentFamily,
+  ReclassifyResult,
 } from "../../types";
 
-interface Props {
-  docId: string;
-  dealId: string;
-  /** Опциональный callback для навигации в DD Grid с фильтром по документу. */
-  onNavigateToGrid?: (dealId: string, docName: string) => void;
+// =============================================================
+// Типы для view-контракта (container → view)
+// =============================================================
+
+/**
+ * Упрощённое представление классификации для view.
+ * Основано на ClassificationMetadata из types/index.ts.
+ */
+export interface DocumentDetailsViewClassification {
+  doc_type: string;
+  classification_level: ClassificationLevel;
+  classification_confidence: number;
+  applicable_triggers: string[];
+  yaml_instruction_available: boolean;
+  low_confidence: boolean;
 }
 
-export const DocumentDetails: React.FC<Props> = ({
-  docId,
+/**
+ * Семейство документов в виде, удобном для рендера.
+ * Совместимо с DocumentFamily из types/index.ts.
+ */
+export interface DocumentFamilyView {
+  master: Document | null;
+  appendices: Document[];
+  amendments: Document[];
+  versions: Document[];
+}
+
+/**
+ * Структурированные данные для view.
+ * Совместимо со StructuredDataResult из types/index.ts.
+ */
+export interface StructuredDataView {
+  document_id: string;
+  filename: string;
+  doc_type?: string;
+  extracted_values: StructuredDataResult["extracted_values"];
+  total_extracted: number;
+}
+
+/**
+ * Полный набор пропсов, которые должен получать
+ * чистый view-компонент DocumentDetails.
+ */
+export interface DocumentDetailsViewProps {
+  dealId: string;
+
+  // Основные данные документа
+  doc: Document | null;
+  classification: DocumentDetailsViewClassification | null;
+  family: DocumentFamilyView | null;
+  structuredData: StructuredDataView | null;
+
+  // Состояния загрузки / ошибок (минимум для этого этапа)
+  isLoading: boolean;
+
+  // Права и действия
+  canDownload: boolean;
+  canOpenPdf: boolean;
+  canReclassify: boolean;
+  pdfUrl: string | null;
+
+  onSetReviewed: (checked: boolean) => void;
+  isSetReviewedPending: boolean;
+
+  onReclassify: (input: ReclassifyInput) => Promise<void>;
+  isReclassifyPending: boolean;
+  lastReclassifyResult?: ReclassifyResult;
+
+  onNavigateToGrid?: (dealId: string, docName: string) => void;
+
+  // Заглушка под будущую replace-логику
+  onReplaceFile?: (file: File) => Promise<void> | void;
+}
+
+// =============================================================
+// View-компонент (чистый UI)
+// =============================================================
+
+export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   dealId,
+  doc,
+  classification,
+  family,
+  structuredData,
+  isLoading,
+  canDownload,
+  canOpenPdf,
+  canReclassify,
+  pdfUrl,
+  onSetReviewed,
+  isSetReviewedPending,
+  onReclassify,
+  isReclassifyPending,
+  lastReclassifyResult,
   onNavigateToGrid,
+  onReplaceFile,
 }) => {
-  const { data: detail, isLoading } = useDocumentDetail(docId);
-  const { data: family } = useDocumentFamily(docId);
-  const { data: pdfData } = useDocumentPdfUrl(docId);
-  const { data: structuredData } = useStructuredData(docId);
-
-  const { userRole } = useAuth();
-  const reclassifyMutation = useReclassifyDocument(docId);
-
-  const isEditorOrAdmin = userRole === "editor" || userRole === "admin";
-  const canDownload = isEditorOrAdmin;
-  const canOpenPdf = isEditorOrAdmin;
-
   const [isDragging, setIsDragging] = useState(false);
-  const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
   // Состояние формы переклассификации
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
-
   const [reclassifyDocType, setReclassifyDocType] = useState("");
   const [reclassifyReason, setReclassifyReason] = useState("");
   const [rerunChecks, setRerunChecks] = useState(false);
@@ -88,7 +151,8 @@ export const DocumentDetails: React.FC<Props> = ({
     );
   }
 
-  if (!detail) {
+  // Нет документа — показываем сообщение (doc может быть null)
+  if (!doc) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400 text-sm">
         Документ не найден
@@ -96,8 +160,6 @@ export const DocumentDetails: React.FC<Props> = ({
     );
   }
 
-  const doc = detail.document;
-  const classification = detail.classification;
   const hasFamily: boolean =
     !!family &&
     (family.master !== null ||
@@ -105,24 +167,31 @@ export const DocumentDetails: React.FC<Props> = ({
       family.amendments.length > 0 ||
       family.versions.length > 0);
 
-  const canReclassify = canReclassifyHelper(userRole); // UserRole тип уже в constants/index.ts
-
   const lowConfidence =
     classification?.classification_confidence !== undefined &&
+    classification?.classification_confidence !== null &&
     classification.classification_confidence < 0.6;
 
-  // Заглушка под будущую replace-логику (когда подключишь /documents/{id}/replace)
-  const handleFile = useCallback(async (file: File) => {
-    // TODO: подключить useReplaceDocument и вызывать его здесь
-    console.warn("Replace file not implemented yet", file.name);
-  }, []);
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (onReplaceFile) {
+        await onReplaceFile(file);
+      } else {
+        // Пока просто заглушка, чтобы не ломать UX
+        console.warn("Replace file not implemented yet", file.name);
+      }
+    },
+    [onReplaceFile],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
+      if (file) {
+        void handleFile(file);
+      }
     },
     [handleFile],
   );
@@ -147,7 +216,6 @@ export const DocumentDetails: React.FC<Props> = ({
           {DOCUMENT_STATUS_LABEL[doc.status] || doc.status}
         </span>
       </div>
-
 
       {/* ========== Информация ========== */}
       <Section title="Информация">
@@ -179,15 +247,12 @@ export const DocumentDetails: React.FC<Props> = ({
               type="checkbox"
               className="rounded border-gray-300"
               checked={!!doc.reviewed_by_person}
-              disabled={setReviewedMutation.isPending}
-              onChange={(e) =>
-                setReviewedMutation.mutate(e.target.checked)
-              }
+              disabled={isSetReviewedPending}
+              onChange={(e) => onSetReviewed(e.target.checked)}
             />
           </label>
         </div>
       </Section>
-
 
       {/* ========== Классификация ========== */}
       <Section title="Классификация документа">
@@ -307,7 +372,7 @@ export const DocumentDetails: React.FC<Props> = ({
                     onClick={async () => {
                       if (!reclassifyDocType.trim()) return;
                       try {
-                        await reclassifyMutation.mutateAsync({
+                        await onReclassify({
                           doc_type: reclassifyDocType,
                           reason: reclassifyReason,
                           rerun_checks: rerunChecks,
@@ -318,13 +383,11 @@ export const DocumentDetails: React.FC<Props> = ({
                       }
                     }}
                     disabled={
-                      !reclassifyDocType.trim() || reclassifyMutation.isPending
+                      !reclassifyDocType.trim() || isReclassifyPending
                     }
                     className="flex-1 bg-blue-600 text-white text-xs rounded py-1.5 hover:bg-blue-700 transition disabled:opacity-50"
                   >
-                    {reclassifyMutation.isPending
-                      ? "Сохранение…"
-                      : "Применить"}
+                    {isReclassifyPending ? "Сохранение…" : "Применить"}
                   </button>
                   <button
                     onClick={() => setShowReclassifyForm(false)}
@@ -334,11 +397,11 @@ export const DocumentDetails: React.FC<Props> = ({
                   </button>
                 </div>
 
-                {reclassifyMutation.isSuccess && (
+                {lastReclassifyResult && (
                   <p className="text-xs text-green-600">
                     ✅ Тип изменён на «
-                    {reclassifyMutation.data?.new_doc_type}»
-                    {reclassifyMutation.data?.yaml_instruction_found
+                    {lastReclassifyResult.new_doc_type}»
+                    {lastReclassifyResult.yaml_instruction_found
                       ? " · YAML-инструкция найдена"
                       : " · YAML-инструкция не найдена"}
                   </p>
@@ -354,18 +417,18 @@ export const DocumentDetails: React.FC<Props> = ({
       </Section>
 
       {/* ========== Семейство документов ========== */}
-      {hasFamily && (
+      {hasFamily && family && (
         <Section title="Семейство документов">
-          {family!.master && (
-            <FamilyRow icon="📄" label="Основной" doc={family!.master} />
+          {family.master && (
+            <FamilyRow icon="📄" label="Основной" doc={family.master} />
           )}
-          {family!.appendices.map((d) => (
+          {family.appendices.map((d) => (
             <FamilyRow key={d.id} icon="📎" label="Приложение" doc={d} />
           ))}
-          {family!.amendments.map((d) => (
+          {family.amendments.map((d) => (
             <FamilyRow key={d.id} icon="✏️" label="Дополнение" doc={d} />
           ))}
-          {family!.versions.map((d) => (
+          {family.versions.map((d) => (
             <FamilyRow key={d.id} icon="🔄" label="Версия" doc={d} />
           ))}
         </Section>
@@ -397,9 +460,9 @@ export const DocumentDetails: React.FC<Props> = ({
       {/* ========== Действия ========== */}
       <Section title="Действия">
         <div className="flex flex-col gap-2">
-          {pdfData?.url && canOpenPdf && (
+          {pdfUrl && canOpenPdf && (
             <a
-              href={pdfData.url}
+              href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
@@ -408,9 +471,9 @@ export const DocumentDetails: React.FC<Props> = ({
               Открыть PDF
             </a>
           )}
-          {pdfData?.url && canDownload && (
+          {pdfUrl && canDownload && (
             <a
-              href={pdfData.url}
+              href={pdfUrl}
               download={doc.filename}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 transition"
             >
@@ -473,7 +536,7 @@ export const DocumentDetails: React.FC<Props> = ({
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleFile(file);
+                  if (file) void handleFile(file);
                 }}
               />
             </label>

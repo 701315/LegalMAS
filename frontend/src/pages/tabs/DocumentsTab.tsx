@@ -2,7 +2,7 @@
 // src/pages/tabs/DocumentsTab.tsx
 // Вкладка "Документы":
 // - слева: дерево / классификация / таблица
-// - справа: панель DocumentDetails
+// - справа: панель DocumentDetails (через контейнер)
 // =============================================================
 
 import React, { useMemo, useState } from "react";
@@ -10,9 +10,12 @@ import {
   useDocuments,
   useDocumentsWithClassification,
   useSoftDeleteDocument,
+  exportDocumentsExcel,
+  exportDocumentsWord,
+  exportDocumentsPDF,
 } from "../../api/documents";
 import type { Deal, Document } from "../../types";
-import DocumentDetails from "../../components/documents/DocumentDetails";
+import DocumentDetailsContainer from "../../components/documents/DocumentDetailsContainer";
 import { DocumentTree } from "../../components/documents/DocumentTree";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { useAuth } from "../../hooks/useAuth";
@@ -21,13 +24,6 @@ import type {
   DocumentColumnDef,
   DocumentColumnId,
 } from "../../types";
-
-import {
-  exportDocumentsExcel,
-  exportDocumentsWord,
-  exportDocumentsPDF,
-} from "../../api/documents";
-
 
 interface DocumentsTabProps {
   deal: Deal;
@@ -176,7 +172,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
     if (!canDelete) return;
 
     const confirmed = window.confirm(
-      `Удалить документ "${doc.filename}" из проекта? Документ будет помечен как удалённый.`,
+      `Удалить документ "${doc.filename}" из проекта? Документ будет помечен как удалённым.`,
     );
     if (!confirmed) return;
 
@@ -235,7 +231,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
       alert("Не удалось экспортировать в PDF");
     }
   };
-
 
   return (
     <div className="flex h-full">
@@ -586,7 +581,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
       {/* Правая колонка: детали документа */}
       <div className="flex-1">
         {selectedDocId ? (
-          <DocumentDetails
+          <DocumentDetailsContainer
             docId={selectedDocId}
             dealId={deal.id}
             onNavigateToGrid={(dealId, docName) => {
