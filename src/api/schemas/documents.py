@@ -1,16 +1,7 @@
-"""
-Pydantic-схемы для работы с документами в REST API.
-
-Эти классы описывают форму JSON-ответов/запросов:
-- краткая информация о документе;
-- детальная информация с версией и классификацией;
-- запрос и ответ для ручной переклассификации документа.
-"""
-
 from uuid import UUID
 from datetime import datetime
-
-from pydantic import BaseModel
+from typing import List
+from pydantic import BaseModel, Field
 
 from core.constants import DocumentStatus, RelationType
 
@@ -18,18 +9,11 @@ from core.constants import DocumentStatus, RelationType
 class ClassificationMetadata(BaseModel):
     """
     Метаданные классификации документа.
-
-    Используется в детальной карточке документа, чтобы:
-    - показать тип документа (doc_type),
-    - уровень классификации (L0-L4, L_manual),
-    - уверенность (0.0–1.0),
-    - список триггеров (applicable_triggers),
-    - флаги low_confidence и есть ли YAML-инструкция.
     """
     doc_type: str
     classification_level: str          # "L0", "L1", "L2", "L3", "L4", "L_manual"
     classification_confidence: float
-    applicable_triggers: list[str]
+    applicable_triggers: list[str] = Field(default_factory=list)
     yaml_instruction_available: bool   # True, если есть playbooks/document_types/{doc_type}.yaml
     low_confidence: bool               # True, если confidence < 0.6
 
@@ -37,8 +21,6 @@ class ClassificationMetadata(BaseModel):
 class DocumentResponse(BaseModel):
     """
     Краткая информация о документе.
-
-    Используется в списках документов и простых ответах API.
     """
     id: UUID
     deal_id: UUID
@@ -50,10 +32,12 @@ class DocumentResponse(BaseModel):
     jurisdiction_guess: str | None
     page_count: int | None
 
-    # Поля классификации (Stage 6+8)
+    reviewed_by_person: bool = False
+    human_review_status: str | None = None
+
     classification_level: str | None = None
     classification_confidence: float | None = None
-    applicable_triggers: list[str] = []
+    applicable_triggers: List[str] = Field(default_factory=list)
 
     created_at: datetime
     updated_at: datetime
@@ -82,12 +66,6 @@ class DocumentVersionResponse(BaseModel):
 class DocumentDetailResponse(BaseModel):
     """
     Детальная карточка документа.
-
-    Содержит:
-    - базовую информацию (DocumentResponse),
-    - последнюю версию (DocumentVersionResponse),
-    - семью документов (family_id),
-    - полный блок метаданных классификации (ClassificationMetadata).
     """
     document: DocumentResponse
     latest_version: DocumentVersionResponse | None
@@ -98,12 +76,10 @@ class DocumentDetailResponse(BaseModel):
 class ReclassifyRequest(BaseModel):
     """
     Запрос на ручную переклассификацию документа.
-
-    Используется в POST /documents/{doc_id}/reclassify.
     """
     doc_type: str
-    reason: str                 # обязательное поле, будет записано в аудит-лог
-    rerun_checks: bool = False  # если True — повторно запускаем проверки по документу
+    reason: str
+    rerun_checks: bool = False
 
 
 class ReclassifyResponse(BaseModel):
@@ -113,7 +89,7 @@ class ReclassifyResponse(BaseModel):
     document_id: UUID
     previous_doc_type: str | None
     new_doc_type: str
-    new_applicable_triggers: list[str]
+    new_applicable_triggers: list[str] = Field(default_factory=list)
     yaml_instruction_found: bool
     checks_requeued: bool = False
 
@@ -121,9 +97,8 @@ class ReclassifyResponse(BaseModel):
 class ReclassifyBatchRequest(BaseModel):
     """
     Запрос на переклассификацию сразу нескольких документов.
-    (можно реализовать позже; схема оставлена на будущее).
     """
-    document_ids: list[UUID]
+    document_ids: list[UUID] = Field(default_factory=list)
     doc_type: str
     reason: str
     rerun_checks: bool = False
@@ -149,5 +124,12 @@ class FamilyResponse(BaseModel):
     """
     family_id: UUID
     master_document: DocumentResponse
-    related_documents: list[DocumentResponse]
-    relations: list[RelationResponse]
+    related_documents: list[DocumentResponse] = Field(default_factory=list)
+    relations: list[RelationResponse] = Field(default_factory=list)
+
+
+class DocumentReviewedUpdateRequest(BaseModel):
+    """
+    Запрос на обновление флага reviewed_by_person.
+    """
+    reviewed_by_person: bool

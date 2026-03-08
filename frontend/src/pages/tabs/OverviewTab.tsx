@@ -9,13 +9,7 @@ import type { Deal } from "../../types";
 import { useClassificationReport, useStartRun } from "../../api/runs";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { canViewClassificationReport } from "../../constants";
-
-// Временный хук авторизации: позже заменим на реальный useAuth
-function useAuth() {
-  // TODO: заменить на реальный Zustand-стор / контекст
-  const userRole = "editor" as const;
-  return { userRole };
-}
+import { useAuth } from "../../hooks/useAuth";
 
 interface OverviewTabProps {
   deal: Deal;
@@ -171,8 +165,16 @@ const ClassificationQualityCard: React.FC<{
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const qc = useQueryClient();
   const startRun = useStartRun(deal.id);
+  const { projectRoles } = useAuth();
+
+  const projectRole = projectRoles[deal.id] ?? "viewer";
+  const canStartRun = projectRole === "admin" || projectRole === "editor";
 
   const handleStart = () => {
+    if (!canStartRun) {
+      return;
+    }
+
     const forceKey = `mas_dd_force_reclassify_${deal.id}`;
     const forceReclassify =
       typeof window !== "undefined" &&
@@ -199,10 +201,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
           qc.invalidateQueries({
             queryKey: ["classification-report", run.id],
           });
-          qc.invalidateQueries({ 
+          qc.invalidateQueries({
             queryKey: ["deal", deal.id],
           });
-
         },
       },
     );
@@ -222,10 +223,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
         </div>
         <button
           type="button"
-          className="px-3 py-1.5 rounded bg-blue-600 text-white text-xs hover:bg-blue-700"
+          className={`px-3 py-1.5 rounded text-xs ${
+            canStartRun
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+          }`}
           onClick={handleStart}
+          disabled={!canStartRun || startRun.isPending}
         >
-          Запустить анализ
+          {startRun.isPending ? "Запускаем…" : "Запустить анализ"}
         </button>
       </div>
 

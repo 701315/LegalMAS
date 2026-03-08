@@ -14,8 +14,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from src.core.config import settings
 from src.core.logging import get_logger
-from src.ops.metrics import METRICS
-
+from src.ops.metrics import get_metrics
 
 logger = get_logger(__name__)
 
@@ -41,7 +40,8 @@ def setup_metrics(app: FastAPI) -> None:
     ).instrument(app).expose(app, endpoint="/metrics")
 
     # Record build info (version can be wired to CI later)
-    METRICS.build_info.info(
+    metrics = get_metrics()
+    metrics.build_info.info(
         {
             "version": "0.1.0",
             "environment": settings.ENVIRONMENT,

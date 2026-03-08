@@ -34,7 +34,7 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from ops.metrics import METRICS
+from ops.metrics import get_metrics
 
 from core.constants import DocumentStatus
 from core.exceptions import IdempotencyConflictError, PermanentError
@@ -119,6 +119,8 @@ async def _import_bundle_async(
         idempotency_key=idempotency_key,
     )
 
+    metrics = get_metrics()
+
     # Idempotency check
     if idempotency_key:
         cached = await _check_idempotency(
@@ -134,7 +136,7 @@ async def _import_bundle_async(
             return cached
 
     if not os.path.exists(source_path):
-        METRICS.import_fail.labels(reason="source_not_found").inc()
+        metrics.import_fail.labels(reason="source_not_found").inc()
         raise PermanentError(
             f"Source file not found: {source_path}",
             details={"source_path": source_path},
@@ -178,13 +180,16 @@ def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
     This folder_path is stored on Document and used by the L1 Classifier
     (Stage 6) for folder_patterns routing in registry.yaml.
     """
+    
+    metrics = get_metrics()
+    
     tmp_dir = tempfile.mkdtemp(prefix="mas_import_")
     file_list: list[tuple[str, str]] = []
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(tmp_dir)
     except zipfile.BadZipFile:
-        METRICS.import_fail.labels(reason="bad_zip").inc()
+        metrics.import_fail.labels(reason="bad_zip").inc()
         raise PermanentError(
             "Invalid or corrupted ZIP file",
             details={"source_path": zip_path},
@@ -255,6 +260,8 @@ async def _async_import(
     L1 Classifier (Stage 6) folder_patterns in registry.yaml.
     """
 
+    metrics = get_metrics()
+
     store = ArtifactStore()
     imported_ids: list[str] = []
     quarantine_ids: list[str] = []
@@ -319,7 +326,7 @@ async def _async_import(
                 doc_id=str(q_doc.id),
             )
             
-            METRICS.quarantine.labels(
+            metrics.quarantine.labels(
                 reason=validation.reason or "import_quarantine"
             ).inc()          
             
@@ -343,7 +350,7 @@ async def _async_import(
             with open(filepath, "rb") as f:
                 file_bytes = f.read()
         except Exception as e:
-            METRICS.import_fail.labels(reason="read_error").inc()
+            metrics.import_fail.labels(reason="read_error").inc()
             logger.error(
                 "Failed to read file during import",
                 filename=filename,

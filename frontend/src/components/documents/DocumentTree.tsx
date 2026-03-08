@@ -24,6 +24,10 @@ interface Props {
   onSelectDoc: (doc: Document) => void;
   /** Показывать ли компактный бейдж классификации. */
   showClassification?: boolean;
+  /** Можно ли удалять документы (admin/editor). */
+  canDelete?: boolean;
+  /** Колбэк для удаления документа. */
+  onDeleteDoc?: (doc: Document) => void;
 }
 
 /* ---------- Внутренние типы ---------- */
@@ -45,6 +49,8 @@ export const DocumentTree: React.FC<Props> = ({
   selectedDocId,
   onSelectDoc,
   showClassification = true,
+  canDelete = false,
+  onDeleteDoc,
 }) => {
   const [searchText, setSearchText] = useState("");
   // По умолчанию раскрыт корень
@@ -109,6 +115,8 @@ export const DocumentTree: React.FC<Props> = ({
             onSelectDoc={onSelectDoc}
             depth={0}
             showClassification={showClassification}
+            canDelete={canDelete}
+            onDeleteDoc={onDeleteDoc}
           />
         )}
       </div>
@@ -128,6 +136,8 @@ interface NodeViewProps {
   onSelectDoc: (doc: Document) => void;
   depth: number;
   showClassification: boolean;
+  canDelete: boolean;
+  onDeleteDoc?: (doc: Document) => void;
 }
 
 const NodeView: React.FC<NodeViewProps> = ({
@@ -138,6 +148,8 @@ const NodeView: React.FC<NodeViewProps> = ({
   onSelectDoc,
   depth,
   showClassification,
+  canDelete,
+  onDeleteDoc,
 }) => {
   const isOpen = expanded.has(node.fullPath);
   const hasContent = node.children.length > 0 || node.docs.length > 0;
@@ -192,6 +204,8 @@ const NodeView: React.FC<NodeViewProps> = ({
               onSelectDoc={onSelectDoc}
               depth={depth + 1}
               showClassification={showClassification}
+              canDelete={canDelete}
+              onDeleteDoc={onDeleteDoc}
             />
           ))}
 
@@ -222,14 +236,29 @@ const NodeView: React.FC<NodeViewProps> = ({
                 />
               )}
 
-              {/* Статус-лейбл в виде подсказки (иконку можно сделать через emoji или одиночный символ) */}
+              {/* Явный статус документа: PENDING / COMPLETED / ... */}
               <span
-                className="shrink-0 ml-1 text-[11px] text-gray-400"
+                className="shrink-0 ml-2 text-[11px] uppercase text-gray-500"
                 title={DOCUMENT_STATUS_LABEL[doc.status] || doc.status}
               >
-                {/* минимальный, не кричащий индикатор */}
-                ●
+                {doc.status}
               </span>
+
+
+              {/* Кнопка удаления (если разрешено) */}
+              {canDelete && onDeleteDoc && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation(); // чтобы не срабатывать select по документу
+                    onDeleteDoc(doc);
+                  }}
+                  className="ml-1 text-[11px] text-red-500 hover:text-red-700"
+                  title="Удалить документ"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </>

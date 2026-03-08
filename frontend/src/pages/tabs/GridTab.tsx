@@ -25,6 +25,7 @@ import EvidencePanel from "../../components/evidence/EvidencePanel";
 import BulkQCBar from "../../components/qc/BulkQCBar";
 import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
 import ExportButtons from "../../components/grid/ExportButtons";
+import { useAuth } from "../../hooks/useAuth";
 
 interface GridTabProps {
   dealId: string;
@@ -48,6 +49,10 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [selectedDocType, setSelectedDocType] = React.useState<string | null>(
     null,
   );
+
+  const { projectRoles } = useAuth();
+  const projectRole = projectRoles[dealId] ?? "viewer";
+  const canDoQc = projectRole === "admin" || projectRole === "editor";
 
   const {
     data: allResults = [],
@@ -169,20 +174,27 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     result: CheckResult,
     newStatus: Exclude<QCStatus, "pending">,
   ) => {
+    if (!canDoQc) return;
     // TODO: позже вызывать QC API и обновлять useAllResults
     console.log("QC change from MagicZoom", result.id, newStatus);
   };
 
   const handleSelectionChange = (ids: string[]) => {
+    if (!canDoQc) {
+      setSelectedIds([]);
+      return;
+    }
     setSelectedIds(ids);
   };
 
   const handleBulkConfirm = (comment: string) => {
+    if (!canDoQc) return;
     if (!selectedIds.length) return;
     confirmMutation.mutate({ ids: selectedIds, comment });
   };
 
   const handleBulkReject = (comment: string) => {
+    if (!canDoQc) return;
     if (!selectedIds.length) return;
     rejectMutation.mutate({ ids: selectedIds, comment });
   };
@@ -196,6 +208,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     newResult?: CheckResultValue;
     comment: string;
   }) => {
+    if (!canDoQc) return;
     if (!selectedIds.length) return;
     overrideMutation.mutate({
       ids: selectedIds,
@@ -209,6 +222,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     result: CheckResult,
     newStatus: Exclude<QCStatus, "pending">,
   ) => {
+    if (!canDoQc) return;
     // TODO: позже вызывать QC API и обновлять useAllResults
     console.log("QC change from EvidencePanel", result.id, newStatus);
   };
@@ -288,7 +302,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         />
       )}
 
-      {selectedIds.length > 0 && (
+      {canDoQc && selectedIds.length > 0 && (
         <BulkQCBar
           selectedCount={selectedIds.length}
           onConfirm={handleBulkConfirm}

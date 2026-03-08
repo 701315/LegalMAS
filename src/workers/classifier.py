@@ -12,7 +12,7 @@ Status: structured -> classified.
 import asyncio
 import time
 import uuid
-from ops.metrics import METRICS
+from ops.metrics import get_metrics
 
 from classifiers.hybrid_classifier import HybridClassifier
 from classifiers.keyword_analyzer import KeywordAnalyzer
@@ -75,6 +75,8 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
 
+    metrics = get_metrics()
+
     async with db_uow() as uow:
         doc_repo = DocumentRepository(uow.session)
         ver_repo = DocumentVersionRepository(uow.session)
@@ -134,11 +136,11 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
         )
 
         # --- Метрики классификации ---
-        METRICS.classification_duration.labels(
+        metrics.classification_duration.labels(
             level=result.level.value if hasattr(result, "level") else "L_manual"
         ).observe(time.time() - start_time)
 
-        METRICS.classification_level_distribution.labels(
+        metrics.classification_level_distribution.labels(
             level=result.level.value if hasattr(result, "level") else "L_manual",
             doc_type=result.doctype or "UNKNOWN",
         ).inc()

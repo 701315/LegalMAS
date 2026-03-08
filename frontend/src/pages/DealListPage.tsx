@@ -116,7 +116,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
 
             <div className="text-right text-gray-500">
               <p>
-                Страница {page} из {totalPages}
+                Страница {page}
               </p>
             </div>
           </div>

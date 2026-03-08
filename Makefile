@@ -13,6 +13,7 @@ up:
 	@echo "Waiting for services to be ready..."
 	@$(SLEEP) 3
 	@echo "Services are up. PostgreSQL: localhost:5432, Redis: localhost:6379, MinIO: localhost:9000 (console: localhost:9001)"
+	PYTHONPATH=src uvicorn api.main:app --reload --port 8000
 
 # Остановить все сервисы
 down:

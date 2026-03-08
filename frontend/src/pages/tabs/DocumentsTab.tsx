@@ -1,7 +1,7 @@
 // =============================================================
 // src/pages/tabs/DocumentsTab.tsx
 // Вкладка "Документы":
-// - слева: дерево документов + вкладка "Классификация" 
+// - слева: дерево / классификация / таблица
 // - справа: панель DocumentDetails
 // =============================================================
 
@@ -9,11 +9,25 @@ import React, { useMemo, useState } from "react";
 import {
   useDocuments,
   useDocumentsWithClassification,
+  useSoftDeleteDocument,
 } from "../../api/documents";
 import type { Deal, Document } from "../../types";
 import DocumentDetails from "../../components/documents/DocumentDetails";
 import { DocumentTree } from "../../components/documents/DocumentTree";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
+import { useAuth } from "../../hooks/useAuth";
+import { ALL_DOCUMENT_COLUMNS } from "../../types";
+import type {
+  DocumentColumnDef,
+  DocumentColumnId,
+} from "../../types";
+
+import {
+  exportDocumentsExcel,
+  exportDocumentsWord,
+  exportDocumentsPDF,
+} from "../../api/documents";
+
 
 interface DocumentsTabProps {
   deal: Deal;
@@ -32,16 +46,96 @@ interface ClassificationStats {
   low_confidence: number;
 }
 
+// Вспомогательное форматирование для статуса
+function formatStatus(status: Document["status"] | undefined): string {
+  if (!status) return "";
+  switch (status) {
+    case "pending":
+      return "Ожидает обработки";
+    case "extracting":
+    case "extracted":
+    case "sanitized":
+    case "structured":
+    case "classified":
+    case "analyzing":
+      return "В обработке";
+    case "completed":
+      return "Обработан";
+    case "quarantine":
+      return "Карантин";
+    default:
+      return status;
+  }
+}
+
+// Вспомогательное форматирование риска
+function formatRiskLevel(risk: string | null | undefined): string {
+  if (!risk) return "";
+  switch (risk) {
+    case "low":
+      return "Низкий";
+    case "medium":
+      return "Средний";
+    case "high":
+      return "Высокий";
+    case "critical":
+      return "Критический";
+    default:
+      return risk;
+  }
+}
+
+// Вспомогательное форматирование дат
+function formatDateTime(value: string | undefined | null): string {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   const [page] = useState(1);
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
 
+  const { projectRoles } = useAuth();
+  const currentRole = projectRoles[deal.id] ?? "viewer";
+  const isAdmin = currentRole === "admin";
+  const isEditor = currentRole === "editor";
+  const canDelete = isAdmin || isEditor;
+
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [leftTab, setLeftTab] = useState<"tree" | "classification">("tree");
+  const [leftTab, setLeftTab] = useState<"tree" | "classification" | "table">(
+    "tree",
+  );
+
+  const softDeleteMutation = useSoftDeleteDocument(deal.id);
 
   const documents = data?.items ?? [];
   const classifiedDocs = classifiedPage?.items ?? [];
+
+  // === НОВОЕ: состояние видимых колонок и режима выбора ===
+
+  // по умолчанию — те, у которых defaultVisible = true
+  const defaultVisibleIds = useMemo<DocumentColumnId[]>(
+    () =>
+      ALL_DOCUMENT_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id),
+    [],
+  );
+
+  const [visibleColumnIds, setVisibleColumnIds] =
+    useState<DocumentColumnId[]>(defaultVisibleIds);
+
+  const [isSelectingColumns, setIsSelectingColumns] = useState(false);
+  const [tempSelectedIds, setTempSelectedIds] =
+    useState<DocumentColumnId[]>(defaultVisibleIds);
+
+  const visibleColumns = useMemo<DocumentColumnDef[]>(
+    () => ALL_DOCUMENT_COLUMNS.filter((col) => visibleColumnIds.includes(col.id)),
+    [visibleColumnIds],
+  );
 
   // Статистика по классификации + список low-confidence документов
   const { classificationStats, lowConfidenceDocs } = useMemo(() => {
@@ -58,13 +152,15 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
     const lows: Document[] = [];
 
     for (const doc of classifiedDocs) {
-      const level = doc.classification_level || "L0";
+      const level = (doc.classification_level as keyof ClassificationStats) || "L0";
       stats[level] = (stats[level] || 0) + 1;
 
-      if (
-        doc.classification_confidence !== undefined &&
-        doc.classification_confidence < LOW_CONFIDENCE_THRESHOLD
-      ) {
+      const confidence =
+        typeof doc.classification_confidence === "number"
+          ? doc.classification_confidence
+          : null;
+
+      if (confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD) {
         lows.push(doc);
         stats.low_confidence++;
       }
@@ -76,14 +172,82 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
     };
   }, [classifiedDocs]);
 
+  const handleDeleteDocument = (doc: Document) => {
+    if (!canDelete) return;
+
+    const confirmed = window.confirm(
+      `Удалить документ "${doc.filename}" из проекта? Документ будет помечен как удалённый.`,
+    );
+    if (!confirmed) return;
+
+    softDeleteMutation.mutate(doc.id);
+  };
+
+  // === НОВОЕ: обработчики выбора колонок ===
+
+  const handleToggleColumnSelection = (colId: DocumentColumnId) => {
+    setTempSelectedIds((prev) =>
+      prev.includes(colId)
+        ? prev.filter((id) => id !== colId)
+        : [...prev, colId],
+    );
+  };
+
+  const handleApplyColumns = () => {
+    setVisibleColumnIds(tempSelectedIds);
+    setIsSelectingColumns(false);
+  };
+
+  const handleResetColumns = () => {
+    setVisibleColumnIds(defaultVisibleIds);
+    setTempSelectedIds(defaultVisibleIds);
+    setIsSelectingColumns(false);
+  };
+
+  const handleStartSelectingColumns = () => {
+    setTempSelectedIds(visibleColumnIds);
+    setIsSelectingColumns(true);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      await exportDocumentsExcel(deal.id, visibleColumnIds);
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось экспортировать в Excel");
+    }
+  };
+
+  const handleExportWord = async () => {
+    try {
+      await exportDocumentsWord(deal.id, visibleColumnIds);
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось экспортировать в Word");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      await exportDocumentsPDF(deal.id, visibleColumnIds);
+    } catch (err) {
+      console.error(err);
+      alert("Не удалось экспортировать в PDF");
+    }
+  };
+
+
   return (
     <div className="flex h-full">
-      {/* Левая колонка: дерево / панель классификации */}
-      <div className="w-[45%] border-r border-gray-200 flex flex-col">
+      {/* Левая колонка: дерево / панель классификации / таблица */}
+      <div className="w-[55%] border-r border-gray-200 flex flex-col">
         {/* Заголовок + табы */}
         <div className="border-b">
-          <div className="px-4 pt-2 text-xs font-semibold text-gray-500 uppercase">
-            Документы ({documents.length})
+          <div className="px-4 pt-2 text-xs font-semibold text-gray-500 uppercase flex justify-between items-center">
+            <span>Документы ({documents.length})</span>
+            <span className="text-[11px] text-gray-400">
+              Роль: {currentRole}
+            </span>
           </div>
           <div className="mt-2 flex text-xs font-medium px-2">
             <button
@@ -113,10 +277,21 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab("table")}
+              className={`flex-1 px-2 py-1 rounded-t border-b-2 ${
+                leftTab === "table"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              📄 Таблица
+            </button>
           </div>
         </div>
 
-        {/* Состояния загрузки/ошибки для дерева */}
+        {/* Состояния загрузки/ошибки */}
         {isLoading && (
           <div className="p-4 text-sm text-gray-500">Загружаем документы…</div>
         )}
@@ -134,6 +309,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                 selectedDocId={selectedDocId}
                 onSelectDoc={(doc) => setSelectedDocId(doc.id)}
                 showClassification
+                canDelete={canDelete}
+                onDeleteDoc={handleDeleteDocument}
               />
             )}
 
@@ -169,8 +346,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                     </p>
                     <p>
                       Уровень уверенности ниже{" "}
-                      {Math.round(LOW_CONFIDENCE_THRESHOLD * 100)}% —
-                      рекомендуется проверить тип документа.
+                      {Math.round(LOW_CONFIDENCE_THRESHOLD * 100)}% — рекомендуется
+                      проверить тип документа.
                     </p>
                   </div>
                 )}
@@ -217,6 +394,189 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                     Документов с низкой уверенностью классификации нет.
                   </p>
                 )}
+              </div>
+            )}
+
+            {leftTab === "table" && (
+              <div className="flex-1 overflow-auto p-2">
+                {/* Панель управления колонками и экспортом */}
+                <div className="mb-2 flex items-center justify-between text-xs gap-2">
+                  <div className="flex items-center gap-2">
+                    {!isSelectingColumns ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleStartSelectingColumns}
+                          className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100"
+                        >
+                          Выбрать колонки
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResetColumns}
+                          className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100"
+                        >
+                          Сбросить по умолчанию
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleApplyColumns}
+                          className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Применить
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsSelectingColumns(false)}
+                          className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100"
+                        >
+                          Отмена
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportExcel}
+                      className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                      title="Экспорт в Excel"
+                    >
+                      📊 Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportWord}
+                      className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      title="Экспорт в Word"
+                    >
+                      📝 Word
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportPDF}
+                      className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                      title="Экспорт в PDF"
+                    >
+                      📄 PDF
+                    </button>
+                  </div>
+                </div>
+
+                {/* Панель чекбоксов (только в режиме выбора) */}
+                {isSelectingColumns && (
+                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                    <p className="font-semibold mb-2 text-blue-800">
+                      Выберите колонки для отображения:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ALL_DOCUMENT_COLUMNS.map((col) => (
+                        <label
+                          key={col.id}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 p-1 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={tempSelectedIds.includes(col.id)}
+                            onChange={() => handleToggleColumnSelection(col.id)}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-gray-700">{col.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <table className="min-w-full text-xs border-collapse">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {visibleColumns.map((col) => (
+                        <th
+                          key={col.id}
+                          className="px-2 py-1 text-left font-semibold text-gray-600 border-b border-gray-200"
+                          title={col.description}
+                        >
+                          {col.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.map((doc) => (
+                      <tr
+                        key={doc.id}
+                        className={`cursor-pointer hover:bg-gray-50 ${
+                          selectedDocId === doc.id ? "bg-blue-50" : ""
+                        }`}
+                        onClick={() => setSelectedDocId(doc.id)}
+                      >
+                        {visibleColumns.map((col) => {
+                          let value: unknown;
+
+                          switch (col.field) {
+                            case "applicable_triggers_count":
+                              value = doc.applicable_triggers?.length ?? 0;
+                              break;
+                            case "status":
+                              value = formatStatus(doc.status);
+                              break;
+                            case "risk_level":
+                              value = formatRiskLevel(doc.risk_level);
+                              break;
+                            case "created_at":
+                              value = formatDateTime(doc.created_at);
+                              break;
+                            case "updated_at":
+                              value = formatDateTime(doc.updated_at);
+                              break;
+                            default:
+                              value = (doc as any)[col.field];
+                              break;
+                          }
+
+                          return (
+                            <td
+                              key={col.id}
+                              className="px-2 py-1 border-b border-gray-100 text-gray-800 max-w-xs truncate"
+                              title={typeof value === "string" ? value : undefined}
+                            >
+                              {(() => {
+                                if (typeof value === "boolean") {
+                                  return value ? "Да" : "Нет";
+                                }
+                                if (value === null || value === undefined) {
+                                  return "";
+                                }
+                                if (
+                                  typeof value === "number" ||
+                                  typeof value === "string"
+                                ) {
+                                  return value as React.ReactNode;
+                                }
+                                return String(value);
+                              })()}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                    {documents.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={visibleColumns.length}
+                          className="px-2 py-4 text-center text-xs text-gray-400"
+                        >
+                          Документов пока нет.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

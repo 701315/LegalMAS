@@ -18,6 +18,8 @@ class DocumentStatus(str, Enum):
     ANALYZING = "analyzing"
     COMPLETED = "completed"
     QUARANTINE = "quarantine"
+    DUPLICATE = "duplicate"
+    DELETED = "deleted"   # сключён из активной работы, но данные сохраняются для аудита/истории
 
 
 class Severity(str, Enum):

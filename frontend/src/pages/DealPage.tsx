@@ -1,9 +1,11 @@
 // =============================================================
 // src/pages/DealPage.tsx
 // Страница сделки: обзор, DD Grid, документы, запросы, отчёт, аудит.
+// Добавлены кнопки администратора/редактора проекта.
 // =============================================================
 
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import type { Deal } from "../types";
 import OverviewTab from "./tabs/OverviewTab";
 import GridTab from "./tabs/GridTab";
@@ -11,6 +13,7 @@ import DocumentsTab from "./tabs/DocumentsTab";
 import { RequestsTab } from "./tabs/RequestsTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
+import { useAuth } from "../hooks/useAuth";
 
 interface DealPageProps {
   deal: Deal;
@@ -32,10 +35,34 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   const latestRunId = deal.last_run_id ?? null;
 
+  const navigate = useNavigate();
+  const { projectRoles } = useAuth();
+
+  // Роль текущего пользователя в этом проекте (admin/editor/viewer)
+  const currentProjectRole = projectRoles[deal.id] ?? "viewer";
+  const isAdmin = currentProjectRole === "admin";
+  const isEditor = currentProjectRole === "editor";
+  const canManageProject = isAdmin || isEditor;
+
+  const handleOpenMembers = () => {
+    if (!canManageProject) return;
+    navigate(`/projects/${deal.id}/members`);
+  };
+
+  const handleOpenUpload = () => {
+    if (!canManageProject) return;
+    navigate(`/projects/${deal.id}/upload`);
+  };
+
+  const handleOpenPlaybook = () => {
+    if (!canManageProject) return;
+    navigate(`/projects/${deal.id}/playbook`);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
-      {/* Заголовок сделки */}
-      <header className="bg-white rounded-lg p-5 border flex items-center justify-between">
+      {/* Заголовок сделки + кнопки администратора/редактора */}
+      <header className="bg-white rounded-lg p-5 border flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             {deal.name}
@@ -43,7 +70,39 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           <p className="text-sm text-gray-500">
             Сделка #{deal.id} · статус: {deal.status}
           </p>
+
+          {deal.metadata_?.contact_person && (
+            <p className="text-sm text-gray-600 mt-1">
+              Контактное лицо: {deal.metadata_.contact_person}
+            </p>
+          )}
         </div>
+
+        {canManageProject && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleOpenMembers}
+              className="px-3 py-1.5 text-xs md:text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            >
+              Участники проекта
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenUpload}
+              className="px-3 py-1.5 text-xs md:text-sm rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Загрузить новые документы
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenPlaybook}
+              className="px-3 py-1.5 text-xs md:text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            >
+              Playbook проекта
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Вкладки */}

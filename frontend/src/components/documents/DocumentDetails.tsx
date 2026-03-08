@@ -25,16 +25,20 @@ import {
   useDocumentFamily,
   useStructuredData,
   useReclassifyDocument,
+  useDocumentPdfUrl,
+  useSetDocumentReviewed,
 } from "../../api/documents";
-import { usePdfUrl } from "../../api/evidence";
+
 import {
   DOCUMENT_STATUS_COLOR,
   DOCUMENT_STATUS_LABEL,
   canReclassify as canReclassifyHelper,
 } from "../../constants";
+
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { TriggerList } from "../ui/TriggerList";
 import { useAuth } from "../../hooks/useAuth";
+
 import type {
   Document,
   ReclassifyInput,
@@ -54,16 +58,22 @@ export const DocumentDetails: React.FC<Props> = ({
 }) => {
   const { data: detail, isLoading } = useDocumentDetail(docId);
   const { data: family } = useDocumentFamily(docId);
-  const { data: pdfData } = usePdfUrl(docId);
+  const { data: pdfData } = useDocumentPdfUrl(docId);
   const { data: structuredData } = useStructuredData(docId);
 
   const { userRole } = useAuth();
   const reclassifyMutation = useReclassifyDocument(docId);
 
+  const isEditorOrAdmin = userRole === "editor" || userRole === "admin";
+  const canDownload = isEditorOrAdmin;
+  const canOpenPdf = isEditorOrAdmin;
+
   const [isDragging, setIsDragging] = useState(false);
+  const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
   // Состояние формы переклассификации
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
+
   const [reclassifyDocType, setReclassifyDocType] = useState("");
   const [reclassifyReason, setReclassifyReason] = useState("");
   const [rerunChecks, setRerunChecks] = useState(false);
@@ -138,6 +148,7 @@ export const DocumentDetails: React.FC<Props> = ({
         </span>
       </div>
 
+
       {/* ========== Информация ========== */}
       <Section title="Информация">
         <InfoRow
@@ -145,7 +156,6 @@ export const DocumentDetails: React.FC<Props> = ({
           value={doc.doc_type || "Не определён"}
         />
         <InfoRow label="Язык" value={doc.language || "—"} />
-        {/* Юрисдикция пока есть только в бэке, при желании можно добавить в фронтовый тип */}
         <InfoRow
           label="Страниц"
           value={doc.page_count ? String(doc.page_count) : "—"}
@@ -158,7 +168,26 @@ export const DocumentDetails: React.FC<Props> = ({
             year: "numeric",
           })}
         />
+
+        {/* Флаг "Проверка юриста не требуется" */}
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-sm text-gray-400">
+            Проверка юриста не требуется
+          </span>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300"
+              checked={!!doc.reviewed_by_person}
+              disabled={setReviewedMutation.isPending}
+              onChange={(e) =>
+                setReviewedMutation.mutate(e.target.checked)
+              }
+            />
+          </label>
+        </div>
       </Section>
+
 
       {/* ========== Классификация ========== */}
       <Section title="Классификация документа">
@@ -368,7 +397,7 @@ export const DocumentDetails: React.FC<Props> = ({
       {/* ========== Действия ========== */}
       <Section title="Действия">
         <div className="flex flex-col gap-2">
-          {pdfData?.url && (
+          {pdfData?.url && canOpenPdf && (
             <a
               href={pdfData.url}
               target="_blank"
@@ -379,7 +408,7 @@ export const DocumentDetails: React.FC<Props> = ({
               Открыть PDF
             </a>
           )}
-          {pdfData?.url && (
+          {pdfData?.url && canDownload && (
             <a
               href={pdfData.url}
               download={doc.filename}

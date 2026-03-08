@@ -9,6 +9,8 @@ import type { ApiError } from "../types";
 
 // Базовый URL берём из Vite-окружения
 const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// без /api/v1 тут
+
 
 // Создаём инстанс axios
 const client = axios.create({

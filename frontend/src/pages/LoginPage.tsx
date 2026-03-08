@@ -1,91 +1,149 @@
 // =============================================================
 // src/pages/LoginPage.tsx
-// Простейшая страница входа: API-ключ + выбор роли.
+// Страница входа: логин + пароль, сохранение пользователя в uiStore.
 // =============================================================
 
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import type { UserRole } from "../types";
+import { useLogin } from "../api/auth";
+import type { GlobalRole } from "../stores/uiStore";
 
-interface LoginPageProps {
-  /** Опциональный колбэк, который вызывается после успешного логина */
-  onLoggedIn?: () => void;
-}
+const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { setUserInfo, logout } = useAuth();
+  const loginMutation = useLogin();
 
-const ROLES: UserRole[] = ["viewer", "editor", "reviewer", "admin"];
-
-const LoginPage: React.FC<LoginPageProps> = ({ onLoggedIn }) => {
-  const { apiKey, userRole, setApiKey, setUserRole } = useAuth();
-  const [keyInput, setKeyInput] = useState(apiKey ?? "");
-  const [roleInput, setRoleInput] = useState<UserRole>(userRole);
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorText, setErrorText] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorText(null);
 
-    // Сохраняем в store и localStorage
-    setApiKey(keyInput || null);
-    setUserRole(roleInput);
+    // На всякий случай очищаем старое состояние пользователя
+    logout();
 
-    // После логина можно перейти на список сделок
-    if (onLoggedIn) {
-      onLoggedIn();
+    if (!login || !password) {
+      setErrorText("Укажите логин и пароль.");
+      return;
     }
+
+    // ВАЖНО: бекенд ждёт поля username и password
+    loginMutation.mutate(
+      { username: login, password },
+      {
+        onSuccess: (data) => {
+          // ТЕКУЩИЙ ФОРМАТ ОТВЕТА БЭКЕНДА (заглушка):
+          // {
+          //   access_token: "admin-token",
+          //   token_type: "bearer",
+          //   user: {
+          //     id: "admin",
+          //     global_role: "system",
+          //     tenant_id: "...",
+          //     email: "admin@example.com"
+          //   }
+          // }
+          //
+          // В будущем здесь будет реальный пользователь + JWT,
+          // но структура userInfo в uiStore лучше оставить такой же.
+
+          const user = data.user;
+
+          // Базовые значения из бэка
+          let globalRole: GlobalRole = user.global_role as GlobalRole;
+          let projectRoles: Record<string, "admin" | "editor" | "viewer"> = {};
+
+          // DEV-режим:
+          // Если логин admin (user.id === "admin"), считаем его супер-админом системы
+          // и админом во всех проектах.
+          if (user.id === "admin") {
+            globalRole = "superadmin";
+            // projectRoles заполним динамически в будущем;
+            // пока логика RequireProjectRole при отсутствии ключа
+            // поставит viewer, поэтому для теста загрузки можно вручную
+            // прописывать нужный dealId в useAuth, как обсуждали.
+          }
+
+          setUserInfo({
+            userId: user.id,
+            userName: user.email ?? user.id,
+            globalRole,
+            projectRoles,
+            apiKey: data.access_token,
+          });
+
+          navigate("/dashboard");
+        },
+        onError: (err: any) => {
+          // err приходит из Axios интерсептора как ApiError
+          // Важно: рендерим строку, а не весь объект ошибки.
+          const detail =
+            err?.detail ||
+            err?.message ||
+            "Ошибка входа. Проверьте логин и пароль.";
+          setErrorText(String(detail));
+        },
+      },
+    );
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow border p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-4">
-          MAS-DD — Вход
+          LegalMAS — Вход
         </h1>
         <p className="text-sm text-gray-500 mb-4">
-          Укажите API-ключ и роль пользователя для работы с системой.
+          Введите логин и пароль, выданные администратором.
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* API-ключ */}
+          {/* Логин */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              API-ключ
+              Логин
+            </label>
+            <input
+              type="text"
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
+              className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Ваш логин"
+              autoComplete="username"
+            />
+          </div>
+
+          {/* Пароль */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Пароль
             </label>
             <input
               type="password"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="X-API-Key для бэкенда MAS-DD"
+              placeholder="Ваш пароль"
+              autoComplete="current-password"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Ключ будет сохранён только в localStorage этого браузера.
-            </p>
           </div>
 
-          {/* Роль */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Роль
-            </label>
-            <select
-              value={roleInput}
-              onChange={(e) => setRoleInput(e.target.value as UserRole)}
-              className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              editor/reviewer/admin дают больше прав (переклассификация, отчёты).
+          {/* Ошибка входа */}
+          {errorText && (
+            <p className="text-sm text-red-600">
+              {errorText}
             </p>
-          </div>
+          )}
 
           <button
             type="submit"
-            className="w-full px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700"
+            disabled={loginMutation.isPending}
+            className="w-full px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            Войти
+            {loginMutation.isPending ? "Входим..." : "Войти"}
           </button>
         </form>
       </div>
@@ -94,3 +152,5 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoggedIn }) => {
 };
 
 export default LoginPage;
+
+

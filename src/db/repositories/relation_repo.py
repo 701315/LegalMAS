@@ -111,3 +111,20 @@ class RelationRepository:
             stmt = stmt.options(selectinload(DocumentFamily.members))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_document_family_id(
+        self,
+        document_id: uuid.UUID,
+    ) -> uuid.UUID | None:
+        """
+        Вернуть family_id для документа, если он состоит в каком‑то семействе.
+        """
+        stmt = (
+            select(DocumentFamilyMember.family_id)
+            .where(DocumentFamilyMember.doc_id == document_id)
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+

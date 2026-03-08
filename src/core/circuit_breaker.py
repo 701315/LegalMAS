@@ -23,14 +23,13 @@ import uuid
 from enum import Enum
 
 import redis as redis_lib
-from ops.metrics import METRICS
+from ops.metrics import get_metrics
 
 from .config import settings
 from .exceptions import CircuitOpenError
 from .logging import get_logger
 
 logger = get_logger(__name__)
-
 
 class CBState(str, Enum):
     """Circuit breaker states."""
@@ -79,6 +78,7 @@ class CircuitBreaker:
         self.window_size_seconds = window_size_seconds
         self.recovery_timeout_seconds = recovery_timeout_seconds
         self.success_threshold = success_threshold
+        self._metrics = get_metrics()
 
         # Redis connection for shared state across workers
         self._redis = redis_client or redis_lib.from_url(settings.REDIS_URL, decode_responses=True)
@@ -180,7 +180,7 @@ class CircuitBreaker:
             CBState.OPEN: 1,
             CBState.HALF_OPEN: 2,
         }[new_state]
-        METRICS.circuit_breaker_state.labels(provider=self.name).set(state_value)
+        self._metrics.circuit_breaker_state.labels(provider=self.name).set(state_value)
 
         if new_state == CBState.OPEN:
             self._redis.set(self._opened_at_key, str(time.time()))
@@ -203,7 +203,7 @@ class CircuitBreaker:
         )
 
     @property
-    def metrics(self) -> dict:
+    def metrics_snapshot(self) -> dict:
         """Get current metrics for monitoring."""
         now = time.time()
         window_start = now - self.window_size_seconds
@@ -216,7 +216,7 @@ class CircuitBreaker:
             time_in_open = now - float(opened_at)
 
         if time_in_open > 0:
-            METRICS.circuit_breaker_open_seconds.labels(
+            self._metrics.circuit_breaker_open_seconds.labels(
                 provider=self.name
             ).inc(time_in_open)
 

@@ -38,3 +38,21 @@ class DealResponse(BaseModel):
     last_run_id: UUID | None = None
     
     model_config = {"from_attributes": True}
+
+class DealCreate(BaseModel):
+    """
+    Данные для создания новой сделки (проекта) через API.
+    Используется фронтом на экране "Новый проект".
+    """
+    name: str
+    deal_type: str | None = None
+    jurisdiction: str | None = None
+    languages: list[str] | None = None
+
+    # по умолчанию — локальный режим ПДн
+    pii_mode: str = PIIMode.LOCAL_ONLY.value
+    # профиль проверок
+    profile: str = "full"
+
+    playbook_version_id: UUID | None = None
+    metadata_: dict | None = None

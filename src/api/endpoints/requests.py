@@ -19,6 +19,9 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
+
 from db.session import get_db
 from db.repositories.dd_request_repo import DDRequestRepository
 from db.repositories.deal_repo import DealRepository
@@ -50,10 +53,22 @@ async def list_dd_requests_for_deal(
         description="Фильтр по приоритету: critical / high / medium",
     ),
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Вернуть все DD-запросы для сделки, с опциональными фильтрами.
+
+    Доступ:
+    - только участники проекта (viewer/editor/admin) для этой сделки.
     """
+    # Проверка доступа по проектной роли (любой участник)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
     repo = DDRequestRepository(db)
     items = await repo.list_for_deal(deal_id, status=status, priority=priority)
     return [DDRequestResponse.model_validate(r) for r in items]
@@ -68,13 +83,22 @@ async def create_dd_request_for_deal(
     deal_id: uuid.UUID,
     payload: DDRequestCreate,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Ручное создание DD-запроса юристом.
 
-    Пока создаём запрос со source="manual" и без check_id/structured_values.
-    Позже сюда можно добавить сценарий создания "из DD Grid" с заполнением check_id.
+    Доступ:
+    - только редакторы/админы проекта ("editor", "admin").
     """
+    # Проверка проектной роли: создавать запросы могут только editor/admin
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
     # Опционально: проверяем, что сделка существует
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_id)
@@ -122,12 +146,27 @@ async def update_dd_request(
     req_id: uuid.UUID,
     payload: DDRequestUpdate,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Обновление существующего DD-запроса.
+
+    Доступ:
+    - только editor/admin соответствующей сделки.
+    """
     repo = DDRequestRepository(db)
 
     req = await repo.get_by_id(req_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
+
+    # Проверка проектной роли по deal_id запроса
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=req.deal_id,
+        allowed_roles=("admin", "editor"),
+    )
 
     data: dict = {}
     if payload.priority is not None:
@@ -157,15 +196,31 @@ async def update_dd_request(
 async def delete_dd_request(
     req_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Удаление DD-запроса.
+
+    Доступ:
+    - только editor/admin соответствующей сделки.
+    """
     repo = DDRequestRepository(db)
 
     req = await repo.get_by_id(req_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
 
+    # Проверка проектной роли по deal_id запроса
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=req.deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
     await repo.delete(req_id)
     await db.commit()
+
 
 @router.post(
     "/{deal_id}/requests/export",
@@ -179,7 +234,22 @@ async def export_dd_requests_for_deal(
         pattern="^(word|excel)$",
     ),
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Экспорт DD-запросов по сделке в Word/Excel.
+
+    Доступ:
+    - любой участник проекта (viewer/editor/admin).
+    """
+    # Проверка доступа по проектной роли (любая)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
     repo = DDRequestRepository(db)
     items = await repo.list_for_deal(deal_id)
 
@@ -190,11 +260,15 @@ async def export_dd_requests_for_deal(
 
     if format == "word":
         content_bytes = generate_requests_docx(deal_id, requests)
-        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        media_type = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
         ext = "docx"
     else:  # excel
         content_bytes = generate_requests_xlsx(deal_id, requests)
-        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        media_type = (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         ext = "xlsx"
 
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -206,7 +280,10 @@ async def export_dd_requests_for_deal(
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
-def generate_requests_docx(deal_id: uuid.UUID, requests: list[DDRequestResponse]) -> bytes:
+
+def generate_requests_docx(
+    deal_id: uuid.UUID, requests: list[DDRequestResponse]
+) -> bytes:
     doc = Document()
     doc.add_heading(f"DD Requests for deal {deal_id}", level=1)
 
@@ -248,7 +325,9 @@ def generate_requests_docx(deal_id: uuid.UUID, requests: list[DDRequestResponse]
 
         # structured_values как JSON
         try:
-            row[7].text = json.dumps(r.structured_values, ensure_ascii=False, indent=2)
+            row[7].text = json.dumps(
+                r.structured_values, ensure_ascii=False, indent=2
+            )
         except Exception:
             row[7].text = str(r.structured_values or "")
 
@@ -263,7 +342,10 @@ def generate_requests_docx(deal_id: uuid.UUID, requests: list[DDRequestResponse]
     doc.save(buf)
     return buf.getvalue()
 
-def generate_requests_xlsx(deal_id: uuid.UUID, requests: list[DDRequestResponse]) -> bytes:
+
+def generate_requests_xlsx(
+    deal_id: uuid.UUID, requests: list[DDRequestResponse]
+) -> bytes:
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {"in_memory": True})
     ws = workbook.add_worksheet("Requests")
@@ -313,7 +395,12 @@ def generate_requests_xlsx(deal_id: uuid.UUID, requests: list[DDRequestResponse]
         ws.write(row_idx, 9, ev_refs, wrap_fmt)
 
         ws.write(row_idx, 10, r.created_at.isoformat(), wrap_fmt)
-        ws.write(row_idx, 11, r.updated_at.isoformat() if r.updated_at else "", wrap_fmt)
+        ws.write(
+            row_idx,
+            11,
+            r.updated_at.isoformat() if r.updated_at else "",
+            wrap_fmt,
+        )
 
     workbook.close()
     return output.getvalue()

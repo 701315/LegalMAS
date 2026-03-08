@@ -263,3 +263,17 @@ class DocumentRepository:
         items = list(result.scalars().all())
 
         return items, total
+
+
+    async def list_by_deal_id(self, deal_id: uuid.UUID) -> list[Document]:
+        """
+        Вернуть все документы по сделке (без пагинации), для экспорта.
+        Порядок — как в обычной таблице: по folder_path, filename.
+        """
+        stmt = (
+            select(Document)
+            .where(Document.deal_id == deal_id)
+            .order_by(Document.folder_path, Document.filename)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

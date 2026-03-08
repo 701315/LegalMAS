@@ -12,13 +12,18 @@ Defines all metrics for the MAS DD system, grouped by category:
 
 Usage in workers/API:
 
-    from src.ops.metrics import METRICS
+    from src.ops.metrics import get_metrics
 
+    METRICS = get_metrics()
     METRICS.checks_executed.labels(detector_type="rules", result="fail").inc()
     METRICS.check_duration.labels(detector_type="rules").observe(0.45)
 
 All metric names use the prefix from settings (default: "mas_dd").
 """
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from prometheus_client import Counter, Gauge, Histogram, Info
 
@@ -32,8 +37,12 @@ class MetricsRegistry:
     """
     Central registry of all application metrics.
 
-    Instantiated once at module level. All workers import METRICS
-    and call .labels().inc() / .observe() / .set() as needed.
+    ВАЖНО:
+    - Экземпляр этого класса должен создаваться ОДИН раз на процесс.
+    - При запуске uvicorn с --reload модуль может импортироваться несколько раз,
+      поэтому создавать MetricsRegistry на уровне модуля (METRICS = MetricsRegistry())
+      приводит к ошибке "Duplicated timeseries in CollectorRegistry".
+    - Вместо этого используем ленивую инициализацию через get_metrics().
     """
 
     def __init__(self) -> None:
@@ -241,7 +250,39 @@ class MetricsRegistry:
 
 
 # ============================================================
-# Singleton — импортируйте METRICS из любого модуля
+# Singleton helper — импортируйте get_metrics() из любого модуля
 # ============================================================
 
-METRICS = MetricsRegistry()
+_METRICS_INSTANCE: MetricsRegistry | None = None
+
+
+def get_metrics() -> MetricsRegistry:
+    """
+    Возвращает единственный экземпляр MetricsRegistry.
+
+    - При первом вызове создаёт объект и регистрирует все метрики
+      в глобальном CollectorRegistry.
+    - При последующих вызовах возвращает уже созданный экземпляр.
+    - Безопасен для dev-режима с uvicorn --reload.
+    """
+    global _METRICS_INSTANCE
+    if _METRICS_INSTANCE is not None:
+        return _METRICS_INSTANCE
+
+    _METRICS_INSTANCE = MetricsRegistry()
+    return _METRICS_INSTANCE
+
+
+# Для совместимости со старым кодом:
+# from src.ops.metrics import METRICS
+# Но теперь это ленивый синглтон, а не немедленное создание.
+if TYPE_CHECKING:
+    # только для type checkers
+    METRICS: MetricsRegistry
+else:
+    # рантаймовый alias на get_metrics(), чтобы старый код продолжал работать:
+    class _MetricsProxy:
+        def __getattr__(self, item):
+            return getattr(get_metrics(), item)
+
+    METRICS = _MetricsProxy()

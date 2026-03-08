@@ -9,8 +9,9 @@
 from pathlib import Path
 
 import yaml
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
+from api.deps.auth import CurrentUser, get_current_user
 from core.config import settings
 from ..schemas.admin import YamlInstructionDTO
 
@@ -22,7 +23,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
     summary="Список YAML-инструкций по типам документов",
     response_model=list[YamlInstructionDTO],
 )
-async def list_yaml_instructions() -> list[YamlInstructionDTO]:
+async def list_yaml_instructions(
+    user: CurrentUser = Depends(get_current_user),
+) -> list[YamlInstructionDTO]:
     """
     Перечисляет файлы playbooks/document_types/*.yaml
     и собирает по каждому краткие метаданные:
@@ -34,7 +37,21 @@ async def list_yaml_instructions() -> list[YamlInstructionDTO]:
     - has_structured_extraction: есть ли правила structured extraction;
     - profiles: список профилей, если указаны в YAML;
     - error: текст ошибки, если файл не удалось прочитать/распарсить.
+
+    Доступ:
+    - только глобальные админы (например, global_role = "superadmin" или "admin").
+
+    ВРЕМЕННО:
+    - Сейчас global_role приходит из заглушки CurrentUser.
+      После внедрения реальной auth нужно убедиться, что это поле
+      корректно заполняется из токена/БД.
     """
+    # Простая проверка глобальной роли.
+    # Имена ролей можно будет скорректировать под реальную модель,
+    # например: "superadmin", "tenant_admin" и т.п.
+    if user.global_role not in ("superadmin", "admin"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     base_dir = Path(settings.PLAYBOOK_DOCUMENT_TYPES_DIR)
     if not base_dir.exists():
         return []

@@ -39,7 +39,7 @@ import time
 from .l1_filename import L1FilenameClassifier
 from .l2_header import L2HeaderClassifier
 from .l3_semantic import L3SemanticClassifier
-from ops.metrics import METRICS
+from ops.metrics import get_metrics
 
 from core.config import settings
 from core.logging import get_logger
@@ -47,7 +47,6 @@ from db.repositories.runner_repo import RunnerRepository
 from engine.content.document_content_service import DocumentContentService
 
 logger = get_logger(__name__)
-
 
 class HybridClassifier:
     def __init__(self, uow, content_service: DocumentContentService | None = None) -> None:
@@ -61,6 +60,7 @@ class HybridClassifier:
         self.uow = uow
         self.repo = RunnerRepository(uow.session)
         self.content_service = content_service
+        self.metrics = get_metrics()
 
         self.l1 = L1FilenameClassifier()
         self.l2 = L2HeaderClassifier()
@@ -118,7 +118,7 @@ class HybridClassifier:
                     "copied_from_master": str(master.id),
                 }
 
-                METRICS.classification_duration.labels(level="L_manual").observe(
+                self.metrics.classification_duration.labels(...).observe(
                     time.time() - started_at
                 )
 
@@ -265,7 +265,7 @@ class HybridClassifier:
             language = voted.get("language", language)
             jurisdiction = voted.get("jurisdiction", jurisdiction)
 
-            METRICS.classification_duration.labels(level="L3").observe(
+            self.metrics.classification_duration.labels(...).observe(
                 time.time() - started_at
             )
 
@@ -283,7 +283,7 @@ class HybridClassifier:
 
         # Если голосование не сработало (нет кандидатов) — UNKNOWN
 
-        METRICS.classification_duration.labels(level="L0").observe(
+        self.metrics.classification_duration.labels(...).observe(
             time.time() - started_at
         )
 

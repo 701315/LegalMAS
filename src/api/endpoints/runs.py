@@ -3,32 +3,39 @@
 """
 Эндпоинты для запусков анализа (runs).
 
-- POST /runs                       — запуск анализа по сделке
-- GET  /runs/{run_id}             — статус run + (опционально) stats классификации
+- POST /runs                               — запуск анализа по сделке
+- GET  /runs/{run_id}                      — статус run + (опционально) stats классификации
 - GET  /runs/{run_id}/classification-report — подробный отчёт по классификации
 """
+
 from __future__ import annotations  # сильно упрощает жизнь с аннотациями
 
+import uuid
 from uuid import UUID
 
-import uuid
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from api.schemas.runs import DealRunSummaryResponse
-from db.session import get_db 
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
+
+from db.session import get_db
 from db.repositories.deal_repo import DealRepository
 from db.repositories.playbook_repo import PlaybookRepository
-from workers.classifier import classify_document
-from workers.runner import run_checks
-from db.session import get_db
 from db.repositories.run_repo import RunRepository
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.export_repo import ExportRepository
+from db.repositories.result_repo import ResultRepository
+
+from workers.classifier import classify_document
+from workers.runner import run_checks
+from workers.exporter import export_results
+
 from core.config import settings
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
-from db.repositories.export_repo import ExportRepository  # добавь рядом с другими импортами
-from workers.exporter import export_results               # импорт Celery-таски
 
 from ..schemas.runs import (
     RunCreate,
@@ -37,18 +44,6 @@ from ..schemas.runs import (
 )
 from ..schemas.results import CheckResultResponse
 from ..schemas.pagination import PaginatedResponse as PaginatedResponseSchema
-from db.repositories.result_repo import ResultRepository
-
-# Заглушка пользователя — аналогично documents.py
-class CurrentUser:
-    id: str = "system"
-    role: str = "system"
-    tenant_id: uuid.UUID = uuid.UUID(int=0)
-
-
-def get_current_user() -> CurrentUser:
-    return CurrentUser()
-
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -159,11 +154,21 @@ async def start_run(
     """
     Старый эндпоинт запуска: POST /api/v1/runs?deal_id=...
 
-    Теперь просто прокидывает запрос в общую функцию _start_run_core.
+    Теперь:
+    - перед вызовом общей логики _start_run_core добавлена проверка ролей;
+    - запуск разрешён только для ролей "admin" и "editor".
     """
     deal_uuid = uuid.UUID(deal_id)
-    return await _start_run_core(deal_uuid, data, db, user)
 
+    # Проверяем право запускать анализ по этой сделке
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_uuid,
+        allowed_roles=("admin", "editor"),
+    )
+
+    return await _start_run_core(deal_uuid, data, db, user)
 
 
 @router.get(
@@ -185,6 +190,10 @@ async def list_runs_for_deal(
 
     Если include_classification_stats=True — для каждого run
     дополнительно будет подсчитан блок статистики классификации.
+
+    TODO:
+    - при необходимости добавить проверку, что пользователь имеет доступ
+      к этой сделке (viewer/editor/admin).
     """
     run_repo = RunRepository(db)
 
@@ -219,11 +228,22 @@ async def get_run(
 
     Если include_classification_stats=True — дополнительно возвращает
     блок статистики классификации (L0–L4, low_confidence_count и т.п.).
+
+    Доступ:
+    - только участники проекта (viewer/editor/admin) для сделки этого run.
     """
     run_repo = RunRepository(db)
     run = await run_repo.get_by_id(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
+
+    # Проверка доступа по проектной роли (любой участник)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
 
     run_out = RunResponse.model_validate(run)
 
@@ -252,13 +272,25 @@ async def get_classification_report(
     user: CurrentUser = Depends(get_current_user),
     service: RunAnalyticsService = Depends(get_run_analytics_service),
 ):
+    """
+    Подробный отчёт о качестве классификации для run.
+
+    Доступ:
+    - только участники проекта (viewer/editor/admin) для сделки этого run.
+    """
     try:
         report = await service.build_classification_report(run_id)
     except RunNotFoundError:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # TODO: when real auth is wired in, use deal_id from report for access check
-    # await check_deal_access(report.deal_id, user, db)
+    # report должен содержать deal_id run'а (как минимум в модели сервиса).
+    # Здесь проверяем доступ по проектной роли.
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=report.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
 
     return report
 
@@ -289,19 +321,38 @@ async def start_run_export(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Запускает экспорт результатов анализа для указанного run.
+
+    ВАЖНО:
+    - Экспорт разрешён только для пользователей с ролью "admin" или "editor"
+      в проекте (сделке), к которому относится этот run.
+    - Если статус run не "completed" — экспорт запрещён (400).
+    """
     run_repo = RunRepository(db)
     export_repo = ExportRepository(db)
 
+    # 1. Находим run
     run = await run_repo.get_by_id(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
+    # 2. Проверяем, что пользователь имеет право на экспорт в этой сделке.
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    # 3. Проверяем статус run
     if run.status not in ("completed",):
         raise HTTPException(
             status_code=400,
             detail=f"Run status must be 'completed' to export, got '{run.status}'",
         )
 
+    # 4. Создаём запись экспорта
     export = await export_repo.create(
         deal_id=run.deal_id,
         run_id=run.id,
@@ -311,6 +362,7 @@ async def start_run_export(
         status="pending",
     )
 
+    # 5. Ставим задачу на экспорт в Celery
     tenant_id = str(user.tenant_id)
     export_results.delay(
         run_id=str(run.id),
@@ -362,11 +414,24 @@ async def list_run_results(
     """
     Результаты проверок для одного run в формате PaginatedResponse[CheckResultResponse],
     пригодном для DD Grid.
+
+    ВАЖНО:
+    - Смотреть результаты могут только участники проекта (viewer/editor/admin)
+      для той сделки, к которой относится этот run.
+    - Пользователь, не входящий в проект, получит 403 Forbidden.
     """
     run_repo = RunRepository(db)
     run = await run_repo.get_by_id(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
+
+    # Проверяем, что пользователь — участник проекта (любой роли достаточно).
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
 
     result_repo = ResultRepository(db)
     items_orm, total = await result_repo.get_page_for_run(
@@ -404,13 +469,18 @@ async def get_deal_run_summary(
     deal_id: UUID,
     include_classification_stats: bool = False,
     db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Краткое резюме последнего run по сделке.
+
+    Здесь уже используется фильтрация по user_id в репозитории,
+    так что доступ ограничен участниками проекта.
+    """
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_id, user_id=user.id)
 
     if not deal or not deal.last_run_id:
-        # если хочешь 404, оставь так
         raise HTTPException(status_code=404, detail="Run not found for this deal")
 
     run_repo = RunRepository(db)
@@ -423,6 +493,3 @@ async def get_deal_run_summary(
         run_response.classification_stats = None
 
     return DealRunSummaryResponse(run=run_response)
-
-
-

@@ -4,6 +4,7 @@
 // Все интерфейсы соответствуют Pydantic-схемам бэкенда (Этап 10).
 // =============================================================
 
+
 // -------------------------------------------------------------
 // ВСПОМОГАТЕЛЬНЫЕ ТИПЫ
 // -------------------------------------------------------------
@@ -20,12 +21,12 @@ export interface PaginatedResponse<T> {
   has_previous: boolean;
 }
 
-
 /** Стандартная ошибка API */
 export interface ApiError {
   detail: string;
   code?: string;
 }
+
 
 // -------------------------------------------------------------
 // РОЛИ И ПРАВА ДОСТУПА
@@ -43,6 +44,7 @@ export interface User {
   role: UserRole;
   name?: string;
 }
+
 
 // -------------------------------------------------------------
 // КЛАССИФИКАЦИЯ ДОКУМЕНТОВ (Этап 6 / Этап 10)
@@ -106,10 +108,12 @@ export interface ClassificationReport {
   trigger_coverage?: Record<string, number>;
 }
 
+
 // -------------------------------------------------------------
 // ДОКУМЕНТЫ
 // -------------------------------------------------------------
 
+/** Краткая информация о документе (для списков) */
 export type DocumentStatus =
   | "pending"
   | "extracting"
@@ -121,23 +125,45 @@ export type DocumentStatus =
   | "completed"
   | "quarantine";
 
-/** Краткая информация о документе (для списков) */
 export interface Document {
+  // Идентификация
   id: string;
   deal_id: string;
+
+  // Технически в БД есть bundle_id, но в текущем API списка документов
+  // он, судя по коду, не используется. Если backend его вернёт — добавишь:
+  // bundle_id?: string;
+
+  // Базовое описание
   filename: string;
-  folder_path?: string;
-  status: DocumentStatus;
-  doc_type?: string;
-  language?: string;
-  page_count?: number;
-  // Поля классификации (заполняются после HybridClassifier)
-  classification_level?: ClassificationLevel;
-  classification_confidence?: number;
-  applicable_triggers?: string[];
+  folder_path?: string | null;
+
+  // Статусы и тип
+  status: DocumentStatus;          // backend: DocumentStatus enum
+  doc_type?: string | null;
+
+  // Язык и юрисдикция
+  language?: string | null;
+  jurisdiction_guess?: string | null;
+
+  // Размер/страницы
+  page_count?: number | null;
+
+  // Классификация
+  classification_level?: ClassificationLevel | null;
+  classification_confidence?: number | null;
+  applicable_triggers?: string[];  // всегда массив (может быть пустой)
+
+  // Проверка юристом и риск
+  reviewed_by_person: boolean;
+  human_review_status?: string | null;  // производное поле из backend
+  risk_level?: string | null;           // "low" | "medium" | "high" | "critical" (по договорённости)
+
+  // Время
   created_at: string;
   updated_at: string;
 }
+
 
 /** Версия документа (для истории изменений) */
 export interface DocumentVersion {
@@ -184,6 +210,7 @@ export interface ReclassifyResult {
   checks_requeued: boolean;
 }
 
+
 // -------------------------------------------------------------
 // СТРУКТУРИРОВАННЫЕ ДАННЫЕ (Этап 10)
 // -------------------------------------------------------------
@@ -210,6 +237,7 @@ export interface StructuredDataResult {
   total_extracted: number;
 }
 
+
 // -------------------------------------------------------------
 // RUNS (ЗАПУСКИ АНАЛИЗА)
 // -------------------------------------------------------------
@@ -223,7 +251,7 @@ export type RunStatus =
 
 /**
  * Входные данные для старта нового анализа.
- * 
+ *
  * Playbook и model_config берутся из настроек сделки (Deal.playbook_version_id),
  * поэтому их не нужно передавать в запросе.
  */
@@ -248,6 +276,7 @@ export interface Run {
   classification_stats?: ClassificationStats;
 }
 
+
 // -------------------------------------------------------------
 // РЕЗУЛЬТАТЫ ПРОВЕРОК (CHECK RESULTS)
 // -------------------------------------------------------------
@@ -260,7 +289,6 @@ export type SeverityLevel =
   | "medium"
   | "pass"
   | "unclear";
-
 
 export type QCStatus = "pending" | "approved" | "rejected" | "needs_review";
 
@@ -352,7 +380,6 @@ export interface DDRequestCreateInput {
 }
 
 
-
 // ===== ЭКСПОРТЫ (REPORT / GRID / SUMMARY) =====
 
 export interface ExportRecord {
@@ -368,7 +395,6 @@ export interface ExportRecord {
   created_at: string;
   download_url?: string;
 }
-
 
 export interface AuditLogEntry {
   id: string;
@@ -401,6 +427,12 @@ export interface Deal {
   playbook_version_id?: string;
   created_at: string;
   updated_at: string;
+
+  /** Произвольные метаданные сделки (в т.ч. контактное лицо и т.п.) */
+  metadata_?: {
+    contact_person?: string | null;
+    [key: string]: unknown;
+  } | null;
 }
 
 /** Детальная информация о сделке */
@@ -409,6 +441,7 @@ export interface DealDetail extends Deal {
   counterparty?: string;
   runs?: Run[];
 }
+
 
 // -------------------------------------------------------------
 // ИМПОРТ ДОКУМЕНТОВ
@@ -432,6 +465,7 @@ export interface ImportJob {
   completed_at?: string;
 }
 
+
 // -------------------------------------------------------------
 // SSE (ПРОГРЕСС АНАЛИЗА В РЕАЛЬНОМ ВРЕМЕНИ)
 // -------------------------------------------------------------
@@ -445,3 +479,173 @@ export interface ProgressEvent {
   current_document?: string;
   error?: string;
 }
+
+// -------------------------------------------------------------
+// ДОКУМЕНТЫ: ОПИСАНИЯ КОЛОНОК ДЛЯ ТАБЛИЦ/ЭКСПОРТА
+// -------------------------------------------------------------
+
+export type DocumentColumnId =
+  | "filename"
+  | "folder_path"
+  | "doc_type"
+  | "status"
+  | "human_review_status"
+  | "reviewed_by_person"
+  | "risk_level"
+  | "language"
+  | "jurisdiction_guess"
+  | "page_count"
+  | "classification_level"
+  | "classification_confidence"
+  | "applicable_triggers_count"
+  | "created_at"
+  | "updated_at"
+  | "id"
+  | "deal_id";
+
+export interface DocumentColumnDef {
+  /** Уникальный ID колонки (используем в настройках/экспорте) */
+  id: DocumentColumnId;
+  /** Человеко-понятный заголовок для UI */
+  label: string;
+  /** Краткое объяснение, что это за колонка (подсказки, настройки) */
+  description: string;
+  /** Имя поля в объекте Document или спец. псевдоним (например, count) */
+  field:
+    | keyof Document
+    | "applicable_triggers_count";
+  /** По умолчанию показывать в таблице или нет */
+  defaultVisible: boolean;
+}
+
+/**
+ * Полный список всех возможных колонок по документу.
+ * Используем:
+ * - в табличном режиме DocumentsTab;
+ * - в UI выбора колонок;
+ * - как основу для экспорта (Excel/Word/PDF).
+ */
+export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
+  {
+    id: "filename",
+    label: "Название документа",
+    description: "Имя файла документа в Data Room.",
+    field: "filename",
+    defaultVisible: true,
+  },
+  {
+    id: "folder_path",
+    label: "Папка",
+    description: "Путь к документу в структуре Data Room.",
+    field: "folder_path",
+    defaultVisible: true,
+  },
+  {
+    id: "doc_type",
+    label: "Тип документа",
+    description: "Классифицированный тип документа (SPA, NDA и т.п.).",
+    field: "doc_type",
+    defaultVisible: true,
+  },
+  {
+    id: "status",
+    label: "Статус обработки",
+    description: "Текущий статус обработки документа в пайплайне.",
+    field: "status",
+    defaultVisible: true,
+  },
+  {
+    id: "human_review_status",
+    label: "Проверка юриста",
+    description: "Человекочитаемый статус проверки юристом.",
+    field: "human_review_status",
+    defaultVisible: true,
+  },
+  {
+    id: "reviewed_by_person",
+    label: "Флаг проверки",
+    description: "Логический флаг: документ проверен юристом.",
+    field: "reviewed_by_person",
+    defaultVisible: false,
+  },
+  {
+    id: "risk_level",
+    label: "Риск",
+    description: "Уровень риска документа: low/medium/high/critical.",
+    field: "risk_level",
+    defaultVisible: true,
+  },
+  {
+    id: "language",
+    label: "Язык",
+    description: "Основной язык документа (RU, EN и т.п.).",
+    field: "language",
+    defaultVisible: false,
+  },
+  {
+    id: "jurisdiction_guess",
+    label: "Юрисдикция",
+    description: "Предполагаемая юрисдикция документа.",
+    field: "jurisdiction_guess",
+    defaultVisible: false,
+  },
+  {
+    id: "page_count",
+    label: "Страницы",
+    description: "Количество страниц в документе.",
+    field: "page_count",
+    defaultVisible: false,
+  },
+  {
+    id: "classification_level",
+    label: "Уровень классификации",
+    description: "Уровень, на котором был определён тип документа (L0–L4, L_manual).",
+    field: "classification_level",
+    defaultVisible: false,
+  },
+  {
+    id: "classification_confidence",
+    label: "Уверенность классификации",
+    description: "Число 0–1, показывающее уверенность в типе документа.",
+    field: "classification_confidence",
+    defaultVisible: false,
+  },
+  {
+    id: "applicable_triggers_count",
+    label: "Триггеры",
+    description: "Количество сработавших триггеров проверок для документа.",
+    field: "applicable_triggers_count",
+    defaultVisible: false,
+  },
+  {
+    id: "created_at",
+    label: "Создан",
+    description: "Дата и время добавления документа в сделку.",
+    field: "created_at",
+    defaultVisible: false,
+  },
+  {
+    id: "updated_at",
+    label: "Обновлён",
+    description: "Дата и время последнего обновления документа.",
+    field: "updated_at",
+    defaultVisible: true,
+  },
+  {
+    id: "id",
+    label: "ID документа",
+    description: "Технический идентификатор документа (UUID).",
+    field: "id",
+    defaultVisible: false,
+  },
+  {
+    id: "deal_id",
+    label: "ID сделки",
+    description: "Идентификатор сделки, к которой относится документ.",
+    field: "deal_id",
+    defaultVisible: false,
+  },
+];
+
+
+

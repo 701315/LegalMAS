@@ -3,8 +3,17 @@ Alembic environment configuration.
 Supports async PostgreSQL via asyncpg.
 """
 
+import os
+import sys
 import asyncio
 from logging.config import fileConfig
+
+# --- NEW: make src/ importable ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.join(BASE_DIR, "src")
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+# --- END NEW ---
 
 from alembic import context
 from sqlalchemy import pool

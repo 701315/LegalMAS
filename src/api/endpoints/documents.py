@@ -4,56 +4,144 @@
 Документный REST-API.
 
 Эндпоинты:
-- GET  /documents/{doc_id}            — детальная карточка документа
-- POST /documents/{doc_id}/reclassify — ручная переклассификация документа
+- GET  /documents/{doc_id}                 — детальная карточка документа
+- POST /documents/{doc_id}/reclassify      — ручная переклассификация документа
+- POST /documents/{doc_id}/replace         — замена файла для документа в карантине
+- GET  /documents/{doc_id}/family          — семья документов (master + appendices)
+- GET  /documents/{doc_id}/pdf-url         — URL на исходный PDF документа
+- GET  /documents/{doc_id}/structured-data — структурированные данные (дерево оглавления)
+- POST /documents/{doc_id}/delete          — мягкое удаление документа
+- PATCH /documents/{doc_id}/reviewed       — флаг проверки документа юристом
+- POST /documents/export/excel             — экспорт списка документов в Excel
+- POST /documents/export/word              — экспорт списка документов в Word
+- POST /documents/export/pdf               — экспорт списка документов в PDF
 """
 
 import uuid
 from pathlib import Path
 from uuid import UUID
+from io import BytesIO
+from typing import List, Optional
+from fpdf import FPDF
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from workers.runner import run_checks
-from core.constants import DocumentStatus
+from api.mappers.documents import map_document_to_response
+from api.mappers.document_versions import map_document_version_to_response
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
+
+from db.session import get_db
 from db.models.relation import DocumentFamily, DocumentFamilyMember
+from db.models.document import Document
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.relation_repo import RelationRepository
 from db.repositories.run_repo import RunRepository
 from db.repositories.audit_repo import AuditRepository
-from db.repositories.relation_repo import RelationRepository  # NEW
-from db.session import get_db
+
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError, TransientError
+
 from storage.artifact_store import ArtifactStore, ArtifactPath
+
+from workers.runner import run_checks
+
 from ..schemas.documents import (
     DocumentDetailResponse,
     DocumentResponse,
+    DocumentVersionResponse,
     ClassificationMetadata,
     ReclassifyRequest,
     ReclassifyResponse,
+    DocumentReviewedUpdateRequest,
 )
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+from services.document_service import DocumentService, DocumentNotFoundError
+
+from core.document_columns import (
+    DocumentColumnId,
+    DocumentColumnDef,
+    ALL_DOCUMENT_COLUMNS,
+    get_columns_by_ids,
+)
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent  # /src
+FONT_PATH = BASE_DIR / "resources" / "fonts" / "DejaVuSans.ttf"
+
+router = APIRouter(
+    prefix="/documents",
+    tags=["documents"],
+)
+
 
 # -------------------------------------------------------------------
-# Временные заглушки для пользователя (заменишь на свою auth-схему)
+# Схемы и вспомогательные функции для экспорта
 # -------------------------------------------------------------------
 
-class CurrentUser:
-    id: str = "system"
-    role: str = "system"
-    tenant_id: uuid.UUID = uuid.UUID(int=0)
+from pydantic import BaseModel
 
 
-def get_current_user() -> CurrentUser:
+class DocumentsExportRequest(BaseModel):
     """
-    Заглушка для текущего пользователя.
+    Параметры экспорта списка документов.
 
-    В продакшене замени на реальный get_current_user,
-    который достаёт user из токена / API-ключа.
+    visible_column_ids:
+        - список ID колонок, которые нужно включить в экспорт;
+        - если None или пусто — используем исходный набор всех колонок.
+    deal_id:
+        - ID сделки, для которой выгружаем список документов.
     """
-    return CurrentUser()
+
+    deal_id: UUID
+    visible_column_ids: Optional[List[DocumentColumnId]] = None
+
+
+
+
+
+def build_table_rows(
+    documents: list[Document],
+    visible_column_ids: Optional[list[DocumentColumnId]],
+):
+    """
+    Построить заголовки и строки таблицы для экспорта на основе списка документов
+    и выбранных колонок.
+    """
+
+    column_defs: list[DocumentColumnDef] = get_columns_by_ids(visible_column_ids)
+
+    headers = [c.label for c in column_defs]
+
+    rows: list[list[str]] = []
+    for doc in documents:
+        row: list[str] = []
+        for col in column_defs:
+            field = col.field
+            value = getattr(doc, field, None)
+
+            # минимальное сохранение логики фронта
+            if field == "applicable_triggers_count":
+                value = len(getattr(doc, "applicable_triggers", []) or [])
+            elif field == "status":
+                value = doc.status or ""
+            elif field == "risk_level":
+                value = doc.risk_level or ""
+
+            if isinstance(value, bool):
+                row.append("Да" if value else "Нет")
+            elif value is None:
+                row.append("")
+            else:
+                row.append(str(value))
+        rows.append(row)
+
+    return headers, rows
+
 
 
 # -------------------------------------------------------------------
@@ -78,13 +166,21 @@ async def _load_document_detail(
     - семью документов через RunnerRepository.get_document_family.
     """
     doc_repo = DocumentRepository(db)
+    version_repo = DocumentVersionRepository(db)
+    relation_repo = RelationRepository(db)
+
     doc = await doc_repo.get_by_id(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Пока latest_version и family_id не заполняем
-    latest_version = None
-    family_id = None
+    # latest_version
+    latest_version_obj = await version_repo.get_latest(doc_id)
+    latest_version: DocumentVersionResponse | None = None
+    if latest_version_obj:
+        latest_version = map_document_version_to_response(latest_version_obj)
+
+    # family_id
+    family_id = await relation_repo.get_document_family_id(doc_id)
 
     # Определяем, есть ли YAML-инструкция для doc_type
     yaml_instruction_available = False
@@ -97,7 +193,7 @@ async def _load_document_detail(
     if doc.classification_confidence is not None:
         low_confidence = 0 < doc.classification_confidence < 0.6
 
-    document_response = DocumentResponse.model_validate(doc)
+    document_response = map_document_to_response(doc)
 
     classification_block = None
     if doc.doc_type:
@@ -119,7 +215,7 @@ async def _load_document_detail(
 
 
 # -------------------------------------------------------------------
-# Эндпоинты
+# Эндпоинты: детали, переклассификация, версия, замена
 # -------------------------------------------------------------------
 
 
@@ -133,14 +229,8 @@ async def get_document_detail(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Возвращает детальную карточку документа:
-    - основные поля (filename, status, doc_type, язык и т.д.);
-    - метаданные классификации (уровень, уверенность, триггеры, наличие YAML).
-
-    TODO: добавить проверку прав доступа к сделке (deal_id).
-    """
-    return await _load_document_detail(db, doc_id)
+    # TODO: здесь будет проверка прав на сделку (deal_id)
+    return await _load_document_detail(db=db, doc_id=doc_id)
 
 
 @router.post(
@@ -158,21 +248,28 @@ async def reclassify_document(
     Ручная переклассификация документа.
 
     Шаги:
-    1. Находим документ, проверяем доступ.
-    2. Проверяем, есть ли YAML-инструкция для нового doc_type.
-    3. Загружаем applicable_triggers из YAML (если файл есть).
-    4. Обновляем поля классификации документа (L_manual, confidence=1.0).
-    5. При необходимости ставим задачу на повторный запуск проверок.
-    6. Пишем запись в AuditLog через AuditRepository.
+    1. Находим документ.
+    2. Проверяем, что у пользователя есть права на проект (сделку) этого документа.
+       Ручная переклассификация разрешена только для ролей "admin" и "editor".
+    3. Проверяем, есть ли YAML-инструкция для нового doc_type.
+    4. Загружаем applicable_triggers из YAML (если файл есть).
+    5. Обновляем поля классификации документа (L_manual, confidence=1.0).
+    6. При необходимости ставим задачу на повторный запуск проверок.
+    7. Пишем запись в AuditLog через AuditRepository.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # TODO: ролевая модель — только editor/owner/admin
-    # if user.role not in ("editor", "owner", "admin"):
-    #     raise HTTPException(status_code=403, detail="Forbidden")
+    # Проверяем роль пользователя в проекте (сделке) документа:
+    # разрешаем только admin и editor.
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("admin", "editor"),
+    )
 
     previous_doc_type = doc.doc_type
 
@@ -207,7 +304,6 @@ async def reclassify_document(
         latest_run = await run_repo.get_latest_for_deal(doc.deal_id)
         if latest_run:
             try:
-
                 run_checks.delay(
                     document_id=str(doc_id),
                     deal_id=str(doc.deal_id),
@@ -246,6 +342,7 @@ async def reclassify_document(
         checks_requeued=checks_requeued,
     )
 
+
 @router.get(
     "/{doc_id}/family",
     summary="Get document family (master + members)",
@@ -266,14 +363,14 @@ async def get_document_family(
     Семейства заранее строятся воркером build_relations и
     сохраняются в таблицы document_families / document_family_members.
     Этот эндпоинт только читает их.
+
+    TODO: когда будет реальная авторизация, имеет смысл
+    добавить проверку доступа к deal_id документа.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    # Здесь можно добавить check_deal_access(doc.deal_id, user, db),
-    # когда подключишь реальную авторизацию.
 
     relation_repo = RelationRepository(db)
 
@@ -292,7 +389,7 @@ async def get_document_family(
     if not family:
         # Для этого документа семьи нет — возвращаем только master
         return {
-            "master": DocumentResponse.model_validate(doc),
+            "master": map_document_to_response(doc),
             "appendices": [],
             "amendments": [],
             "versions": [],
@@ -304,27 +401,93 @@ async def get_document_family(
     # Загружаем сами документы по этим ID
     members_docs = []
     if member_doc_ids:
-        # Если в DocumentRepository есть метод get_many/get_by_ids — можно использовать его.
-        # Здесь показываю вариант через прямой select по ORM-модели Document.
-        from db.models.document import Document as DocumentModel  # локальный импорт, чтобы не плодить круговые зависимости
-
-        stmt_members = select(DocumentModel).where(
-            DocumentModel.id.in_(member_doc_ids)
+        stmt_members = select(Document).where(
+            Document.id.in_(member_doc_ids)
         )
         result_members = await db.execute(stmt_members)
         members_docs = list(result_members.scalars().all())
 
-    # Пока все члены семьи кладём в appendices.
-    # Если позже начнёшь заполнять relation_to_master, можно будет
-    # разнести по appendices / amendments / versions.
-    appendices = [DocumentResponse.model_validate(d) for d in members_docs]
+    appendices = [map_document_to_response(d) for d in members_docs]
 
     return {
-        "master": DocumentResponse.model_validate(doc),
+        "master": map_document_to_response(doc),
         "appendices": appendices,
         "amendments": [],
         "versions": [],
     }
+
+
+@router.get(
+    "/{doc_id}/pdf-url",
+    summary="Get original PDF URL for document",
+)
+async def get_document_pdf_url(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+    if not version or not version.original_ref:
+        raise HTTPException(status_code=404, detail="Original PDF not available")
+
+    # Пока просто отдаём original_ref как URL.
+    # Если потом сделаешь presigned, можно завернуть через ArtifactStore.
+    return {"url": version.original_ref}
+
+
+@router.get(
+    "/{doc_id}/structured-data",
+    summary="Get structured clause tree for document",
+)
+async def get_document_structured_data(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+    if not version or not version.clause_tree_ref:
+        # Анализ ещё не дошёл до структуры
+        raise HTTPException(status_code=404, detail="Structured data not available")
+
+    store = ArtifactStore()
+    try:
+        payload = store.get_json(version.clause_tree_ref)
+    except PermanentError:
+        # Файл ожидается, но не найден — логическая проблема / утрата данных
+        raise HTTPException(status_code=404, detail="Structured data not found")
+    except TransientError:
+        # Проблема со стореджем — отдаём 503, чтобы фронт мог показать «попробуйте позже»
+        raise HTTPException(status_code=503, detail="Storage temporarily unavailable")
+
+    # payload уже dict/list, фронт получает JSON дерево
+    return payload
+
 
 @router.post(
     "/{doc_id}/replace",
@@ -339,8 +502,13 @@ async def replace_document(
     """
     Replace a quarantined document with a corrected file.
 
-    Resets status to 'pending' and clears classification fields so that
-    the document goes through the full pipeline again, including HybridClassifier.
+    Шаги:
+    1. Находим документ и проверяем, что он в статусе QUARANTINE.
+    2. Проверяем роль пользователя в проекте (deal_id документа):
+       заменять файл могут только роли "admin" и "editor".
+    3. Сохраняем новый файл в ArtifactStore.
+    4. Сбрасываем статус и классификацию, чтобы документ прошёл пайплайн заново.
+    5. Пишем запись в AuditLog.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
@@ -353,7 +521,13 @@ async def replace_document(
             detail="Only quarantined documents can be replaced",
         )
 
-    # TODO: check_deal_access(doc.deal_id, user, db) — когда появится реальный ACL
+    # Проверяем роль пользователя в проекте документа
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("admin", "editor"),
+    )
 
     # Сохраняем новый файл в ArtifactStore
     store = ArtifactStore()
@@ -395,3 +569,278 @@ async def replace_document(
     }
 
 
+@router.post(
+    "/{doc_id}/delete",
+    summary="Soft-delete документа (пометить как deleted)",
+)
+async def soft_delete_document(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Мягкое удаление документа из проекта.
+
+    Что делает:
+    - проверяет, что документ существует;
+    - проверяет роль пользователя в проекте (admin/editor);
+    - меняет статус документа на 'deleted';
+    - пишет запись в AuditLog.
+
+    Документ остаётся в БД и сторедже, но:
+    - по умолчанию может быть скрыт из основного списка документов;
+    - остаётся доступным через аудит и внутренние ссылки.
+    """
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Только admin/editor проекта могут удалять документ
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    # Если документ уже удалён — считаем операцию идемпотентной
+    if doc.status == DocumentStatus.DELETED.value:
+        return {
+            "status": "ok",
+            "document_id": str(doc.id),
+            "new_status": doc.status,
+            "already_deleted": True,
+        }
+
+    # Меняем статус на deleted
+    await doc_repo.update_status(doc_id=doc.id, status=DocumentStatus.DELETED.value)
+
+    # Пишем запись в аудит‑лог
+    audit_repo = AuditRepository(db)
+    await audit_repo.log(
+        tenant_id=user.tenant_id,
+        deal_id=doc.deal_id,
+        action="DOCUMENT_SOFT_DELETE",
+        actor=str(getattr(user, "id", "unknown")),
+        actor_role=getattr(user, "role", None),
+        details={
+            "document_id": str(doc.id),
+            "previous_status": doc.status,
+            "new_status": DocumentStatus.DELETED.value,
+        },
+    )
+
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "document_id": str(doc.id),
+        "new_status": DocumentStatus.DELETED.value,
+        "already_deleted": False,
+    }
+
+
+@router.patch(
+    "/{doc_id}/reviewed",
+    response_model=DocumentResponse,
+    summary="Обновить флаг проверки документа юристом",
+)
+async def update_document_reviewed_flag(
+    doc_id: uuid.UUID,
+    body: DocumentReviewedUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Обновить флаг reviewed_by_person у документа.
+
+    Использование:
+    - true  -> документ помечен как проверенный юристом;
+    - false -> снять отметку о проверке.
+    """
+    service = DocumentService(db)
+
+    try:
+        updated_document = await service.set_reviewed_flag(
+            doc_id=doc_id,
+            reviewed_by_person=body.reviewed_by_person,
+        )
+    except DocumentNotFoundError:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return updated_document
+
+
+# -------------------------------------------------------------------
+# Эндпоинты экспорта
+# -------------------------------------------------------------------
+
+@router.post(
+    "/export/excel",
+    summary="Экспорт списка документов сделки в Excel",
+)
+async def export_documents_excel(
+    body: DocumentsExportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Экспортирует список документов сделки в Excel.
+
+    - Проверяет права на сделку.
+    - Собирает таблицу по выбранным колонкам.
+    - Возвращает xlsx-файл.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=body.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    doc_repo = DocumentRepository(db)
+    documents = await doc_repo.list_by_deal_id(body.deal_id)
+
+    if not documents:
+        raise HTTPException(status_code=404, detail="Документы не найдены")
+
+    headers, rows = build_table_rows(documents, body.visible_column_ids)
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Documents"
+
+    ws.append(headers)
+    for row in rows:
+        ws.append(row)
+
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    filename = f"deal_{body.deal_id}_documents.xlsx"
+    headers_resp = {
+        "Content-Disposition": f'attachment; filename=\"{filename}\"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+
+    return Response(
+        content=stream.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers_resp,
+    )
+
+
+@router.post(
+    "/export/word",
+    summary="Экспорт списка документов сделки в Word (docx)",
+)
+async def export_documents_word(
+    body: DocumentsExportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=body.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    doc_repo = DocumentRepository(db)
+    documents = await doc_repo.list_by_deal_id(body.deal_id)
+
+    if not documents:
+        raise HTTPException(status_code=404, detail="Документы не найдены")
+
+    headers, rows = build_table_rows(documents, body.visible_column_ids)
+
+    from docx import Document as DocxDocument
+
+    docx = DocxDocument()
+    table = docx.add_table(rows=1, cols=len(headers))
+    hdr_cells = table.rows[0].cells
+    for i, h in enumerate(headers):
+        hdr_cells[i].text = h
+
+    for row in rows:
+        row_cells = table.add_row().cells
+        for i, cell_val in enumerate(row):
+            row_cells[i].text = cell_val
+
+    stream = BytesIO()
+    docx.save(stream)
+    stream.seek(0)
+
+    filename = f"deal_{body.deal_id}_documents.docx"
+    headers_resp = {
+        "Content-Disposition": f'attachment; filename=\"{filename}\"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+
+    return Response(
+        content=stream.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers_resp,
+    )
+
+
+@router.post(
+    "/export/pdf",
+    summary="Экспорт списка документов сделки в PDF",
+)
+async def export_documents_pdf(
+    body: DocumentsExportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=body.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    doc_repo = DocumentRepository(db)
+    documents = await doc_repo.list_by_deal_id(body.deal_id)
+
+    if not documents:
+        raise HTTPException(status_code=404, detail="Документы не найдены")
+
+    headers, rows = build_table_rows(documents, body.visible_column_ids)
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.add_font("DejaVu", "", FONT_PATH.as_posix(), uni=True)
+    pdf.set_font("DejaVu", size=10)
+
+    line_height = pdf.font_size * 1.5
+    col_width = pdf.epw / max(len(headers), 1)
+
+    for h in headers:
+        pdf.cell(col_width, line_height, txt=h[:50], border=1)
+    pdf.ln(line_height)
+
+    for row in rows:
+        for cell_val in row:
+            pdf.cell(col_width, line_height, txt=cell_val[:50], border=1)
+        pdf.ln(line_height)
+
+    out_bytes = bytes(pdf.output(dest="S"))
+
+    filename = f"deal_{body.deal_id}_documents.pdf"
+    headers_resp = {
+        "Content-Disposition": f'attachment; filename=\"{filename}\"',
+        "Access-Control-Expose-Headers": "Content-Disposition",
+    }
+
+    return Response(
+        content=out_bytes,
+        media_type="application/pdf",
+        headers={
+        "Content-Disposition": f'attachment; filename="deal_{body.deal_id}_documents.pdf"',
+        },
+    )

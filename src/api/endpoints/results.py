@@ -13,18 +13,10 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..schemas.results import CheckResultResponse
+from api.deps.auth import CurrentUser, get_current_user
 from db.session import get_db
 from db.repositories.result_repo import ResultRepository
-
-# auth-заглушка
-class CurrentUser:
-    id: str = "system"
-
-
-def get_current_user() -> CurrentUser:
-    return CurrentUser()
-
+from ..schemas.results import CheckResultResponse
 
 router = APIRouter(prefix="/results", tags=["results"])
 
@@ -56,6 +48,13 @@ async def list_results(
     - run_id: по run;
     - conditional_only: только условные проверки;
     - has_structured_data: только результаты, где structured_data не пустой.
+
+    ВАЖНО:
+    - Сейчас этот эндпоинт не проверяет, есть ли у пользователя доступ
+      к указанной сделке/run. Он предполагается как admin/diagnostic.
+    - Когда будет готова полная ACL, можно:
+        * либо ограничить его только для глобальных админов;
+        * либо проверять доступ через deal_id/run_id и роли проекта.
     """
     repo = ResultRepository(db)
 
@@ -68,7 +67,9 @@ async def list_results(
         results = await repo.list_latest(limit=500)
 
     # Преобразуем к Pydantic, если repo отдаёт ORM
-    out: List[CheckResultResponse] = [CheckResultResponse.model_validate(r) for r in results]
+    out: List[CheckResultResponse] = [
+        CheckResultResponse.model_validate(r) for r in results
+    ]
 
     # Фильтр: только условные проверки
     if conditional_only is True:

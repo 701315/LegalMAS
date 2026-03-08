@@ -6,7 +6,19 @@ DocumentVersion — tracks extracted/processed versions of a document.
 
 import uuid
 
-from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    Float, 
+    ForeignKey, 
+    Index, 
+    Integer, 
+    String,
+    Column,
+    String,
+    Boolean,
+    DateTime, 
+    ARRAY
+)
+
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +56,20 @@ class Document(Base):
         String(50),
         nullable=False,
         default=DocumentStatus.PENDING.value,
+    )
+
+    # NEW: флаг "документ проверен юристом"
+    reviewed_by_person: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default="false",
+        comment="Has this document been manually reviewed by a lawyer",
+    )
+
+    risk_level: Mapped[str | None] = mapped_column(   # NEW
+        String(20),
+        nullable=True,
+        comment="Risk level: low, medium, high, critical",
     )
 
     doc_type: Mapped[str | None] = mapped_column(
@@ -102,7 +128,12 @@ class Document(Base):
         Index("idx_documents_deal_status", "deal_id", "status"),
         Index("idx_documents_deal_sha256", "deal_id", "sha256_file"),
         Index("idx_documents_bundle", "bundle_id"),
-        Index("idx_documents_classification", "deal_id", "doc_type", "classification_confidence"),
+        Index(
+            "idx_documents_classification",
+            "deal_id",
+            "doc_type",
+            "classification_confidence",
+        ),
     )
 
 
