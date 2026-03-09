@@ -16,6 +16,7 @@
 - POST /documents/export/word              — экспорт списка документов в Word
 - POST /documents/export/pdf               — экспорт списка документов в PDF
 """
+import logging
 
 import uuid
 from pathlib import Path
@@ -69,6 +70,9 @@ from core.document_columns import (
     ALL_DOCUMENT_COLUMNS,
     get_columns_by_ids,
 )
+
+logger = logging.getLogger(__name__)
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # /src
 FONT_PATH = BASE_DIR / "resources" / "fonts" / "DejaVuSans.ttf"
@@ -431,6 +435,16 @@ async def get_document_pdf_url(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    logger.info(
+        "PDF URL access attempt",
+        extra={
+            "user_id": str(user.id),
+            "global_role": user.global_role,
+            "doc_id": str(doc_id),
+            "deal_id": str(doc.deal_id),
+        },
+    )
+
     await require_project_role(
         db=db,
         user=user,
@@ -443,9 +457,10 @@ async def get_document_pdf_url(
     if not version or not version.original_ref:
         raise HTTPException(status_code=404, detail="Original PDF not available")
 
-    # Пока просто отдаём original_ref как URL.
-    # Если потом сделаешь presigned, можно завернуть через ArtifactStore.
-    return {"url": version.original_ref}
+    store = ArtifactStore()
+    presigned_url = store.get_presigned_get_url(version.original_ref)
+
+    return {"url": presigned_url}
 
 
 @router.get(
@@ -457,10 +472,26 @@ async def get_document_structured_data(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Вернуть структурированные данные (дерево пунктов) для документа.
+
+    Статусы:
+    - 404 DOCUMENT_NOT_FOUND   — документа нет в БД.
+    - 404 STRUCTURED_NOT_READY — структура ещё не сформирована (нет clause_tree_ref).
+    - 404 STRUCTURED_MISSING   — структура ожидалась, но артефакт отсутствует.
+    - 503 STORAGE_UNAVAILABLE  — MinIO временно недоступен.
+    - 503 STRUCTURED_UNKNOWN_ERROR — любая другая неожиданная ошибка при чтении артефакта.
+    """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "DOCUMENT_NOT_FOUND",
+                "message": "Document not found",
+            },
+        )
 
     await require_project_role(
         db=db,
@@ -471,22 +502,51 @@ async def get_document_structured_data(
 
     ver_repo = DocumentVersionRepository(db)
     version = await ver_repo.get_latest(doc_id)
+
     if not version or not version.clause_tree_ref:
         # Анализ ещё не дошёл до структуры
-        raise HTTPException(status_code=404, detail="Structured data not available")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "STRUCTURED_NOT_READY",
+                "message": "Structured data not available",
+            },
+        )
 
     store = ArtifactStore()
     try:
         payload = store.get_json(version.clause_tree_ref)
     except PermanentError:
         # Файл ожидается, но не найден — логическая проблема / утрата данных
-        raise HTTPException(status_code=404, detail="Structured data not found")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "STRUCTURED_MISSING",
+                "message": "Structured data not found",
+            },
+        )
     except TransientError:
-        # Проблема со стореджем — отдаём 503, чтобы фронт мог показать «попробуйте позже»
-        raise HTTPException(status_code=503, detail="Storage temporarily unavailable")
+        # Проблема со стореджем — MinIO временно недоступен
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "STORAGE_UNAVAILABLE",
+                "message": "Storage temporarily unavailable",
+            },
+        )
+    except Exception:
+        # Любая другая неожиданная ошибка при чтении артефакта
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "STRUCTURED_UNKNOWN_ERROR",
+                "message": "Structured data temporarily unavailable",
+            },
+        )
 
     # payload уже dict/list, фронт получает JSON дерево
     return payload
+
 
 
 @router.post(

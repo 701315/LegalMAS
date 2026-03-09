@@ -1,5 +1,45 @@
-# src/api/endpoints/deals.py
-print("### LOADING DEALS ROUTER FROM", __file__)
+# src/api/endpoints/documents.py
+
+"""
+Документный REST-API.
+
+Этот модуль описывает все эндпоинты, связанные с отдельными документами
+(в отличие от списка документов сделки в endpoints/deals.py).
+
+Основные задачи:
+- предоставить фронтенду стабильный REST-API для работы с одним документом:
+  * получение детальной карточки документа (метаданные, последняя версия,
+    данные классификации, семья документов);
+  * доступ к исходному PDF-файлу документа;
+  * доступ к структурированным данным (clause tree) документа;
+  * ручная переклассификация документа (reclassify);
+  * замена файла для документов в карантине;
+  * мягкое удаление документа (soft-delete);
+  * установка/снятие флага проверки юристом;
+  * экспорт списков документов в Excel / Word / PDF.
+
+Архитектурные принципы:
+- ORM-модели (Document, DocumentVersion и др.) никогда не отдаются наружу напрямую.
+  Все ответы проходят через слой мапперов (map_document_to_response и др.)
+  и Pydantic-схемы (DocumentResponse, DocumentDetailResponse и т.п.).
+- Вся бизнес-логика формата ответа (human_readable статус, нормализация
+  applicable_triggers, выбор последней версии документа) сосредоточена
+  в мапперах и сервисах, а не в эндпоинтах.
+- Ошибки возвращаются с предсказуемыми HTTP-кодами и JSON-структурой detail:
+  * 404 — ресурс не найден или данные ещё не сформированы;
+  * 403 — недостаточно прав (RBAC через require_project_role);
+  * 503 — временные проблемы инфраструктуры (MinIO / сторедж);
+  * 4xx/5xx не должны возникать из-за сырых исключений ORM/Pydantic/MinIO.
+
+Где используется:
+- фронтенд вызывает эти эндпоинты для:
+  * правой панели "Детали документа" на вкладке "Документы";
+  * открытия исходного файла документа;
+  * просмотра структурированных данных через отдельное окно;
+  * операций переклассификации / удаления / замены файла;
+  * экспорта документов в офисные форматы.
+"""
+
 
 from typing import Annotated, List
 from uuid import UUID
@@ -25,6 +65,7 @@ from ..schemas.runs import RunCreate, RunResponse
 from ..schemas.deals import DealResponse, DealCreate
 from ..schemas.pagination import PaginatedResponse
 from ..schemas.documents import DocumentResponse
+from db.repositories.project_role_repo import ProjectRoleRepository
 
 from core.constants import DocumentStatus
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -110,57 +151,20 @@ async def create_deal(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    ВАЖНО: что здесь уже есть и что нужно будет доделать позже.
+    Создать новую сделку (проект) и сразу добавить создателя
+    как admin-участника этого проекта.
 
-    Сейчас:
-    - Этот эндпоинт создаёт НОВУЮ сделку (проект) в настоящей таблице deals.
-    - tenant_id берётся из текущего пользователя (user.tenant_id).
-    - Мы просто записываем Deal в БД и возвращаем его на фронт.
-    - Фронтенд после этого открывает страницу проекта по deal.id.
-
-    Что нужно будет ДОБАВИТЬ, когда появится модель ролей проекта:
-    1) Завести отдельную таблицу для ролей участников проекта.
-       Примерное название: project_members, project_roles или deal_members.
-       В этой таблице обычно хранят:
-         - id (UUID),
-         - deal_id (на какую сделку/проект),
-         - user_id (какой пользователь),
-         - role (admin / editor / viewer),
-         - created_at и т.п.
-
-    2) Сделать для этой таблицы репозиторий (по аналогии с DealRepository):
-       файл: db/repositories/<твоё_название>_repo.py
-       В репозитории должна быть функция, которая умеет создать запись,
-       например create_member(deal_id, user_id, role="admin").
-
-    3) В ЭТОМ эндпоинте (create_deal) после создания сделки добавить логику:
-       - сразу после repo.create(...) и до db.commit() вызвать репозиторий ролей,
-         чтобы создать запись, что создатель сделки — админ проекта.
-       Примерно так (ПРИМЕР, не готовый код):
-           member_repo = ProjectMemberRepository(db)
-           await member_repo.create_member(
-               deal_id=deal.id,
-               user_id=user.id,
-               role="admin",
-           )
-
-       - потом уже делаем db.commit(), чтобы и сделка, и роль сохранились вместе.
-
-    Какие файлы придётся править, когда появятся роли:
-    - db/models/...  — добавить модель таблицы ролей (например ProjectMember).
-    - db/repositories/...  — добавить репозиторий для ролей.
-    - api/deps/security.py — доработать функцию require_project_role,
-      чтобы она проверяла роли из новой таблицы, а не из заглушек.
-    - ВОТ ЭТОТ deals.py — вставить создание роли в тело create_deal.
-
-    Идея простая:
-    - Создаём сделку (Deal) в БД.
-    - Тут же создаём запись, что текущий пользователь — admin этой сделки.
-    - Везде дальше права берутся из этой таблицы, а не из фронтовых костылей.
+    Логика:
+    - создаём Deal в таблице deals;
+    - через ProjectRoleRepository создаём запись в deal_members:
+      (deal_id=deal.id, user_id=user.id, login=user.id, role="admin");
+    - коммитим транзакцию один раз, чтобы сделка и роль сохранились вместе.
     """
-    repo = DealRepository(db)
+    deal_repo = DealRepository(db)
+    role_repo = ProjectRoleRepository(db)
 
-    deal = await repo.create(
+    # 1. Создаём сделку
+    deal = await deal_repo.create(
         tenant_id=user.tenant_id,
         name=payload.name,
         deal_type=payload.deal_type,
@@ -171,9 +175,22 @@ async def create_deal(
         playbook_version_id=payload.playbook_version_id,
         metadata_=payload.metadata_,
     )
+
+    # 2. Добавляем создателя как admin проекта
+    # Сейчас user.id — это строка (логин) из dev-auth,
+    # поэтому используем её и как user_id, и как login.
+    await role_repo.create_member(
+        deal_id=deal.id,
+        name=user.id,   # временно используем id как name; позже можно заменить на реальное имя
+        login=user.id,
+        role="admin",
+    )
+
+    # 3. Фиксируем и сделку, и membership одной транзакцией
     await db.commit()
 
     return DealResponse.model_validate(deal)
+
 
 @router.get(
     "/{deal_id}",

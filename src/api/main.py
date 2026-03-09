@@ -31,6 +31,7 @@ from .endpoints import (
     deals,
     requests,
     user_projects,
+    project_members,
 )
 from .middleware.audit import AuditMiddleware
 
@@ -98,3 +99,6 @@ app.include_router(requests.requests_router, prefix="/api/v1")
 
 # Сделки (deals) по конкретному пользователю.
 app.include_router(user_projects.router)
+
+# Пользователи
+app.include_router(project_members.router, prefix="/api/v1")

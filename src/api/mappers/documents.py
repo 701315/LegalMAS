@@ -14,10 +14,10 @@
   и карантинных документов, перед отдачей их во внешнее API.
 """
 
-from typing import List
 from db.models.document import Document
 from api.schemas.documents import DocumentResponse
 from core.constants import DocumentStatus
+from typing import Iterable, List
 
 
 def _compute_human_review_status(doc: Document) -> str:
@@ -60,3 +60,9 @@ def map_document_to_response(doc: Document) -> DocumentResponse:
         created_at=doc.created_at,
         updated_at=doc.updated_at,
     )
+
+def map_documents_to_response(
+    docs: Iterable[Document],
+) -> List[DocumentResponse]:
+    return [map_document_to_response(d) for d in docs]
+

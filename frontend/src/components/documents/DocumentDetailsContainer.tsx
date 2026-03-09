@@ -2,24 +2,21 @@
 // src/components/documents/DocumentDetailsContainer.tsx
 // Контейнер для правой панели документа на вкладке Documents.
 //
-// Новая модель:
-// - useDocumentDetailsState / useStructuredDataState возвращают
-//   нормализованный стейт (DocumentDetailsState, StructuredDataState)
+// Модель:
+// - useDocumentDetailsState возвращает нормализованный стейт документа
 // - контейнер адаптирует стейт → view-пропсы для DocumentDetails
+// - structured-data в UI теперь загружаются только через модалку,
+//   поэтому здесь мы их не запрашиваем и не прокидываем ошибки.
 // =============================================================
 
 import React from "react";
 import {
-  // DTO-хуки для других данных оставляем как есть
   useDocumentFamily,
   useReclassifyDocument,
   useDocumentPdfUrl,
   useSetDocumentReviewed,
 } from "../../api/documents";
-import {
-  useDocumentDetailsState,
-  useStructuredDataState,
-} from "../../api/documents.stateHooks";
+import { useDocumentDetailsState } from "../../api/documents.stateHooks";
 import { useDealPermissions } from "../../hooks/usePermissions";
 
 import type {
@@ -29,6 +26,7 @@ import type {
 } from "../../types";
 
 import { DocumentDetails as DocumentDetailsView } from "./DocumentDetails";
+
 import type {
   DocumentDetailsViewClassification,
   DocumentFamilyView,
@@ -60,9 +58,8 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   dealId,
   onNavigateToGrid,
 }) => {
-  // --- Data-хуки на стейтах ---
+  // --- Стейт документа (детали + классификация) ---
   const detailsState = useDocumentDetailsState(docId); // DocumentDetailsState
-  const structuredState = useStructuredDataState(docId); // StructuredDataState
 
   // --- Дополнительные данные (DTO-хуки) ---
   const { data: familyDto } = useDocumentFamily(docId);
@@ -83,7 +80,6 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const canOpenPdf = canDownloadDocuments;
   const canReclassify = canReclassifyDocuments;
 
-
   // --- Адаптация стейтов к view-модели ---
 
   // Детали документа и классификация — из нормализованного стейта
@@ -96,22 +92,12 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     familyDto as DocumentFamilyDto | undefined,
   );
 
-  // Структурированные данные из стейта:
-  // - если isLoading / error / notAvailable → не показываем блок (на этом этапе)
-  let structuredData: StructuredDataView | null = null;
-  if (
-    !structuredState.isLoading &&
-    !structuredState.error &&
-    !structuredState.notAvailable
-  ) {
-    structuredData = {
-      document_id: doc?.id ?? "",
-      filename: doc?.filename ?? "",
-      doc_type: doc?.doc_type ?? undefined,
-      extracted_values: structuredState.items,
-      total_extracted: structuredState.total,
-    };
-  }
+  // Structured-data теперь загружаются только через модалку,
+  // поэтому в правой панели мы:
+  // - не запрашиваем их
+  // - отображаем состояние "данные не сформированы / недоступны"
+  const structuredData: StructuredDataView | null = null;
+  const structuredNotAvailable = true;
 
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
@@ -126,8 +112,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     console.warn("Replace file not implemented yet", file.name);
   };
 
-  const isLoading =
-    detailsState.isLoading || structuredState.isLoading;
+  const isLoading = detailsState.isLoading;
 
   return (
     <DocumentDetailsView
@@ -136,10 +121,10 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       classification={classification}
       family={family}
       structuredData={structuredData}
-      structuredNotAvailable={structuredState.notAvailable}
+      structuredNotAvailable={structuredNotAvailable}
       isLoading={isLoading}
       notFound={detailsState.notFound}
-      error={detailsState.error ?? structuredState.error}
+      error={detailsState.error}
       canDownload={canDownload}
       canOpenPdf={canOpenPdf}
       canReclassify={canReclassify}

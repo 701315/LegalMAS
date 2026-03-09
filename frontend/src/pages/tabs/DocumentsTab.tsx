@@ -24,6 +24,7 @@ import type {
   DocumentColumnId,
 } from "../../types";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import DocumentOpenModal from "../../components/documents/DocumentOpenModal";
 
 interface DocumentsTabProps {
   deal: Deal;
@@ -101,6 +102,10 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   } = useDealPermissions(deal.id);
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+
+  const [modalDoc, setModalDoc] = useState<Document | null>(null);
+  const [isOpenModal, setIsOpenModal] = useState(false);
+
   const [leftTab, setLeftTab] = useState<"tree" | "classification" | "table">(
     "tree",
   );
@@ -501,8 +506,12 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                         key={doc.id}
                         className={`cursor-pointer hover:bg-gray-50 ${
                           selectedDocId === doc.id ? "bg-blue-50" : ""
-                        }`}
-                        onClick={() => setSelectedDocId(doc.id)}
+                        }`}                 
+                        onClick={() => {
+                          setSelectedDocId(doc.id);
+                          setModalDoc(doc);
+                          setIsOpenModal(true);
+                        }}
                       >
                         {visibleColumns.map((col) => {
                           let value: unknown;
@@ -571,6 +580,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
           </div>
         )}
       </div>
+
+      {modalDoc && isOpenModal && (
+        <DocumentOpenModal
+          doc={modalDoc}
+          onClose={() => setIsOpenModal(false)}
+        />
+      )}
 
       {/* Правая колонка: детали документа */}
       <div className="flex-1">

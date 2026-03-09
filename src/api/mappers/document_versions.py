@@ -18,10 +18,19 @@
   и не светить внутренние детали ORM-модели.
 """
 
+from typing import Iterable, List
+
 from api.schemas.documents import DocumentVersionResponse
-from db.models.document import DocumentVersion  # подставь свой путь
+from db.models.document import DocumentVersion
 
 def map_document_version_to_response(
     dv: DocumentVersion,
 ) -> DocumentVersionResponse:
     return DocumentVersionResponse.model_validate(dv)
+
+
+def map_document_versions_to_response(
+    versions: Iterable[DocumentVersion],
+) -> List[DocumentVersionResponse]:
+    return [map_document_version_to_response(v) for v in versions]
+

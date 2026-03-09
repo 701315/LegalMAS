@@ -7,7 +7,8 @@ Components exchange S3 URIs (references), not raw files.
 
 import io
 import json
-
+from urllib.parse import quote
+from datetime import timedelta
 from minio import Minio
 from minio.error import S3Error
 from .exports import ExportSuffix, build_export_filename
@@ -97,6 +98,10 @@ class ArtifactStore:
         )
         self.bucket = s.MINIO_BUCKET
         self._ensure_bucket()
+
+        self._endpoint = s.MINIO_ENDPOINT
+        self._secure = s.MINIO_SECURE
+        
 
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist."""
@@ -194,6 +199,42 @@ class ArtifactStore:
             if e.code == "NoSuchKey":
                 raise PermanentError(f"Artifact not found: '{path}'")
             raise TransientError(f"Failed to get file: {e}")
+
+
+    def get_http_url(self, path: str) -> str:
+        """
+        Вернуть HTTP/HTTPS URL для объекта в MinIO по s3://... или относительному пути.
+
+        На dev-стенде этого достаточно, чтобы браузер смог открыть/скачать файл.
+        При желании можно заменить реализацию на presigned URL.
+        """
+        # убрать префикс s3://bucket/ если он есть
+        clean_path = path.replace(f"s3://{self.bucket}/", "")
+
+        # URL-encode object name, чтобы пробелы и спецсимволы не ломали ссылку
+        object_name = quote(clean_path)
+
+        scheme = "https" if self._secure else "http"
+        return f"{scheme}://{self._endpoint}/{self.bucket}/{object_name}"
+
+
+    def get_presigned_get_url(self, path: str, expires_seconds: int = 3600) -> str:
+        """
+        Вернуть presigned URL для скачивания объекта.
+
+        path может быть как s3://bucket/..., так и относительным путём.
+        """
+        clean_path = path.replace(f"s3://{self.bucket}/", "")
+
+        # Minio ждет именно timedelta, а не int
+        expires = timedelta(seconds=expires_seconds)
+
+        return self.client.presigned_get_object(
+            bucket_name=self.bucket,
+            object_name=clean_path,
+            expires=expires,
+        )
+
 
     def exists(self, path: str) -> bool:
         """Check if an object exists at the given path."""

@@ -7,7 +7,7 @@
 // - содержит только UI и локальное состояние формы / DnD
 // =============================================================
 
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import {
   FileText,
   Download,
@@ -201,29 +201,22 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
     classification?.classification_confidence !== null &&
     classification.classification_confidence < 0.6;
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      if (onReplaceFile) {
-        await onReplaceFile(file);
-      } else {
-        // Пока просто заглушка, чтобы не ломать UX
-        console.warn("Replace file not implemented yet", file.name);
-      }
-    },
-    [onReplaceFile],
-  );
+  const handleFile = async (file: File) => {
+    if (onReplaceFile) {
+      await onReplaceFile(file);
+    } else {
+      console.warn("Replace file not implemented yet", file.name);
+    }
+  };
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        void handleFile(file);
-      }
-    },
-    [handleFile],
-  );
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      void handleFile(file);
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto p-5 space-y-6">
@@ -468,7 +461,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       <Section title="Структурированные данные">
         {structuredNotAvailable ? (
           <p className="text-xs text-gray-400">
-            Структурированные данные для этого документа не сформированы.
+            Структурированные данные можно посмотреть через меню документа
+      (отдельное окно просмотра).
           </p>
         ) : structuredData && structuredData.extracted_values.length > 0 ? (
           <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
@@ -508,16 +502,20 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               Открыть PDF
             </a>
           )}
+
           {pdfUrl && canDownload && (
             <a
               href={pdfUrl}
               download={doc.filename}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 transition"
             >
               <Download size={16} />
               Скачать
             </a>
           )}
+
           {onNavigateToGrid && (
             <button
               onClick={() => onNavigateToGrid(dealId, doc.filename)}
@@ -528,6 +526,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           )}
         </div>
       </Section>
+
+
 
       {/* ========== Карантин / повторная загрузка (каркас) ========== */}
       {doc.status === "quarantine" && (

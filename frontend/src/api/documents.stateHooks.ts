@@ -87,16 +87,34 @@ export function useStructuredDataState(
 ): StructuredDataState {
   const { data, isLoading, error } = useStructuredData(docId);
 
-
   if (isLoading) {
     return createInitialStructuredDataState();
   }
 
   if (error) {
-    const apiError = error as Partial<ApiError>;
+    const apiError = error as Partial<ApiError> & { detail?: unknown };
 
-    // 404: для этого документа нет структурированных данных
+    // 404: для этого документа нет / не готовых структурированных данных
     if (apiError.status === 404) {
+      const detail = apiError.detail;
+
+      // detail может быть строкой (старый backend) или объектом { code, message }
+      const code =
+        detail && typeof detail === "object"
+          ? (detail as { code?: string }).code
+          : undefined;
+
+      // Пока любые 404 по structured-data трактуем как notAvailable.
+      // В будущем можно различать STRUCTURED_NOT_READY / STRUCTURED_MISSING.
+      if (
+        code === "STRUCTURED_NOT_READY" ||
+        code === "STRUCTURED_MISSING" ||
+        code === undefined
+      ) {
+        return createStructuredDataNotAvailableState();
+      }
+
+      // На случай других кодов 404 (если появятся) – тоже считаем notAvailable.
       return createStructuredDataNotAvailableState();
     }
 
@@ -112,6 +130,7 @@ export function useStructuredDataState(
 
   return createStructuredDataSuccessState(structured);
 }
+
 
 // -------------------------------------------------------------
 // Вспомогательные функции

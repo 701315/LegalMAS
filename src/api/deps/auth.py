@@ -109,25 +109,17 @@ class CurrentUser(BaseModel):
 
 def get_current_user() -> CurrentUser:
     """
-    Временная заглушка для текущего пользователя.
+    Временная заглушка для текущего пользователя (dev-режим).
 
     Сейчас:
-    - всегда возвращает одного и того же пользователя id="system",
-      global_role="system", tenant_id=UUID(0).
-    - НЕ использует токен из запроса и никак не связан с логином admin/admin.
-      Это осознанно: до внедрения настоящей auth код так проще поддерживать.
-
-    В ПРОДАКШЕНЕ:
-    - Заменить реализацией, которая:
-        1) читает токен из запроса (Header/Cookie);
-        2) проверяет подпись и срок действия токена;
-        3) извлекает user_id, global_role, tenant_id, email;
-        4) при необходимости ищет пользователя в БД;
-        5) возвращает CurrentUser с реальными данными.
+    - возвращает пользователя с id="admin" и global_role="admin",
+      чтобы можно было тестировать RBAC по сделкам.
+    - позже будет заменено на логику, которая берёт данные из токена.
     """
     return CurrentUser(
-        id="system",
-        global_role="system",
+        id="admin",
+        global_role="admin",
         tenant_id=uuid.UUID(int=0),
-        email=None,
+        email="admin@example.com",
     )
+
