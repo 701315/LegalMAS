@@ -17,6 +17,7 @@ import type {
   DocumentColumnId,
 } from "../types";
 
+
 // -------------------------------------------------------------
 // НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
 // -------------------------------------------------------------
@@ -294,9 +295,13 @@ export function useDocuments(dealId: string, page = 1) {
 }
 
 /**
- * Хук для получения деталей документа.
+ * Хук для получения «сырых» деталей документа (DTO) по docId.
+ *
+ * Нормализованный стейт для UI (DocumentDetailsState) строится
+ * поверх этого хука в useDocumentDetailsState (documents.stateHooks.ts).
+ *
  * Пример:
- *   const { data, isLoading } = useDocumentDetail(selectedDocId);
+ *   const { data, isLoading, error } = useDocumentDetail(selectedDocId);
  */
 export function useDocumentDetail(docId: string | null) {
   return useQuery({
@@ -323,8 +328,13 @@ export function useDocumentPdfUrl(docId: string | null) {
 }
 
 /**
- * Хук для получения структурированных данных документа.
- * Загружается по требованию (enabled: !!docId).
+ * Хук для получения «сырых» структурированных данных документа (DTO).
+ *
+ * Нормализованный стейт для UI (StructuredDataState) строится
+ * поверх этого хука в useStructuredDataState (documents.stateHooks.ts).
+ *
+ * Пример:
+ *   const { data, isLoading, error } = useStructuredData(docId);
  */
 export function useStructuredData(docId: string | null) {
   return useQuery({

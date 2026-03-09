@@ -1,12 +1,12 @@
 // =============================================================
 // src/pages/ProjectPlaybookPage.tsx
-// Редактирование YAML-playbook проекта (только admin).
+// Редактирование YAML-playbook проекта (по capability).
 // =============================================================
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
 import client from "../api/client";
+import { useDealPermissions } from "../hooks/usePermissions";
 
 interface PlaybookResponse {
   yaml: string;
@@ -15,7 +15,6 @@ interface PlaybookResponse {
 const ProjectPlaybookPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
-  const { projectRoles } = useAuth();
 
   const [yamlText, setYamlText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -31,10 +30,12 @@ const ProjectPlaybookPage: React.FC = () => {
     );
   }
 
-  const currentRole = projectRoles[dealId];
-  const isAdmin = currentRole === "admin";
+  // Права по сделке: доступ к playbook связываем с возможностью
+  // видеть обзор/управлять проектом (superadmin, admin, editor с правами).
+  const { canViewOverview } = useDealPermissions(dealId);
+  const canEditPlaybook = canViewOverview;
 
-  if (!isAdmin) {
+  if (!canEditPlaybook) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">

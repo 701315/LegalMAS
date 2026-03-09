@@ -18,12 +18,12 @@ import type { Deal, Document } from "../../types";
 import DocumentDetailsContainer from "../../components/documents/DocumentDetailsContainer";
 import { DocumentTree } from "../../components/documents/DocumentTree";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
-import { useAuth } from "../../hooks/useAuth";
 import { ALL_DOCUMENT_COLUMNS } from "../../types";
 import type {
   DocumentColumnDef,
   DocumentColumnId,
 } from "../../types";
+import { useDealPermissions } from "../../hooks/usePermissions";
 
 interface DocumentsTabProps {
   deal: Deal;
@@ -96,11 +96,9 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
 
-  const { projectRoles } = useAuth();
-  const currentRole = projectRoles[deal.id] ?? "viewer";
-  const isAdmin = currentRole === "admin";
-  const isEditor = currentRole === "editor";
-  const canDelete = isAdmin || isEditor;
+  const {
+    canDeleteDocuments,
+  } = useDealPermissions(deal.id);
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [leftTab, setLeftTab] = useState<"tree" | "classification" | "table">(
@@ -114,7 +112,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
 
   // === НОВОЕ: состояние видимых колонок и режима выбора ===
 
-  // по умолчанию — те, у которых defaultVisible = true
   const defaultVisibleIds = useMemo<DocumentColumnId[]>(
     () =>
       ALL_DOCUMENT_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id),
@@ -169,7 +166,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   }, [classifiedDocs]);
 
   const handleDeleteDocument = (doc: Document) => {
-    if (!canDelete) return;
+    if (!canDeleteDocuments) return;
 
     const confirmed = window.confirm(
       `Удалить документ "${doc.filename}" из проекта? Документ будет помечен как удалённым.`,
@@ -240,9 +237,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
         <div className="border-b">
           <div className="px-4 pt-2 text-xs font-semibold text-gray-500 uppercase flex justify-between items-center">
             <span>Документы ({documents.length})</span>
-            <span className="text-[11px] text-gray-400">
-              Роль: {currentRole}
-            </span>
           </div>
           <div className="mt-2 flex text-xs font-medium px-2">
             <button
@@ -304,7 +298,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                 selectedDocId={selectedDocId}
                 onSelectDoc={(doc) => setSelectedDocId(doc.id)}
                 showClassification
-                canDelete={canDelete}
+                canDelete={canDeleteDocuments}
                 onDeleteDoc={handleDeleteDocument}
               />
             )}

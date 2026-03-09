@@ -17,8 +17,10 @@ interface Props {
   requests: DDRequest[];
   onRowClick: (request: DDRequest) => void;
   onCreateClick: () => void;
-  onExportWord: () => void;
-  onExportExcel: () => void;
+  onExportWord: () => Promise<void>;
+  onExportExcel: () => Promise<void>;
+  canManageRequests: boolean; 
+
 }
 
 type SortKey = "priority" | "status" | "created";
@@ -35,6 +37,7 @@ export const RequestsTable: React.FC<Props> = ({
   onCreateClick,
   onExportWord,
   onExportExcel,
+  canManageRequests,
 }) => {
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("priority");
@@ -71,7 +74,7 @@ export const RequestsTable: React.FC<Props> = ({
     return list;
   }, [requests, searchText, sortBy]);
 
-  return (
+return (
     <div className="space-y-3">
       {/* Шапка */}
       <div className="flex items-center justify-between">
@@ -79,13 +82,15 @@ export const RequestsTable: React.FC<Props> = ({
           Запросы ({requests.length})
         </h2>
         <div className="flex gap-2">
-          <button
-            onClick={onCreateClick}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
-          >
-            <Plus size={14} />
-            Новый запрос
-          </button>
+          {canManageRequests && (
+            <button
+              onClick={onCreateClick}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
+            >
+              <Plus size={14} />
+              Новый запрос
+            </button>
+          )}
           <button
             onClick={onExportWord}
             className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition"

@@ -14,6 +14,7 @@ import {
 import { RequestsTable } from "../../components/requests/RequestsTable";
 import { RequestSidePanel } from "../../components/requests/RequestSidePanel";
 import { Loader2 } from "lucide-react";
+import { useDealPermissions } from "../../hooks/usePermissions";
 
 interface Props {
   dealId: string;
@@ -26,22 +27,29 @@ export const RequestsTab: React.FC<Props> = ({ dealId }) => {
   const deleteMutation = useDeleteRequest(dealId);
   const exportRequestsMutation = useExportRequests();
 
+  const perms = useDealPermissions(dealId);
+  console.log("deal permissions", dealId, JSON.stringify(perms, null, 2));
+
+  const { canManageRequests } = useDealPermissions(dealId);
+
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
 
   // Сохранение изменений из side panel
   const handleSave = useCallback(
     async (reqId: string, data: Partial<DDRequest>) => {
+      if (!canManageRequests) return;
       await updateMutation.mutateAsync({ reqId, data });
     },
-    [updateMutation],
+    [updateMutation, canManageRequests],
   );
 
   // Удаление запроса
   const handleDelete = useCallback(
     async (reqId: string) => {
+      if (!canManageRequests) return;
       await deleteMutation.mutateAsync(reqId);
     },
-    [deleteMutation],
+    [deleteMutation, canManageRequests],
   );
 
   // Экспорт Word (список DD-запросов -> .docx)
@@ -90,8 +98,12 @@ export const RequestsTab: React.FC<Props> = ({ dealId }) => {
 
   // Создание нового запроса (плейсхолдер)
   const handleCreate = useCallback(() => {
+    if (!canManageRequests) {
+      alert("Создание запросов доступно только редакторам и администраторам.");
+      return;
+    }
     alert("Создание нового запроса будет реализовано позже.");
-  }, []);
+  }, [canManageRequests]);
 
   if (isLoading) {
     return (
@@ -110,6 +122,7 @@ export const RequestsTab: React.FC<Props> = ({ dealId }) => {
         onCreateClick={handleCreate}
         onExportWord={handleExportWord}
         onExportExcel={handleExportExcel}
+        canManageRequests={canManageRequests}
       />
 
       <RequestSidePanel
@@ -118,6 +131,7 @@ export const RequestsTab: React.FC<Props> = ({ dealId }) => {
         onSave={handleSave}
         onDelete={handleDelete}
         isSaving={updateMutation.isPending}
+        canManageRequests={canManageRequests}
       />
     </>
   );

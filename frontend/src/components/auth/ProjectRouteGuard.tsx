@@ -1,43 +1,59 @@
 // =============================================================
 // src/components/auth/ProjectRouteGuard.tsx
-// Простая защита маршрутов проекта по роли (admin/editor/viewer).
+// Защита маршрутов проекта по capability-флагам.
 // =============================================================
 
 import React from "react";
 import { useParams, Navigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useDealPermissions } from "../../hooks/usePermissions";
+
+type RequiredCapability =
+  | "canViewOverview"
+  | "canStartRun"
+  | "canViewClassificationReport"
+  | "canViewAuditLog"
+  | "canViewDocuments"
+  | "canDownloadDocuments"
+  | "canReclassifyDocuments"
+  | "canDeleteDocuments"
+  | "canManageRequests"
+  | "canUploadDocuments";
 
 interface ProjectRouteGuardProps {
-  /** Какие роли имеют доступ к странице. Если не указано — любая роль. */
-  allowedRoles?: Array<"admin" | "editor" | "viewer">;
+  /**
+   * Какой capability требуется для доступа к странице.
+   * Если не указан — пускаем по факту наличия projectRole (viewer и выше).
+   */
+  requiredCapability?: RequiredCapability;
   children: React.ReactElement;
 }
 
 /**
  * Обёртка для маршрутов проекта.
- * Берёт dealId из URL, смотрит роль пользователя в этом проекте
- * и, если роли нет в allowedRoles, показывает страницу "Нет доступа".
+ * Берёт dealId из URL, вычисляет permissions через useDealPermissions
+ * и проверяет нужный capability. Если capability отсутствует — показывает "Нет доступа".
  */
 export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
-  allowedRoles,
+  requiredCapability,
   children,
 }) => {
   const { dealId } = useParams<{ dealId: string }>();
-  const { projectRoles } = useAuth();
 
-  // Если нет dealId в URL — считаем, что это ошибка маршрута.
   if (!dealId) {
     return <Navigate to="/deals" replace />;
   }
 
-  const role = projectRoles[dealId] ?? "viewer";
+  const dealPermissions = useDealPermissions(dealId);
 
-  // Если список allowedRoles не задан — пускаем всех.
-  if (!allowedRoles || allowedRoles.includes(role)) {
+  // Если capability не задан, считаем, что достаточно иметь доступ к overview проекта.
+  if (!requiredCapability) {
+    if (dealPermissions.canViewOverview) {
+      return children;
+    }
+  } else if (dealPermissions[requiredCapability]) {
     return children;
   }
 
-  // Если роли не хватает — показываем простую страницу "Нет доступа".
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white border rounded-lg px-6 py-4 text-center max-w-sm">

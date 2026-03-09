@@ -1,11 +1,10 @@
 // =============================================================
 // src/pages/ProjectMembersPage.tsx
-// Управление участниками проекта (только admin проекта).
+// Управление участниками проекта (по capability, обычно admin проекта).
 // =============================================================
 
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
 import {
   useProjectMembers,
   useCreateProjectMember,
@@ -14,8 +13,9 @@ import {
 } from "../api/projectMembers";
 import type {
   ProjectMember,
-  ProjectMemberRole,
 } from "../api/projectMembers";
+import type { ProjectRole } from "../api/auth";
+import { useDealPermissions } from "../hooks/usePermissions";
 
 type FormMode = "create" | "edit";
 
@@ -24,7 +24,7 @@ interface MemberFormState {
   name: string;
   login: string;
   password: string;
-  role: ProjectMemberRole;
+  role: ProjectRole;
 }
 
 const EMPTY_FORM: MemberFormState = {
@@ -38,7 +38,6 @@ const EMPTY_FORM: MemberFormState = {
 const ProjectMembersPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
-  const { projectRoles } = useAuth();
 
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [form, setForm] = useState<MemberFormState>(EMPTY_FORM);
@@ -55,10 +54,12 @@ const ProjectMembersPage: React.FC = () => {
     );
   }
 
-  const role = projectRoles[dealId];
-  const isAdmin = role === "admin";
+  // Права по проекту: управление участниками завязываем на canManageRequests
+  // (при необходимости можно ввести отдельный capability для управления участниками).
+  const { canManageRequests } = useDealPermissions(dealId);
+  const canManageMembers = canManageRequests;
 
-  if (!isAdmin) {
+  if (!canManageMembers) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
@@ -281,7 +282,7 @@ const ProjectMembersPage: React.FC = () => {
           </p>
         )}
 
-        {/* Форма добавления/редактирования (простая "панель", не модалка) */}
+        {/* Форма добавления/редактирования */}
         {formMode && (
           <div className="bg-white rounded-lg border p-4 space-y-3">
             <h2 className="text-sm font-semibold text-gray-800">

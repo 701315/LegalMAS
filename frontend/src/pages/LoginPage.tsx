@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useLogin } from "../api/auth";
 import type { GlobalRole } from "../stores/uiStore";
+import type { ProjectRole } from "../api/auth";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,19 +54,26 @@ const LoginPage: React.FC = () => {
           const user = data.user;
 
           // Базовые значения из бэка
-          let globalRole: GlobalRole = user.global_role as GlobalRole;
-          let projectRoles: Record<string, "admin" | "editor" | "viewer"> = {};
+          let globalRole: GlobalRole = "user";
+          let projectRoles: Record<string, ProjectRole> = {};
 
           // DEV-режим:
           // Если логин admin (user.id === "admin"), считаем его супер-админом системы
           // и админом во всех проектах.
           if (user.id === "admin") {
             globalRole = "superadmin";
+          } else {
+            // Пока бэк возвращает произвольные строки, жёстко мапим только известные.
+            if (user.global_role === "superadmin" || user.global_role === "user" || user.global_role === "system") {
+              globalRole = user.global_role as GlobalRole;
+            } else {
+              globalRole = "user";
+            }
+          }
             // projectRoles заполним динамически в будущем;
             // пока логика RequireProjectRole при отсутствии ключа
             // поставит viewer, поэтому для теста загрузки можно вручную
             // прописывать нужный dealId в useAuth, как обсуждали.
-          }
 
           setUserInfo({
             userId: user.id,
@@ -152,5 +160,3 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-
-

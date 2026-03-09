@@ -25,6 +25,7 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   detail: string;
   code?: string;
+  status?: number; // HTTP-статус (404, 500 и т.п.)
 }
 
 
@@ -36,7 +37,8 @@ export interface ApiError {
  * Роли пользователей в системе.
  * Уровни: viewer=1, editor=2, reviewer=3, admin=4
  */
-export type UserRole = "viewer" | "editor" | "reviewer" | "admin";
+export type UserRole = "superadmin" | "admin" | "reviewer" | "editor" | "viewer";
+
 
 export interface User {
   id: string;

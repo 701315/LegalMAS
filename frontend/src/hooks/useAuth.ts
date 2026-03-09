@@ -4,6 +4,9 @@
 // =============================================================
 
 import { useUIStore } from "../stores/uiStore";
+import type { ProjectRole } from "../api/auth";
+
+type ProjectRolesMap = Record<string, ProjectRole>;
 
 export function useAuth() {
   // Старые поля (для совместимости с существующим кодом)
@@ -24,15 +27,15 @@ export function useAuth() {
 
   // ВРЕМЕННЫЙ dev-override:
   // если userId === "admin", считаем, что он admin во всех проектах.
-  const overriddenProjectRoles =
+  const overriddenProjectRoles: ProjectRolesMap =
     userId === "admin"
       ? new Proxy(projectRoles, {
           get(target, prop: string) {
             // если для конкретного dealId уже есть роль — используем её,
             // иначе по умолчанию считаем admin
-            return (target as any)[prop] ?? "admin";
+            return (target as ProjectRolesMap)[prop] ?? "admin";
           },
-        })
+        }) as ProjectRolesMap
       : projectRoles;
 
   return {

@@ -30,8 +30,6 @@ import type {
   ReclassifyInput,
   ClassificationLevel,
   StructuredDataResult,
-  DocumentDetail,
-  DocumentFamily,
   ReclassifyResult,
 } from "../../types";
 
@@ -90,6 +88,9 @@ export interface DocumentDetailsViewProps {
 
   // Состояния загрузки / ошибок (минимум для этого этапа)
   isLoading: boolean;
+  notFound: boolean;
+  error?: string | null;
+  structuredNotAvailable?: boolean;
 
   // Права и действия
   canDownload: boolean;
@@ -120,7 +121,10 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   classification,
   family,
   structuredData,
+  structuredNotAvailable,
   isLoading,
+  notFound,
+  error,
   canDownload,
   canOpenPdf,
   canReclassify,
@@ -150,6 +154,31 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       </div>
     );
   }
+
+  // 404 / notFound от стейт-хука
+  if (notFound) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+        Документ не найден
+      </div>
+    );
+  }
+
+  // Настоящая ошибка (500, сеть и т.д.)
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center px-4">
+        <AlertTriangle className="text-red-500 mb-2" size={20} />
+        <p className="text-sm text-red-700 mb-1">
+          Ошибка загрузки документа
+        </p>
+        <p className="text-xs text-gray-500 max-w-sm">
+          {error}
+        </p>
+      </div>
+    );
+  }
+
 
   // Нет документа — показываем сообщение (doc может быть null)
   if (!doc) {
@@ -435,10 +464,13 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       )}
 
       {/* ========== Структурированные данные ========== */}
-      {structuredData && structuredData.extracted_values.length > 0 && (
-        <Section
-          title={`Структурированные данные (${structuredData.total_extracted})`}
-        >
+
+      <Section title="Структурированные данные">
+        {structuredNotAvailable ? (
+          <p className="text-xs text-gray-400">
+            Структурированные данные для этого документа не сформированы.
+          </p>
+        ) : structuredData && structuredData.extracted_values.length > 0 ? (
           <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
             {structuredData.extracted_values.map((val, idx) => (
               <div
@@ -454,8 +486,13 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               </div>
             ))}
           </div>
-        </Section>
-      )}
+        ) : (
+          <p className="text-xs text-gray-400">
+            Структурированные данные находятся в обработке или недоступны.
+          </p>
+        )}
+      </Section>
+
 
       {/* ========== Действия ========== */}
       <Section title="Действия">

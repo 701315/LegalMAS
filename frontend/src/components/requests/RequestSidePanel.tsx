@@ -23,6 +23,7 @@ interface Props {
   onSave: (reqId: string, data: Partial<DDRequest>) => Promise<void>;
   onDelete: (reqId: string) => Promise<void>;
   isSaving: boolean;
+  canManageRequests: boolean;
 }
 
 export const RequestSidePanel: React.FC<Props> = ({
@@ -31,6 +32,7 @@ export const RequestSidePanel: React.FC<Props> = ({
   onSave,
   onDelete,
   isSaving,
+  canManageRequests,
 }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
@@ -68,16 +70,15 @@ export const RequestSidePanel: React.FC<Props> = ({
 
   // Сохранение изменений
   const handleSave = async () => {
+    if (!canManageRequests) return;
     await onSave(request.id, { text, priority, status });
     setEditing(false);
   };
 
   // Удаление запроса
   const handleDelete = async () => {
-    if (
-      !confirm("Удалить запрос? Это действие нельзя отменить.")
-    )
-      return;
+    if (!canManageRequests) return;
+    if (!confirm("Удалить запрос? Это действие нельзя отменить.")) return;
     await onDelete(request.id);
     onClose();
   };
@@ -135,7 +136,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               onChange={(e) =>
                 setPriority(e.target.value as DDRequest["priority"])
               }
-              disabled={!editing}
+              disabled={!editing || !canManageRequests}
               className="w-full p-2 border rounded text-sm disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {PRIORITY_OPTIONS.map((opt) => (
@@ -153,7 +154,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               onChange={(e) =>
                 setStatus(e.target.value as DDRequest["status"])
               }
-              disabled={!editing}
+              disabled={!editing || !canManageRequests}
               className="w-full p-2 border rounded text-sm disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {STATUS_OPTIONS.map((opt) => (
@@ -164,7 +165,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             </select>
           </Field>
 
-          {/* NEW: Адресат */}
+          {/* Адресат */}
           {request.addressee && (
             <Field label="Адресат">
               <p className="text-sm text-gray-700 font-medium">
@@ -173,7 +174,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             </Field>
           )}
 
-          {/* NEW: Источник */}
+          {/* Источник */}
           {request.source && (
             <Field label="Источник">
               <span
@@ -203,7 +204,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={8}
-              disabled={!editing}
+              disabled={!editing || !canManageRequests}
               className="w-full p-2 border rounded text-sm resize-y disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </Field>
@@ -240,7 +241,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             )}
           </Field>
 
-          {/* NEW: Извлечённые данные */}
+          {/* Извлечённые данные */}
           {request.structured_values &&
             request.structured_values.length > 0 && (
               <Field
@@ -271,7 +272,7 @@ export const RequestSidePanel: React.FC<Props> = ({
 
         {/* Подвал */}
         <div className="border-t p-4 flex flex-col gap-2">
-          {/* Копировать */}
+          {/* Копировать — доступно всем */}
           <button
             onClick={handleCopy}
             className="flex items-center justify-center gap-1.5 w-full px-4 py-2 border rounded text-sm hover:bg-gray-50 transition"
@@ -299,7 +300,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !canManageRequests}
                 className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
               >
                 {isSaving ? (
@@ -327,15 +328,17 @@ export const RequestSidePanel: React.FC<Props> = ({
           ) : (
             <div className="flex gap-2">
               <button
-                onClick={() => setEditing(true)}
-                className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
+                onClick={() => canManageRequests && setEditing(true)}
+                disabled={!canManageRequests}
+                className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
               >
                 <Pencil size={14} />
                 Редактировать
               </button>
               <button
                 onClick={handleDelete}
-                className="flex items-center justify-center gap-1 px-4 py-2 border border-red-200 text-red-600 rounded text-sm hover:bg-red-50 transition"
+                disabled={!canManageRequests}
+                className="flex items-center justify-center gap-1 px-4 py-2 border border-red-200 text-red-600 rounded text-sm hover:bg-red-50 transition disabled:opacity-50"
               >
                 <Trash2 size={14} />
               </button>

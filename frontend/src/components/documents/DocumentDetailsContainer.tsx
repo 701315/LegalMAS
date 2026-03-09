@@ -2,34 +2,29 @@
 // src/components/documents/DocumentDetailsContainer.tsx
 // Контейнер для правой панели документа на вкладке Documents.
 //
-// Отвечает за:
-// - загрузку данных (detail, family, structured-data, pdf-url)
-// - взаимодействие с React Query мутациями (reclassify, setReviewed)
-// - получение ролей пользователя (useAuth) и расчёт capabilities
-// - адаптацию "сырых" данных к view-пропсам
-//
-// View-компонент (UI-часть) — DocumentDetails.tsx
+// Новая модель:
+// - useDocumentDetailsState / useStructuredDataState возвращают
+//   нормализованный стейт (DocumentDetailsState, StructuredDataState)
+// - контейнер адаптирует стейт → view-пропсы для DocumentDetails
 // =============================================================
 
 import React from "react";
 import {
-  useDocumentDetail,
+  // DTO-хуки для других данных оставляем как есть
   useDocumentFamily,
-  useStructuredData,
   useReclassifyDocument,
   useDocumentPdfUrl,
   useSetDocumentReviewed,
 } from "../../api/documents";
-import { useAuth } from "../../hooks/useAuth";
 import {
-  canReclassify as canReclassifyHelper,
-} from "../../constants";
+  useDocumentDetailsState,
+  useStructuredDataState,
+} from "../../api/documents.stateHooks";
+import { useDealPermissions } from "../../hooks/usePermissions";
 
 import type {
   Document,
-  DocumentDetail,
   DocumentFamily as DocumentFamilyDto,
-  StructuredDataResult,
   ReclassifyInput,
 } from "../../types";
 
@@ -40,7 +35,6 @@ import type {
   StructuredDataView,
 } from "./DocumentDetails";
 
-
 interface Props {
   docId: string;
   dealId: string;
@@ -48,24 +42,7 @@ interface Props {
   onNavigateToGrid?: (dealId: string, docName: string) => void;
 }
 
-// Вспомогательные адаптеры "сырого" ответа к view-типам
-
-function adaptClassification(
-  detail: DocumentDetail | undefined,
-): DocumentDetailsViewClassification | null {
-  if (!detail || !detail.classification) return null;
-
-  const c = detail.classification;
-  return {
-    doc_type: c.doc_type,
-    classification_level: c.classification_level,
-    classification_confidence: c.classification_confidence,
-    applicable_triggers: c.applicable_triggers ?? [],
-    yaml_instruction_available: c.yaml_instruction_available,
-    low_confidence: c.low_confidence,
-  };
-}
-
+// Вспомогательный адаптер семейства документов (DTO -> view-тип)
 function adaptFamily(
   family: DocumentFamilyDto | undefined,
 ): DocumentFamilyView | null {
@@ -78,50 +55,63 @@ function adaptFamily(
   };
 }
 
-function adaptStructuredData(
-  structured: StructuredDataResult | undefined,
-): StructuredDataView | null {
-  if (!structured) return null;
-  return {
-    document_id: structured.document_id,
-    filename: structured.filename,
-    doc_type: structured.doc_type,
-    extracted_values: structured.extracted_values,
-    total_extracted: structured.total_extracted,
-  };
-}
-
 export const DocumentDetailsContainer: React.FC<Props> = ({
   docId,
   dealId,
   onNavigateToGrid,
 }) => {
-  // --- Data-хуки ---
-  const { data: detail, isLoading } = useDocumentDetail(docId);
+  // --- Data-хуки на стейтах ---
+  const detailsState = useDocumentDetailsState(docId); // DocumentDetailsState
+  const structuredState = useStructuredDataState(docId); // StructuredDataState
+
+  // --- Дополнительные данные (DTO-хуки) ---
   const { data: familyDto } = useDocumentFamily(docId);
   const { data: pdfData } = useDocumentPdfUrl(docId);
-  const { data: structuredDataDto } = useStructuredData(docId);
 
-  // --- Auth / роли ---
-  const { userRole } = useAuth();
+  // --- Права доступа по сделке ---
+  const {
+    canDownloadDocuments,
+    canReclassifyDocuments,
+  } = useDealPermissions(dealId);
 
   // --- Мутации ---
   const reclassifyMutation = useReclassifyDocument(docId);
   const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
-  // --- Capabilities на текущем этапе (пока без отдельного permission-service) ---
-  const isEditorOrAdmin = userRole === "editor" || userRole === "admin";
-  const canDownload = isEditorOrAdmin;
-  const canOpenPdf = isEditorOrAdmin;
-  const canReclassify = canReclassifyHelper(userRole);
+  // --- Capabilities ---
+  const canDownload = canDownloadDocuments;
+  const canOpenPdf = canDownloadDocuments;
+  const canReclassify = canReclassifyDocuments;
 
-  // --- Адаптация данных к view-модели ---
-  const doc: Document | null = detail?.document ?? null;
+
+  // --- Адаптация стейтов к view-модели ---
+
+  // Детали документа и классификация — из нормализованного стейта
+  const doc: Document | null = detailsState.doc;
   const classification: DocumentDetailsViewClassification | null =
-    adaptClassification(detail);
-  const family: DocumentFamilyView | null = adaptFamily(familyDto);
-  const structuredData: StructuredDataView | null =
-    adaptStructuredData(structuredDataDto);
+    detailsState.classification;
+
+  // Семейство документов — по-прежнему отдельным запросом
+  const family: DocumentFamilyView | null = adaptFamily(
+    familyDto as DocumentFamilyDto | undefined,
+  );
+
+  // Структурированные данные из стейта:
+  // - если isLoading / error / notAvailable → не показываем блок (на этом этапе)
+  let structuredData: StructuredDataView | null = null;
+  if (
+    !structuredState.isLoading &&
+    !structuredState.error &&
+    !structuredState.notAvailable
+  ) {
+    structuredData = {
+      document_id: doc?.id ?? "",
+      filename: doc?.filename ?? "",
+      doc_type: doc?.doc_type ?? undefined,
+      extracted_values: structuredState.items,
+      total_extracted: structuredState.total,
+    };
+  }
 
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
@@ -136,6 +126,9 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     console.warn("Replace file not implemented yet", file.name);
   };
 
+  const isLoading =
+    detailsState.isLoading || structuredState.isLoading;
+
   return (
     <DocumentDetailsView
       dealId={dealId}
@@ -143,7 +136,10 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       classification={classification}
       family={family}
       structuredData={structuredData}
+      structuredNotAvailable={structuredState.notAvailable}
       isLoading={isLoading}
+      notFound={detailsState.notFound}
+      error={detailsState.error ?? structuredState.error}
       canDownload={canDownload}
       canOpenPdf={canOpenPdf}
       canReclassify={canReclassify}

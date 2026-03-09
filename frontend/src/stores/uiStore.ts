@@ -5,9 +5,16 @@
 
 import { create } from "zustand";
 import type { UserRole } from "../types";
+import type { ProjectRole } from "../api/auth";
 
-export type GlobalRole = "superadmin" | "user" | "system";
-type ProjectRole = "admin" | "editor" | "viewer";
+export type GlobalRole =
+  | "superadmin"
+  | "admin"
+  | "reviewer"
+  | "editor"
+  | "viewer"
+  | "user"
+  | "system";
 
 interface UIState {
   // Текущая логика (оставляем как есть для совместимости)

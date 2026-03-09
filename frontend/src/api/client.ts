@@ -33,14 +33,15 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Здесь можно сделать централизованный лог/redirect на login при 401
     const apiError: ApiError = {
       detail: error.response?.data?.detail || "Unknown error",
       code: error.response?.data?.code,
+      // новый флаг для всего фронта: HTTP-статус
+      status: error.response?.status,
     };
-    // Пробрасываем ошибку дальше, чтобы её поймали хуки/компоненты
     return Promise.reject(apiError);
   },
 );
+
 
 export default client;

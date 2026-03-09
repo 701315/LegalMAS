@@ -8,8 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Deal } from "../../types";
 import { useClassificationReport, useStartRun } from "../../api/runs";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
-import { canViewClassificationReport } from "../../constants";
-import { useAuth } from "../../hooks/useAuth";
+import { useDealPermissions } from "../../hooks/usePermissions";
 
 interface OverviewTabProps {
   deal: Deal;
@@ -23,13 +22,15 @@ interface OverviewTabProps {
  * - список документов с низкой уверенностью
  */
 const ClassificationQualityCard: React.FC<{
+  dealId: string;
   latestRunId?: string | null;
-}> = ({ latestRunId }) => {
-  const { userRole } = useAuth();
+}> = ({ dealId, latestRunId }) => {
+  const { canViewClassificationReport } = useDealPermissions(dealId);
 
   // Если нет права или нет runId — не грузим отчёт вообще
-  const canView = canViewClassificationReport(userRole);
-  const runIdForQuery = canView ? latestRunId ?? null : null;
+  const runIdForQuery = canViewClassificationReport
+    ? latestRunId ?? null
+    : null;
 
   const {
     data: classReport,
@@ -37,7 +38,7 @@ const ClassificationQualityCard: React.FC<{
     error,
   } = useClassificationReport(runIdForQuery);
 
-  if (!canView) {
+  if (!canViewClassificationReport) {
     return null;
   }
 
@@ -165,10 +166,7 @@ const ClassificationQualityCard: React.FC<{
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const qc = useQueryClient();
   const startRun = useStartRun(deal.id);
-  const { projectRoles } = useAuth();
-
-  const projectRole = projectRoles[deal.id] ?? "viewer";
-  const canStartRun = projectRole === "admin" || projectRole === "editor";
+  const { canStartRun } = useDealPermissions(deal.id);
 
   const handleStart = () => {
     if (!canStartRun) {
@@ -236,7 +234,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
       </div>
 
       {/* Карточка качества классификации */}
-      <ClassificationQualityCard latestRunId={latestRunId} />
+      <ClassificationQualityCard dealId={deal.id} latestRunId={latestRunId} />
     </div>
   );
 };

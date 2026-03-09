@@ -8,8 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import client from "../api/client";
-
-type ProjectRole = "admin" | "editor" | "viewer";
+import type { ProjectRole } from "../api/auth";
 
 interface UserProject {
   deal_id: string;

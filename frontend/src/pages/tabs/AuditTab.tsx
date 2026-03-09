@@ -6,22 +6,22 @@
 
 import React, { useState } from "react";
 import { useAuditLog } from "../../api/audit";
-import { useAuth } from "../../hooks/useAuth";
 import { AUDIT_ACTION_LABEL } from "../../constants";
 import { Loader2, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
+import { useDealPermissions } from "../../hooks/usePermissions";
 
 interface Props {
   dealId: string;
 }
 
 export const AuditTab: React.FC<Props> = ({ dealId }) => {
-  const { userRole } = useAuth();
+  const { canViewAuditLog } = useDealPermissions(dealId);
   const [filterAction, setFilterAction] = useState<string>("");
   const [page, setPage] = useState(1);
 
-  // RBAC: только admin и reviewer (как security / lead)
-  if (!["admin", "reviewer"].includes(userRole)) {
+  // RBAC: доступ только при canViewAuditLog
+  if (!canViewAuditLog) {
     return (
       <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg py-20 text-center">
         <Shield size={48} className="text-gray-300 mb-4" />

@@ -5,14 +5,13 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
-
-export type ProjectMemberRole = "admin" | "editor" | "viewer";
+import type { ProjectRole } from "./auth";
 
 export interface ProjectMember {
   member_id: string;
   name: string;
   login: string;
-  role: ProjectMemberRole;
+  role: ProjectRole;
   created_at: string;
 }
 
@@ -20,14 +19,14 @@ export interface CreateProjectMemberInput {
   name: string;
   login: string;
   password: string;
-  role: ProjectMemberRole;
+  role: ProjectRole;
 }
 
 export interface UpdateProjectMemberInput {
   name?: string;
   login?: string;
   password?: string;
-  role?: ProjectMemberRole;
+  role?: ProjectRole;
 }
 
 // Низкоуровневый API

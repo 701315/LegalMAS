@@ -22,6 +22,7 @@ import { useAuth } from "./hooks/useAuth";
 import ProjectUploadPage from "./pages/ProjectUploadPage";
 import ProjectPlaybookPage from "./pages/ProjectPlaybookPage";
 import ProjectMembersPage from "./pages/ProjectMembersPage";
+import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 
 // Временная обёртка для страницы проекта (используем существующий DealPage)
 function DealRouteWrapper() {
@@ -82,42 +83,6 @@ function RequireSuperadmin({
   return children;
 }
 
-// Защита маршрутов проекта по роли в проекте
-function RequireProjectRole({
-  children,
-  allowedRoles,
-}: {
-  children: React.ReactElement;
-  allowedRoles: Array<"admin" | "editor" | "viewer">;
-}) {
-  const { projectRoles } = useAuth();
-  const { dealId } = useParams<{ dealId: string }>();
-
-  if (!dealId) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  const role = projectRoles[dealId] ?? "viewer";
-
-  if (!allowedRoles.includes(role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white border rounded-lg px-6 py-4 text-center max-w-sm">
-          <h1 className="text-lg font-semibold text-gray-900 mb-2">
-            Нет доступа
-          </h1>
-          <p className="text-sm text-gray-600 mb-4">
-            У вас нет прав для просмотра этой страницы. Обратитесь к администратору
-            проекта, если считаете, что это ошибка.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return children;
-}
-
 function App() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -165,45 +130,46 @@ function App() {
           }
         />
 
-        {/* Страница загрузки документов: admin + editor */}
+        {/* Страница загрузки документов: capability canUploadDocuments */}
         <Route
           path="/projects/:dealId/upload"
           element={
             <RequireAuth>
-              <RequireProjectRole allowedRoles={["admin", "editor"]}>
+              <ProjectRouteGuard requiredCapability="canUploadDocuments">
                 <ProjectUploadPage />
-              </RequireProjectRole>
+              </ProjectRouteGuard>
             </RequireAuth>
           }
         />
 
-        {/* Страница участников проекта: только admin */}
+        {/* Страница участников проекта: привяжем к canManageRequests
+            (или можно завести отдельный capability, если понадобится) */}
         <Route
           path="/projects/:dealId/members"
           element={
             <RequireAuth>
-              <RequireProjectRole allowedRoles={["admin"]}>
+              <ProjectRouteGuard requiredCapability="canManageRequests">
                 <ProjectMembersPage />
-              </RequireProjectRole>
+              </ProjectRouteGuard>
             </RequireAuth>
           }
         />
 
-        {/* Страница playbook: admin + editor */}
+        {/* Страница playbook: admin + editor → canViewOverview достаточно */}
         <Route
           path="/projects/:dealId/playbook"
           element={
             <RequireAuth>
-              <RequireProjectRole allowedRoles={["admin", "editor"]}>
+              <ProjectRouteGuard requiredCapability="canViewOverview">
                 <ProjectPlaybookPage />
-              </RequireProjectRole>
+              </ProjectRouteGuard>
             </RequireAuth>
           }
         />
 
         {/* Корень: авторизованных на /dashboard, остальных на /login */}
         <Route
-          path="/"
+          path="/" 
           element={
             <RequireAuth>
               <Navigate to="/dashboard" replace />

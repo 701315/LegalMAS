@@ -5,14 +5,13 @@
 
 import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
 import { useDocuments, useUploadDocuments } from "../api/documents";
 import { formatDate } from "../utils";
+import { useDealPermissions } from "../hooks/usePermissions";
 
 const ProjectUploadPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
-  const { projectRoles } = useAuth();
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [folderPath, setFolderPath] = useState<string>("");
@@ -26,11 +25,8 @@ const ProjectUploadPage: React.FC = () => {
     );
   }
 
-  // Роль пользователя в проекте
-  const currentRole = projectRoles[dealId] ?? "viewer";
-  const isAdmin = currentRole === "admin";
-  const isEditor = currentRole === "editor";
-  const canUpload = isAdmin || isEditor;
+  // Права на загрузку документов в конкретную сделку
+  const { canUploadDocuments } = useDealPermissions(dealId);
 
   // Список уже загруженных документов по сделке (первая страница)
   const { data: docsPage, isLoading: docsLoading } = useDocuments(dealId, 1);
@@ -40,7 +36,7 @@ const ProjectUploadPage: React.FC = () => {
   const uploadMutation = useUploadDocuments(dealId);
   const isSubmitting = uploadMutation.isPending;
 
-  if (!canUpload) {
+  if (!canUploadDocuments) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
@@ -83,11 +79,9 @@ const ProjectUploadPage: React.FC = () => {
         folderPath: folderPath.trim() || null,
       });
 
-      // После успешной загрузки очищаем выбор и возвращаемся к проекту
       setSelectedFiles([]);
       navigate(`/projects/${dealId}`);
     } catch (err: any) {
-      // Axios-ошибка может лежать в err.response.data.detail
       const detail =
         err?.response?.data?.detail ||
         err?.detail ||

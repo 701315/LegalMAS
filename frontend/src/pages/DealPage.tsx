@@ -13,7 +13,7 @@ import DocumentsTab from "./tabs/DocumentsTab";
 import { RequestsTab } from "./tabs/RequestsTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
-import { useAuth } from "../hooks/useAuth";
+import { useDealPermissions } from "../hooks/usePermissions";
 
 interface DealPageProps {
   deal: Deal;
@@ -36,13 +36,15 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const latestRunId = deal.last_run_id ?? null;
 
   const navigate = useNavigate();
-  const { projectRoles } = useAuth();
 
-  // Роль текущего пользователя в этом проекте (admin/editor/viewer)
-  const currentProjectRole = projectRoles[deal.id] ?? "viewer";
-  const isAdmin = currentProjectRole === "admin";
-  const isEditor = currentProjectRole === "editor";
-  const canManageProject = isAdmin || isEditor;
+  // Права пользователя в контексте этой сделки
+  const {
+    canViewOverview,
+    canManageRequests,
+    canUploadDocuments,
+  } = useDealPermissions(deal.id);
+
+  const canManageProject = canUploadDocuments || canManageRequests;
 
   const handleOpenMembers = () => {
     if (!canManageProject) return;
@@ -50,12 +52,12 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   };
 
   const handleOpenUpload = () => {
-    if (!canManageProject) return;
+    if (!canUploadDocuments) return;
     navigate(`/projects/${deal.id}/upload`);
   };
 
   const handleOpenPlaybook = () => {
-    if (!canManageProject) return;
+    if (!canViewOverview) return;
     navigate(`/projects/${deal.id}/playbook`);
   };
 
@@ -87,13 +89,15 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             >
               Участники проекта
             </button>
-            <button
-              type="button"
-              onClick={handleOpenUpload}
-              className="px-3 py-1.5 text-xs md:text-sm rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Загрузить новые документы
-            </button>
+            {canUploadDocuments && (
+              <button
+                type="button"
+                onClick={handleOpenUpload}
+                className="px-3 py-1.5 text-xs md:text-sm rounded border border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Загрузить новые документы
+              </button>
+            )}
             <button
               type="button"
               onClick={handleOpenPlaybook}

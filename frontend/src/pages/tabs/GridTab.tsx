@@ -25,7 +25,7 @@ import EvidencePanel from "../../components/evidence/EvidencePanel";
 import BulkQCBar from "../../components/qc/BulkQCBar";
 import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
 import ExportButtons from "../../components/grid/ExportButtons";
-import { useAuth } from "../../hooks/useAuth";
+import { useDealPermissions } from "../../hooks/usePermissions";
 
 interface GridTabProps {
   dealId: string;
@@ -50,9 +50,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     null,
   );
 
-  const { projectRoles } = useAuth();
-  const projectRole = projectRoles[dealId] ?? "viewer";
-  const canDoQc = projectRole === "admin" || projectRole === "editor";
+  const { canReclassifyDocuments } = useDealPermissions(dealId);
+  const canDoQc = canReclassifyDocuments;
 
   const {
     data: allResults = [],
