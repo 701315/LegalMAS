@@ -1,0 +1,118 @@
+id: "financial_covenants"
+name: "Финансовые ковенанты"
+description: >
+  Анализирует финансовые ковенанты: показатели левериджа, ликвидности,
+  ограничения на дивиденды, новые заимствования и сделки с активами.
+doc_types: []
+severity: "critical"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "financial covenants"
+    - "финансовые ковенанты"
+    - "covenant"
+    - "leverage ratio"
+    - "коэффициент левериджа"
+    - "debt service coverage"
+    - "DSCR"
+    - "interest coverage"
+    - "ликвидность"
+    - "liquidity"
+    - "dividend restrictions"
+    - "ограничения на выплату дивидендов"
+    - "negative covenants"
+    - "ограничения на распоряжение активами"
+    - "asset sale"
+    - "asset disposition"
+    - "incurrence of indebtedness"
+    - "ограничения на привлечение заимствований"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по финансированию.
+    Тебе даны фрагменты договора, где могут быть финансовые ковенанты.
+
+    Определи:
+    1) Какие финансовые ковенанты установлены:
+       - показатели левериджа,
+       - покрытия долга (DSCR, interest coverage),
+       - ликвидности.
+    2) Есть ли ограничения на:
+       - выплату дивидендов,
+       - привлечение новых заимствований,
+       - сделки с активами (asset sales/dispositions).
+    3) Насколько вероятно, что после сделки эти ковенанты будут нарушены
+       в обычной модели бизнеса Target.
+    4) Насколько ковенанты опасны для стабильности структуры долгов Target.
+
+    Верни строго JSON:
+    {
+      "has_leverage_or_coverage_covenants": "yes|no|unclear",
+      "has_dividend_restrictions": "yes|no|unclear",
+      "has_new_debt_limitations": "yes|no|unclear",
+      "has_asset_disposition_restrictions": "yes|no|unclear",
+      "likelihood_of_breach_after_transaction": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "financial covenants"
+    - "leverage ratio"
+    - "DSCR"
+    - "dividend restrictions"
+    - "asset sale"
+    - "incurrence of indebtedness"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_leverage_or_coverage_covenants"
+      type: "string"
+    - name: "has_dividend_restrictions"
+      type: "string"
+    - name: "has_new_debt_limitations"
+      type: "string"
+    - name: "has_asset_disposition_restrictions"
+      type: "string"
+    - name: "likelihood_of_breach_after_transaction"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FIN3"
+      description: "Жёсткие ковенанты, которые очевидно будут нарушены после сделки."
+    - code: "FIN4"
+      description: "Сильные ограничения на дивиденды/новые заимствования при планах пост-Closing реструктуризации."

@@ -1,0 +1,113 @@
+id: "governing_law_and_forum"
+name: "Применимое право и юрисдикция"
+description: >
+  Анализирует применимое право (governing law), договорную подсудность и/или
+  арбитраж: место, институт, язык, а также общую предсказуемость и доступность
+  форума для Target.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "governed by"
+    - "governing law"
+    - "настоящий договор регулируется"
+    - "применимое право"
+    - "подлежит регулированию"
+    - "jurisdiction"
+    - "exclusive jurisdiction"
+    - "non-exclusive jurisdiction"
+    - "место рассмотрения споров"
+    - "подсудность"
+    - "forum"
+    - "арбитраж"
+    - "arbitration"
+    - "arbitral tribunal"
+    - "seat of arbitration"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по международным контрактам и разрешению споров.
+    Тебе даны фрагменты договора с положениями о применимом праве и юрисдикции.
+
+    Определи:
+    1) Какое право выбрано в качестве применимого (governing law).
+    2) Какой форум для разрешения споров установлен:
+       - государственный суд (какой страны/города),
+       - арбитраж (какой институт, место, язык).
+    3) Является ли выбор юрисдикции эксклюзивным или неэксклюзивным.
+    4) Насколько выбранный форум предсказуем и доступен для Target с точки зрения:
+       - практической возможности вести процесс,
+       - вероятности признания/исполнения решений в юрисдикции активов.
+    5) Есть ли признаки "неудобного" или фактически недоступного форума.
+
+    Верни строго JSON:
+    {
+      "governing_law": "строка с указанием права или 'unclear'",
+      "dispute_resolution_forum": "court|arbitration|mixed|unclear",
+      "forum_description": "краткое описание выбранного суда/арбитража, места и института",
+      "jurisdiction_clause_type": "exclusive|non-exclusive|unclear",
+      "forum_convenience_for_target": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "governing law"
+    - "настоящий договор регулируется"
+    - "exclusive jurisdiction"
+    - "место рассмотрения споров"
+    - "arbitration"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "governing_law"
+      type: "string"
+    - name: "dispute_resolution_forum"
+      type: "string"
+    - name: "forum_description"
+      type: "string"
+    - name: "jurisdiction_clause_type"
+      type: "string"
+    - name: "forum_convenience_for_target"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LAW1"
+      description: "Форум в юрисдикции с высокой политической/правовой неопределённостью и без реального доступа для Target."
+    - code: "LAW2"
+      description: "Неясная или противоречивая юрисдикционная/арбитражная оговорка."

@@ -1,0 +1,115 @@
+id: "liability_caps_and_baskets"
+name: "Лимиты ответственности и пороги (caps, baskets)"
+description: >
+  Анализирует наличие и структуру лимитов ответственности (caps),
+  порогов (basket, de minimis) и carve-out для ключевых рисков.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "лимит ответственности"
+    - "максимальный размер ответственности"
+    - "cap"
+    - "aggregate liability"
+    - "в совокупности"
+    - "basket"
+    - "de minimis"
+    - "порог"
+    - "deductible"
+    - "excess"
+    - "carve-out"
+    - "fraud"
+    - "willful misconduct"
+    - "грубая неосторожность"
+    - "gross negligence"
+    - "санкции"
+    - "нарушение конфиденциальности"
+    - "нарушение прав интеллектуальной собственности"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по сделкам и контрактам.
+    Тебе даны фрагменты договора с положениями об ограничении ответственности.
+
+    Определи:
+    1) Есть ли лимиты ответственности (caps) и как они определены:
+       - в абсолютной сумме, как процент цены договора и т.п.
+    2) Есть ли пороги и механика их применения:
+       - basket (aggregate threshold),
+       - de minimis (минимальный размер каждой претензии).
+    3) Есть ли carve-out, выводящие отдельные виды нарушений из-под cap:
+       - fraud, willful misconduct, грубая неосторожность,
+       - нарушения санкций, конфиденциальности, IP, данных и т.п.
+    4) Насколько структура caps/baskets/carve-outs защищает Target.
+
+    Верни строго JSON:
+    {
+      "has_liability_cap": "yes|no|unclear",
+      "cap_description": "строка с описанием cap",
+      "has_basket": "yes|no|unclear",
+      "has_de_minimis": "yes|no|unclear",
+      "has_key_carveouts": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "лимит ответственности"
+    - "aggregate liability"
+    - "basket"
+    - "de minimis"
+    - "carve-out"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_liability_cap"
+      type: "string"
+    - name: "cap_description"
+      type: "string"
+    - name: "has_basket"
+      type: "string"
+    - name: "has_de_minimis"
+      type: "string"
+    - name: "has_key_carveouts"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LIAB3"
+      description: "Отсутствие разумного cap при существенных обязательствах."
+    - code: "LIAB4"
+      description: "Отсутствие carve-out для ключевых рисков (данные, IP, санкции, комплаенс)."

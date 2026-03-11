@@ -1,0 +1,87 @@
+id: "coc_assignment_presence"
+name: "Наличие клауз об уступке и переводе долга"
+description: >
+  Проверяет, содержит ли договор положения об уступке прав (assignment)
+  и/или переводе долга, включая ограничения и требования согласия.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "уступка прав"
+    - "уступка требования"
+    - "cession"
+    - "assignment"
+    - "assign"
+    - "permitted assignee"
+    - "перевод долга"
+    - "transfer of obligations"
+    - "переуступка"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по коммерческим договорам.
+    Тебе даны фрагменты договора.
+
+    Определи:
+    1) Есть ли в договоре положения об уступке прав (assignment) и/или переводе долга.
+    2) Есть ли запрет на уступку/перевод без согласия контрагента.
+    3) Есть ли carve-out для внутригрупповых сделок или M&A.
+
+    Верни строго JSON:
+    {
+      "has_assignment_clause": "yes|no|unclear",
+      "consent_required": "yes|no|unclear",
+      "has_group_or_mna_carveout": "yes|no|unclear",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 3
+  temperature: 0.0
+  max_tokens: 256
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 400
+
+retrieval:
+  context_k: 3
+  max_chunks: 6
+  boost_keywords:
+    - "уступка"
+    - "assignment"
+    - "перевод долга"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_assignment_clause"
+      type: "string"
+    - name: "consent_required"
+      type: "string"
+    - name: "has_group_or_mna_carveout"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "A1"
+      description: "Широкий запрет на уступку без carve-out для M&A и внутригрупповых реструктуризаций."

@@ -1,0 +1,131 @@
+id: "rw_specific_and_survival"
+name: "Специальные R&W и срок их действия"
+description: >
+  Анализирует специальные R&W (налоги, санкции, споры, комплаенс, IP, обременения),
+  наличие knowledge qualifiers и срок действия (survival) R&W.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "заверяет и гарантирует"
+    - "represents and warrants"
+    - "налог"
+    - "tax"
+    - "санкции"
+    - "sanctions"
+    - "litigation"
+    - "спор"
+    - "lawsuit"
+    - "compliance"
+    - "anti-corruption"
+    - "антикорруп"
+    - "intellectual property"
+    - "IP"
+    - "обременение"
+    - "encumbrance"
+    - "knowledge"
+    - "to the best of its knowledge"
+    - "по мере осведомленности"
+    - "survival"
+    - "будут действовать в течение"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по M&A.
+    Тебе даны фрагменты с заверениями и гарантиями (R&W).
+
+    Определи:
+    1) Какие специальные R&W даны:
+       - налоговая чистота,
+       - отсутствие санкций,
+       - отсутствие судебных споров/расследований,
+       - соблюдение комплаенса,
+       - принадлежность IP,
+       - отсутствие скрытых обременений.
+    2) Используются ли knowledge qualifiers
+       ("to the best of Seller's knowledge", "по мере осведомленности"):
+       - где именно и насколько они сужают R&W.
+    3) Каков срок действия (survival) R&W:
+       - общий,
+       - отдельные сроки для фундаментальных и специальных R&W.
+    4) Как survival соотносится с лимитами ответственности (caps/baskets).
+
+    Верни строго JSON:
+    {
+      "has_tax_rw": "yes|no|unclear",
+      "has_sanctions_rw": "yes|no|unclear",
+      "has_litigation_rw": "yes|no|unclear",
+      "has_compliance_rw": "yes|no|unclear",
+      "has_ip_and_encumbrances_rw": "yes|no|unclear",
+      "uses_knowledge_qualifiers": "yes|no|unclear",
+      "rw_survival_summary": "строка с описанием сроков действия",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 700
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "represents and warrants"
+    - "sanctions"
+    - "litigation"
+    - "compliance"
+    - "intellectual property"
+    - "knowledge"
+    - "survival"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_tax_rw"
+      type: "string"
+    - name: "has_sanctions_rw"
+      type: "string"
+    - name: "has_litigation_rw"
+      type: "string"
+    - name: "has_compliance_rw"
+      type: "string"
+    - name: "has_ip_and_encumbrances_rw"
+      type: "string"
+    - name: "uses_knowledge_qualifiers"
+      type: "string"
+    - name: "rw_survival_summary"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "RW2"
+      description: "Очень широкие R&W без разумных knowledge qualifiers при объективной невозможности контроля."
+    - code: "RW3"
+      description: "Короткие survival-сроки по критичным специальным R&W."

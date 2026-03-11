@@ -1,49 +1,49 @@
+# src/workers/runner.py
+
 """
-Runner — simplified version for vertical slice.
+Runner — упрощённая версия для вертикального среза, обновлённая до работы с плейбуком.
 
-Executes one hardcoded DD check: Change of Control (coc001).
-Rules-only detection via keyword search.
-Writes check result with new fields:
-  - structured_data              = None  (populated in Stage 8)
-  - conditional_check_triggered  = False (populated in Stage 8)
-  - trigger_name                 = None  (populated in Stage 8)
+Назначение:
+- Выполнить проверки DD по одному документу в рамках конкретного Run.
+- Брать конфигурацию проверок (checks) из PlaybookVersion.compiled_checks,
+  привязанного к этому Run.
+- На каждый документ ставится отдельная Celery‑задача run_checks.
 
-applicable_triggers routing:
-  In this stage: Runner checks all documents regardless of applicable_triggers.
-  In Stage 8: Runner reads Document.applicable_triggers and routes to
-  applicable checks from check_catalogue.yaml.
-  The structured_data=None / conditional_check_triggered=False values
-  validate the contract with the production Runner (Stage 8).
+Архитектура:
+- HTTP-эндпоинт создаёт Run и ставит по одной задаче run_checks на каждый документ сделки.
+- Внутри задачи:
+  1) по run_id находим Run и PlaybookVersion;
+  2) извлекаем список checks из compiled_checks["checks"];
+  3) загружаем layout и clause_tree документа из ArtifactStore;
+  4) для каждого check_cfg вызываем простой rules-исполнитель execute_check_for_document;
+  5) сохраняем результаты в CheckResult и кладём NDJSON в сторедж;
+  6) триггерим экспорт.
 
-Full Runner with check_catalogue.yaml routing in Stage 8.
+Важное ограничение:
+- Сейчас используется упрощённый rules-only executor (без LLM и сложного движка Stage 8).
+  Позже его можно заменить/расширить, не меняя контракт с Runner'ом.
 """
 
 import json
 import uuid
-from src.ops.metrics import METRICS
+from uuid import UUID
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from workers.exporter import export_results
-from db.repositories import ResultRepository, DocumentRepository
-from core.constants import CheckResultStatus, DocumentStatus, Severity
+
+from src.ops.metrics import METRICS
+from core.constants import DocumentStatus
 from core.logging import get_logger
+from db.models.run import Run
+from db.repositories import ResultRepository, DocumentRepository
+from db.repositories.playbook_repo import PlaybookRepository
 from db.uow import db_uow
+from engine.checks.simple_rules import execute_check_for_document
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
-
-COC_KEYWORDS = [
-    "смена контроля",
-    "смены контроля",
-    "смене контроля",
-    "change of control",
-    "change-of-control",
-    "переход контроля",
-    "переход права контроля",
-    "смена собственника",
-    "контрольный пакет",
-]
 
 
 @celery_app.task(
@@ -53,7 +53,7 @@ COC_KEYWORDS = [
     track_job=False,
     queue="default",
 )
-async def run_checks(
+def run_checks(
     self,
     document_id: str,
     deal_id: str,
@@ -62,25 +62,41 @@ async def run_checks(
     doctype: str = "Other",
 ) -> dict:
     """
-    Run DD checks on a document.
+    Sync Celery entrypoint: обёртка над асинхронным ядром _run_checks_async.
 
-    Stage 2.5: one hardcoded check (coc001 — Change of Control).
-    Stage 8:   full routing via check_catalogue.yaml + applicable_triggers.
-
-    structured_data=None and conditional_check_triggered=False are
-    intentional — they validate the DB field contract with Stage 8.
+    Почему так:
+    - Celery ожидает синхронную функцию, которая сразу возвращает сериализуемый результат.
+    - Асинхронная логика и работа с БД живут внутри _run_checks_async под db_uow().
     """
-    logger.info("Starting checks", document_id=document_id, doctype=doctype)
+    import asyncio
 
-    async with db_uow() as uow:
-        return await _run_checks_async(
-            document_id=document_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
-            doctype=doctype,
-            db=uow.session,
-        )
+    logger.info(
+        "Starting checks",
+        document_id=document_id,
+        deal_id=deal_id,
+        run_id=run_id,
+        doctype=doctype,
+    )
+
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+
+        async def _wrapper() -> dict:
+            async with db_uow() as uow:
+                return await _run_checks_async(
+                    document_id=document_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
+                    doctype=doctype,
+                    db=uow.session,
+                )
+
+        return loop.run_until_complete(_wrapper())
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
 
 async def _run_checks_async(
@@ -92,11 +108,36 @@ async def _run_checks_async(
     db: AsyncSession,
 ) -> dict:
     """
-    Async core: loads artifacts, runs checks, saves results and triggers exporter.
+    Основная асинхронная логика: загрузить артефакты, выполнить checks,
+    сохранить результаты и запустить экспорт.
 
     Все операции с БД выполняются через переданную AsyncSession (db),
     чтобы одна задача Runner'а работала в рамках одного unit of work.
     """
+    # 1. Получаем список checks из PlaybookVersion.compiled_checks
+    checks_cfg: list[dict] = []
+
+    if run_id:
+        run_uuid = UUID(run_id)
+
+        # Находим Run по run_id
+        result = await db.execute(select(Run).where(Run.id == run_uuid))
+        run_obj = result.scalar_one_or_none()
+        if not run_obj:
+            raise RuntimeError(f"Run {run_id} not found")
+
+        # Находим PlaybookVersion по run.playbook_version_id
+        pb_repo = PlaybookRepository(db)
+        playbook = await pb_repo.get_by_id(run_obj.playbook_version_id)
+        if not playbook or not playbook.compiled_checks:
+            raise RuntimeError(
+                f"PlaybookVersion for run {run_id} has no compiled_checks"
+            )
+
+        compiled = playbook.compiled_checks or {}
+        checks_cfg = compiled.get("checks") or []
+
+    # 2. Загружаем артефакты документа (layout и clause_tree)
     store = ArtifactStore()
 
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
@@ -109,12 +150,38 @@ async def _run_checks_async(
     check_results: list[dict] = []
     evidence_records: list[dict] = []
 
-    coc_result = _check_change_of_control(elements, clause_tree, document_id)
-    check_results.append(coc_result["check_result"])
-    if coc_result.get("evidence"):
-        evidence_records.append(coc_result["evidence"])
+    # 3. Выполняем все checks из плейбука для этого документа
+    if checks_cfg:
+        for check_cfg in checks_cfg:
+            result = execute_check_for_document(
+                check_cfg=check_cfg,
+                document_id=document_id,
+                elements=elements,
+                clause_tree=clause_tree,
+                doc_type=doctype,
+            )
+            check_results.append(result)
 
-    # --- Метрики выполнения проверок ---
+            # Если есть evidence_snippet, добавляем запись в evidence_records
+            snippet = result.get("evidence_snippet")
+            page = result.get("evidence_page")
+            if snippet:
+                evidence_records.append(
+                    {
+                        "check_id": result["check_id"],
+                        "document_id": document_id,
+                        "snippet": snippet,
+                        "page": page,
+                    }
+                )
+    else:
+        logger.warning(
+            "No checks_cfg for run/document, skipping checks",
+            run_id=run_id,
+            document_id=document_id,
+        )
+
+    # 4. Метрики выполнения проверок
     for cr in check_results:
         METRICS.checks_executed.labels(
             detector_type=cr.get("detector_used", "unknown"),
@@ -125,6 +192,7 @@ async def _run_checks_async(
             detector_type=cr.get("detector_used", "unknown"),
         ).observe(0.0)  # TODO: заменить на реальную длительность, когда появится
 
+    # 5. Сохраняем результаты в БД и обновляем статус документа
     await _finalize(
         run_id=run_id,
         document_id=document_id,
@@ -132,9 +200,12 @@ async def _run_checks_async(
         db=db,
     )
 
+    # 6. Сохраняем результаты в NDJSON для экспорта/отладки
     if run_id:
         results_path = ArtifactPath.check_results(tenant_id, deal_id, run_id)
-        results_ndjson = "\n".join(json.dumps(r, ensure_ascii=False) for r in check_results)
+        results_ndjson = "\n".join(
+            json.dumps(r, ensure_ascii=False) for r in check_results
+        )
         store.put_file(
             results_path,
             results_ndjson.encode("utf-8"),
@@ -143,7 +214,9 @@ async def _run_checks_async(
 
         if evidence_records:
             evidence_path = ArtifactPath.evidence(tenant_id, deal_id, run_id)
-            evidence_ndjson = "\n".join(json.dumps(e, ensure_ascii=False) for e in evidence_records)
+            evidence_ndjson = "\n".join(
+                json.dumps(e, ensure_ascii=False) for e in evidence_records
+            )
             store.put_file(
                 evidence_path,
                 evidence_ndjson.encode("utf-8"),
@@ -157,9 +230,16 @@ async def _run_checks_async(
         evidence=len(evidence_records),
     )
 
-
+    # 7. Триггерим экспорт результатов по run'у
     if run_id:
-        export_results.delay(run_id=run_id, deal_id=deal_id, tenant_id=tenant_id)
+        celery_app.send_task(
+            "workers.export_results",
+            kwargs={
+                "run_id": run_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
+        )
 
     return {
         "document_id": document_id,
@@ -168,66 +248,14 @@ async def _run_checks_async(
     }
 
 
-def _check_change_of_control(elements, clause_tree, document_id) -> dict:
-    """
-    Check for Change of Control clause.
-
-    Returns dict with check_result and optional evidence.
-    structured_data=None, conditional_check_triggered=False are intentional
-    stubs — they validate the contract with production Runner (Stage 8).
-    """
-    for element in elements:
-        text_lower = element.get("text", "").lower()
-        for keyword in COC_KEYWORDS:
-            if keyword in text_lower:
-                clause_uid = _find_clause_for_element(clause_tree, element.get("element_id"))
-                evidence = {
-                    "check_id": "coc001",
-                    "element_id": element.get("element_id"),
-                    "snippet": element.get("text", "")[:500],
-                    "page": element.get("page"),
-                    "clause_uid": clause_uid,
-                    "bbox": element.get("bbox"),
-                    "keyword_matched": keyword,
-                }
-                return {
-                    "check_result": {
-                        "check_id": "coc001",
-                        "check_name": "Change of Control Clause",
-                        "result": CheckResultStatus.FAIL.value,
-                        "severity": Severity.CRITICAL.value,
-                        "value_text": (f"Change of control clause found: '{keyword}'"),
-                        "evidence_snippet": element.get("text", "")[:300],
-                        "evidence_page": element.get("page"),
-                        "confidence": 0.85,
-                        "detector_used": "rules",
-                        "quality_flags": [],
-                        # Contract fields for Stage 8 validation
-                        "structured_data": None,
-                        "conditional_check_triggered": False,
-                        "trigger_name": None,
-                    },
-                    "evidence": evidence,
-                }
-
-    return {
-        "check_result": {
-            "check_id": "coc001",
-            "check_name": "Change of Control Clause",
-            "result": CheckResultStatus.PASS.value,
-            "severity": Severity.PASS.value,
-            "value_text": "No change of control clause detected",
-            "confidence": 0.8,
-            "detector_used": "rules",
-            "quality_flags": [],
-            "structured_data": None,
-            "conditional_check_triggered": False,
-            "trigger_name": None,
-        },
-    }
-
-
 def _find_clause_for_element(clause_tree, element_id) -> str | None:
+    """
+    Вспомогательная функция: найти clause_uid по element_id в clause_tree.
+
+    Сейчас не используется в simple_rules, но может пригодиться позже,
+    когда будем привязывать evidence к конкретным пунктам договора.
+    """
+
     def search(nodes):
         for node in nodes:
             if element_id in node.get("element_ids", []):
@@ -247,10 +275,9 @@ async def _save_results(
     check_results: list[dict],
     db: AsyncSession,
 ) -> None:
-    """Save check results to DB including new fields."""
+    """Сохранить результаты проверок в БД (таблица check_results)."""
     if not run_id:
         return
-
 
     repo = ResultRepository(db)
     for cr in check_results:
@@ -265,9 +292,10 @@ async def _save_results(
             confidence=cr.get("confidence"),
             detector_used=cr.get("detector_used"),
             quality_flags=cr.get("quality_flags"),
-            # New fields — contract with Stage 8
             structured_data=cr.get("structured_data"),
-            conditional_check_triggered=cr.get("conditional_check_triggered", False),
+            conditional_check_triggered=cr.get(
+                "conditional_check_triggered", False
+            ),
             trigger_name=cr.get("trigger_name"),
         )
 
@@ -278,7 +306,11 @@ async def _finalize(
     check_results: list[dict],
     db: AsyncSession,
 ) -> None:
-    # TODO Stage 8: рефакторинг — возможно, объединить всё в один _run_checks_async
+    """
+    Финализация задачи Runner'а:
+    - сохранение результатов в CheckResult;
+    - обновление статуса документа.
+    """
     await _save_results(run_id, document_id, check_results, db)
     await _update_document_status(document_id, db)
 
@@ -287,7 +319,7 @@ async def _update_document_status(
     document_id: str,
     db: AsyncSession,
 ) -> None:
-
+    """Обновить статус документа после выполнения проверок."""
     repo = DocumentRepository(db)
     await repo.update_status(
         uuid.UUID(document_id),

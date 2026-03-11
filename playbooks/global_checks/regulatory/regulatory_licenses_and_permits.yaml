@@ -1,0 +1,106 @@
+id: "regulatory_licenses_and_permits"
+name: "Лицензии, разрешения и аккредитации"
+description: >
+  Анализирует положения о наличии лицензий, разрешений, аккредитаций и их
+  привязке к конкретным лицам, объектам и структуре владения.
+doc_types: []
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "лицензия"
+    - "лицензии"
+    - "license"
+    - "permit"
+    - "разрешение"
+    - "разрешения"
+    - "accreditation"
+    - "аккредитация"
+    - "разрешительная документация"
+    - "регистрационное удостоверение"
+    - "certificate"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по регуляторному комплаенсу.
+    Тебе даны фрагменты договора или связанных документов, где могут
+    упоминаться лицензии и разрешения.
+
+    Определи:
+    1) Какие ключевые лицензии, разрешения и аккредитации указаны как необходимые
+       для деятельности стороны (или объекта сделки).
+    2) На кого они оформлены (конкретное юридическое лицо, подразделение,
+       индивидуальный лицензируемый специалист).
+    3) Есть ли привязка лицензий к структуре владения или составу бенефициаров
+       (т.е. меняется ли риск при смене контроля/структуры).
+    4) Упомянуты ли риски утраты лицензий/разрешений или необходимость
+       получения новых при изменении структуры/сделке.
+    5) Насколько критичны эти лицензии/разрешения для бизнеса Target.
+
+    Верни строго JSON:
+    {
+      "mentions_key_licenses_or_permits": "yes|no|unclear",
+      "license_holder_description": "краткое описание, на кого оформлены лицензии",
+      "licenses_depend_on_ownership_or_control_structure": "yes|no|unclear",
+      "risk_of_license_loss_on_transaction": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "лицензия"
+    - "license"
+    - "permit"
+    - "аккредитация"
+    - "регистрационное удостоверение"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "mentions_key_licenses_or_permits"
+      type: "string"
+    - name: "license_holder_description"
+      type: "string"
+    - name: "licenses_depend_on_ownership_or_control_structure"
+      type: "string"
+    - name: "risk_of_license_loss_on_transaction"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "REG1"
+      description: "Критичные лицензии оформлены не на Target или жестко завязаны на текущую структуру владения."
+    - code: "REG2"
+      description: "Есть риск утраты ключевых лицензий при смене контроля/структуры без ясного плана."

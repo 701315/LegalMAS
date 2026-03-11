@@ -1,20 +1,42 @@
-"""
-MASBaseTask — base class for all Celery tasks in the system.
+# src/mas_queue/base_task.py
 
-Provides:
-- Typed retry: TransientError -> retry with backoff, PermanentError -> DLQ
-- Job status tracking in PostgreSQL
-- Structured logging with context
-- DLQ integration for permanently failed tasks
 
-Retry lifecycle:
-    __call__() intercepts exceptions BEFORE Celery sees them.
-    - TransientError / unknown  -> self.retry() with exponential backoff
-    - PermanentError            -> re-raise, on_failure -> DLQ
-    - QuarantineError           -> re-raise, on_failure -> COMPLETED + quarantine
-    on_failure() is called ONLY for the final failure (retries exhausted).
-    on_retry()   is called by Celery each time self.retry() is raised.
 """
+MASBaseTask — базовый класс для всех Celery‑задач в системе.
+
+Назначение:
+  - единая реализация политики ретраев, DLQ и трекинга Job в БД;
+  - стандартное логирование с контекстом сделки и документа;
+  - централизованная обработка TransientError / PermanentError / QuarantineError.
+
+Что делает этот класс:
+  - перехватывает выполнение задачи в __call__ и:
+      * TransientError и любые неизвестные исключения → self.retry() с экспоненциальным backoff;
+      * PermanentError → без ретраев, on_failure пишет в DLQ и помечает Job как DLQ;
+      * QuarantineError → без ретраев, on_failure помечает Job как COMPLETED с флагом quarantine;
+  - при достижении max_retries для транзиентных ошибок:
+      * пишет запись в DLQ через DLQManager;
+      * обновляет статус Job в PostgreSQL на DLQ;
+  - в before_start / on_success / on_failure / on_retry:
+      * логирует ключевые события жизненного цикла таски;
+      * обновляет статус Job (RUNNING, COMPLETED, DLQ) и вспомогательные поля
+        (worker_id, started_at, finished_at, retry_count, error_details).
+
+Как использовать:
+  - наследовать Celery‑таски от этого класса через декоратор:
+        @celery_app.task(base=MASBaseTask, bind=True, queue="default")
+        def my_task(self, document_id: str, job_id: str, deal_id: str | None = None):
+            ...
+  - передавать в kwargs:
+      * job_id  — для трекинга статуса в таблице Job;
+      * deal_id / document_id — для логгера (контекст deal_id_var / document_id_var).
+
+Ограничения:
+  - все операции с БД (Job / DLQ) выполняются асинхронно внутри отдельного event loop
+    через asyncio.run и db_uow();
+  - класс не знает бизнес‑логики задач, только управляет их жизненным циклом и побочными эффектами.
+"""
+
 
 import asyncio
 import traceback
@@ -33,55 +55,63 @@ from db.models.run import Job
 from db.uow import db_uow
 from mas_queue.dlq import DLQManager
 
+
 logger = get_logger(__name__)
 
 
 class MASBaseTask(Task):
     """
-    Base task class with retry policy, DLQ, and job tracking.
+    Базовый класс Celery‑тасок с политикой ретраев, DLQ и трекингом Job.
 
-    Retry policy:
-        TransientError : max 3 attempts, exponential backoff, max 300 sec
-        PermanentError : 1 attempt, immediately to DLQ
-        Unknown errors : treated as transient
+    Политика ретраев:
+        TransientError : до 3 попыток, экспоненциальный backoff, максимум 300 сек;
+        PermanentError : 1 попытка, затем сразу DLQ;
+        Неизвестные ошибки : считаются транзиентными.
 
-    Usage:
+    Пример использования:
         @celery_app.task(base=MASBaseTask, bind=True, queue="default")
         def my_task(self, document_id: str, job_id: str):
-            ...  # raise TransientError / PermanentError as needed
+            ...  # бросаем TransientError / PermanentError по необходимости
     """
 
+    # Автоматические ретраи Celery не используем, всё управляется вручную.
     autoretry_for = ()
     max_retries = 3
-    retry_backoff_max = 300  # seconds
+    retry_backoff_max = 300  # секунды
 
+    # Если False — обновления Job в БД не выполняются.
     track_job = True
 
     # ------------------------------------------------------------------
-    # Core lifecycle
+    # Основной жизненный цикл
     # ------------------------------------------------------------------
 
     def __call__(self, *args, **kwargs):
         """
-        Wraps task execution. Intercepts exceptions and routes them:
-        - TransientError / unknown → self.retry() with backoff
-        - PermanentError           → on_failure → DLQ
-        - QuarantineError          → on_failure → quarantine
-        - Retry                    → re-raise as-is (already scheduled)
+        Обёртка вокруг выполнения задачи.
+
+        Перехватывает исключения и маршрутизирует их:
+        - TransientError / неизвестные → self.retry() с задержкой;
+        - PermanentError               → даём дойти до on_failure (DLQ);
+        - QuarantineError              → даём дойти до on_failure (quarantine);
+        - Retry                        → перекидываем как есть (Celery уже расписал ретрай).
         """
         try:
             return self.run(*args, **kwargs)
         except Retry:
+            # Celery уже спланировал повторный запуск — просто перекидываем.
             raise
         except (PermanentError, QuarantineError):
+            # Финальные ошибки без ретраев — обрабатываются в on_failure.
             raise
         except TransientError as exc:
             self._handle_transient(exc, kwargs)
         except Exception as exc:
+            # Любые неожиданные ошибки считаем транзиентными.
             self._handle_transient(exc, kwargs)
 
     def _handle_transient(self, exc: Exception, kwargs: dict) -> None:
-        """Retry with backoff, or DLQ if retries exhausted."""
+        """Обработка транзиентной ошибки: либо ретрай с backoff, либо DLQ при исчерпании попыток."""
         if self.request.retries < self.max_retries:
             delay = self._calculate_backoff(self.request.retries)
             logger.warning(
@@ -106,8 +136,10 @@ class MASBaseTask(Task):
                         error=str(e),
                     )
 
+            # Просим Celery запланировать повторный запуск с задержкой.
             raise self.retry(exc=exc, countdown=delay)
         else:
+            # Ретраи исчерпаны — отправляем в DLQ.
             error_info = self._build_error_info(exc)
             logger.error(
                 "Task failed — max retries exceeded — sending to DLQ",
@@ -137,10 +169,15 @@ class MASBaseTask(Task):
             raise
 
     # ------------------------------------------------------------------
-    # Celery hooks
+    # Хуки Celery
     # ------------------------------------------------------------------
 
     def before_start(self, task_id, args, kwargs):
+        """
+        Хук, вызываемый перед запуском задачи на воркере.
+
+        Заполняет контекст логгера (deal_id, document_id) и помечает Job как RUNNING.
+        """
         if "deal_id" in kwargs:
             deal_id_var.set(kwargs["deal_id"])
         if "document_id" in kwargs:
@@ -169,6 +206,11 @@ class MASBaseTask(Task):
                 )
 
     def on_success(self, retval, task_id, args, kwargs):
+        """
+        Хук успешного завершения задачи.
+
+        Логирует успех и помечает Job как COMPLETED.
+        """
         logger.info("Task completed", task_name=self.name, task_id=task_id)
 
         if self.track_job and "job_id" in kwargs:
@@ -187,12 +229,15 @@ class MASBaseTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """
-        Called ONLY for final failure.
-        No retry logic here — only DLQ write and Job status update.
+        Вызывается ТОЛЬКО при окончательной неудаче (когда ретраи исчерпаны).
+
+        Здесь нет логики ретраев — только запись в DLQ (кроме quarantine)
+        и финальное обновление статуса Job.
         """
         error_info = self._build_error_info(exc, task_id=task_id)
 
         if isinstance(exc, QuarantineError):
+            # Специальный случай: документ уходит в карантин, Job считаем COMPLETED.
             logger.warning("Task resulted in quarantine", **error_info)
             if self.track_job and "job_id" in kwargs:
                 try:
@@ -238,6 +283,9 @@ class MASBaseTask(Task):
                 )
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
+        """
+        Хук, вызываемый Celery при каждом ретрае задачи.
+        """
         logger.info(
             "Task retrying",
             task_name=self.name,
@@ -247,10 +295,11 @@ class MASBaseTask(Task):
         )
 
     # ------------------------------------------------------------------
-    # Helpers
+    # Вспомогательные методы
     # ------------------------------------------------------------------
 
     def _build_error_info(self, exc: Exception, task_id: str | None = None) -> dict:
+        """Собирает структуру с базовой информацией об ошибке для логов и DLQ."""
         info = {
             "task_name": self.name,
             "error_type": type(exc).__name__,
@@ -263,10 +312,12 @@ class MASBaseTask(Task):
 
     def _calculate_backoff(self, retry_num: int) -> float:
         """
-        retry 0 →  10 sec
-        retry 1 →  30 sec
-        retry 2 →  90 sec
-        retry 3 → 270 sec  (max 300)
+        Расчёт задержки перед следующим ретраем.
+
+        retry 0 →  10 сек
+        retry 1 →  30 сек
+        retry 2 →  90 сек
+        retry 3 → 270 сек (максимум 300)
         """
         return float(min(10 * (3**retry_num), self.retry_backoff_max))
 
@@ -277,6 +328,9 @@ class MASBaseTask(Task):
         failure_type: str,
         error_details: dict,
     ) -> None:
+        """
+        Синхронная обёртка, отправляющая запись о неуспешной задаче в DLQ (через async‑метод).
+        """
         job_id = kwargs.get("job_id")
         try:
             asyncio.run(
@@ -301,6 +355,9 @@ class MASBaseTask(Task):
         failure_type: str,
         error_details: dict,
     ) -> None:
+        """
+        Асинхронная запись события о проваленной задаче в таблицу DLQ.
+        """
         async with db_uow() as uow:
             db: AsyncSession = uow.session
             dlq = DLQManager(db)
@@ -319,6 +376,11 @@ class MASBaseTask(Task):
         error_details: dict | None = None,
         retry_count: int | None = None,
     ) -> None:
+        """
+        Асинхронное обновление статуса записи Job в БД.
+
+        Обновляет статус, временные метки, счётчик ретраев и детали ошибки.
+        """
         async with db_uow() as uow:
             db: AsyncSession = uow.session
 

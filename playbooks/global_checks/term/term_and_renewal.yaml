@@ -1,0 +1,111 @@
+id: "term_and_renewal"
+name: "Срок договора и пролонгация"
+description: >
+  Определяет срок действия договора, наличие и условия автопродления
+  (evergreen), а также условия отказа от пролонгации.
+doc_types: []
+severity: "medium"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "срок действия"
+    - "настоящий договор вступает в силу"
+    - "договор вступает в силу"
+    - "договор действует до"
+    - "сроком до"
+    - "срок действия договора"
+    - "пролонгируется"
+    - "автоматически продлевается"
+    - "автоматическая пролонгация"
+    - "renewal"
+    - "evergreen"
+    - "term of this agreement"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по коммерческим договорам.
+    Тебе даны фрагменты одного договора.
+
+    Определи:
+    1) Каков срок действия договора:
+       - фиксированный (с датой окончания),
+       - бессрочный,
+       - только через событие (например, до полного исполнения обязательств).
+    2) Есть ли автоматическое продление (evergreen) и на каких условиях:
+       - период пролонгации,
+       - максимальное количество пролонгаций (если есть).
+    3) Каковы условия отказа от пролонгации:
+       - срок уведомления,
+       - форма уведомления (письменно, на e-mail и т.п.).
+    4) Есть ли ограничения/условия, делающие пролонгацию проблемной.
+
+    Верни строго JSON:
+    {
+      "term_type": "fixed|indefinite|by_event|unclear",
+      "has_automatic_renewal": "yes|no|unclear",
+      "renewal_period": "строка с описанием периода или пусто",
+      "non_renewal_notice_period": "строка с описанием срока уведомления или пусто",
+      "non_renewal_notice_form": "строка с описанием формы уведомления или пусто",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "срок действия"
+    - "пролонгируется"
+    - "автоматически продлевается"
+    - "term of this agreement"
+    - "renewal"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "term_type"
+      type: "string"
+    - name: "has_automatic_renewal"
+      type: "string"
+    - name: "renewal_period"
+      type: "string"
+    - name: "non_renewal_notice_period"
+      type: "string"
+    - name: "non_renewal_notice_form"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "TERM1"
+      description: "Автоматическая пролонгация на длительные периоды без реальной возможности отказаться."
+    - code: "TERM2"
+      description: "Короткий или неясный срок уведомления об отказе от пролонгации."

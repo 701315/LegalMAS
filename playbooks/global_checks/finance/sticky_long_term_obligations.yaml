@@ -1,0 +1,105 @@
+id: "sticky_long_term_obligations"
+name: "Долгосрочные 'липкие' обязательства и минимальные уровни"
+description: >
+  Анализирует долгосрочные обязательства, минимальные платежи и гарантированные
+  объемы, которые переживают смену контроля и могут существенно ограничивать
+  Target после сделки.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "минимальный гарантированный объем"
+    - "guaranteed minimum"
+    - "take-or-pay"
+    - "минимальный объем закупки"
+    - "минимальный объем поставки"
+    - "fixed minimum payment"
+    - "long-term commitment"
+    - "долгосрочные обязательства"
+    - "обязательство приобретать"
+    - "обязательство поставлять"
+    - "переживает смену контроля"
+    - "survive change of control"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по коммерческим и долгосрочным договорам.
+    Тебе даны фрагменты договора.
+
+    Определи:
+    1) Есть ли долгосрочные обязательства по:
+       - минимальным объемам закупки/поставки,
+       - фиксированным минимальным платежам,
+       - схемам типа take-or-pay.
+    2) Переживают ли такие обязательства смену контроля/смену сторон.
+    3) Для какого периода и на каких условиях эти обязательства действуют.
+    4) Насколько такие обязательства могут быть обременительными для Target
+       после сделки (особенно при изменении спроса/бизнес-модели).
+
+    Верни строго JSON:
+    {
+      "has_long_term_minimum_commitments": "yes|no|unclear",
+      "commitments_description": "краткое описание обязательств",
+      "survive_change_of_control": "yes|no|unclear",
+      "economic_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "take-or-pay"
+    - "минимальный гарантированный объем"
+    - "fixed minimum payment"
+    - "long-term commitment"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_long_term_minimum_commitments"
+      type: "string"
+    - name: "commitments_description"
+      type: "string"
+    - name: "survive_change_of_control"
+      type: "string"
+    - name: "economic_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FIN7"
+      description: "Крупные take-or-pay/минимальные объемы при волатильном спросе."
+    - code: "FIN8"
+      description: "Долгосрочные минимальные обязательства, переживающие смену контроля и ограничивающие гибкость Target."

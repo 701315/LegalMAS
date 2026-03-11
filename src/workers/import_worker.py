@@ -1,31 +1,29 @@
+# src/workers/import_worker.py
+
+
 """
 Import Worker — production.
 
-Loads documents from a ZIP archive or a single file into the pipeline.
+Загружает документы из ZIP-архива или одиночного файла в пайплайн.
 
-Features:
-  - ZIP extraction with folder hierarchy preservation
-  - File validation: extension, size, magic bytes
-  - SHA256 deduplication within deal
-  - Idempotency via IdempotencyKey
-  - Quarantine for invalid/corrupted files
-  - Audit logging
-  - Triggers extract_document for each valid PDF
+Функции:
+  - Распаковка ZIP с сохранением структуры папок
+  - Валидация файлов: расширение, размер, сигнатура (magic bytes)
+  - Дедупликация по SHA-256 внутри сделки
+  - Идемпотентность через IdempotencyKey
+  - Карантин для некорректных/повреждённых файлов
+  - Аудит-логирование
+  - Постановка задач extract_document для валидных PDF
 
-Folder path routing note:
-  Document.folder_path is populated from the ZIP folder structure, e.g.:
-    "02. Contracts/SPA/spa_main.pdf" → folder_path = "02. Contracts/SPA"
-  This value is used downstream by the L1 Rule-Based Classifier (Stage 6)
-  via folder_patterns in playbooks/document_types/registry.yaml.
-  Example registry entry:
-    folder_patterns:
-      - r'(?i)SPA'
-      - r'(?i)основной.{0,10}договор'
-  A match boosts the classification score for type contract1.1spa.
-  Import Worker's only responsibility here is to PRESERVE the folder_path
-  faithfully — no classification happens at this stage.
+Важно про folder_path:
+  - Document.folder_path заполняется из структуры папок в ZIP, например:
+      "02. Contracts/SPA/spa_main.pdf" → folder_path = "02. Contracts/SPA"
+  - Это поле дальше использует L1 Rule-Based Classifier (Stage 6)
+    через folder_patterns в playbooks/document_types/registry.yaml.
+  - Import Worker НЕ делает классификацию, он только честно сохраняет folder_path.
 """
 
+import asyncio
 import hashlib
 import os
 import tempfile
@@ -34,8 +32,8 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from ops.metrics import get_metrics
 
+from ops.metrics import get_metrics
 from core.constants import DocumentStatus
 from core.exceptions import IdempotencyConflictError, PermanentError
 from core.logging import get_logger
@@ -58,13 +56,12 @@ from services.file_validator import (
     validate_file,
 )
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from workers.extract_worker import extract_document
 
 logger = get_logger(__name__)
 
 
 def compute_sha256(filepath: str) -> str:
-    """Compute SHA-256 hash of a file for deduplication."""
+    """Посчитать SHA-256 хэш файла для дедупликации."""
     sha256 = hashlib.sha256()
     with open(filepath, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -79,7 +76,7 @@ def compute_sha256(filepath: str) -> str:
     track_job=False,
     queue="default",
 )
-async def import_bundle(
+def import_bundle(
     self,
     deal_id: str,
     tenant_id: str,
@@ -88,20 +85,31 @@ async def import_bundle(
     run_id: str | None = None,
 ) -> dict:
     """
-    Celery entrypoint: async wrapper вокруг основного импорта.
+    Синхронная точка входа Celery‑таски импорта.
 
-    Для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
-    внутри которого выполняются все операции с БД для данного импорта.
+    Паттерн:
+    - Внешняя функция синхронная (def), чтобы Celery мог сериализовать результат.
+    - Внутри создаём event loop и запускаем асинхронное ядро под db_uow().
     """
-    async with db_uow() as uow:
-        return await _import_bundle_async(
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            source_path=source_path,
-            idempotency_key=idempotency_key,
-            run_id=run_id,
-            db=uow.session,
-        )
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+
+        async def _wrapper() -> dict:
+            async with db_uow() as uow:
+                return await _import_bundle_async(
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    source_path=source_path,
+                    idempotency_key=idempotency_key,
+                    run_id=run_id,
+                    db=uow.session,
+                )
+
+        return loop.run_until_complete(_wrapper())
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
 
 async def _import_bundle_async(
@@ -142,7 +150,7 @@ async def _import_bundle_async(
             details={"source_path": source_path},
         )
 
-    # Extract files from ZIP or treat as single file
+    # Распаковываем ZIP или работаем с одиночным файлом
     if zipfile.is_zipfile(source_path):
         file_list = _extract_zip(source_path)
     else:
@@ -171,18 +179,15 @@ async def _import_bundle_async(
 
 def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
     """
-    Extract ZIP and return list of (folder_path, filepath) tuples.
+    Распаковать ZIP и вернуть список (folder_path, filepath).
 
-    Preserves Data Room folder hierarchy.
-    folder_path is the relative directory path inside the ZIP, e.g.:
-      "02. Contracts/SPA" for a file at "02. Contracts/SPA/spa_main.pdf"
-
-    This folder_path is stored on Document and used by the L1 Classifier
-    (Stage 6) for folder_patterns routing in registry.yaml.
+    Сохраняет структуру папок Data Room.
+    Пример:
+      путь внутри ZIP: "02. Contracts/SPA/spa_main.pdf"
+      → folder_path = "02. Contracts/SPA"
     """
-    
     metrics = get_metrics()
-    
+
     tmp_dir = tempfile.mkdtemp(prefix="mas_import_")
     file_list: list[tuple[str, str]] = []
     try:
@@ -212,9 +217,12 @@ async def _check_idempotency(
     db: AsyncSession,
 ) -> dict | None:
     """
-    Check idempotency key.
-    Returns cached result if already completed, None if new.
-    Raises IdempotencyConflictError if currently being processed.
+    Проверка идемпотентности.
+
+    Возвращает:
+    - кэшированный результат, если импорт уже завершён;
+    - None, если это новый запуск;
+    - выбрасывает IdempotencyConflictError, если импорт ещё идёт.
     """
     expires_at = datetime.now(UTC) + timedelta(days=7)
 
@@ -232,7 +240,7 @@ async def _check_idempotency(
     if record.status == "processing":
         raise IdempotencyConflictError(f"Import with key '{key}' is already in progress")
     if record.status == "failed":
-        # Allow retry
+        # позволяем повторить
         return None
     return None
 
@@ -246,20 +254,18 @@ async def _async_import(
     idempotency_key: str | None = None,
 ) -> dict:
     """
-    Main import logic. For each file:
-      1. Validate (extension, size, magic bytes)
-      2. Skip hidden/system files
-      3. Quarantine invalid files
-      4. Check for duplicates (SHA-256 within deal)
-      5. Upload original to MinIO
-      6. Create Document + DocumentVersion
-      7. Queue extraction (PDF → Extractor, Stage 4)
-         or quarantine (DOCX/DOC/XLSX/image — conversion deferred)
+    Основная логика импорта. Для каждого файла:
 
-    folder_path is preserved faithfully for downstream use by
-    L1 Classifier (Stage 6) folder_patterns in registry.yaml.
+      1. Валидация (расширение, размер, сигнатура).
+      2. Пропуск скрытых/системных файлов.
+      3. Карантин невалидных файлов.
+      4. Дедупликация по SHA-256 внутри сделки.
+      5. Загрузка оригинала в MinIO.
+      6. Создание Document + DocumentVersion.
+      7. Постановка extract_document (PDF) или карантин для других типов.
+
+    folder_path сохраняется как есть и потом используется L1‑классификатором.
     """
-
     metrics = get_metrics()
 
     store = ArtifactStore()
@@ -272,7 +278,7 @@ async def _async_import(
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
 
-    # Create Bundle
+    # Создаём Bundle
     bundle = Bundle(
         deal_id=uuid.UUID(deal_id),
         source_type="zip" if len(file_list) > 1 else "local",
@@ -287,7 +293,7 @@ async def _async_import(
         filename = os.path.basename(filepath)
         validation = validate_file(filepath)
 
-        # Step 1: Skip
+        # 1. Skip
         if validation.status == FileStatus.SKIP:
             skipped_count += 1
             logger.debug(
@@ -297,7 +303,7 @@ async def _async_import(
             )
             continue
 
-        # Step 2: Quarantine invalid files
+        # 2. Quarantine invalid
         if validation.status == FileStatus.QUARANTINE:
             q_doc = await doc_repo.create(
                 deal_id=uuid.UUID(deal_id),
@@ -307,7 +313,7 @@ async def _async_import(
                 status=DocumentStatus.QUARANTINE.value,
             )
             await ver_repo.create(document_id=q_doc.id, version_num=1)
-            # Best-effort upload for manual review
+            # Бест‑эффорт: загружаем оригинал для ручного разбора
             try:
                 with open(filepath, "rb") as f:
                     file_bytes = f.read()
@@ -318,6 +324,7 @@ async def _async_import(
                 )
             except Exception:
                 pass
+
             quarantine_ids.append(str(q_doc.id))
             logger.warning(
                 "File quarantined",
@@ -325,14 +332,13 @@ async def _async_import(
                 reason=validation.reason,
                 doc_id=str(q_doc.id),
             )
-            
+
             metrics.quarantine.labels(
                 reason=validation.reason or "import_quarantine"
-            ).inc()          
-            
+            ).inc()
             continue
 
-        # Step 3: SHA-256 deduplication within deal
+        # 3. SHA-256 deduplication
         sha256 = compute_sha256(filepath)
         existing = await doc_repo.get_by_sha256(uuid.UUID(deal_id), sha256)
         if existing:
@@ -345,7 +351,7 @@ async def _async_import(
             )
             continue
 
-        # Step 4: Upload original to MinIO
+        # 4. Читаем файл
         try:
             with open(filepath, "rb") as f:
                 file_bytes = f.read()
@@ -358,11 +364,12 @@ async def _async_import(
             )
             continue
 
+        # 5. Создаём Document
         doc = await doc_repo.create(
             deal_id=uuid.UUID(deal_id),
             bundle_id=bundle.id,
             filename=filename,
-            folder_path=folder_path or None,  # ← preserved for L1 Classifier
+            folder_path=folder_path or None,
             sha256_file=sha256,
             status=DocumentStatus.PENDING.value,
         )
@@ -374,7 +381,7 @@ async def _async_import(
             content_type=_get_content_type(validation.filetype),
         )
 
-        # Step 5: Create DocumentVersion
+        # 6. DocumentVersion
         doc_version = await ver_repo.create(
             document_id=doc.id,
             version_num=1,
@@ -385,12 +392,12 @@ async def _async_import(
             "Document imported",
             doc_id=str(doc.id),
             filename=filename,
-            folder_path=folder_path,  # logged for traceability → L1 routing
+            folder_path=folder_path,
             filetype=validation.filetype,
             sha256=sha256[:16],
         )
 
-        # Step 6: Queue next step based on file type
+        # 7. Решаем, что делать дальше по типу файла
         if can_process_directly(validation.filetype):
             # PDF → Extractor (Stage 4)
             tasks_to_dispatch.append(
@@ -402,9 +409,8 @@ async def _async_import(
                     "run_id": run_id,
                 }
             )
-
         elif needs_conversion(validation.filetype):
-            # DOCX/DOC → quarantine with needs_conversion reason
+            # DOCX/DOC → пока в карантин
             await doc_repo.update_status(
                 doc.id,
                 DocumentStatus.QUARANTINE.value,
@@ -417,7 +423,7 @@ async def _async_import(
                 filetype=validation.filetype,
             )
         elif is_spreadsheet(validation.filetype):
-            # XLSX/XLS → stored, processing deferred
+            # XLSX/XLS → сохраняем, обработка будет позже
             await doc_repo.update_status(
                 doc.id,
                 DocumentStatus.QUARANTINE.value,
@@ -429,7 +435,7 @@ async def _async_import(
                 filename=filename,
             )
         elif is_image(validation.filetype):
-            # Image → OCR pipeline in future stages
+            # Изображения → будущее OCR
             await doc_repo.update_status(
                 doc.id,
                 DocumentStatus.QUARANTINE.value,
@@ -441,13 +447,13 @@ async def _async_import(
                 filename=filename,
             )
 
-    # Finalize bundle
+    # Финализируем bundle
     bundle.file_count = len(imported_ids) + len(quarantine_ids)
     bundle.status = "completed"
     bundle.completed_at = datetime.now(UTC)
     await db.flush()
 
-    # Audit log
+    # Аудит‑лог
     audit_repo = AuditRepository(db)
     await audit_repo.log(
         tenant_id=uuid.UUID(tenant_id),
@@ -475,7 +481,7 @@ async def _async_import(
         "skipped_count": skipped_count,
     }
 
-    # Mark idempotency key as completed
+    # Идемпотентность: помечаем ключ как завершённый
     if idempotency_key:
         idem_repo = IdempotencyRepository(db)
         record, _ = await idem_repo.get_or_create(
@@ -490,15 +496,18 @@ async def _async_import(
             result=result,
         )
 
-    # Транзакция закоммичена — теперь безопасно публиковать задачи
+    # Транзакция закоммичена — можно публиковать downstream‑таски
     for kw in tasks_to_dispatch:
-        extract_document.delay(**kw)
+        celery_app.send_task(
+            "workers.extract_document",
+            kwargs=kw,
+        )
 
     return result
 
 
 def _get_content_type(filetype: str) -> str:
-    """Map file type to MIME content type."""
+    """Преобразовать тип файла во вполне разумный MIME‑тип."""
     content_types = {
         "pdf": "application/pdf",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

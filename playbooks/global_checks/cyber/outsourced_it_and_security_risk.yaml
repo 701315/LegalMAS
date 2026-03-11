@@ -1,0 +1,122 @@
+id: "outsourced_it_and_security_risk"
+name: "Внешние ИТ-провайдеры, обработчики и ИБ-риск"
+description: >
+  Анализирует договоры с облачными провайдерами, CRM/ERP, колл-центрами,
+  HR-аутсорсом и другими обработчиками, с точки зрения защиты данных и
+  риска отключения сервисов.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "облачный провайдер"
+    - "cloud provider"
+    - "SaaS"
+    - "software as a service"
+    - "CRM"
+    - "ERP"
+    - "колл-центр"
+    - "call center"
+    - "outsourcing"
+    - "аутсорсинг"
+    - "data processor"
+    - "обработчик данных"
+    - "service suspension"
+    - "приостановление услуг"
+    - "termination of service"
+    - "security obligations"
+    - "обязанности по безопасности"
+    - "data processing"
+    - "обработка данных"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по ИТ-аутсорсингу и безопасности.
+    Тебе даны фрагменты договора с ИТ-провайдером/обработчиком данных.
+
+    Определи:
+    1) Какие ключевые ИТ-сервисы и функции отданы на аутсорсинг
+       (облако, CRM/ERP, колл-центр, HR и т.п.).
+    2) Какие обязательства по безопасности и защите данных возложены на провайдера:
+       - соответствие стандартам,
+       - технические/организационные меры.
+    3) В каких случаях провайдер может:
+       - приостановить сервис,
+       - ограничить доступ,
+       - удалить или заблокировать данные.
+    4) Есть ли достаточные гарантии доступа/экспорта данных, а также
+       механизмы перехода на другого провайдера.
+    5) Насколько зависимость от этого провайдера и условия безопасности
+       создают значимый риск для Target.
+
+    Верни строго JSON:
+    {
+      "outsourced_it_functions_summary": "краткое описание аутсорсинг-функций",
+      "provider_security_obligations_present": "yes|no|unclear",
+      "provider_can_suspend_or_terminate_service_easily": "yes|no|unclear",
+      "has_clear_data_export_and_transition_mechanisms": "yes|no|unclear",
+      "it_dependency_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "cloud provider"
+    - "SaaS"
+    - "outsourcing"
+    - "service suspension"
+    - "обработчик данных"
+    - "security obligations"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "outsourced_it_functions_summary"
+      type: "string"
+    - name: "provider_security_obligations_present"
+      type: "string"
+    - name: "provider_can_suspend_or_terminate_service_easily"
+      type: "string"
+    - name: "has_clear_data_export_and_transition_mechanisms"
+      type: "string"
+    - name: "it_dependency_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "CYB3"
+      description: "Критические функции и данные у внешнего провайдера без чётких требований по ИБ."
+    - code: "CYB4"
+      description: "Провайдер может быстро отключить сервис/удалить данные при споре или небольшой просрочке."

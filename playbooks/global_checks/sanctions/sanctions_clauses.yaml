@@ -1,0 +1,111 @@
+id: "sanctions_clauses"
+name: "Санкционные оговорки"
+description: >
+  Анализирует наличие и содержание санкционных оговорок: заверения об отсутствии
+  санкций, соблюдении режимов (США, ЕС, UK, ООН, локальные), обязанности уведомлять
+  о санкционных событиях и последствия таких событий.
+doc_types: []
+severity: "critical"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "санкции"
+    - "санкционн"
+    - "sanctions"
+    - "OFAC"
+    - "EU sanctions"
+    - "UK sanctions"
+    - "UN sanctions"
+    - "санкционные режимы"
+    - "санкционные ограничения"
+    - "embargo"
+    - "restricted party"
+    - "sanctioned person"
+    - "санкционный список"
+    - "лист санкций"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по международным санкциям.
+    Тебе даны фрагменты договора, где могут быть санкционные положения.
+
+    Определи:
+    1) Есть ли заверения и гарантии об отсутствии санкций в отношении:
+       - сторон, их аффилированных лиц, UBO, банков.
+    2) Есть ли обязательства сторон соблюдать применимые санкционные режимы
+       (США, ЕС, UK, ООН, локальные).
+    3) Есть ли обязанность уведомлять о наступлении санкционного события
+       (включение в санкционный список, запрет на операции, блокировка средств).
+    4) Какие последствия наступают при санкционном событии:
+       - приостановление исполнения,
+       - право расторгнуть договор,
+       - отказ в платежах,
+       - освобождение от ответственности (illegality / force majeure).
+    5) Насколько эти положения сбалансированы для Target.
+
+    Верни строго JSON:
+    {
+      "has_sanctions_representations": "yes|no|unclear",
+      "has_sanctions_compliance_obligations": "yes|no|unclear",
+      "requires_sanctions_event_notification": "yes|no|unclear",
+      "sanctions_event_consequences": "none|suspension|termination|payment_refusal|mixed|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "sanctions"
+    - "санкции"
+    - "sanctioned person"
+    - "restricted party"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_sanctions_representations"
+      type: "string"
+    - name: "has_sanctions_compliance_obligations"
+      type: "string"
+    - name: "requires_sanctions_event_notification"
+      type: "string"
+    - name: "sanctions_event_consequences"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "SAN1"
+      description: "Отсутствие санкционных положений в договоре с очевидным международным/банковским элементом."
+    - code: "SAN2"
+      description: "Формулировки, позволяющие контрагенту расторгнуть договор и отказаться от платежей при любом 'риске нарушения санкций'."

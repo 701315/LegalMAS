@@ -1,0 +1,106 @@
+id: "export_control"
+name: "Экспортный контроль и dual-use"
+description: >
+  Анализирует положения об экспортном контроле: ограничения на передачу
+  технологий, софта, оборудования, необходимость лицензий и соблюдение
+  ITAR/EAR/аналогичных режимов.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "export control"
+    - "экспортный контроль"
+    - "dual-use"
+    - "двойного назначения"
+    - "controlled items"
+    - "ITAR"
+    - "EAR"
+    - "export license"
+    - "экспортная лицензия"
+    - "re-export"
+    - "reexport"
+    - "technology transfer"
+    - "передача технологий"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по экспортному контролю.
+    Тебе даны фрагменты договора, где могут быть положения об экспортном контроле.
+
+    Определи:
+    1) Упоминаются ли экспортный контроль и/или товары/технологии двойного назначения.
+    2) Есть ли обязательства соблюдать применимые режимы (ITAR, EAR, локальные законы).
+    3) Требуются ли лицензии для передачи оборудования, ПО или технологий.
+    4) Есть ли ограничения на re-export/передачу третьим лицам.
+    5) Какие последствия предусмотрены при нарушении экспортного контроля.
+    6) Насколько эти положения критичны для операций Target.
+
+    Верни строго JSON:
+    {
+      "mentions_export_control_or_dual_use": "yes|no|unclear",
+      "requires_export_compliance": "yes|no|unclear",
+      "requires_export_licenses": "yes|no|unclear",
+      "restricts_reexport_or_third_party_transfers": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "export control"
+    - "экспортный контроль"
+    - "dual-use"
+    - "ITAR"
+    - "EAR"
+    - "export license"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "mentions_export_control_or_dual_use"
+      type: "string"
+    - name: "requires_export_compliance"
+      type: "string"
+    - name: "requires_export_licenses"
+      type: "string"
+    - name: "restricts_reexport_or_third_party_transfers"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "EXP1"
+      description: "Отсутствие экспортно-контрольных положений при очевидной поставке dual-use/технологий."
+    - code: "EXP2"
+      description: "Жёсткие ограничения на re-export, мешающие обычной операционной модели Target."

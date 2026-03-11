@@ -1,0 +1,116 @@
+id: "termination_grounds"
+name: "Основания досрочного расторжения"
+description: >
+  Анализирует основания для досрочного расторжения: по вине, без причины,
+  при смене контроля, банкротстве, изменении законодательства, санкциях.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "расторгнуть договор"
+    - "настоящий договор может быть расторгнут"
+    - "односторонний отказ"
+    - "termination for cause"
+    - "termination for convenience"
+    - "material breach"
+    - "существенное нарушение"
+    - "банкротство"
+    - "insolvency"
+    - "change of control"
+    - "смена контроля"
+    - "санкции"
+    - "sanctions"
+    - "изменение законодательства"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по коммерческим договорам и M&A.
+    Тебе даны фрагменты договора.
+
+    Определи:
+    1) Какие основания досрочного расторжения предусмотрены:
+       - по вине (существенное нарушение, material breach),
+       - без причины (termination for convenience),
+       - при смене контроля,
+       - при банкротстве/несостоятельности,
+       - при существенном изменении закона или санкционных ограничениях.
+    2) У кого есть такие права (у одной или обеих сторон).
+    3) Какой срок уведомления для каждого основания (если указан).
+    4) Насколько набор оснований балансирован для Target.
+
+    Верни строго JSON:
+    {
+      "termination_for_cause": "none|one_sided|mutual|unclear",
+      "termination_for_convenience": "none|one_sided|mutual|unclear",
+      "termination_on_coc": "yes|no|unclear",
+      "termination_on_insolvency": "yes|no|unclear",
+      "termination_on_law_change_or_sanctions": "yes|no|unclear",
+      "notice_period_summary": "строка с описанием сроков уведомления",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "расторгнуть"
+    - "односторонний отказ"
+    - "termination"
+    - "material breach"
+    - "termination for convenience"
+    - "банкротство"
+    - "sanctions"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "termination_for_cause"
+      type: "string"
+    - name: "termination_for_convenience"
+      type: "string"
+    - name: "termination_on_coc"
+      type: "string"
+    - name: "termination_on_insolvency"
+      type: "string"
+    - name: "termination_on_law_change_or_sanctions"
+      type: "string"
+    - name: "notice_period_summary"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "TERM3"
+      description: "Право ключевого контрагента расторгнуть договор без причины с коротким уведомлением."
+    - code: "TERM4"
+      description: "Одностороннее право расторжения/отказа, существенно дисбалансирующее позиции сторон."

@@ -1,0 +1,95 @@
+id: "liability_exclusions"
+name: "Исключения из ответственности (indirect, loss of profit)"
+description: >
+  Анализирует исключения из ответственности: indirect, consequential,
+  punitive, loss of profit, loss of business, и их реальное влияние
+  на риск-профиль Target.
+doc_types: []
+severity: "medium"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "косвенные убытки"
+    - "опосредованные убытки"
+    - "последующие убытки"
+    - "indirect damages"
+    - "consequential damages"
+    - "special damages"
+    - "punitive damages"
+    - "loss of profit"
+    - "упущенная выгода"
+    - "loss of business"
+    - "loss of revenue"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по контрактам.
+    Тебе даны фрагменты с положениями об исключениях из ответственности.
+
+    Определи:
+    1) Какие виды убытков исключены:
+       - косвенные, опосредованные, consequential, special, punitive.
+    2) Исключена ли ответственность за упущенную выгоду (loss of profit),
+       loss of business, loss of revenue и т.п.
+    3) Сбалансированы ли исключения с учетом реального профиля риска Target
+       (например, если бизнес критически зависит от непрямых потерь).
+    4) Насколько эти исключения опасны для Target.
+
+    Верни строго JSON:
+    {
+      "excludes_indirect_or_consequential": "yes|no|unclear",
+      "excludes_loss_of_profit_or_business": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 3
+  temperature: 0.0
+  max_tokens: 384
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 400
+
+retrieval:
+  context_k: 3
+  max_chunks: 6
+  boost_keywords:
+    - "indirect damages"
+    - "consequential damages"
+    - "упущенная выгода"
+    - "loss of profit"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "excludes_indirect_or_consequential"
+      type: "string"
+    - name: "excludes_loss_of_profit_or_business"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LIAB5"
+      description: "Исключена ответственность за loss of profit/loss of business при бизнес-модели, завязанной на такие показатели."

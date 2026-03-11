@@ -1,0 +1,107 @@
+id: "rw_fundamental"
+name: "Фундаментальные заверения и гарантии"
+description: >
+  Анализирует фундаментальные R&W: статус, полномочия, право собственности,
+  отсутствие конфликтов и существенных нарушений законов/регуляторных требований.
+doc_types: []
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "заверяет и гарантирует"
+    - "represents and warrants"
+    - "заверения и гарантии"
+    - "R&W"
+    - "право собственности"
+    - "title"
+    - "good and marketable title"
+    - "полномочия"
+    - "duly authorized"
+    - "no conflict"
+    - "отсутствие конфликта"
+    - "соответствие применимому праву"
+    - "compliance with applicable law"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по M&A.
+    Тебе даны фрагменты договора с заверениями и гарантиями (R&W).
+
+    Определи, есть ли фундаментальные R&W и насколько они покрывают ключевые вопросы:
+    1) Статус и существование компании (validly existing, duly organized).
+    2) Полномочия на заключение договора (duly authorized).
+    3) Право собственности на продаваемые доли/активы (good and marketable title).
+    4) Отсутствие конфликта с законами, уставом, существенными договорами.
+    5) Отсутствие существенных нарушений применимых законов/регуляторных требований.
+
+    Для каждого пункта оцени наличие/отсутствие и дай общую оценку качества.
+
+    Верни строго JSON:
+    {
+      "rw_status_and_existence": "present|missing|unclear",
+      "rw_authority_and_capacity": "present|missing|unclear",
+      "rw_title_to_shares_or_assets": "present|missing|unclear",
+      "rw_no_conflicts": "present|missing|unclear",
+      "rw_compliance_with_laws": "present|missing|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "represents and warrants"
+    - "заверяет и гарантирует"
+    - "validly existing"
+    - "duly authorized"
+    - "good and marketable title"
+    - "no conflict"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "rw_status_and_existence"
+      type: "string"
+    - name: "rw_authority_and_capacity"
+      type: "string"
+    - name: "rw_title_to_shares_or_assets"
+      type: "string"
+    - name: "rw_no_conflicts"
+      type: "string"
+    - name: "rw_compliance_with_laws"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "RW1"
+      description: "Отсутствуют или крайне слабые фундаментальные R&W по статусу, полномочиям и праву собственности."

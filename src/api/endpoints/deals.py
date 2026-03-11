@@ -424,3 +424,65 @@ async def start_deal_run(
     # Если проверка прошла, запускаем общий механизм старта run
     return await _start_run_core(deal_id, payload, db, user)
 
+
+from db.repositories.deal_repo import DealRepository
+from db.session import get_db
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+@router.get(
+    "/debug/all-deals",
+    summary="Временный список всех сделок (debug)",
+)
+async def debug_list_all_deals(
+    db: AsyncSession = Depends(get_db),
+):
+    repo = DealRepository(db)
+    deals = await repo.get_all()
+    # get_all уже есть в DealRepository
+    return [
+        {
+            "id": str(d.id),
+            "name": d.name,
+            "status": d.status,
+        }
+    for d in deals
+    ]
+
+from pydantic import BaseModel
+import uuid
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.session import get_db
+from db.repositories.deal_repo import DealRepository
+
+class DebugDealCreate(BaseModel):
+    name: str = "Test deal"
+    deal_type: str | None = None
+
+@router.post(
+    "/debug/create-deal",
+    summary="Создать тестовую сделку (debug)",
+)
+async def debug_create_deal(
+    body: DebugDealCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    repo = DealRepository(db)
+    deal = await repo.create(
+        tenant_id=uuid.UUID(int=0),
+        name=body.name,
+        deal_type=body.deal_type,
+        jurisdiction=None,
+        languages=["ru"],
+        pii_mode="local_only",
+        profile="full",
+        playbook_version_id=None,
+        metadata_={},        # важно: параметр называется metadata_
+    )
+    await db.commit()
+    return {
+        "id": str(deal.id),
+        "name": deal.name,
+    }

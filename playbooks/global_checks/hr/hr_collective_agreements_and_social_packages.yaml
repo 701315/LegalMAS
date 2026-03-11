@@ -1,0 +1,107 @@
+id: "hr_collective_agreements_and_social_packages"
+name: "Коллективные договоры и социальные обязательства"
+description: >
+  Анализирует коллективные договоры, соглашения с профсоюзами и социальные
+  пакеты, которые могут создать дополнительные обязательства или ограничения
+  для работодателя после сделки.
+doc_types: []
+severity: "medium"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "коллективный договор"
+    - "collective agreement"
+    - "collective bargaining agreement"
+    - "соглашение с профсоюзом"
+    - "trade union"
+    - "профсоюз"
+    - "социальный пакет"
+    - "benefits"
+    - "fringe benefits"
+    - "социальные льготы"
+    - "уведомление работников"
+    - "consultation with employees"
+    - "обязательства перед работниками"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по трудовому праву.
+    Тебе даны фрагменты договоров и соглашений, которые могут быть
+    коллективными договорами или соглашениями с профсоюзами.
+
+    Определи:
+    1) Есть ли у компании коллективные договоры и/или соглашения с профсоюзами.
+    2) Какие ключевые обязательства по соцпакетам и дополнительным гарантиям
+       (benefits, льготы, компенсации) они устанавливают.
+    3) Есть ли особые требования по уведомлению/консультациям с работниками
+       при реорганизации, смене контроля или массовых увольнениях.
+    4) Насколько эти обязательства создают риск дополнительных затрат или
+       ограничений для Target после сделки.
+
+    Верни строго JSON:
+    {
+      "has_collective_or_union_agreements": "yes|no|unclear",
+      "social_benefits_summary": "краткое описание соцпакетов и льгот",
+      "requires_employee_consultation_on_restructuring_or_coc": "yes|no|unclear",
+      "hr_collective_obligations_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "коллективный договор"
+    - "collective agreement"
+    - "trade union"
+    - "социальный пакет"
+    - "benefits"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_collective_or_union_agreements"
+      type: "string"
+    - name: "social_benefits_summary"
+      type: "string"
+    - name: "requires_employee_consultation_on_restructuring_or_coc"
+      type: "string"
+    - name: "hr_collective_obligations_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "HR3"
+      description: "Существенные дополнительные социальные обязательства, усложняющие оптимизацию штата."
+    - code: "HR4"
+      description: "Строгие требования по консультациям/одобрениям работников при реорганизации или смене контроля."

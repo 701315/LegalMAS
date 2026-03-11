@@ -1,0 +1,114 @@
+id: "cybersecurity_policies_and_incidents"
+name: "Кибербезопасность, ИБ и инциденты"
+description: >
+  Анализирует наличие политик по ИБ/кибербезопасности, журналов инцидентов,
+  требований к защите, а также упоминания утечек данных и реакцию на них.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "информационная безопасность"
+    - "ИБ"
+    - "cybersecurity"
+    - "information security"
+    - "security policy"
+    - "политика безопасности"
+    - "security incident"
+    - "security breach"
+    - "data breach"
+    - "утечка данных"
+    - "киберинцидент"
+    - "cyber incident"
+    - "журнал инцидентов"
+    - "incident log"
+    - "security measures"
+    - "технические и организационные меры"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по ИБ и кибербезопасности.
+    Тебе даны фрагменты договора и/или политик компании.
+
+    Определи:
+    1) Есть ли упоминания политик по информационной безопасности/кибербезопасности
+       и описания технических/организационных мер (шифрование, контроль доступа,
+       логирование, тестирование на уязвимости и т.п.).
+    2) Указаны ли процедуры обработки инцидентов:
+       - выявление, журналирование, расследование,
+       - уведомление клиентов/регуляторов.
+    3) Упоминаются ли прошлые инциденты (утечки данных, кибератаки) и как
+       описана их обработка (remediation).
+    4) Насколько текущий уровень формализации ИБ/кибербезопасности выглядит
+       адекватным с точки зрения рисков Target.
+
+    Верни строго JSON:
+    {
+      "has_documented_security_policies": "yes|no|unclear",
+      "describes_security_measures": "yes|no|unclear",
+      "has_incident_response_and_logging": "yes|no|unclear",
+      "mentions_past_security_or_data_breach_incidents": "yes|no|unclear",
+      "cyber_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "cybersecurity"
+    - "information security"
+    - "утечка данных"
+    - "security incident"
+    - "security policy"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_documented_security_policies"
+      type: "string"
+    - name: "describes_security_measures"
+      type: "string"
+    - name: "has_incident_response_and_logging"
+      type: "string"
+    - name: "mentions_past_security_or_data_breach_incidents"
+      type: "string"
+    - name: "cyber_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "CYB1"
+      description: "Отсутствие формализированной политики ИБ/кибербезопасности при очевидно большом массиве данных."
+    - code: "CYB2"
+      description: "Упоминания инцидентов без должного описания мер по устранению и предотвращению повторов."

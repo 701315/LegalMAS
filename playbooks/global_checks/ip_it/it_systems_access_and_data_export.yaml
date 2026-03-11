@@ -1,0 +1,114 @@
+id: "it_systems_access_and_data_export"
+name: "Доступ к ИТ-системам и экспорт данных при прекращении"
+description: >
+  Анализирует условия доступа к критическим ИТ-системам и сервисам, а также
+  порядок экспорта и сохранения данных при расторжении договора.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "доступ к системе"
+    - "access to the system"
+    - "access to services"
+    - "service availability"
+    - "SaaS"
+    - "облачный сервис"
+    - "cloud service"
+    - "data export"
+    - "экспорт данных"
+    - "data retrieval"
+    - "удаление данных"
+    - "data deletion"
+    - "backup"
+    - "резервное копирование"
+    - "suspension of service"
+    - "приостановление услуг"
+    - "termination of service"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по ИТ и SaaS-договорам.
+    Тебе даны фрагменты договора, касающиеся доступа к ИТ-системам и данных.
+
+    Определи:
+    1) Как регулируется доступ к критическим ИТ-системам/сервисам:
+       - условия приостановки или отключения сервиса (например, при просрочке
+         или споре).
+    2) Есть ли положения об экспорте данных:
+       - возможность выгрузить данные,
+       - формат, срок, платные/бесплатные услуги по миграции.
+    3) Что происходит с данными при расторжении:
+       - сроки хранения,
+       - условия удаления/анонимизации.
+    4) Насколько условия отключения сервиса и обращения с данными
+       рискованны для Target.
+
+    Верни строго JSON:
+    {
+      "service_suspension_conditions": "краткое описание условий приостановки/отключения",
+      "has_data_export_rights": "yes|no|unclear",
+      "data_export_window_and_format": "краткое описание сроков/форматов",
+      "data_deletion_or_retention_terms": "краткое описание условий удаления/хранения",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "access to the system"
+    - "service suspension"
+    - "data export"
+    - "удаление данных"
+    - "SaaS"
+    - "cloud service"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "service_suspension_conditions"
+      type: "string"
+    - name: "has_data_export_rights"
+      type: "string"
+    - name: "data_export_window_and_format"
+      type: "string"
+    - name: "data_deletion_or_retention_terms"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "IP5"
+      description: "Поставщик ИТ-услуг вправе немедленно отключить сервис/удалить данные при небольших нарушениях."
+    - code: "IP6"
+      description: "Отсутствие реального права на экспорт данных и разумного окна после расторжения."

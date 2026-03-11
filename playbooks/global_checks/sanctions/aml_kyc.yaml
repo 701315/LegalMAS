@@ -1,0 +1,105 @@
+id: "aml_kyc"
+name: "AML/KYC требования"
+description: >
+  Анализирует положения об AML/KYC: идентификация клиентов и бенефициаров,
+  подозрительные транзакции, мониторинг и сообщения, последствия нарушений.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "AML"
+    - "anti-money laundering"
+    - "противодействие легализации доходов"
+    - "борьба с отмыванием денег"
+    - "KYC"
+    - "know your customer"
+    - "идентификация клиентов"
+    - "beneficial owner"
+    - "бенефициарный владелец"
+    - "подозрительные транзакции"
+    - "suspicious transactions"
+    - "reporting obligations"
+    - "обязанности по сообщению"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по AML/KYC.
+    Тебе даны фрагменты договора, где могут быть положения AML/KYC.
+
+    Определи:
+    1) Есть ли обязательства по идентификации клиентов и бенефициаров (KYC).
+    2) Предусмотрены ли требования по мониторингу операций и сообщению
+       о подозрительных транзакциях.
+    3) Есть ли обязанность предоставлять информацию и документы по запросу
+       (формат KYC-опросника).
+    4) Какие последствия наступают при невыполнении AML/KYC требований:
+       - приостановление операций,
+       - отказ в обслуживании,
+       - расторжение договора.
+    5) Насколько полный и сбалансированный AML/KYC-блок с точки зрения Target.
+
+    Верни строго JSON:
+    {
+      "has_kyc_obligations": "yes|no|unclear",
+      "has_aml_monitoring_and_reporting": "yes|no|unclear",
+      "requires_beneficial_owner_disclosure": "yes|no|unclear",
+      "aml_kyc_breach_consequences": "none|suspension|termination|mixed|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "AML"
+    - "KYC"
+    - "beneficial owner"
+    - "подозрительные транзакции"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_kyc_obligations"
+      type: "string"
+    - name: "has_aml_monitoring_and_reporting"
+      type: "string"
+    - name: "requires_beneficial_owner_disclosure"
+      type: "string"
+    - name: "aml_kyc_breach_consequences"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "AML1"
+      description: "Отсутствие AML/KYC-положений при явно высокорискованной структуре/юрисдикции контрагентов."

@@ -1,0 +1,107 @@
+id: "mac_mae"
+name: "MAC/MAE (существенное неблагоприятное изменение)"
+description: >
+  Анализирует наличие и содержание MAC/MAE-клауз:
+  определение «существенного неблагоприятного изменения», исключения
+  и последствия (право расторжения, пересмотр цены, приостановка).
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "material adverse change"
+    - "material adverse effect"
+    - "MAC"
+    - "MAE"
+    - "существенное неблагоприятное изменение"
+    - "существенное неблагоприятное воздействие"
+    - "adverse change"
+    - "adverse effect"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по M&A и финансированию.
+    Тебе даны фрагменты договора с возможными MAC/MAE-положениями.
+
+    Определи:
+    1) Есть ли в договоре MAC/MAE-клауза и как она определена:
+       - что считается существенным неблагоприятным изменением.
+    2) Какие исключения (carve-out) предусмотрены:
+       - изменения отрасли,
+       - общие макроэкономические изменения,
+       - изменения законодательства,
+       - форс-мажорные события, которые не специфичны для Target.
+    3) Какие последствия наступают при MAC/MAE:
+       - право отказаться от сделки,
+       - право пересмотреть цену,
+       - право приостановить исполнение.
+    4) Насколько балансной является MAC/MAE для Target.
+
+    Верни строго JSON:
+    {
+      "has_mac_or_mae": "yes|no|unclear",
+      "definition_summary": "краткое описание определения MAC/MAE",
+      "has_industry_or_macro_carveouts": "yes|no|unclear",
+      "has_law_change_carveouts": "yes|no|unclear",
+      "effects_on_deal": "none|termination|price_adjustment|suspension|mixed|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "material adverse change"
+    - "material adverse effect"
+    - "существенное неблагоприятное изменение"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_mac_or_mae"
+      type: "string"
+    - name: "definition_summary"
+      type: "string"
+    - name: "has_industry_or_macro_carveouts"
+      type: "string"
+    - name: "has_law_change_carveouts"
+      type: "string"
+    - name: "effects_on_deal"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "MAC1"
+      description: "MAC/MAE даёт контрагенту очень широкое право выйти или пересмотреть цену при любых неблагоприятных новостях."
+    - code: "MAC2"
+      description: "Отсутствуют carve-out для отраслевых/макроэкономических изменений."

@@ -1,0 +1,115 @@
+id: "payment_terms_and_structures"
+name: "Платежные условия и схемы"
+description: >
+  Анализирует основные платежные условия: валюту, сроки, проценты за
+  просрочку, предоплаты, аккредитивы, escrow, а также необычные схемы
+  (take-or-pay, минимальные объемы).
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "порядок расчетов"
+    - "условия оплаты"
+    - "payment terms"
+    - "срок оплаты"
+    - "оплата производится"
+    - "валюта платежа"
+    - "currency of payment"
+    - "проценты за просрочку"
+    - "late payment interest"
+    - "penalty interest"
+    - "предоплата"
+    - "advance payment"
+    - "аккредитив"
+    - "letter of credit"
+    - "escrow"
+    - "take-or-pay"
+    - "минимальный объем"
+    - "minimum volume"
+    - "minimum commitment"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по коммерческим и финансовым договорам.
+    Тебе даны фрагменты договора с платежными условиями.
+
+    Определи:
+    1) Основные платежные условия:
+       - валюта платежа,
+       - сроки оплаты,
+       - наличие процентов/штрафов за просрочку.
+    2) Используются ли предоплаты, аккредитивы, escrow-счета.
+    3) Есть ли необычные схемы:
+       - take-or-pay,
+       - минимальные объемы закупки/поставки,
+       - долгосрочные минимальные обязательства.
+    4) Насколько платежные условия рискованны для ликвидности Target.
+
+    Верни строго JSON:
+    {
+      "currency_and_payment_schedule": "краткое описание",
+      "has_late_payment_interest_or_penalties": "yes|no|unclear",
+      "uses_advance_or_lc_or_escrow": "yes|no|unclear",
+      "has_take_or_pay_or_minimum_volume": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "payment terms"
+    - "срок оплаты"
+    - "проценты за просрочку"
+    - "take-or-pay"
+    - "minimum volume"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "currency_and_payment_schedule"
+      type: "string"
+    - name: "has_late_payment_interest_or_penalties"
+      type: "string"
+    - name: "uses_advance_or_lc_or_escrow"
+      type: "string"
+    - name: "has_take_or_pay_or_minimum_volume"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FIN1"
+      description: "Крупные обязательства по предоплате/аккредитиву/escrow с жесткими условиями возврата."
+    - code: "FIN2"
+      description: "Необычные payment-схемы, создающие нагрузку на ликвидность Target."

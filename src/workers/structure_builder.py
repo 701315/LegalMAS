@@ -1,3 +1,5 @@
+# src/workers/structure_builder.py
+
 """
 Structure Builder Worker.
 Reads textlayoutraw from MinIO, builds clause tree via StructureBuilder service,
@@ -22,7 +24,6 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.structure.builder import StructureBuilder
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from workers.classifier import classify_document
 
 logger = get_logger(__name__)
 
@@ -38,11 +39,23 @@ def build_structure(
     document_version_id: str,
     **kwargs,  # принимаем остальные аргументы (deal_id, run_id и т.д.) для совместимости
 ) -> dict:
-    """Sync Celery entry point."""
+    """
+    Sync Celery entry point.
+
+    Архитектурный паттерн:
+    - Celery таска остаётся синхронной (def), чтобы Celery мог корректно
+      сериализовать результат и работать в prefork-модели.
+    - Вся асинхронная логика и работа с БД живут в _build_structure_async()
+      под управлением db_uow().
+    """
     loop = asyncio.new_event_loop()
     try:
-        return loop.run_until_complete(_build_structure_async(self, document_version_id, kwargs))
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(
+            _build_structure_async(self, document_version_id, kwargs)
+        )
     finally:
+        asyncio.set_event_loop(None)
         loop.close()
 
 
@@ -108,9 +121,15 @@ async def _build_structure_async(task, document_version_id: str, extra_args: dic
         # UoW зафиксирует изменения (commit) при выходе из блока
 
     # 6. Запуск следующего этапа (Классификация)
-
-    # Передаем контекст дальше (run_id важен для аналитики)
-    classify_document.delay(document_id=str(doc.id), run_id=extra_args.get("run_id"))
+    # Запускаем таску по имени, без прямого импорта classify_document,
+    # чтобы не создавать циклические зависимости между workers.
+    celery_app.send_task(
+        "workers.classify_document",
+        kwargs={
+            "document_id": str(doc.id),
+            "run_id": extra_args.get("run_id"),
+        },
+    )
 
     return {
         "document_id": str(doc.id),
@@ -119,3 +138,4 @@ async def _build_structure_async(task, document_version_id: str, extra_args: dic
         "is_degraded": clause_tree.degraded,
         "duration": round(time.time() - start, 2),
     }
+

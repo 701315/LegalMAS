@@ -1,5 +1,6 @@
 # src/api/endpoints/project_members.py
 
+
 """
 Эндпоинты управления участниками проектов (project members).
 
@@ -11,15 +12,21 @@
 Ключевые моменты:
 - Все данные берутся из таблицы deal_members через ProjectRoleRepository.
 - Проверка прав делается через require_project_role:
-  - смотреть список участников могут все залогиненные пользователи (пока без ограничений);
+  - смотреть список участников сейчас могут все залогиненные пользователи
+    (на будущее можно ограничить viewer/editor/admin);
   - добавлять/изменять/удалять участников могут только project admin-ы.
 - В ответах API внешний идентификатор участника называется member_id,
-- внутри ORM-модели это поле называется id (есть явное отображение id -> member_id).
-+ В ответах API внешний идентификатор участника называется member_id,
-+ внутри ORM-модели это поле называется id; отображение id -> member_id
-+ инкапсулировано в api.mappers.project_members.
+  внутри ORM-модели это поле называется id; отображение id -> member_id
+  инкапсулировано в api.mappers.project_members.
 
+Дополнительное правило инициализации:
+- Если по deal_id ещё нет ни одного участника (пустой проект),
+  первого участника может создать глобальный admin (user.global_role == "admin")
+  без наличия project role.
+- Как только первый участник создан, все дальнейшие операции идут только
+  через require_project_role(..., allowed_roles=("admin",)).
 """
+
 
 from typing import List
 from uuid import UUID
@@ -32,7 +39,6 @@ from api.mappers.project_members import (
     map_member_to_response,
     map_members_to_response,
 )
-
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.project_members import (
@@ -43,6 +49,7 @@ from api.schemas.project_members import (
 from db.session import get_db
 from db.repositories.project_role_repo import ProjectRoleRepository
 from db.models.deal_member import DealMember
+
 
 router = APIRouter(
     prefix="/projects",
@@ -85,21 +92,45 @@ async def create_project_member(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    # Разрешаем только project admin (при глобальной роли admin/editor).
-    await require_project_role(
-        db=db,
-        user=user,
-        deal_id=deal_id,
-        allowed_roles=("admin",),
-    )
+    """
+    Добавить участника проекта.
 
+    Правила:
+    - Если участников по deal_id ещё нет:
+        * первый участник может быть создан глобальным admin (user.global_role == "admin");
+    - Если участники уже есть:
+        * создавать новых/менять состав могут только project admin-ы
+          через require_project_role(..., allowed_roles=("admin",)).
+    """
     repo = ProjectRoleRepository(db)
+    existing_members = await repo.list_members(deal_id)
 
-    # Проверка уникальности логина
-    existing = await db.execute(
-        select(DealMember).where(DealMember.login == payload.login)
+    if not existing_members:
+        # Инициализация проекта: первого участника может создать только глобальный админ.
+        if user.global_role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="ACCESS_DENIED: first project member can be created only by global admin",
+            )
+    else:
+        # Проект уже инициализирован — действуют обычные правила project admin.
+        await require_project_role(
+            db=db,
+            user=user,
+            deal_id=deal_id,
+            allowed_roles=("admin",),
+        )
+
+    # Проверка уникальности логина В РАМКАХ ЭТОЙ СДЕЛКИ.
+    # Нам не важно, что admin есть в других сделках, важно — нет ли второго admin по этой же deal_id.
+    existing_q = await db.execute(
+        select(DealMember).where(
+            DealMember.deal_id == deal_id,
+            DealMember.login == payload.login,
+        )
     )
-    if existing.scalar_one_or_none() is not None:
+    # Нам нужно только "есть хотя бы один", поэтому не используем scalar_one_or_none().
+    if existing_q.first() is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="LOGIN_TAKEN",

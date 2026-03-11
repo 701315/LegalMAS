@@ -1,0 +1,119 @@
+id: "force_majeure"
+name: "Форс-мажор и освобождение от ответственности"
+description: >
+  Анализирует форс-мажор: перечень событий, процедуру уведомления,
+  срок освобождения, право на расторжение, охват платежных обязательств.
+doc_types: []
+severity: "medium"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "форс-мажор"
+    - "обстоятельства непреодолимой силы"
+    - "force majeure"
+    - "act of God"
+    - "война"
+    - "военные действия"
+    - "пандемия"
+    - "epidemic"
+    - "pandemic"
+    - "санкции"
+    - "sanctions"
+    - "regulatory actions"
+    - "governmental actions"
+    - "забастовка"
+    - "страйк"
+    - "кибератака"
+    - "cyber attack"
+    - "киберинцидент"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по контрактам и рискам.
+    Тебе даны фрагменты договора, где могут быть положения о форс-мажоре.
+
+    Определи:
+    1) Как определён форс-мажор:
+       - какие события перечислены (стихийные бедствия, войны, эпидемии,
+         санкции, действия регуляторов, кибератаки и т.п.).
+       - есть ли вводимые понятия вроде "экономическая нецелесообразность",
+         общие изменения рынка.
+    2) Какова процедура уведомления и срок, на который сторона освобождается
+       от ответственности.
+    3) Распространяется ли форс-мажор на платежные обязательства.
+    4) Предусмотрено ли право расторгнуть договор при длительном форс-мажоре.
+    5) Насколько формулировка форс-мажора рискованна для Target.
+
+    Верни строго JSON:
+    {
+      "covers_classic_events": "yes|no|unclear",
+      "covers_sanctions_and_regulatory_actions": "yes|no|unclear",
+      "includes_economic_unfeasibility_or_broad_market_changes": "yes|no|unclear",
+      "notification_procedure_summary": "строка с описанием уведомления",
+      "applies_to_payment_obligations": "yes|no|unclear",
+      "termination_right_on_long_fm": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "force majeure"
+    - "форс-мажор"
+    - "обстоятельства непреодолимой силы"
+    - "санкции"
+    - "regulatory actions"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "covers_classic_events"
+      type: "string"
+    - name: "covers_sanctions_and_regulatory_actions"
+      type: "string"
+    - name: "includes_economic_unfeasibility_or_broad_market_changes"
+      type: "string"
+    - name: "notification_procedure_summary"
+      type: "string"
+    - name: "applies_to_payment_obligations"
+      type: "string"
+    - name: "termination_right_on_long_fm"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FM1"
+      description: "Форс-мажор включает экономическую нецелесообразность/общие изменения рынка."
+    - code: "FM2"
+      description: "Форс-мажор распространяется на платежные обязательства без чётких ограничений."

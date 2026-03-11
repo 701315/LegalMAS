@@ -30,7 +30,6 @@ from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from storage.artifact_store import ArtifactStore
-from workers.runner import run_checks
 
 logger = get_logger(__name__)
 
@@ -152,14 +151,17 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
     # 6. Запуск Runner (Stage 8) - передаем doctype для оптимизации
     run_id = extra_args.get("run_id")
     if run_id:
-
-        run_checks.delay(
-            document_id=str(doc.id),
-            deal_id=extra_args.get("deal_id"),
-            tenant_id=extra_args.get("tenant_id"),
-            run_id=run_id,
-            doctype=result.doctype,
+        celery_app.send_task(
+            "workers.run_checks",
+            kwargs={
+                "document_id": str(doc.id),
+                "deal_id": extra_args.get("deal_id"),
+                "tenant_id": extra_args.get("tenant_id"),
+                "run_id": run_id,
+                "doctype": result.doctype,
+            },
         )
+
 
     duration_ms = int((time.time() - start_time) * 1000)
     return {

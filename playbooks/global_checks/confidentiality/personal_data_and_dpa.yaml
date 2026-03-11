@@ -1,0 +1,113 @@
+id: "personal_data_and_dpa"
+name: "Персональные данные и DPA"
+description: >
+  Анализирует обработку персональных данных: роли сторон (контролёр/процессор),
+  наличие DPA, основания обработки, трансграничные передачи и требования защиты.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "персональные данные"
+    - "персональных данных"
+    - "ПДн"
+    - "personal data"
+    - "data controller"
+    - "data processor"
+    - "data protection"
+    - "GDPR"
+    - "152-ФЗ"
+    - "data processing agreement"
+    - "DPA"
+    - "обработка данных"
+    - "data transfer"
+    - "cross-border transfer"
+    - "трансграничная передача"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по персональным данным и data protection.
+    Тебе даны фрагменты договора, где могут регулироваться ПДн.
+
+    Определи:
+    1) Упоминаются ли персональные данные и/или применимые режимы (GDPR, 152-ФЗ и т.п.).
+    2) Каковы роли сторон: контролёр/оператор данных и процессор/обработчик.
+    3) Есть ли отдельное соглашение об обработке данных (DPA) или раздел,
+       эквивалентный DPA: цели, категории данных, категории субъектов,
+       технические и организационные меры.
+    4) Упомянуты ли трансграничные передачи и основания для них.
+    5) Предусмотрены ли уведомления регуляторов и журналирование инцидентов.
+    6) Насколько эти положения соответствуют базовым требованиям защиты данных.
+
+    Верни строго JSON:
+    {
+      "mentions_personal_data_and_laws": "yes|no|unclear",
+      "role_of_target": "controller|processor|joint|unclear",
+      "has_dpa_or_equivalent_section": "yes|no|unclear",
+      "mentions_cross_border_transfers": "yes|no|unclear",
+      "mentions_breach_notification_and_logging": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "персональные данные"
+    - "personal data"
+    - "GDPR"
+    - "152-ФЗ"
+    - "data processing agreement"
+    - "DPA"
+    - "cross-border transfer"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "mentions_personal_data_and_laws"
+      type: "string"
+    - name: "role_of_target"
+      type: "string"
+    - name: "has_dpa_or_equivalent_section"
+      type: "string"
+    - name: "mentions_cross_border_transfers"
+      type: "string"
+    - name: "mentions_breach_notification_and_logging"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "PD1"
+      description: "Фактическая обработка ПДн без DPA/эквивалентных положений."
+    - code: "PD2"
+      description: "Отсутствие требований по защите данных и уведомлению об инцидентах при значимых объёмах ПДн."

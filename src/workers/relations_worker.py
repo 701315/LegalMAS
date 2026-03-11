@@ -1,19 +1,24 @@
+# src/workers/relations_worker.py
+
+
 """
 Relations Worker — runs dedup, relation detection, and family building.
 
-This worker runs ONCE per deal after all documents are classified.
-It processes all documents in the deal together (not per-document).
+Этот воркер запускается ОДИН РАЗ на сделку после того,
+как все документы классифицированы. Он обрабатывает все документы
+сделки целиком (не по одному документу).
 
-Pipeline:
-1. Load all documents for the deal from DB
-2. Run exact dedup (SHA256)
-3. Load first 2000 chars of text for each document
-4. Run relation detection (filename + text patterns)
-5. Build families (master + appendix + amendment + versions)
-6. Save all results to DB (document_relations, families)
-7. Record audit log
+Пайплайн:
+  1. Загрузить все документы сделки из БД.
+  2. Сделать точный дедуп по SHA-256.
+  3. Загрузить первые 2000 символов текста для каждого документа.
+  4. Найти связи (по имени файла + текстовым паттернам).
+  5. Собрать семьи (master + appendix + amendment + версии).
+  6. Сохранить связи и семьи в БД.
+  7. Записать audit log.
 """
 
+import asyncio
 import time
 import uuid
 
@@ -24,8 +29,8 @@ from core.config import settings
 from core.constants import DocumentStatus
 from core.logging import get_logger
 from db.repositories import (
-    DocumentRepository, 
-    RelationRepository, 
+    DocumentRepository,
+    RelationRepository,
     DocumentVersionRepository,
     AuditRepository,
 )
@@ -46,11 +51,6 @@ from storage.artifact_store import ArtifactStore
 logger = get_logger(__name__)
 
 
-# =====================================================================
-# Celery task (async, как import_worker / extract_worker)
-# =====================================================================
-
-
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -58,13 +58,37 @@ logger = get_logger(__name__)
     track_job=False,
     queue="default",
 )
-async def build_relations(
+def build_relations(
     self,
     deal_id: str,
     tenant_id: str,
 ) -> dict:
-    
-    metrics = get_metrics() 
+    """
+    Синхронная Celery‑таска построения связей и семей документов.
+
+    Внутри:
+      - создаёт event loop;
+      - открывает UnitOfWork через db_uow();
+      - запускает асинхронное ядро _build_relations_async(...);
+      - возвращает агрегированный отчёт (кол-во документов, дубликатов, семей).
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(_build_relations_async(deal_id, tenant_id))
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
+
+
+async def _build_relations_async(
+    deal_id: str,
+    tenant_id: str,
+) -> dict:
+    """
+    Асинхронное ядро воркера: вся бизнес-логика построения связей/семей.
+    """
+    metrics = get_metrics()
 
     start = time.time()
     logger.info("Build relations started", deal_id=deal_id)
@@ -86,7 +110,7 @@ async def build_relations(
                 "duration_seconds": round(duration, 2),
             }
 
-        original_total = len(docs)  # <-- вот здесь
+        original_total = len(docs)
 
         # Step 2: Exact dedup (SHA-256)
         dedup_relations: list[DetectedRelation] = []
@@ -115,9 +139,7 @@ async def build_relations(
         await _load_text_snippets(docs, tenant_id=tenant_id, deal_id=deal_id, db=db)
 
         # Step 4: relation detection
-
         traversal_start = time.time()
-
 
         detector = RelationDetector()
         detected_relations = detector.detect_all_relations(docs)
@@ -217,7 +239,6 @@ async def _load_text_snippets(
     Load first 2000 chars of text_layout_raw for each document.
     This text is used for text-based relation detection.
     """
-
     store = ArtifactStore()
     ver_repo = DocumentVersionRepository(db)
 
@@ -245,7 +266,6 @@ async def _load_text_snippets(
 
 async def _mark_duplicates(doc_ids: list[str], db: AsyncSession) -> None:
     """Mark documents as duplicates in DB."""
-
     repo = DocumentRepository(db)
     for doc_id in doc_ids:
         await repo.update_status(
@@ -260,7 +280,6 @@ async def _save_relations(
     db: AsyncSession,
 ) -> None:
     """Save detected relations to DB."""
-
     repo = RelationRepository(db)
     for rel in relations:
         await repo.create(
@@ -303,7 +322,6 @@ async def _write_audit_log(
     db: AsyncSession,
 ) -> None:
     """Write relations audit log entry."""
-
     repo = AuditRepository(db)
     await repo.log(
         tenant_id=uuid.UUID(tenant_id),

@@ -1,0 +1,113 @@
+id: "termination_consequences"
+name: "Последствия расторжения"
+description: >
+  Анализирует последствия расторжения: судьба авансов и минимальных платежей,
+  конфиденциальной информации, лицензий/IP, survival-положения.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "при прекращении действия договора"
+    - "последствия расторжения"
+    - "upon termination"
+    - "upon expiry"
+    - "за вычетом"
+    - "невозвратимый аванс"
+    - "non-refundable"
+    - "минимальные платежи"
+    - "minimum commitment"
+    - "survive"
+    - "survival"
+    - "сохраняют силу"
+    - "конфиденциальная информация"
+    - "intellectual property"
+    - "license"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по коммерческим договорам.
+    Тебе даны фрагменты договора.
+
+    Определи, что происходит при расторжении/истечении договора:
+    1) Судьба авансов и минимальных платежей:
+       - подлежат ли возврату,
+       - удерживаются ли как неустойка/penalty или non-refundable fee.
+    2) Судьба конфиденциальной информации:
+       - подлежит ли возврату/уничтожению,
+       - сохраняется ли обязанность конфиденциальности и на какой срок.
+    3) Судьба лицензий и IP:
+       - прекращаются ли лицензии / права использования,
+       - есть ли период пост-termination для миграции/экспорта.
+    4) Какие положения выживают (survival): конфиденциальность, IP, платежи,
+       ответственность, R&W, комплаенс и т.п.
+    5) Насколько последствия расторжения рискованны для Target.
+
+    Верни строго JSON:
+    {
+      "advance_and_minimum_payments_treatment": "favorable|neutral|unfavorable|unclear",
+      "confidentiality_survival": "none|short|standard|long|unclear",
+      "ip_and_license_survival": "none|short|standard|long|unclear",
+      "other_surviving_obligations": "строка с перечислением",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "upon termination"
+    - "при прекращении действия"
+    - "non-refundable"
+    - "минимальные платежи"
+    - "survive"
+    - "сохраняют силу"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "advance_and_minimum_payments_treatment"
+      type: "string"
+    - name: "confidentiality_survival"
+      type: "string"
+    - name: "ip_and_license_survival"
+      type: "string"
+    - name: "other_surviving_obligations"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "TERM5"
+      description: "Невозвратимые крупные авансы/минимальные платежи при раннем расторжении."
+    - code: "TERM6"
+      description: "Прекращение ключевых лицензий/IP без разумного переходного периода."

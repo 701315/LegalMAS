@@ -1,0 +1,111 @@
+id: "dispute_resolution_procedure_details"
+name: "Процедурные детали разрешения споров"
+description: >
+  Анализирует детали dispute resolution: язык процесса, interim measures,
+  сочетание суда и арбитража, а также типичные процедурные особенности,
+  влияющие на enforceability и удобство.
+doc_types: []
+severity: "medium"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "arbitration"
+    - "арбитраж"
+    - "seat of arbitration"
+    - "место арбитража"
+    - "arbitration rules"
+    - "ICC"
+    - "LCIA"
+    - "SIAC"
+    - "HKIAC"
+    - "ICAC"
+    - "язык арбитража"
+    - "language of the arbitration"
+    - "interim measures"
+    - "interim relief"
+    - "временные обеспечительные меры"
+    - "competent court"
+    - "support of arbitration"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по международному арбитражу и судебным спорам.
+    Тебе даны фрагменты договора с деталями dispute resolution.
+
+    Определи:
+    1) Если выбран арбитраж:
+       - какой институт и регламент (ICC, LCIA, и т.п.),
+       - место арбитража (seat),
+       - язык арбитража,
+       - есть ли дополнительные процедурные положения (число арбитров, порядок назначения и т.п.).
+    2) Есть ли отдельные положения о поддерживающей юрисдикции судов
+       (для interim measures, исполнения арбитражного решения).
+    3) Если выбран суд, а не арбитраж, выделены ли особенности
+       (специальный суд, язык, необходимость предварительных процедур).
+    4) Есть ли противоречия или неопределённость (например, одновременный выбор суда и арбитража).
+
+    Верни строго JSON:
+    {
+      "arbitration_institution_and_seat": "строка с описанием или 'none'",
+      "arbitration_language": "строка с указанием языка или 'unclear'",
+      "has_court_support_for_arbitration": "yes|no|unclear",
+      "has_potential_conflict_between_court_and_arbitration_clauses": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "arbitration"
+    - "seat of arbitration"
+    - "language of the arbitration"
+    - "interim measures"
+    - "competent court"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "arbitration_institution_and_seat"
+      type: "string"
+    - name: "arbitration_language"
+      type: "string"
+    - name: "has_court_support_for_arbitration"
+      type: "string"
+    - name: "has_potential_conflict_between_court_and_arbitration_clauses"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LAW3"
+      description: "Одновременное или конфликтующее указание суда и арбитража без ясного приоритета."

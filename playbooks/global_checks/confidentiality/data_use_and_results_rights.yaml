@@ -1,0 +1,108 @@
+id: "data_use_and_results_rights"
+name: "Права использования данных и результатов"
+description: >
+  Анализирует права контрагента на использование данных, отчётов и результатов работ,
+  включая риски скрытой передачи IP/аналитики и ограничения для Target.
+doc_types: []
+severity: "medium"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "право использовать данные"
+    - "use of data"
+    - "data analytics"
+    - "анализ данных"
+    - "обезличенные данные"
+    - "aggregated data"
+    - "de-identified data"
+    - "результаты работ"
+    - "work product"
+    - "ownership of data"
+    - "принадлежность данных"
+    - "customer data"
+    - "client data"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по ИТ и данным.
+    Тебе даны фрагменты договора, касающиеся данных и результатов работ.
+
+    Определи:
+    1) Кому принадлежат исходные данные (customer/client data) и результаты работ.
+    2) Есть ли у контрагента право использовать данные и/или результаты:
+       - для собственных целей,
+       - для аналитики, обучения моделей, улучшения сервисов,
+       - только в обезличенном/агрегированном виде.
+    3) Есть ли ограничения на использование данных (scope, срок, цель).
+    4) Насколько эти положения создают риск передачи ценной аналитики или IP.
+
+    Верни строго JSON:
+    {
+      "ownership_of_customer_data": "target|counterparty|joint|unclear",
+      "ownership_of_work_results": "target|counterparty|joint|unclear",
+      "counterparty_can_use_data_for_own_purposes": "yes|no|unclear",
+      "counterparty_can_use_aggregated_or_anonymized_data": "yes|no|unclear",
+      "restrictions_on_data_use_summary": "строка с описанием ограничений",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "customer data"
+    - "ownership of data"
+    - "data analytics"
+    - "aggregated data"
+    - "результаты работ"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "ownership_of_customer_data"
+      type: "string"
+    - name: "ownership_of_work_results"
+      type: "string"
+    - name: "counterparty_can_use_data_for_own_purposes"
+      type: "string"
+    - name: "counterparty_can_use_aggregated_or_anonymized_data"
+      type: "string"
+    - name: "restrictions_on_data_use_summary"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "DATA1"
+      description: "Неограниченное право контрагента использовать данные Target для собственных целей."
+    - code: "DATA2"
+      description: "Неясная принадлежность результатов работ/аналитики, создающая риск утечки IP."

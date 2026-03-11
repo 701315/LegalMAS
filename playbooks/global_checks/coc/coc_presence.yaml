@@ -1,0 +1,84 @@
+id: "coc_presence"
+name: "Наличие клауз смены контроля"
+description: >
+  Проверяет, содержит ли договор положения о смене контроля
+  (change of control, смена бенефициара, переход контроля).
+doc_types: []    # пусто = все типы
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "смена контроля"
+    - "смены контроля"
+    - "смене контроля"
+    - "change of control"
+    - "change-of-control"
+    - "переход контроля"
+    - "переход права контроля"
+    - "смена бенефициарного владельца"
+    - "смена бенефициара"
+    - "change in ownership"
+    - "ultimate beneficial owner"
+    - "indirect transfer"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по M&A и коммерческим договорам.
+    Тебе даны фрагменты одного договора.
+
+    Определи, есть ли в договоре положения о смене контроля
+    (change of control, смена контроля, смена бенефициарного владельца,
+    переход контроля) в широком смысле, включая прямой и косвенный переход
+    контроля над долями/акциями, UBO и т.п.
+
+    Верни строго JSON:
+    {
+      "has_coc_clause": "yes|no|unclear",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 3
+  temperature: 0.0
+  max_tokens: 256
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 400
+
+retrieval:
+  context_k: 3
+  max_chunks: 6
+  boost_keywords:
+    - "change of control"
+    - "смена контроля"
+    - "смена бенефициарного владельца"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_coc_clause"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "C1"
+      description: "Важный договор без явной CoC-клаузулы, при этом бизнес зависит от структуры владения."

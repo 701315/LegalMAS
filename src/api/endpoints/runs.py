@@ -30,9 +30,7 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.export_repo import ExportRepository
 from db.repositories.result_repo import ResultRepository
 
-from workers.classifier import classify_document
-from workers.runner import run_checks
-from workers.exporter import export_results
+from mas_queue.celery_app import celery_app
 
 from core.config import settings
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
@@ -108,31 +106,29 @@ async def _start_run_core(
 
     # Ветка: сначала (пере)классифицировать все документы
     if data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False):
-        try:
-            for d in docs:
-                classify_document.delay(
-                    document_id=str(d.id),
-                    deal_id=str(d.deal_id),
-                    tenant_id=str(user.tenant_id),
-                    run_id=str(run.id),
-                )
-        except Exception:
-            # TODO: логирование
-            pass
+        for d in docs:
+            celery_app.send_task(
+                "workers.classify_document",  # имя таски из декоратора
+                kwargs={
+                    "document_id": str(d.id),
+                    "deal_id": str(d.deal_id),
+                    "tenant_id": str(user.tenant_id),
+                    "run_id": str(run.id),
+                },
+            )
     else:
-        # Обычная постановка задач на проверки
-        try:
-            for d in docs:
-                run_checks.delay(
-                    document_id=str(d.id),
-                    deal_id=str(d.deal_id),
-                    tenant_id=str(user.tenant_id),
-                    run_id=str(run.id),
-                )
-        except Exception:
-            # TODO: логирование
-            pass
-
+        for d in docs:
+            celery_app.send_task(
+                "workers.run_checks",
+                kwargs={
+                    "document_id": str(d.id),
+                    "deal_id": str(d.deal_id),
+                    "tenant_id": str(user.tenant_id),
+                    "run_id": str(run.id),
+                },
+            )
+  
+    
     # фиксируем изменения и обновляем объект run
     await db.commit()
     await db.refresh(run)
@@ -358,16 +354,18 @@ async def start_run_export(
         run_id=run.id,
         export_type=data.export_type,
         requested_by=data.requested_by or user.id,
-        requester_role=data.requester_role or user.role,
+        requester_role=data.requester_role or user.global_role,
         status="pending",
     )
 
     # 5. Ставим задачу на экспорт в Celery
-    tenant_id = str(user.tenant_id)
-    export_results.delay(
-        run_id=str(run.id),
-        deal_id=str(run.deal_id),
-        tenant_id=tenant_id,
+    celery_app.send_task(
+        "workers.export_results",
+        kwargs={
+            "run_id": str(run.id),
+            "deal_id": str(run.deal_id),
+            "tenant_id": str(user.tenant_id),
+        },
     )
 
     await db.commit()

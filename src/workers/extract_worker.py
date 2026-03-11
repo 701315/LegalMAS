@@ -1,32 +1,33 @@
+# src/workers/extract_worker.py
+
 """
-Extract Worker — production (async worker API preserved).
+Extract Worker — рабочий воркер для извлечения текста и таблиц из PDF,
+сохранённых в MinIO.
 
-Extracts text and tables from a PDF document stored in MinIO.
+Этап пайплайна:
+- Читает исходный PDF из MinIO.
+- Определяет стратегию извлечения (текст / OCR / гибрид).
+- Строит структуру textlayoutraw (элементы и таблицы).
+- При необходимости отправляет документ в карантин.
+- При успехе запускает PII‑санитизацию.
 
-Features:
-  - Strategy detection per page: text / OCR / hybrid
-  - pdfplumber for native-text PDFs
-  - Tesseract OCR for scanned pages (graceful fallback if not installed)
-  - Table extraction
-  - Deterministic element IDs (SHA-256 based, reproducible)
-  - Quarantine: 0 elements | low OCR confidence | parse errors
-  - Structured logging with deal_id / document_id context
-  - Triggers PII Sanitizer on success
-
-textlayoutraw schema produced: see src.services.pdf_extractor.build_text_layout_raw
-NOTE: element.clause_uid is null at this stage — set by Structure Builder (Stage 6).
+Важно: на этом этапе поле element.clause_uid всегда пустое.
+Его заполняет Structure Builder (следующий этап).
 """
 
+
+import asyncio
 import time
 import uuid
-from src.ops.metrics import METRICS
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from workers.pii_sanitizer import sanitize_document
-from db.repositories import DocumentRepository, DocumentVersionRepository
+
+from src.ops.metrics import METRICS
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError
 from core.logging import get_logger
+from db.repositories import DocumentRepository, DocumentVersionRepository
 from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -47,7 +48,7 @@ logger = get_logger(__name__)
     track_job=False,
     queue="default",
 )
-async def extract_document(
+def extract_document(
     self,
     document_version_id: str,
     document_id: str,
@@ -56,23 +57,32 @@ async def extract_document(
     run_id: str | None = None,
 ) -> dict:
     """
-    Async entrypoint kept for compatibility with existing pipeline/tests.
+    Sync Celery entrypoint.
 
-    Thin async wrapper around _extract_document_async which implements
-    full Stage 4 extraction logic.
-
-    Важно: для каждой таски создаётся отдельный UnitOfWork/AsyncSession,
-    внутри которого выполняются все операции с БД для данного документа.
+    Архитектурный паттерн:
+    - Внешний слой (таска) синхронный, чтобы результат можно было сериализовать
+      и чтобы не ломать модель воркеров.
+    - Внутри создаём event loop и запускаем async-ядро под db_uow().
     """
-    async with db_uow() as uow:
-        return await _extract_document_async(
-            document_version_id=document_version_id,
-            document_id=document_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            db=uow.session,
-            run_id=run_id,
-        )
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+
+        async def _wrapper() -> dict:
+            async with db_uow() as uow:
+                return await _extract_document_async(
+                    document_version_id=document_version_id,
+                    document_id=document_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                    run_id=run_id,
+                )
+
+        return loop.run_until_complete(_wrapper())
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
 
 async def _extract_document_async(
@@ -157,16 +167,19 @@ async def _extract_document_async(
     if extraction.strategy == "ocr" and extraction.avg_ocr_confidence is not None:
         METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
 
-
     # 7. Trigger PII Sanitizer (Stage 5)
     if not settings.DISABLE_DOWNSTREAM_TASKS:
-
-        sanitize_document.delay(
-            document_version_id=document_version_id,
-            document_id=document_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
+        # Запускаем таску по строковому имени, без прямого импорта workers.pii_sanitizer,
+        # чтобы избежать циклических зависимостей между воркерами.
+        celery_app.send_task(
+            "pii.sanitize_document",
+            kwargs={
+                "document_version_id": document_version_id,
+                "document_id": document_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+            },
         )
 
     return {
@@ -228,7 +241,6 @@ async def get_original_ref(
 
     Работает через переданную AsyncSession, не создаёт собственных сессий.
     """
-
     repo = DocumentVersionRepository(db)
     version = await repo.get_by_id(uuid.UUID(document_version_id))
     return version.original_ref if version else None
@@ -248,7 +260,6 @@ async def update_extraction_result(
 
     Работает через переданную AsyncSession в рамках одного unit of work.
     """
-
     ver_repo = DocumentVersionRepository(db)
     doc_repo = DocumentRepository(db)
 

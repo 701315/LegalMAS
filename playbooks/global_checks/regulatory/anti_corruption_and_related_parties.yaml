@@ -1,0 +1,128 @@
+id: "anti_corruption_and_related_parties"
+name: "Антикоррупция и сделки с аффилированными лицами"
+description: >
+  Анализирует антикоррупционные положения (запрет взяток, откатов, подарков,
+  кодексы этики, права аудита) и регулирование сделок с аффилированными лицами,
+  включая требования arm's length и корпоративные одобрения.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "антикоррупция"
+    - "anti-corruption"
+    - "anti-bribery"
+    - "взятка"
+    - "bribe"
+    - "kickback"
+    - "откат"
+    - "подарки"
+    - "hospitality"
+    - "кодекс этики"
+    - "code of conduct"
+    - "право на аудит"
+    - "audit rights"
+    - "сообщать о нарушениях"
+    - "whistleblowing"
+    - "аффилированные лица"
+    - "related party"
+    - "affiliate"
+    - "arm's length"
+    - "заинтересованная сделка"
+    - "interested party transaction"
+    - "corporate approval"
+    - "одобрение"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по комплаенсу и корпоративному праву.
+    Тебе даны фрагменты договора и/или политик, где могут упоминаться
+    антикоррупционные положения и сделки с аффилированными лицами.
+
+    Определи:
+    1) Какие антикоррупционные положения есть в договоре:
+       - запрет взяток, откатов, неподобающих подарков и hospitality;
+       - ссылка на кодекс этики или политику комплаенса;
+       - права на аудит и проверки;
+       - обязанность сообщать о нарушениях.
+    2) Упоминаются ли сделки с аффилированными лицами:
+       - требование arm's length условий,
+       - необходимость корпоративных одобрений для крупных/заинтересованных сделок.
+    3) Есть ли заверения об отсутствии существенных нарушений антикоррупционного
+       законодательства и правил по сделкам с аффилированными лицами.
+    4) Насколько эти положения адекватно покрывают комплаенс-риск Target.
+
+    Верни строго JSON:
+    {
+      "has_anti_corruption_clauses": "yes|no|unclear",
+      "has_code_of_conduct_or_policy_reference": "yes|no|unclear",
+      "has_audit_or_inspection_rights": "yes|no|unclear",
+      "has_related_party_transactions_regulation": "yes|no|unclear",
+      "requires_arms_length_terms_for_related_parties": "yes|no|unclear",
+      "requires_corporate_approvals_for_interested_transactions": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "anti-corruption"
+    - "anti-bribery"
+    - "кодекс этики"
+    - "related party"
+    - "заинтересованная сделка"
+    - "arm's length"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_anti_corruption_clauses"
+      type: "string"
+    - name: "has_code_of_conduct_or_policy_reference"
+      type: "string"
+    - name: "has_audit_or_inspection_rights"
+      type: "string"
+    - name: "has_related_party_transactions_regulation"
+      type: "string"
+    - name: "requires_arms_length_terms_for_related_parties"
+      type: "string"
+    - name: "requires_corporate_approvals_for_interested_transactions"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "REG5"
+      description: "Слабые или отсутствующие антикоррупционные положения при высоком комплаенс-риск профиле."
+    - code: "REG6"
+      description: "Отсутствие контроля за сделками с аффилированными лицами и корпоративных одобрений."

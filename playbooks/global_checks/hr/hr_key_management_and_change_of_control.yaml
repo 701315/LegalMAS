@@ -1,0 +1,120 @@
+id: "hr_key_management_and_change_of_control"
+name: "Топ-менеджмент, key employees и смена контроля"
+description: >
+  Анализирует трудовые договоры и соглашения с топ-менеджментом и ключевыми
+  сотрудниками: golden parachutes, выплаты при смене контроля или увольнении,
+  основания расторжения, non-compete/non-solicit, retention-бонусы.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "трудовой договор"
+    - "employment agreement"
+    - "служебный контракт"
+    - "top management"
+    - "топ-менеджмент"
+    - "key employee"
+    - "ключевой сотрудник"
+    - "golden parachute"
+    - "change of control"
+    - "смена контроля"
+    - "severance"
+    - "выходное пособие"
+    - "retention bonus"
+    - "bonus upon change of control"
+    - "non-compete"
+    - "ограничение конкуренции"
+    - "non-solicit"
+    - "запрет переманивания"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по трудовому праву и M&A.
+    Тебе даны фрагменты трудовых договоров/соглашений с топ-менеджментом
+    и ключевыми сотрудниками.
+
+    Определи:
+    1) Есть ли специальные выплаты при смене контроля или увольнении
+       (golden parachutes, severance, retention-бонусы) и как они рассчитаны.
+    2) Каковы основания расторжения договоров с key persons и связаны ли они
+       со сменой контроля.
+    3) Есть ли non-compete/non-solicit обязательства и насколько они
+       применимы/исполняемы.
+    4) Насколько набор этих условий создаёт риск для удержания ключевых лиц
+       и финансовую нагрузку при сделке.
+
+    Верни строго JSON:
+    {
+      "has_change_of_control_or_exit_payments": "yes|no|unclear",
+      "coc_or_exit_payments_description": "краткое описание выплат",
+      "has_retention_bonuses": "yes|no|unclear",
+      "has_non_compete_or_non_solicit": "yes|no|unclear",
+      "key_person_departure_risk_level": "low|medium|high|unclear",
+      "financial_impact_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 700
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "golden parachute"
+    - "change of control"
+    - "severance"
+    - "retention bonus"
+    - "non-compete"
+    - "non-solicit"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_change_of_control_or_exit_payments"
+      type: "string"
+    - name: "coc_or_exit_payments_description"
+      type: "string"
+    - name: "has_retention_bonuses"
+      type: "string"
+    - name: "has_non_compete_or_non_solicit"
+      type: "string"
+    - name: "key_person_departure_risk_level"
+      type: "string"
+    - name: "financial_impact_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "HR1"
+      description: "Крупные выплаты при смене контроля/увольнении нескольких key persons."
+    - code: "HR2"
+      description: "Права ключевых лиц легко уйти при смене контроля с значительной компенсацией."

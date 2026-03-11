@@ -1,0 +1,127 @@
+id: "ip_license_terms_and_change_of_control"
+name: "Лицензионные условия и смена контроля"
+description: >
+  Анализирует лицензионные условия: exclusive/non-exclusive, территория и срок,
+  право на сублицензии, ограничения на смену контроля и передачу лицензий.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "license"
+    - "licence"
+    - "лицензия"
+    - "лицензионное соглашение"
+    - "non-exclusive"
+    - "exclusive"
+    - "territory"
+    - "территория"
+    - "term"
+    - "срок действия лицензии"
+    - "field of use"
+    - "поле использования"
+    - "sublicense"
+    - "сублицензия"
+    - "assign or transfer"
+    - "не подлежит передаче"
+    - "non-transferable"
+    - "change of control"
+    - "смена контроля"
+    - "consent of licensor"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по IP и лицензированию.
+    Тебе даны фрагменты договора, касающиеся лицензий на ПО, технологии
+    или иные IP-права.
+
+    Определи:
+    1) Тип лицензии:
+       - exclusive / non-exclusive / sole / unclear.
+    2) Территория и срок:
+       - ограниченные ли они, есть ли автоматическое продление.
+    3) Поле использования (field of use) и ключевые ограничения.
+    4) Есть ли право на сублицензирование и передачу лицензии:
+       - в целом, при M&A, внутригрупповым лицам.
+    5) Что происходит с лицензией при смене контроля:
+       - сохраняется ли,
+       - прекращается ли,
+       - требует ли согласия лицензиара.
+    6) Насколько лицензионные условия критичны/рисковые для Target
+       (особенно при сделке).
+
+    Верни строго JSON:
+    {
+      "license_type": "exclusive|non-exclusive|sole|unclear",
+      "territory_description": "строка с описанием территории",
+      "term_description": "строка с описанием срока",
+      "has_sublicense_rights": "yes|no|unclear",
+      "is_transferable_to_affiliates_or_on_mna": "yes|no|unclear",
+      "license_survives_change_of_control": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "license"
+    - "лицензия"
+    - "non-exclusive"
+    - "exclusive"
+    - "sublicense"
+    - "non-transferable"
+    - "change of control"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "license_type"
+      type: "string"
+    - name: "territory_description"
+      type: "string"
+    - name: "term_description"
+      type: "string"
+    - name: "has_sublicense_rights"
+      type: "string"
+    - name: "is_transferable_to_affiliates_or_on_mna"
+      type: "string"
+    - name: "license_survives_change_of_control"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "IP3"
+      description: "Ключевые лицензии прекращаются при смене контроля или не подлежат передаче без согласия."
+    - code: "IP4"
+      description: "Отсутствие прав на сублицензирование/внутригрупповую передачу при модели, зависящей от этого."

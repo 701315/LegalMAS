@@ -1,0 +1,105 @@
+id: "limitation_periods_and_pre_claim_procedures"
+name: "Сроки исковой давности и претензионные процедуры"
+description: >
+  Анализирует контрактные ограничения по срокам предъявления требований
+  (contractual limitation periods), сокращённые сроки давности и специальные
+  претензионные/медиационные процедуры.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "срок исковой давности"
+    - "limitation period"
+    - "time bar"
+    - "в течение"
+    - "no claim shall be brought"
+    - "никакие претензии не могут быть предъявлены"
+    - "претензионный порядок"
+    - "pre-trial procedure"
+    - "pre-claim procedure"
+    - "mandatory mediation"
+    - "обязательная медиация"
+    - "cooling-off period"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по судебным спорам и контрактам.
+    Тебе даны фрагменты договора.
+
+    Определи:
+    1) Есть ли специальные (сокращённые или изменённые) сроки для предъявления
+       претензий или исков по договору.
+    2) Насколько они отличаются от стандартных законных сроков исковой давности.
+    3) Есть ли обязательные претензионные, медиационные или иные процедуры
+       перед подачей иска и как они сформулированы.
+    4) Насколько такие положения усложняют или ограничивают возможность Target
+       эффективно защищать свои права.
+
+    Верни строго JSON:
+    {
+      "has_contractual_limitation_periods": "yes|no|unclear",
+      "limitation_periods_description": "краткое описание сроков и их строгости",
+      "has_mandatory_pre_claim_or_mediation_procedures": "yes|no|unclear",
+      "procedural_barrier_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "limitation period"
+    - "срок исковой давности"
+    - "no claim shall be brought"
+    - "претензионный порядок"
+    - "mandatory mediation"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_contractual_limitation_periods"
+      type: "string"
+    - name: "limitation_periods_description"
+      type: "string"
+    - name: "has_mandatory_pre_claim_or_mediation_procedures"
+      type: "string"
+    - name: "procedural_barrier_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LAW4"
+      description: "Нереалистично короткие сроки на предъявление претензий."
+    - code: "LAW5"
+      description: "Жёсткие обязательные претензионные/медиационные процедуры, фактически блокирующие доступ к суду."

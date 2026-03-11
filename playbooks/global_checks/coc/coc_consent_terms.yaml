@@ -1,0 +1,95 @@
+id: "coc_consent_terms"
+name: "Условия согласия при CoC / уступке"
+description: >
+  Анализирует, как именно оформлено требование согласия контрагента
+  при смене контроля, уступке прав или переводе долга.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "письменное согласие"
+    - "предварительное согласие"
+    - "prior written consent"
+    - "consent of the other party"
+    - "согласие контрагента"
+    - "approval of the other party"
+    - "без получения согласия"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по M&A/коммерческим договорам.
+    Тебе даны фрагменты с положениями о смене контроля, уступке прав
+    или переводе долга.
+
+    Определи:
+    1) Требуется ли согласие контрагента при смене контроля/уступке/переводе долга.
+    2) Кто должен дать согласие (контрагент, орган группы, третье лицо).
+    3) В какой форме и сроках даётся согласие (письменно, заранее, в течение N дней).
+    4) Есть ли презумпция согласия при отсутствии ответа (deemed consent).
+
+    Верни строго JSON:
+    {
+      "consent_required": "yes|no|unclear",
+      "consent_grantor": "кто дает согласие (текст)",
+      "consent_form_and_timing": "описание формы и сроков",
+      "deemed_consent": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "consent"
+    - "согласие"
+    - "prior written consent"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "consent_required"
+      type: "string"
+    - name: "consent_grantor"
+      type: "string"
+    - name: "consent_form_and_timing"
+      type: "string"
+    - name: "deemed_consent"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "CNS1"
+      description: "Согласие требуется всегда, без разумных carve-out, и может быть произвольно удержано."
+    - code: "CNS2"
+      description: "Нет механизма deemed consent при молчании контрагента, при этом согласие критично для сделки."

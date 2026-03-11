@@ -1,0 +1,106 @@
+id: "liability_and_indemnity_scope"
+name: "Общий объём ответственности и indemnity"
+description: >
+  Анализирует общий объём ответственности и формулировки indemnity:
+  неограниченная ответственность, широкие обязательства возмещения любых потерь,
+  фиксированные штрафы и liquidated damages.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "несет ответственность"
+    - "ответственность сторон"
+    - "полностью отвечает"
+    - "неограниченная ответственность"
+    - "unlimited liability"
+    - "indemnify"
+    - "indemnity"
+    - "hold harmless"
+    - "возместить любые убытки"
+    - "any and all losses"
+    - "liquidated damages"
+    - "штраф"
+    - "penalty"
+    - "fixed fee"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по контрактам.
+    Тебе даны фрагменты договора с положениями об ответственности и indemnity.
+
+    Определи:
+    1) Каков общий характер ответственности:
+       - ограниченная или фактически неограниченная (unlimited liability).
+    2) Есть ли широкие indemnity-обязательства (возмещение любых потерь,
+       включая штрафы третьих лиц, косвенные убытки и т.п.).
+    3) Есть ли крупные фиксированные штрафы или liquidated damages.
+    4) Кого именно защищает indemnity (Target или контрагента).
+
+    Верни строго JSON:
+    {
+      "liability_general": "limited|unlimited|unclear",
+      "indemnity_scope": "none|narrow|broad|unclear",
+      "has_significant_liquidated_damages_or_fines": "yes|no|unclear",
+      "beneficiary_of_indemnity": "target|counterparty|mutual|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "несет ответственность"
+    - "unlimited liability"
+    - "indemnify"
+    - "indemnity"
+    - "liquidated damages"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "liability_general"
+      type: "string"
+    - name: "indemnity_scope"
+      type: "string"
+    - name: "has_significant_liquidated_damages_or_fines"
+      type: "string"
+    - name: "beneficiary_of_indemnity"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LIAB1"
+      description: "Неограниченная ответственность Target при ограниченной ответственности контрагента."
+    - code: "LIAB2"
+      description: "Очень широкая indemnity в пользу контрагента (any and all losses, включая косвенные и штрафы)."

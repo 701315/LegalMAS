@@ -1,0 +1,123 @@
+id: "ip_ownership_and_assignments"
+name: "Принадлежность IP и assignment от разработчиков"
+description: >
+  Анализирует принадлежность ключевых IP-активов: ПО, результатов работ,
+  контента, а также наличие договоров/актoв передачи прав от основателей
+  и подрядчиков.
+doc_types: []
+severity: "critical"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "интеллектуальная собственность"
+    - "intellectual property"
+    - "IP"
+    - "исключительные права"
+    - "exclusive rights"
+    - "авторские права"
+    - "copyright"
+    - "патент"
+    - "знаки для товаров и услуг"
+    - "trademark"
+    - "результаты работ"
+    - "work product"
+    - "служебное произведение"
+    - "work made for hire"
+    - "assignment"
+    - "передача прав"
+    - "cede"
+    - "отчуждение прав"
+    - "developer"
+    - "подрядчик"
+    - "founder"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по интеллектуальной собственности и технологиям.
+    Тебе даны фрагменты договора, где регулируются права на результаты работ и IP.
+
+    Определи:
+    1) Кому принадлежат ключевые IP-активы (ПО, исходный код, контент,
+       базы данных, бренды и т.п.).
+    2) Есть ли явные положения об assignment/отчуждении прав от:
+       - основателей,
+       - сотрудников,
+       - подрядчиков/разработчиков.
+    3) Охватывает ли передача:
+       - все виды использования,
+       - все территории,
+       - весь срок действия прав.
+    4) Есть ли основания считать, что часть IP фактически остаётся у разработчиков
+       или третьих лиц.
+    5) Насколько рискованна текущая конфигурация прав для Target.
+
+    Верни строго JSON:
+    {
+      "ip_owner_description": "краткое описание того, кому принадлежат ключевые IP-активы",
+      "has_assignments_from_founders_and_employees": "yes|no|unclear",
+      "has_assignments_from_contractors": "yes|no|unclear",
+      "assignment_scope_appears_full": "yes|no|unclear",
+      "ip_ownership_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 700
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "intellectual property"
+    - "результаты работ"
+    - "assignment"
+    - "отчуждение прав"
+    - "служебное произведение"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "ip_owner_description"
+      type: "string"
+    - name: "has_assignments_from_founders_and_employees"
+      type: "string"
+    - name: "has_assignments_from_contractors"
+      type: "string"
+    - name: "assignment_scope_appears_full"
+      type: "string"
+    - name: "ip_ownership_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "IP1"
+      description: "Ключевые IP-активы не принадлежат Target (висят на основателях/подрядчиках/третьем лице)."
+    - code: "IP2"
+      description: "Отсутствуют явные assignment-документы от ключевых разработчиков."

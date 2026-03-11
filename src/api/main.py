@@ -32,6 +32,8 @@ from .endpoints import (
     requests,
     user_projects,
     project_members,
+    playbooks,
+    playbook_runs,
 )
 from .middleware.audit import AuditMiddleware
 
@@ -102,3 +104,9 @@ app.include_router(user_projects.router)
 
 # Пользователи
 app.include_router(project_members.router, prefix="/api/v1")
+
+# Плейбуки (playbooks / global_checks / bundles).
+app.include_router(playbooks.router, prefix="/api/v1")
+
+# История и пересборка плейбука по сделке.
+app.include_router(playbook_runs.router, prefix="/api/v1")

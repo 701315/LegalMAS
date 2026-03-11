@@ -1,0 +1,113 @@
+id: "regulatory_industry_compliance"
+name: "Отраслевой комплаенс и регуляторные нарушения"
+description: >
+  Анализирует обязательства соблюдать отраслевые требования (финансы, медицина,
+  телеком, энергетика, образование и др.), а также наличие упоминаний о
+  нарушениях, проверках, предписаниях и штрафах.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "соответствовать требованиям"
+    - "compliance with"
+    - "applicable regulations"
+    - "отраслевые требования"
+    - "regulatory requirements"
+    - "надзорный орган"
+    - "regulator"
+    - "инспекция"
+    - "проверка"
+    - "inspection"
+    - "предписание"
+    - "enforcement action"
+    - "штраф"
+    - "penalty"
+    - "fine"
+    - "расследование"
+    - "investigation"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по регуляторному комплаенсу.
+    Тебе даны фрагменты договора и/или заявлений сторон, где могут
+    упоминаться отраслевые требования и отношения с регуляторами.
+
+    Определи:
+    1) Есть ли общие или отраслевые обязательства соблюдать
+       применимые законы и регуляторные требования (включая специфические
+       для отрасли: финансы, медицина, телеком, энергетика, образование и т.п.).
+    2) Упоминаются ли существующие или недавние проверки, расследования,
+       предписания, штрафы или иные меры со стороны регуляторов.
+    3) Есть ли заверения об отсутствии существенных регуляторных нарушений.
+    4) Насколько описанные факты/обязанности указывают на регуляторный риск
+       для Target.
+
+    Верни строго JSON:
+    {
+      "has_industry_or_general_compliance_obligations": "yes|no|unclear",
+      "mentions_regulatory_investigations_or_fines": "yes|no|unclear",
+      "has_representations_about_no_material_violations": "yes|no|unclear",
+      "regulatory_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "compliance with"
+    - "regulatory requirements"
+    - "инспекция"
+    - "предписание"
+    - "штраф"
+    - "investigation"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_industry_or_general_compliance_obligations"
+      type: "string"
+    - name: "mentions_regulatory_investigations_or_fines"
+      type: "string"
+    - name: "has_representations_about_no_material_violations"
+      type: "string"
+    - name: "regulatory_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "REG3"
+      description: "Упоминания расследований/штрафов без ясного статуса и remedial-плана."
+    - code: "REG4"
+      description: "Чисто формальные комплаенс-положения при очевидно высокорискованной отрасли."

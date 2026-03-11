@@ -1,20 +1,23 @@
+# src/workers/pii_sanitizer.py
+
 """
 PII Sanitizer Worker.
 
-Stage 5 в pipeline: extract → pii → structure → classify → run_checks
+Stage 5 в пайплайне: extract → pii → structure → classify → run_checks.
 
-Архитектура (согласована с Stage 4):
-  - Sync Celery task с async-обёрткой
-  - UnitOfWork через db_uow() контекстный менеджер
-  - Репозитории создаются с uow.session
-  - Обработка ошибок: PermanentError → failed, QuarantineError → quarantine
+Архитектурные принципы:
+- Celery‑таска синхронная (def) + async‑ядро (как в extract/import/runner/classifier).
+- Основная санитизация работает в одном UnitOfWork (db_uow) — читаем и пишем всё
+  в рамках одной транзакции.
+- Если при санитизации происходит ошибка, мы ОТДЕЛЬНО открываем новый db_uow
+  только чтобы надёжно записать статус документа (failed / quarantine).
+- Для юриста это означает: документ никогда не «зависает» в промежуточном
+  состоянии, всегда имеет честный и понятный статус.
 """
 
 import asyncio
 import uuid
 from typing import Any
-
-from celery import shared_task
 
 from core.config import settings
 from core.exceptions import PermanentError, QuarantineError
@@ -25,27 +28,23 @@ from db.repositories import (
     DocumentVersionRepository,
 )
 from db.uow import UnitOfWork, db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
 from services.pii_detector import get_pii_detector, get_preserve_types
 from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
 from services.pii_tokenizer import PIIPolicy, PIITokenizer
 from classifiers.yaml_registry import YAMLRegistry
 from storage.artifact_store import ArtifactStore
-from workers.structure_builder import build_structure
 
 logger = get_logger(__name__)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PII Sanitizer Service (async, testable)
-# ═══════════════════════════════════════════════════════════════════════════════
 
 
 class PIISanitizer:
     """
     Сервис санитизации PII в документе.
 
-    Отделён от Celery-таски для тестируемости.
-    Получает UoW извне (dependency injection).
+    Отделён от Celery‑таски для тестируемости.
+    Получает UnitOfWork извне, работает строго в его границах.
     """
 
     def __init__(
@@ -59,12 +58,12 @@ class PIISanitizer:
         self.uow = uow
         self.store = artifact_store
 
-        # Репозитории создаём с сессией из UoW
+        # Репозитории поверх сессии из UoW
         self.doc_repo = DocumentRepository(uow.session)
         self.version_repo = DocumentVersionRepository(uow.session)
         self.audit_repo = AuditRepository(uow.session)
 
-        # Dependency injection для тестов
+        # Dependency injection (для тестов)
         self.detector = detector or get_pii_detector()
         self.tokenizer = tokenizer or PIITokenizer()
         self.encryptor = encryptor or get_pii_encryptor()
@@ -73,17 +72,15 @@ class PIISanitizer:
         """
         Выполнить санитизацию документа.
 
-        Args:
-            document_version_id: UUID версии документа
+        Возвращает словарь с полями:
+        - document_id
+        - entities_detected / tokenized / preserved
+        - skipped (True, если документ уже был обработан)
 
-        Returns:
-            dict с результатами: document_id, entities_*, skipped
-
-        Raises:
-            PermanentError: при неисправимых ошибках (документ не найден, нет raw текста)
-            QuarantineError: при ошибках, требующих карантина (шифрование)
+        В этой функции мы НЕ открываем новый UnitOfWork,
+        используем только тот, что был передан снаружи.
         """
-        # 1. Загрузить версию и документ
+        # 1. Загрузка версии и документа
         version = await self.version_repo.get_by_id(document_version_id)
         if not version:
             raise PermanentError(f"DocumentVersion {document_version_id} not found")
@@ -100,7 +97,7 @@ class PIISanitizer:
             )
             return {"document_id": str(doc.id), "skipped": True}
 
-        # 3. Проверить наличие исходного текста
+        # 3. Проверка наличия исходного текста
         if not version.text_layout_raw_ref:
             raise PermanentError(f"No text_layout_raw_ref for version {document_version_id}")
 
@@ -109,14 +106,14 @@ class PIISanitizer:
             layout_raw = await self.store.get_json(version.text_layout_raw_ref)
             elements = layout_raw.get("elements", [])
 
-            # 5. Построить PIIPolicy с учётом applicable_triggers и YAML-конфига
+            # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
             triggers = getattr(doc, "applicable_triggers", None) or []
             policy = self._build_policy(doc, triggers)
 
-            # 6. Обработать каждый элемент
+            # 6. Обработать элементы
             sanitized_elements, global_mapping, stats = self._process_elements(elements, policy)
 
-            # 7. Сохранить textlayoutsanitized
+            # 7. Сохранить sanitized‑layout
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
             sanitized_path = self._build_sanitized_path(doc)
             await self.store.put_json(sanitized_path, layout_sanitized)
@@ -136,7 +133,7 @@ class PIISanitizer:
                 status="sanitized",
             )
 
-            # 10. AuditLog
+            # 10. AuditLog (опционально)
             if settings.PII_AUDIT_ENABLED:
                 await self._write_audit_log(doc, triggers, policy, stats)
 
@@ -158,6 +155,7 @@ class PIISanitizer:
             }
 
         except PIIEncryptionError as e:
+            # Ошибка шифрования → карантин
             raise QuarantineError(f"Encryption error: {e}") from e
 
     def _should_skip(self, doc) -> bool:
@@ -168,24 +166,15 @@ class PIISanitizer:
 
     def _build_policy(self, doc, triggers: list) -> PIIPolicy:
         """
-        Построить PIIPolicy с учётом YAML-конфига типа документа.
-
-        Args:
-            doc: Document model
-            triggers: applicable_triggers из документа
-
-        Returns:
-            PIIPolicy с party_role_keywords из YAML (если доступен)
+        Построить PIIPolicy с учётом YAML‑конфига типа документа.
         """
         party_role_keywords: dict[str, str] | None = None
 
-        # Пытаемся получить словарь ролей из YAML-реестра
-        # ВАЖНО: на Stage 5 doc_type может быть ещё None (классификация позже)
+        # На Stage 5 doc_type может быть ещё None (классификация позже)
         type_code = getattr(doc, "doc_type", None)
 
         if type_code:
             try:
-
                 registry = YAMLRegistry.get_instance()
                 cfg = registry.get_config(type_code)
 
@@ -216,14 +205,13 @@ class PIISanitizer:
         """
         Обработать элементы layout'а.
 
-        Returns:
-            (sanitized_elements, global_mapping, stats)
+        Возвращает:
+          sanitized_elements, global_mapping, stats
         """
         sanitized_elements = []
         global_mapping: dict[str, str] = {}
         stats = {"detected": 0, "tokenized": 0, "preserved": 0, "role_mapped": 0}
 
-        # Получаем preserve_types один раз для всех элементов
         preserve_types = get_preserve_types()
 
         for elem in elements:
@@ -236,7 +224,7 @@ class PIISanitizer:
             all_entities = self.detector.detect(raw_text)
             stats["detected"] += len(all_entities)
 
-            # Фильтруем preserve-типы для токенизации
+            # Оставляем без токенизации типы, которые надо сохранить как есть
             pii_entities = [e for e in all_entities if e.type not in preserve_types]
 
             if not pii_entities:
@@ -246,7 +234,12 @@ class PIISanitizer:
 
             # Токенизируем
             context = raw_text[:500]
-            result = self.tokenizer.tokenize(raw_text, pii_entities, policy, context_window=context)
+            result = self.tokenizer.tokenize(
+                raw_text,
+                pii_entities,
+                policy,
+                context_window=context,
+            )
 
             global_mapping.update(result.mapping)
             stats["tokenized"] += result.entities_tokenized
@@ -258,7 +251,7 @@ class PIISanitizer:
         return sanitized_elements, global_mapping, stats
 
     def _build_sanitized_path(self, doc) -> str:
-        """Построить путь для sanitized layout в MinIO."""
+        """Построить путь для sanitized‑layout в MinIO."""
         tenant_id = "default"
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
             tenant_id = str(doc.deal.tenant_id)
@@ -267,7 +260,7 @@ class PIISanitizer:
         return f"tenants/{tenant_id}/deals/{deal_id}/sanitized/{doc.id}.json"
 
     def _build_mapping_path(self, doc) -> str:
-        """Построить путь для PII mapping в MinIO."""
+        """Построить путь для PII‑mapping в MinIO."""
         tenant_id = "default"
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
             tenant_id = str(doc.deal.tenant_id)
@@ -282,11 +275,11 @@ class PIISanitizer:
         policy: PIIPolicy,
         stats: dict,
     ) -> None:
-        """Записать audit log."""
-        tenant_id: uuid.UUID
+        """Записать audit‑лог по результатам санитизации."""
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-            tenant_id = doc.deal.tenant_id
+            tenant_id: uuid.UUID = doc.deal.tenant_id
         else:
+            # fallback: используем deal_id как tenant_id (dev‑режим)
             tenant_id = doc.deal_id
 
         await self.audit_repo.log(
@@ -310,69 +303,83 @@ class PIISanitizer:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Celery Task (sync wrapper → async execution)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-@shared_task(
-    name="pii.sanitize_document",
+@celery_app.task(
+    base=MASBaseTask,
     bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_backoff_max=300,
-    acks_late=True,
-    reject_on_worker_lost=True,
+    name="pii.sanitize_document",
+    track_job=False,
+    queue="default",
 )
-def sanitize_document(self, document_version_id: str) -> dict:
+def sanitize_document(
+    self,
+    document_version_id: str,
+) -> dict:
     """
-    Celery-таска санитизации документа.
+    Синхронная Celery‑таска санитизации документа.
 
-    Args:
-        document_version_id: UUID версии документа (как строка от Celery)
-
-    Sync wrapper для async-логики (паттерн Stage 4).
+    Внутри:
+      - открывает основной UnitOfWork (uow_main) через db_uow();
+      - запускает асинхронную санитизацию;
+      - при ошибке открывает ВТОРОЙ, маленький UnitOfWork только для записи
+        статуса (failed / quarantine), чтобы юрист всегда видел честное состояние;
+      - при успехе ставит задачу следующего этапа (Structure Builder).
     """
     version_uuid = uuid.UUID(document_version_id)
 
-    async def _run() -> dict:
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
 
-        async with db_uow() as uow:
-            store = ArtifactStore(settings)
-            sanitizer = PIISanitizer(uow=uow, artifact_store=store)
+        async def _run() -> dict:
+            # Основной UnitOfWork для санитизации
+            async with db_uow() as uow_main:
+                store = ArtifactStore(settings)
+                sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
 
-            try:
-                result = await sanitizer.sanitize(version_uuid)
+                try:
+                    result = await sanitizer.sanitize(version_uuid)
 
-                # Запустить следующую стадию
-                if not result.get("skipped") and not settings.DISABLE_DOWNSTREAM_TASKS:
+                    # Успех → ставим следующую стадию (build_structure)
+                    if not result.get("skipped") and not settings.DISABLE_DOWNSTREAM_TASKS:
+                        celery_app.send_task(
+                            "workers.build_structure",
+                            kwargs={
+                                "document_version_id": document_version_id,
+                                # run_id можно добавить при необходимости
+                            },
+                        )
 
-                    build_structure.delay(document_version_id=document_version_id)
+                    return result
 
-                return result
+                except PermanentError as e:
+                    logger.error(
+                        "Permanent error during PII sanitization",
+                       	document_version_id=document_version_id,
+                        error=str(e),
+                    )
+                    # Отдельный UoW только для записи статуса failed
+                    async with db_uow() as uow_status:
+                        await _mark_status(uow_status, version_uuid, "failed")
+                    return {"status": "failed", "error": str(e)}
 
-            except PermanentError as e:
-                logger.error(f"Permanent error for {document_version_id}: {e}")
-                raise
+                except QuarantineError as e:
+                    logger.error(
+                        "Quarantine error during PII sanitization",
+                        document_version_id=document_version_id,
+                        error=str(e),
+                    )
+                    # Отдельный UoW только для записи статуса quarantine
+                    async with db_uow() as uow_status:
+                        await _mark_status(uow_status, version_uuid, "quarantine")
+                    return {"status": "quarantine", "error": str(e)}
 
-            except QuarantineError as e:
-                logger.error(f"Quarantine error for {document_version_id}: {e}")
-                raise
+        async def _mark_status(uow: UnitOfWork, version_id: uuid.UUID, status: str) -> None:
+            """
+            Обновить статус документа в отдельной, простой транзакции.
 
-    async def _run_with_error_handling() -> dict:
-        try:
-            return await _run()
-        except PermanentError as e:
-            await _mark_status(version_uuid, "failed")
-            return {"status": "failed", "error": str(e)}
-        except QuarantineError as e:
-            await _mark_status(version_uuid, "quarantine")
-            return {"status": "quarantine", "error": str(e)}
-
-    async def _mark_status(version_id: uuid.UUID, status: str):
-        async with db_uow() as uow:
+            Это гарантирует, что даже если основная санитизация сломалась,
+            юрист всё равно увидит честный статус документа.
+            """
             version_repo = DocumentVersionRepository(uow.session)
             doc_repo = DocumentRepository(uow.session)
 
@@ -383,9 +390,7 @@ def sanitize_document(self, document_version_id: str) -> dict:
                     status=status,
                 )
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(_run_with_error_handling())
+        return loop.run_until_complete(_run())
     finally:
+        asyncio.set_event_loop(None)
         loop.close()

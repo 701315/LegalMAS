@@ -49,8 +49,7 @@ from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
 
 from storage.artifact_store import ArtifactStore, ArtifactPath
-
-from workers.runner import run_checks
+from mas_queue.celery_app import celery_app
 
 from ..schemas.documents import (
     DocumentDetailResponse,
@@ -308,11 +307,14 @@ async def reclassify_document(
         latest_run = await run_repo.get_latest_for_deal(doc.deal_id)
         if latest_run:
             try:
-                run_checks.delay(
-                    document_id=str(doc_id),
-                    deal_id=str(doc.deal_id),
-                    tenant_id=str(user.tenant_id),
-                    run_id=str(latest_run.id),
+                celery_app.send_task(
+                    "workers.run_checks",
+                    kwargs={
+                        "document_id": str(doc_id),
+                        "deal_id": str(doc.deal_id),
+                        "tenant_id": str(user.tenant_id),
+                        "run_id": str(latest_run.id),
+                    },
                 )
                 checks_requeued = True
             except Exception:
@@ -325,7 +327,7 @@ async def reclassify_document(
         action="RECLASSIFY",
         actor=str(getattr(user, "id", "unknown")),
         deal_id=doc.deal_id,
-        actor_role=getattr(user, "role", None),
+        actor_role=getattr(user, "global_role", None),
         details={
             "document_id": str(doc_id),
             "previous_doc_type": previous_doc_type,
@@ -611,7 +613,7 @@ async def replace_document(
         deal_id=doc.deal_id,
         action="DOCUMENT_REPLACE",
         actor=str(getattr(user, "id", "unknown")),
-        actor_role=getattr(user, "role", None),
+        actor_role=getattr(user, "global_role", None),
         details={
             "document_id": str(doc.id),
             "filename": file.filename,

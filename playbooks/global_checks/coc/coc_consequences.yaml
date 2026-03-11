@@ -1,0 +1,121 @@
+id: "coc_consequences"
+name: "Последствия смены контроля и уступки"
+description: >
+  Анализирует, какие последствия предусмотрены при смене контроля,
+  уступке прав или переводе долга (расторжение, акселерация, изменение условий).
+doc_types: []
+severity: "critical"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "право расторгнуть"
+    - "одностороннее расторжение"
+    - "termination"
+    - "terminate"
+    - "acceleration"
+    - "досрочное исполнение"
+    - "досрочное взыскание"
+    - "изменение цены"
+    - "step-up"
+    - "изменение скидок"
+    - "отмена льгот"
+    - "дополнительное обеспечение"
+    - "дополнительные гарантии"
+    - "залог"
+    - "mortgage"
+    - "новирование"
+    - "новация"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по M&A и финансированию.
+    Тебе даны фрагменты договора с положениями о смене контроля и/или уступке.
+
+    Определи, какие последствия наступают при смене контроля,
+    уступке прав или переводе долга:
+
+    1) Право контрагента на одностороннее расторжение договора
+       (есть/нет, как сформулировано).
+    2) Акселерация: досрочное исполнение/взыскание обязательств
+       (например, досрочное погашение кредита).
+    3) Изменение цены или коммерческих условий (step-up, отмена скидок, льгот).
+    4) Требование дополнительного обеспечения (залог, гарантия, поручительство).
+    5) Запрет на передачу договора правопреемнику или необходимость новации.
+    6) Насколько совокупность этих последствий рискованна для покупателя бизнеса.
+
+    Верни строго JSON:
+    {
+      "termination_right": "none|limited|broad",
+      "acceleration": "yes|no|unclear",
+      "price_or_terms_change": "yes|no|unclear",
+      "additional_security": "yes|no|unclear",
+      "novation_required": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "termination"
+    - "расторгнуть"
+    - "acceleration"
+    - "досрочное исполнение"
+    - "step-up"
+    - "дополнительное обеспечение"
+    - "новация"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "termination_right"
+      type: "string"
+    - name: "acceleration"
+      type: "string"
+    - name: "price_or_terms_change"
+      type: "string"
+    - name: "additional_security"
+      type: "string"
+    - name: "novation_required"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "CON1"
+      description: "Право контрагента расторгнуть ключевой договор при смене контроля без компенсации."
+    - code: "CON2"
+      description: "Акселерация крупных обязательств при смене контроля."
+    - code: "CON3"
+      description: "Изменение цены/условий в сторону ухудшения для Target после смены контроля."
+    - code: "CON4"
+      description: "Жесткое требование доп.обеспечения, которое трудно выполнить после сделки."

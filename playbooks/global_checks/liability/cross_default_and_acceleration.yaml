@@ -1,0 +1,103 @@
+id: "cross_default_and_acceleration"
+name: "Cross-default и cross-acceleration"
+description: >
+  Анализирует положения о cross-default/cross-acceleration: дефолт по
+  другим договорам/обязательствам как основание для дефолта или
+  акселерации по данному договору.
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "cross-default"
+    - "cross default"
+    - "cross-acceleration"
+    - "cross acceleration"
+    - "дефолт по другим обязательствам"
+    - "defaut по иным договорам"
+    - "event of default under any other agreement"
+    - "событие дефолта по любому договору"
+    - "acceleration"
+    - "досрочное взыскание"
+    - "досрочное погашение"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по финансированию и M&A.
+    Тебе даны фрагменты договора с возможными положениями о cross-default
+    и cross-acceleration.
+
+    Определи:
+    1) Есть ли положения, при которых дефолт/нарушение по другим договорам
+       или обязательствам (включая кредиты, облигации, гарантии) считается
+       событием дефолта по данному договору (cross-default).
+    2) Есть ли механизмы cross-acceleration (досрочное взыскание/погашение
+       по данному договору при акселерации по другим обязательствам).
+    3) Насколько широкий охват таких положений (любые обязательства, только
+       существенные, только финансовые и т.п.).
+    4) Насколько такие положения рискованны для Target с точки зрения
+       "подрыва" нескольких контрактов при единичном нарушении.
+
+    Верни строго JSON:
+    {
+      "has_cross_default": "yes|no|unclear",
+      "has_cross_acceleration": "yes|no|unclear",
+      "scope_description": "строка с описанием охвата",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 4
+  temperature: 0.0
+  max_tokens: 512
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 500
+
+retrieval:
+  context_k: 4
+  max_chunks: 8
+  boost_keywords:
+    - "cross-default"
+    - "cross-acceleration"
+    - "событие дефолта по любому договору"
+    - "acceleration"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_cross_default"
+      type: "string"
+    - name: "has_cross_acceleration"
+      type: "string"
+    - name: "scope_description"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "LIAB6"
+      description: "Cross-default охватывает практически любые обязательства, создавая риск цепной реакции дефолтов."
+    - code: "LIAB7"
+      description: "Жёсткий cross-acceleration, который может активироваться из-за локального нарушения по другому договору."

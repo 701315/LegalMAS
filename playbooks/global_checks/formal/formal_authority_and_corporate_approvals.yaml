@@ -1,0 +1,113 @@
+id: "formal_authority_and_corporate_approvals"
+name: "Полномочия подписантов и корпоративные одобрения"
+description: >
+  Анализирует полномочия подписантов договора, наличие корпоративных одобрений
+  (решения органов управления) и соответствие этим требованиям по крупным и
+  заинтересованным сделкам.
+doc_types: []
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "подписант"
+    - "уполномочен"
+    - "authorised signatory"
+    - "signing authority"
+    - "действует на основании"
+    - "bylaws"
+    - "устав"
+    - "charter"
+    - "board resolution"
+    - "решение совета директоров"
+    - "решение общего собрания"
+    - "shareholders' resolution"
+    - "одобрение сделки"
+    - "approval of the transaction"
+    - "крупная сделка"
+    - "заинтересованная сделка"
+    - "interested party transaction"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — корпоративный юрист.
+    Тебе даны фрагменты договора и/или корпоративных документов, связанных
+    с подписанием договора.
+
+    Определи:
+    1) Кто подписал договор от имени каждой стороны (должности/статусы).
+    2) Есть ли указание на основания полномочий (устав, доверенность,
+       решение совета директоров/общего собрания).
+    3) Упоминаются ли корпоративные одобрения, если сделка потенциально
+       крупная или заинтересованная.
+    4) Есть ли признаки того, что полномочия подписантов/одобрения могут быть
+       недостаточными или оспоримыми.
+    5) Насколько формальный риск по полномочиям и одобрениям значим для Target.
+
+    Верни строго JSON:
+    {
+      "signatories_and_titles_summary": "краткое описание подписантов и их должностей",
+      "mentions_basis_of_signing_authority": "yes|no|unclear",
+      "mentions_corporate_approvals_for_transaction": "yes|no|unclear",
+      "authority_and_approvals_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "authorised signatory"
+    - "действует на основании"
+    - "board resolution"
+    - "решение совета директоров"
+    - "одобрение сделки"
+    - "крупная сделка"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "signatories_and_titles_summary"
+      type: "string"
+    - name: "mentions_basis_of_signing_authority"
+      type: "string"
+    - name: "mentions_corporate_approvals_for_transaction"
+      type: "string"
+    - name: "authority_and_approvals_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FORM1"
+      description: "Подписанты без явно подтверждённых полномочий по крупной/заинтересованной сделке."
+    - code: "FORM2"
+      description: "Отсутствие упоминаний о корпоративных одобрениях там, где они явно требуются."

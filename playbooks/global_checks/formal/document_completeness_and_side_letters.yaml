@@ -1,0 +1,116 @@
+id: "document_completeness_and_side_letters"
+name: "Полнота документации и side letters"
+description: >
+  Анализирует полноту пакета по сделке: наличие всех приложений, допсоглашений,
+  протоколов разногласий и side letters, а также соответствие предоставленного
+  пакета внутренним реестрам (contract/litigation register).
+doc_types: []
+severity: "high"
+severity_if_fail: "high"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "Приложение"
+    - "schedule"
+    - "exhibit"
+    - "appendix"
+    - "application"
+    - "side letter"
+    - "сторонами также заключено"
+    - "отдельное соглашение"
+    - "supplemental agreement"
+    - "дополнительное соглашение"
+    - "protocol of disagreements"
+    - "протокол разногласий"
+    - "disclosure schedule"
+    - "раскрытие"
+    - "contract register"
+    - "реестр договоров"
+    - "litigation register"
+    - "реестр судебных споров"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по сделкам и due diligence.
+    Тебе даны фрагменты основного договора и, возможно, ссылки на приложения,
+    допсоглашения, side letters и внутренние реестры.
+
+    Определи:
+    1) На какие приложения, допсоглашения, протоколы разногласий и side letters
+       ссылается основной договор.
+    2) Есть ли признаки того, что часть таких документов отсутствует в
+       предоставленном пакете (упоминания без текста, пропущенные номера и т.п.).
+    3) Упоминаются ли disclosure schedules и насколько они выглядят полными
+       или, наоборот, потенциально неполными.
+    4) Есть ли ссылка на внутренние реестры (contract/litigation register)
+       и признаки расхождений между ними и фактическим пакетом документов.
+    5) Насколько рискованны для Target возможные пробелы и скрытые side letters.
+
+    Верни строго JSON:
+    {
+      "referenced_ancillary_documents_summary": "краткое описание упоминаемых приложений/side letters",
+      "suspected_missing_documents_or_schedules": "yes|no|unclear",
+      "disclosure_schedules_completeness_assessment": "adequate|weak|unclear|none",
+      "registers_vs_actual_docs_gap_risk_level": "low|medium|high|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 6
+  temperature: 0.0
+  max_tokens: 768
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 700
+
+retrieval:
+  context_k: 6
+  max_chunks: 12
+  boost_keywords:
+    - "schedule"
+    - "exhibit"
+    - "side letter"
+    - "Приложение"
+    - "disclosure schedule"
+    - "contract register"
+    - "litigation register"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "referenced_ancillary_documents_summary"
+      type: "string"
+    - name: "suspected_missing_documents_or_schedules"
+      type: "string"
+    - name: "disclosure_schedules_completeness_assessment"
+      type: "string"
+    - name: "registers_vs_actual_docs_gap_risk_level"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FORM3"
+      description: "Отсутствие приложений/side letters, на которые прямо ссылается договор."
+    - code: "FORM4"
+      description: "Очевидный разрыв между реестрами договоров/споров и фактически представленными документами."

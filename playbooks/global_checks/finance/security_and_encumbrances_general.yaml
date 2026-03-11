@@ -1,0 +1,113 @@
+id: "security_and_encumbrances_general"
+name: "Обеспечение и обременения (общий уровень)"
+description: >
+  Анализирует обеспечительные конструкции: залоги активов и прав, поручительства,
+  корпоративные гарантии, negative pledge и другие обременения, связанные с договором.
+doc_types: []
+severity: "high"
+severity_if_fail: "critical"
+severity_if_pass: "pass"
+severity_if_unclear: "medium"
+
+detector_type: "hybrid"
+
+rules:
+  keywords:
+    - "залог"
+    - "ипотека"
+    - "pledge"
+    - "mortgage"
+    - "поручительство"
+    - "guarantee"
+    - "corporate guarantee"
+    - "surety"
+    - "обеспечительный платеж"
+    - "security interest"
+    - "обременение"
+    - "encumbrance"
+    - "negative pledge"
+    - "запрет обременения"
+    - "запрет отчуждения"
+  keyword_mode: "any"
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_template: |
+    Ты — юрист по финансированию и обеспечительным конструкциям.
+    Тебе даны фрагменты договора, где могут быть положения о залоге, гарантиях
+    и иных обременениях.
+
+    Определи:
+    1) Какие виды обеспечения предусмотрены:
+       - залог активов/прав,
+       - ипотека,
+       - поручительства,
+       - корпоративные гарантии,
+       - обеспечительные платежи.
+    2) Есть ли negative pledge или иные ограничения на обременение/отчуждение
+       активов.
+    3) Насколько эти обеспечения и ограничения ограничивают гибкость Target
+       (включая будущие сделки/рефинансирование).
+    4) Есть ли признаки переобремененности активов (многоуровневые залоги,
+       гарантии за третьих лиц и т.п.).
+
+    Верни строго JSON:
+    {
+      "has_security_interests": "yes|no|unclear",
+      "types_of_security_summary": "краткое описание видов обеспечения",
+      "has_negative_pledge_or_asset_disposal_limitations": "yes|no|unclear",
+      "appears_overencumbered": "yes|no|unclear",
+      "overall_risk_level": "low|medium|high",
+      "reason": "краткое объяснение на русском"
+    }
+
+    Не добавляй ничего, кроме JSON.
+  prompt_file: null
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: false
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "залог"
+    - "mortgage"
+    - "guarantee"
+    - "negative pledge"
+    - "обременение"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  enabled: true
+  mode: "hybrid"
+  fields:
+    - name: "has_security_interests"
+      type: "string"
+    - name: "types_of_security_summary"
+      type: "string"
+    - name: "has_negative_pledge_or_asset_disposal_limitations"
+      type: "string"
+    - name: "appears_overencumbered"
+      type: "string"
+    - name: "overall_risk_level"
+      type: "string"
+    - name: "reason"
+      type: "string"
+  store_payload: true
+
+red_flags:
+  items:
+    - code: "FIN5"
+      description: "Переобременённость активов залогами и гарантиями, ограничивающая манёвренность Target."
+    - code: "FIN6"
+      description: "Negative pledge мешает обычным операциям или дальнейшему рефинансированию."
