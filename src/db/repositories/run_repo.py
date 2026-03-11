@@ -1,3 +1,5 @@
+# src/db/repositories/run_repo.py
+
 """
 Repository for Run and Job operations.
 """
@@ -11,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.result import CheckResult
 from ..models.run import Job, Run
 from ..models.document import Document
+
 
 class RunRepository:
     def __init__(self, session: AsyncSession):
@@ -71,6 +74,20 @@ class RunRepository:
         await self.session.flush()
         return new_count
 
+    async def get_counts(self, run_id: uuid.UUID) -> tuple[int, int]:
+        """
+        Вернуть (total_checks, completed_checks) для Run.
+        """
+        result = await self.session.execute(
+            select(Run.total_checks, Run.completed_checks).where(Run.id == run_id)
+        )
+        row = result.first()
+        if not row:
+            return 0, 0
+        total = row[0] or 0
+        completed = row[1] or 0
+        return total, completed
+
     async def get_document_ids_for_run(self, run_id: uuid.UUID) -> list[uuid.UUID]:
         """
         Вернуть уникальные document_id, для которых есть CheckResult с данным run_id.
@@ -83,7 +100,6 @@ class RunRepository:
         )
         result = await self.session.execute(subq)
         return [row[0] for row in result.all()]
-
 
     async def get_latest_for_deal(self, deal_id: uuid.UUID) -> Run | None:
         """
@@ -101,7 +117,6 @@ class RunRepository:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-
     async def get_by_deal(self, deal_id: uuid.UUID) -> list[Run]:
         """
         Вернуть все runs для указанной сделки, отсортированные по дате создания (новые сначала).
@@ -113,7 +128,6 @@ class RunRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
-
 
     async def get_classification_stats_for_run(self, run_id: uuid.UUID) -> dict:
         """

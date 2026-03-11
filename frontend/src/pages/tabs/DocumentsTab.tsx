@@ -60,6 +60,10 @@ function formatStatus(status: Document["status"] | undefined): string {
       return "Обработан";
     case "quarantine":
       return "Карантин";
+    case "failed":
+      return "Ошибка обработки";
+    case "duplicate":
+      return "Дубликат";
     default:
       return status;
   }
@@ -90,6 +94,14 @@ function formatDateTime(value: string | undefined | null): string {
   } catch {
     return value;
   }
+}
+
+// Явный флаг наличия ошибки обработки по backend-полю
+function hasProcessingError(doc: Document): boolean {
+  if (doc.status === "failed") return true;
+  if (!doc.processing_error_details) return false;
+  const { message, code } = doc.processing_error_details;
+  return Boolean(message || code);
 }
 
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
@@ -506,7 +518,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                         key={doc.id}
                         className={`cursor-pointer hover:bg-gray-50 ${
                           selectedDocId === doc.id ? "bg-blue-50" : ""
-                        }`}                 
+                        }`}
                         onClick={() => {
                           setSelectedDocId(doc.id);
                           setModalDoc(doc);
@@ -520,9 +532,16 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                             case "applicable_triggers_count":
                               value = doc.applicable_triggers?.length ?? 0;
                               break;
-                            case "status":
-                              value = formatStatus(doc.status);
+                            case "status": {
+                              const base = formatStatus(doc.status);
+                              if (hasProcessingError(doc)) {
+                                // добавляем визуальный индикатор ошибки к статусу
+                                value = `${base} ⚠`;
+                              } else {
+                                value = base;
+                              }
                               break;
+                            }
                             case "risk_level":
                               value = formatRiskLevel(doc.risk_level);
                               break;
@@ -537,11 +556,19 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                               break;
                           }
 
+                          const title =
+                            col.field === "status" && hasProcessingError(doc)
+                              ? doc.processing_error_details?.message ||
+                                formatStatus(doc.status)
+                              : typeof value === "string"
+                                ? value
+                                : undefined;
+
                           return (
                             <td
                               key={col.id}
                               className="px-2 py-1 border-b border-gray-100 text-gray-800 max-w-xs truncate"
-                              title={typeof value === "string" ? value : undefined}
+                              title={title}
                             >
                               {(() => {
                                 if (typeof value === "boolean") {

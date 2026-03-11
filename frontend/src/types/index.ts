@@ -5,9 +5,11 @@
 // =============================================================
 
 
+
 // -------------------------------------------------------------
 // ВСПОМОГАТЕЛЬНЫЕ ТИПЫ
 // -------------------------------------------------------------
+
 
 /** Универсальный ответ с пагинацией для списков */
 export interface PaginatedResponse<T> {
@@ -21,6 +23,7 @@ export interface PaginatedResponse<T> {
   has_previous: boolean;
 }
 
+
 /** Стандартная ошибка API */
 export interface ApiError {
   detail: string;
@@ -29,16 +32,17 @@ export interface ApiError {
 }
 
 
+
 // -------------------------------------------------------------
 // РОЛИ И ПРАВА ДОСТУПА
 // -------------------------------------------------------------
+
 
 /**
  * Роли пользователей в системе.
  * Уровни: viewer=1, editor=2, reviewer=3, admin=4
  */
 export type UserRole = "superadmin" | "admin" | "reviewer" | "editor" | "viewer";
-
 
 export interface User {
   id: string;
@@ -48,9 +52,11 @@ export interface User {
 }
 
 
+
 // -------------------------------------------------------------
 // КЛАССИФИКАЦИЯ ДОКУМЕНТОВ (Этап 6 / Этап 10)
 // -------------------------------------------------------------
+
 
 /**
  * Уровни классификации HybridClassifier.
@@ -65,6 +71,7 @@ export type ClassificationLevel =
   | "L4"       // подтверждено LLM
   | "L_manual" // ручной override (POST /reclassify)
 
+
 /** Полные метаданные классификации одного документа */
 export interface ClassificationMetadata {
   doc_type: string;
@@ -74,6 +81,7 @@ export interface ClassificationMetadata {
   yaml_instruction_available: boolean;     // есть ли *.yaml для этого типа
   low_confidence: boolean;                 // true если confidence < 0.6
 }
+
 
 /** Сводная статистика классификации по всем документам run */
 export interface ClassificationStats {
@@ -86,6 +94,7 @@ export interface ClassificationStats {
   low_confidence_count: number;
   unknown_doc_type_count: number;
 }
+
 
 /** Полный отчёт по классификации — GET /runs/{run_id}/classification-report */
 export interface ClassificationReport {
@@ -111,9 +120,11 @@ export interface ClassificationReport {
 }
 
 
+
 // -------------------------------------------------------------
 // ДОКУМЕНТЫ
 // -------------------------------------------------------------
+
 
 /** Краткая информация о документе (для списков) */
 export type DocumentStatus =
@@ -125,7 +136,20 @@ export type DocumentStatus =
   | "classified"
   | "analyzing"
   | "completed"
-  | "quarantine";
+  | "quarantine"
+  | "failed"
+  | "duplicate";
+
+/** Детали ошибки обработки документа (JSONB из backend) */
+export interface ProcessingErrorDetails {
+  stage?: string;
+  message?: string;
+  code?: string;
+  retryable?: boolean;
+  occurred_at?: string;
+  // запас под дополнительные ключи от воркеров
+  [key: string]: unknown;
+}
 
 export interface Document {
   // Идентификация
@@ -161,6 +185,9 @@ export interface Document {
   human_review_status?: string | null;  // производное поле из backend
   risk_level?: string | null;           // "low" | "medium" | "high" | "critical" (по договорённости)
 
+  // Детали ошибки обработки (могут отсутствовать или быть null)
+  processing_error_details?: ProcessingErrorDetails | null;
+
   // Время
   created_at: string;
   updated_at: string;
@@ -175,6 +202,7 @@ export interface DocumentVersion {
   created_at: string;
 }
 
+
 /**
  * Детальная информация о документе.
  * Используется с GET /deals/{deal_id}/runs/{run_id}/documents/{doc_id}
@@ -187,6 +215,7 @@ export interface DocumentDetail {
   classification?: ClassificationMetadata;
 }
 
+
 /** Семейство документов для правой панели DocumentsTab. */
 export interface DocumentFamily {
   master: Document | null;
@@ -195,12 +224,14 @@ export interface DocumentFamily {
   versions: Document[];
 }
 
+
 /** Входные данные для ручной переклассификации документа (Editor+) */
 export interface ReclassifyInput {
   doc_type: string;
   reason: string;
   rerun_checks?: boolean;
 }
+
 
 /** Ответ после переклассификации */
 export interface ReclassifyResult {
@@ -213,9 +244,11 @@ export interface ReclassifyResult {
 }
 
 
+
 // -------------------------------------------------------------
 // СТРУКТУРИРОВАННЫЕ ДАННЫЕ (Этап 10)
 // -------------------------------------------------------------
+
 
 /**
  * Одно извлечённое поле из документа.
@@ -230,6 +263,7 @@ export interface StructuredValue {
   clause_uid?: string;
 }
 
+
 /** Все структурированные данные по одному документу */
 export interface StructuredDataResult {
   document_id: string;
@@ -240,9 +274,11 @@ export interface StructuredDataResult {
 }
 
 
+
 // -------------------------------------------------------------
 // RUNS (ЗАПУСКИ АНАЛИЗА)
 // -------------------------------------------------------------
+
 
 export type RunStatus =
   | "pending"
@@ -250,6 +286,7 @@ export type RunStatus =
   | "completed"
   | "failed"
   | "cancelled";
+
 
 /**
  * Входные данные для старта нового анализа.
@@ -262,6 +299,7 @@ export interface RunCreateInput {
   /** Если true — HybridClassifier перезапустится для всех документов */
   force_reclassify?: boolean;
 }
+
 
 /** Информация о запуске анализа */
 export interface Run {
@@ -279,9 +317,11 @@ export interface Run {
 }
 
 
+
 // -------------------------------------------------------------
 // РЕЗУЛЬТАТЫ ПРОВЕРОК (CHECK RESULTS)
 // -------------------------------------------------------------
+
 
 export type CheckResultValue = "fail" | "pass" | "unclear";
 
@@ -293,6 +333,7 @@ export type SeverityLevel =
   | "unclear";
 
 export type QCStatus = "pending" | "approved" | "rejected" | "needs_review";
+
 
 /** Результат одной проверки документа */
 export interface CheckResult {
@@ -325,9 +366,11 @@ export interface CheckResult {
 }
 
 
+
 // -------------------------------------------------------------
 // EVIDENCE (ДОКАЗАТЕЛЬСТВА ДЛЯ РЕЗУЛЬТАТОВ ПРОВЕРОК)
 // -------------------------------------------------------------
+
 
 /**
  * Базовый тип доказательства (evidence) для одного результата проверки.
@@ -348,9 +391,11 @@ export interface Evidence {
 }
 
 
+
 // -------------------------------------------------------------
 // DD ЗАПРОСЫ (DUE DILIGENCE REQUESTS)
 // -------------------------------------------------------------
+
 
 /** Один DD-запрос — требование предоставить документ/информацию */
 export interface DDRequest {
@@ -382,7 +427,9 @@ export interface DDRequestCreateInput {
 }
 
 
+
 // ===== ЭКСПОРТЫ (REPORT / GRID / SUMMARY) =====
+
 
 export interface ExportRecord {
   id: string;
@@ -410,11 +457,14 @@ export interface AuditLogEntry {
 }
 
 
+
 // -------------------------------------------------------------
 // СДЕЛКИ (DEALS)
 // -------------------------------------------------------------
 
+
 export type DealStatus = "active" | "archived" | "draft";
+
 
 /** Краткая информация о сделке (для списка) */
 export interface Deal {
@@ -437,6 +487,7 @@ export interface Deal {
   } | null;
 }
 
+
 /** Детальная информация о сделке */
 export interface DealDetail extends Deal {
   description?: string;
@@ -445,9 +496,11 @@ export interface DealDetail extends Deal {
 }
 
 
+
 // -------------------------------------------------------------
 // ИМПОРТ ДОКУМЕНТОВ
 // -------------------------------------------------------------
+
 
 export type ImportStatus =
   | "uploading"
@@ -468,9 +521,11 @@ export interface ImportJob {
 }
 
 
+
 // -------------------------------------------------------------
 // SSE (ПРОГРЕСС АНАЛИЗА В РЕАЛЬНОМ ВРЕМЕНИ)
 // -------------------------------------------------------------
+
 
 /** Событие прогресса, получаемое через SSE во время анализа */
 export interface ProgressEvent {
@@ -482,9 +537,11 @@ export interface ProgressEvent {
   error?: string;
 }
 
+
 // -------------------------------------------------------------
 // ДОКУМЕНТЫ: ОПИСАНИЯ КОЛОНОК ДЛЯ ТАБЛИЦ/ЭКСПОРТА
 // -------------------------------------------------------------
+
 
 export type DocumentColumnId =
   | "filename"
@@ -519,6 +576,7 @@ export interface DocumentColumnDef {
   /** По умолчанию показывать в таблице или нет */
   defaultVisible: boolean;
 }
+
 
 /**
  * Полный список всех возможных колонок по документу.
@@ -648,6 +706,4 @@ export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
     defaultVisible: false,
   },
 ];
-
-
 

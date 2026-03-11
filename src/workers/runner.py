@@ -37,11 +37,13 @@ from core.logging import get_logger
 from db.models.run import Run
 from db.repositories import ResultRepository, DocumentRepository
 from db.repositories.playbook_repo import PlaybookRepository
-from db.uow import db_uow
+from db.uow import db_uow, UnitOfWork
 from engine.checks.simple_rules import execute_check_for_document
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from storage.artifact_store import ArtifactPath, ArtifactStore
+
+from db.repositories.run_repo import RunRepository
 
 logger = get_logger(__name__)
 
@@ -83,15 +85,34 @@ def run_checks(
         asyncio.set_event_loop(loop)
 
         async def _wrapper() -> dict:
-            async with db_uow() as uow:
-                return await _run_checks_async(
+            try:
+                async with db_uow() as uow:
+                    return await _run_checks_async(
+                        document_id=document_id,
+                        deal_id=deal_id,
+                        tenant_id=tenant_id,
+                        run_id=run_id,
+                        doctype=doctype,
+                        db=uow.session,
+                    )
+            except Exception as e:
+                logger.error(
+                    "Unhandled error during checks",
                     document_id=document_id,
                     deal_id=deal_id,
-                    tenant_id=tenant_id,
                     run_id=run_id,
-                    doctype=doctype,
-                    db=uow.session,
+                    error=str(e),
                 )
+                # отдельный UoW, чтобы пометить документ FAILED на стадии checks
+                async with db_uow() as uow_status:
+                    await _mark_checks_failed(
+                        uow_status,
+                        document_id=document_id,
+                        run_id=run_id,
+                        message=str(e),
+                    )
+                # пробрасываем, чтобы таска пометилась как failed в Celery
+                raise
 
         return loop.run_until_complete(_wrapper())
     finally:
@@ -230,16 +251,7 @@ async def _run_checks_async(
         evidence=len(evidence_records),
     )
 
-    # 7. Триггерим экспорт результатов по run'у
-    if run_id:
-        celery_app.send_task(
-            "workers.export_results",
-            kwargs={
-                "run_id": run_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-            },
-        )
+    # экспорт теперь запускается отдельным эндпоинтом /runs/{run_id}/export
 
     return {
         "document_id": document_id,
@@ -309,10 +321,27 @@ async def _finalize(
     """
     Финализация задачи Runner'а:
     - сохранение результатов в CheckResult;
-    - обновление статуса документа.
+    - обновление статуса документа;
+    - инкремент completed_checks для Run (если run_id задан);
+    - автозавершение Run, если все документы обработаны.
     """
     await _save_results(run_id, document_id, check_results, db)
     await _update_document_status(document_id, db)
+
+    if not run_id:
+        return
+
+    run_repo = RunRepository(db)
+    run_uuid = uuid.UUID(run_id)
+
+    # Увеличиваем счётчик обработанных документов для этого Run.
+    await run_repo.increment_completed_checks(run_uuid)
+
+    # Проверяем, все ли документы для Run обработаны.
+    total, completed = await run_repo.get_counts(run_uuid)
+    if total and completed >= total:
+        # Все документы, запланированные на этот Run, прошли run_checks.
+        await run_repo.update_status(run_uuid, "completed")
 
 
 async def _update_document_status(
@@ -324,4 +353,27 @@ async def _update_document_status(
     await repo.update_status(
         uuid.UUID(document_id),
         DocumentStatus.COMPLETED.value,
+        processing_error_details=None,
+    )
+
+
+async def _mark_checks_failed(
+    uow: UnitOfWork,
+    document_id: str,
+    run_id: str | None,
+    *,
+    message: str,
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в FAILED
+    с деталями ошибки на стадии checks.
+    """
+    repo = DocumentRepository(uow.session)
+    run_uuid = uuid.UUID(run_id) if run_id else None
+    await repo.set_failed(
+        uuid.UUID(document_id),
+        stage="checks",
+        message=message,
+        reason="checks_error",
+        run_id=run_uuid,
     )

@@ -1,6 +1,5 @@
 # src/workers/exporter.py
 
-
 """
 Exporter Worker — Stage 9.
 
@@ -19,10 +18,12 @@ Exporter Worker — Stage 9.
 
 import asyncio
 import time
+import uuid
 
 from ops.metrics import get_metrics
 from core.logging import get_logger
 from db.uow import db_uow
+from db.repositories.run_repo import RunRepository
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.export.core import export_core
@@ -50,6 +51,7 @@ def export_results(
       - создаёт event loop;
       - открывает UnitOfWork через db_uow();
       - вызывает services.export.core.export_core(...);
+      - при ошибке помечает Run как failed;
       - возвращает результат с refs на сгенерированные файлы.
     """
     logger.info("Запуск экспорта", run_id=run_id, deal_id=deal_id)
@@ -63,25 +65,49 @@ def export_results(
 
         async def _run() -> dict:
             async with db_uow() as uow:
-                result = await export_core(
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    tenant_id=tenant_id,
-                    db=uow.session,
-                )
+                run_repo = RunRepository(uow.session)
+                run_uuid = uuid.UUID(run_id)
 
-                duration = time.time() - started_at
-                metrics.export_duration.labels(export_type="full_deal_export").observe(duration)
+                try:
+                    result = await export_core(
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        tenant_id=tenant_id,
+                        db=uow.session,
+                    )
 
-                logger.info(
-                    "Экспорт завершён",
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    duration_sec=round(duration, 2),
-                    files_generated=len(result.get("refs", {})),
-                )
+                    duration = time.time() - started_at
+                    metrics.export_duration.labels(
+                        export_type="full_deal_export"
+                    ).observe(duration)
 
-                return result
+                    logger.info(
+                        "Экспорт завершён",
+                        run_id=run_id,
+                        deal_id=deal_id,
+                        duration_sec=round(duration, 2),
+                        files_generated=len(result.get("refs", {})),
+                    )
+
+                    return result
+
+                except Exception as e:
+                    logger.error(
+                        "Экспорт завершился с ошибкой",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "error": str(e),
+                        },
+                    )
+                    # Помечаем Run как failed и сохраняем детали ошибки
+                    await run_repo.update_status(
+                        run_uuid,
+                        "failed",
+                        error_details={"stage": "export", "error": str(e)},
+                    )
+                    # Пробрасываем ошибку дальше, чтобы Celery видел failure
+                    raise
 
         return loop.run_until_complete(_run())
     finally:

@@ -1,3 +1,5 @@
+# src/db/models/document.py
+
 """
 Document and DocumentVersion models.
 Document — a single file in the data room.
@@ -56,6 +58,15 @@ class Document(Base):
         String(50),
         nullable=False,
         default=DocumentStatus.PENDING.value,
+    )
+
+    processing_error_details: Mapped[dict | None] = mapped_column(  # NEW
+        JSONB,
+        nullable=True,
+        comment=(
+            "Last processing error metadata: "
+            "{stage, type, reason, message, run_id, timestamp}"
+        ),
     )
 
     # NEW: флаг "документ проверен юристом"

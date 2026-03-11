@@ -1,3 +1,5 @@
+# src/core/constants.py
+
 """
 All enumerations and constants used across the system.
 Every Enum inherits from (str, Enum) for JSON/DB serialization.
@@ -20,6 +22,7 @@ class DocumentStatus(str, Enum):
     QUARANTINE = "quarantine"
     DUPLICATE = "duplicate"
     DELETED = "deleted"   # сключён из активной работы, но данные сохраняются для аудита/истории
+    FAILED = "failed"
 
 
 class Severity(str, Enum):

@@ -15,7 +15,6 @@ Extract Worker — рабочий воркер для извлечения те�
 Его заполняет Structure Builder (следующий этап).
 """
 
-
 import asyncio
 import time
 import uuid
@@ -28,7 +27,7 @@ from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError
 from core.logging import get_logger
 from db.repositories import DocumentRepository, DocumentVersionRepository
-from db.uow import db_uow
+from db.uow import db_uow, UnitOfWork
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from services.pdf_extractor import (
@@ -70,14 +69,55 @@ def extract_document(
 
         async def _wrapper() -> dict:
             async with db_uow() as uow:
-                return await _extract_document_async(
-                    document_version_id=document_version_id,
-                    document_id=document_id,
-                    deal_id=deal_id,
-                    tenant_id=tenant_id,
-                    db=uow.session,
-                    run_id=run_id,
-                )
+                try:
+                    return await _extract_document_async(
+                        document_version_id=document_version_id,
+                        document_id=document_id,
+                        deal_id=deal_id,
+                        tenant_id=tenant_id,
+                        db=uow.session,
+                        run_id=run_id,
+                    )
+                except PermanentError as e:
+                    logger.error(
+                        "Permanent error during extraction",
+                        document_id=document_id,
+                        version_id=document_version_id,
+                        error=str(e),
+                    )
+                    # Отдельный UoW только для записи статуса FAILED + деталей
+                    async with db_uow() as uow_status:
+                        await _mark_failed(
+                            uow_status,
+                            document_uuid=uuid.UUID(document_id),
+                            message=str(e),
+                            run_id=uuid.UUID(run_id) if run_id else None,
+                        )
+                    return {
+                        "status": DocumentStatus.FAILED.value,
+                        "document_id": document_id,
+                        "error": str(e),
+                    }
+                except QuarantineError as e:
+                    logger.error(
+                        "Quarantine error during extraction",
+                        document_id=document_id,
+                        version_id=document_version_id,
+                        error=str(e),
+                    )
+                    # Отдельный UoW только для записи статуса QUARANTINE + деталей
+                    async with db_uow() as uow_status:
+                        await _mark_quarantine(
+                            uow_status,
+                            document_uuid=uuid.UUID(document_id),
+                            error=e,
+                            run_id=uuid.UUID(run_id) if run_id else None,
+                        )
+                    return {
+                        "status": DocumentStatus.QUARANTINE.value,
+                        "document_id": document_id,
+                        "error": str(e),
+                    }
 
         return loop.run_until_complete(_wrapper())
     finally:
@@ -214,7 +254,8 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
 
     # Low OCR confidence for OCR/hybrid strategies
     if extraction.strategy in ("ocr", "hybrid") and (
-        extraction.avg_ocr_confidence < settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD
+        extraction.avg_ocr_confidence
+        < settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD
     ):
         METRICS.quarantine.labels(reason="ocr_low_confidence").inc()
         raise QuarantineError(
@@ -274,4 +315,49 @@ async def update_extraction_result(
         uuid.UUID(document_id),
         DocumentStatus.EXTRACTED.value,
         page_count=page_count,
+        processing_error_details=None,
+    )
+
+
+async def _mark_failed(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    message: str,
+    run_id: uuid.UUID | None,
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в статус FAILED
+    с заполнением processing_error_details.
+    """
+    repo = DocumentRepository(uow.session)
+    await repo.set_failed(
+        document_uuid,
+        stage="extract",
+        message=message,
+        reason="extraction_error",
+        run_id=run_id,
+    )
+
+
+async def _mark_quarantine(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    error: QuarantineError,
+    run_id: uuid.UUID | None,
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в QUARANTINE
+    с заполнением processing_error_details.
+    """
+    repo = DocumentRepository(uow.session)
+    reason = getattr(error, "reason", None)
+    msg = str(error)
+    await repo.set_quarantined(
+        document_uuid,
+        stage="extract",
+        message=msg,
+        reason=reason,
+        run_id=run_id,
     )

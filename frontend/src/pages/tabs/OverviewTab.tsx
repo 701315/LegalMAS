@@ -1,12 +1,16 @@
 // =============================================================
 // src/pages/tabs/OverviewTab.tsx
-// Вкладка "Обзор" сделки + карточка качества классификации.
+// Вкладка "Обзор" сделки + прогресс Run + карточка качества классификации.
 // =============================================================
 
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Deal } from "../../types";
-import { useClassificationReport, useStartRun } from "../../api/runs";
+import {
+  useClassificationReport,
+  useStartRun,
+  useRun,
+} from "../../api/runs";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { useDealPermissions } from "../../hooks/usePermissions";
 
@@ -160,8 +164,94 @@ const ClassificationQualityCard: React.FC<{
 };
 
 /**
+ * Карточка прогресса текущего Run (status + completed/total).
+ */
+const RunProgressCard: React.FC<{
+  latestRunId?: string | null;
+}> = ({ latestRunId }) => {
+  const runId = latestRunId ?? null;
+  const { data: run, isLoading } = useRun(runId, false);
+
+  if (!runId) {
+    return (
+      <div className="bg-white rounded-lg p-5 border">
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">
+          Статус анализа
+        </h3>
+        <p className="text-xs text-gray-500">
+          Анализ ещё не запускался для этой сделки.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg p-5 border">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold text-gray-900">
+          Статус анализа
+        </h3>
+        {isLoading ? (
+          <span className="text-xs text-gray-400">Обновляем…</span>
+        ) : (
+          <span className="text-xs text-gray-500">
+            {run?.status ?? "unknown"}
+          </span>
+        )}
+      </div>
+
+      {run && run.total_checks > 0 ? (
+        <>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-gray-500">
+              {run.completed_checks} из {run.total_checks} документов проверено
+            </span>
+            <span className="font-semibold text-gray-700">
+              {Math.round(
+                (run.completed_checks / run.total_checks) * 100,
+              )}
+              %
+            </span>
+          </div>
+          <div className="w-full h-2 bg-gray-100 rounded">
+            <div
+              className={`h-2 rounded ${
+                run.status === "failed"
+                  ? "bg-red-500"
+                  : run.status === "completed"
+                  ? "bg-green-500"
+                  : "bg-blue-500"
+              }`}
+              style={{
+                width: `${Math.min(
+                  100,
+                  (run.completed_checks / run.total_checks) * 100,
+                )}%`,
+              }}
+            />
+          </div>
+          {run.status === "failed" && (
+            <p className="mt-2 text-xs text-red-600">
+              Экспорт завершился с ошибкой.
+              {run.error_details &&
+                (run.error_details as any).error && (
+                  <> Детали: {String((run.error_details as any).error)}</>
+                )}
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="text-xs text-gray-500">
+          Документы для анализа ещё не готовы или пайплайн не запущен.
+        </p>
+      )}
+    </div>
+  );
+};
+
+/**
  * Основной компонент вкладки Overview.
- * Содержит заголовок, кнопку запуска и ClassificationQualityCard.
+ * Содержит заголовок, кнопку запуска, прогресс Run и ClassificationQualityCard.
  */
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const qc = useQueryClient();
@@ -189,7 +279,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
           if (typeof window !== "undefined") {
             window.localStorage.removeItem(forceKey);
           }
-          // Обновить информацию о текущем run
+          // Обновить информацию о текущем run и сделке
           qc.invalidateQueries({
             queryKey: ["run", run.id, true],
           });
@@ -232,6 +322,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
           {startRun.isPending ? "Запускаем…" : "Запустить анализ"}
         </button>
       </div>
+
+      {/* Прогресс текущего Run */}
+      <RunProgressCard latestRunId={latestRunId} />
 
       {/* Карточка качества классификации */}
       <ClassificationQualityCard dealId={deal.id} latestRunId={latestRunId} />

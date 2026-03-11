@@ -1,3 +1,5 @@
+# src/engine/runner.py
+
 """
 Stage 8 Runner: classification + triggers (Stage 7 integrated).
 

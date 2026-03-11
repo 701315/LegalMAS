@@ -179,7 +179,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
     );
   }
 
-
   // Нет документа — показываем сообщение (doc может быть null)
   if (!doc) {
     return (
@@ -217,6 +216,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       void handleFile(file);
     }
   };
+
+  const processingError = doc.processing_error_details || null;
 
   return (
     <div className="h-full overflow-y-auto p-5 space-y-6">
@@ -258,6 +259,43 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             year: "numeric",
           })}
         />
+
+        {/* Блок ошибки обработки, если есть */}
+        {processingError && (
+          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <div className="space-y-0.5">
+                <p className="font-semibold">
+                  Ошибка обработки
+                  {processingError.stage ? ` (${processingError.stage})` : ""}
+                </p>
+                {processingError.message && (
+                  <p className="break-words">
+                    {processingError.message}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2 text-[11px] text-red-700">
+                  {processingError.code && (
+                    <span className="px-1.5 py-0.5 rounded bg-red-100">
+                      Код: {processingError.code}
+                    </span>
+                  )}
+                  {processingError.retryable && (
+                    <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800">
+                      Можно повторить обработку
+                    </span>
+                  )}
+                  {processingError.occurred_at && (
+                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                      Время: {processingError.occurred_at}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Флаг "Проверка юриста не требуется" */}
         <div className="mt-2 flex items-center justify-between">
@@ -462,7 +500,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         {structuredNotAvailable ? (
           <p className="text-xs text-gray-400">
             Структурированные данные можно посмотреть через меню документа
-      (отдельное окно просмотра).
+            (отдельное окно просмотра).
           </p>
         ) : structuredData && structuredData.extracted_values.length > 0 ? (
           <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
@@ -486,7 +524,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           </p>
         )}
       </Section>
-
 
       {/* ========== Действия ========== */}
       <Section title="Действия">
@@ -526,8 +563,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           )}
         </div>
       </Section>
-
-
 
       {/* ========== Карантин / повторная загрузка (каркас) ========== */}
       {doc.status === "quarantine" && (

@@ -1,3 +1,5 @@
+# src/db/models/bundle.py
+
 """
 Bundle model — a batch of documents imported together.
 Each import operation creates one bundle within a deal.

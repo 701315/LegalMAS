@@ -1,3 +1,5 @@
+# src/db/models/run.py
+
 """
 Run and Job models.
 Run — a complete analysis execution against a deal/bundle.

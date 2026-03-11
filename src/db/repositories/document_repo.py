@@ -1,3 +1,5 @@
+# src/db/repositories/document_repo.py
+
 """
 Repository for Document CRUD and classification operations.
 
@@ -89,6 +91,69 @@ class DocumentRepository:
         if doc:
             await self.session.flush()
         return doc
+
+    async def set_failed(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        stage: str,
+        message: str,
+        reason: str | None = None,
+        run_id: uuid.UUID | None = None,
+    ) -> Document | None:
+        """
+        Перевести документ в FAILED и записать детали ошибки в processing_error_details.
+        """
+        from datetime import datetime, UTC
+
+        details: dict[str, object] = {
+            "stage": stage,
+            "type": "failed",
+            "message": message,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        if reason is not None:
+            details["reason"] = reason
+        if run_id is not None:
+            details["run_id"] = str(run_id)
+
+        return await self.update_status(
+            doc_id,
+            DocumentStatus.FAILED.value,
+            processing_error_details=details,
+        )
+
+    async def set_quarantined(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        stage: str,
+        message: str,
+        reason: str | None = None,
+        run_id: uuid.UUID | None = None,
+    ) -> Document | None:
+        """
+        Перевести документ в QUARANTINE и записать детали ошибки.
+        """
+        from datetime import datetime, UTC
+
+        details: dict[str, object] = {
+            "stage": stage,
+            "type": "quarantine",
+            "message": message,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        if reason is not None:
+            details["reason"] = reason
+        if run_id is not None:
+            details["run_id"] = str(run_id)
+
+        return await self.update_status(
+            doc_id,
+            DocumentStatus.QUARANTINE.value,
+            processing_error_details=details,
+        )
+
 
     async def update_classification(
         self,

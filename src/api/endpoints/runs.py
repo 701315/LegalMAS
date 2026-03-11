@@ -55,14 +55,17 @@ async def _start_run_core(
     """
     Общая логика запуска run для сделки.
 
+    Теперь:
     1) проверяем существование сделки;
     2) находим playbook для этой сделки (или default);
     3) берём из него model_config_id;
-    4) создаём Run с обоими ID;
-    5) ставим Celery-задачи classifier/run_checks.
+    4) создаём Run с этими ID;
+    5) обновляем last_run_id у сделки;
+    6) ставим одну оркестрационную Celery-задачу start_run_pipeline(run_id),
+       которая уже сама разберётся, какие документы и какие стадии пайплайна
+       нужно пройти (extract → pii → structure → classify → run_checks).
     """
     run_repo = RunRepository(db)
-    doc_repo = DocumentRepository(db)
     deal_repo = DealRepository(db)
     playbook_repo = PlaybookRepository(db)
 
@@ -98,40 +101,30 @@ async def _start_run_core(
         profile=data.profile,
     )
 
-    # обновляем last_run_id у сделки
+    # 5. Обновляем last_run_id у сделки
     await deal_repo.set_last_run_id(deal_id=deal_uuid, run_id=run.id)
 
-    # 5. Загружаем документы сделки
-    docs = await doc_repo.get_by_deal(deal_uuid)
-
-    # Ветка: сначала (пере)классифицировать все документы
-    if data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False):
-        for d in docs:
-            celery_app.send_task(
-                "workers.classify_document",  # имя таски из декоратора
-                kwargs={
-                    "document_id": str(d.id),
-                    "deal_id": str(d.deal_id),
-                    "tenant_id": str(user.tenant_id),
-                    "run_id": str(run.id),
-                },
-            )
-    else:
-        for d in docs:
-            celery_app.send_task(
-                "workers.run_checks",
-                kwargs={
-                    "document_id": str(d.id),
-                    "deal_id": str(d.deal_id),
-                    "tenant_id": str(user.tenant_id),
-                    "run_id": str(run.id),
-                },
-            )
-  
-    
-    # фиксируем изменения и обновляем объект run
+    # 6. Фиксируем изменения в БД перед постановкой задач
     await db.commit()
     await db.refresh(run)
+
+    # 7. Ставим одну оркестрационную Celery-задачу для run
+    # Воркер workers.start_run_pipeline должен:
+    # - по run_id найти deal и playbook;
+    # - обойти все документы сделки;
+    # - с учётом их статусов (PENDING/EXTRACTED/STRUCTURED/CLASSIFIED/COMPLETED)
+    #   запустить или дозапустить пайплайн до run_checks.
+    celery_app.send_task(
+        "workers.start_run_pipeline",
+        kwargs={
+            "run_id": str(run.id),
+            "deal_id": str(deal_uuid),
+            "tenant_id": str(user.tenant_id),
+            "force_reclassify": bool(
+                data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+            ),
+        },
+    )
 
     return RunResponse.model_validate(run)
 

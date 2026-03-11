@@ -114,12 +114,22 @@ export const documentApi = {
    * POST /api/v1/deals/{dealId}/documents/upload
    * Тело запроса: multipart/form-data с полем "files".
    * Дополнительно можно передать folder_path как query-параметр.
+   *
+   * Бэкенд:
+   * - ставит import_bundle и сразу возвращает простой объект статуса
+   *   (сейчас это может быть пустой массив/объект, но контракт в будущем
+   *   можно расширить, не ломая фронт).
    */
   upload: (
     dealId: string,
     files: File[],
     options?: { folderPath?: string | null },
-  ) => {
+  ): Promise<{
+    status?: string;
+    files_uploaded?: number;
+    // оставляем поле для будущего расширения (bundle_id, etc.)
+    [key: string]: unknown;
+  }> => {
     const formData = new FormData();
 
     // Добавляем все файлы под ключом "files" (соответствует параметру в FastAPI)
@@ -138,14 +148,35 @@ export const documentApi = {
       : `/api/v1/deals/${dealId}/documents/upload`;
 
     return client
-      .post<Document[]>(url, formData, {
+      .post(url, formData, {
         headers: {
           // Axios сам добавит boundary, здесь важно указать тип тела
           "Content-Type": "multipart/form-data",
         },
       })
-      .then((r) => r.data);
+      .then((r) => {
+        const data = r.data ?? {};
+        // Нормализуем ответ: гарантируем наличие status/files_uploaded,
+        // даже если бэкенд пока возвращает просто []
+        if (Array.isArray(data)) {
+          return {
+            status: "queued",
+            files_uploaded: 0,
+          } as {
+            status?: string;
+            files_uploaded?: number;
+            [key: string]: unknown;
+          };
+        }
+        return data as {
+          status?: string;
+          files_uploaded?: number;
+          [key: string]: unknown;
+        };
+      });
   },
+
+
 
   /**
    * Мягкое удаление документа (soft-delete).

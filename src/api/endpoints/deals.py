@@ -44,6 +44,12 @@
 from typing import Annotated, List
 from uuid import UUID
 
+import os
+import tempfile
+import zipfile
+
+from mas_queue.celery_app import celery_app
+
 from fastapi import (
     APIRouter, 
     Query, 
@@ -76,6 +82,13 @@ from db.session import get_db
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.run_repo import RunRepository
+from pydantic import BaseModel
+import uuid
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(
     prefix="/deals",
@@ -291,36 +304,40 @@ async def get_quarantine_docs(
 
 @router.post(
     "/{deal_id}/documents/upload",
-    summary="Загрузить новые документы в сделку",
-    response_model=list[DocumentResponse],
+    summary="Загрузить новые документы в сделку (через импорт-пайплайн)",
+    response_model=dict,  # или отдельная схема UploadResponse
 )
+
 async def upload_deal_documents(
     deal_id: UUID,
     files: List[UploadFile] = File(..., description="Один или несколько файлов документов"),
     folder_path: str | None = Query(
         default=None,
-        description="Опциональный путь в Data Room, например '01. Corporate/Charter Docs'",
+        description="Опциональный путь в Data Room, например '01. Corporate/Charter Docs'. "
+                    "Сейчас это поле используется только для UX; "
+                    "структура внутри ZIP для import_worker задаётся автоматически.",
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Загрузка новых документов в сделку.
+    Загрузка новых документов в сделку через единый production-пайплайн импорта.
 
-    Шаги:
-    1. Проверяем права пользователя (admin/editor) на проект.
-    2. Создаём Bundle для этой операции загрузки.
-    3. Для каждого файла:
-       - создаём Document,
-       - сохраняем файл в ArtifactStore,
-       - создаём DocumentVersion с original_ref,
-       - оставляем статус документа PENDING.
-    4. Возвращаем список созданных документов.
+    Важно:
+    - эндпоинт больше НЕ создаёт Document/DocumentVersion сам и НЕ пишет файлы в MinIO;
+    - он только:
+      * проверяет права и существование сделки;
+      * получает tenant_id из Deal;
+      * собирает загруженные файлы во временный ZIP на файловой системе;
+      * ставит Celery-задачу workers.import_bundle с deal_id, tenant_id и source_path на ZIP.
+
+    Документы, версии и оригиналы создаёт import_worker.import_bundle.
     """
+
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
-    # Проверяем роль пользователя в проекте
+    # 1. Проверяем роль пользователя в проекте
     await require_project_role(
         db=db,
         user=user,
@@ -328,66 +345,78 @@ async def upload_deal_documents(
         allowed_roles=("admin", "editor"),
     )
 
-    # Репозитории
-    bundle_repo = BundleRepository(db)
-    doc_repo = DocumentRepository(db)
-    ver_repo = DocumentVersionRepository(db)
+    # 2. Проверяем, что сделка существует и берём tenant_id из Deal
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
 
-    # Создаём bundle для этой загрузки
-    bundle = await bundle_repo.create(
-        deal_id=deal_id,
-        source_type="local",
-        idempotency_key=None,
-    )
+    tenant_id = str(deal.tenant_id)
 
-    store = ArtifactStore()
-    created_docs: list[DocumentResponse] = []
+    # 3. Создаём временную директорию и ZIP-файл
+    tmp_dir = tempfile.mkdtemp(prefix="mas_upload_")
+    zip_path = os.path.join(tmp_dir, "upload_bundle.zip")
 
-    for upload in files:
-        # Создаём запись документа в БД
-        doc = await doc_repo.create(
-            deal_id=deal_id,
-            bundle_id=bundle.id,
-            filename=upload.filename,
-            folder_path=folder_path,
-            sha256_file=None,
-            status=DocumentStatus.PENDING.value,
+    try:
+        with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for upload in files:
+                # Читаем содержимое файла
+                file_bytes = await upload.read()
+                # Имя файла внутри ZIP - текущее имя
+                arcname = upload.filename or "document"
+                # Пишем во временный файл и добавляем в ZIP
+                tmp_file_path = os.path.join(tmp_dir, arcname)
+                with open(tmp_file_path, "wb") as f:
+                    f.write(file_bytes)
+                zf.write(tmp_file_path, arcname=arcname)
+
+        # 4. Ставим Celery-таску import_bundle
+        celery_app.send_task(
+            "workers.import_bundle",
+            kwargs={
+                "deal_id": str(deal_id),
+                "tenant_id": tenant_id,
+                "source_path": zip_path,
+                "idempotency_key": None,
+                "run_id": None,
+            },
         )
 
-        # Читаем байты файла
-        file_bytes = await upload.read()
+    except Exception as e:
+        # Бест-эффорт очистка временной директории
+        try:
+            for root, dirs, fnames in os.walk(tmp_dir, topdown=False):
+                for name in fnames:
+                    try:
+                        os.remove(os.path.join(root, name))
+                    except Exception:
+                        pass
+                for name in dirs:
+                    try:
+                        os.rmdir(os.path.join(root, name))
+                    except Exception:
+                        pass
+            os.rmdir(tmp_dir)
+        except Exception:
+            pass
 
-        # Сохраняем оригинальный файл в ArtifactStore
-        original_path = ArtifactPath.original(
-            str(user.tenant_id),
-            str(deal_id),
-            str(doc.id),
+        logger.error(
+            "Failed to enqueue import_bundle from upload",
+            extra={
+                "deal_id": str(deal_id),
+                "tenant_id": tenant_id,
+                "error": str(e),
+            },
         )
-        original_ref = store.put_file(
-            original_path,
-            file_bytes,
-            content_type=upload.content_type or "application/octet-stream",
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to enqueue import job",
         )
 
-        # Создаём версию документа с ссылкой на оригинал
-        await ver_repo.create(
-            document_id=doc.id,
-            version_num=1,
-            original_ref=original_ref,
-        )
-
-        # Добавляем документ в результат, используя общий маппер
-        created_docs.append(map_document_to_response(doc))
-
-    # Обновляем количество файлов в bundle и помечаем его как завершённый
-    await bundle_repo.increment_file_count(bundle.id, delta=len(files))
-    await bundle_repo.mark_completed(bundle.id)
-
-    # Фиксируем изменения
-    await db.commit()
-
-    return created_docs
-
+    return {
+        "status": "queued",
+        "files_uploaded": len(files),
+    }
 
 
 @router.post(
@@ -449,14 +478,6 @@ async def debug_list_all_deals(
     for d in deals
     ]
 
-from pydantic import BaseModel
-import uuid
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from db.session import get_db
-from db.repositories.deal_repo import DealRepository
-
 class DebugDealCreate(BaseModel):
     name: str = "Test deal"
     deal_type: str | None = None
@@ -486,3 +507,7 @@ async def debug_create_deal(
         "id": str(deal.id),
         "name": deal.name,
     }
+
+
+
+

@@ -3,14 +3,15 @@
 """
 PII Sanitizer Worker.
 
-Stage 5 в пайплайне: extract → pii → structure → classify → run_checks.
+Пайплайн: extract → pii → structure → classify → run_checks.
 
 Архитектурные принципы:
 - Celery‑таска синхронная (def) + async‑ядро (как в extract/import/runner/classifier).
 - Основная санитизация работает в одном UnitOfWork (db_uow) — читаем и пишем всё
   в рамках одной транзакции.
 - Если при санитизации происходит ошибка, мы ОТДЕЛЬНО открываем новый db_uow
-  только чтобы надёжно записать статус документа (failed / quarantine).
+  только чтобы надёжно записать статус документа (FAILED / QUARANTINE) +
+  processing_error_details.
 - Для юриста это означает: документ никогда не «зависает» в промежуточном
   состоянии, всегда имеет честный и понятный статус.
 """
@@ -34,7 +35,8 @@ from services.pii_detector import get_pii_detector, get_preserve_types
 from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
 from services.pii_tokenizer import PIIPolicy, PIITokenizer
 from classifiers.yaml_registry import YAMLRegistry
-from storage.artifact_store import ArtifactStore
+from core.constants import DocumentStatus
+from storage.artifact_store import ArtifactStore, ArtifactPath
 
 logger = get_logger(__name__)
 
@@ -99,7 +101,9 @@ class PIISanitizer:
 
         # 3. Проверка наличия исходного текста
         if not version.text_layout_raw_ref:
-            raise PermanentError(f"No text_layout_raw_ref for version {document_version_id}")
+            raise PermanentError(
+                f"No text_layout_raw_ref for version {document_version_id}"
+            )
 
         try:
             # 4. Загрузить textlayoutraw из MinIO
@@ -111,7 +115,9 @@ class PIISanitizer:
             policy = self._build_policy(doc, triggers)
 
             # 6. Обработать элементы
-            sanitized_elements, global_mapping, stats = self._process_elements(elements, policy)
+            sanitized_elements, global_mapping, stats = self._process_elements(
+                elements, policy
+            )
 
             # 7. Сохранить sanitized‑layout
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
@@ -130,7 +136,8 @@ class PIISanitizer:
             )
             await self.doc_repo.update_status(
                 doc_id=doc.id,
-                status="sanitized",
+                status=DocumentStatus.SANITIZED.value,
+                processing_error_details=None,
             )
 
             # 10. AuditLog (опционально)
@@ -156,13 +163,17 @@ class PIISanitizer:
 
         except PIIEncryptionError as e:
             # Ошибка шифрования → карантин
-            raise QuarantineError(f"Encryption error: {e}") from e
+            raise QuarantineError(
+                f"Encryption error: {e}",
+                document_id=str(doc.id),
+                reason="pii_encryption_error",
+            ) from e
 
     def _should_skip(self, doc) -> bool:
         """Проверить, нужно ли пропустить санитизацию (идемпотентность)."""
         if not settings.PII_SKIP_IF_ALREADY_SANITIZED:
             return False
-        return doc.status == "sanitized"
+        return doc.status == DocumentStatus.SANITIZED.value
 
     def _build_policy(self, doc, triggers: list) -> PIIPolicy:
         """
@@ -251,22 +262,34 @@ class PIISanitizer:
         return sanitized_elements, global_mapping, stats
 
     def _build_sanitized_path(self, doc) -> str:
-        """Построить путь для sanitized‑layout в MinIO."""
-        tenant_id = "default"
+        """Построить путь для sanitized‑layout в MinIO через ArtifactPath."""
+        # tenant_id берём из связанной сделки, как единственный источник истины
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
             tenant_id = str(doc.deal.tenant_id)
+        else:
+            # fallback для dev-режима, если связь не подгружена
+            tenant_id = str(doc.deal_id)
 
         deal_id = str(doc.deal_id)
-        return f"tenants/{tenant_id}/deals/{deal_id}/sanitized/{doc.id}.json"
+        return ArtifactPath.layout_sanitized(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+        )
 
     def _build_mapping_path(self, doc) -> str:
-        """Построить путь для PII‑mapping в MinIO."""
-        tenant_id = "default"
+        """Построить путь для PII‑mapping в MinIO через ArtifactPath."""
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
             tenant_id = str(doc.deal.tenant_id)
+        else:
+            tenant_id = str(doc.deal_id)
 
         deal_id = str(doc.deal_id)
-        return f"tenants/{tenant_id}/deals/{deal_id}/pii/{doc.id}.bin"
+        return ArtifactPath.pii_mapping(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+        )
 
     async def _write_audit_log(
         self,
@@ -321,7 +344,7 @@ def sanitize_document(
       - открывает основной UnitOfWork (uow_main) через db_uow();
       - запускает асинхронную санитизацию;
       - при ошибке открывает ВТОРОЙ, маленький UnitOfWork только для записи
-        статуса (failed / quarantine), чтобы юрист всегда видел честное состояние;
+        статуса (FAILED / QUARANTINE) + processing_error_details;
       - при успехе ставит задачу следующего этапа (Structure Builder).
     """
     version_uuid = uuid.UUID(document_version_id)
@@ -340,7 +363,10 @@ def sanitize_document(
                     result = await sanitizer.sanitize(version_uuid)
 
                     # Успех → ставим следующую стадию (build_structure)
-                    if not result.get("skipped") and not settings.DISABLE_DOWNSTREAM_TASKS:
+                    if (
+                        not result.get("skipped")
+                        and not settings.DISABLE_DOWNSTREAM_TASKS
+                    ):
                         celery_app.send_task(
                             "workers.build_structure",
                             kwargs={
@@ -354,13 +380,20 @@ def sanitize_document(
                 except PermanentError as e:
                     logger.error(
                         "Permanent error during PII sanitization",
-                       	document_version_id=document_version_id,
+                        document_version_id=document_version_id,
                         error=str(e),
                     )
-                    # Отдельный UoW только для записи статуса failed
+                    # Отдельный UoW только для записи статуса FAILED + деталей
                     async with db_uow() as uow_status:
-                        await _mark_status(uow_status, version_uuid, "failed")
-                    return {"status": "failed", "error": str(e)}
+                        await _mark_failed(
+                            uow_status,
+                            version_id=version_uuid,
+                            message=str(e),
+                        )
+                    return {
+                        "status": DocumentStatus.FAILED.value,
+                        "error": str(e),
+                    }
 
                 except QuarantineError as e:
                     logger.error(
@@ -368,29 +401,72 @@ def sanitize_document(
                         document_version_id=document_version_id,
                         error=str(e),
                     )
-                    # Отдельный UoW только для записи статуса quarantine
+                    # Отдельный UoW только для записи статуса QUARANTINE + деталей
                     async with db_uow() as uow_status:
-                        await _mark_status(uow_status, version_uuid, "quarantine")
-                    return {"status": "quarantine", "error": str(e)}
-
-        async def _mark_status(uow: UnitOfWork, version_id: uuid.UUID, status: str) -> None:
-            """
-            Обновить статус документа в отдельной, простой транзакции.
-
-            Это гарантирует, что даже если основная санитизация сломалась,
-            юрист всё равно увидит честный статус документа.
-            """
-            version_repo = DocumentVersionRepository(uow.session)
-            doc_repo = DocumentRepository(uow.session)
-
-            version = await version_repo.get_by_id(version_id)
-            if version:
-                await doc_repo.update_status(
-                    doc_id=version.document_id,
-                    status=status,
-                )
+                        await _mark_quarantine(
+                            uow_status,
+                            version_id=version_uuid,
+                            error=e,
+                        )
+                    return {
+                        "status": DocumentStatus.QUARANTINE.value,
+                        "error": str(e),
+                    }
 
         return loop.run_until_complete(_run())
     finally:
         asyncio.set_event_loop(None)
         loop.close()
+
+
+async def _mark_failed(
+    uow: UnitOfWork,
+    version_id: uuid.UUID,
+    *,
+    message: str,
+) -> None:
+    """
+    Обновить статус документа на FAILED в отдельной, простой транзакции
+    с заполнением processing_error_details.
+    """
+    version_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+
+    version = await version_repo.get_by_id(version_id)
+    if not version:
+        return
+
+    await doc_repo.set_failed(
+        version.document_id,
+        stage="pii",
+        message=message,
+        reason="pii_error",
+        run_id=None,
+    )
+
+
+async def _mark_quarantine(
+    uow: UnitOfWork,
+    version_id: uuid.UUID,
+    *,
+    error: QuarantineError,
+) -> None:
+    """
+    Обновить статус документа на QUARANTINE в отдельной транзакции
+    с заполнением processing_error_details.
+    """
+    version_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+
+    version = await version_repo.get_by_id(version_id)
+    if not version:
+        return
+
+    reason = getattr(error, "reason", None)
+    await doc_repo.set_quarantined(
+        version.document_id,
+        stage="pii",
+        message=str(error),
+        reason=reason,
+        run_id=None,
+    )

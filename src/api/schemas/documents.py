@@ -1,20 +1,4 @@
-"""
-Схемы (Pydantic-модели) для документов и связанных сущностей.
-
-Назначение файла:
-- Описывает формат данных, который REST API отдаёт и принимает по документам.
-- Служит контрактом между backend и фронтендом/внешними клиентами.
-- Используется в эндпоинтах и сервисах поверх ORM-моделей (Document, DocumentVersion и т.п.).
-
-Ключевые моменты:
-- DocumentResponse и DocumentVersionResponse включают model_config.from_attributes,
-  что позволяет безопасно валидировать ORM-объекты через model_validate().
-- Здесь же описаны вспомогательные структуры: метаданные классификации,
-  детальная карточка документа, отношения между документами, семьи документов
-  и запросы/ответы для ручной переклассификации.
-"""
-
-
+# src/api/schemas/documents.py
 
 from uuid import UUID
 from datetime import datetime
@@ -56,6 +40,9 @@ class DocumentResponse(BaseModel):
     classification_level: str | None = None
     classification_confidence: float | None = None
     applicable_triggers: List[str] = Field(default_factory=list)
+
+    # NEW: детали последней ошибки обработки
+    processing_error_details: dict | None = None
 
     created_at: datetime
     updated_at: datetime

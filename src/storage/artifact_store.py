@@ -1,3 +1,5 @@
+# src/storage/artifact_store.py
+
 """
 Abstraction over MinIO/S3 for storing and retrieving artifacts.
 

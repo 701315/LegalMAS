@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql  # NEW
 
 
 # revision identifiers, used by Alembic.
@@ -20,15 +21,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column(
-        "document_families",
+        "documents",
         sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
+            "processing_error_details",
+            postgresql.JSONB,
+            nullable=True,
         ),
     )
 
 
 def downgrade() -> None:
-    op.drop_column("document_families", "updated_at")
+    op.drop_column("documents", "processing_error_details")

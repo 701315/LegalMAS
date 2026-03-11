@@ -57,12 +57,13 @@ def map_document_to_response(doc: Document) -> DocumentResponse:
         classification_level=doc.classification_level,
         classification_confidence=doc.classification_confidence,
         applicable_triggers=doc.applicable_triggers or [],  # ключевая нормализация
+        processing_error_details=doc.processing_error_details,  # NEW
         created_at=doc.created_at,
         updated_at=doc.updated_at,
     )
+
 
 def map_documents_to_response(
     docs: Iterable[Document],
 ) -> List[DocumentResponse]:
     return [map_document_to_response(d) for d in docs]
-
