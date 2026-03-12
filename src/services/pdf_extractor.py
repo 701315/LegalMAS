@@ -1,3 +1,5 @@
+# src/services/pdf_extractor.py
+
 """
 PDF Extraction Service.
 

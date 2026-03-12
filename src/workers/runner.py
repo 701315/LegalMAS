@@ -14,10 +14,10 @@ Runner — упрощённая версия для вертикального �
 - Внутри задачи:
   1) по run_id находим Run и PlaybookVersion;
   2) извлекаем список checks из compiled_checks["checks"];
-  3) загружаем layout и clause_tree документа из ArtifactStore;
+  3) загружаем layout и clause_tree документа из ArtifactStore по ссылкам в DocumentVersion;
   4) для каждого check_cfg вызываем простой rules-исполнитель execute_check_for_document;
   5) сохраняем результаты в CheckResult и кладём NDJSON в сторедж;
-  6) триггерим экспорт.
+  6) (экспорт сейчас запускается отдельным эндпоинтом).
 
 Важное ограничение:
 - Сейчас используется упрощённый rules-only executor (без LLM и сложного движка Stage 8).
@@ -33,17 +33,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.ops.metrics import METRICS
 from core.constants import DocumentStatus
+from core.exceptions import PermanentError
 from core.logging import get_logger
 from db.models.run import Run
 from db.repositories import ResultRepository, DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
+from db.repositories.run_repo import RunRepository
 from db.uow import db_uow, UnitOfWork
 from engine.checks.simple_rules import execute_check_for_document
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
 from storage.artifact_store import ArtifactPath, ArtifactStore
-
-from db.repositories.run_repo import RunRepository
 
 logger = get_logger(__name__)
 
@@ -66,11 +68,10 @@ def run_checks(
     """
     Sync Celery entrypoint: обёртка над асинхронным ядром _run_checks_async.
 
-    Почему так:
-    - Celery ожидает синхронную функцию, которая сразу возвращает сериализуемый результат.
-    - Асинхронная логика и работа с БД живут внутри _run_checks_async под db_uow().
+    Паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри один раз передаём управление в async‑мир через run_async.
     """
-    import asyncio
 
     logger.info(
         "Starting checks",
@@ -80,44 +81,37 @@ def run_checks(
         doctype=doctype,
     )
 
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-
-        async def _wrapper() -> dict:
-            try:
-                async with db_uow() as uow:
-                    return await _run_checks_async(
-                        document_id=document_id,
-                        deal_id=deal_id,
-                        tenant_id=tenant_id,
-                        run_id=run_id,
-                        doctype=doctype,
-                        db=uow.session,
-                    )
-            except Exception as e:
-                logger.error(
-                    "Unhandled error during checks",
+    async def _wrapper() -> dict:
+        try:
+            async with db_uow() as uow:
+                return await _run_checks_async(
                     document_id=document_id,
                     deal_id=deal_id,
+                    tenant_id=tenant_id,
                     run_id=run_id,
-                    error=str(e),
+                    doctype=doctype,
+                    db=uow.session,
                 )
-                # отдельный UoW, чтобы пометить документ FAILED на стадии checks
-                async with db_uow() as uow_status:
-                    await _mark_checks_failed(
-                        uow_status,
-                        document_id=document_id,
-                        run_id=run_id,
-                        message=str(e),
-                    )
-                # пробрасываем, чтобы таска пометилась как failed в Celery
-                raise
+        except Exception as e:
+            logger.error(
+                "Unhandled error during checks",
+                document_id=document_id,
+                deal_id=deal_id,
+                run_id=run_id,
+                error=str(e),
+            )
+            # Отдельный UoW, чтобы пометить документ FAILED на стадии checks.
+            async with db_uow() as uow_status:
+                await _mark_checks_failed(
+                    uow_status,
+                    document_id=document_id,
+                    run_id=run_id,
+                    message=str(e),
+                )
+            # Пробрасываем, чтобы таска пометилась как failed в Celery.
+            raise
 
-        return loop.run_until_complete(_wrapper())
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    return run_async(_wrapper())
 
 
 async def _run_checks_async(
@@ -130,11 +124,12 @@ async def _run_checks_async(
 ) -> dict:
     """
     Основная асинхронная логика: загрузить артефакты, выполнить checks,
-    сохранить результаты и запустить экспорт.
+    сохранить результаты и подготовить артефакты для экспорта.
 
     Все операции с БД выполняются через переданную AsyncSession (db),
     чтобы одна задача Runner'а работала в рамках одного unit of work.
     """
+
     # 1. Получаем список checks из PlaybookVersion.compiled_checks
     checks_cfg: list[dict] = []
 
@@ -145,33 +140,55 @@ async def _run_checks_async(
         result = await db.execute(select(Run).where(Run.id == run_uuid))
         run_obj = result.scalar_one_or_none()
         if not run_obj:
-            raise RuntimeError(f"Run {run_id} not found")
+            raise PermanentError(f"Run {run_id} not found")
 
         # Находим PlaybookVersion по run.playbook_version_id
         pb_repo = PlaybookRepository(db)
         playbook = await pb_repo.get_by_id(run_obj.playbook_version_id)
         if not playbook or not playbook.compiled_checks:
-            raise RuntimeError(
+            raise PermanentError(
                 f"PlaybookVersion for run {run_id} has no compiled_checks"
             )
 
         compiled = playbook.compiled_checks or {}
         checks_cfg = compiled.get("checks") or []
 
-    # 2. Загружаем артефакты документа (layout и clause_tree)
+    # 2. Загружаем артефакты документа (layout и clause_tree) по ссылкам версии.
     store = ArtifactStore()
 
-    raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
-    text_layout_raw = store.get_json(raw_path)
-    elements = text_layout_raw["elements"]
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
 
-    tree_path = ArtifactPath.clause_tree(tenant_id, deal_id, document_id)
-    clause_tree = store.get_json(tree_path)
+    doc_uuid = UUID(document_id)
+    doc = await doc_repo.get_by_id(doc_uuid)
+    if not doc:
+        raise PermanentError(f"Document {document_id} not found")
+
+    version = await ver_repo.get_latest(doc.id)
+    if not version:
+        raise PermanentError(f"No version found for document {document_id}")
+
+    if not version.text_layout_raw_ref:
+        # Без raw layout проверки выполнить невозможно.
+        raise PermanentError(
+            f"text_layout_raw_ref missing for document {document_id}"
+        )
+
+    text_layout_raw = store.get_json(version.text_layout_raw_ref)
+    elements = text_layout_raw.get("elements", [])
+
+    if not version.clause_tree_ref:
+        # По договоренности: отсутствие дерева пунктов — фатальная ошибка.
+        raise PermanentError(
+            f"clause_tree_ref missing for document {document_id}"
+        )
+
+    clause_tree = store.get_json(version.clause_tree_ref)
 
     check_results: list[dict] = []
     evidence_records: list[dict] = []
 
-    # 3. Выполняем все checks из плейбука для этого документа
+    # 3. Выполняем все checks из плейбука для этого документа.
     if checks_cfg:
         for check_cfg in checks_cfg:
             result = execute_check_for_document(
@@ -183,7 +200,7 @@ async def _run_checks_async(
             )
             check_results.append(result)
 
-            # Если есть evidence_snippet, добавляем запись в evidence_records
+            # Если есть evidence_snippet, добавляем запись в evidence_records.
             snippet = result.get("evidence_snippet")
             page = result.get("evidence_page")
             if snippet:
@@ -202,7 +219,7 @@ async def _run_checks_async(
             document_id=document_id,
         )
 
-    # 4. Метрики выполнения проверок
+    # 4. Метрики выполнения проверок.
     for cr in check_results:
         METRICS.checks_executed.labels(
             detector_type=cr.get("detector_used", "unknown"),
@@ -211,9 +228,9 @@ async def _run_checks_async(
 
         METRICS.check_duration.labels(
             detector_type=cr.get("detector_used", "unknown"),
-        ).observe(0.0)  # TODO: заменить на реальную длительность, когда появится
+        ).observe(0.0)  # TODO: заменить на реальную длительность.
 
-    # 5. Сохраняем результаты в БД и обновляем статус документа
+    # 5. Сохраняем результаты в БД и обновляем статус документа / Run.
     await _finalize(
         run_id=run_id,
         document_id=document_id,
@@ -221,7 +238,7 @@ async def _run_checks_async(
         db=db,
     )
 
-    # 6. Сохраняем результаты в NDJSON для экспорта/отладки
+    # 6. Сохраняем результаты в NDJSON для экспорта/отладки.
     if run_id:
         results_path = ArtifactPath.check_results(tenant_id, deal_id, run_id)
         results_ndjson = "\n".join(
@@ -251,7 +268,7 @@ async def _run_checks_async(
         evidence=len(evidence_records),
     )
 
-    # экспорт теперь запускается отдельным эндпоинтом /runs/{run_id}/export
+    # Экспорт теперь запускается отдельным эндпоинтом /runs/{run_id}/export.
 
     return {
         "document_id": document_id,

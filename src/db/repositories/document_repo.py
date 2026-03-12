@@ -16,7 +16,6 @@ Repository for Document CRUD and classification operations.
 чтобы не работать с ORM напрямую из обработчиков HTTP и воркеров.
 """
 
-
 import uuid
 
 from sqlalchemy import func, select, update
@@ -24,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DocumentStatus
 from ..models.document import Document
+
 
 class DocumentRepository:
     def __init__(self, session: AsyncSession):
@@ -37,6 +37,8 @@ class DocumentRepository:
         folder_path: str | None = None,
         sha256_file: str | None = None,
         status: str = "pending",
+        source_extension: str | None = None,
+        source_filetype: str | None = None,
     ) -> Document:
         """Create a new document record."""
         doc = Document(
@@ -46,6 +48,8 @@ class DocumentRepository:
             folder_path=folder_path,
             sha256_file=sha256_file,
             status=status,
+            source_extension=source_extension,
+            source_filetype=source_filetype,
         )
         self.session.add(doc)
         await self.session.flush()
@@ -53,7 +57,9 @@ class DocumentRepository:
 
     async def get_by_id(self, doc_id: uuid.UUID) -> Document | None:
         """Get document by ID."""
-        result = await self.session.execute(select(Document).where(Document.id == doc_id))
+        result = await self.session.execute(
+            select(Document).where(Document.id == doc_id)
+        )
         return result.scalar_one_or_none()
 
     async def get_by_deal(
@@ -85,7 +91,12 @@ class DocumentRepository:
     async def update_status(self, doc_id: uuid.UUID, status: str, **kwargs) -> Document | None:
         """Update document status and optional fields."""
         values = {"status": status, **kwargs}
-        stmt = update(Document).where(Document.id == doc_id).values(**values).returning(Document)
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(**values)
+            .returning(Document)
+        )
         result = await self.session.execute(stmt)
         doc = result.scalar_one_or_none()
         if doc:
@@ -154,7 +165,6 @@ class DocumentRepository:
             processing_error_details=details,
         )
 
-
     async def update_classification(
         self,
         doc_id: uuid.UUID,
@@ -163,8 +173,8 @@ class DocumentRepository:
         classification_level: str,
         classification_details: dict,
         applicable_triggers: list[str],
-        language: str | None = None,  # Добавлено
-        jurisdiction: str | None = None,  # Добавлено
+        language: str | None = None,
+        jurisdiction: str | None = None,
         playbook_version_id: uuid.UUID | None = None,
     ) -> Document | None:
         """Update document classification results."""
@@ -185,7 +195,12 @@ class DocumentRepository:
         if playbook_version_id is not None:
             values["playbook_version_id"] = playbook_version_id
 
-        stmt = update(Document).where(Document.id == doc_id).values(**values).returning(Document)
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(**values)
+            .returning(Document)
+        )
         result = await self.session.execute(stmt)
         doc = result.scalar_one_or_none()
         if doc:
@@ -284,7 +299,7 @@ class DocumentRepository:
         if doc:
             await self.session.flush()
         return doc
-    
+
     async def get_page_for_deal(
         self,
         deal_id: uuid.UUID,
@@ -328,7 +343,6 @@ class DocumentRepository:
         items = list(result.scalars().all())
 
         return items, total
-
 
     async def list_by_deal_id(self, deal_id: uuid.UUID) -> list[Document]:
         """

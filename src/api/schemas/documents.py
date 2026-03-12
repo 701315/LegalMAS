@@ -3,6 +3,7 @@
 from uuid import UUID
 from datetime import datetime
 from typing import List
+
 from pydantic import BaseModel, Field
 
 from core.constants import DocumentStatus, RelationType
@@ -63,6 +64,9 @@ class DocumentVersionResponse(BaseModel):
     clause_tree_ref: str | None
     extraction_strategy: str | None
     ocr_confidence: float | None
+    origin_filetype: str | None = None
+    origin_extension: str | None = None
+    pipeline_strategy: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

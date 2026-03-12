@@ -1,3 +1,5 @@
+# src/db/base.py
+
 """
 SQLAlchemy declarative base with common mixins.
 All ORM models inherit from Base.

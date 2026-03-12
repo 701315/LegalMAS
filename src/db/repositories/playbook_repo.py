@@ -1,3 +1,5 @@
+# src/db/repositories/playbook_repo.py
+
 """
 Repository for PlaybookVersion and ModelConfig operations.
 """

@@ -1,22 +1,24 @@
 # src/workers/exporter.py
 
 """
-Exporter Worker — Stage 9.
+Exporter Worker — (экспорт результатов по сделке).
 
-Производит полный пакет экспортных файлов по сделке:
-  - dd_grid_{run_id}.xlsx      — DD Grid с 4 листами
-  - summary_{run_id}.xlsx      — Summary с 5 листами
-  - report_{run_id}.docx       — Word-отчёт с 7 разделами
-  - aggregated_{run_id}.json   — JSON-дамп агрегации
+Что делает:
+- Формирует полный пакет экспортных файлов по Run/сделке:
+  - dd_grid_{run_id}.xlsx      — DD Grid с несколькими листами.
+  - summary_{run_id}.xlsx      — Summary по сделке.
+  - report_{run_id}.docx       — Word‑отчёт.
+  - aggregated_{run_id}.json   — JSON‑дамп агрегации.
 
 Архитектура:
-  - Синхронная Celery‑таска (def) + async‑ядро (как у всех остальных воркеров).
-  - Вся логика агрегации и экспорта вынесена в src/services/export/core.py.
-  - БД‑операции выполняются через db_uow / AsyncSession.
-  - Файлы сохраняются через ArtifactStore.
+- Синхронная Celery‑таска export_results (def) + async‑ядро export_core(...) под db_uow().
+- Вся логика агрегации и генерации файлов вынесена в services.export.core.export_core.
+- БД‑операции выполняются через db_uow / AsyncSession.
+- Файлы сохраняются в хранилище через ArtifactStore внутри export_core.
+- Переход sync → async выполняется один раз через run_async,
+  без ручного управления event loop в коде таски.
 """
 
-import asyncio
 import time
 import uuid
 
@@ -26,6 +28,7 @@ from db.uow import db_uow
 from db.repositories.run_repo import RunRepository
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
 from services.export.core import export_core
 
 logger = get_logger(__name__)
@@ -48,9 +51,9 @@ def export_results(
     Синхронная Celery‑таска экспорта результатов сделки.
 
     Внутри:
-      - создаёт event loop;
       - открывает UnitOfWork через db_uow();
       - вызывает services.export.core.export_core(...);
+      - пишет метрику длительности экспорта;
       - при ошибке помечает Run как failed;
       - возвращает результат с refs на сгенерированные файлы.
     """
@@ -59,57 +62,51 @@ def export_results(
     started_at = time.time()
     metrics = get_metrics()
 
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
+    async def _run() -> dict:
+        async with db_uow() as uow:
+            run_repo = RunRepository(uow.session)
+            run_uuid = uuid.UUID(run_id)
 
-        async def _run() -> dict:
-            async with db_uow() as uow:
-                run_repo = RunRepository(uow.session)
-                run_uuid = uuid.UUID(run_id)
+            try:
+                result = await export_core(
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                )
 
-                try:
-                    result = await export_core(
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        tenant_id=tenant_id,
-                        db=uow.session,
-                    )
+                duration = time.time() - started_at
+                metrics.export_duration.labels(
+                    export_type="full_deal_export"
+                ).observe(duration)
 
-                    duration = time.time() - started_at
-                    metrics.export_duration.labels(
-                        export_type="full_deal_export"
-                    ).observe(duration)
+                logger.info(
+                    "Экспорт завершён",
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    duration_sec=round(duration, 2),
+                    files_generated=len(result.get("refs", {})),
+                )
 
-                    logger.info(
-                        "Экспорт завершён",
-                        run_id=run_id,
-                        deal_id=deal_id,
-                        duration_sec=round(duration, 2),
-                        files_generated=len(result.get("refs", {})),
-                    )
+                return result
 
-                    return result
+            except Exception as e:
+                logger.error(
+                    "Экспорт завершился с ошибкой",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "error": str(e),
+                    },
+                )
+                # Помечаем Run как failed и сохраняем детали ошибки
+                await run_repo.update_status(
+                    run_uuid,
+                    "failed",
+                    error_details={"stage": "export", "error": str(e)},
+                )
+                # Пробрасываем ошибку дальше, чтобы Celery видел failure
+                raise
 
-                except Exception as e:
-                    logger.error(
-                        "Экспорт завершился с ошибкой",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                            "error": str(e),
-                        },
-                    )
-                    # Помечаем Run как failed и сохраняем детали ошибки
-                    await run_repo.update_status(
-                        run_uuid,
-                        "failed",
-                        error_details={"stage": "export", "error": str(e)},
-                    )
-                    # Пробрасываем ошибку дальше, чтобы Celery видел failure
-                    raise
-
-        return loop.run_until_complete(_run())
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    # Запускаем async‑ядро через общий мост run_async
+    return run_async(_run())

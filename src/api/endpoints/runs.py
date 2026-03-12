@@ -114,12 +114,14 @@ async def _start_run_core(
     # - обойти все документы сделки;
     # - с учётом их статусов (PENDING/EXTRACTED/STRUCTURED/CLASSIFIED/COMPLETED)
     #   запустить или дозапустить пайплайн до run_checks.
+    tenant_id = getattr(user, "tenant_id", None)
+
     celery_app.send_task(
         "workers.start_run_pipeline",
         kwargs={
             "run_id": str(run.id),
             "deal_id": str(deal_uuid),
-            "tenant_id": str(user.tenant_id),
+            "tenant_id": str(tenant_id) if tenant_id and str(tenant_id) != "00000000-0000-0000-0000-000000000000" else None,
             "force_reclassify": bool(
                 data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
             ),

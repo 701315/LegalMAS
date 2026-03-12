@@ -118,20 +118,12 @@ celery_app.conf.update(
     task_default_routing_key="default",
 )
 
-
-# Ранее использовали автодискавер тасок — теперь переехали на явный реестр.
-# celery_app.autodiscover_tasks(
-#     packages=[
-#         "workers",
-#     ],
-#     force=True,
-# )
-
-
 # ЯВНАЯ регистрация задач через реестр workers.tasks.
 # При старте воркера этот импорт гарантирует, что все таски зарегистрированы.
 try:
     import workers.tasks  # noqa: F401
+    import workers.run_orchestrator  # noqa: F401  <-- добавить эту строку
+
 except ImportError as e:
     # При старте API (без воркера) модуль workers.tasks может отсутствовать.
     # В этом случае просто логируем предупреждение и не падаем.

@@ -9,19 +9,17 @@ DocumentVersion — tracks extracted/processed versions of a document.
 import uuid
 
 from sqlalchemy import (
-    Float, 
-    ForeignKey, 
-    Index, 
-    Integer, 
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
     String,
     Column,
-    String,
     Boolean,
-    DateTime, 
-    ARRAY
+    DateTime,
+    ARRAY,
 )
-
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.constants import DocumentStatus
@@ -54,13 +52,25 @@ class Document(Base):
         comment="Relative path in Data Room: '01. Corporate/Charter Docs'",
     )
 
+    source_extension: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Original file extension including dot, e.g. '.pdf', '.docx'",
+    )
+
+    source_filetype: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Internal file type from file_validator: pdf, docx, xlsx, image, etc.",
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         default=DocumentStatus.PENDING.value,
     )
 
-    processing_error_details: Mapped[dict | None] = mapped_column(  # NEW
+    processing_error_details: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
         comment=(
@@ -69,7 +79,7 @@ class Document(Base):
         ),
     )
 
-    # NEW: флаг "документ проверен юристом"
+    # флаг "документ проверен юристом"
     reviewed_by_person: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -77,7 +87,7 @@ class Document(Base):
         comment="Has this document been manually reviewed by a lawyer",
     )
 
-    risk_level: Mapped[str | None] = mapped_column(   # NEW
+    risk_level: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
         comment="Risk level: low, medium, high, critical",
@@ -129,8 +139,15 @@ class Document(Base):
         comment="Full classification history with all levels tried",
     )
 
+    playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("playbook_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="PlaybookVersion used for DD checks in this analysis",
+    )
+
     applicable_triggers: Mapped[list[str] | None] = mapped_column(
-        ARRAY(String(100)),
+        PG_ARRAY(String(100)),
         nullable=True,
         comment="Triggered conditions for conditional checks (from YAML)",
     )
@@ -200,4 +217,30 @@ class DocumentVersion(Base):
         comment="Average OCR confidence 0.0-1.0",
     )
 
-    __table_args__ = (Index("idx_docver_doc_version", "document_id", "version_num"),)
+    origin_filetype: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment=(
+            "Internal type of the file this version originates from: "
+            "pdf, docx, image, etc."
+        ),
+    )
+
+    origin_extension: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="Original extension of source file, e.g. '.pdf', '.docx', '.png'",
+    )
+
+    pipeline_strategy: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment=(
+            "High-level processing route: "
+            "pdf_native, pdf_ocr, docx_via_pdf_native, docx_via_pdf_ocr, image_ocr, etc."
+        ),
+    )
+
+    __table_args__ = (
+        Index("idx_docver_doc_version", "document_id", "version_num"),
+    )

@@ -1,19 +1,34 @@
 # src/workers/classifier.py
 
 """
-Classifier Worker.
-4-level cascade: L1 (Rules) → L2 (Keywords) → L3 (Semantic) → L4 (LLM).
+Classifier Worker — каскадная классификация документов (Stage 6).
 
-Updates document with:
-  - doctype, language, jurisdiction, confidence, levels tried, applicable triggers.
-  - Links correct playbook_version_id based on doctype and language.
+Позиция в пайплайне:
+- import → extract → pii → structure → classify → run_checks.
+- На вход получает структурированный документ (есть text_layout_raw / sanitized).
 
-Status: structured -> classified.
+Что делает:
+- Запускает 4‑уровневый каскад классификации:
+  L1 (Rules) → L2 (Keywords) → L3 (Semantic) → L4 (LLM).
+- Обновляет документ полями:
+  - doc_type, language, jurisdiction, classification_confidence,
+    classification_level, classification_details, applicable_triggers.
+- Подбирает и привязывает подходящий playbook_version_id по doc_type и языку.
+- Обновляет статус документа: structured → classified.
+- Если передан run_id, ставит задачу workers.run_checks для этого документа.
+
+Архитектура:
+- Внешняя Celery‑таска classify_document — синхронная (def), её вызывает Celery.
+- Внутри один раз выполняется переход sync → async через run_async
+  в _classify_document_async.
+- Вся работа с БД и хранилищем (ArtifactStore) выполняется под db_uow().
+- Экземпляр HybridClassifier (_get_classifier) кэшируется на процесс воркера,
+  чтобы тяжёлые модели L3/L4 инициализировались один раз.
 """
 
-import asyncio
 import time
 import uuid
+
 from ops.metrics import get_metrics
 
 from classifiers.hybrid_classifier import HybridClassifier
@@ -31,10 +46,10 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.uow import db_uow, UnitOfWork
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
 from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
-
 
 # Кэшируем экземпляр классификатора в рамках процесса воркера
 _classifier_instance: HybridClassifier | None = None
@@ -65,14 +80,17 @@ def _get_classifier() -> HybridClassifier:
     queue="default",
 )
 def classify_document(self, document_id: str, **kwargs) -> dict:
-    """Sync Celery entry point: обертка над асинхронным ядром."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(
-            _classify_document_async(self, document_id, kwargs)
-        )
-    finally:
-        loop.close()
+    """
+    Sync Celery entry point: обертка над асинхронным ядром.
+
+    Паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри один раз передаём управление в async‑мир через run_async.
+    """
+    async def _wrapper() -> dict:
+        return await _classify_document_async(self, document_id, kwargs)
+
+    return run_async(_wrapper())
 
 
 async def _classify_document_async(task, document_id: str, extra_args: dict) -> dict:
@@ -109,17 +127,18 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                     f"No version found for document {document_id}"
                 )
 
-            # 2. Получение текстов (Raw для L1-L3, Sanitized для L4)
+            # 2. Получение текстов (Raw для L1–L3, Sanitized для L4)
             if not version.text_layout_raw_ref:
                 raise PermanentError(
                     f"text_layout_raw_ref missing for document {document_id}"
                 )
 
-            raw_layout = await store.get_json(version.text_layout_raw_ref)
+            # ArtifactStore.get_json — синхронный метод, НЕ используем await
+            raw_layout = store.get_json(version.text_layout_raw_ref)
             san_layout = raw_layout
             if version.text_layout_sanitized_ref:
                 try:
-                    san_layout = await store.get_json(
+                    san_layout = store.get_json(
                         version.text_layout_sanitized_ref
                     )
                 except Exception as e:
@@ -127,6 +146,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                         "Failed to load sanitized layout, using raw",
                         error=str(e),
                     )
+
 
             text_raw = _extract_text(raw_layout)
             text_san = _extract_text(san_layout)
@@ -140,11 +160,10 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                 folder_path=doc.folder_path or "",
             )
 
-            # 4. Маршрутизация на плейбук
-            playbook = await playbook_repo.get_for_doctype(
-                doctype=result.doctype,
-                language=result.language,
-            )
+            # 4. Маршрутизация на плейбук (deal-level PlaybookVersion)
+            # Берём playbook, привязанный к сделке, или глобальный default.
+            playbook = await playbook_repo.get_for_deal(doc.deal_id)
+
 
             # 5. Атомарное сохранение результатов
             await doc_repo.update_classification(
@@ -220,7 +239,9 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
 
                 deal_id = str(doc2.deal_id)
 
-        celery_app.send_task(
+        from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
+
+        _celery.send_task(
             "workers.run_checks",
             kwargs={
                 "document_id": document_id,

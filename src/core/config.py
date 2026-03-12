@@ -1,3 +1,5 @@
+# src/core/config.py
+
 """
 Application configuration.
 Loads settings from environment variables / .env file.
@@ -35,9 +37,6 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"  # "console" for dev, "json" for production
-
-    # --- PII (legacy default for dev) ---
-    PII_ENCRYPTION_KEY: str = "dev-encryption-key-change-in-production"
 
     # --- Classification & Embeddings (общие) ---
     EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"

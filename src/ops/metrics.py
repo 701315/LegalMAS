@@ -1,3 +1,5 @@
+# src/ops/metrics.py
+
 """
 Prometheus Metrics Registry.
 

@@ -1,21 +1,29 @@
 # src/workers/extract_worker.py
 
 """
-Extract Worker — рабочий воркер для извлечения текста и таблиц из PDF,
-сохранённых в MinIO.
+Extract Worker — извлечение текста и таблиц из PDF, сохранённых в MinIO.
 
-Этап пайплайна:
-- Читает исходный PDF из MinIO.
-- Определяет стратегию извлечения (текст / OCR / гибрид).
-- Строит структуру textlayoutraw (элементы и таблицы).
-- При необходимости отправляет документ в карантин.
-- При успехе запускает PII‑санитизацию.
+Позиция в пайплайне:
+- Импорт → extract → pii → structure → classify → run_checks.
+- На вход получает документ (PDF) и создаёт артефакт textlayoutraw.
 
-Важно: на этом этапе поле element.clause_uid всегда пустое.
-Его заполняет Structure Builder (следующий этап).
+Что делает воркер:
+- Читает исходный PDF из MinIO (по ссылке original_ref из DocumentVersion).
+- Определяет стратегию извлечения (native text / OCR / гибрид).
+- Строит структуру textlayoutraw (элементы и таблицы) и сохраняет её в MinIO.
+- При низком качестве извлечения или ошибках отправляет документ в карантин.
+- При успехе обновляет статус документа до EXTRACTED и запускает PII‑санитизацию.
+
+Архитектура:
+- Внешняя Celery‑таска extract_document — синхронная (def), её вызывает Celery.
+- Внутри таски один раз происходит переход sync → async через run_async.
+- Вся логика работы с БД и MinIO сосредоточена в _extract_document_async()
+  и вспомогательных async‑функциях под управлением db_uow(), без ручного
+  управления event loop.
+- Метрики производительности и качества извлечения пишутся в Prometheus
+  через глобальный реестр METRICS.
 """
 
-import asyncio
 import time
 import uuid
 
@@ -30,6 +38,7 @@ from db.repositories import DocumentRepository, DocumentVersionRepository
 from db.uow import db_uow, UnitOfWork
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
 from services.pdf_extractor import (
     ExtractionResult,
     build_text_layout_raw,
@@ -58,71 +67,68 @@ def extract_document(
     """
     Sync Celery entrypoint.
 
-    Архитектурный паттерн:
-    - Внешний слой (таска) синхронный, чтобы результат можно было сериализовать
-      и чтобы не ломать модель воркеров.
-    - Внутри создаём event loop и запускаем async-ядро под db_uow().
+    Новый архитектурный паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри мы один раз передаём управление в async‑мир через run_async.
+    - Весь async‑код (БД, MinIO и т.п.) живёт в _extract_document_async()
+      и вспомогательных async‑функциях под db_uow().
     """
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
 
-        async def _wrapper() -> dict:
-            async with db_uow() as uow:
-                try:
-                    return await _extract_document_async(
-                        document_version_id=document_version_id,
-                        document_id=document_id,
-                        deal_id=deal_id,
-                        tenant_id=tenant_id,
-                        db=uow.session,
-                        run_id=run_id,
+    async def _wrapper() -> dict:
+        # Основной unit of work для извлечения
+        async with db_uow() as uow:
+            try:
+                return await _extract_document_async(
+                    document_version_id=document_version_id,
+                    document_id=document_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                    run_id=run_id,
+                )
+            except PermanentError as e:
+                logger.error(
+                    "Permanent error during extraction",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса FAILED + деталей
+                async with db_uow() as uow_status:
+                    await _mark_failed(
+                        uow_status,
+                        document_uuid=uuid.UUID(document_id),
+                        message=str(e),
+                        run_id=uuid.UUID(run_id) if run_id else None,
                     )
-                except PermanentError as e:
-                    logger.error(
-                        "Permanent error during extraction",
-                        document_id=document_id,
-                        version_id=document_version_id,
-                        error=str(e),
+                return {
+                    "status": DocumentStatus.FAILED.value,
+                    "document_id": document_id,
+                    "error": str(e),
+                }
+            except QuarantineError as e:
+                logger.error(
+                    "Quarantine error during extraction",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса QUARANTINE + деталей
+                async with db_uow() as uow_status:
+                    await _mark_quarantine(
+                        uow_status,
+                        document_uuid=uuid.UUID(document_id),
+                        error=e,
+                        run_id=uuid.UUID(run_id) if run_id else None,
                     )
-                    # Отдельный UoW только для записи статуса FAILED + деталей
-                    async with db_uow() as uow_status:
-                        await _mark_failed(
-                            uow_status,
-                            document_uuid=uuid.UUID(document_id),
-                            message=str(e),
-                            run_id=uuid.UUID(run_id) if run_id else None,
-                        )
-                    return {
-                        "status": DocumentStatus.FAILED.value,
-                        "document_id": document_id,
-                        "error": str(e),
-                    }
-                except QuarantineError as e:
-                    logger.error(
-                        "Quarantine error during extraction",
-                        document_id=document_id,
-                        version_id=document_version_id,
-                        error=str(e),
-                    )
-                    # Отдельный UoW только для записи статуса QUARANTINE + деталей
-                    async with db_uow() as uow_status:
-                        await _mark_quarantine(
-                            uow_status,
-                            document_uuid=uuid.UUID(document_id),
-                            error=e,
-                            run_id=uuid.UUID(run_id) if run_id else None,
-                        )
-                    return {
-                        "status": DocumentStatus.QUARANTINE.value,
-                        "document_id": document_id,
-                        "error": str(e),
-                    }
+                return {
+                    "status": DocumentStatus.QUARANTINE.value,
+                    "document_id": document_id,
+                    "error": str(e),
+                }
 
-        return loop.run_until_complete(_wrapper())
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    # Запускаем async‑обёртку через общий мост run_async
+    return run_async(_wrapper())
 
 
 async def _extract_document_async(
@@ -209,9 +215,11 @@ async def _extract_document_async(
 
     # 7. Trigger PII Sanitizer (Stage 5)
     if not settings.DISABLE_DOWNSTREAM_TASKS:
+        from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
+
         # Запускаем таску по строковому имени, без прямого импорта workers.pii_sanitizer,
         # чтобы избежать циклических зависимостей между воркерами.
-        celery_app.send_task(
+        _celery.send_task(
             "pii.sanitize_document",
             kwargs={
                 "document_version_id": document_version_id,
@@ -304,11 +312,35 @@ async def update_extraction_result(
     ver_repo = DocumentVersionRepository(db)
     doc_repo = DocumentRepository(db)
 
+    version_uuid = uuid.UUID(document_version_id)
+    version = await ver_repo.get_by_id(version_uuid)
+
+    # Вычисляем pipeline_strategy на основе origin_filetype + стратегии извлечения
+    pipeline_strategy: str | None = None
+    origin_filetype = getattr(version, "origin_filetype", None) if version else None
+
+    if origin_filetype:
+        if origin_filetype == "pdf":
+            if strategy == "native":
+                pipeline_strategy = "pdf_native"
+            elif strategy == "ocr":
+                pipeline_strategy = "pdf_ocr"
+            elif strategy == "hybrid":
+                pipeline_strategy = "pdf_hybrid"
+        elif origin_filetype == "docx":
+            if strategy == "native":
+                pipeline_strategy = "docx_via_pdf_native"
+            elif strategy == "ocr":
+                pipeline_strategy = "docx_via_pdf_ocr"
+            elif strategy == "hybrid":
+                pipeline_strategy = "docx_via_pdf_hybrid"
+
     await ver_repo.update_refs(
-        uuid.UUID(document_version_id),
+        version_uuid,
         raw_ref=raw_ref,
         extraction_strategy=strategy,
         ocr_confidence=ocr_confidence,
+        pipeline_strategy=pipeline_strategy,
     )
 
     await doc_repo.update_status(

@@ -5,18 +5,25 @@ PII Sanitizer Worker.
 
 Пайплайн: extract → pii → structure → classify → run_checks.
 
+Назначение:
+- Считать сырой макет документа (textlayoutraw) из MinIO.
+- Найти PII‑сущности по политике (triggers + YAML‑конфиг типа документа).
+- Заменить чувствительные данные токенами, зашифровать mapping и сохранить его.
+- Сохранить sanitized‑layout и PII‑mapping в MinIO.
+- Обновить статус документа: extracted -> sanitized.
+- Запустить следующий этап пайплайна: workers.build_structure.
+
 Архитектурные принципы:
-- Celery‑таска синхронная (def) + async‑ядро (как в extract/import/runner/classifier).
+- Celery‑таска синхронная (def) + async‑ядро (PIISanitizer.sanitize) под db_uow().
 - Основная санитизация работает в одном UnitOfWork (db_uow) — читаем и пишем всё
   в рамках одной транзакции.
 - Если при санитизации происходит ошибка, мы ОТДЕЛЬНО открываем новый db_uow
   только чтобы надёжно записать статус документа (FAILED / QUARANTINE) +
   processing_error_details.
-- Для юриста это означает: документ никогда не «зависает» в промежуточном
-  состоянии, всегда имеет честный и понятный статус.
+- Для юриста это означает: документ никогда не «зависает» в промежуточном состоянии,
+  всегда имеет честный и понятный статус.
 """
 
-import asyncio
 import uuid
 from typing import Any
 
@@ -31,6 +38,7 @@ from db.repositories import (
 from db.uow import UnitOfWork, db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
 from services.pii_detector import get_pii_detector, get_preserve_types
 from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
 from services.pii_tokenizer import PIIPolicy, PIITokenizer
@@ -107,7 +115,8 @@ class PIISanitizer:
 
         try:
             # 4. Загрузить textlayoutraw из MinIO
-            layout_raw = await self.store.get_json(version.text_layout_raw_ref)
+            # ArtifactStore.get_json — синхронный метод, НЕ используем await
+            layout_raw = self.store.get_json(version.text_layout_raw_ref)
             elements = layout_raw.get("elements", [])
 
             # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
@@ -122,12 +131,14 @@ class PIISanitizer:
             # 7. Сохранить sanitized‑layout
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
             sanitized_path = self._build_sanitized_path(doc)
-            await self.store.put_json(sanitized_path, layout_sanitized)
+            # ArtifactStore.put_json — синхронный метод, НЕ используем await
+            self.store.put_json(sanitized_path, layout_sanitized)
 
             # 8. Зашифровать и сохранить pii_mapping
             mapping_path = self._build_mapping_path(doc)
             encrypted = self.encryptor.encrypt_mapping(global_mapping)
-            await self.store.put_file(mapping_path, encrypted)
+            # ArtifactStore.put_file — синхронный метод, НЕ используем await
+            self.store.put_file(mapping_path, encrypted)
 
             # 9. Обновить DocumentVersion и статус документа
             await self.version_repo.update_refs(
@@ -168,6 +179,7 @@ class PIISanitizer:
                 document_id=str(doc.id),
                 reason="pii_encryption_error",
             ) from e
+
 
     def _should_skip(self, doc) -> bool:
         """Проверить, нужно ли пропустить санитизацию (идемпотентность)."""
@@ -342,81 +354,82 @@ def sanitize_document(
 
     Внутри:
       - открывает основной UnitOfWork (uow_main) через db_uow();
-      - запускает асинхронную санитизацию;
-      - при ошибке открывает ВТОРОЙ, маленький UnitOfWork только для записи
+      - запускает асинхронную санитизацию через PIISanitizer.sanitize;
+      - при ошибке открывает второй, маленький UnitOfWork только для записи
         статуса (FAILED / QUARANTINE) + processing_error_details;
       - при успехе ставит задачу следующего этапа (Structure Builder).
     """
     version_uuid = uuid.UUID(document_version_id)
 
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
+    async def _run() -> dict:
+        # Основной UnitOfWork для санитизации
+        async with db_uow() as uow_main:
+            store = ArtifactStore(settings)
+            sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
 
-        async def _run() -> dict:
-            # Основной UnitOfWork для санитизации
-            async with db_uow() as uow_main:
-                store = ArtifactStore(settings)
-                sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
+            try:
+                result = await sanitizer.sanitize(version_uuid)
 
-                try:
-                    result = await sanitizer.sanitize(version_uuid)
+                # Успех → ставим следующую стадию (build_structure)
+                if (
+                    not result.get("skipped")
+                    and not settings.DISABLE_DOWNSTREAM_TASKS
+                ):
+                    from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
 
-                    # Успех → ставим следующую стадию (build_structure)
-                    if (
-                        not result.get("skipped")
-                        and not settings.DISABLE_DOWNSTREAM_TASKS
-                    ):
-                        celery_app.send_task(
-                            "workers.build_structure",
-                            kwargs={
-                                "document_version_id": document_version_id,
-                                # run_id можно добавить при необходимости
-                            },
-                        )
-
-                    return result
-
-                except PermanentError as e:
-                    logger.error(
-                        "Permanent error during PII sanitization",
+                    logger.info(
+                        "Scheduling build_structure after PII",
                         document_version_id=document_version_id,
-                        error=str(e),
                     )
-                    # Отдельный UoW только для записи статуса FAILED + деталей
-                    async with db_uow() as uow_status:
-                        await _mark_failed(
-                            uow_status,
-                            version_id=version_uuid,
-                            message=str(e),
-                        )
-                    return {
-                        "status": DocumentStatus.FAILED.value,
-                        "error": str(e),
-                    }
 
-                except QuarantineError as e:
-                    logger.error(
-                        "Quarantine error during PII sanitization",
-                        document_version_id=document_version_id,
-                        error=str(e),
+                    _celery.send_task(
+                        "workers.build_structure",
+                        kwargs={
+                            "document_version_id": document_version_id,
+                            # run_id можно добавить при необходимости
+                        },
                     )
-                    # Отдельный UoW только для записи статуса QUARANTINE + деталей
-                    async with db_uow() as uow_status:
-                        await _mark_quarantine(
-                            uow_status,
-                            version_id=version_uuid,
-                            error=e,
-                        )
-                    return {
-                        "status": DocumentStatus.QUARANTINE.value,
-                        "error": str(e),
-                    }
 
-        return loop.run_until_complete(_run())
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+                return result
+
+            except PermanentError as e:
+                logger.error(
+                    "Permanent error during PII sanitization",
+                    document_version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса FAILED + деталей
+                async with db_uow() as uow_status:
+                    await _mark_failed(
+                        uow_status,
+                        version_id=version_uuid,
+                        message=str(e),
+                    )
+                return {
+                    "status": DocumentStatus.FAILED.value,
+                    "error": str(e),
+                }
+
+            except QuarantineError as e:
+                logger.error(
+                    "Quarantine error during PII sanitization",
+                    document_version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса QUARANTINE + деталей
+                async with db_uow() as uow_status:
+                    await _mark_quarantine(
+                        uow_status,
+                        version_id=version_uuid,
+                        error=e,
+                    )
+                return {
+                    "status": DocumentStatus.QUARANTINE.value,
+                    "error": str(e),
+                }
+
+    # Переход в async‑мир через общий мост run_async
+    return run_async(_run())
 
 
 async def _mark_failed(

@@ -31,8 +31,10 @@ from workers.exporter import export_results  # noqa: F401
 # Построение связей и семей документов
 from workers.relations_worker import build_relations  # noqa: F401
 
-# Обслуживание очереди отложенных экспортов
-from workers.export_pending import export_process_pending  # noqa: F401
 
 # Orchestrator сейчас не является Celery-таской, поэтому сюда не импортируется
 # (он вызывается напрямую из приложения как синхронная функция start_pipeline).
+from workers.convert_worker import convert_to_pdf  # noqa: F401
+
+from workers.export_pending import export_process_pending  # noqa: F401
+from workers.run_orchestrator import start_run_pipeline   # noqa: F401

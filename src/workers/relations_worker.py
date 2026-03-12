@@ -1,24 +1,24 @@
 # src/workers/relations_worker.py
 
-
 """
-Relations Worker — runs dedup, relation detection, and family building.
+Relations Worker — построение дедупликации, связей и семей документов по сделке.
 
-Этот воркер запускается ОДИН РАЗ на сделку после того,
-как все документы классифицированы. Он обрабатывает все документы
-сделки целиком (не по одному документу).
+Назначение:
+- Один раз на сделку пройти по всем документам и:
+  1) сделать точный дедуп по SHA‑256;
+  2) загрузить первые ~2000 символов текста для каждого документа;
+  3) найти связи между документами (по имени файла и текстовым паттернам);
+  4) собрать семьи документов (master + appendices + amendments + версии);
+  5) сохранить связи и семьи в БД;
+  6) записать audit‑лог по результатам.
 
-Пайплайн:
-  1. Загрузить все документы сделки из БД.
-  2. Сделать точный дедуп по SHA-256.
-  3. Загрузить первые 2000 символов текста для каждого документа.
-  4. Найти связи (по имени файла + текстовым паттернам).
-  5. Собрать семьи (master + appendix + amendment + версии).
-  6. Сохранить связи и семьи в БД.
-  7. Записать audit log.
+Архитектурный паттерн:
+- Снаружи — синхронная Celery‑таска build_relations (def), чтобы Celery
+  мог корректно сериализовать результат в prefork‑модели.
+- Внутри — один переход sync → async через run_async, всё
+  взаимодействие с БД и MinIO реализовано в _build_relations_async() и helpers.
 """
 
-import asyncio
 import time
 import uuid
 
@@ -37,6 +37,7 @@ from db.repositories import (
 from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
 from services.relations.dedup import ExactDedupService
 from services.relations.detector import RelationDetector
 from services.relations.family_builder import FamilyBuilder
@@ -67,119 +68,116 @@ def build_relations(
     Синхронная Celery‑таска построения связей и семей документов.
 
     Внутри:
-      - создаёт event loop;
-      - открывает UnitOfWork через db_uow();
-      - запускает асинхронное ядро _build_relations_async(...);
-      - возвращает агрегированный отчёт (кол-во документов, дубликатов, семей).
+      - один раз передаём управление в async‑ядро _build_relations_async()
+        через run_async;
+      - открываем UnitOfWork через db_uow();
+      - возвращаем агрегированный отчёт (кол‑во документов, дубликатов, семей).
     """
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        return loop.run_until_complete(_build_relations_async(deal_id, tenant_id))
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+
+    async def _wrapper() -> dict:
+        async with db_uow() as uow:
+            return await _build_relations_async(deal_id, tenant_id, uow.session)
+
+    return run_async(_wrapper())
 
 
 async def _build_relations_async(
     deal_id: str,
     tenant_id: str,
+    db: AsyncSession,
 ) -> dict:
     """
-    Асинхронное ядро воркера: вся бизнес-логика построения связей/семей.
+    Асинхронное ядро воркера: вся бизнес‑логика построения связей/семей.
     """
     metrics = get_metrics()
 
     start = time.time()
     logger.info("Build relations started", deal_id=deal_id)
 
-    async with db_uow() as uow:
-        db: AsyncSession = uow.session
+    # Step 1: load deal documents
+    docs = await _load_deal_documents(deal_id, db)
+    if not docs:
+        logger.info("No documents for deal", deal_id=deal_id)
+        duration = time.time() - start
+        return {
+            "deal_id": deal_id,
+            "total_documents": 0,
+            "exact_duplicates": 0,
+            "relations": 0,
+            "families": 0,
+            "duration_seconds": round(duration, 2),
+        }
 
-        # Step 1: load deal documents
-        docs = await _load_deal_documents(deal_id, db)
-        if not docs:
-            logger.info("No documents for deal", deal_id=deal_id)
-            duration = time.time() - start
-            return {
-                "deal_id": deal_id,
-                "total_documents": 0,
-                "exact_duplicates": 0,
-                "relations": 0,
-                "families": 0,
-                "duration_seconds": round(duration, 2),
-            }
+    original_total = len(docs)
 
-        original_total = len(docs)
+    # Step 2: Exact dedup (SHA‑256)
+    dedup_relations: list[DetectedRelation] = []
+    dedup_result: DedupResult | None = None
 
-        # Step 2: Exact dedup (SHA-256)
-        dedup_relations: list[DetectedRelation] = []
-        dedup_result: DedupResult | None = None
+    if settings.DEDUP_EXACT_ENABLED:
+        deduper = ExactDedupService()
+        dedup_result, dedup_relations = deduper.find_duplicates(docs)
 
-        if settings.DEDUP_EXACT_ENABLED:
-            deduper = ExactDedupService()
-            dedup_result, dedup_relations = deduper.find_duplicates(docs)
+        kept_ids = set(dedup_result.kept_doc_ids) if dedup_result else set()
+        if kept_ids:
+            docs = [d for d in docs if d["id"] in kept_ids]
 
-            kept_ids = set(dedup_result.kept_doc_ids) if dedup_result else set()
-            if kept_ids:
-                docs = [d for d in docs if d["id"] in kept_ids]
-
-            logger.info(
-                "Exact dedup summary",
-                deal_id=deal_id,
-                total=dedup_result.total_documents if dedup_result else len(docs),
-                duplicates=dedup_result.exact_duplicates if dedup_result else 0,
-            )
-
-            # Optionally mark duplicates in DB
-            if dedup_result and dedup_result.marked_doc_ids:
-                await _mark_duplicates(dedup_result.marked_doc_ids, db)
-
-        # Step 3: load text snippets for text-based relations
-        await _load_text_snippets(docs, tenant_id=tenant_id, deal_id=deal_id, db=db)
-
-        # Step 4: relation detection
-        traversal_start = time.time()
-
-        detector = RelationDetector()
-        detected_relations = detector.detect_all_relations(docs)
-
-        # Add version relations from dedup
-        all_relations: list[DetectedRelation] = detected_relations + dedup_relations
-
-        # Step 5: family building
-        family_builder = FamilyBuilder()
-        families: list[FamilyGroup] = family_builder.build_families(docs, all_relations)
-
-        metrics.relation_traversal_latency.observe(time.time() - traversal_start)
-
-        # Step 6: save relations and families using repositories
-        await _save_relations(deal_id, all_relations, db)
-        await _save_families(deal_id, families, db)
-
-        # Step 7: audit + logging
-        report = RelationsReport(
+        logger.info(
+            "Exact dedup summary",
             deal_id=deal_id,
-            dedup_result=dedup_result or DedupResult(total_documents=len(docs)),
-            relations_found=len(all_relations),
-            families_created=len(families),
-            family_groups=families,
-            errors=[],
+            total=dedup_result.total_documents if dedup_result else len(docs),
+            duplicates=dedup_result.exact_duplicates if dedup_result else 0,
         )
-        await _write_audit_log(tenant_id=tenant_id, deal_id=deal_id, report=report, db=db)
 
-        if families:
-            masters_with_yaml = sum(1 for f in families if f.master_yaml_available)
-            master_levels = [
-                f.master_classification_level for f in families if f.master_classification_level
-            ]
-            logger.info(
-                "Family masters classification summary",
-                deal_id=deal_id,
-                families=len(families),
-                masters_with_yaml=masters_with_yaml,
-                master_levels=master_levels,
-            )
+        # Optionally mark duplicates in DB
+        if dedup_result and dedup_result.marked_doc_ids:
+            await _mark_duplicates(dedup_result.marked_doc_ids, db)
+
+    # Step 3: load text snippets for text-based relations
+    await _load_text_snippets(docs, tenant_id=tenant_id, deal_id=deal_id, db=db)
+
+    # Step 4: relation detection
+    traversal_start = time.time()
+
+    detector = RelationDetector()
+    detected_relations = detector.detect_all_relations(docs)
+
+    # Add version relations from dedup
+    all_relations: list[DetectedRelation] = detected_relations + dedup_relations
+
+    # Step 5: family building
+    family_builder = FamilyBuilder()
+    families: list[FamilyGroup] = family_builder.build_families(docs, all_relations)
+
+    metrics.relation_traversal_latency.observe(time.time() - traversal_start)
+
+    # Step 6: save relations and families using repositories
+    await _save_relations(deal_id, all_relations, db)
+    await _save_families(deal_id, families, db)
+
+    # Step 7: audit + logging
+    report = RelationsReport(
+        deal_id=deal_id,
+        dedup_result=dedup_result or DedupResult(total_documents=len(docs)),
+        relations_found=len(all_relations),
+        families_created=len(families),
+        family_groups=families,
+        errors=[],
+    )
+    await _write_audit_log(tenant_id=tenant_id, deal_id=deal_id, report=report, db=db)
+
+    if families:
+        masters_with_yaml = sum(1 for f in families if f.master_yaml_available)
+        master_levels = [
+            f.master_classification_level for f in families if f.master_classification_level
+        ]
+        logger.info(
+            "Family masters classification summary",
+            deal_id=deal_id,
+            families=len(families),
+            masters_with_yaml=masters_with_yaml,
+            master_levels=master_levels,
+        )
 
     duration = time.time() - start
     logger.info(
@@ -205,7 +203,7 @@ async def _build_relations_async(
 
 
 async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
-    """Load all classified documents for a deal."""
+    """Load all non‑quarantined documents for a deal, with classification info."""
     repo = DocumentRepository(db)
     docs = await repo.get_by_deal(uuid.UUID(deal_id))
 
@@ -236,7 +234,7 @@ async def _load_text_snippets(
     db: AsyncSession,
 ) -> list[dict]:
     """
-    Load first 2000 chars of text_layout_raw for each document.
+    Load first ~2000 chars of text_layout_raw for each document.
     This text is used for text-based relation detection.
     """
     store = ArtifactStore()
@@ -246,8 +244,8 @@ async def _load_text_snippets(
         try:
             version = await ver_repo.get_latest(uuid.UUID(doc["id"]))
             if version and version.text_layout_raw_ref:
-                raw_path = version.text_layout_raw_ref.replace(f"s3://{store.bucket}/", "")
-                layout = store.get_json(raw_path)
+                # Передаём в ArtifactStore ровно ту ссылку, что лежит в *_ref.
+                layout = store.get_json(version.text_layout_raw_ref)
                 elements = layout.get("elements", [])
                 text_parts = [e.get("text", "") for e in elements[:20]]
                 doc["text_first_2000"] = " ".join(text_parts)[:2000]
@@ -262,6 +260,7 @@ async def _load_text_snippets(
             doc["text_first_2000"] = ""
 
     return documents
+
 
 
 async def _mark_duplicates(doc_ids: list[str], db: AsyncSession) -> None:

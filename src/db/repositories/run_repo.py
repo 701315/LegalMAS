@@ -5,7 +5,7 @@ Repository for Run and Job operations.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 
 from sqlalchemy import select, update, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.result import CheckResult
 from ..models.run import Job, Run
 from ..models.document import Document
-
 
 class RunRepository:
     def __init__(self, session: AsyncSession):
@@ -48,18 +47,47 @@ class RunRepository:
 
     async def update_status(self, run_id: uuid.UUID, status: str, **kwargs) -> Run | None:
         """Update run status and optional fields."""
-        values = {"status": status, **kwargs}
-        if status == "running" and "started_at" not in kwargs:
-            values["started_at"] = datetime.now(UTC)
-        if status in ("completed", "failed") and "completed_at" not in kwargs:
-            values["completed_at"] = datetime.now(UTC)
 
-        stmt = update(Run).where(Run.id == run_id).values(**values).returning(Run)
+        def _to_naive_utc(dt: datetime | None) -> datetime | None:
+            if dt is None:
+                return None
+            if dt.tzinfo is None:
+                return dt
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+        values: dict = {"status": status}
+
+        # если вызывающий явно передал started_at/completed_at — нормализуем
+        if "started_at" in kwargs and kwargs["started_at"] is not None:
+            values["started_at"] = _to_naive_utc(kwargs["started_at"])
+        if "completed_at" in kwargs and kwargs["completed_at"] is not None:
+            values["completed_at"] = _to_naive_utc(kwargs["completed_at"])
+
+        # автозаполнение, если не передали
+        if status == "running" and "started_at" not in values:
+            # utcnow naive
+            values["started_at"] = datetime.utcnow()
+        if status in ("completed", "failed") and "completed_at" not in values:
+            values["completed_at"] = datetime.utcnow()
+
+        # остальные kwargs (total_checks, completed_checks, error_details и т.п.)
+        for k, v in kwargs.items():
+            if k in ("started_at", "completed_at"):
+                continue
+            values[k] = v
+
+        stmt = (
+            update(Run)
+            .where(Run.id == run_id)
+            .values(**values)
+            .returning(Run)
+        )
         result = await self.session.execute(stmt)
         run = result.scalar_one_or_none()
         if run:
             await self.session.flush()
         return run
+
 
     async def increment_completed_checks(self, run_id: uuid.UUID) -> int:
         """Increment completed_checks counter. Returns new value."""

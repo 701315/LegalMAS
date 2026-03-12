@@ -6,21 +6,27 @@ Run Orchestrator Worker.
 Назначение:
 - Оркестрация пайплайна анализа для конкретного Run:
   extract -> pii -> structure -> classify -> run_checks.
+- Находит все документы сделки и по их статусу решает, какие следующие задачи поставить.
+- Обновляет метаданные Run (total_checks / completed_checks, статус).
 
 Контракт:
 - Таска запускается по run_id (и опционально deal_id/tenant_id).
-- Смотрит на все документы сделки и их статусы.
-- Для каждого документа:
-  * если документ ещё не прошёл нужные стадии — ставит соответствующие таски;
-  * если документ уже классифицирован — только ставит run_checks (через classify_document).
+- Для каждого документа сделки:
+  * если документ ещё не прошёл нужные стадии — ставит соответствующие таски:
+    - pending      -> workers.extract_document
+    - extracted    -> pii.sanitize_document
+    - sanitized    -> workers.build_structure
+    - structured   -> workers.classify_document
+  * если документ уже классифицирован:
+    - при force_reclassify=True повторно ставит classify_document;
+    - иначе не трогает run_checks напрямую (их запускает classify_document).
 
-Идеи:
-- Идемпотентность: повторный запуск по тому же run_id не должен ломать пайплайн.
-- Статусы документа используются как основной источник истины:
-  pending -> extracted -> sanitized -> structured -> classified -> completed.
+Архитектура:
+- Внешняя Celery‑таска синхронная (def), чтобы Celery мог сериализовать результат.
+- Вся работа с БД и логика оркестрации находятся в _start_run_pipeline_async()
+  и вызываются из таски через безопасный переход sync → async (run_async).
 """
 
-import asyncio
 import uuid
 from typing import Any
 
@@ -35,6 +41,7 @@ from db.repositories.run_repo import RunRepository
 from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async  # единый мост sync → async
 
 logger = get_logger(__name__)
 
@@ -59,37 +66,27 @@ def start_run_pipeline(
     Шаги:
     1) по run_id находим Run и его deal_id (если не передан);
     2) по deal_id и tenant_id (из сделки) обходим все документы;
-    3) для каждого документа по статусу решаем, какие стадии запускать:
-       - pending       -> workers.extract_document
-       - extracted     -> pii.sanitize_document
-       - sanitized     -> workers.build_structure
-       - structured    -> workers.classify_document
-       - classified    -> (опционально) re-classify + run_checks
-    4) если force_reclassify=True — принудительно прогоняем classify_document
-       для всех документов, даже уже классифицированных.
+    3) для каждого документа по статусу решаем, какие стадии запускать;
+    4) обновляем метаданные Run (total_checks / completed_checks, статус).
 
     ВАЖНО:
-    - сама таска оркестратора НИКОГДА напрямую не вызывает run_checks.
-      Это делает только classify_document, когда ему передан run_id.
+    - здесь мы не создаём свой event loop напрямую;
+    - весь async‑код выполняется через общий helper run_async().
     """
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
 
-        async def _wrapper() -> dict:
-            async with db_uow() as uow:
-                return await _start_run_pipeline_async(
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    tenant_id=tenant_id,
-                    force_reclassify=force_reclassify,
-                    db=uow.session,
-                )
+    async def _wrapper() -> dict:
+        # db_uow создаёт отдельную AsyncSession и управляет commit/rollback/close.
+        async with db_uow() as uow:
+            return await _start_run_pipeline_async(
+                run_id=run_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                force_reclassify=force_reclassify,
+                db=uow.session,
+            )
 
-        return loop.run_until_complete(_wrapper())
-    finally:
-        asyncio.set_event_loop(None)
-        loop.close()
+    # Запускаем асинхронный код через единый мост run_async
+    return run_async(_wrapper())
 
 
 async def _start_run_pipeline_async(
@@ -100,7 +97,7 @@ async def _start_run_pipeline_async(
     db: AsyncSession,
 ) -> dict:
     """
-    Async-ядро оркестрации Run.
+    Async‑ядро оркестрации Run.
 
     Все операции с БД выполняются через переданную AsyncSession (db).
     """
@@ -142,7 +139,7 @@ async def _start_run_pipeline_async(
         if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
             tenant_id_str = str(run_obj.deal.tenant_id)
         else:
-            # fallback: для dev-режима используем deal_id как tenant_id
+            # fallback: для dev‑режима используем deal_id как tenant_id
             tenant_id_str = deal_id_str
     else:
         tenant_id_str = tenant_id
@@ -163,6 +160,7 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id_str,
             "documents_total": 0,
             "tasks_scheduled": 0,
+            "expected_checks_docs": 0,
         }
 
     tasks_scheduled = 0

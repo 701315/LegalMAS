@@ -1,6 +1,5 @@
 # src/mas_queue/base_task.py
 
-
 """
 MASBaseTask — базовый класс для всех Celery‑задач в системе.
 
@@ -33,12 +32,10 @@ MASBaseTask — базовый класс для всех Celery‑задач в
 
 Ограничения:
   - все операции с БД (Job / DLQ) выполняются асинхронно внутри отдельного event loop
-    через asyncio.run и db_uow();
+    через run_async и db_uow();
   - класс не знает бизнес‑логики задач, только управляет их жизненным циклом и побочными эффектами.
 """
 
-
-import asyncio
 import traceback
 import uuid
 from datetime import UTC, datetime
@@ -54,7 +51,7 @@ from core.logging import deal_id_var, document_id_var, get_logger
 from db.models.run import Job
 from db.uow import db_uow
 from mas_queue.dlq import DLQManager
-
+from mas_queue.async_helpers import run_async  # единый мост sync → async
 
 logger = get_logger(__name__)
 
@@ -123,7 +120,8 @@ class MASBaseTask(Task):
             )
             if self.track_job and "job_id" in kwargs:
                 try:
-                    asyncio.run(
+                    # Обновляем статус Job на QUEUED и увеличиваем счётчик ретраев.
+                    run_async(
                         self._update_job_status(
                             kwargs["job_id"],
                             JobStatus.QUEUED.value,
@@ -153,7 +151,7 @@ class MASBaseTask(Task):
             )
             if self.track_job and "job_id" in kwargs:
                 try:
-                    asyncio.run(
+                    run_async(
                         self._update_job_status(
                             kwargs["job_id"],
                             JobStatus.DLQ.value,
@@ -192,7 +190,7 @@ class MASBaseTask(Task):
 
         if self.track_job and "job_id" in kwargs:
             try:
-                asyncio.run(
+                run_async(
                     self._update_job_status(
                         kwargs["job_id"],
                         JobStatus.RUNNING.value,
@@ -215,7 +213,7 @@ class MASBaseTask(Task):
 
         if self.track_job and "job_id" in kwargs:
             try:
-                asyncio.run(
+                run_async(
                     self._update_job_status(
                         kwargs["job_id"],
                         JobStatus.COMPLETED.value,
@@ -241,7 +239,7 @@ class MASBaseTask(Task):
             logger.warning("Task resulted in quarantine", **error_info)
             if self.track_job and "job_id" in kwargs:
                 try:
-                    asyncio.run(
+                    run_async(
                         self._update_job_status(
                             kwargs["job_id"],
                             JobStatus.COMPLETED.value,
@@ -269,7 +267,7 @@ class MASBaseTask(Task):
         )
         if self.track_job and "job_id" in kwargs:
             try:
-                asyncio.run(
+                run_async(
                     self._update_job_status(
                         kwargs["job_id"],
                         JobStatus.DLQ.value,
@@ -330,10 +328,12 @@ class MASBaseTask(Task):
     ) -> None:
         """
         Синхронная обёртка, отправляющая запись о неуспешной задаче в DLQ (через async‑метод).
+
+        ВАЖНО: здесь мы не занимаемся бизнес‑логикой, только фиксируем факт падения задачи.
         """
         job_id = kwargs.get("job_id")
         try:
-            asyncio.run(
+            run_async(
                 self._async_send_to_dlq(
                     job_id=uuid.UUID(job_id) if job_id else None,
                     task_type=task_type,

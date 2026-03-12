@@ -21,12 +21,16 @@ class DocumentVersionRepository:
         document_id: uuid.UUID,
         version_num: int = 1,
         original_ref: str | None = None,
+        origin_filetype: str | None = None,
+        origin_extension: str | None = None,
     ) -> DocumentVersion:
         """Create a new document version."""
         version = DocumentVersion(
             document_id=document_id,
             version_num=version_num,
             original_ref=original_ref,
+            origin_filetype=origin_filetype,
+            origin_extension=origin_extension,
         )
         self.session.add(version)
         await self.session.flush()
@@ -57,12 +61,13 @@ class DocumentVersionRepository:
         clause_tree_ref: str | None = None,
         extraction_strategy: str | None = None,
         ocr_confidence: float | None = None,
+        pipeline_strategy: str | None = None,
     ) -> DocumentVersion | None:
         """
-        Update S3 references on a document version.
+        Update S3 references and processing metadata on a document version.
         Used by Stage 4 (raw), Stage 5 (sanitized), and Stage 6 (clause_tree).
         """
-        values = {}
+        values: dict = {}
         if raw_ref is not None:
             values["text_layout_raw_ref"] = raw_ref
         if sanitized_ref is not None:
@@ -73,6 +78,8 @@ class DocumentVersionRepository:
             values["extraction_strategy"] = extraction_strategy
         if ocr_confidence is not None:
             values["ocr_confidence"] = ocr_confidence
+        if pipeline_strategy is not None:
+            values["pipeline_strategy"] = pipeline_strategy
 
         if not values:
             return await self.get_by_id(version_id)

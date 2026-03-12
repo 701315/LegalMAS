@@ -1,8 +1,7 @@
 # src/mas_queue/async_helpers.py
 
-
 """
-Вспомогательные функции для запуска async‑кода из синхронных Celery‑тасок (LEGACY).
+Вспомогательные функции для запуска async‑кода из синхронных Celery‑тасок.
 
 Исторически воркеры были синхронными, а репозитории — на async SQLAlchemy.
 Этот модуль даёт "мост" между синхронным кодом Celery и асинхронными
@@ -11,24 +10,21 @@
 Текущее состояние и правила использования:
 
   - Новый код:
-      * НЕ должен использовать run_async и get_legacy_worker_session().
-      * Для воркеров — писать таски в стиле:
-            @celery_app.task(...)
-            def task(...):
-                asyncio.run(_async_impl(...))
-
-            async def _async_impl(...):
-                ...
-      * Для API/тестов — использовать src.db.session.get_session / get_db.
+      * НЕ должен использовать get_legacy_worker_session().
+      * Для работы с БД использовать db_uow() / get_session() из src.db.session.
+      * Для перехода sync → async в тасках и базовых классах
+        использовать только run_async() из этого модуля.
 
   - Legacy-код:
-      * run_async + get_legacy_worker_session() допустимы только
-        в старых чисто синхронных Celery‑тасках, которые ещё не
-        переведены на новый паттерн.
+      * get_legacy_worker_session() допустим только в полностью старых
+        тасках, которые ещё не переведены на db_uow().
       * По мере рефакторинга такие таски нужно переписывать и
         вычищать использование этого модуля.
 
-Итого: этот модуль — временный адаптер. В новом коде его импортить не нужно.
+Важно:
+- Внутри Celery‑воркеров мы используем ОДИН event loop на процесс.
+- Мы НЕ вызываем asyncio.run(), потому что он создаёт временный loop
+  и закрывает его, что ломает пул подключений SQLAlchemy/asyncpg.
 """
 
 
@@ -44,13 +40,87 @@ from core.config import settings
 
 T = TypeVar("T")
 
-# Лениво инициализируемый engine для процессов воркеров (singleton на процесс)
+# ---------------------------------------------------------------------------
+# Event loop воркера (единый на процесс)
+# ---------------------------------------------------------------------------
+
+_worker_loop: asyncio.AbstractEventLoop | None = None
+
+
+def get_worker_loop() -> asyncio.AbstractEventLoop:
+    """
+    Получить (или создать) event loop для процесса Celery‑воркера.
+
+    Что это значит простым языком:
+    - в каждом процессе воркера Celery есть один "мозг" (event loop),
+      который управляет всеми асинхронными операциями;
+    - мы создаём этот "мозг" один раз при первом обращении;
+    - этот event loop живёт до завершения процесса и НЕ закрывается
+      после каждой задачи.
+
+    Это важно для базы данных: пул подключений SQLAlchemy/asyncpg должен
+    работать всегда с одним и тем же event loop.
+    """
+    global _worker_loop
+
+    if _worker_loop is None:
+        _worker_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_worker_loop)
+
+    return _worker_loop
+
+
+def run_async(coro: Coroutine[Any, Any, T]) -> T:
+    """
+    Выполнить async‑корутину из синхронного кода Celery‑таски.
+
+    Простыми словами:
+    - Celery вызывает обычную (синхронную) функцию задачи;
+    - внутри неё мы хотим запустить асинхронную функцию (работа с БД, MinIO и т.п.);
+    - run_async берёт общий event loop воркера и "дожидается" выполнения корутины.
+
+    Ограничения:
+    - вызывать только из синхронного кода (Celery‑таски, базовые классы задач);
+    - НЕЛЬЗЯ вызывать из кода, который уже работает в async‑контексте
+      (FastAPI‑эндпоинты, pytest-asyncio и т.п.).
+
+    Почему так:
+    - мы больше НЕ используем asyncio.run(), чтобы не создавать и не
+      закрывать новый event loop под каждую задачу;
+    - все async‑операции (SQLAlchemy/asyncpg, MinIO) работают через один
+      event loop, что соответствует рекомендациям SQLAlchemy.
+    """
+    # Если мы уже внутри асинхронной функции (есть запущенный event loop),
+    # то использование run_async является ошибкой архитектуры.
+    try:
+        running_loop = asyncio.get_running_loop()
+        if running_loop.is_running():
+            raise RuntimeError("run_async() called from running event loop")
+    except RuntimeError:
+        # Здесь нормально оказаться в Celery‑воркере: event loop ещё не создан.
+        pass
+
+    loop = get_worker_loop()
+    return loop.run_until_complete(coro)
+
+
+# ---------------------------------------------------------------------------
+# LEGACY: свой engine/session factory только для старых тасок
+# ---------------------------------------------------------------------------
+
 _engine = None
 _session_factory = None
 
 
 def _get_engine():
-    """Получить или создать async‑engine (ленивый singleton на процесс воркера)."""
+    """
+    LEGACY: получить или создать async‑engine (ленивый singleton на процесс воркера).
+
+    Важно:
+    - новый код должен использовать engine/AsyncSessionLocal из src.db.session;
+    - этот engine нужен только для старых тасок, которые ещё не переведены
+      на db_uow() / get_session().
+    """
     global _engine
     if _engine is None:
         _engine = create_async_engine(
@@ -63,7 +133,12 @@ def _get_engine():
 
 
 def _get_session_factory():
-    """Получить или создать фабрику сессий (ленивый singleton на процесс воркера)."""
+    """
+    LEGACY: получить или создать фабрику сессий (singleton на процесс воркера).
+
+    Используется только вместе с get_legacy_worker_session() в старых тасках.
+    Новый код должен работать через AsyncSessionLocal / db_uow() из db/session.py.
+    """
     global _session_factory
     if _session_factory is None:
         _session_factory = async_sessionmaker(
@@ -74,44 +149,20 @@ def _get_session_factory():
     return _session_factory
 
 
-def run_async(coro: Coroutine[Any, Any, T]) -> T:
-    """
-    Выполнить async‑корутину из синхронного кода (legacy‑паттерн для Celery‑тасок).
-
-    ВАЖНО:
-      - Использовать только в *чисто синхронных* воркерах Celery.
-      - НЕЛЬЗЯ вызывать из уже работающих event loop (pytest-asyncio, uvicorn и т.п.).
-
-    Реализация:
-      - на каждый вызов создаётся отдельный event loop;
-      - не завязана на глобальный loop текущего потока.
-    """
-    # Всегда создаём свой loop для конкретного вызова,
-    # не зависим от глобального event loop текущего потока.
-    loop = asyncio.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coro)
-    finally:
-        loop.run_until_complete(loop.shutdown_asyncgens())
-        loop.close()
-        asyncio.set_event_loop(None)
-
-
 @asynccontextmanager
 async def get_legacy_worker_session():
     """
     LEGACY: получить async‑сессию БД для использования в *синхронных* Celery‑воркерах
     вместе с run_async().
 
+    Простыми словами:
+    - это старый способ "самостоятельно" создать подключение к БД внутри воркера;
+    - по мере рефакторинга его нужно убирать и заменять на db_uow().
+
     НЕ использовать в:
       - обработчиках FastAPI;
-      - новых async‑воркерах (там — asyncio.run + get_session / get_db);
+      - новых async‑воркерах;
       - тестах (там — src.db.session.get_session / get_db).
-
-    В новых задачах:
-      - создаём сессию через современный слой (db_uow / get_session);
-      - не импортируем этот модуль.
     """
     factory = _get_session_factory()
     session = factory()
@@ -123,3 +174,4 @@ async def get_legacy_worker_session():
         raise
     finally:
         await session.close()
+
