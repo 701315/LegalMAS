@@ -62,10 +62,16 @@ class DocumentVersionRepository:
         extraction_strategy: str | None = None,
         ocr_confidence: float | None = None,
         pipeline_strategy: str | None = None,
+        converted_pdf_ref: str | None = None,
     ) -> DocumentVersion | None:
         """
         Update S3 references and processing metadata on a document version.
-        Used by Stage 4 (raw), Stage 5 (sanitized), and Stage 6 (clause_tree).
+
+        Used by:
+        - Stage 4 (raw text layout),
+        - Stage 5 (sanitized layout),
+        - Stage 6 (clause_tree),
+        - convert_worker (converted_pdf_ref после DOCX→PDF).
         """
         values: dict = {}
         if raw_ref is not None:
@@ -80,8 +86,13 @@ class DocumentVersionRepository:
             values["ocr_confidence"] = ocr_confidence
         if pipeline_strategy is not None:
             values["pipeline_strategy"] = pipeline_strategy
+        if converted_pdf_ref is not None:
+            # Сохраняем ссылку на PDF, полученный после конвертации DOCX/DOC → PDF.
+            # Для исходных PDF это поле остаётся NULL.
+            values["converted_pdf_ref"] = converted_pdf_ref
 
         if not values:
+            # Если нечего обновлять, просто возвращаем текущую версию из БД.
             return await self.get_by_id(version_id)
 
         stmt = (

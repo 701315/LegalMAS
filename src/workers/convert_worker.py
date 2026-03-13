@@ -6,10 +6,8 @@ Convert Worker.
 Назначение:
 - Конвертация исходных файлов (DOC/DOCX/и др.) в PDF, чтобы дальше использовать
   существующий PDF‑пайплайн (workers.extract_document).
-- Пока реализация конвертации отсутствует, воркер служит заглушкой и только логирует
-  вызовы, не изменяя БД и не ставя downstream‑задачи.
 
-Планируемый сценарий работы:
+Сценарий работы:
   1) Import Worker сохраняет исходный файл (DOC/DOCX/...) в MinIO
      и создаёт Document + DocumentVersion.
   2) Extract Router (services.extract_router) по filetype решает, что для этого типа
@@ -19,7 +17,7 @@ Convert Worker.
        - достаёт оригинал из MinIO;
        - конвертирует в PDF;
        - кладёт PDF в MinIO;
-       - создаёт/обновляет DocumentVersion с ссылкой на PDF;
+       - обновляет DocumentVersion.converted_pdf_ref ссылкой на PDF;
        - ставит задачу на PDF‑extractor (workers.extract_document).
 
 Архитектура:
@@ -29,16 +27,21 @@ Convert Worker.
 """
 
 import uuid
+import tempfile
+from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError
 from core.logging import get_logger
 from db.repositories import DocumentRepository, DocumentVersionRepository
-from db.uow import db_uow
+from db.uow import db_uow, UnitOfWork
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
-from storage.artifact_store import ArtifactStore, ArtifactPath  # ArtifactPath пока не используется, но пригодится позже
+from storage.artifact_store import ArtifactStore, ArtifactPath
 
 logger = get_logger(__name__)
 
@@ -56,7 +59,7 @@ def convert_to_pdf(
     document_version_id: str,
     deal_id: str,
     tenant_id: str,
-    run_id: str | None = None,  # <-- добавили
+    run_id: str | None = None,
 ) -> dict:
     """
     Celery‑задача конвертации исходного файла в PDF.
@@ -68,14 +71,35 @@ def convert_to_pdf(
 
     async def _wrapper() -> dict:
         async with db_uow() as uow:
-            return await convert_to_pdf_async(
-                document_id=document_id,
-                document_version_id=document_version_id,
-                deal_id=deal_id,
-                tenant_id=tenant_id,
-                db=uow.session,
-                run_id=run_id,  # <-- пробрасываем, пока не используем
-            )
+            try:
+                return await convert_to_pdf_async(
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                    run_id=run_id,
+                )
+            except PermanentError as e:
+                # Фатальная ошибка конвертации: помечаем документ FAILED с stage="convert".
+                logger.error(
+                    "Permanent error during conversion",
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                    error=str(e),
+                )
+                async with db_uow() as uow_status:
+                    await _mark_convert_failed(
+                        uow_status,
+                        document_uuid=uuid.UUID(document_id),
+                        message=str(e),
+                        run_id=uuid.UUID(run_id) if run_id else None,
+                    )
+                return {
+                    "status": DocumentStatus.FAILED.value,
+                    "document_id": document_id,
+                    "error": str(e),
+                }
 
     return run_async(_wrapper())
 
@@ -86,14 +110,24 @@ async def convert_to_pdf_async(
     deal_id: str,
     tenant_id: str,
     db: AsyncSession,
-    run_id: str | None = None,  # <-- тоже принимаем, на будущее
+    run_id: str | None = None,
 ) -> dict:
     """
-    Асинхронное ядро конвертации (пока заглушка).
+    Асинхронное ядро конвертации DOC/DOCX → PDF.
+
+    Контракт:
+    - Берём original_ref (DOC/DOCX) из DocumentVersion.
+    - Скачиваем файл из MinIO.
+    - Конвертируем в PDF (через внешний инструмент/сервис).
+    - Заливаем PDF в MinIO по предсказуемому пути (ArtifactPath.converted_pdf).
+    - Обновляем DocumentVersion.converted_pdf_ref.
+    - Ставим стандартную задачy workers.extract_document.
+
+    В случае фатальной ошибки кидаем PermanentError — верхний уровень пометит документ FAILED.
     """
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
-    store = ArtifactStore()
+    store = ArtifactStore(settings)
 
     doc_uuid = uuid.UUID(document_id)
     ver_uuid = uuid.UUID(document_version_id)
@@ -103,15 +137,20 @@ async def convert_to_pdf_async(
     version = await ver_repo.get_by_id(ver_uuid)
 
     if not document or not version:
-        logger.error(
-            "convert_to_pdf: document or version not found",
-            document_id=document_id,
-            document_version_id=document_version_id,
+        # Это ошибка согласованности данных: без версии/документа нельзя продолжать.
+        raise PermanentError(
+            f"convert_to_pdf: document or version not found "
+            f"(document_id={document_id}, document_version_id={document_version_id})"
         )
-        return {"status": "error", "reason": "document_or_version_not_found"}
+
+    if not version.original_ref:
+        # У версии нет исходного файла — конвертировать нечего.
+        raise PermanentError(
+            f"convert_to_pdf: missing original_ref for version {document_version_id}"
+        )
 
     logger.info(
-        "convert_to_pdf called (stub)",
+        "Starting DOCX/DOC → PDF conversion",
         document_id=document_id,
         document_version_id=document_version_id,
         deal_id=deal_id,
@@ -120,11 +159,137 @@ async def convert_to_pdf_async(
         run_id=run_id,
     )
 
+    # 2. Скачиваем исходный файл из MinIO (DOCX/DOC/другой офисный формат)
+    src_s3_path = version.original_ref.replace(f"s3://{store.bucket}/", "")
+    src_bytes = store.get_file(src_s3_path)
+
+    # 3. Конвертируем в PDF (через внешний конвертер)
+    pdf_bytes = await _convert_office_bytes_to_pdf_bytes(src_bytes)
+
+    # 4. Кладём PDF в MinIO
+    pdf_path = ArtifactPath.converted_pdf(tenant_id, deal_id, document_id)
+    pdf_ref = store.put_file(pdf_path, pdf_bytes, content_type="application/pdf")
+
+    # 5. Обновляем DocumentVersion: ссылка на сконвертированный PDF
+    await ver_repo.update_refs(
+        ver_uuid,
+        converted_pdf_ref=pdf_ref,
+    )
+
+    logger.info(
+        "DOCX/DOC → PDF conversion complete, scheduling extraction",
+        document_id=document_id,
+        document_version_id=document_version_id,
+        pdf_ref=pdf_ref,
+    )
+
+    # 6. Ставим стандартный extract_document (Stage 4)
+    from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
+
+    _celery.send_task(
+        "workers.extract_document",
+        kwargs={
+            "document_version_id": document_version_id,
+            "document_id": document_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "run_id": run_id,
+        },
+    )
+
+    # Статус документа (IN_PROGRESS/EXTRACTED) будет обновлён уже в extract_worker.
     return {
-        "status": "not_implemented",
+        "status": "ok",
         "document_id": document_id,
         "document_version_id": document_version_id,
+        "pdf_ref": pdf_ref,
     }
+
+
+import httpx  # добавь импорт вверху файла
+
+
+async def _convert_office_bytes_to_pdf_bytes(src_bytes: bytes) -> bytes:
+    """
+    Конвертация офисного файла (DOCX/DOC/...) в PDF через внешний HTTP‑сервис.
+
+    Ожидаемый протокол сервиса:
+
+    - URL берётся из settings.DOCX_CONVERTER_URL, например:
+        http://office-converter:8080/convert
+
+    - Запрос:
+        POST /convert
+        Content-Type: multipart/form-data
+        form-data:
+          - file: бинарное содержимое исходного файла (DOCX/DOC/...)
+
+    - Успешный ответ:
+        200 OK
+        Content-Type: application/pdf
+        body: байты PDF
+
+    - Ошибка:
+        4xx/5xx с текстом ошибки в body (text/json).
+
+    Пока сервис не поднят или URL не настроен — кидаем PermanentError
+    с понятным текстом, чтобы было видно, что конвертация ещё не подключена.
+    """
+    converter_url = getattr(settings, "DOCX_CONVERTER_URL", None)
+    timeout_seconds = getattr(settings, "DOCX_CONVERTER_TIMEOUT_SECONDS", 60)
+
+    if not converter_url:
+        # Инфраструктура ещё не настроена — явный и понятный сигнал.
+        raise PermanentError(
+            "Office → PDF conversion service is not configured. "
+            "Set DOCX_CONVERTER_URL in settings and deploy your LibreOffice-based "
+            "converter service behind HTTP."
+        )
+
+    # Ниже — реальный вызов сервиса. Если сервиса пока нет, этот код временно
+    # можно не вызывать, но лучше сразу оставить рабочую реализацию,
+    # чтобы при появлении сервиса ничего не менять в воркере.
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            files = {"file": ("input.docx", src_bytes, "application/octet-stream")}
+            resp = await client.post(converter_url, files=files)
+
+        if resp.status_code != 200:
+            # Сервис ответил ошибкой — это фатальная ошибка для конкретного документа,
+            # но не для всего пайплайна.
+            raise PermanentError(
+                f"Conversion service error: {resp.status_code} {resp.text}"
+            )
+
+        # Успешная конвертация: возвращаем байты PDF.
+        return resp.content
+
+    except httpx.RequestError as e:
+        # Ошибки сети/таймаута — тоже PermanentError для данного документа.
+        # Можно в будущем решить, что часть из них транзиентные и добавить ретраи,
+        # но базовый контракт лучше сделать фатальным, чтобы не зависать.
+        raise PermanentError(f"Conversion service request failed: {e}")
+
+
+async def _mark_convert_failed(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    message: str,
+    run_id: Optional[uuid.UUID],
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в статус FAILED
+    на стадии convert, с заполнением processing_error_details.
+    """
+    repo = DocumentRepository(uow.session)
+    await repo.set_failed(
+        document_uuid,
+        stage="convert",
+        message=message,
+        reason="conversion_error",
+        run_id=run_id,
+    )
 
 
 

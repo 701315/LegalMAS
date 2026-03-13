@@ -33,6 +33,20 @@ class ArtifactPath:
         return f"tenants/{tenant_id}/deals/{deal_id}/originals/{document_id}"
 
     @staticmethod
+    def converted_pdf(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к PDF-версии документа, сконвертированной из офисного формата (DOCX, DOC и т.п.).
+
+        Используется в convert_worker, когда исходный файл не PDF:
+        - original_ref хранит ссылку на DOCX-оригинал,
+        - converted_pdf_ref хранит ссылку на этот PDF.
+
+        Пример пути:
+        tenants/abc/deals/xyz/originals/{document_id}_converted.pdf
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/originals/{document_id}_converted.pdf"
+
+    @staticmethod
     def layout_raw(tenant_id: str, deal_id: str, document_id: str) -> str:
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/raw.json"
 
@@ -42,7 +56,6 @@ class ArtifactPath:
 
     @staticmethod
     def clause_tree(tenant_id: str, deal_id: str, document_id: str) -> str:
-        """Путь к дереву пунктов (Stage 6)."""
         return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/clause_tree.json"
 
     @staticmethod
@@ -71,17 +84,14 @@ class ArtifactPath:
 
     @staticmethod
     def document_type_registry() -> str:
-        """Путь к реестру типов документов (глобальный)."""
         return "playbooks/document_types/registry.yaml"
 
     @staticmethod
     def document_type_config(doc_type_code: str) -> str:
-        """Путь к YAML-конфигурации конкретного типа документа."""
         return f"playbooks/document_types/{doc_type_code}.yaml"
 
     @staticmethod
     def playbook_config(playbook_name: str, version: str) -> str:
-        """Путь к конфигурации playbook."""
         return f"playbooks/{playbook_name}/{version}/config.yaml"
 
 

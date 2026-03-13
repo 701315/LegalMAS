@@ -81,7 +81,9 @@ jsonschema==4.23.0
 # Aggregator & Exporter
 openpyxl==3.1.5
 
-
+# Для метрик
 prometheus-client==0.21.0
 prometheus-fastapi-instrumentator==7.0.0
 
+# Для astAPI‑сервисе конвертера
+python-multipart

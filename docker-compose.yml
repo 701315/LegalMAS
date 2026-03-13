@@ -1,3 +1,5 @@
+# docker-compose.yml
+
 version: "3.8"
 
 services:
@@ -48,6 +50,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  office-converter:
+    build:
+      context: ./office-converter
+      dockerfile: Dockerfile
+    container_name: mas_dd_office_converter
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
 
 volumes:
   pgdata:

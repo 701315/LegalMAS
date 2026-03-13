@@ -186,6 +186,21 @@ class DocumentVersion(Base):
         nullable=True,
         comment="S3 URI to original file",
     )
+    
+    # --- НОВОЕ ПОЛЕ ---
+    # Хранит ссылку на PDF, который получился после конвертации DOCX/DOC → PDF.
+    # Если документ изначально был PDF — это поле всегда NULL.
+    # extract_worker смотрит сначала сюда, и только если NULL — берёт original_ref.
+    converted_pdf_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to PDF converted from original office format (DOCX, DOC, etc.). "
+            "Если заполнено — extract_worker использует его вместо original_ref. "
+            "Для исходных PDF всегда NULL."
+        ),
+    )
+
 
     text_layout_raw_ref: Mapped[str | None] = mapped_column(
         String(1000),

@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     EXTRACTION_MAX_PAGES: int = 500
     EXTRACTION_OCR_ENABLED: bool = True
 
+    # --- Office → PDF Converter (DOC/DOCX) ---
+    # URL HTTP‑сервиса конвертации офисных файлов в PDF.
+    # Пример: "http://office-converter:8080/convert"
+    # Если не задан, DOCX/DOC-документы будут падать на стадии convert
+    # с понятной ошибкой "conversion service is not configured".
+    DOCX_CONVERTER_URL: str | None = None
+
+    # Таймаут запроса к сервису конвертации, в секундах.
+    DOCX_CONVERTER_TIMEOUT_SECONDS: int = 60
+
     # --- Element enrichment ---
     EXTRACTION_ENRICH_ELEMENT_TYPES: bool = True
 

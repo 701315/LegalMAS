@@ -8,7 +8,7 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - На вход получает документ (PDF) и создаёт артефакт textlayoutraw.
 
 Что делает воркер:
-- Читает исходный PDF из MinIO (по ссылке original_ref из DocumentVersion).
+- Читает исходный PDF из MinIO (по ссылке original_ref или converted_pdf_ref из DocumentVersion).
 - Определяет стратегию извлечения (native text / OCR / гибрид).
 - Строит структуру textlayoutraw (элементы и таблицы) и сохраняет её в MinIO.
 - При низком качестве извлечения или ошибках отправляет документ в карантин.
@@ -153,13 +153,19 @@ async def _extract_document_async(
     start_time = time.time()
     store = ArtifactStore(settings)
 
-    # 1. Load original PDF from MinIO (original_ref из БД)
-    original_ref = await get_original_ref(document_version_id, db)
-    if not original_ref:
-        raise PermanentError(f"No originalref for version {document_version_id}")
+    # --- ИЗМЕНЕНО: вместо original_ref берём единый PDF‑source ---
+    pdf_ref = await get_pdf_source_ref(document_version_id, db)
+    if not pdf_ref:
+        # Если нет ни converted_pdf_ref, ни original_ref, это фатальная ошибка конфигурации.
+        raise PermanentError(
+            f"No PDF source ref for version {document_version_id} "
+            f"(neither converted_pdf_ref nor original_ref is set)"
+        )
 
-    s3_path = original_ref.replace(f"s3://{store.bucket}/", "")
+    # pdf_ref может быть как полным s3://..., так и относительным путём.
+    s3_path = pdf_ref.replace(f"s3://{store.bucket}/", "")
     pdf_bytes = store.get_file(s3_path)
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     # 2. Extract (Stage 4 PDF extractor: text / OCR / hybrid + tables)
     extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
@@ -281,18 +287,32 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
         )
 
 
-async def get_original_ref(
+# --- НОВОЕ ---
+async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
 ) -> str | None:
     """
-    Получить ссылку на исходный PDF (original_ref) для версии документа.
+    Получить ссылку на PDF-источник для извлечения.
+
+    Логика:
+    - если у версии есть converted_pdf_ref (DOCX/DOC → PDF), используем его;
+    - иначе используем original_ref (исходный PDF).
 
     Работает через переданную AsyncSession, не создаёт собственных сессий.
     """
     repo = DocumentVersionRepository(db)
     version = await repo.get_by_id(uuid.UUID(document_version_id))
-    return version.original_ref if version else None
+    if not version:
+        return None
+
+    # Если документ был конвертирован из офисного формата, используем PDF после конвертации.
+    if getattr(version, "converted_pdf_ref", None):
+        return version.converted_pdf_ref
+
+    # По умолчанию — исходный PDF.
+    return version.original_ref
+# --- КОНЕЦ НОВОГО ---
 
 
 async def update_extraction_result(
@@ -393,3 +413,17 @@ async def _mark_quarantine(
         reason=reason,
         run_id=run_id,
     )
+
+
+#async def get_original_ref(
+#    document_version_id: str,
+#    db: AsyncSession,
+#) -> str | None:
+#    """
+#    Получить ссылку на исходный PDF (original_ref) для версии документа.
+#
+#    Работает через переданную AsyncSession, не создаёт собственных сессий.
+#    """
+#    repo = DocumentVersionRepository(db)
+#    version = await repo.get_by_id(uuid.UUID(document_version_id))
+#    return version.original_ref if version else None
