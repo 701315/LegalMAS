@@ -1,9 +1,11 @@
 # src/core/config.py
 
+
 """
 Application configuration.
 Loads settings from environment variables / .env file.
 """
+
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,6 +45,7 @@ class Settings(BaseSettings):
     CLASSIFICATION_REGISTRY_PATH: str = "playbooks/document_types/registry.yaml"
 
     # --- LLM Providers (общий верхнеуровневый) ---
+    # Эти ключи можно использовать в других частях системы, если понадобится.
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     LOCAL_LLM_ENDPOINT: str = "http://localhost:11434"
@@ -53,7 +56,9 @@ class Settings(BaseSettings):
 
     # --- Import Worker ---
     IMPORT_MAX_FILE_SIZE_MB: int = 200
-    IMPORT_ALLOWED_EXTENSIONS: str = ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
+    IMPORT_ALLOWED_EXTENSIONS: str = (
+        ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
+    )
     IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
     # CLASSIFIER_REGISTRY_PATH уже задан выше и используется Import Worker'ом.
 
@@ -65,13 +70,7 @@ class Settings(BaseSettings):
     EXTRACTION_OCR_ENABLED: bool = True
 
     # --- Office → PDF Converter (DOC/DOCX) ---
-    # URL HTTP‑сервиса конвертации офисных файлов в PDF.
-    # Пример: "http://office-converter:8080/convert"
-    # Если не задан, DOCX/DOC-документы будут падать на стадии convert
-    # с понятной ошибкой "conversion service is not configured".
     DOCX_CONVERTER_URL: str | None = None
-
-    # Таймаут запроса к сервису конвертации, в секундах.
     DOCX_CONVERTER_TIMEOUT_SECONDS: int = 60
 
     # --- Element enrichment ---
@@ -81,7 +80,6 @@ class Settings(BaseSettings):
     DISABLE_DOWNSTREAM_TASKS: bool = False
 
     # --- PII Sanitization (Stage 5) ---
-    # Fernet key (base64). Пустой = dev mode (plaintext mapping).
     PII_ENCRYPTION_KEY: str = ""
     PII_NER_ENABLED: bool = True
     PII_PRESERVE_INN: bool = True
@@ -105,11 +103,23 @@ class Settings(BaseSettings):
     CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"  # L3
     CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
 
-    # --- LLM Provider (Stage 6 L4) ---
-    LLM_PROVIDER: str = "none"  # "none" | "local" | "openai" | "anthropic"
-    LLM_LOCAL_MODEL_PATH: str = "C:/LegalMAS/LLMmodel/model.gguf"
-    LLM_LOCAL_N_CTX: int = 4096  # context window for GGUF model
+    # --- LLM Provider (Stage 6/8 L4) ---
+    # Провайдер для общего LLM-клиента:
+    #   "none"    — LLM выключен, работаем только по rules/embeddings
+    #   "openai"  — OpenAI-совместимый HTTP API
+    #   "ollama"  — локальный сервер Ollama (HTTP API)
+    #   "llamacpp" — локальная GGUF-модель через llama-cpp-python
+    LLM_PROVIDER: str = "none"
+
+    # Путь к локальному GGUF-файлу модели для провайдера "llamacpp".
+    # Этот путь можно переопределить в .env на рабочей машине.
+    LLM_LOCAL_MODEL_PATH: str = "/home/vladi/projects/LegalMAS/LLMmodel/model.gguf"
+
+    # Контекстное окно и слои для CPU/GPU при использовании llama-cpp.
+    LLM_LOCAL_N_CTX: int = 4096
     LLM_LOCAL_N_GPU_LAYERS: int = 0  # 0 = CPU only, >0 = GPU offload
+
+    # Параметры облачной модели (если используется "openai").
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
     LLM_TIMEOUT_SECONDS: int = 30
@@ -179,41 +189,37 @@ class Settings(BaseSettings):
     EXPORT_DEFAULT_REQUESTER_ROLE: str = "deal_owner"
 
     # --- DD Request templates ---
-    # "yaml" = load from playbooks/document_types/*.yaml (dd_request_templates section)
-    # "builtin" = use hardcoded dict in aggregator.py
     EXPORT_DD_REQUEST_SOURCE: str = "yaml"
 
     # --- Structured data export ---
-    EXPORT_STRUCTURED_DATA_ENABLED: bool = True  # Include structured_data fields in Excel
-    EXPORT_CONDITIONAL_CHECKS_SHEET: bool = True  # Separate sheet for conditional check results
-    EXPORT_CLASSIFICATION_METADATA: bool = True  # Include classification_level, confidence in grid
+    EXPORT_STRUCTURED_DATA_ENABLED: bool = True
+    EXPORT_CONDITIONAL_CHECKS_SHEET: bool = True
+    EXPORT_CLASSIFICATION_METADATA: bool = True
 
     # --- Classification API settings ---
-    API_EXPOSE_YAML_METADATA: bool = True  # показывать метаданные YAML в ответах
-    API_ALLOW_FORCE_RECLASSIFY: bool = True  # разрешать force_reclassify в /runs
-    API_RECLASSIFY_BATCH_LIMIT: int = 50     # максимум документов в batch reclassify
-
+    API_EXPOSE_YAML_METADATA: bool = True
+    API_ALLOW_FORCE_RECLASSIFY: bool = True
+    API_RECLASSIFY_BATCH_LIMIT: int = 50
 
     # --- Ops: Metrics & Regression ---
-    METRICS_ENABLED: bool = True               # Включить сбор метрик
-    METRICS_PREFIX: str = "mas_dd"             # Префикс всех метрик
+    METRICS_ENABLED: bool = True
+    METRICS_PREFIX: str = "mas_dd"
 
     # Promotion Gate — пороги качества
-    GATE_EVIDENCE_VALIDITY_MIN: float = 0.95    # Мин. доля FAIL/HIGH/CRITICAL с валидным evidence
-    GATE_PRECISION_CRITICAL_MIN: float = 0.90   # Мин. precision для critical‑проверок
-    GATE_RECALL_CRITICAL_MIN: float = 0.85      # Мин. recall для critical‑проверок
-    GATE_UNCLEAR_RATE_MAX: float = 0.10         # Макс. доля UNCLEAR по critical‑чекам
-    GATE_RETRIEVAL_HIT_RATE_MIN: float = 0.80   # Мин. доля попаданий evidence в топ‑5 retrieval
-    GATE_F1_DELTA_MIN: float = -0.05            # Макс. допустимое падение F1 vs базовой версии
+    GATE_EVIDENCE_VALIDITY_MIN: float = 0.95
+    GATE_PRECISION_CRITICAL_MIN: float = 0.90
+    GATE_RECALL_CRITICAL_MIN: float = 0.85
+    GATE_UNCLEAR_RATE_MAX: float = 0.10
+    GATE_RETRIEVAL_HIT_RATE_MIN: float = 0.80
+    GATE_F1_DELTA_MIN: float = -0.05
 
     # Пороги классификации для Promotion Gate
-    GATE_CLASSIFICATION_ACCURACY_MIN: float = 0.90  # Мин. точность doc_type классификации
-    GATE_YAML_COVERAGE_MIN: float = 0.70            # Мин. доля doc_type с YAML‑инструкцией
-    GATE_LOW_CONFIDENCE_RATE_MAX: float = 0.15      # Макс. доля документов с conf < 0.6
+    GATE_CLASSIFICATION_ACCURACY_MIN: float = 0.90
+    GATE_YAML_COVERAGE_MIN: float = 0.70
+    GATE_LOW_CONFIDENCE_RATE_MAX: float = 0.15
 
     # Golden Dataset
-    GOLDEN_DATASET_PATH: str = "golden_dataset"     # Путь к golden dataset
-
+    GOLDEN_DATASET_PATH: str = "golden_dataset"
 
 
 # Singleton: one settings instance for the whole application

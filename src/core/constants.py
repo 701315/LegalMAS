@@ -72,6 +72,15 @@ class JobStatus(str, Enum):
     FAILED = "failed"
     DLQ = "dlq"
 
+class RunStatus(str, Enum):
+    """Status of an analysis run."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    COMPLETED_WITH_ERRORS = "completed_with_errors"
+    FAILED = "failed"
+
 
 class BundleSourceType(str, Enum):
     """Source from which documents were imported."""

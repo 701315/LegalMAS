@@ -5,6 +5,7 @@
 
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom"; // NEW
 import type { Deal } from "../../types";
 import {
   useClassificationReport,
@@ -13,6 +14,9 @@ import {
 } from "../../api/runs";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { useDealPermissions } from "../../hooks/usePermissions";
+
+import type { RunStatus } from "../../types";
+import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
 
 interface OverviewTabProps {
   deal: Deal;
@@ -31,7 +35,6 @@ const ClassificationQualityCard: React.FC<{
 }> = ({ dealId, latestRunId }) => {
   const { canViewClassificationReport } = useDealPermissions(dealId);
 
-  // Если нет права или нет runId — не грузим отчёт вообще
   const runIdForQuery = canViewClassificationReport
     ? latestRunId ?? null
     : null;
@@ -87,8 +90,6 @@ const ClassificationQualityCard: React.FC<{
 
   const stats = classReport.stats;
   const lowCount = stats.low_confidence_count;
-
-  // Если low_confidence документов нет — просто показываем краткую статистику
   const hasLowConfidence = lowCount > 0;
 
   return (
@@ -100,7 +101,6 @@ const ClassificationQualityCard: React.FC<{
         Отчёт по качеству классификации документов в последнем анализе.
       </p>
 
-      {/* Мини-статистика по уровням L0–L4 */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[
           { key: "l4_llm", label: "L4 LLM", color: "text-green-700" },
@@ -120,7 +120,6 @@ const ClassificationQualityCard: React.FC<{
         })}
       </div>
 
-      {/* Блок документов с низкой уверенностью */}
       {hasLowConfidence ? (
         <div>
           <p className="text-xs font-semibold text-yellow-800 mb-2">
@@ -195,7 +194,9 @@ const RunProgressCard: React.FC<{
           <span className="text-xs text-gray-400">Обновляем…</span>
         ) : (
           <span className="text-xs text-gray-500">
-            {run?.status ?? "unknown"}
+            {run?.status
+              ? RUN_STATUS_CONFIG[run.status as RunStatus]?.label ?? run.status
+              : "unknown"}
           </span>
         )}
       </div>
@@ -220,6 +221,8 @@ const RunProgressCard: React.FC<{
                   ? "bg-red-500"
                   : run.status === "completed"
                   ? "bg-green-500"
+                  : run.status === "completed_with_errors"
+                  ? "bg-yellow-500"
                   : "bg-blue-500"
               }`}
               style={{
@@ -230,13 +233,35 @@ const RunProgressCard: React.FC<{
               }}
             />
           </div>
-          {run.status === "failed" && (
-            <p className="mt-2 text-xs text-red-600">
-              Экспорт завершился с ошибкой.
-              {run.error_details &&
-                (run.error_details as any).error && (
-                  <> Детали: {String((run.error_details as any).error)}</>
-                )}
+          {(run.status === "failed" ||
+            run.status === "completed_with_errors") && (
+            <p
+              className={`mt-2 text-xs ${
+                run.status === "failed" ? "text-red-600" : "text-yellow-700"
+              }`}
+            >
+              {run.status === "failed"
+                ? "Анализ завершился с ошибкой."
+                : "Анализ завершён, но есть документы с ошибками."}
+              {run.status === "completed_with_errors" && (
+                <>
+                  {" "}
+                  {typeof run.failed_docs_count === "number" &&
+                    run.failed_docs_count > 0 && (
+                      <>Проблемных документов (FAILED): {run.failed_docs_count}. </>
+                    )}
+                  {typeof run.quarantine_docs_count === "number" &&
+                    run.quarantine_docs_count > 0 && (
+                      <>Документов в карантине: {run.quarantine_docs_count}. </>
+                    )}
+                </>
+              )}
+              {run.error_details && (run.error_details as any).message && (
+                <>
+                  {" "}
+                  Детали: {String((run.error_details as any).message)}
+                </>
+              )}
             </p>
           )}
         </>
@@ -251,10 +276,10 @@ const RunProgressCard: React.FC<{
 
 /**
  * Основной компонент вкладки Overview.
- * Содержит заголовок, кнопку запуска, прогресс Run и ClassificationQualityCard.
  */
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const qc = useQueryClient();
+  const navigate = useNavigate(); // NEW
   const startRun = useStartRun(deal.id);
   const { canStartRun } = useDealPermissions(deal.id);
 
@@ -270,7 +295,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
 
     startRun.mutate(
       {
-        // RunCreateInput: profile и force_reclassify, playbook выбирается по сделке
         profile: "core",
         force_reclassify: forceReclassify,
       },
@@ -279,7 +303,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
           if (typeof window !== "undefined") {
             window.localStorage.removeItem(forceKey);
           }
-          // Обновить информацию о текущем run и сделке
           qc.invalidateQueries({
             queryKey: ["run", run.id, true],
           });
@@ -297,30 +320,57 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     );
   };
 
+  const handleOpenPlaybook = () => {
+    navigate(`/projects/${deal.id}/playbook`);
+  };
+
+  const hasPlaybook = !!deal.playbook_version_id;
+
   return (
     <div className="space-y-4">
       {/* Заголовок / краткая информация о сделке */}
-      <div className="bg-white rounded-lg p-5 border flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 mb-1">
-            Обзор сделки
-          </h1>
-          <p className="text-sm text-gray-600">
-            {deal.name} · статус: {deal.status}
-          </p>
+      <div className="bg-white rounded-lg p-5 border space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 mb-1">
+              Обзор сделки
+            </h1>
+            <p className="text-sm text-gray-600">
+              {deal.name} · статус: {deal.status}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded text-xs ${
+              canStartRun
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+            }`}
+            onClick={handleStart}
+            disabled={!canStartRun || startRun.isPending}
+          >
+            {startRun.isPending ? "Запускаем…" : "Запустить анализ"}
+          </button>
         </div>
-        <button
-          type="button"
-          className={`px-3 py-1.5 rounded text-xs ${
-            canStartRun
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-200 text-gray-400 cursor-not-allowed"
-          }`}
-          onClick={handleStart}
-          disabled={!canStartRun || startRun.isPending}
-        >
-          {startRun.isPending ? "Запускаем…" : "Запустить анализ"}
-        </button>
+
+        {/* Краткая информация о playbook проекта */}
+        <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
+          <div className="text-gray-600">
+            <span className="font-semibold">Playbook проекта:</span>{" "}
+            {hasPlaybook ? (
+              <span>выбран (версия ID: {deal.playbook_version_id})</span>
+            ) : (
+              <span className="text-gray-500">не выбран</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenPlaybook}
+            className="px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          >
+            Настроить playbook
+          </button>
+        </div>
       </div>
 
       {/* Прогресс текущего Run */}

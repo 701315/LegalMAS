@@ -10,11 +10,15 @@
 import React, { useState, useMemo } from "react";
 import type { Document, ClassificationLevel } from "../../types";
 import {
-  DOCUMENT_STATUS_LABEL,
-} from "../../constants";
-import { ChevronRight, ChevronDown, Folder, FileText, Search } from "lucide-react";
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FileText,
+  Search,
+} from "lucide-react";
 import { cn } from "../../utils";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
+import { DOCUMENT_STATUS_CONFIG } from "../../utils/statusConfig";
 
 /* ---------- Публичные пропсы ---------- */
 
@@ -34,10 +38,10 @@ interface Props {
 
 /** Узел дерева: папка с дочерними папками и файлами. */
 interface TreeNode {
-  name: string;          // Имя папки
-  fullPath: string;      // Полный путь от корня
-  children: TreeNode[];  // Дочерние папки
-  docs: Document[];      // Файлы в этой папке
+  name: string; // Имя папки
+  fullPath: string; // Полный путь от корня
+  children: TreeNode[]; // Дочерние папки
+  docs: Document[]; // Файлы в этой папке
 }
 
 /* ====================================================================
@@ -210,57 +214,69 @@ const NodeView: React.FC<NodeViewProps> = ({
           ))}
 
           {/* Файлы в текущей папке */}
-          {node.docs.map((doc) => (
-            <div
-              key={doc.id}
-              className={cn(
-                "flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer text-sm",
-                selectedDocId === doc.id
-                  ? "bg-blue-50 text-blue-800 ring-1 ring-blue-300"
-                  : "hover:bg-gray-50 text-gray-700",
-              )}
-              style={{ paddingLeft: (depth + 1) * 14 + 8 }}
-              onClick={() => onSelectDoc(doc)}
-            >
-              <FileText size={13} className="text-gray-400 shrink-0" />
+          {node.docs.map((doc) => {
+            const config = DOCUMENT_STATUS_CONFIG[doc.status];
 
-              <span className="flex-1 truncate">{doc.filename}</span>
-
-              {/* Бейдж классификации (компактный) */}
-              {showClassification && doc.classification_level && (
-                <ClassificationBadge
-                  level={doc.classification_level as ClassificationLevel}
-                  confidence={doc.classification_confidence}
-                  showConfidence={false}
-                  className="shrink-0 ml-1"
-                />
-              )}
-
-              {/* Явный статус документа: PENDING / COMPLETED / ... */}
-              <span
-                className="shrink-0 ml-2 text-[11px] uppercase text-gray-500"
-                title={DOCUMENT_STATUS_LABEL[doc.status] || doc.status}
+            return (
+              <div
+                key={doc.id}
+                className={cn(
+                  "flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer text-sm",
+                  selectedDocId === doc.id
+                    ? "bg-blue-50 text-blue-800 ring-1 ring-blue-300"
+                    : "hover:bg-gray-50 text-gray-700",
+                )}
+                style={{ paddingLeft: (depth + 1) * 14 + 8 }}
+                onClick={() => onSelectDoc(doc)}
               >
-                {doc.status}
-              </span>
+                <FileText size={13} className="text-gray-400 shrink-0" />
 
+                <span className="flex-1 truncate">{doc.filename}</span>
 
-              {/* Кнопка удаления (если разрешено) */}
-              {canDelete && onDeleteDoc && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation(); // чтобы не срабатывать select по документу
-                    onDeleteDoc(doc);
-                  }}
-                  className="ml-1 text-[11px] text-red-500 hover:text-red-700"
-                  title="Удалить документ"
+                {/* Бейдж классификации (компактный) */}
+                {showClassification && doc.classification_level && (
+                  <ClassificationBadge
+                    level={doc.classification_level as ClassificationLevel}
+                    confidence={doc.classification_confidence}
+                    showConfidence={false}
+                    className="shrink-0 ml-1"
+                  />
+                )}
+
+                {/* Явный статус документа */}
+                <span
+                  className={cn(
+                    "shrink-0 ml-2 text-[11px] uppercase",
+                    config?.color === "success"
+                      ? "text-green-600"
+                      : config?.color === "warning"
+                      ? "text-yellow-700"
+                      : config?.color === "error"
+                      ? "text-red-600"
+                      : "text-gray-500",
+                  )}
+                  title={config?.label || doc.status}
                 >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
+                  {config?.label || doc.status}
+                </span>
+
+                {/* Кнопка удаления (если разрешено) */}
+                {canDelete && onDeleteDoc && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteDoc(doc);
+                    }}
+                    className="ml-1 text-[11px] text-red-500 hover:text-red-700"
+                    title="Удалить документ"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </>
       )}
     </>
@@ -322,7 +338,9 @@ function filterTree(node: TreeNode, searchLower: string): TreeNode {
 
 /** Рекурсивный подсчёт документов во всём поддереве. */
 function countDocs(node: TreeNode): number {
-  return node.docs.length + node.children.reduce((sum, c) => sum + countDocs(c), 0);
+  return (
+    node.docs.length + node.children.reduce((sum, c) => sum + countDocs(c), 0)
+  );
 }
 
 export default DocumentTree;

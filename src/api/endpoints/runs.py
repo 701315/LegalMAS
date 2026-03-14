@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from core.constants import RunStatus
 
 from api.schemas.runs import DealRunSummaryResponse
 from api.deps.auth import CurrentUser, get_current_user
@@ -31,6 +32,7 @@ from db.repositories.export_repo import ExportRepository
 from db.repositories.result_repo import ResultRepository
 
 from mas_queue.celery_app import celery_app
+from core.error_catalog import render_error_message
 
 from core.config import settings
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
@@ -92,13 +94,53 @@ async def _start_run_core(
     playbook_version_id = playbook.id
     model_config_id = playbook.model_config_id
 
-    # 4. Создаём run с обоими ID
+    # 4. Определяем стратегию пайплайна и создаём run.
+    #
+    # Сейчас у нас есть два ключевых фактора:
+    # - модель (model_config_id), привязанная к playbook;
+    # - выбранный playbook_version (playbook_version_id).
+    #
+    # Идея такая:
+    # - если модель изменилась по сравнению с последним Run по этой сделке —
+    #   безопаснее пересчитать всё с нуля (FULL_RERUN);
+    # - если модель та же, мы можем переиспользовать структуру документов
+    #   и только заново прогнать проверки под новым плейбуком (REUSE_STRUCTURE).
+    #
+    # Отдельно от этого, в будущем сюда можно будет добавить сравнение
+    # "технического окружения" через Run.environment_hash и/или
+    # конфигурационный fingerprint плейбука, когда появится единый источник
+    # этих данных (см. TODO ниже).
+    pipeline_strategy = "REUSE_STRUCTURE"
+
+    last_run = await run_repo.get_latest_for_deal(deal_uuid)
+    if last_run:
+        same_model = (last_run.model_config_id == model_config_id)
+        # TODO (env/reproducibility):
+        #  - Run.environment_hash сейчас почти всегда None и не заполняется
+        #    на уровне инфраструктуры;
+        #  - на уровне плейбука/ModelConfig пока нет единого fingerprint'а
+        #    конфигурации анализа.
+        # Когда появится:
+        #  - функция, считающая environment_hash для текущего запуска
+        #    (docker + libs + weights),
+        #  - и/или config_fingerprint для (playbook + model_config + registry),
+        # сюда можно добавить сравнение окружения и конфигурации анализа.
+        # Если модель или окружение изменились — лучше прогнать всё с нуля
+        # (FULL_RERUN), иначе можно безопасно REUSE_STRUCTURE.
+        if not same_model:
+            pipeline_strategy = "FULL_RERUN"
+        else:
+            # Модель та же; структура документа не зависит от набора проверок,
+            # поэтому достаточно переиспользовать структуру и заново оценить риски.
+            pipeline_strategy = "REUSE_STRUCTURE"
+
     run = await run_repo.create(
         deal_id=deal_uuid,
         playbook_version_id=playbook_version_id,
         model_config_id=model_config_id,
         bundle_id=None,
         profile=data.profile,
+        pipeline_strategy=pipeline_strategy,
     )
 
     # 5. Обновляем last_run_id у сделки
@@ -116,19 +158,94 @@ async def _start_run_core(
     #   запустить или дозапустить пайплайн до run_checks.
     tenant_id = getattr(user, "tenant_id", None)
 
-    celery_app.send_task(
-        "workers.start_run_pipeline",
-        kwargs={
-            "run_id": str(run.id),
-            "deal_id": str(deal_uuid),
-            "tenant_id": str(tenant_id) if tenant_id and str(tenant_id) != "00000000-0000-0000-0000-000000000000" else None,
-            "force_reclassify": bool(
-                data.force_reclassify and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
-            ),
-        },
-    )
+    try:
+        celery_app.send_task(
+            "workers.start_run_pipeline",
+            kwargs={
+                "run_id": str(run.id),
+                "deal_id": str(deal_uuid),
+                "tenant_id": (
+                    str(tenant_id)
+                    if tenant_id
+                    and str(tenant_id) != "00000000-0000-0000-0000-000000000000"
+                    else None
+                ),
+                "force_reclassify": bool(
+                    data.force_reclassify
+                    and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+                ),
+            },
+        )
+
+    except Exception as e:
+        msg = str(e)
+        lower_msg = msg.lower()
+
+        # Простейшая классификация ошибок брокера очередей.
+        if any(
+            token in lower_msg
+            for token in (
+                "connection refused",
+                "connectionerror",
+                "timeout",
+                "broker",
+                "rabbitmq",
+                "redis",
+            )
+        ):
+            reason = "queue_unavailable"
+            http_detail = (
+                "Не удалось запустить анализ сделки: очередь задач временно "
+                "недоступна. Попробуйте ещё раз позже."
+            )
+        else:
+            reason = "infrastructure_error"
+            http_detail = (
+                "Не удалось запустить анализ сделки: внутренняя ошибка "
+                "инфраструктуры."
+            )
+
+        await _mark_run_failed_orchestrator(
+            run_repo=run_repo,
+            run_id=run.id,
+            reason=reason,
+            message=msg,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=http_detail,
+        )
 
     return RunResponse.model_validate(run)
+
+
+async def _mark_run_failed_orchestrator(
+    run_repo: RunRepository,
+    run_id: uuid.UUID,
+    *,
+    reason: str,
+    message: str,
+) -> None:
+    """
+    Пометить Run как FAILED при ошибке на уровне оркестратора/старта пайплайна.
+
+    Используется, когда мы не смогли даже запустить workers.start_run_pipeline
+    (проблема с брокером, Celery, конфигурацией и т.п.).
+    """
+    await run_repo.update_status(
+        run_id,
+        RunStatus.FAILED.value,
+        error_details={
+            "stage": "orchestrator",
+            "type": (
+                "infrastructure_error"
+                if reason in ("infrastructure_error", "queue_unavailable")
+                else "config_error"
+            ),
+            "reason": reason,
+            "message": message,
+        },
+    )
 
 
 @router.post(
@@ -243,6 +360,10 @@ async def get_run(
         # stats должен быть уже в виде ClassificationStats или dict под него
         run_out.classification_stats = stats
 
+    # Человекочитаемое сообщение об ошибке уровня Run (если есть).
+    if getattr(run, "error_details", None):
+        run_out.error_user_message = render_error_message(run.error_details)
+
     return run_out
 
 
@@ -354,17 +475,57 @@ async def start_run_export(
     )
 
     # 5. Ставим задачу на экспорт в Celery
-    celery_app.send_task(
-        "workers.export_results",
-        kwargs={
-            "run_id": str(run.id),
-            "deal_id": str(run.deal_id),
-            "tenant_id": str(user.tenant_id),
-        },
-    )
+    try:
+        celery_app.send_task(
+            "workers.export_results",
+            kwargs={
+                "run_id": str(run.id),
+                "deal_id": str(run.deal_id),
+                "tenant_id": str(user.tenant_id),
+            },
+        )
+    except Exception as e:
+        msg = str(e)
+        lower_msg = msg.lower()
+
+        if any(
+            token in lower_msg
+            for token in (
+                "connection refused",
+                "connectionerror",
+                "timeout",
+                "broker",
+                "rabbitmq",
+                "redis",
+            )
+        ):
+            reason = "queue_unavailable"
+            http_detail = (
+                "Не удалось запустить экспорт: очередь задач временно "
+                "недоступна. Попробуйте ещё раз позже."
+            )
+        else:
+            reason = "infrastructure_error"
+            http_detail = (
+                "Не удалось запустить экспорт: внутренняя ошибка инфраструктуры."
+            )
+
+        await export_repo.update_status(
+            export.id,
+            status="failed",
+            error_details={
+                "stage": "export",
+                "type": "infrastructure_error",
+                "reason": reason,
+                "message": msg,
+            },
+        )
+        await db.commit()
+        raise HTTPException(status_code=503, detail=http_detail)
 
     await db.commit()
     await db.refresh(export)
+
 
     return RunExportResponse(
         id=export.id,
@@ -465,7 +626,7 @@ async def get_deal_run_summary(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Краткое резюме последнего run по сделке.
+    Краткое резюме последнего Run по сделке.
 
     Здесь уже используется фильтрация по user_id в репозитории,
     так что доступ ограничен участниками проекта.
@@ -478,11 +639,30 @@ async def get_deal_run_summary(
 
     run_repo = RunRepository(db)
     run = await run_repo.get_by_id(deal.last_run_id, user_id=user.id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found for this deal")
 
-    # здесь run уже должен мапиться в RunResponse через from_attributes
-    run_response = RunResponse.model_validate(run)
+    # При необходимости подтягиваем статистику классификации
+    classification_stats = None
+    if include_classification_stats:
+        classification_stats = await run_repo.get_classification_stats_for_run(run.id)
 
-    if not include_classification_stats:
-        run_response.classification_stats = None
+    # Человекочитаемое сообщение об ошибке уровня Run (если есть).
+    error_user_message = None
+    if getattr(run, "error_details", None):
+        error_user_message = render_error_message(run.error_details)
 
-    return DealRunSummaryResponse(run=run_response)
+    return DealRunSummaryResponse(
+        deal_id=run.deal_id,
+        run_id=run.id,
+        status=run.status,
+        profile=run.profile,
+        pipeline_strategy=getattr(run, "pipeline_strategy", "REUSE_STRUCTURE"),
+        total_checks=run.total_checks,
+        completed_checks=run.completed_checks,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        error_details=run.error_details,
+        error_user_message=error_user_message,
+        classification_stats=classification_stats,
+    )

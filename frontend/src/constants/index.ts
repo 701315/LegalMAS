@@ -23,6 +23,7 @@ export const ROLE_LEVEL: Record<UserRole, number> = {
   editor: 2,
   reviewer: 3,
   admin: 4,
+  superadmin: 5,
 };
 
 // -------------------------------------------------------------
@@ -135,31 +136,6 @@ export const DD_REQUEST_SOURCE_DISPLAY: Record<
   },
 };
 
-
-export const DOCUMENT_STATUS_LABEL: Record<string, string> = {
-  pending: "Ожидает",
-  extracting: "Извлечение",
-  extracted: "Извлечён",
-  sanitized: "Обезличен",
-  structured: "Структурирован",
-  classified: "Классифицирован",
-  analyzing: "Анализируется",
-  completed: "Обработан",
-  quarantine: "Карантин",
-};
-
-export const DOCUMENT_STATUS_COLOR: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-600",
-  extracting: "bg-yellow-100 text-yellow-800",
-  extracted: "bg-blue-100 text-blue-800",
-  sanitized: "bg-blue-100 text-blue-800",
-  structured: "bg-blue-100 text-blue-800",
-  classified: "bg-indigo-100 text-indigo-800",
-  analyzing: "bg-purple-100 text-purple-800",
-  completed: "bg-green-100 text-green-800",
-  quarantine: "bg-red-100 text-red-800",
-};
-
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
   IMPORT: "Импорт",
   EXPORT: "Экспорт",
@@ -170,6 +146,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   DOCUMENT_REPLACE: "Замена документа",
   RUN_START: "Запуск анализа",
   PLAYBOOK_PROMOTE: "Промоут playbook",
+  SET_DEAL_PLAYBOOK: "Изменение playbook сделки",
   // классификация
   RECLASSIFY: "Переклассификация",
   YAML_INSTRUCTION_APPLY: "Применение YAML-инструкции",

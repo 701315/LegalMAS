@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 
 import {
-  DOCUMENT_STATUS_COLOR,
-  DOCUMENT_STATUS_LABEL,
-} from "../../constants";
+  DOCUMENT_STATUS_CONFIG,
+  getErrorStageLabel,
+} from "../../utils/statusConfig";
 
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { TriggerList } from "../ui/TriggerList";
@@ -218,6 +218,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   };
 
   const processingError = doc.processing_error_details || null;
+  const statusConfig = DOCUMENT_STATUS_CONFIG[doc.status];
 
   return (
     <div className="h-full overflow-y-auto p-5 space-y-6">
@@ -233,10 +234,21 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </div>
         <span
           className={`shrink-0 px-2.5 py-1 rounded text-xs font-semibold ${
-            DOCUMENT_STATUS_COLOR[doc.status] || "bg-gray-100 text-gray-600"
+            statusConfig
+              ? // Простейшее сопоставление цвета на Tailwind-класс.
+                statusConfig.color === "success"
+                ? "bg-green-100 text-green-700"
+                : statusConfig.color === "warning"
+                ? "bg-yellow-100 text-yellow-800"
+                : statusConfig.color === "error"
+                ? "bg-red-100 text-red-700"
+                : statusConfig.color === "info"
+                ? "bg-blue-100 text-blue-700"
+                : "bg-gray-100 text-gray-600"
+              : "bg-gray-100 text-gray-600"
           }`}
         >
-          {DOCUMENT_STATUS_LABEL[doc.status] || doc.status}
+          {statusConfig ? statusConfig.label : doc.status}
         </span>
       </div>
 
@@ -267,28 +279,38 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <div className="space-y-0.5">
                 <p className="font-semibold">
-                  Ошибка обработки
-                  {processingError.stage ? ` (${processingError.stage})` : ""}
+                  {processingError.type === "quarantine"
+                    ? "Документ в карантине"
+                    : "Ошибка обработки"}
+                  {(() => {
+                    const stageLabel = getErrorStageLabel(processingError);
+                    return stageLabel && stageLabel !== "Неизвестная стадия"
+                      ? ` · ${stageLabel}`
+                      : "";
+                  })()}
                 </p>
+
                 {processingError.message && (
                   <p className="break-words">
                     {processingError.message}
                   </p>
                 )}
+
                 <div className="flex flex-wrap gap-2 text-[11px] text-red-700">
-                  {processingError.code && (
+                  {processingError.reason && (
                     <span className="px-1.5 py-0.5 rounded bg-red-100">
-                      Код: {processingError.code}
+                      Причина: {processingError.reason}
                     </span>
                   )}
-                  {processingError.retryable && (
-                    <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800">
-                      Можно повторить обработку
-                    </span>
-                  )}
-                  {processingError.occurred_at && (
+                  {processingError.timestamp && (
                     <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-                      Время: {processingError.occurred_at}
+                      Время:{" "}
+                      {new Date(processingError.timestamp).toLocaleString("ru-RU")}
+                    </span>
+                  )}
+                  {processingError.run_id && (
+                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+                      Run: {processingError.run_id}
                     </span>
                   )}
                 </div>

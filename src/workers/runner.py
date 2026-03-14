@@ -32,7 +32,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.ops.metrics import METRICS
-from core.constants import DocumentStatus
+from core.constants import DocumentStatus, RunStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger
 from db.models.run import Run
@@ -93,6 +93,10 @@ def run_checks(
                     db=uow.session,
                 )
         except Exception as e:
+            # Любая непойманная ошибка на стадии checks:
+            # - логируем;
+            # - помечаем документ FAILED с деталями ошибки (stage="checks");
+            # - пробрасываем исключение, чтобы Celery видел задачу как failed.
             logger.error(
                 "Unhandled error during checks",
                 document_id=document_id,
@@ -100,7 +104,6 @@ def run_checks(
                 run_id=run_id,
                 error=str(e),
             )
-            # Отдельный UoW, чтобы пометить документ FAILED на стадии checks.
             async with db_uow() as uow_status:
                 await _mark_checks_failed(
                     uow_status,
@@ -108,7 +111,6 @@ def run_checks(
                     run_id=run_id,
                     message=str(e),
                 )
-            # Пробрасываем, чтобы таска пометилась как failed в Celery.
             raise
 
     return run_async(_wrapper())
@@ -140,12 +142,14 @@ async def _run_checks_async(
         result = await db.execute(select(Run).where(Run.id == run_uuid))
         run_obj = result.scalar_one_or_none()
         if not run_obj:
+            # PermanentError: бизнес-ошибка конфигурации Run / Playbook (Run не найден)
             raise PermanentError(f"Run {run_id} not found")
 
         # Находим PlaybookVersion по run.playbook_version_id
         pb_repo = PlaybookRepository(db)
         playbook = await pb_repo.get_by_id(run_obj.playbook_version_id)
         if not playbook or not playbook.compiled_checks:
+            # PermanentError: Run есть, но плейбук не готов или пустой
             raise PermanentError(
                 f"PlaybookVersion for run {run_id} has no compiled_checks"
             )
@@ -162,14 +166,17 @@ async def _run_checks_async(
     doc_uuid = UUID(document_id)
     doc = await doc_repo.get_by_id(doc_uuid)
     if not doc:
+        # PermanentError: сам документ не найден
         raise PermanentError(f"Document {document_id} not found")
 
     version = await ver_repo.get_latest(doc.id)
     if not version:
+        # PermanentError: нет версии документа — выполнить checks невозможно
         raise PermanentError(f"No version found for document {document_id}")
 
     if not version.text_layout_raw_ref:
         # Без raw layout проверки выполнить невозможно.
+        # Это бизнес-ошибка пайплайна по конкретному документу.
         raise PermanentError(
             f"text_layout_raw_ref missing for document {document_id}"
         )
@@ -178,7 +185,7 @@ async def _run_checks_async(
     elements = text_layout_raw.get("elements", [])
 
     if not version.clause_tree_ref:
-        # По договоренности: отсутствие дерева пунктов — фатальная ошибка.
+        # По договоренности: отсутствие дерева пунктов — фатальная ошибка для документа.
         raise PermanentError(
             f"clause_tree_ref missing for document {document_id}"
         )
@@ -348,24 +355,85 @@ async def _finalize(
     if not run_id:
         return
 
-    run_repo = RunRepository(db)
     run_uuid = uuid.UUID(run_id)
+    run_repo = RunRepository(db)
 
     # Увеличиваем счётчик обработанных документов для этого Run.
     await run_repo.increment_completed_checks(run_uuid)
 
-    # Проверяем, все ли документы для Run обработаны.
-    total, completed = await run_repo.get_counts(run_uuid)
-    if total and completed >= total:
-        # Все документы, запланированные на этот Run, прошли run_checks.
-        await run_repo.update_status(run_uuid, "completed")
+    # Проверяем, можно ли финализировать Run (completed / completed_with_errors / failed).
+    await _maybe_finalize_run(run_uuid, db)
+
+
+async def _maybe_finalize_run(run_id: uuid.UUID, db: AsyncSession) -> None:
+    """
+    Определить финальный статус Run, когда все документы для него обработаны.
+
+    Правила:
+    - если completed_checks < total_checks — Run ещё в процессе, ничего не делаем;
+    - если completed_checks >= total_checks:
+        * если у Run уже стоит статус failed — не трогаем (критическая ошибка выше по стеку);
+        * иначе смотрим на статусы документов по сделке:
+            - если есть FAILED или QUARANTINE -> completed_with_errors;
+            - иначе -> completed.
+    """
+    run_repo = RunRepository(db)
+    doc_repo = DocumentRepository(db)
+
+    total, completed = await run_repo.get_counts(run_id)
+    if not total or completed < total:
+        return
+
+    # Получаем сам Run, чтобы узнать deal_id и текущий статус.
+    run_obj = await run_repo.get_by_id(run_id)
+    if not run_obj:
+        return
+
+    # Если Run уже помечен как failed где-то выше (например, оркестратором) — не переопределяем.
+    if run_obj.status == RunStatus.FAILED.value:
+        return
+
+    # Загружаем все документы сделки и считаем проблемные.
+    docs = await doc_repo.get_by_deal(run_obj.deal_id)
+
+    failed_count = sum(
+        1 for d in docs if d.status == DocumentStatus.FAILED.value
+    )
+    quarantine_count = sum(
+        1 for d in docs if d.status == DocumentStatus.QUARANTINE.value
+    )
+
+    has_errors = failed_count > 0 or quarantine_count > 0
+
+    if has_errors:
+        await run_repo.update_status(
+            run_id,
+            RunStatus.COMPLETED_WITH_ERRORS.value,
+            has_errors=True,
+            failed_docs_count=failed_count,
+            quarantine_docs_count=quarantine_count,
+        )
+    else:
+        await run_repo.update_status(
+            run_id,
+            RunStatus.COMPLETED.value,
+            has_errors=False,
+            failed_docs_count=0,
+            quarantine_docs_count=0,
+        )
 
 
 async def _update_document_status(
     document_id: str,
     db: AsyncSession,
 ) -> None:
-    """Обновить статус документа после выполнения проверок."""
+    """
+    Обновить статус документа после успешного выполнения checks.
+
+    Важный момент для UX:
+    - если Runner дошёл до сюда без ошибок, документ считается успешно проверенным;
+    - статус -> COMPLETED, ошибки очищаем (processing_error_details=None).
+    """
     repo = DocumentRepository(db)
     await repo.update_status(
         uuid.UUID(document_id),
@@ -384,6 +452,12 @@ async def _mark_checks_failed(
     """
     Отдельный простой UoW для перевода документа в FAILED
     с деталями ошибки на стадии checks.
+
+    Здесь мы используем единый контракт set_failed с заполнением:
+    - stage="checks" (чётко показываем, на какой стадии упал документ);
+    - reason="checks_error";
+    - message=текст исключения (можно будет дополнительно нормализовать);
+    - run_id=текущий Run (если есть).
     """
     repo = DocumentRepository(uow.session)
     run_uuid = uuid.UUID(run_id) if run_id else None

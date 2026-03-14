@@ -106,6 +106,7 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                     className={cn(
                       "hover:bg-gray-50",
                       log.action === "RECLASSIFY" && "bg-purple-50",
+                      log.action === "SET_DEAL_PLAYBOOK" && "bg-blue-50/40",
                     )}
                   >
                     <td className="px-4 py-3 text-sm text-gray-700">
@@ -130,7 +131,10 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                       {log.actor_role}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-600 max-w-[360px] truncate">
-                      {formatDetails(log.details as Record<string, unknown>)}
+                      {formatDetails(
+                        log.action,
+                        log.details as Record<string, unknown> | null,
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -175,15 +179,42 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
 };
 
 /* --- Форматирование деталей --- */
-function formatDetails(details: Record<string, unknown>): string {
+function formatDetails(
+  action: string,
+  details: Record<string, unknown> | null,
+): string {
   if (!details || Object.keys(details).length === 0) return "—";
+
+  // Специальный кейс: смена playbook сделки
+  if (action === "SET_DEAL_PLAYBOOK") {
+    const playbookName =
+      (details.playbook_name && String(details.playbook_name)) || "Playbook";
+    const semver =
+      details.semver && String(details.semver).trim().length > 0
+        ? String(details.semver)
+        : "";
+    const namePart = semver ? `${playbookName} (${semver})` : playbookName;
+
+    const oldId =
+      details.old_playbook_version_id &&
+      String(details.old_playbook_version_id).trim().length > 0
+        ? String(details.old_playbook_version_id)
+        : "—";
+    const newId =
+      details.new_playbook_version_id &&
+      String(details.new_playbook_version_id).trim().length > 0
+        ? String(details.new_playbook_version_id)
+        : "—";
+
+    return `${namePart}: ${oldId} → ${newId}`;
+  }
 
   // Специальный кейс: переклассификация документа
   if (details.previous_doc_type !== undefined) {
     const prev = String(details.previous_doc_type || "?");
     const next = String(details.new_doc_type || "?");
     const reason =
-      details.reason && String(details.reason).trim().length > 0
+      details.reason && String(details.reason).toString().trim().length > 0
         ? ` · Причина: ${String(details.reason)}`
         : "";
     return `${prev} → ${next}${reason}`;

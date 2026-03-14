@@ -1,3 +1,5 @@
+# playbooks/document_types/registry.yaml
+
 # Document Types Registry
 # Используется YAML Registry (src/classifiers/yaml_registry.py) для загрузки всех типов.
 # Classifier L1 (RuleBasedClassifier) читает rules каждого типа при классификации.

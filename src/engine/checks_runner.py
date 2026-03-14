@@ -1,3 +1,5 @@
+# src/engine/checks_runner.py
+
 """
 Stage 8 CheckRunner: playbook-based checks executor.
 

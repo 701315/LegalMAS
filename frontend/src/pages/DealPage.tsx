@@ -61,6 +61,11 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     navigate(`/projects/${deal.id}/playbook`);
   };
 
+  const handleOpenPlaybookTemplates = () => {
+    if (!canViewOverview) return;
+    navigate(`/projects/${deal.id}/playbooks/admin`);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
       {/* Заголовок сделки + кнопки администратора/редактора */}
@@ -104,6 +109,13 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               className="px-3 py-1.5 text-xs md:text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             >
               Playbook проекта
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenPlaybookTemplates}
+              className="px-3 py-1.5 text-xs md:text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            >
+              Конструктор шаблонов
             </button>
           </div>
         )}

@@ -1,3 +1,5 @@
+# src/engine/playbook/loader.py
+
 """
 Playbook Loader.
 

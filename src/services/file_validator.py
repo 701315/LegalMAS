@@ -1,3 +1,5 @@
+# src/services/file_validator.py
+
 """
 File Validation Service.
 
@@ -42,9 +44,9 @@ class ValidationResult:
     """Result of validating a single file."""
 
     status: FileStatus
-    filetype: str  # pdf | docx | xlsx | image | unknown
-    reason: str = None
-    original_extension: str = None
+    filetype: str  # pdf | docx | xlsx | image | doc | unknown
+    reason: str | None = None
+    original_extension: str | None = None
 
 
 # ─── Magic bytes ──────────────────────────────────────────────────────────────
@@ -76,9 +78,11 @@ EXTENSION_MAP = {
 # ─── Public helpers ───────────────────────────────────────────────────────────
 
 
-def get_allowed_extensions() -> set:
+def get_allowed_extensions() -> set[str]:
     return {
-        ext.strip().lower() for ext in settings.IMPORT_ALLOWED_EXTENSIONS.split(",") if ext.strip()
+        ext.strip().lower()
+        for ext in settings.IMPORT_ALLOWED_EXTENSIONS.split(",")
+        if ext.strip()
     }
 
 
@@ -91,9 +95,12 @@ def validate_file(filepath: str) -> ValidationResult:
       2. Extension is in allowlist → else QUARANTINE
       3. File exists and is not empty → else QUARANTINE
       4. File size within limits → else QUARANTINE
-      5. Magic bytes match extension → else QUARANTINE
-
-    Returns ValidationResult with status, filetype, reason, original_extension.
+      5. Magic bytes check:
+         - for большинство типов жёстко проверяем соответствие,
+         - но для .doc допускаем:
+             * старый OLE2 DOC,
+             * ZIP (фактически DOCX при расширении .doc),
+             * а для странных, но открывающихся файлов — не карантин, а VALID/unknown.
     """
     filename = os.path.basename(filepath)
 
@@ -119,7 +126,10 @@ def validate_file(filepath: str) -> ValidationResult:
         return ValidationResult(
             status=FileStatus.QUARANTINE,
             filetype="unknown",
-            reason=f"Unsupported file extension '{ext}'. " f"Allowed: {', '.join(sorted(allowed))}",
+            reason=(
+                f"Unsupported file extension '{ext}'. "
+                f"Allowed: {', '.join(sorted(allowed))}"
+            ),
             original_extension=ext,
         )
     filetype = EXTENSION_MAP.get(ext, "unknown")
@@ -155,16 +165,36 @@ def validate_file(filepath: str) -> ValidationResult:
         )
 
     # 5. Magic bytes
-    if not _check_magic_bytes(filepath, ext):
+    magic_ok, detected_type = _check_magic_bytes(filepath, ext)
+
+    if not magic_ok:
+        # Для .doc и похожих кейсов мы больше не отправляем в жёсткий карантин,
+        # а пропускаем дальше как unknown, чтобы downstream решил, что делать.
+        logger.warning(
+            "File content does not strictly match extension; passing as unknown",
+            filename=filename,
+            extension=ext,
+        )
         return ValidationResult(
-            status=FileStatus.QUARANTINE,
-            filetype=filetype,
+            status=FileStatus.VALID,
+            filetype="unknown",
             reason=(
-                f"File content does not match extension '{ext}'. "
-                f"File may be corrupted or mislabeled."
+                f"File content does not strictly match extension '{ext}'. "
+                f"File may be mislabeled, passing as 'unknown'."
             ),
             original_extension=ext,
         )
+
+    # Если по магии выяснилось, что это фактически DOCX при расширении .doc —
+    # переопределяем filetype, чтобы роутер знал, как обрабатывать.
+    if detected_type and detected_type != filetype:
+        logger.info(
+            "File extension and magic type differ; using detected type",
+            filename=filename,
+            extension=ext,
+            detected_type=detected_type,
+        )
+        filetype = detected_type
 
     return ValidationResult(
         status=FileStatus.VALID,
@@ -196,28 +226,61 @@ def is_image(filetype: str) -> bool:
 # ─── Internal ─────────────────────────────────────────────────────────────────
 
 
-def _check_magic_bytes(filepath: str, extension: str) -> bool:
-    """Verify that file's magic bytes match its extension."""
+def _check_magic_bytes(filepath: str, extension: str) -> tuple[bool, str | None]:
+    """
+    Verify that file's magic bytes match its extension.
+
+    Returns:
+      (ok, detected_type)
+
+      ok:
+        - True  — магия приемлема для этого расширения;
+        - False — магия явно не подходит (файл странный).
+      detected_type:
+        - конкретный тип, если удалось однозначно понять (например, 'docx'),
+        - None, если дополнительных выводов нет.
+    """
     try:
         with open(filepath, "rb") as f:
             header = f.read(8)
         if len(header) < 4:
-            return False
+            return False, None
 
         if extension == ".pdf":
-            return header[:4] == MAGIC_BYTES["pdf"]
+            return header[:4] == MAGIC_BYTES["pdf"], "pdf" if header[:4] == MAGIC_BYTES["pdf"] else None
+
         if extension in (".docx", ".xlsx", ".xls"):
             # DOCX and XLSX are ZIP-based (PK magic)
-            return header[:4] == MAGIC_BYTES["zip"]
+            if header[:4] == MAGIC_BYTES["zip"]:
+                mapped = EXTENSION_MAP.get(extension, "unknown")
+                return True, mapped
+            return False, None
+
         if extension == ".doc":
-            return header[:4] == MAGIC_BYTES["doc"]
+            # Классический бинарный DOC (OLE2)
+            if header[:4] == MAGIC_BYTES["doc"]:
+                return True, "doc"
+            # Нередко встречается DOCX с расширением .DOC — это ZIP (PK)
+            if header[:4] == MAGIC_BYTES["zip"]:
+                return True, "docx"
+            # Иные варианты — странный, но потенциально открывающийся файл
+            return False, None
+
         if extension == ".png":
-            return header[:4] == MAGIC_BYTES["png"]
+            return header[:4] == MAGIC_BYTES["png"], "image" if header[:4] == MAGIC_BYTES["png"] else None
+
         if extension in (".jpg", ".jpeg"):
-            return header[:3] == MAGIC_BYTES["jpg"]
+            if header[:3] == MAGIC_BYTES["jpg"]:
+                return True, "image"
+            return False, None
+
         if extension in (".tiff", ".tif"):
-            return header[:4] == MAGIC_BYTES["tiff_le"] or header[:4] == MAGIC_BYTES["tiff_be"]
-        # Unknown but allowed — accept
-        return True
+            if header[:4] in (MAGIC_BYTES["tiff_le"], MAGIC_BYTES["tiff_be"]):
+                return True, "image"
+            return False, None
+
+        # Unknown but allowed — accept, но без дополнительного типа
+        return True, None
+
     except OSError:
-        return False
+        return False, None

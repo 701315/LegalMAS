@@ -2,9 +2,40 @@
 
 """
 Document and DocumentVersion models.
-Document — a single file in the data room.
-DocumentVersion — tracks extracted/processed versions of a document.
+
+Document:
+- Описывает один файл в Data Room в контексте сделки (SPA, NDA, отчёт и т.п.).
+- Хранит бизнес‑статус обработки (pending → extracted → sanitized → structured
+  → classified → completed, а также failed / quarantine).
+- Содержит:
+  - processing_error_details — единый JSON‑контракт ошибок обработки:
+    {stage, type, reason?, message, run_id?, timestamp};
+  - метаданные классификации (doc_type, classification_level/confidence,
+    applicable_triggers, language, jurisdiction_guess);
+  - признаки для UX (reviewed_by_person, risk_level).
+
+DocumentVersion:
+- Отражает конкретную «техническую» версию документа в хранилище артефактов.
+- Для каждой версии хранит ссылки на артефакты в S3/MinIO:
+  - original_ref — исходный файл;
+  - converted_pdf_ref — PDF после конвертации офисных форматов (DOCX, DOC и др.);
+  - text_layout_raw_ref — сырой текстовый макет;
+  - text_layout_sanitized_ref — макет после PII‑санитизации;
+  - clause_tree_ref — дерево пунктов договора.
+- Также фиксирует технические параметры пайплайна:
+  - extraction_strategy, ocr_confidence;
+  - origin_filetype/origin_extension;
+  - pipeline_strategy (pdf_native, pdf_ocr, docx_via_pdf_native и т.п.).
+
+Для чего это нужно:
+- backend‑воркеры всех стадий (import, extract, pii, structure, classify, checks)
+  читают и обновляют статусы/refs строго через эти модели;
+- фронт может по одному Document:
+  - понять, где он сейчас в пайплайне и почему мог остановиться;
+  - показать юристу понятное сообщение об ошибке и дать ссылку на Run;
+  - подсветить документы с низкой уверенностью или требующие ручной проверки.
 """
+
 
 import uuid
 

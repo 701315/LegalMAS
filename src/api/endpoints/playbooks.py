@@ -1,34 +1,30 @@
+# src/api/endpoints/playbooks.py
+
 """
-Эндпоинты для работы с плейбуками (PlaybookVersion).
-
-Основные задачи:
-- отдать фронтенду список всех глобальных проверок (global_checks/*.yaml);
-- отдать список преднастроенных наборов (bundles/*.yaml);
-- собрать новый плейбук из bundles + ручных чеков и создать PlaybookVersion;
-- отдать список существующих PlaybookVersion (для селектора/настроек проекта).
-
-Архитектурные принципы:
-- этот слой НЕ лезет в раннер и не читает YAML напрямую;
-  он использует компилятор core.playbooks.compiler и PlaybookRepository;
-- раннер работает только со snapshot'ом PlaybookVersion.compiled_checks,
-  поэтому изменения в global_checks/bundles влияют только на новые версии.
+Эндпоинты для работы с плейбуками (Playbook / PlaybookVersion).
 """
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-
 from api.schemas.playbooks import (
     BundleInfo,
     GlobalCheckInfo,
     PlaybookCreateRequest,
     PlaybookCreateResponse,
     PlaybookVersionShort,
+    PlaybookLineShort,
+    PlaybookVersionDetail,
+    PlaybookLineDetail,
+    PlaybookLineCreate,
+    PlaybookLineItemPayload,
+    PlaybookTopicInfo,
 )
 from core.playbooks.compiler import (
     load_global_checks,
@@ -36,15 +32,43 @@ from core.playbooks.compiler import (
     BundleConfig,
     BUNDLES_DIR,
 )
-
 from db.session import get_db
 from db.repositories.playbook_repo import PlaybookRepository
-
+from services.playbooks.catalog import load_global_checks_catalog
 
 router = APIRouter(
     prefix="/playbooks",
     tags=["playbooks"],
 )
+
+
+async def require_playbook_admin(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """
+    Проверка прав на управление шаблонами playbook.
+
+    Разрешаем только пользователям с глобальной ролью 'superadmin' или 'admin'.
+    В dev-режиме get_current_user возвращает global_role='admin', поэтому
+    проверки будут проходить.
+    """
+    if user.global_role not in ("superadmin", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to manage playbook templates.",
+        )
+    return user
+
+
+@router.get(
+    "/catalog",
+    response_model=list[PlaybookTopicInfo],
+    summary="Каталог глобальных чеков (темы и инструкции)",
+)
+async def get_playbooks_catalog(
+    db: AsyncSession = Depends(get_db),  # задел на будущее (кэш/ACL)
+):
+    return load_global_checks_catalog()
 
 
 @router.get(
@@ -56,13 +80,6 @@ async def list_global_checks(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Возвращает список всех глобальных чеков из playbooks/global_checks.
-
-    Используется фронтендом для конструктора плейбука:
-    - дерево/таблица "все доступные проверки";
-    - фильтрация по category/group/severity/doc_types и т.п.
-    """
     all_checks = load_global_checks()
     return [
         GlobalCheckInfo(
@@ -87,15 +104,6 @@ async def list_bundles(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Возвращает список всех bundle'ов из playbooks/bundles.
-
-    Используется фронтендом, чтобы показать:
-    - "Полный плейбук";
-    - "Часто используемые наборы";
-    - списки чеков, входящих в каждый preset.
-    """
-    from pathlib import Path
     import yaml
 
     items: List[BundleInfo] = []
@@ -108,7 +116,6 @@ async def list_bundles(
             raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             cfg = BundleConfig(**raw)
         except Exception:
-            # Битый bundle не ломает весь список — логируем в compiler при использовании.
             continue
 
         items.append(
@@ -123,6 +130,49 @@ async def list_bundles(
     return items
 
 
+@router.get(
+    "/lines",
+    response_model=List[PlaybookLineShort],
+    summary="Список логических плейбуков (Playbook-шаблонов)",
+)
+async def list_playbook_lines(
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+    deal_type: Optional[str] = Query(
+        default=None,
+        description="Фильтр по типу сделки: real_estate, mna, nda, corporate и т.п.",
+    ),
+    jurisdiction: Optional[str] = Query(
+        default=None,
+        description="Фильтр по юрисдикции: RU, EN, DE и т.п.",
+    ),
+    language: Optional[str] = Query(
+        default=None,
+        description="Фильтр по языку документов: 'ru', 'en' и т.п.",
+    ),
+):
+    repo = PlaybookRepository(db)
+    playbooks = await repo.list_playbooks(
+        deal_type=deal_type,
+        jurisdiction=jurisdiction,
+        language=language,
+    )
+
+    return [
+        PlaybookLineShort(
+            id=p.id,
+            code=p.code,
+            title=p.title,
+            description=p.description,
+            deal_type=p.deal_type,
+            jurisdiction=p.jurisdiction,
+            language=p.language,
+            risk_profile=p.risk_profile,
+        )
+        for p in playbooks
+    ]
+
+
 @router.post(
     "",
     response_model=PlaybookCreateResponse,
@@ -134,16 +184,6 @@ async def create_playbook_version(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Создаёт новую версию плейбука (PlaybookVersion) из bundles и/или явного списка checks.
-
-    Логика:
-    - проверяем, что выбраны хотя бы bundles или include_ids;
-    - загружаем все глобальные чек-файлы;
-    - вызываем build_compiled_checks(...) c bundles/include/exclude/profile;
-    - создаём PlaybookVersion через PlaybookRepository.create_version;
-    - возвращаем краткую информацию о созданной версии.
-    """
     if not payload.bundles and not payload.include_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -204,6 +244,7 @@ async def create_playbook_version(
         yaml_sha256=None,
         compiled_checks=compiled,
         status=status_value,
+        playbook_id=payload.playbook_id,
     )
 
     await db.commit()
@@ -214,6 +255,7 @@ async def create_playbook_version(
         name=pv.name,
         semver=pv.semver,
         status=pv.status,
+        playbook_id=pv.playbook_id,
     )
 
 
@@ -226,13 +268,6 @@ async def list_playbook_versions(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Список всех PlaybookVersion.
-
-    Можно использовать на фронте, чтобы:
-    - выбрать плейбук по умолчанию для новых сделок;
-    - показать историю версий плейбука.
-    """
     from sqlalchemy import select
     from db.models.playbook import PlaybookVersion
 
@@ -245,6 +280,182 @@ async def list_playbook_versions(
             name=row.name,
             semver=row.semver,
             status=row.status,
+            playbook_id=row.playbook_id,
         )
         for row in rows
     ]
+
+
+@router.get(
+    "/{version_id}",
+    response_model=PlaybookVersionDetail,
+    summary="Детальная информация о версии плейбука",
+)
+async def get_playbook_version_detail(
+    version_id: uuid.UUID = Path(..., description="ID версии плейбука"),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Возвращает детальное представление версии плейбука.
+
+    Используется фронтендом для:
+    - просмотра состава плейбука;
+    - отображения профилей, секций и DD-запросов на UI.
+    """
+    repo = PlaybookRepository(db)
+    pv = await repo.get_by_id(version_id)
+    if pv is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Playbook version not found.",
+        )
+
+    return PlaybookVersionDetail(
+        id=pv.id,
+        name=pv.name,
+        semver=pv.semver,
+        status=pv.status,
+        playbook_id=pv.playbook_id,
+        model_config_id=pv.model_config_id,
+        compiled_checks=pv.compiled_checks,
+        trigger_definitions=pv.trigger_definitions,
+        dd_request_templates=pv.dd_request_templates,
+        section_markers=pv.section_markers,
+        classification_config=pv.classification_config,
+    )
+
+
+@router.get(
+    "/lines/{line_id}",
+    response_model=PlaybookLineDetail,
+    summary="Детали шаблона плейбука (PlaybookLine)",
+)
+async def get_playbook_line(
+    line_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+    line, items = await repo.get_line_with_items(line_id)
+    if not line:
+        raise HTTPException(status_code=404, detail="Playbook line not found")
+
+    return PlaybookLineDetail(
+        id=line.id,
+        code=line.code,
+        title=line.title,
+        description=line.description,
+        deal_type=line.deal_type,
+        jurisdiction=line.jurisdiction,
+        language=line.language,
+        risk_profile=line.risk_profile,
+        items=[
+            PlaybookLineItemPayload(
+                kind=i.kind,
+                topic_code=i.topic_code,
+                check_code=i.check_code,
+                order_index=i.order_index,
+            )
+            for i in items
+        ],
+    )
+
+
+@router.post(
+    "/lines",
+    response_model=PlaybookLineDetail,
+    status_code=status.HTTP_201_CREATED,
+    summary="Создать шаблон плейбука (PlaybookLine)",
+)
+async def create_playbook_line(
+    payload: PlaybookLineCreate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+
+    # Преобразуем Pydantic-объекты в dict, чтобы репозиторий не зависел от Pydantic
+    items_payload = [item.dict() for item in payload.items]
+
+    line, items = await repo.create_line_with_items(
+        title=payload.title,
+        description=payload.description,
+        deal_type=payload.deal_type,
+        jurisdiction=payload.jurisdiction,
+        language=payload.language,
+        items=items_payload,
+    )
+    await db.commit()
+    await db.refresh(line)
+
+    return PlaybookLineDetail(
+        id=line.id,
+        code=line.code,
+        title=line.title,
+        description=line.description,
+        deal_type=line.deal_type,
+        jurisdiction=line.jurisdiction,
+        language=line.language,
+        risk_profile=line.risk_profile,
+        items=[
+            PlaybookLineItemPayload(
+                kind=i.kind,
+                topic_code=i.topic_code,
+                check_code=i.check_code,
+                order_index=i.order_index,
+            )
+            for i in items
+        ],
+    )
+
+
+@router.put(
+    "/lines/{line_id}",
+    response_model=PlaybookLineDetail,
+    summary="Обновить шаблон плейбука (PlaybookLine)",
+)
+async def update_playbook_line(
+    line_id: uuid.UUID,
+    payload: PlaybookLineCreate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    repo = PlaybookRepository(db)
+
+    items_payload = [item.dict() for item in payload.items]
+
+    line, items = await repo.update_line_with_items(
+        line_id=line_id,
+        title=payload.title,
+        description=payload.description,
+        deal_type=payload.deal_type,
+        jurisdiction=payload.jurisdiction,
+        language=payload.language,
+        items=items_payload,
+    )
+    if not line:
+        raise HTTPException(status_code=404, detail="Playbook line not found")
+
+    await db.commit()
+    await db.refresh(line)
+
+    return PlaybookLineDetail(
+        id=line.id,
+        code=line.code,
+        title=line.title,
+        description=line.description,
+        deal_type=line.deal_type,
+        jurisdiction=line.jurisdiction,
+        language=line.language,
+        risk_profile=line.risk_profile,
+        items=[
+            PlaybookLineItemPayload(
+                kind=i.kind,
+                topic_code=i.topic_code,
+                check_code=i.check_code,
+                order_index=i.order_index,
+            )
+            for i in items
+        ],
+    )

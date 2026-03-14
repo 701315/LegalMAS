@@ -30,6 +30,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
 from services.export.core import export_core
+from core.constants import RunStatus
 
 logger = get_logger(__name__)
 
@@ -102,9 +103,15 @@ def export_results(
                 # Помечаем Run как failed и сохраняем детали ошибки
                 await run_repo.update_status(
                     run_uuid,
-                    "failed",
-                    error_details={"stage": "export", "error": str(e)},
+                    RunStatus.FAILED.value,
+                    error_details={
+                        "stage": "export",
+                        "type": "failed",
+                        "reason": "export_error",
+                        "message": str(e),
+                    },
                 )
+
                 # Пробрасываем ошибку дальше, чтобы Celery видел failure
                 raise
 

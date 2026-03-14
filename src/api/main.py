@@ -1,3 +1,5 @@
+# src/api/main.py
+
 """
 Точка входа API (FastAPI приложение).
 

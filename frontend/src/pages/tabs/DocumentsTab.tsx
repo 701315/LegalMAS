@@ -26,6 +26,8 @@ import type {
 import { useDealPermissions } from "../../hooks/usePermissions";
 import DocumentOpenModal from "../../components/documents/DocumentOpenModal";
 
+import { DOCUMENT_STATUS_CONFIG, getErrorStageLabel } from "../../utils/statusConfig";
+
 interface DocumentsTabProps {
   deal: Deal;
 }
@@ -43,31 +45,6 @@ interface ClassificationStats {
   low_confidence: number;
 }
 
-// Вспомогательное форматирование для статуса
-function formatStatus(status: Document["status"] | undefined): string {
-  if (!status) return "";
-  switch (status) {
-    case "pending":
-      return "Ожидает обработки";
-    case "extracting":
-    case "extracted":
-    case "sanitized":
-    case "structured":
-    case "classified":
-    case "analyzing":
-      return "В обработке";
-    case "completed":
-      return "Обработан";
-    case "quarantine":
-      return "Карантин";
-    case "failed":
-      return "Ошибка обработки";
-    case "duplicate":
-      return "Дубликат";
-    default:
-      return status;
-  }
-}
 
 // Вспомогательное форматирование риска
 function formatRiskLevel(risk: string | null | undefined): string {
@@ -98,11 +75,15 @@ function formatDateTime(value: string | undefined | null): string {
 
 // Явный флаг наличия ошибки обработки по backend-полю
 function hasProcessingError(doc: Document): boolean {
-  if (doc.status === "failed") return true;
-  if (!doc.processing_error_details) return false;
-  const { message, code } = doc.processing_error_details;
-  return Boolean(message || code);
+  if (doc.status === "failed" || doc.status === "quarantine") {
+    return true;
+  }
+  const details = doc.processing_error_details;
+  if (!details) return false;
+  // В новой модели мы опираемся на type/message, а не на code.
+  return Boolean(details.message || details.type);
 }
+
 
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   const [page] = useState(1);
@@ -533,12 +514,17 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                               value = doc.applicable_triggers?.length ?? 0;
                               break;
                             case "status": {
-                              const base = formatStatus(doc.status);
+                              // Берём человекочитаемый текст статуса из единого конфига.
+                              const baseLabel =
+                                doc.status && DOCUMENT_STATUS_CONFIG[doc.status]
+                                  ? DOCUMENT_STATUS_CONFIG[doc.status].label
+                                  : doc.status || "";
+
                               if (hasProcessingError(doc)) {
-                                // добавляем визуальный индикатор ошибки к статусу
-                                value = `${base} ⚠`;
+                                // Добавляем небольшой индикатор ошибки.
+                                value = `${baseLabel} ⚠`;
                               } else {
-                                value = base;
+                                value = baseLabel;
                               }
                               break;
                             }
@@ -555,14 +541,23 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                               value = (doc as any)[col.field];
                               break;
                           }
+                            let title: string | undefined;
 
-                          const title =
-                            col.field === "status" && hasProcessingError(doc)
-                              ? doc.processing_error_details?.message ||
-                                formatStatus(doc.status)
-                              : typeof value === "string"
-                                ? value
-                                : undefined;
+                            if (col.field === "status" && hasProcessingError(doc)) {
+                              const details = doc.processing_error_details;
+                              const stageLabel = getErrorStageLabel(details);
+                              const message = details?.message;
+
+                              if (message && stageLabel !== "Неизвестная стадия") {
+                                title = `${stageLabel}: ${message}`;
+                              } else if (message) {
+                                title = message;
+                              } else {
+                                title = typeof value === "string" ? value : undefined;
+                              }
+                            } else if (typeof value === "string") {
+                              title = value;
+                            }
 
                           return (
                             <td
@@ -577,10 +572,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                                 if (value === null || value === undefined) {
                                   return "";
                                 }
-                                if (
-                                  typeof value === "number" ||
-                                  typeof value === "string"
-                                ) {
+                                if (typeof value === "number" || typeof value === "string") {
                                   return value as React.ReactNode;
                                 }
                                 return String(value);

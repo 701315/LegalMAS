@@ -4,16 +4,52 @@
 Repository for Document CRUD and classification operations.
 
 Этот модуль инкапсулирует всю работу с таблицей документов:
-- создание записей о документах сделки;
-- получение документов по id, по сделке, по SHA‑256 (для дедупликации);
-- обновление статуса документа (pending, classified, quarantined и т.д.);
-- обновление результатов классификации (doc_type, уровень и уверенность,
-  детали классификации, applicable_triggers, язык, юрисдикция, версия playbook);
-- вспомогательные выборки для аналитики (количество по статусам,
-  выборка по типу и минимальной уверенности).
 
-Репозиторий используется бизнес‑логикой анализа и API‑слоем,
-чтобы не работать с ORM напрямую из обработчиков HTTP и воркеров.
+- создание записей о документах сделки;
+- получение документов:
+  - по id;
+  - по сделке;
+  - по SHA‑256 (для дедупликации);
+- обновление статуса документа (pending, extracting, extracted, sanitized,
+  structured, classified, completed, quarantine, failed и т.д.);
+- обновление результатов классификации:
+  - doc_type;
+  - уровень и уверенность (classification_level / classification_confidence);
+  - детали классификации;
+  - applicable_triggers;
+  - язык, юрисдикция;
+  - версия playbook;
+- вспомогательные выборки для аналитики:
+  - количество по статусам;
+  - выборка по типу и минимальной уверенности;
+  - документы с низкой уверенностью.
+
+Отдельно важен единый контракт по ошибкам обработки:
+
+- processing_error_details — JSON‑поле в Document, куда мы пишем,
+  что именно пошло не так по конкретному документу;
+- методы set_failed / set_quarantined — единственные точки,
+  через которые бизнес‑логика и воркеры должны помечать документ
+  как "FAILED" или "QUARANTINE" и записывать детали ошибки.
+
+Структура processing_error_details:
+
+    {
+        "stage": "<имя стадии пайплайна>",
+        "type": "failed" | "quarantine",
+        "reason": "<машинное короткое имя причины>" (опционально),
+        "message": "<человекочитаемое описание ошибки>",
+        "timestamp": "<ISO8601 UTC>",
+        "run_id": "<UUID Run, если есть>" (опционально)
+    }
+
+Зачем это нужно юристу и фронтенду:
+
+- по статусу документа и полю processing_error_details UI всегда может показать,
+  на каком шаге документ остановился (import, extract, pii, structure, classify, checks, export),
+  и понятное сообщение, что произошло;
+- все стадии пайплайна (все воркеры) используют один и тот же формат ошибки,
+  поэтому фронт не должен подстраиваться под разные схемы.
 """
 
 import uuid
@@ -40,7 +76,13 @@ class DocumentRepository:
         source_extension: str | None = None,
         source_filetype: str | None = None,
     ) -> Document:
-        """Create a new document record."""
+        """
+        Создать новую запись документа в сделке.
+
+        Для юриста это означает:
+        - «в системе появился ещё один документ по сделке»;
+        - документ пока может быть даже не обработан (status=pending).
+        """
         doc = Document(
             deal_id=deal_id,
             bundle_id=bundle_id,
@@ -56,7 +98,7 @@ class DocumentRepository:
         return doc
 
     async def get_by_id(self, doc_id: uuid.UUID) -> Document | None:
-        """Get document by ID."""
+        """Вернуть документ по ID (или None, если не найден)."""
         result = await self.session.execute(
             select(Document).where(Document.id == doc_id)
         )
@@ -68,7 +110,12 @@ class DocumentRepository:
         status: str | None = None,
         doc_type: str | None = None,
     ) -> list[Document]:
-        """Get documents for a deal, optionally filtered."""
+        """
+        Вернуть документы по сделке, опционально фильтруя по статусу и типу.
+
+        Это основной метод, через который фронт получает список документов
+        для таблицы документов по сделке.
+        """
         stmt = select(Document).where(Document.deal_id == deal_id)
         if status is not None:
             stmt = stmt.where(Document.status == status)
@@ -79,7 +126,13 @@ class DocumentRepository:
         return list(result.scalars().all())
 
     async def get_by_sha256(self, deal_id: uuid.UUID, sha256: str) -> Document | None:
-        """Find document by SHA256 hash within a deal (for dedup)."""
+        """
+        Найти документ по SHA256‑хэшу внутри сделки (для дедупликации).
+
+        Используется, чтобы:
+        - не создавать дубликаты документов;
+        - помечать новые загрузки как DUPLICATE, если такой файл уже есть.
+        """
         result = await self.session.execute(
             select(Document).where(
                 Document.deal_id == deal_id,
@@ -89,7 +142,14 @@ class DocumentRepository:
         return result.scalar_one_or_none()
 
     async def update_status(self, doc_id: uuid.UUID, status: str, **kwargs) -> Document | None:
-        """Update document status and optional fields."""
+        """
+        Обновить статус документа и дополнительные поля.
+
+        Важно:
+        - этот метод не навязывает формат processing_error_details;
+        - для FAILED / QUARANTINE нужно использовать set_failed / set_quarantined,
+          чтобы не потерять единый контракт по ошибкам.
+        """
         values = {"status": status, **kwargs}
         stmt = (
             update(Document)
@@ -114,6 +174,14 @@ class DocumentRepository:
     ) -> Document | None:
         """
         Перевести документ в FAILED и записать детали ошибки в processing_error_details.
+
+        Использовать этот метод должны все стадии пайплайна (import, extract, pii,
+        structure, classify, checks, export), когда ошибка по документу:
+        - фатальна для этого документа;
+        - и мы больше не можем продолжать обработку (например, битый PDF, нет clause_tree).
+
+        Поле stage должно отражать стадию пайплайна, на которой остановился документ:
+        - "import", "extract", "pii", "structure", "classify", "checks", "export" и т.п.
         """
         from datetime import datetime, UTC
 
@@ -124,8 +192,10 @@ class DocumentRepository:
             "timestamp": datetime.now(UTC).isoformat(),
         }
         if reason is not None:
+            # reason — короткий машинный код причины (например, "pdf_corrupted").
             details["reason"] = reason
         if run_id is not None:
+            # run_id — чтобы фронт мог показать, в рамках какого Run произошла ошибка.
             details["run_id"] = str(run_id)
 
         return await self.update_status(
@@ -145,6 +215,14 @@ class DocumentRepository:
     ) -> Document | None:
         """
         Перевести документ в QUARANTINE и записать детали ошибки.
+
+        Использовать, когда:
+        - документ формально обработан, но есть сомнения в корректности результата;
+        - требуется ручная проверка юристом (например, очень плохое качество OCR,
+          подозрение на неправильную классификацию и т.п.).
+
+        Для юриста это выглядит как отдельный статус "quarantine" с пояснением,
+        что именно вызывает сомнение.
         """
         from datetime import datetime, UTC
 
@@ -177,7 +255,16 @@ class DocumentRepository:
         jurisdiction: str | None = None,
         playbook_version_id: uuid.UUID | None = None,
     ) -> Document | None:
-        """Update document classification results."""
+        """
+        Обновить результаты классификации документа.
+
+        Это вызывается после успешной работы классификатора:
+        - сохранение типа договора (doc_type);
+        - уровня (L0–L4) и уверенности;
+        - детальной информации о том, почему выбрана такая классификация;
+        - языковых и юрисдикционных метаданных;
+        - ID версии плейбука, по которому классифицировали документ.
+        """
         values = {
             "doc_type": doc_type,
             "classification_confidence": classification_confidence,
@@ -186,7 +273,7 @@ class DocumentRepository:
             "applicable_triggers": applicable_triggers,
         }
 
-        # Обновляем язык и юрисдикцию, если они переданы
+        # Обновляем язык и юрисдикцию, если они переданы.
         if language:
             values["language"] = language
         if jurisdiction:
@@ -208,7 +295,14 @@ class DocumentRepository:
         return doc
 
     async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
-        """Count documents by status for a deal."""
+        """
+        Посчитать количество документов по статусам для сделки.
+
+        Фронт может использовать это для сводки:
+        - сколько документов в работе;
+        - сколько уже полностью обработаны;
+        - сколько в quarantine / failed.
+        """
         stmt = (
             select(Document.status, func.count(Document.id))
             .where(Document.deal_id == deal_id)
@@ -223,7 +317,13 @@ class DocumentRepository:
         doc_type: str,
         min_confidence: float = 0.0,
     ) -> list[Document]:
-        """Get documents by type with minimum classification confidence."""
+        """
+        Вернуть документы указанного типа с минимальной уверенностью классификации.
+
+        Удобно, например, чтобы:
+        - выбрать «подозрительные» договора определённого типа
+          (ниже некоторого порога уверенности).
+        """
         stmt = (
             select(Document)
             .where(
@@ -244,6 +344,9 @@ class DocumentRepository:
         """
         Вернуть документы с низкой уверенностью классификации
         для указанной сделки.
+
+        Используется, чтобы:
+        - подсветить юристу документы, которые стоит посмотреть вручную.
         """
         stmt = (
             select(Document)
@@ -256,7 +359,12 @@ class DocumentRepository:
         return list(result.scalars().all())
 
     async def get_quarantined(self, deal_id: uuid.UUID) -> list[Document]:
-        """Get all documents in quarantine status for a deal."""
+        """
+        Вернуть все документы в статусе QUARANTINE для сделки.
+
+        Это даёт фронту возможность построить отдельный список
+        «Документы, требующие ручной проверки».
+        """
         stmt = select(Document).where(
             Document.deal_id == deal_id,
             Document.status == DocumentStatus.QUARANTINE.value,
@@ -271,9 +379,15 @@ class DocumentRepository:
         clear_classification: bool = True,
     ) -> Document | None:
         """
-        Сбросить документ для повторной обработки:
-        - статус → new_status (по умолчанию 'pending');
-        - при clear_classification=True обнулить поля классификации.
+        Сбросить документ для повторной обработки.
+
+        Что происходит:
+        - статус -> new_status (по умолчанию 'pending');
+        - при clear_classification=True обнуляются поля классификации.
+
+        Это удобно, когда:
+        - юрист или система хочет перепройти весь пайплайн по документу
+          (например, после обновления моделей или плейбука).
         """
         values: dict[str, object] = {"status": new_status}
 
@@ -309,6 +423,10 @@ class DocumentRepository:
     ) -> tuple[list[Document], int]:
         """
         Вернуть страницу документов сделки + общее количество.
+
+        Это основа для пагинации в UI:
+        - список документов по страницам;
+        - возможность сортировать по статусу/типу/уверенности.
         """
         offset = (page - 1) * per_page
 
@@ -347,6 +465,7 @@ class DocumentRepository:
     async def list_by_deal_id(self, deal_id: uuid.UUID) -> list[Document]:
         """
         Вернуть все документы по сделке (без пагинации), для экспорта.
+
         Порядок — как в обычной таблице: по folder_path, filename.
         """
         stmt = (

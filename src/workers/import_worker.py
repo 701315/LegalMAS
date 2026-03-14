@@ -456,11 +456,18 @@ async def _async_import(
                 filetype=validation.filetype,
                 reason=decision.reason,
             )
+
         else:
             # unsupported: честно отправляем в карантин с понятной причиной
-            await doc_repo.update_status(
+            await doc_repo.set_quarantined(
                 doc.id,
-                DocumentStatus.QUARANTINE.value,
+                stage="import",
+                message=(
+                    "Тип файла не поддерживается пайплайном анализа: "
+                    f"{validation.filetype or 'unknown'}"
+                ),
+                reason=decision.reason or "unsupported_filetype",
+                run_id=uuid.UUID(run_id) if run_id else None,
             )
             quarantine_ids.append(str(doc.id))
             imported_ids.remove(str(doc.id))
@@ -470,6 +477,11 @@ async def _async_import(
                 filetype=validation.filetype,
                 reason=decision.reason,
             )
+
+            metrics.quarantine.labels(
+                reason=decision.reason or "unsupported_filetype"
+            ).inc()
+            continue
 
     # Финализируем bundle
     bundle.file_count = len(imported_ids) + len(quarantine_ids)

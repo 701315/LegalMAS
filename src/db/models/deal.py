@@ -1,3 +1,5 @@
+# src/db/models/deal.py
+
 """
 Deal model — top-level entity representing an M&A transaction.
 Each deal belongs to a tenant and contains bundles of documents.

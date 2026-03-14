@@ -1,3 +1,5 @@
+# src/classifiers/yaml_registry.py
+
 """
 YAML Registry — loads and caches document type configurations.
 

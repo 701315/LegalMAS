@@ -414,16 +414,3 @@ async def _mark_quarantine(
         run_id=run_id,
     )
 
-
-#async def get_original_ref(
-#    document_version_id: str,
-#    db: AsyncSession,
-#) -> str | None:
-#    """
-#    Получить ссылку на исходный PDF (original_ref) для версии документа.
-#
-#    Работает через переданную AsyncSession, не создаёт собственных сессий.
-#    """
-#    repo = DocumentVersionRepository(db)
-#    version = await repo.get_by_id(uuid.UUID(document_version_id))
-#    return version.original_ref if version else None

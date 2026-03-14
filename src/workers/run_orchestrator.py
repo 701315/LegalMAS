@@ -6,25 +6,28 @@ Run Orchestrator Worker.
 Назначение:
 - Оркестрация пайплайна анализа для конкретного Run:
   extract -> pii -> structure -> classify -> run_checks.
-- Находит все документы сделки и по их статусу решает, какие следующие задачи поставить.
-- Обновляет метаданные Run (total_checks / completed_checks, статус).
+- Находит все документы сделки и по их статусу решает, какие задачи поставить:
+  - PENDING     -> workers.extract_document
+  - EXTRACTED   -> pii.sanitize_document
+  - SANITIZED   -> workers.build_structure
+  - STRUCTURED  -> workers.classify_document
+- Обновляет метаданные Run:
+  - total_checks — сколько документов должны дойти до стадии checks;
+  - completed_checks — сколько документов уже успешно прошли checks;
+  - статус Run (pending/running/completed/completed_with_errors/failed).
 
-Контракт:
-- Таска запускается по run_id (и опционально deal_id/tenant_id).
-- Для каждого документа сделки:
-  * если документ ещё не прошёл нужные стадии — ставит соответствующие таски:
-    - pending      -> workers.extract_document
-    - extracted    -> pii.sanitize_document
-    - sanitized    -> workers.build_structure
-    - structured   -> workers.classify_document
-  * если документ уже классифицирован:
-    - при force_reclassify=True повторно ставит classify_document;
-    - иначе не трогает run_checks напрямую (их запускает classify_document).
+Как это выглядит для юриста:
 
-Архитектура:
-- Внешняя Celery‑таска синхронная (def), чтобы Celery мог сериализовать результат.
-- Вся работа с БД и логика оркестрации находятся в _start_run_pipeline_async()
-  и вызываются из таски через безопасный переход sync → async (run_async).
+- Он запускает Run по сделке (через HTTP‑эндпоинт).
+- Оркестратор:
+  - переводит Run в статус "running";
+  - проходит по всем документам сделки;
+  - по статусу каждого документа решает, какие следующие этапы запускаются;
+  - считает, для скольких документов будет выполнен stage "checks" (total_checks).
+- Дальше отдельные воркеры (extract/pii/structure/classify/run_checks) делают свою работу.
+- Когда все документы прошли checks, Runner:
+  - завершает Run как "completed", если ни один документ не в FAILED/QUARANTINE;
+  - или как "completed_with_errors", если есть проблемные документы.
 """
 
 import uuid
@@ -33,7 +36,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
-from core.constants import DocumentStatus
+from core.constants import DocumentStatus, RunStatus
 from db.models.run import Run
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -67,7 +70,8 @@ def start_run_pipeline(
     1) по run_id находим Run и его deal_id (если не передан);
     2) по deal_id и tenant_id (из сделки) обходим все документы;
     3) для каждого документа по статусу решаем, какие стадии запускать;
-    4) обновляем метаданные Run (total_checks / completed_checks, статус).
+    4) устанавливаем total_checks и сбрасываем completed_checks в 0;
+    5) переводим Run в статус "running" (если он ещё не в финальном состоянии).
 
     ВАЖНО:
     - здесь мы не создаём свой event loop напрямую;
@@ -100,6 +104,17 @@ async def _start_run_pipeline_async(
     Async‑ядро оркестрации Run.
 
     Все операции с БД выполняются через переданную AsyncSession (db).
+
+    Важные моменты с точки зрения статусов Run:
+
+    - если Run или deal_id не найдены — бросаем исключение (внешний код может
+      пометить Run как failed и записать error_details);
+    - если документов по сделке нет — Run сразу помечается как "completed"
+      (анализ ничего не делал, но запуск корректен);
+    - для нормального сценария:
+      * считаем expected_checks_docs (total_checks);
+      * ставим задачи по пайплайну;
+      * переводим Run в "running" с total_checks и completed_checks=0.
     """
     logger.info(
         "Starting run pipeline",
@@ -118,17 +133,74 @@ async def _start_run_pipeline_async(
     run_uuid = uuid.UUID(run_id)
     run_obj: Run | None = await run_repo.get_by_id(run_uuid)
     if not run_obj:
-        raise RuntimeError(f"Run {run_id} not found")
+        # Конфигурационная ошибка: указанный Run не существует.
+        await run_repo.update_status(
+            run_uuid,
+            RunStatus.FAILED.value,
+            error_details={
+                "stage": "orchestrator",
+                "type": "config_error",
+                "reason": "run_not_found",
+                "message": f"Run {run_id} not found",
+            },
+        )
+        logger.error(
+            "Run not found for orchestrator",
+            extra={"run_id": run_id},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": None,
+            "tenant_id": tenant_id,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+            "expected_checks_docs": 0,
+        }
 
-    # deal_id / tenant_id берём из Run / связанной сделки, если не переданы явно
-    deal_uuid = run_obj.deal_id if run_obj.deal_id else uuid.UUID(deal_id) if deal_id else None
+    # Определяем стратегию пайплайна для этого Run.
+    # Пока поддерживаем только REUSE_STRUCTURE (по сути, текущее поведение).
+    pipeline_strategy = getattr(run_obj, "pipeline_strategy", "REUSE_STRUCTURE")
+    is_full_rerun = pipeline_strategy == "FULL_RERUN"
+
+    logger.info(
+        "Resolved run pipeline strategy",
+        extra={
+            "run_id": run_id,
+            "pipeline_strategy": pipeline_strategy,
+            "force_reclassify": force_reclassify,
+        },
+    )
+
+    # deal_id / tenant_id берём из Run / связанной сделки, если не переданы явно.
+
+    deal_uuid = (
+        run_obj.deal_id
+        if run_obj.deal_id
+        else uuid.UUID(deal_id) if deal_id else None
+    )
     if deal_uuid is None:
-        raise RuntimeError(f"Run {run_id} has no deal_id")
-
-    # Переводим Run в статус "running", если он ещё не запущен.
-    # RunRepository.update_status сам проставит started_at, если нужно.
-    if run_obj.status not in ("running", "completed", "failed"):
-        await run_repo.update_status(run_uuid, "running")
+        await run_repo.update_status(
+            run_uuid,
+            RunStatus.FAILED.value,
+            error_details={
+                "stage": "orchestrator",
+                "type": "config_error",
+                "reason": "deal_not_bound",
+                "message": f"Run {run_id} has no deal_id",
+            },
+        )
+        logger.error(
+            "Run has no deal_id",
+            extra={"run_id": run_id},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": None,
+            "tenant_id": tenant_id,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+            "expected_checks_docs": 0,
+        }
 
     deal_id_str = str(deal_uuid)
 
@@ -144,15 +216,17 @@ async def _start_run_pipeline_async(
     else:
         tenant_id_str = tenant_id
 
-    # Загружаем все документы сделки
+    # Загружаем все документы сделки.
     docs = await doc_repo.get_by_deal(deal_uuid)
     if not docs:
         logger.info(
             "No documents for deal, nothing to process",
             extra={"run_id": run_id, "deal_id": deal_id_str},
         )
-        # Если документов нет, считаем Run сразу завершённым.
-        await run_repo.update_status(run_uuid, "completed")
+        # Если документов нет, считаем Run сразу завершённым:
+        # для юриста это «анализ ничего не делал, но запуск завершился без ошибок».
+        await run_repo.update_status(run_uuid, RunStatus.COMPLETED.value)
+
 
         return {
             "run_id": run_id,
@@ -186,12 +260,31 @@ async def _start_run_pipeline_async(
         # - он ещё в одном из рабочих статусов, ведущих к классификации,
         #   или
         # - уже classified, но мы явно просим force_reclassify.
-        if status in (
-            DocumentStatus.PENDING.value,
-            DocumentStatus.EXTRACTED.value,
-            DocumentStatus.SANITIZED.value,
-            DocumentStatus.STRUCTURED.value,
-        ) or (status == DocumentStatus.CLASSIFIED.value and force_reclassify):
+
+        participates = False
+
+        if is_full_rerun:
+            # В режиме полного перерасчёта все «живые» документы участвуют в Run,
+            # даже если уже были COMPLETED или CLASSIFIED.
+            participates = status in (
+                DocumentStatus.PENDING.value,
+                DocumentStatus.EXTRACTED.value,
+                DocumentStatus.SANITIZED.value,
+                DocumentStatus.STRUCTURED.value,
+                DocumentStatus.CLASSIFIED.value,
+                DocumentStatus.COMPLETED.value,
+            )
+        else:
+            # Старое поведение: только не-дошедшие до конца + опционально CLASSIFIED
+            # при force_reclassify.
+            participates = status in (
+                DocumentStatus.PENDING.value,
+                DocumentStatus.EXTRACTED.value,
+                DocumentStatus.SANITIZED.value,
+                DocumentStatus.STRUCTURED.value,
+            ) or (status == DocumentStatus.CLASSIFIED.value and force_reclassify)
+
+        if participates:
             expected_checks_docs += 1
 
         # PENDING (ещё не прошёл extract)
@@ -267,10 +360,11 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # CLASSIFIED: уже классифицирован; решаем, нужно ли ещё раз запускать checks
+        # CLASSIFIED: уже классифицирован; решаем, нужно ли ещё раз запускать checks.
         if status == DocumentStatus.CLASSIFIED.value:
-            if force_reclassify:
-                # Принудительная переклассификация + запуск run_checks
+            if is_full_rerun or force_reclassify:
+                # При полном перерасчёте или принудительной переклассификации
+                # запускаем классификацию ещё раз (run_checks внутри неё).
                 celery_app.send_task(
                     "workers.classify_document",
                     kwargs={
@@ -282,23 +376,37 @@ async def _start_run_pipeline_async(
                 )
                 tasks_scheduled += 1
             else:
-                # Статус уже CLASSIFIED → можно было бы сразу запускать run_checks,
-                # но по контракту это делает только classify_document.
                 logger.info(
                     "Document already classified, not re-running checks without force_reclassify",
                     extra={"document_id": doc_id_str, "run_id": run_id},
                 )
             continue
 
-        # COMPLETED: документ уже прошёл полный пайплайн
+        # COMPLETED: документ уже прошёл полный пайплайн.
+        # Runner и другие воркеры уже обновили статусы и результаты.
         if status == DocumentStatus.COMPLETED.value:
-            logger.info(
-                "Document already completed, skipping in run pipeline",
-                extra={"document_id": doc_id_str, "run_id": run_id},
-            )
+            if is_full_rerun:
+                # В полном режиме считаем, что документ нужно прогнать ещё раз,
+                # начиная с классификации (структура и layout уже есть).
+                celery_app.send_task(
+                    "workers.classify_document",
+                    kwargs={
+                        "document_id": doc_id_str,
+                        "run_id": run_id,
+                        "deal_id": deal_id_str,
+                        "tenant_id": tenant_id_str,
+                    },
+                )
+                tasks_scheduled += 1
+            else:
+                logger.info(
+                    "Document already completed, skipping in run pipeline",
+                    extra={"document_id": doc_id_str, "run_id": run_id},
+                )
             continue
 
-        # Любые другие статусы пока просто логируем
+        # FAILED / QUARANTINE / другие статусы:
+        # на уровне оркестратора мы их не трогаем, просто логируем.
         logger.info(
             "Document in unsupported status for run pipeline, skipping",
             extra={"document_id": doc_id_str, "status": status, "run_id": run_id},
@@ -306,9 +414,10 @@ async def _start_run_pipeline_async(
 
     # Обновляем total_checks / completed_checks для Run.
     # total_checks = количество документов, которые должны пройти run_checks в рамках этого Run.
+    # completed_checks сбрасываем в 0 — Runner будет инкрементировать по мере завершения checks.
     await run_repo.update_status(
         run_uuid,
-        "running",
+        RunStatus.RUNNING.value,
         total_checks=expected_checks_docs,
         completed_checks=0,
     )

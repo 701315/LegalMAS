@@ -1,22 +1,30 @@
 # src/db/repositories/playbook_repo.py
 
 """
-Repository for PlaybookVersion and ModelConfig operations.
+Repository for Playbook, PlaybookVersion and ModelConfig operations.
 """
 
 import uuid
+from typing import Iterable
 
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import PlaybookStatus
 from ..models.deal import Deal
-from ..models.playbook import ModelConfig, PlaybookVersion
+from ..models.playbook import (
+    ModelConfig,
+    PlaybookVersion,
+    Playbook,
+    PlaybookLineItem,
+)
 
 
 class PlaybookRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    # --- ModelConfig operations ---
 
     async def create_model_config(
         self,
@@ -38,6 +46,207 @@ class PlaybookRepository:
         await self.session.flush()
         return mc
 
+    # --- Playbook (logical line) operations ---
+
+    async def create_playbook(
+        self,
+        code: str,
+        title: str,
+        description: str | None = None,
+        deal_type: str | None = None,
+        jurisdiction: str | None = None,
+        language: str | None = None,
+        risk_profile: str | None = None,
+    ) -> Playbook:
+        """
+        Create a logical Playbook (template/line).
+
+        Code must be unique; caller is responsible for handling conflicts.
+        """
+        playbook = Playbook(
+            code=code,
+            title=title,
+            description=description,
+            deal_type=deal_type,
+            jurisdiction=jurisdiction,
+            language=language,
+            risk_profile=risk_profile,
+        )
+        self.session.add(playbook)
+        await self.session.flush()
+        return playbook
+
+    async def get_playbook_by_id(self, playbook_id: uuid.UUID) -> Playbook | None:
+        """Get Playbook by ID."""
+        result = await self.session.execute(
+            select(Playbook).where(Playbook.id == playbook_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_playbook_by_code(self, code: str) -> Playbook | None:
+        """Get Playbook by its machine-readable code."""
+        result = await self.session.execute(
+            select(Playbook).where(Playbook.code == code)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_playbooks(
+        self,
+        deal_type: str | None = None,
+        jurisdiction: str | None = None,
+        language: str | None = None,
+    ) -> list[Playbook]:
+        """
+        List Playbooks with optional filtering.
+
+        Used by UI to show templates by deal type / jurisdiction / language.
+        """
+        stmt = select(Playbook)
+
+        if deal_type is not None:
+            stmt = stmt.where(Playbook.deal_type == deal_type)
+        if jurisdiction is not None:
+            stmt = stmt.where(Playbook.jurisdiction == jurisdiction)
+        if language is not None:
+            stmt = stmt.where(Playbook.language == language)
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    # --- Playbook line items (constructor content) ---
+
+    async def get_line_with_items(
+        self,
+        playbook_id: uuid.UUID,
+    ) -> tuple[Playbook | None, list[PlaybookLineItem]]:
+        """
+        Получить логический плейбук и все его элементы (topics/checks),
+        отсортированные по order_index и id.
+        """
+        playbook = await self.get_playbook_by_id(playbook_id)
+        if playbook is None:
+            return None, []
+
+        result = await self.session.execute(
+            select(PlaybookLineItem)
+            .where(PlaybookLineItem.line_id == playbook_id)
+            .order_by(PlaybookLineItem.order_index, PlaybookLineItem.id)
+        )
+        items = list(result.scalars().all())
+        return playbook, items
+
+    async def create_line_with_items(
+        self,
+        title: str,
+        description: str | None,
+        deal_type: str | None,
+        jurisdiction: str | None,
+        language: str | None,
+        items: Iterable[dict],
+    ) -> tuple[Playbook, list[PlaybookLineItem]]:
+        """
+        Создать логический Playbook (линию) и полностью задать его состав (items).
+
+        items — итерируемый список словарей:
+        {
+            "kind": "topic" | "check",
+            "topic_code": str | None,
+            "check_code": str | None,
+            "order_index": int,
+        }
+        """
+        code = self._generate_code_from_title(title)
+
+        playbook = await self.create_playbook(
+            code=code,
+            title=title,
+            description=description,
+            deal_type=deal_type,
+            jurisdiction=jurisdiction,
+            language=language,
+            risk_profile=None,
+        )
+
+        line_items: list[PlaybookLineItem] = []
+        for payload in items:
+            item = PlaybookLineItem(
+                line_id=playbook.id,
+                kind=payload["kind"],
+                topic_code=payload.get("topic_code"),
+                check_code=payload.get("check_code"),
+                order_index=payload["order_index"],
+            )
+            self.session.add(item)
+            line_items.append(item)
+
+        await self.session.flush()
+        return playbook, line_items
+
+    async def update_line_with_items(
+        self,
+        line_id: uuid.UUID,
+        title: str,
+        description: str | None,
+        deal_type: str | None,
+        jurisdiction: str | None,
+        language: str | None,
+        items: Iterable[dict],
+    ) -> tuple[Playbook | None, list[PlaybookLineItem]]:
+        """
+        Обновить логический Playbook и полностью пересоздать его состав (items).
+
+        Если плейбук с таким ID не найден, вернёт (None, []).
+        """
+        playbook = await self.get_playbook_by_id(line_id)
+        if playbook is None:
+            return None, []
+
+        playbook.title = title
+        playbook.description = description
+        playbook.deal_type = deal_type
+        playbook.jurisdiction = jurisdiction
+        playbook.language = language
+
+        # Удаляем старые элементы
+        await self.session.execute(
+            text("DELETE FROM playbook_line_items WHERE line_id = :line_id"),
+            {"line_id": str(line_id)},
+        )
+
+        # Добавляем новые элементы
+        line_items: list[PlaybookLineItem] = []
+        for payload in items:
+            item = PlaybookLineItem(
+                line_id=line_id,
+                kind=payload["kind"],
+                topic_code=payload.get("topic_code"),
+                check_code=payload.get("check_code"),
+                order_index=payload["order_index"],
+            )
+            self.session.add(item)
+            line_items.append(item)
+
+        await self.session.flush()
+        return playbook, line_items
+
+    def _generate_code_from_title(self, title: str) -> str:
+        """
+        Простейший генератор machine-readable кода по title.
+
+        Делает slug в snake_case, обрезает до 80 символов.
+        """
+        base = (
+            title.lower()
+            .replace(" ", "_")
+            .replace("/", "_")
+            .replace("—", "_")
+            .replace("-", "_")
+        )
+        base = "".join(ch for ch in base if ch.isalnum() or ch == "_")
+        return base[:80]
+
+    # --- PlaybookVersion operations ---
+
     async def create_version(
         self,
         name: str,
@@ -47,18 +256,25 @@ class PlaybookRepository:
         yaml_sha256: str | None = None,
         compiled_checks: dict | None = None,
         status: str = PlaybookStatus.DRAFT.value,
+        playbook_id: uuid.UUID | None = None,
     ) -> PlaybookVersion:
-        """Create a new playbook version.
+        """
+        Create a new playbook version.
 
         If status='default', automatically archives the previous default version
-        to ensure only one default exists at any time.
+        to ensure only one default exists at any time (global default).
         """
         if status == PlaybookStatus.DEFAULT.value:
             await self.session.execute(
-                text("UPDATE playbook_versions SET status = 'archived' WHERE status = 'default'")
+                text(
+                    "UPDATE playbook_versions "
+                    "SET status = 'archived' "
+                    "WHERE status = 'default'"
+                )
             )
 
         pv = PlaybookVersion(
+            playbook_id=playbook_id,
             name=name,
             semver=semver,
             model_config_id=model_config_id,
@@ -74,7 +290,9 @@ class PlaybookRepository:
     async def get_default(self) -> PlaybookVersion | None:
         """Get the playbook version with status='default'. Only one should exist."""
         result = await self.session.execute(
-            select(PlaybookVersion).where(PlaybookVersion.status == PlaybookStatus.DEFAULT.value)
+            select(PlaybookVersion).where(
+                PlaybookVersion.status == PlaybookStatus.DEFAULT.value
+            )
         )
         return result.scalar_one_or_none()
 
@@ -104,7 +322,7 @@ class PlaybookRepository:
         # 2) глобальный default
         return await self.get_default()
 
-    async def promote_to_default(self, version_id) -> "PlaybookVersion | None":
+    async def promote_to_default(self, version_id: uuid.UUID) -> PlaybookVersion | None:
         """
         Переводит все текущие DEFAULT-версии в STABLE,
         затем устанавливает DEFAULT для version_id.

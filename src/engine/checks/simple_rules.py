@@ -1,3 +1,5 @@
+# src/engine/checks/simple_rules.py
+
 """
 Простой executor одного check из PlaybookVersion.compiled_checks.
 

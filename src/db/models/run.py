@@ -13,7 +13,7 @@ from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.constants import JobStatus
+from core.constants import JobStatus, RunStatus
 from ..base import Base
 
 
@@ -58,10 +58,20 @@ class Run(Base):
         comment="core, full, max",
     )
 
+    pipeline_strategy: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="REUSE_STRUCTURE",
+        comment=(
+            "Стратегия пайплайна для этого Run: "
+            "REUSE_CHECKS_ONLY, REUSE_STRUCTURE, FULL_RERUN и т.п."
+        ),
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default="pending",
+        default=RunStatus.PENDING.value,
     )
 
     total_checks: Mapped[int] = mapped_column(
@@ -74,6 +84,26 @@ class Run(Base):
         Integer,
         nullable=False,
         default=0,
+    )
+
+    has_errors: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        comment="True, если есть документы в FAILED/QUARANTINE для этого Run",
+    )
+
+    failed_docs_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Количество документов со статусом FAILED в этом Run/сделке",
+    )
+
+    quarantine_docs_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Количество документов со статусом QUARANTINE в этом Run/сделке",
     )
 
     started_at: Mapped[datetime | None] = mapped_column(

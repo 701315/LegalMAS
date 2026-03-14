@@ -1,3 +1,5 @@
+# src/classifiers/stage8/l3_semantic.py
+
 """
 L3 SemanticClassifier — семантическая классификация на эмбеддингах (Stage 8).
 

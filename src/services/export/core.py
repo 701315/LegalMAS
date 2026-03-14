@@ -8,15 +8,16 @@ from typing import Any, Dict, List, Mapping
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.ops.metrics import METRICS
-
+from sqlalchemy import select
 from core.logging import get_logger
 from db.models.result import CheckResult
-from db.repositories import DealRepository, ResultRepository, RunnerRepository
 from services.export.aggregator import aggregate_results
 from services.export.grid_builder import build_grid_excel
 from services.export.report_builder import build_report_docx
 from services.export.summary_builder import build_summary_excel
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from db.repositories import DealRepository, ResultRepository, RunnerRepository, RunRepository
+from db.models.playbook import PlaybookVersion
 
 logger = get_logger(__name__)
 
@@ -198,6 +199,38 @@ async def export_core(
     documents = await _load_documents_metadata(deal_id, db)
     deal_name = await _load_deal_name(deal_id, db)
 
+    # 1.1. Загружаем Run и Playbook для целей воспроизводимости отчёта.
+    run_repo = RunRepository(db)
+    run_obj = await run_repo.get_by_id(uuid.UUID(run_id))
+
+    playbook_version_str = "1.0.0"
+    playbook_profile_str = "M&A Russia DD"
+    env_hash_str = ""
+
+    if run_obj is not None:
+        # Берём хэш окружения из Run, если он есть.
+        env_hash_str = run_obj.environment_hash or ""
+
+        # Пытаемся подтянуть PlaybookVersion, чтобы взять реальную версию.
+        try:
+            pb_result = await db.execute(
+                select(PlaybookVersion).where(
+                    PlaybookVersion.id == run_obj.playbook_version_id
+                )
+            )
+            pb_obj = pb_result.scalar_one_or_none()
+        except Exception:
+            pb_obj = None
+
+        if pb_obj is not None:
+            # Используем реальную semver плейбука.
+            playbook_version_str = pb_obj.semver or playbook_version_str
+
+            # В качестве "профиля анализа" логично показать name плейбука,
+            # если он задан; иначе оставляем дефолт.
+            if pb_obj.name:
+                playbook_profile_str = pb_obj.name
+
     logger.info(
         "Данные для экспорта загружены",
         run_id=run_id,
@@ -259,7 +292,12 @@ async def export_core(
 
     # 5. Word report
     try:
-        report_bytes = build_report_docx(aggregated)
+        report_bytes = build_report_docx(
+            aggregated,
+            playbook_version=playbook_version_str,
+            playbook_profile=playbook_profile_str,
+            environment_hash=env_hash_str,
+        )
         refs["report"] = _save_artifact(
             store,
             tenant_id,

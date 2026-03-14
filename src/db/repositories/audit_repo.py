@@ -1,3 +1,5 @@
+# src/db/repositories/audit_repo.py
+
 """
 Repository for AuditLog operations.
 AuditLog is immutable — only create and read, no update or delete.

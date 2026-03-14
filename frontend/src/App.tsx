@@ -20,9 +20,14 @@ import NewProjectPage from "./pages/NewProjectPage";
 import { useDeal } from "./api/deals";
 import { useAuth } from "./hooks/useAuth";
 import ProjectUploadPage from "./pages/ProjectUploadPage";
-import ProjectPlaybookPage from "./pages/ProjectPlaybookPage";
+// Старую YAML-страницу оставляем в проекте, но не используем по default-роуту
+// import ProjectPlaybookPage from "./pages/ProjectPlaybookPage";
 import ProjectMembersPage from "./pages/ProjectMembersPage";
 import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
+import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
+import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
+
+
 
 // Временная обёртка для страницы проекта (используем существующий DealPage)
 function DealRouteWrapper() {
@@ -142,8 +147,7 @@ function App() {
           }
         />
 
-        {/* Страница участников проекта: привяжем к canManageRequests
-            (или можно завести отдельный capability, если понадобится) */}
+        {/* Страница участников проекта */}
         <Route
           path="/projects/:dealId/members"
           element={
@@ -155,13 +159,13 @@ function App() {
           }
         />
 
-        {/* Страница playbook: admin + editor → canViewOverview достаточно */}
+        {/* Новая страница playbook: выбор/привязка версии к проекту */}
         <Route
           path="/projects/:dealId/playbook"
           element={
             <RequireAuth>
               <ProjectRouteGuard requiredCapability="canViewOverview">
-                <ProjectPlaybookPage />
+                <DealPlaybookSelectorPage />
               </ProjectRouteGuard>
             </RequireAuth>
           }
@@ -169,10 +173,22 @@ function App() {
 
         {/* Корень: авторизованных на /dashboard, остальных на /login */}
         <Route
-          path="/" 
+          path="/"
           element={
             <RequireAuth>
               <Navigate to="/dashboard" replace />
+            </RequireAuth>
+          }
+        />
+
+        {/* Конструктор шаблонов playbook в контексте проекта (admin/editor) */}
+        <Route
+          path="/projects/:dealId/playbooks/admin"
+          element={
+            <RequireAuth>
+              <ProjectRouteGuard requiredCapability="canManageRequests">
+                <AdminPlaybookLinesPage />
+              </ProjectRouteGuard>
             </RequireAuth>
           }
         />

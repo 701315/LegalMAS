@@ -1,4 +1,4 @@
-# src/api/endpoints/documents.py
+# src/api/endpoints/deals.py
 
 """
 Документный REST-API.
@@ -40,23 +40,28 @@
   * экспорта документов в офисные форматы.
 """
 
-
 from typing import Annotated, List
 from uuid import UUID
+import sqlalchemy as sa  
+
+from db.repositories.audit_repo import AuditRepository
 
 import os
 import tempfile
 import zipfile
+import uuid
+import logging
+
 
 from mas_queue.celery_app import celery_app
 
 from fastapi import (
-    APIRouter, 
-    Query, 
-    Depends, 
-    status, 
-    UploadFile, 
-    File, 
+    APIRouter,
+    Query,
+    Depends,
+    status,
+    UploadFile,
+    File,
     HTTPException,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,9 +88,8 @@ from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.run_repo import RunRepository
 from pydantic import BaseModel
-import uuid
 
-import logging
+from db.models.playbook import PlaybookVersion
 
 logger = logging.getLogger(__name__)
 
@@ -116,13 +120,6 @@ async def list_deals(
 ):
     """
     Список сделок с пагинацией.
-
-    Сейчас без фильтрации по tenant_id и статусу:
-    возвращаются все сделки, отсортированные по created_at DESC.
-
-    TODO (после внедрения auth и ACL):
-    - фильтровать сделки по tenant_id и/или по участию пользователя в проекте,
-      чтобы пользователь видел только "свои" проекты.
     """
     repo = DealRepository(db)
 
@@ -133,12 +130,10 @@ async def list_deals(
         tenant_id=tenant_id,
     )
 
-    # считаем метаданные пагинации
     total_pages = (total + per_page - 1) // per_page if total > 0 else 1
     has_next = page < total_pages
     has_previous = page > 1
 
-    # маппим ORM-модели Deal → DealResponse
     deal_items = [DealResponse.model_validate(deal) for deal in items]
 
     return PaginatedResponse[DealResponse](
@@ -164,19 +159,11 @@ async def create_deal(
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Создать новую сделку (проект) и сразу добавить создателя
-    как admin-участника этого проекта.
-
-    Логика:
-    - создаём Deal в таблице deals;
-    - через ProjectRoleRepository создаём запись в deal_members:
-      (deal_id=deal.id, user_id=user.id, login=user.id, role="admin");
-    - коммитим транзакцию один раз, чтобы сделка и роль сохранились вместе.
+    Создать новую сделку (проект) и сразу добавить создателя как admin-участника.
     """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
 
-    # 1. Создаём сделку
     deal = await deal_repo.create(
         tenant_id=user.tenant_id,
         name=payload.name,
@@ -189,17 +176,13 @@ async def create_deal(
         metadata_=payload.metadata_,
     )
 
-    # 2. Добавляем создателя как admin проекта
-    # Сейчас user.id — это строка (логин) из dev-auth,
-    # поэтому используем её и как user_id, и как login.
     await role_repo.create_member(
         deal_id=deal.id,
-        name=user.id,   # временно используем id как name; позже можно заменить на реальное имя
+        name=user.id,
         login=user.id,
         role="admin",
     )
 
-    # 3. Фиксируем и сделку, и membership одной транзакцией
     await db.commit()
 
     return DealResponse.model_validate(deal)
@@ -216,16 +199,11 @@ async def get_deal(
 ):
     """
     Детали одной сделки по её идентификатору.
-
-    TODO:
-    - после внедрения auth/ACL имеет смысл проверять, что текущий пользователь
-      имеет доступ к этой сделке (участник проекта/tenant).
     """
     repo = DealRepository(db)
     deal = await repo.get_by_id(deal_id)
 
     if deal is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Deal not found")
 
     return DealResponse.model_validate(deal)
@@ -249,10 +227,6 @@ async def list_deal_documents(
 ):
     """
     Список документов для сделки с пагинацией.
-
-    TODO:
-    - После появления полной ACL можно добавить проверку, что пользователь
-      имеет право смотреть документы этой сделки (viewer/editor/admin).
     """
     doc_repo = DocumentRepository(db)
 
@@ -292,10 +266,6 @@ async def get_quarantine_docs(
 ):
     """
     Returns all documents in quarantine status for a deal.
-
-    TODO:
-    - аналогично, позже можно ограничить доступ к карантинным документам
-      только участникам проекта.
     """
     doc_repo = DocumentRepository(db)
     docs = await doc_repo.get_quarantined(deal_id)
@@ -305,39 +275,31 @@ async def get_quarantine_docs(
 @router.post(
     "/{deal_id}/documents/upload",
     summary="Загрузить новые документы в сделку (через импорт-пайплайн)",
-    response_model=dict,  # или отдельная схема UploadResponse
+    response_model=dict,
 )
-
 async def upload_deal_documents(
     deal_id: UUID,
-    files: List[UploadFile] = File(..., description="Один или несколько файлов документов"),
+    files: List[UploadFile] = File(
+        ...,
+        description="Один или несколько файлов документов",
+    ),
     folder_path: str | None = Query(
         default=None,
-        description="Опциональный путь в Data Room, например '01. Corporate/Charter Docs'. "
-                    "Сейчас это поле используется только для UX; "
-                    "структура внутри ZIP для import_worker задаётся автоматически.",
+        description=(
+            "Опциональный путь в Data Room, например '01. Corporate/Charter Docs'. "
+            "Сейчас это поле используется только для UX; "
+            "структура внутри ZIP для import_worker задаётся автоматически."
+        ),
     ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Загрузка новых документов в сделку через единый production-пайплайн импорта.
-
-    Важно:
-    - эндпоинт больше НЕ создаёт Document/DocumentVersion сам и НЕ пишет файлы в MinIO;
-    - он только:
-      * проверяет права и существование сделки;
-      * получает tenant_id из Deal;
-      * собирает загруженные файлы во временный ZIP на файловой системе;
-      * ставит Celery-задачу workers.import_bundle с deal_id, tenant_id и source_path на ZIP.
-
-    Документы, версии и оригиналы создаёт import_worker.import_bundle.
     """
-
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
-    # 1. Проверяем роль пользователя в проекте
     await require_project_role(
         db=db,
         user=user,
@@ -345,7 +307,6 @@ async def upload_deal_documents(
         allowed_roles=("admin", "editor"),
     )
 
-    # 2. Проверяем, что сделка существует и берём tenant_id из Deal
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_id)
     if deal is None:
@@ -353,24 +314,23 @@ async def upload_deal_documents(
 
     tenant_id = str(deal.tenant_id)
 
-    # 3. Создаём временную директорию и ZIP-файл
     tmp_dir = tempfile.mkdtemp(prefix="mas_upload_")
     zip_path = os.path.join(tmp_dir, "upload_bundle.zip")
 
     try:
-        with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(
+            zip_path,
+            mode="w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as zf:
             for upload in files:
-                # Читаем содержимое файла
                 file_bytes = await upload.read()
-                # Имя файла внутри ZIP - текущее имя
                 arcname = upload.filename or "document"
-                # Пишем во временный файл и добавляем в ZIP
                 tmp_file_path = os.path.join(tmp_dir, arcname)
                 with open(tmp_file_path, "wb") as f:
                     f.write(file_bytes)
                 zf.write(tmp_file_path, arcname=arcname)
 
-        # 4. Ставим Celery-таску import_bundle
         celery_app.send_task(
             "workers.import_bundle",
             kwargs={
@@ -383,7 +343,6 @@ async def upload_deal_documents(
         )
 
     except Exception as e:
-        # Бест-эффорт очистка временной директории
         try:
             for root, dirs, fnames in os.walk(tmp_dir, topdown=False):
                 for name in fnames:
@@ -432,17 +391,7 @@ async def start_deal_run(
 ):
     """
     Старт нового run для сделки через общую логику запуска.
-
-    URL удобен для фронта: POST /api/v1/deals/{deal_id}/run.
-    Вся бизнес-логика (reclassify / run_checks, Celery и пр.) находится
-    в _start_run_core из endpoints/runs.py.
-
-    ВАЖНО:
-    - Здесь добавлена проверка роли пользователя в проекте.
-    - Запуск run разрешён только для ролей "admin" и "editor".
-    - Если роль другая (или нет роли) — вернётся HTTP 403 Forbidden.
     """
-    # Проверяем, что у пользователя есть право запускать анализ для этой сделки
     await require_project_role(
         db=db,
         user=user,
@@ -450,14 +399,104 @@ async def start_deal_run(
         allowed_roles=("admin", "editor"),
     )
 
-    # Если проверка прошла, запускаем общий механизм старта run
     return await _start_run_core(deal_id, payload, db, user)
 
 
-from db.repositories.deal_repo import DealRepository
-from db.session import get_db
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+# ======================================================================
+# НОВЫЙ ЭНДПОИНТ: привязка PlaybookVersion к сделке
+# ======================================================================
+
+
+class DealPlaybookUpdate(BaseModel):
+    """
+    Тело запроса для обновления playbook сделки.
+
+    Передаём ID версии плейбука, которая должна использоваться
+    по умолчанию при запуске анализа для этой сделки.
+    """
+
+    playbook_version_id: UUID
+
+
+@router.patch(
+    "/{deal_id}/playbook",
+    response_model=DealResponse,
+    summary="Установить playbook для сделки",
+)
+async def set_deal_playbook(
+    deal_id: UUID,
+    payload: DealPlaybookUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Привязывает конкретную версию playbook (PlaybookVersion) к сделке
+    и пишет событие в журнал аудита.
+    """
+    # 1. Проверка прав в проекте
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal_repo = DealRepository(db)
+    audit_repo = AuditRepository(db)
+
+    # 2. Загружаем сделку
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    old_playbook_version_id = deal.playbook_version_id
+
+    # 3. Проверяем, что PlaybookVersion существует
+    result = await db.execute(
+        sa.select(PlaybookVersion).where(
+            PlaybookVersion.id == payload.playbook_version_id
+        )
+    )
+    pv = result.scalar_one_or_none()
+    if pv is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Playbook version not found",
+        )
+
+    # 4. Обновляем ссылку на playbook_version в сделке
+    deal.playbook_version_id = payload.playbook_version_id
+
+    # 5. Логируем в аудит
+    await audit_repo.log(
+        tenant_id=deal.tenant_id,
+        deal_id=deal.id,
+        action="SET_DEAL_PLAYBOOK",
+        actor=user.id,
+        actor_role=getattr(user, "role", None),
+        details={
+            "old_playbook_version_id": str(old_playbook_version_id)
+            if old_playbook_version_id
+            else None,
+            "new_playbook_version_id": str(payload.playbook_version_id),
+            "playbook_id": str(pv.playbook_id) if getattr(pv, "playbook_id", None) else None,
+            "playbook_name": getattr(pv, "name", None),
+            "semver": getattr(pv, "semver", None),
+        },
+    )
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    return DealResponse.model_validate(deal)
+
+
+
+# ----------------------------------------------------------------------
+# DEBUG-эндпоинты (оставлены как есть)
+# ----------------------------------------------------------------------
+
 
 @router.get(
     "/debug/all-deals",
@@ -468,19 +507,20 @@ async def debug_list_all_deals(
 ):
     repo = DealRepository(db)
     deals = await repo.get_all()
-    # get_all уже есть в DealRepository
     return [
         {
             "id": str(d.id),
             "name": d.name,
             "status": d.status,
         }
-    for d in deals
+        for d in deals
     ]
+
 
 class DebugDealCreate(BaseModel):
     name: str = "Test deal"
     deal_type: str | None = None
+
 
 @router.post(
     "/debug/create-deal",
@@ -500,14 +540,10 @@ async def debug_create_deal(
         pii_mode="local_only",
         profile="full",
         playbook_version_id=None,
-        metadata_={},        # важно: параметр называется metadata_
+        metadata_={},
     )
     await db.commit()
     return {
         "id": str(deal.id),
         "name": deal.name,
     }
-
-
-
-

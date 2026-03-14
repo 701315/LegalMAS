@@ -1,3 +1,5 @@
+# src/ops/instrument.py
+
 """
 Instrumentation — connects Prometheus metrics to FastAPI.
 

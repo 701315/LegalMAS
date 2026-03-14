@@ -140,16 +140,30 @@ export type DocumentStatus =
   | "failed"
   | "duplicate";
 
-/** Детали ошибки обработки документа (JSONB из backend) */
+/** Детали ошибки обработки документа (JSONB из backend: Document.processing_error_details).
+ *
+ * Формат синхронизирован с backend DocumentRepository.set_failed/set_quarantined:
+ *
+ * {
+ *   stage: "import" | "extract" | "pii" | "structure" | "classify" | "checks" | "export";
+ *   type: "failed" | "quarantine";
+ *   reason?: string;      // короткий машинный код причины (pdf_corrupted, no_clause_tree, ...)
+ *   message: string;      // человекочитаемое описание для юриста
+ *   timestamp: string;    // ISO8601 UTC, когда ошибка зафиксирована
+ *   run_id?: string;      // ID Run, в рамках которого произошла ошибка
+ *   ...extra: any;        // запас под расширения (debug-инфо и т.п.)
+ * }
+ */
 export interface ProcessingErrorDetails {
   stage?: string;
+  type?: "failed" | "quarantine";
+  reason?: string;
   message?: string;
-  code?: string;
-  retryable?: boolean;
-  occurred_at?: string;
-  // запас под дополнительные ключи от воркеров
+  timestamp?: string;
+  run_id?: string;
   [key: string]: unknown;
 }
+
 
 export interface Document {
   // Идентификация
@@ -279,11 +293,21 @@ export interface StructuredDataResult {
 // RUNS (ЗАПУСКИ АНАЛИЗА)
 // -------------------------------------------------------------
 
+// Статусы синхронизированы с backend Run.status:
+// - pending  — Run создан, но пайплайн не запускался;
+// - running  — оркестратор поставил задачи, анализ идёт;
+// - completed — все документы успешно прошли checks;
+// - completed_with_errors — анализ завершён, но есть документы FAILED/QUARANTINE;
+// - failed   — критическая ошибка Run (конфигурация/инфраструктура).
+// cancelled — зарезервирован для сценариев отмены Run из UI.
+// В текущей реализации backend может хранить его как failed/pending,
+// но фронт уже умеет отображать отдельный статус "Отменён".
 
 export type RunStatus =
   | "pending"
   | "running"
   | "completed"
+  | "completed_with_errors"
   | "failed"
   | "cancelled";
 
@@ -309,6 +333,9 @@ export interface Run {
   profile: string;
   total_checks: number;
   completed_checks: number;
+  has_errors?: boolean;
+  failed_docs_count?: number;
+  quarantine_docs_count?: number;
   started_at?: string;
   completed_at?: string;
   error_details?: Record<string, unknown>;
@@ -706,4 +733,86 @@ export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
     defaultVisible: false,
   },
 ];
+
+
+// -------------------------------------------------------------
+// PLAYBOOKS (PLAYBOOK / PLAYBOOK VERSION)
+// -------------------------------------------------------------
+
+/** Логический плейбук (Playbook) — шаблон/продукт на странице выбора. */
+export interface PlaybookLine {
+  id: string;
+  code: string;
+  title: string;
+  description?: string | null;
+  deal_type?: string | null;
+  jurisdiction?: string | null;
+  language?: string | null;
+  risk_profile?: string | null;
+}
+
+/** Краткая информация о версии плейбука (для списков/селектора). */
+export interface PlaybookVersionShort {
+  id: string;
+  name: string;
+  semver: string;
+  status: string;
+  playbook_id?: string | null;
+}
+
+/** Детальная информация о версии плейбука (для просмотра состава). */
+export interface PlaybookVersionDetail {
+  id: string;
+  name: string;
+  semver: string;
+  status: string;
+  playbook_id?: string | null;
+  model_config_id?: string | null;
+
+  compiled_checks?: Record<string, unknown> | null;
+  trigger_definitions?: Record<string, unknown> | null;
+  dd_request_templates?: Record<string, unknown> | null;
+  section_markers?: Record<string, unknown> | null;
+  classification_config?: Record<string, unknown> | null;
+}
+
+export interface PlaybookCheckInfo {
+  code: string;
+  title: string;
+  description?: string | null;
+  topic_code: string;
+  file_path: string;
+}
+
+export interface PlaybookTopicInfo {
+  topic_code: string;
+  topic_name: string;
+  checks: PlaybookCheckInfo[];
+}
+
+// Линия (шаблон) для списков / выбора
+export interface PlaybookLineShort {
+  id: string;
+  code: string;
+  title: string;
+  description?: string | null;
+  deal_type?: string | null;
+  jurisdiction?: string | null;
+  language?: string | null;
+  risk_profile?: string | null;
+}
+
+// Элемент линии (то, что мы редактируем в конструкторе)
+export interface PlaybookLineItemPayload {
+  kind: "topic" | "check";
+  topic_code?: string | null;
+  check_code?: string | null;
+  order_index: number;
+}
+
+// Детали линии = данные линии + список элементов
+export interface PlaybookLineDetail extends PlaybookLineShort {
+  items: PlaybookLineItemPayload[];
+}
+
 

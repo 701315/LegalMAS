@@ -53,7 +53,11 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
     }
   };
 
-  if (!latestRun || latestRun.status !== "completed") {
+  if (
+    !latestRun ||
+    (latestRun.status !== "completed" &&
+      latestRun.status !== "completed_with_errors")
+  ) {
     return (
       <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg py-20 text-center">
         <FileText size={48} className="text-gray-300 mb-4" />
