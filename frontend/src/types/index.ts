@@ -4,12 +4,9 @@
 // Все интерфейсы соответствуют Pydantic-схемам бэкенда (Этап 10).
 // =============================================================
 
-
-
 // -------------------------------------------------------------
 // ВСПОМОГАТЕЛЬНЫЕ ТИПЫ
 // -------------------------------------------------------------
-
 
 /** Универсальный ответ с пагинацией для списков */
 export interface PaginatedResponse<T> {
@@ -23,7 +20,6 @@ export interface PaginatedResponse<T> {
   has_previous: boolean;
 }
 
-
 /** Стандартная ошибка API */
 export interface ApiError {
   detail: string;
@@ -31,12 +27,9 @@ export interface ApiError {
   status?: number; // HTTP-статус (404, 500 и т.п.)
 }
 
-
-
 // -------------------------------------------------------------
 // РОЛИ И ПРАВА ДОСТУПА
 // -------------------------------------------------------------
-
 
 /**
  * Роли пользователей в системе.
@@ -51,12 +44,9 @@ export interface User {
   name?: string;
 }
 
-
-
 // -------------------------------------------------------------
 // КЛАССИФИКАЦИЯ ДОКУМЕНТОВ (Этап 6 / Этап 10)
 // -------------------------------------------------------------
-
 
 /**
  * Уровни классификации HybridClassifier.
@@ -71,7 +61,6 @@ export type ClassificationLevel =
   | "L4"       // подтверждено LLM
   | "L_manual" // ручной override (POST /reclassify)
 
-
 /** Полные метаданные классификации одного документа */
 export interface ClassificationMetadata {
   doc_type: string;
@@ -81,7 +70,6 @@ export interface ClassificationMetadata {
   yaml_instruction_available: boolean;     // есть ли *.yaml для этого типа
   low_confidence: boolean;                 // true если confidence < 0.6
 }
-
 
 /** Сводная статистика классификации по всем документам run */
 export interface ClassificationStats {
@@ -94,7 +82,6 @@ export interface ClassificationStats {
   low_confidence_count: number;
   unknown_doc_type_count: number;
 }
-
 
 /** Полный отчёт по классификации — GET /runs/{run_id}/classification-report */
 export interface ClassificationReport {
@@ -119,12 +106,9 @@ export interface ClassificationReport {
   trigger_coverage?: Record<string, number>;
 }
 
-
-
 // -------------------------------------------------------------
 // ДОКУМЕНТЫ
 // -------------------------------------------------------------
-
 
 /** Краткая информация о документе (для списков) */
 export type DocumentStatus =
@@ -163,7 +147,6 @@ export interface ProcessingErrorDetails {
   run_id?: string;
   [key: string]: unknown;
 }
-
 
 export interface Document {
   // Идентификация
@@ -207,7 +190,6 @@ export interface Document {
   updated_at: string;
 }
 
-
 /** Версия документа (для истории изменений) */
 export interface DocumentVersion {
   id: string;
@@ -215,7 +197,6 @@ export interface DocumentVersion {
   version_number: number;
   created_at: string;
 }
-
 
 /**
  * Детальная информация о документе.
@@ -229,7 +210,6 @@ export interface DocumentDetail {
   classification?: ClassificationMetadata;
 }
 
-
 /** Семейство документов для правой панели DocumentsTab. */
 export interface DocumentFamily {
   master: Document | null;
@@ -238,14 +218,12 @@ export interface DocumentFamily {
   versions: Document[];
 }
 
-
 /** Входные данные для ручной переклассификации документа (Editor+) */
 export interface ReclassifyInput {
   doc_type: string;
   reason: string;
   rerun_checks?: boolean;
 }
-
 
 /** Ответ после переклассификации */
 export interface ReclassifyResult {
@@ -257,12 +235,9 @@ export interface ReclassifyResult {
   checks_requeued: boolean;
 }
 
-
-
 // -------------------------------------------------------------
 // СТРУКТУРИРОВАННЫЕ ДАННЫЕ (Этап 10)
 // -------------------------------------------------------------
-
 
 /**
  * Одно извлечённое поле из документа.
@@ -277,7 +252,6 @@ export interface StructuredValue {
   clause_uid?: string;
 }
 
-
 /** Все структурированные данные по одному документу */
 export interface StructuredDataResult {
   document_id: string;
@@ -286,8 +260,6 @@ export interface StructuredDataResult {
   extracted_values: StructuredValue[];
   total_extracted: number;
 }
-
-
 
 // -------------------------------------------------------------
 // RUNS (ЗАПУСКИ АНАЛИЗА)
@@ -311,7 +283,6 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
-
 /**
  * Входные данные для старта нового анализа.
  *
@@ -323,7 +294,6 @@ export interface RunCreateInput {
   /** Если true — HybridClassifier перезапустится для всех документов */
   force_reclassify?: boolean;
 }
-
 
 /** Информация о запуске анализа */
 export interface Run {
@@ -343,12 +313,9 @@ export interface Run {
   classification_stats?: ClassificationStats;
 }
 
-
-
 // -------------------------------------------------------------
 // РЕЗУЛЬТАТЫ ПРОВЕРОК (CHECK RESULTS)
 // -------------------------------------------------------------
-
 
 export type CheckResultValue = "fail" | "pass" | "unclear";
 
@@ -360,7 +327,6 @@ export type SeverityLevel =
   | "unclear";
 
 export type QCStatus = "pending" | "approved" | "rejected" | "needs_review";
-
 
 /** Результат одной проверки документа */
 export interface CheckResult {
@@ -392,12 +358,9 @@ export interface CheckResult {
   doc_classification_confidence?: number;
 }
 
-
-
 // -------------------------------------------------------------
 // EVIDENCE (ДОКАЗАТЕЛЬСТВА ДЛЯ РЕЗУЛЬТАТОВ ПРОВЕРОК)
 // -------------------------------------------------------------
-
 
 /**
  * Базовый тип доказательства (evidence) для одного результата проверки.
@@ -417,12 +380,9 @@ export interface Evidence {
   [key: string]: unknown;
 }
 
-
-
 // -------------------------------------------------------------
 // DD ЗАПРОСЫ (DUE DILIGENCE REQUESTS)
 // -------------------------------------------------------------
-
 
 /** Один DD-запрос — требование предоставить документ/информацию */
 export interface DDRequest {
@@ -453,10 +413,7 @@ export interface DDRequestCreateInput {
   source?: "manual";
 }
 
-
-
 // ===== ЭКСПОРТЫ (REPORT / GRID / SUMMARY) =====
-
 
 export interface ExportRecord {
   id: string;
@@ -483,15 +440,11 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
-
-
 // -------------------------------------------------------------
 // СДЕЛКИ (DEALS)
 // -------------------------------------------------------------
 
-
 export type DealStatus = "active" | "archived" | "draft";
-
 
 /** Краткая информация о сделке (для списка) */
 export interface Deal {
@@ -514,7 +467,6 @@ export interface Deal {
   } | null;
 }
 
-
 /** Детальная информация о сделке */
 export interface DealDetail extends Deal {
   description?: string;
@@ -522,12 +474,9 @@ export interface DealDetail extends Deal {
   runs?: Run[];
 }
 
-
-
 // -------------------------------------------------------------
 // ИМПОРТ ДОКУМЕНТОВ
 // -------------------------------------------------------------
-
 
 export type ImportStatus =
   | "uploading"
@@ -547,12 +496,9 @@ export interface ImportJob {
   completed_at?: string;
 }
 
-
-
 // -------------------------------------------------------------
 // SSE (ПРОГРЕСС АНАЛИЗА В РЕАЛЬНОМ ВРЕМЕНИ)
 // -------------------------------------------------------------
-
 
 /** Событие прогресса, получаемое через SSE во время анализа */
 export interface ProgressEvent {
@@ -564,11 +510,9 @@ export interface ProgressEvent {
   error?: string;
 }
 
-
 // -------------------------------------------------------------
 // ДОКУМЕНТЫ: ОПИСАНИЯ КОЛОНОК ДЛЯ ТАБЛИЦ/ЭКСПОРТА
 // -------------------------------------------------------------
-
 
 export type DocumentColumnId =
   | "filename"
@@ -603,7 +547,6 @@ export interface DocumentColumnDef {
   /** По умолчанию показывать в таблице или нет */
   defaultVisible: boolean;
 }
-
 
 /**
  * Полный список всех возможных колонок по документу.
@@ -734,7 +677,6 @@ export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
   },
 ];
 
-
 // -------------------------------------------------------------
 // PLAYBOOKS (PLAYBOOK / PLAYBOOK VERSION)
 // -------------------------------------------------------------
@@ -776,6 +718,15 @@ export interface PlaybookVersionDetail {
   classification_config?: Record<string, unknown> | null;
 }
 
+/** Ответ после создания версии плейбука (POST /playbooks). */
+export interface PlaybookCreateResponse {
+  id: string;
+  name: string;
+  semver: string;
+  status: string;
+  playbook_id?: string | null;
+}
+
 export interface PlaybookCheckInfo {
   code: string;
   title: string;
@@ -788,6 +739,34 @@ export interface PlaybookTopicInfo {
   topic_code: string;
   topic_name: string;
   checks: PlaybookCheckInfo[];
+}
+
+/** Входные данные для создания версии плейбука. */
+export interface PlaybookCreateRequest {
+  name?: string | null;
+  bundles: string[];
+  include_ids: string[];
+  exclude_ids: string[];
+  profile?: string | null;
+  /** ID ModelConfig (опционально, может быть null / не задан). */
+  model_config_id?: string | null;
+  semver?: string | null;
+  status?: string | null;
+  playbook_id?: string | null;
+  /** Если задано — версия собирается на основе шаблона PlaybookLine. */
+  from_line_id?: string | null;
+}
+
+/** Одна запись истории смены playbook-версии сделки (из AuditLog). */
+export interface DealPlaybookHistoryItem {
+  created_at: string;
+  actor: string;
+  actor_role?: string | null;
+  old_playbook_version_id?: string | null;
+  new_playbook_version_id?: string | null;
+  playbook_id?: string | null;
+  playbook_name?: string | null;
+  semver?: string | null;
 }
 
 // Линия (шаблон) для списков / выбора

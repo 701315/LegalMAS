@@ -4,16 +4,21 @@
 // Работает поверх новых эндпоинтов /playbooks.
 // =============================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import client from "../api/client";
 import { useDealPermissions } from "../hooks/usePermissions";
 import type {
   Deal,
+  DealDetail,
   PlaybookLine,
+  PlaybookLineDetail,
   PlaybookVersionShort,
   PlaybookVersionDetail,
+  PlaybookCreateRequest,
+  PlaybookCreateResponse,
   ApiError,
+  DealPlaybookHistoryItem,
 } from "../types";
 
 interface DealPlaybookSelectorPageProps {
@@ -27,6 +32,8 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
+  const [dealDetail, setDealDetail] = useState<DealDetail | null>(null);
+
   const [lines, setLines] = useState<PlaybookLine[]>([]);
   const [versions, setVersions] = useState<PlaybookVersionShort[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
@@ -35,10 +42,20 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   );
   const [versionDetail, setVersionDetail] =
     useState<PlaybookVersionDetail | null>(null);
+  const [selectedLineDetail, setSelectedLineDetail] =
+    useState<PlaybookLineDetail | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
+  const [isCreatingVersion, setIsCreatingVersion] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [createVersionError, setCreateVersionError] = useState<string | null>(
+    null,
+  );
+
+  const [history, setHistory] = useState<DealPlaybookHistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   if (!dealId) {
     return (
@@ -74,6 +91,66 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     navigate(`/projects/${dealId}`);
   };
 
+  const effectiveDeal = dealDetail ?? deal ?? null;
+
+  // Загрузка истории смен playbook-версий для сделки
+  const loadHistory = useCallback(async () => {
+    if (!dealId) return;
+    setIsHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await client.get<DealPlaybookHistoryItem[]>(
+        `/api/v1/deals/${dealId}/playbook-history`,
+      );
+      setHistory(res.data || []);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setHistoryError(
+        apiErr.detail || "Не удалось загрузить историю смен playbook.",
+      );
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, [dealId]);
+
+  // Загружаем актуальное состояние сделки (чтобы иметь свежий playbook_version_id)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDeal() {
+      if (!dealId) return;
+      try {
+        const res = await client.get<DealDetail>(`/api/v1/deals/${dealId}`);
+        if (!cancelled) {
+          setDealDetail(res.data);
+        }
+      } catch {
+        // Если не смогли загрузить — используем deal из пропсов, если он есть
+      }
+    }
+
+    loadDeal();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId]);
+
+  // История смен playbook-версий для сделки — первичная загрузка
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  // Для быстрого доступа к PlaybookLine по id
+  const lineById = useMemo(() => {
+    const map = new Map<string, PlaybookLine>();
+    for (const l of lines) {
+      map.set(l.id, l);
+    }
+    return map;
+  }, [lines]);
+
+  const selectedLine = selectedLineId ? lineById.get(selectedLineId) : null;
+
   // Загрузка списка логических плейбуков и версий
   useEffect(() => {
     let cancelled = false;
@@ -92,9 +169,20 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         setLines(linesRes.data || []);
         setVersions(versionsRes.data || []);
 
-        // Если для сделки уже есть playbook_version_id — выделим его
-        if (deal?.playbook_version_id) {
-          setSelectedVersionId(deal.playbook_version_id);
+        const currentPlaybookVersionId =
+          effectiveDeal?.playbook_version_id ?? null;
+
+        // Если для сделки уже есть playbook_version_id — восстанавливаем выбор
+        if (currentPlaybookVersionId) {
+          const version = (versionsRes.data || []).find(
+            (v) => v.id === currentPlaybookVersionId,
+          );
+          if (version) {
+            setSelectedVersionId(version.id);
+            if (version.playbook_id) {
+              setSelectedLineId(version.playbook_id);
+            }
+          }
         }
       } catch (err) {
         const apiErr = err as ApiError;
@@ -115,7 +203,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [dealId, deal?.playbook_version_id]);
+  }, [dealId, effectiveDeal?.playbook_version_id]);
 
   // Когда выбрана версия — подтягиваем её детали (состав)
   useEffect(() => {
@@ -132,7 +220,6 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         }
       } catch {
         if (!cancelled) {
-          // Детали не обязательны для выбора, просто не показываем состав
           setVersionDetail(null);
         }
       }
@@ -140,17 +227,50 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
     if (selectedVersionId) {
       loadVersionDetail(selectedVersionId);
+    } else {
+      setVersionDetail(null);
     }
     return () => {
       cancelled = true;
     };
   }, [selectedVersionId]);
 
+  // Когда выбрана линия — подтягиваем её детали (состав шаблона)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLineDetail(lineId: string) {
+      setSelectedLineDetail(null);
+      try {
+        const res = await client.get<PlaybookLineDetail>(
+          `/api/v1/playbooks/lines/${lineId}`,
+        );
+        if (!cancelled) {
+          setSelectedLineDetail(res.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedLineDetail(null);
+        }
+      }
+    }
+
+    if (selectedLineId) {
+      loadLineDetail(selectedLineId);
+    } else {
+      setSelectedLineDetail(null);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLineId]);
+
   const handleSelectLine = (lineId: string) => {
     setSelectedLineId(lineId);
-    // Сбрасываем выбранную версию, чтобы пользователь явно выбрал одну из списка
     setSelectedVersionId(null);
     setVersionDetail(null);
+    setCreateVersionError(null);
   };
 
   const handleSelectVersion = (versionId: string) => {
@@ -163,16 +283,28 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
       return;
     }
 
+    const currentId = effectiveDeal?.playbook_version_id;
+    if (currentId && currentId !== selectedVersionId) {
+      const ok = window.confirm(
+        "У этого проекта уже есть выбранная версия playbook. " +
+          "Старая версия будет заменена на новую. Продолжить?",
+      );
+      if (!ok) {
+        return;
+      }
+    }
+
     setIsApplying(true);
     setErrorText(null);
     try {
-      // PATCH /deals/{deal_id}/playbook — предполагаемый эндпоинт.
-      // Если он уже есть и название другое — подправим URL/метод.
       await client.patch(`/api/v1/deals/${dealId}/playbook`, {
         playbook_version_id: selectedVersionId,
       });
 
-      navigate(`/projects/${dealId}`);
+      // Обновляем историю сразу после успешной смены playbook
+      await loadHistory();
+
+      // При желании можно оставить на странице; сейчас по-прежнему уходим в проект
     } catch (err) {
       const apiErr = err as ApiError;
       setErrorText(
@@ -186,8 +318,65 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
   // Фильтруем версии по выбранной линии (если линия выбрана)
   const visibleVersions = selectedLineId
-    ? versions.filter((v) => v.playbook_id === selectedLineId)
-    : versions;
+    ? versions.filter(
+        (v) =>
+          v.playbook_id === selectedLineId &&
+          (v.status === "default" || v.status === "active"),
+      )
+    : [];
+
+  // Создание версии из выбранного шаблона
+  const handleCreateVersionForSelectedLine = async () => {
+    if (!selectedLineId) return;
+    setIsCreatingVersion(true);
+    setCreateVersionError(null);
+    try {
+      const line = lines.find((l) => l.id === selectedLineId);
+      const payload: PlaybookCreateRequest = {
+        name: line?.title || "Новая версия",
+        bundles: [],
+        include_ids: [],
+        exclude_ids: [],
+        profile: null,
+        semver: "1.0.0",
+        status: "active",
+        playbook_id: selectedLineId,
+        from_line_id: selectedLineId,
+      };
+
+      const res = await client.post<PlaybookCreateResponse>(
+        "/api/v1/playbooks",
+        payload,
+      );
+      const newVersion: PlaybookVersionShort = {
+        id: res.data.id,
+        name: res.data.name,
+        semver: res.data.semver,
+        status: res.data.status,
+        playbook_id: res.data.playbook_id ?? selectedLineId,
+      };
+      setVersions((prev) => [...prev, newVersion]);
+      setSelectedVersionId(newVersion.id);
+    } catch (err) {
+      const apiErr = err as ApiError;
+      setCreateVersionError(
+        apiErr.detail || "Не удалось создать версию playbook.",
+      );
+    } finally {
+      setIsCreatingVersion(false);
+    }
+  };
+
+  const handleEditSelectedLine = () => {
+    if (!selectedLineId) return;
+    navigate(
+      `/projects/${dealId}/playbooks/admin?playbook_id=${selectedLineId}`,
+    );
+  };
+
+  const currentVersionId = effectiveDeal?.playbook_version_id ?? null;
+  const isSameAsCurrent =
+    currentVersionId && selectedVersionId === currentVersionId;
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
@@ -199,8 +388,17 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
               Playbook проекта
             </h1>
             <p className="text-sm text-gray-500">
-              Проект: {deal?.name || dealId}
+              Проект: {effectiveDeal?.name || dealId}
             </p>
+            {effectiveDeal?.playbook_version_id ? (
+              <p className="text-xs text-gray-500 mt-0.5">
+                Текущая версия для проекта: {effectiveDeal.playbook_version_id}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-0.5">
+                Текущая версия playbook для проекта не выбрана.
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -251,7 +449,8 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                         )}
                         <div className="text-[11px] text-gray-400 mt-1">
                           {line.deal_type && `Тип: ${line.deal_type} · `}
-                          {line.jurisdiction && `Юрисдикция: ${line.jurisdiction} · `}
+                          {line.jurisdiction &&
+                            `Юрисдикция: ${line.jurisdiction} · `}
                           {line.language && `Язык: ${line.language}`}
                         </div>
                       </button>
@@ -261,15 +460,38 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
               )}
             </div>
 
-            {/* Колонка 2: версии выбранного playbook (или все, если линия не выбрана) */}
+            {/* Колонка 2: версии выбранного playbook */}
             <div className="bg-white rounded-lg border p-4 space-y-2">
               <h2 className="text-sm font-semibold text-gray-800 mb-2">
                 Версии playbook
               </h2>
-              {visibleVersions.length === 0 ? (
+
+              {createVersionError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-[11px] rounded p-2 mb-1">
+                  {createVersionError}
+                </div>
+              )}
+
+              {!selectedLineId ? (
                 <p className="text-xs text-gray-500">
-                  Для выбранного шаблона пока нет версий.
+                  Сначала выберите шаблон playbook слева.
                 </p>
+              ) : visibleVersions.length === 0 ? (
+                <>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Для выбранного шаблона пока нет версий.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCreateVersionForSelectedLine}
+                    disabled={isCreatingVersion}
+                    className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {isCreatingVersion
+                      ? "Создаём версию..."
+                      : "Создать версию из шаблона"}
+                  </button>
+                </>
               ) : (
                 <ul className="space-y-1 max-h-80 overflow-y-auto">
                   {visibleVersions.map((v) => (
@@ -284,7 +506,10 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                         }`}
                       >
                         <div className="font-semibold">
-                          {v.name} <span className="text-[11px] text-gray-500">({v.semver})</span>
+                          {v.name}{" "}
+                          <span className="text-[11px] text-gray-500">
+                            ({v.semver})
+                          </span>
                         </div>
                         <div className="text-[11px] text-gray-400 mt-1">
                           Статус: {v.status}
@@ -299,35 +524,62 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                 <button
                   type="button"
                   onClick={handleApplyPlaybook}
-                  disabled={!selectedVersionId || isApplying}
+                  disabled={
+                    !selectedVersionId || isApplying || !!isSameAsCurrent
+                  }
                   className="px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {isApplying ? "Применяем..." : "Применить к проекту"}
+                  {isApplying
+                    ? "Применяем..."
+                    : isSameAsCurrent
+                    ? "Уже применено"
+                    : "Применить к проекту"}
                 </button>
               </div>
             </div>
 
-            {/* Колонка 3: состав выбранной версии (упрощённо) */}
+            {/* Колонка 3: состав выбранного шаблона / версии + история */}
             <div className="bg-white rounded-lg border p-4 space-y-2">
-              <h2 className="text-sm font-semibold text-gray-800 mb-2">
-                Состав playbook
-              </h2>
-              {!selectedVersionId ? (
-                <p className="text-xs text-gray-500">
-                  Выберите версию playbook, чтобы посмотреть её состав.
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-sm font-semibold text-gray-800">
+                  Состав playbook
+                </h2>
+                {selectedLineId && (
+                  <button
+                    type="button"
+                    onClick={handleEditSelectedLine}
+                    className="px-2 py-1 text-[11px] rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  >
+                    Редактировать шаблон
+                  </button>
+                )}
+              </div>
+
+              {selectedLine && (
+                <p className="text-[11px] text-gray-500 mb-1">
+                  Шаблон: {selectedLine.title}
+                  {selectedLine.deal_type && ` · Тип: ${selectedLine.deal_type}`}
+                  {selectedLine.jurisdiction &&
+                    ` · Юрисдикция: ${selectedLine.jurisdiction}`}
+                  {selectedLine.language && ` · Язык: ${selectedLine.language}`}
                 </p>
-              ) : !versionDetail ? (
+              )}
+
+              {!selectedLineId ? (
                 <p className="text-xs text-gray-500">
-                  Загружаем состав playbook…
+                  Выберите шаблон playbook слева. Затем создайте или выберите
+                  версию в средней колонке, либо измените состав шаблона.
                 </p>
-              ) : (
+              ) : selectedVersionId && versionDetail ? (
                 <div className="text-xs text-gray-700 space-y-2 max-h-80 overflow-y-auto">
                   <div>
                     <div className="font-semibold">Общая информация</div>
                     <div className="text-gray-600">
-                      Имя: {versionDetail.name} ({versionDetail.semver})
+                      Версия: {versionDetail.name} ({versionDetail.semver})
                     </div>
-                    <div className="text-gray-600">Статус: {versionDetail.status}</div>
+                    <div className="text-gray-600">
+                      Статус: {versionDetail.status}
+                    </div>
                   </div>
                   <div>
                     <div className="font-semibold mt-2">Секции / профили</div>
@@ -345,7 +597,11 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                     <div className="font-semibold mt-2">DD-запросы</div>
                     {versionDetail.dd_request_templates ? (
                       <pre className="bg-gray-50 border rounded p-2 overflow-x-auto">
-                        {JSON.stringify(versionDetail.dd_request_templates, null, 2)}
+                        {JSON.stringify(
+                          versionDetail.dd_request_templates,
+                          null,
+                          2,
+                        )}
                       </pre>
                     ) : (
                       <div className="text-gray-500">
@@ -354,7 +610,121 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                     )}
                   </div>
                 </div>
+              ) : selectedLineDetail ? (
+                <div className="text-xs text-gray-700 space-y-2 max-h-80 overflow-y-auto">
+                  <div>
+                    <div className="font-semibold">Общая информация</div>
+                    <div className="text-gray-600">
+                      Имя: {selectedLineDetail.title}
+                    </div>
+                    <div className="text-gray-600">
+                      Тип сделки: {selectedLineDetail.deal_type || "не задан"}
+                    </div>
+                    <div className="text-gray-600">
+                      Юрисдикция:{" "}
+                      {selectedLineDetail.jurisdiction || "не задана"}
+                    </div>
+                    <div className="text-gray-600">
+                      Язык: {selectedLineDetail.language || "не задан"}
+                    </div>
+                    {selectedLineDetail.description && (
+                      <div className="text-gray-600 mt-1">
+                        Описание: {selectedLineDetail.description}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold mt-2">
+                      Состав шаблона (темы / проверки)
+                    </div>
+                    {selectedLineDetail.items &&
+                    selectedLineDetail.items.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {selectedLineDetail.items.map((item, idx) => (
+                          <li
+                            key={idx}
+                            className="border rounded px-2 py-1 bg-gray-50"
+                          >
+                            <div className="text-gray-700">
+                              Тип: {item.kind}
+                            </div>
+                            {item.topic_code && (
+                              <div className="text-gray-600">
+                                Topic: {item.topic_code}
+                              </div>
+                            )}
+                            {item.check_code && (
+                              <div className="text-gray-600">
+                                Check: {item.check_code}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="text-gray-500">
+                        В шаблоне пока нет элементов.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Загружаем состав шаблона…
+                </p>
               )}
+
+              {/* История смен playbook-версий */}
+              <div className="mt-4 pt-3 border-t">
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                  История смен playbook
+                </h3>
+
+                {isHistoryLoading ? (
+                  <p className="text-xs text-gray-500">Загружаем историю…</p>
+                ) : historyError ? (
+                  <p className="text-xs text-red-600">{historyError}</p>
+                ) : history.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Пока нет записей об изменении playbook для этой сделки.
+                  </p>
+                ) : (
+                  <ul className="space-y-1 max-h-48 overflow-y-auto text-xs">
+                    {history.map((item, idx) => (
+                      <li
+                        key={idx}
+                        className="border border-gray-200 rounded px-2 py-1 bg-gray-50"
+                      >
+                        <div className="text-gray-700">
+                          {new Date(item.created_at).toLocaleString()} —{" "}
+                          {item.actor}{" "}
+                          {item.actor_role && (
+                            <span className="text-gray-500">
+                              ({item.actor_role})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600">
+                          {item.old_playbook_version_id
+                            ? `Было: ${item.old_playbook_version_id}`
+                            : "Было: не задано"}
+                        </div>
+                        <div className="text-gray-600">
+                          {item.new_playbook_version_id
+                            ? `Стало: ${item.new_playbook_version_id}`
+                            : "Стало: не задано"}
+                        </div>
+                        {(item.playbook_name || item.semver) && (
+                          <div className="text-gray-500">
+                            {item.playbook_name && `${item.playbook_name} `}
+                            {item.semver && `(${item.semver})`}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         )}

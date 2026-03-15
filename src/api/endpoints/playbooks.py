@@ -184,12 +184,76 @@ async def create_playbook_version(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    if not payload.bundles and not payload.include_ids:
+    """
+    Создать новую версию плейбука.
+
+    Источники состава (checks):
+
+    1) bundles + include_ids / exclude_ids — старый режим.
+    2) from_line_id — новый режим: берём PlaybookLine и его items,
+       маппим topic_code + check_code к глобальным checks и строим include_ids.
+    """
+
+    repo = PlaybookRepository(db)
+
+    # Стартовый include_ids из payload (старый контракт сохраняем)
+    include_ids: list[str] = list(payload.include_ids or [])
+
+    # Если указан from_line_id — достаём линию и её элементы
+    if payload.from_line_id:
+        line, items = await repo.get_line_with_items(payload.from_line_id)
+        if not line:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Playbook line not found for from_line_id.",
+            )
+
+        # Загружаем каталог тем/проверок, чтобы маппить topic_code/check_code -> global_check_id
+        topics = load_global_checks_catalog()
+        topic_by_code = {t.topic_code: t for t in topics}
+
+        for item in items:
+            # Нас интересуют только элементы типа "check"
+            if item.kind != "check":
+                continue
+            if not item.topic_code or not item.check_code:
+                continue
+
+            topic = topic_by_code.get(item.topic_code)
+            if not topic:
+                continue
+
+            # В каталоге PlaybookTopicInfo.checks у нас PlaybookCheckInfo,
+            # где сейчас есть code (и, при необходимости, можно добавить global_check_id).
+            check = next(
+                (c for c in topic.checks if c.code == item.check_code),
+                None,
+            )
+            if not check:
+                continue
+
+            # ВАЖНО: если в PlaybookCheckInfo позже появится явный global_check_id,
+            # то здесь лучше использовать его. Пока используем code как ID.
+            global_check_id = check.code
+
+            if global_check_id not in include_ids:
+                include_ids.append(global_check_id)
+
+        # Если playbook_id не задан, логично привязать версию к этой линии
+        if not payload.playbook_id:
+            payload.playbook_id = line.id
+
+    # Проверка: хотя бы bundles, или include_ids (включая собранные из from_line_id)
+    if not payload.bundles and not include_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one bundle or include_ids must be provided.",
+            detail=(
+                "At least one bundle, include_ids, or from_line_id "
+                "must be provided."
+            ),
         )
 
+    # Загружаем все глобальные проверки
     all_checks = load_global_checks()
     if not all_checks:
         raise HTTPException(
@@ -197,11 +261,12 @@ async def create_playbook_version(
             detail="No global checks loaded; check server configuration.",
         )
 
+    # Компилируем итоговый набор checks через существующий механизм
     try:
         compiled = build_compiled_checks(
             all_checks=all_checks,
             bundles=payload.bundles,
-            include_ids=payload.include_ids,
+            include_ids=include_ids,
             exclude_ids=payload.exclude_ids,
             profile=payload.profile,
             primary_bundle_id=payload.bundles[0] if payload.bundles else None,
@@ -222,12 +287,16 @@ async def create_playbook_version(
             detail="Failed to build compiled_checks.",
         )
 
-    repo = PlaybookRepository(db)
-
+    # Имя версии
     if payload.name:
         name = payload.name
     elif payload.bundles:
         name = f"Bundle: {', '.join(payload.bundles)}"
+    elif payload.from_line_id:
+        # Если явно создаём из линии и имя не задано — используем title линии
+        # (чтобы не тянуть ещё раз линию, можно оставить "Custom playbook"
+        # или передавать имя с фронта; здесь сохраняем текущий простой вариант)
+        name = "Playbook from template"
     else:
         name = "Custom playbook"
 
@@ -257,6 +326,7 @@ async def create_playbook_version(
         status=pv.status,
         playbook_id=pv.playbook_id,
     )
+
 
 
 @router.get(

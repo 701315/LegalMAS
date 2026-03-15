@@ -78,10 +78,14 @@ class PlaybookCreateRequest(BaseModel):
         description="Профиль глубины проверки: core/full/quick и т.п.",
     )
 
-    model_config_id: UUID = Field(
-        ...,
-        description="ID ModelConfig, который будет использоваться раннером.",
+    model_config_id: UUID | None = Field(
+        default=None,
+        description=(
+            "ID ModelConfig, который будет использоваться раннером (опционально). "
+            "Если не задано, версия создаётся без привязки к конфигурации модели."
+        ),
     )
+
 
     semver: Optional[str] = Field(
         default=None,
@@ -97,6 +101,14 @@ class PlaybookCreateRequest(BaseModel):
         description=(
             "ID логического Playbook (шаблона), к которому относится эта версия. "
             "Если не задано — версия будет без привязки к линии."
+        ),
+    )
+
+    from_line_id: Optional[UUID] = Field(
+        default=None,
+        description=(
+            "Если задано — версия будет собрана на основе шаблона PlaybookLine "
+            "с таким ID: его items будут превращены в список глобальных checks."
         ),
     )
 

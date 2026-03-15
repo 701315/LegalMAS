@@ -73,7 +73,6 @@ from .runs import _start_run_core
 from api.mappers.documents import map_document_to_response
 
 from ..schemas.runs import RunCreate, RunResponse
-from ..schemas.deals import DealResponse, DealCreate
 from ..schemas.pagination import PaginatedResponse
 from ..schemas.documents import DocumentResponse
 from db.repositories.project_role_repo import ProjectRoleRepository
@@ -88,6 +87,7 @@ from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.run_repo import RunRepository
 from pydantic import BaseModel
+from ..schemas.deals import DealResponse, DealCreate, DealPlaybookHistoryItem
 
 from db.models.playbook import PlaybookVersion
 
@@ -450,11 +450,16 @@ async def set_deal_playbook(
         raise HTTPException(status_code=404, detail="Deal not found")
 
     old_playbook_version_id = deal.playbook_version_id
+    new_playbook_version_id = payload.playbook_version_id
+
+    # Если версия не меняется — ничего не делаем и не логируем
+    if old_playbook_version_id == new_playbook_version_id:
+        return DealResponse.model_validate(deal)
 
     # 3. Проверяем, что PlaybookVersion существует
     result = await db.execute(
         sa.select(PlaybookVersion).where(
-            PlaybookVersion.id == payload.playbook_version_id
+            PlaybookVersion.id == new_playbook_version_id
         )
     )
     pv = result.scalar_one_or_none()
@@ -465,7 +470,7 @@ async def set_deal_playbook(
         )
 
     # 4. Обновляем ссылку на playbook_version в сделке
-    deal.playbook_version_id = payload.playbook_version_id
+    deal.playbook_version_id = new_playbook_version_id
 
     # 5. Логируем в аудит
     await audit_repo.log(
@@ -478,7 +483,7 @@ async def set_deal_playbook(
             "old_playbook_version_id": str(old_playbook_version_id)
             if old_playbook_version_id
             else None,
-            "new_playbook_version_id": str(payload.playbook_version_id),
+            "new_playbook_version_id": str(new_playbook_version_id),
             "playbook_id": str(pv.playbook_id) if getattr(pv, "playbook_id", None) else None,
             "playbook_name": getattr(pv, "name", None),
             "semver": getattr(pv, "semver", None),
@@ -491,6 +496,55 @@ async def set_deal_playbook(
 
     return DealResponse.model_validate(deal)
 
+
+@router.get(
+    "/{deal_id}/playbook-history",
+    response_model=list[DealPlaybookHistoryItem],
+    summary="История смен playbook-версии для сделки",
+)
+async def get_deal_playbook_history(
+    deal_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Возвращает историю смен playbook-версии для сделки на основе AuditLog.
+
+    Использует записи AuditLog с action='SET_DEAL_PLAYBOOK'.
+    """
+
+    # Проверяем, что пользователь имеет доступ к сделке (как минимум просмотр)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor", "reviewer", "viewer"),
+    )
+
+    audit_repo = AuditRepository(db)
+    logs = await audit_repo.get_by_deal(
+        deal_id=deal_id,
+        action="SET_DEAL_PLAYBOOK",
+        limit=100,
+    )
+
+    items: list[DealPlaybookHistoryItem] = []
+    for entry in logs:
+        details = entry.details or {}
+        items.append(
+            DealPlaybookHistoryItem(
+                created_at=entry.created_at,
+                actor=str(entry.actor),
+                actor_role=entry.actor_role,
+                old_playbook_version_id=details.get("old_playbook_version_id"),
+                new_playbook_version_id=details.get("new_playbook_version_id"),
+                playbook_id=details.get("playbook_id"),
+                playbook_name=details.get("playbook_name"),
+                semver=details.get("semver"),
+            )
+        )
+
+    return items
 
 
 # ----------------------------------------------------------------------

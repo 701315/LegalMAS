@@ -5,7 +5,7 @@
 
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom"; // NEW
+import { useNavigate } from "react-router-dom";
 import type { Deal } from "../../types";
 import {
   useClassificationReport,
@@ -279,12 +279,19 @@ const RunProgressCard: React.FC<{
  */
 const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const qc = useQueryClient();
-  const navigate = useNavigate(); // NEW
+  const navigate = useNavigate();
   const startRun = useStartRun(deal.id);
   const { canStartRun } = useDealPermissions(deal.id);
 
   const handleStart = () => {
     if (!canStartRun) {
+      return;
+    }
+
+    // Защита: без выбранного плейбука анализ не запускаем
+    if (!deal.playbook_version_id) {
+      window.alert("Сначала выбери плейбук для сделки");
+      navigate(`/projects/${deal.id}/playbook`);
       return;
     }
 

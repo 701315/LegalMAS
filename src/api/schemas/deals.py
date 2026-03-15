@@ -36,8 +36,9 @@ class DealResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
     last_run_id: UUID | None = None
-    
+
     model_config = {"from_attributes": True}
+
 
 class DealCreate(BaseModel):
     """
@@ -56,3 +57,19 @@ class DealCreate(BaseModel):
 
     playbook_version_id: UUID | None = None
     metadata_: dict | None = None
+
+
+class DealPlaybookHistoryItem(BaseModel):
+    """
+    Одна запись истории смены playbook-версии для сделки.
+    Строится на основе AuditLog с action='SET_DEAL_PLAYBOOK'.
+    """
+
+    created_at: datetime
+    actor: str
+    actor_role: str | None = None
+    old_playbook_version_id: UUID | None = None
+    new_playbook_version_id: UUID | None = None
+    playbook_id: UUID | None = None
+    playbook_name: str | None = None
+    semver: str | None = None
