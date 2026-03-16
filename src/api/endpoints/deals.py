@@ -52,7 +52,7 @@ import zipfile
 import uuid
 import logging
 
-
+from db.repositories.playbook_repo import PlaybookRepository
 from mas_queue.celery_app import celery_app
 
 from fastapi import (
@@ -188,6 +188,8 @@ async def create_deal(
     return DealResponse.model_validate(deal)
 
 
+
+
 @router.get(
     "/{deal_id}",
     response_model=DealResponse,
@@ -199,14 +201,74 @@ async def get_deal(
 ):
     """
     Детали одной сделки по её идентификатору.
+
+    Дополнительно обогащаем ответ человекочитаемым названием профиля
+    модели (ModelConfig), который будет использован при анализе сделки.
+
+    Приоритет выбора профиля такой:
+    1) Если у сделки явно выбран профиль (deal.model_config_id),
+       показываем его.
+    2) Если для сделки профиль не выбран, но есть PlaybookVersion с
+       model_config_id, показываем профиль, привязанный к плейбуку.
+    3) Если нигде нет профиля, поле model_config_name в ответе будет пустым.
     """
-    repo = DealRepository(db)
-    deal = await repo.get_by_id(deal_id)
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(deal_id)
 
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    return DealResponse.model_validate(deal)
+    deal_resp = DealResponse.model_validate(deal)
+
+    model_config_name: str | None = None
+    pb_repo = PlaybookRepository(db)
+
+    # 1. Если у сделки явно выбран профиль модели, показываем его
+    explicit_model_config_id = getattr(deal, "model_config_id", None)
+    if explicit_model_config_id is not None:
+        mc = await pb_repo.get_model_config(explicit_model_config_id)
+        if mc is not None:
+            model_config_name = mc.name
+    # 2. Иначе пробуем взять профиль с PlaybookVersion
+    elif deal.playbook_version_id:
+        pv = await pb_repo.get_by_id(deal.playbook_version_id)
+        if pv is not None and getattr(pv, "model_config_id", None):
+            mc = await pb_repo.get_model_config(pv.model_config_id)
+            if mc is not None:
+                model_config_name = mc.name
+
+
+    deal_resp.model_config_name = model_config_name
+
+    return deal_resp
+
+
+@router.delete(
+    "/{deal_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Удалить сделку (проект)",
+)
+async def delete_deal(
+    deal_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Полное удаление сделки (проекта).
+    """
+
+    # Берём именно глобальную роль
+    global_role = getattr(user, "global_role", None) or getattr(user, "role", None)
+    if global_role not in ("admin", "superadmin"):
+        raise HTTPException(status_code=403, detail="Not enough permissions to delete deal")
+
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    await db.delete(deal)
+    await db.commit()
 
 
 @router.get(
@@ -418,6 +480,19 @@ class DealPlaybookUpdate(BaseModel):
     playbook_version_id: UUID
 
 
+class DealModelConfigUpdate(BaseModel):
+    """
+    Тело запроса для обновления профиля модели (ModelConfig) для сделки.
+
+    Здесь мы храним явный выбор профиля на уровне проекта.
+    Если поле model_config_id = null, то специальный профиль
+    для сделки сбрасывается, и при запуске анализа будет
+    использован профиль, привязанный к PlaybookVersion.
+    """
+
+    model_config_id: UUID | None
+
+
 @router.patch(
     "/{deal_id}/playbook",
     response_model=DealResponse,
@@ -487,6 +562,91 @@ async def set_deal_playbook(
             "playbook_id": str(pv.playbook_id) if getattr(pv, "playbook_id", None) else None,
             "playbook_name": getattr(pv, "name", None),
             "semver": getattr(pv, "semver", None),
+        },
+    )
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    return DealResponse.model_validate(deal)
+
+
+@router.patch(
+    "/{deal_id}/model-config",
+    response_model=DealResponse,
+    summary="Установить профиль модели (ModelConfig) для сделки",
+)
+async def set_deal_model_config(
+    deal_id: UUID,
+    payload: DealModelConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Привязывает конкретный профиль модели (ModelConfig) к сделке
+    и пишет событие в журнал аудита.
+
+    Логика выбора профиля для анализа далее такая:
+    - если у сделки указан model_config_id, используется он;
+    - иначе используется профиль, привязанный к PlaybookVersion;
+    - если нигде нет профиля, запуск анализа должен вернуть
+      понятную 409-ошибку, а не падать.
+    """
+
+    # 1. Проверка прав в проекте: менять профиль могут admin/editor
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal_repo = DealRepository(db)
+    audit_repo = AuditRepository(db)
+    pb_repo = PlaybookRepository(db)
+
+    # 2. Загружаем сделку
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    old_model_config_id = getattr(deal, "model_config_id", None)
+    new_model_config_id = payload.model_config_id
+
+    # Если профиль не меняется — ничего не делаем и не логируем
+    if old_model_config_id == new_model_config_id:
+        return DealResponse.model_validate(deal)
+
+    # 3. Если запрошен конкретный профиль — проверяем, что он существует
+    model_config_name: str | None = None
+    if new_model_config_id is not None:
+        mc = await pb_repo.get_model_config(new_model_config_id)
+        if mc is None:
+            raise HTTPException(
+                status_code=404,
+                detail="ModelConfig not found",
+            )
+        model_config_name = mc.name
+
+    # 4. Обновляем ссылку на профиль модели в сделке
+    deal.model_config_id = new_model_config_id
+
+    # 5. Логируем в аудит смену профиля
+    await audit_repo.log(
+        tenant_id=deal.tenant_id,
+        deal_id=deal.id,
+        action="SET_DEAL_MODEL_CONFIG",
+        actor=user.id,
+        actor_role=getattr(user, "role", None),
+        details={
+            "old_model_config_id": str(old_model_config_id)
+            if old_model_config_id
+            else None,
+            "new_model_config_id": str(new_model_config_id)
+            if new_model_config_id
+            else None,
+            "model_config_name": model_config_name,
         },
     )
 

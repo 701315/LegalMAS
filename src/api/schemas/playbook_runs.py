@@ -109,7 +109,8 @@ class DealPlaybookRebuildRequest(BaseModel):
         ),
     )
 
-    # На будущее можно добавить флаг "force_reclassify", но пока оставим только run_checks.
+    # На будущее можно добавить флаг "force_reclassify", но пока оставим только запуск checks.
+    # через CheckRunner (run_deal_checks).
 
 
 class DealPlaybookRebuildResponse(BaseModel):

@@ -4,7 +4,7 @@
 Extract Worker — извлечение текста и таблиц из PDF, сохранённых в MinIO.
 
 Позиция в пайплайне:
-- Импорт → extract → pii → structure → classify → run_checks.
+- Пайплайн: import → extract → pii → structure → classify → run_deal_checks.
 - На вход получает документ (PDF) и создаёт артефакт textlayoutraw.
 
 Что делает воркер:

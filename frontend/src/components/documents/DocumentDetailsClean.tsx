@@ -108,7 +108,6 @@ export const DocumentDetailsClean: React.FC<DocumentDetailsViewProps> = ({
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
   const [reclassifyDocType, setReclassifyDocType] = useState("");
   const [reclassifyReason, setReclassifyReason] = useState("");
-  const [rerunChecks, setRerunChecks] = useState(false);
 
   if (isLoading) {
     return (
@@ -387,18 +386,6 @@ export const DocumentDetailsClean: React.FC<DocumentDetailsViewProps> = ({
                   />
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rerunChecks}
-                    onChange={(e) => setRerunChecks(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-xs text-gray-700">
-                    Перезапустить проверки по новому типу
-                  </span>
-                </label>
-
                 <div className="flex gap-2">
                   <button
                     onClick={async () => {
@@ -407,7 +394,6 @@ export const DocumentDetailsClean: React.FC<DocumentDetailsViewProps> = ({
                         await onReclassify({
                           doc_type: reclassifyDocType,
                           reason: reclassifyReason,
-                          rerun_checks: rerunChecks,
                         } as ReclassifyInput);
                         setShowReclassifyForm(false);
                       } catch {

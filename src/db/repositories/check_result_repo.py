@@ -1,3 +1,5 @@
+# src/db/repositories/check_result_repo.py
+
 import uuid
 from typing import Any
 
@@ -32,6 +34,11 @@ class CheckResultRepository:
         - structured_data: dict | None
         - conditional_check_triggered: bool
         - trigger_name: str | None
+        - origin: str | None
+        - page: int | None
+        - clause_uid: str | None
+        - element_id: str | None
+        - bbox: dict | None
         """
         obj = CheckResult(
             run_id=data["run_id"],
@@ -44,10 +51,16 @@ class CheckResultRepository:
             evidence_ref=data.get("evidence_ref"),
             confidence=data.get("confidence"),
             detector_used=data.get("detector_used"),
-            quality_flags=data.get("quality_flags"),
+            quality_flags=data.get("quality_flags") or {},
             structured_data=data.get("structured_data"),
             conditional_check_triggered=data.get("conditional_check_triggered", False),
             trigger_name=data.get("trigger_name"),
+            # НОВЫЕ ПОЛЯ
+            origin=data.get("origin"),
+            page=data.get("page"),
+            clause_uid=data.get("clause_uid"),
+            element_id=data.get("element_id"),
+            bbox=data.get("bbox"),
         )
 
         self.session.add(obj)
@@ -55,6 +68,7 @@ class CheckResultRepository:
         await self.session.flush()
         await self.session.refresh(obj)
         return obj
+
 
     async def for_doc(
         self,

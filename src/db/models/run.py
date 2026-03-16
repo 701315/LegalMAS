@@ -145,7 +145,7 @@ class Job(Base):
     task_type: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
-        comment="import, extract, sanitize, structure, classify, run_checks, aggregate, export",
+        comment="import, extract, sanitize, structure, classify, run_deal_checks, aggregate, export",
     )
 
     status: Mapped[str] = mapped_column(

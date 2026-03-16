@@ -1,4 +1,4 @@
-# src/engine/checks/simple_rules.py
+# src/engine/checks/simple_rules.py (LEGACY: rules-only executor, не используется в текущем пайплайне)
 
 """
 Простой executor одного check из PlaybookVersion.compiled_checks.
@@ -7,7 +7,7 @@
 - взять конфиг одного чека (из compiled_checks["checks"]);
 - по elements (layout) и clause_tree документа решить:
   сработал чек или нет (пока по ключевым словам);
-- вернуть dict в формате, который ожидает _save_results в workers/runner.py.
+- вернуть dict в формате, совместимом с CheckExecutor / CheckRunner (legacy rules-only executor).
 
 Важно:
 - это упрощённый rules-only executor (без LLM), чтобы быстро перейти

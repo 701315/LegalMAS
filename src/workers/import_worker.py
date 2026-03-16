@@ -5,7 +5,7 @@ Import Worker — production.
 
 Назначение:
 - Первичный импорт файлов в систему и постановка задач на дальнейшую обработку.
-- Работает как первый этап пайплайна: импорт → extract → pii → structure → classify → run_checks.
+- Работает как первый этап пайплайна: import → extract → pii → structure → classify → run_deal_checks.
 
 Основные функции:
   - Распаковка ZIP с сохранением структуры папок (folder_path).

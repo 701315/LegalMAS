@@ -20,8 +20,8 @@
 
 | Тип артефакта | Назначение                           | Путь в S3                                                                 | Метод ArtifactPath                                  | Кто пишет                   |
 |---------------|--------------------------------------|---------------------------------------------------------------------------|-----------------------------------------------------|----------------------------|
-| check_results | Результаты проверок (NDJSON)         | `tenants/{tenant_id}/deals/{deal_id}/results/{run_id}/check_results.jsonl` | `check_results(tenant_id, deal_id, run_id)`         | `runner._run_checks_async` |
-| evidence      | Сниппеты‑evidence для проверок      | `tenants/{tenant_id}/deals/{deal_id}/results/{run_id}/evidence.jsonl`     | `evidence(tenant_id, deal_id, run_id)`              | `runner._run_checks_async` |
+| check_results | Результаты проверок (NDJSON)         | `tenants/{tenant_id}/deals/{deal_id}/results/{run_id}/check_results.jsonl` | `check_results(tenant_id, deal_id, run_id)`         | CheckRunner.run_deal_checks` |
+| evidence      | Сниппеты‑evidence для проверок      | `tenants/{tenant_id}/deals/{deal_id}/results/{run_id}/evidence.jsonl`     | `evidence(tenant_id, deal_id, run_id)`              | CheckRunner.run_deal_checks` |
 
 ### Правила использования
 

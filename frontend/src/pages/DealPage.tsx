@@ -66,6 +66,17 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     navigate(`/projects/${deal.id}/playbooks/admin`);
   };
 
+  // Переход к настройке профиля модели (страница админки ModelConfig)
+  const handleOpenModelConfig = () => {
+    // Можно прокинуть dealId и playbookVersionId как query-параметры
+    const params = new URLSearchParams();
+    params.set("dealId", deal.id);
+    if (deal.playbook_version_id) {
+      params.set("playbookVersionId", deal.playbook_version_id);
+    }
+    navigate(`/admin/model-configs?${params.toString()}`);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
       {/* Заголовок сделки + кнопки администратора/редактора */}
@@ -201,7 +212,11 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         <div className="mt-6">
           {activeTab === "overview" && (
             <div className="transition-opacity duration-200 opacity-100">
-              <OverviewTab deal={deal} latestRunId={latestRunId} />
+              <OverviewTab
+                deal={deal}
+                latestRunId={latestRunId}
+                onOpenModelConfig={handleOpenModelConfig}
+              />
             </div>
           )}
 

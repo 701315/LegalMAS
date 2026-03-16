@@ -222,7 +222,6 @@ export interface DocumentFamily {
 export interface ReclassifyInput {
   doc_type: string;
   reason: string;
-  rerun_checks?: boolean;
 }
 
 /** Ответ после переклассификации */
@@ -232,6 +231,7 @@ export interface ReclassifyResult {
   new_doc_type: string;
   new_applicable_triggers: string[];
   yaml_instruction_found: boolean;
+  /** Всегда false в новой версии backend-а; поле оставлено для обратной совместимости. */
   checks_requeued: boolean;
 }
 
@@ -453,14 +453,12 @@ export interface Deal {
   status: DealStatus;
   deal_type?: string;
   bundle_id?: string;
-  /** ID последнего запуска — используется для overview и classification report */
   last_run_id?: string;
-  /** ID привязанной версии playbook (настройки сделки) */
   playbook_version_id?: string;
   created_at: string;
   updated_at: string;
+  model_config_name?: string | null;
 
-  /** Произвольные метаданные сделки (в т.ч. контактное лицо и т.п.) */
   metadata_?: {
     contact_person?: string | null;
     [key: string]: unknown;
@@ -749,12 +747,43 @@ export interface PlaybookCreateRequest {
   exclude_ids: string[];
   profile?: string | null;
   /** ID ModelConfig (опционально, может быть null / не задан). */
-  model_config_id?: string | null;
+  model_config_id?: string;
   semver?: string | null;
   status?: string | null;
   playbook_id?: string | null;
-  /** Если задано — версия собирается на основе шаблона PlaybookLine. */
   from_line_id?: string | null;
+}
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface ModelConfigCreateInput {
+  name: string;
+  embeddings_primary: string;
+  embeddings_fallback?: string | null;
+
+  candidate_n: number;
+  llm_context_k: number;
+
+  dense_weight: number;
+  sparse_weight: number;
+  metadata_boost: number;
+}
+
+export interface ModelConfigUpdateInput {
+  name?: string;
+  embeddings_primary?: string;
+  embeddings_fallback?: string | null;
+
+  candidate_n?: number;
+  llm_context_k?: number;
+
+  dense_weight?: number;
+  sparse_weight?: number;
+  metadata_boost?: number;
 }
 
 /** Одна запись истории смены playbook-версии сделки (из AuditLog). */

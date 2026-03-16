@@ -36,6 +36,7 @@ from .endpoints import (
     project_members,
     playbooks,
     playbook_runs,
+    model_configs,
 )
 from .middleware.audit import AuditMiddleware
 
@@ -112,3 +113,6 @@ app.include_router(playbooks.router, prefix="/api/v1")
 
 # История и пересборка плейбука по сделке.
 app.include_router(playbook_runs.router, prefix="/api/v1")
+
+# Конфигурации моделей (ModelConfig) для выбора модели на UI.
+app.include_router(model_configs.router, prefix="/api/v1")

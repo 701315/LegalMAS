@@ -3,7 +3,7 @@
 """
 PII Sanitizer Worker.
 
-Пайплайн: extract → pii → structure → classify → run_checks.
+Пайплайн: extract → pii → structure → classify → run_deal_checks.
 
 Назначение:
 - Считать сырой макет документа (textlayoutraw) из MinIO.

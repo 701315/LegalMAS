@@ -1,32 +1,36 @@
-# src/engine/checks_runner.py
-
 """
 Stage 8 CheckRunner: playbook-based checks executor.
 
 Назначение:
 - Запускает playbook-checks по уже классифицированным документам сделки.
-- Использует тот же playbook и CheckExecutor, что и Runner,
-  но НЕ выполняет повторную классификацию документов и НЕ работает с триггерами.
+- Использует playbook и CheckExecutor, но НЕ выполняет повторную классификацию
+  документов и НЕ работает с триггерами на уровне запуска пайплайна.
 
 Основные шаги:
 1. Получает non-duplicate документы сделки через RunnerRepository.
 2. Для каждого документа:
-   - берёт doc_type и applicable_triggers (ожидается, что их заполнил Runner/классификатор),
+   - берёт doc_type и applicable_triggers (ожидается, что их заполнил классификатор),
    - выбирает релевантные checks из playbook,
    - формирует один full-text chunk,
-   - выполняет CheckExecutor.execute и сохраняет результат в check_results
-     через асинхронный UnitOfWork (db_uow).
+   - выполняет CheckExecutor.execute и сохраняет результат в check_results.
 3. Возвращает агрегированную статистику по run'у (processed_docs, total_checks,
    failed_checks, errors).
 
 Использование:
-- В async-коде:
     async with db_uow() as uow:
         runner = CheckRunner(llm_client)
         summary = await runner.run_deal_checks(deal_id, run_id)
+
+Ограничения / прод-заметки:
+- Есть мягкий лимит на количество документов для одного Run (MAX_DOCS_PER_RUN).
+- Есть мягкий лимит на длину текста документа (MAX_TEXT_CHARS), чтобы не уронить LLM.
+- Ошибки по отдельным документам не валят весь Run; считаются в summary["errors"].
 """
 
+
+import time
 import uuid
+from typing import Tuple
 
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
@@ -36,28 +40,30 @@ from engine.playbook.loader import load_default_playbook
 
 logger = get_logger(__name__)
 
+# Мягкие лимиты для прод-окружения (можно вынести в settings)
+MAX_DOCS_PER_RUN = 500
+MAX_TEXT_CHARS = 100_000
+
 
 class CheckRunner:
     """
     Stage 8 CheckRunner: запускает playbook-checks по уже классифицированным документам сделки.
 
-    Использование:
-      - Ожидается, что doc.doc_type и doc.applicable_triggers уже заполнены
-        Stage 7/8 классификатором/Runner'ом.
-      - Вызывает только слой checks (playbook + CheckExecutor), без повторной
-        классификации и без работы с триггерами на уровне документов.
+    Ожидания:
+    - doc.doc_type и doc.applicable_triggers уже заполнены классификатором.
+    - doc.text содержит текст документа (или как минимум ключевые части для checks).
 
     Архитектура:
-      - async, работает через db_uow() (тот же UoW, что и Runner).
-      - На уровне сделки:
-          1) вытаскивает non-duplicate документы по deal_id;
-          2) по каждому документу запускает _run_checks_for_document в отдельном UoW;
-          3) накапливает агрегированную статистику по run'у.
-      - На уровне документа:
-          1) выбирает релевантные checks из playbook по doc_type и applicable_triggers;
-          2) формирует один full-text chunk;
-          3) прогоняет checks через CheckExecutor;
-          4) сохраняет результаты в check_results через UoW.
+    - async, работает через db_uow().
+    - На уровне сделки:
+        1) вытаскивает non-duplicate документы по deal_id;
+        2) по каждому документу запускает _run_checks_for_document в отдельном UoW;
+        3) накапливает агрегированную статистику по run'у.
+    - На уровне документа:
+        1) выбирает релевантные checks из playbook по doc_type и applicable_triggers;
+        2) формирует один full-text chunk;
+        3) прогоняет checks через CheckExecutor;
+        4) сохраняет результаты в check_results через UoW.
     """
 
     def __init__(self, llm_client) -> None:
@@ -72,27 +78,22 @@ class CheckRunner:
           - deal_id: UUID сделки.
           - run_id: UUID сущности Run (создаётся снаружи).
 
-        Шаги:
-          1) Один раз загружаем playbook.
-          2) В одном UoW получаем список non-duplicate документов сделки.
-          3) Для каждого документа вызываем _run_checks_for_document(doc, run_id, playbook),
-             оборачивая каждый документ в свой db_uow(), чтобы падение одного документа
-             не откатывало весь run.
-          4) Считаем processed_docs, total_checks, failed_checks, errors.
-
-        Возвращает:
-          dict с полями:
-            - "deal_id": str
-            - "run_id": str
-            - "processed_docs": int
-            - "total_checks": int
-            - "failed_checks": int
-            - "errors": int
+        Возвращает dict:
+          - "deal_id": str
+          - "run_id": str
+          - "processed_docs": int
+          - "total_checks": int
+          - "failed_checks": int
+          - "errors": int
         """
+        start_time = time.time()
+
         logger.info(
             "CheckRunner started",
-            deal_id=str(deal_id),
-            run_id=str(run_id),
+            extra={
+                "deal_id": str(deal_id),
+                "run_id": str(run_id),
+            },
         )
 
         summary: dict = {
@@ -112,10 +113,42 @@ class CheckRunner:
             runner_repo = RunnerRepository(uow_for_docs.session)
             docs = await runner_repo.get_non_duplicate_docs(deal_id)
 
+        if not docs:
+            logger.info(
+                "CheckRunner: no non-duplicate documents to process",
+                extra={
+                    "deal_id": str(deal_id),
+                    "run_id": str(run_id),
+                },
+            )
+            logger.info(
+                "CheckRunner completed",
+                extra={
+                    **summary,
+                    "duration_sec": time.time() - start_time,
+                },
+            )
+            return summary
+
+        if len(docs) > MAX_DOCS_PER_RUN:
+            logger.warning(
+                "CheckRunner: document count exceeds max, truncating",
+                extra={
+                    "deal_id": str(deal_id),
+                    "run_id": str(run_id),
+                    "count": len(docs),
+                    "max_docs": MAX_DOCS_PER_RUN,
+                },
+            )
+            docs = docs[:MAX_DOCS_PER_RUN]
+
         logger.info(
             "CheckRunner: documents fetched",
-            count=len(docs),
-            deal_id=str(deal_id),
+            extra={
+                "deal_id": str(deal_id),
+                "run_id": str(run_id),
+                "count": len(docs),
+            },
         )
 
         # Отдельный UoW на каждый документ
@@ -131,13 +164,23 @@ class CheckRunner:
                 summary["errors"] += 1
                 logger.error(
                     "CheckRunner: checks failed for document",
-                    doc_id=str(doc.id),
-                    deal_id=str(deal_id),
-                    error=str(e),
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "deal_id": str(deal_id),
+                        "run_id": str(run_id),
+                        "error": str(e),
+                    },
                 )
                 # Не пробрасываем исключение, чтобы не падал весь run
 
-        logger.info("CheckRunner completed", **summary)
+        duration_sec = time.time() - start_time
+        logger.info(
+            "CheckRunner completed",
+            extra={
+                **summary,
+                "duration_sec": duration_sec,
+            },
+        )
         return summary
 
     async def _run_checks_for_document(
@@ -145,7 +188,7 @@ class CheckRunner:
         doc,
         run_id: uuid.UUID,
         playbook,
-    ) -> tuple[int, int]:
+    ) -> Tuple[int, int]:
         """
         Выполнить все релевантные checks для одного документа в отдельном UoW.
 
@@ -157,16 +200,58 @@ class CheckRunner:
 
         async with db_uow() as uow:
             repo = uow.check_results  # CheckResultRepository
-            runner_repo = RunnerRepository(uow.session)  # если понадобится дополнительно
 
             doc_type = getattr(doc, "doc_type", "") or ""
-            applicable_triggers: list[str] = getattr(doc, "applicable_triggers", None) or []
+            # Нормализуем applicable_triggers в список строк
+            raw_triggers = getattr(doc, "applicable_triggers", None) or []
+            if isinstance(raw_triggers, list):
+                applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
+            else:
+                applicable_triggers = []
+
+            logger.debug(
+                "CheckRunner: running checks for document",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "deal_id": str(getattr(doc, "deal_id", "")),
+                    "run_id": str(run_id),
+                    "doc_type": doc_type,
+                    "triggers": applicable_triggers,
+                },
+            )
 
             # Выбираем checks с учётом doc_type и триггеров
             checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
 
-            # Готовим один full-text chunk
+            if not checks:
+                logger.info(
+                    "CheckRunner: no checks for document",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "deal_id": str(getattr(doc, "deal_id", "")),
+                        "run_id": str(run_id),
+                        "doc_type": doc_type,
+                        "triggers": applicable_triggers,
+                    },
+                )
+                return 0, 0
+
+            # Готовим один full-text chunk с мягким ограничением длины
             text = getattr(doc, "text", "") or ""
+            orig_len = len(text)
+            if orig_len > MAX_TEXT_CHARS:
+                logger.warning(
+                    "CheckRunner: document text truncated for checks",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "deal_id": str(getattr(doc, "deal_id", "")),
+                        "run_id": str(run_id),
+                        "orig_len": orig_len,
+                        "max_len": MAX_TEXT_CHARS,
+                    },
+                )
+                text = text[:MAX_TEXT_CHARS]
+
             chunks = [
                 {
                     "id": f"{doc.id}-full",
@@ -225,8 +310,13 @@ class CheckRunner:
                     # Pydantic-модель ConditionalConfig или None
                     is_conditional = bool(conditional)
                     trigger_name = (
-                        getattr(conditional, "trigger", None) if conditional is not None else None
+                        getattr(conditional, "trigger", None)
+                        if conditional is not None
+                        else None
                     )
+
+                # Источник проверки: пока считаем, что CheckRunner использует глобальный плейбук
+                origin = "global_playbook"
 
                 dto = {
                     "run_id": run_id,
@@ -243,9 +333,16 @@ class CheckRunner:
                     "structured_data": structured_data,
                     "conditional_check_triggered": is_conditional,
                     "trigger_name": trigger_name,
+                    # НОВЫЕ ПОЛЯ: координаты evidence / источник плейбука
+                    "origin": origin,
+                    "page": exec_result.get("page"),
+                    "clause_uid": exec_result.get("clause_uid"),
+                    "element_id": exec_result.get("element_id"),
+                    "bbox": exec_result.get("bbox"),
                 }
 
                 await repo.create(dto)
+
             # Коммит делает db_uow() при выходе из контекста
 
         return total_checks, failed_checks

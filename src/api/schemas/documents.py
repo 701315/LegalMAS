@@ -174,16 +174,19 @@ class ReclassifyRequest(BaseModel):
 
     Используется, когда:
     - юрист считает, что тип документа определён неверно;
-    - нужно задать новый doc_type и (опционально) пересчитать checks.
+    - нужно задать новый doc_type и зафиксировать причину изменения.
 
     Поля:
     - doc_type — новый тип документа (из справочника);
     - reason — текстовое объяснение, почему меняем тип;
-    - rerun_checks — если True, система поставит задачи на повторный run_checks.
+    - rerun_checks — [DEPRECATED] раньше ставил задачи на per-document checks
+      через legacy Runner; сейчас не используется и игнорируется.
     """
     doc_type: str
     reason: str
+    # [DEPRECATED] не влияет на поведение бэкенда, игнорируется
     rerun_checks: bool = False
+
 
 
 class ReclassifyResponse(BaseModel):
@@ -208,12 +211,16 @@ class ReclassifyBatchRequest(BaseModel):
 
     Удобно для сценария:
     - выделить несколько документов в таблице;
-    - задать новый тип и причину;
-    - по желанию перезапустить checks для всех этих документов.
+    - задать новый тип и причину.
+
+    Важно:
+    - rerun_checks больше не используется, поле оставлено
+      только для обратной совместимости.
     """
     document_ids: list[UUID] = Field(default_factory=list)
     doc_type: str
     reason: str
+    # Всегда False: перезапуск checks через этот endpoint отключён
     rerun_checks: bool = False
 
 

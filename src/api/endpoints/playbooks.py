@@ -1,5 +1,6 @@
 # src/api/endpoints/playbooks.py
 
+
 """
 Эндпоинты для работы с плейбуками (Playbook / PlaybookVersion).
 """
@@ -35,6 +36,7 @@ from core.playbooks.compiler import (
 from db.session import get_db
 from db.repositories.playbook_repo import PlaybookRepository
 from services.playbooks.catalog import load_global_checks_catalog
+from pydantic import BaseModel  # ← добавили
 
 router = APIRouter(
     prefix="/playbooks",
@@ -293,9 +295,6 @@ async def create_playbook_version(
     elif payload.bundles:
         name = f"Bundle: {', '.join(payload.bundles)}"
     elif payload.from_line_id:
-        # Если явно создаём из линии и имя не задано — используем title линии
-        # (чтобы не тянуть ещё раз линию, можно оставить "Custom playbook"
-        # или передавать имя с фронта; здесь сохраняем текущий простой вариант)
         name = "Playbook from template"
     else:
         name = "Custom playbook"
@@ -326,7 +325,6 @@ async def create_playbook_version(
         status=pv.status,
         playbook_id=pv.playbook_id,
     )
-
 
 
 @router.get(
@@ -528,4 +526,90 @@ async def update_playbook_line(
             )
             for i in items
         ],
+    )
+
+
+# -------------------------------------------------------------------
+# Новый эндпоинт: смена ModelConfig у PlaybookVersion
+# -------------------------------------------------------------------
+
+
+class PlaybookVersionModelConfigUpdate(BaseModel):
+    """
+    Тело запроса для обновления профиля модели (ModelConfig) у версии плейбука.
+
+    Если model_config_id = null, версия плейбука больше не будет
+    указывать конкретный профиль модели.
+    """
+
+    model_config_id: uuid.UUID | None
+
+
+@router.patch(
+    "/{version_id}/model-config",
+    response_model=PlaybookVersionDetail,
+    summary="Обновить профиль модели (ModelConfig) у версии плейбука",
+)
+async def set_playbook_version_model_config(
+    version_id: uuid.UUID,
+    payload: PlaybookVersionModelConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    """
+    Обновляет поле model_config_id у PlaybookVersion.
+
+    Используется в админке плейбуков, чтобы:
+    - привязать версию плейбука к новому профилю модели;
+    - очистить старую привязку (model_config_id = null),
+      чтобы затем можно было удалить старый профиль модели.
+    """
+    repo = PlaybookRepository(db)
+
+    pv = await repo.get_by_id(version_id)
+    if pv is None:
+        raise HTTPException(status_code=404, detail="Playbook version not found.")
+
+    # Если профиль не меняется — просто возвращаем текущее состояние
+    if pv.model_config_id == payload.model_config_id:
+        return PlaybookVersionDetail(
+            id=pv.id,
+            name=pv.name,
+            semver=pv.semver,
+            status=pv.status,
+            playbook_id=pv.playbook_id,
+            model_config_id=pv.model_config_id,
+            compiled_checks=pv.compiled_checks,
+            trigger_definitions=pv.trigger_definitions,
+            dd_request_templates=pv.dd_request_templates,
+            section_markers=pv.section_markers,
+            classification_config=pv.classification_config,
+        )
+
+    # Если указан новый профиль — проверяем, что он существует
+    if payload.model_config_id is not None:
+        mc = await repo.get_model_config(payload.model_config_id)
+        if mc is None:
+            raise HTTPException(
+                status_code=404,
+                detail="ModelConfig not found",
+            )
+
+    pv.model_config_id = payload.model_config_id
+
+    await db.commit()
+    await db.refresh(pv)
+
+    return PlaybookVersionDetail(
+        id=pv.id,
+        name=pv.name,
+        semver=pv.semver,
+        status=pv.status,
+        playbook_id=pv.playbook_id,
+        model_config_id=pv.model_config_id,
+        compiled_checks=pv.compiled_checks,
+        trigger_definitions=pv.trigger_definitions,
+        dd_request_templates=pv.dd_request_templates,
+        section_markers=pv.section_markers,
+        classification_config=pv.classification_config,
     )

@@ -168,7 +168,7 @@ async def _build_structure_async(
     # 6. Запуск следующего этапа (Классификация)
     # Передаём в classify_document достаточный контекст:
     # - run_id (если есть),
-    # - deal_id и tenant_id для корректного запуска run_checks.
+    # - deal_id и tenant_id для корректного запуска run_deal_checks через классификатор.
     from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
 
     _celery.send_task(

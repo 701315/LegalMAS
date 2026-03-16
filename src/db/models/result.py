@@ -1,3 +1,5 @@
+# src/db/models/result.py
+
 """
 CheckResult model — result of a single DD check on a document.
 Each check produces one result with evidence, severity, and QC status.
@@ -109,6 +111,35 @@ class CheckResult(Base):
         String(100),
         nullable=True,
         comment="Name of the trigger that activated this check",
+    )
+
+    origin: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Source of check definition: global_playbook, document_type_playbook, cross_doc",
+    )
+
+    page: Mapped[int | None] = mapped_column(
+        nullable=True,
+        comment="Page number where evidence was found",
+    )
+
+    clause_uid: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Clause UID or chunk identifier within the document",
+    )
+
+    element_id: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Layout element ID (for precise highlighting in viewer)",
+    )
+
+    bbox: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Bounding box of evidence in document coordinates (for viewer highlight)",
     )
 
     # --- QC fields ---

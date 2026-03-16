@@ -2,10 +2,10 @@
 
 
 """
-Classifier Worker — каскадная классификация документов (Stage 8).
+Classifier Worker — каскадная классификация документов (Stage 6/7).
 
 Позиция в пайплайне:
-- import → extract → pii → structure → classify → run_checks.
+- import → extract → pii → structure → classify → run_deal_checks.
 - На вход получает структурированный документ (есть text_layout_raw / sanitized).
 
 Что делает:
@@ -16,7 +16,6 @@ Classifier Worker — каскадная классификация докуме
     classification_level, classification_details, applicable_triggers.
 - Подбирает и привязывает подходящий playbook_version_id по сделке.
 - Обновляет статус документа: structured → classified.
-- Если передан run_id, ставит задачу workers.run_checks для этого документа.
 
 Архитектура:
 - Внешняя Celery‑таска classify_document — синхронная (def), её вызывает Celery.
@@ -32,6 +31,7 @@ import time
 import uuid
 
 from ops.metrics import get_metrics
+from services.run_checks_auto_starter import maybe_start_run_checks
 
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.config import settings
@@ -42,16 +42,23 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.uow import db_uow, UnitOfWork
-from engine.content.document_content_service import DocumentContentService
+from engine.content.document_content_service import (
+    DocumentContentService,
+    ClauseTreeStorageClient,
+)
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
 
-
 logger = get_logger(__name__)
 
-
-# Кэшируем экземпляр классификатора в рамках процесса воркера
+# Кэшируем экземпляр классификатора и контент‑сервиса
+# в рамках процесса воркера.
+#
+# Для непрофессионального программиста:
+# - Эти объекты создаются только один раз на процесс.
+# - Это экономит время: тяжёлые модели инициализируются один раз,
+#   а не для каждого документа.
 _classifier_instance: HybridClassifier | None = None
 _content_service_instance: DocumentContentService | None = None
 
@@ -68,13 +75,20 @@ def _get_classifier(uow: UnitOfWork) -> HybridClassifier:
 
     if _classifier_instance is None:
         # content_service используется HybridClassifier для получения header/snippet
+        # из clause tree. Теперь он требует:
+        # - session: AsyncSession — для доступа к версиям документа;
+        # - storage_client: клиент для чтения JSON из хранилища.
         if _content_service_instance is None:
-            _content_service_instance = DocumentContentService(uow=uow)
+            _content_service_instance = DocumentContentService(
+                session=uow.session,
+                storage_client=ClauseTreeStorageClient(),
+            )
 
         _classifier_instance = HybridClassifier(
             uow=uow,
             content_service=_content_service_instance,
         )
+
     return _classifier_instance
 
 
@@ -100,6 +114,13 @@ def classify_document(self, document_id: str, **kwargs) -> dict:
 
 
 async def _classify_document_async(task, document_id: str, extra_args: dict) -> dict:
+    """
+    Асинхронное ядро классификации одного документа.
+
+    Для непрофессионального программиста:
+    - Здесь вся основная логика.
+    - Функция работает с БД, классификатором и обновляет документ.
+    """
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
 
@@ -183,6 +204,18 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                 DocumentStatus.CLASSIFIED.value,
                 processing_error_details=None,
             )
+
+            # 6. Проверяем, не пора ли запускать run_deal_checks для этого Run.
+            # Для непрофессионального программиста:
+            # - maybe_start_run_checks смотрит на все документы по сделке;
+            # - если все, кто должен участвовать в Run, уже CLASSIFIED/COMPLETED,
+            #   он один раз поставит задачу workers.run_deal_checks.
+            if run_uuid is not None:
+                await maybe_start_run_checks(
+                    db=uow.session,
+                    run_id=run_uuid,
+                    deal_id=doc.deal_id,
+                )
             # UoW зафиксирует транзакцию (commit)
 
     except PermanentError as e:
@@ -201,48 +234,9 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             )
         return {"status": DocumentStatus.FAILED.value, "error": str(e)}
 
-    # 6. Запуск Runner (Stage 8) — передаём doctype для оптимизации
-    run_id = extra_args.get("run_id")
-
-    if run_id:
-        deal_id = extra_args.get("deal_id")
-        tenant_id = extra_args.get("tenant_id")
-
-        # Fallback: если не передали deal_id/tenant_id, пробуем восстановить по документу.
-        if deal_id is None or tenant_id is None:
-            async with db_uow() as uow2:
-                doc_repo2 = DocumentRepository(uow2.session)
-                doc2 = await doc_repo2.get_by_id(doc_uuid)
-                if not doc2:
-                    raise PermanentError(
-                        f"Document {document_id} not found when scheduling run_checks"
-                    )
-
-                if (
-                    hasattr(doc2, "deal")
-                    and doc2.deal
-                    and hasattr(doc2.deal, "tenant_id")
-                ):
-                    tenant_id = str(doc2.deal.tenant_id)
-                else:
-                    tenant_id = str(doc2.deal_id)
-
-                deal_id = str(doc2.deal_id)
-
-        from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
-
-        _celery.send_task(
-            "workers.run_checks",
-            kwargs={
-                "document_id": document_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "doctype": classification_result.get("final_type")
-                if classification_result
-                else None,
-            },
-        )
+    # Важно: здесь больше НЕТ запуска per-document checks.
+    # Все проверки по сделке будет запускать отдельный воркер run_deal_checks
+    # после того, как авто-стартер решит, что все документы классифицированы.
 
     duration_ms = int((time.time() - start_time) * 1000)
     return {
@@ -270,6 +264,10 @@ async def _mark_failed(
     """
     Отдельный простой UoW для перевода документа в статус FAILED
     с заполнением processing_error_details.
+
+    Для непрофессионального программиста:
+    - Эта функция просто помечает документ как неуспешно обработанный.
+    - Причина и сообщение сохраняются в базе для диагностики.
     """
     repo = DocumentRepository(uow.session)
     await repo.set_failed(
@@ -279,3 +277,4 @@ async def _mark_failed(
         reason="classification_error",
         run_id=run_id,
     )
+

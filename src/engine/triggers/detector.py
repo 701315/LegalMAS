@@ -1,5 +1,6 @@
-"""Trigger detector: использует Stage 7 relations/families."""
+# src/engine/triggers/detector.py
 
+"""Trigger detector: использует Stage 7 relations/families."""
 
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository

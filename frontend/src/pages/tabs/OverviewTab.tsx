@@ -22,6 +22,8 @@ interface OverviewTabProps {
   deal: Deal;
   /** ID последнего run по сделке (может быть null/undefined) */
   latestRunId?: string | null;
+  /** Открыть форму настройки профиля модели */
+  onOpenModelConfig?: () => void;
 }
 
 /**
@@ -277,7 +279,11 @@ const RunProgressCard: React.FC<{
 /**
  * Основной компонент вкладки Overview.
  */
-const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
+const OverviewTab: React.FC<OverviewTabProps> = ({
+  deal,
+  latestRunId,
+  onOpenModelConfig,
+}) => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const startRun = useStartRun(deal.id);
@@ -361,22 +367,47 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
         </div>
 
         {/* Краткая информация о playbook проекта */}
-        <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
-          <div className="text-gray-600">
-            <span className="font-semibold">Playbook проекта:</span>{" "}
-            {hasPlaybook ? (
-              <span>выбран (версия ID: {deal.playbook_version_id})</span>
-            ) : (
-              <span className="text-gray-500">не выбран</span>
+        <div className="flex flex-col gap-1 text-xs pt-2 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="text-gray-600">
+              <span className="font-semibold">Playbook проекта:</span>{" "}
+              {hasPlaybook ? (
+                <span>выбран (версия ID: {deal.playbook_version_id})</span>
+              ) : (
+                <span className="text-gray-500">не выбран</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenPlaybook}
+              className="px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            >
+              Настроить playbook
+            </button>
+          </div>
+
+          <div className="text-gray-600 flex items-center justify-between">
+            <div>
+              <span className="font-semibold">Профиль модели:</span>{" "}
+              {deal.model_config_name ? (
+                <span>{deal.model_config_name}</span>
+              ) : (
+                <span className="text-gray-500">
+                  не указан (зависит от выбранного playbook)
+                </span>
+              )}
+            </div>
+
+            {onOpenModelConfig && (
+              <button
+                type="button"
+                onClick={onOpenModelConfig}
+                className="ml-4 px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs"
+              >
+                Настроить профиль модели
+              </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={handleOpenPlaybook}
-            className="px-3 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          >
-            Настроить playbook
-          </button>
         </div>
       </div>
 

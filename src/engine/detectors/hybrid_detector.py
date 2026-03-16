@@ -1,3 +1,5 @@
+# src/engine/detectors/hybrid_detector.py
+
 """
 Hybrid detector: сначала rules, затем LLM при необходимости.
 

@@ -19,22 +19,24 @@ Task registry — единая точка регистрации всех Celery
 
 # Импортируем все воркеры, которые содержат Celery-таски
 
-# Stage 4–7 / основной пайплайн обработки документов
+# импорт и подготовка файлов
 from workers.import_worker import import_bundle  # noqa: F401
+from workers.convert_worker import convert_to_pdf  # noqa: F401
+
+# оркестрация Run (запуск пайплайна по сделке)
+from workers.run_orchestrator import start_run_pipeline  # noqa: F401
+
+# основной пайплайн обработки документов
 from workers.extract_worker import extract_document  # noqa: F401
 from workers.pii_sanitizer import sanitize_document  # noqa: F401
 from workers.structure_builder import build_structure  # noqa: F401
 from workers.classifier import classify_document  # noqa: F401
-from workers.runner import run_checks  # noqa: F401
-from workers.exporter import export_results  # noqa: F401
 
-# Построение связей и семей документов
+# запуск комплексных checks по сделке
+from workers.check_runner_worker import run_deal_checks  # noqa: F401
+
+# Дополнительно: построение связей и экспорты
 from workers.relations_worker import build_relations  # noqa: F401
-
-
-# Orchestrator сейчас не является Celery-таской, поэтому сюда не импортируется
-# (он вызывается напрямую из приложения как синхронная функция start_pipeline).
-from workers.convert_worker import convert_to_pdf  # noqa: F401
-
+from workers.exporter import export_results  # noqa: F401
 from workers.export_pending import export_process_pending  # noqa: F401
-from workers.run_orchestrator import start_run_pipeline   # noqa: F401
+

@@ -25,7 +25,7 @@ from io import BytesIO
 from typing import List, Optional
 from fpdf import FPDF
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,14 +42,12 @@ from db.models.document import Document
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.relation_repo import RelationRepository
-from db.repositories.run_repo import RunRepository
 from db.repositories.audit_repo import AuditRepository
 
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
 
 from storage.artifact_store import ArtifactStore, ArtifactPath
-from mas_queue.celery_app import celery_app
 
 from ..schemas.documents import (
     DocumentDetailResponse,
@@ -167,6 +165,9 @@ async def _load_document_detail(
     Позже можно добавить:
     - загрузку последней версии DocumentVersion,
     - семью документов через RunnerRepository.get_document_family.
+    Позже можно добавить:
+    - загрузку последней версии DocumentVersion,
+    - более полную семью документов (amendments, versions).
     """
     doc_repo = DocumentRepository(db)
     version_repo = DocumentVersionRepository(db)
@@ -232,7 +233,18 @@ async def get_document_detail(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
-    # TODO: здесь будет проверка прав на сделку (deal_id)
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
     return await _load_document_detail(db=db, doc_id=doc_id)
 
 
@@ -257,16 +269,17 @@ async def reclassify_document(
     3. Проверяем, есть ли YAML-инструкция для нового doc_type.
     4. Загружаем applicable_triggers из YAML (если файл есть).
     5. Обновляем поля классификации документа (L_manual, confidence=1.0).
-    6. При необходимости ставим задачу на повторный запуск проверок.
+    6. [DEPRECATED] Ручной перезапуск checks для одного документа больше не поддерживается.
+       Checks выполняются CheckRunner'ом (run_deal_checks) на уровне всего Run.
     7. Пишем запись в AuditLog через AuditRepository.
+
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Проверяем роль пользователя в проекте (сделке) документа:
-    # разрешаем только admin и editor.
+    # Проверяем роль пользователя в проекте (сделке документа)
     await require_project_role(
         db=db,
         user=user,
@@ -300,25 +313,11 @@ async def reclassify_document(
         applicable_triggers=new_triggers,
     )
 
-    # При необходимости — ставим задачу на повторные проверки
+    # Флаг для аудита: сейчас мы НЕ ставим per-document checks заново
+    # Перезапуск checks для одного документа больше не поддерживается.
     checks_requeued = False
-    if data.rerun_checks:
-        run_repo = RunRepository(db)
-        latest_run = await run_repo.get_latest_for_deal(doc.deal_id)
-        if latest_run:
-            try:
-                celery_app.send_task(
-                    "workers.run_checks",
-                    kwargs={
-                        "document_id": str(doc_id),
-                        "deal_id": str(doc.deal_id),
-                        "tenant_id": str(user.tenant_id),
-                        "run_id": str(latest_run.id),
-                    },
-                )
-                checks_requeued = True
-            except Exception:
-                checks_requeued = False
+    rerun_checks_requested = bool(getattr(data, "rerun_checks", False))
+
 
     # Запись в AuditLog
     audit_repo = AuditRepository(db)
@@ -336,6 +335,8 @@ async def reclassify_document(
             "yaml_instruction_found": yaml_found,
             "new_applicable_triggers": new_triggers,
             "checks_requeued": checks_requeued,
+            "rerun_checks_flag_requested": rerun_checks_requested,
+            "rerun_checks_behavior": "deprecated_no_action",
         },
     )
 
@@ -370,15 +371,18 @@ async def get_document_family(
     сохраняются в таблицы document_families / document_family_members.
     Этот эндпоинт только читает их.
 
-    TODO: когда будет реальная авторизация, имеет смысл
-    добавить проверку доступа к deal_id документа.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    relation_repo = RelationRepository(db)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
 
     # Ищем family, где master_doc_id = doc_id, с подгруженными members
     stmt = (
@@ -685,7 +689,7 @@ async def soft_delete_document(
         deal_id=doc.deal_id,
         action="DOCUMENT_SOFT_DELETE",
         actor=str(getattr(user, "id", "unknown")),
-        actor_role=getattr(user, "role", None),
+        actor_role=getattr(user, "global_role", None),
         details={
             "document_id": str(doc.id),
             "previous_status": doc.status,
@@ -701,6 +705,7 @@ async def soft_delete_document(
         "new_status": DocumentStatus.DELETED.value,
         "already_deleted": False,
     }
+
 
 
 @router.patch(
@@ -894,10 +899,6 @@ async def export_documents_pdf(
     out_bytes = bytes(pdf.output(dest="S"))
 
     filename = f"deal_{body.deal_id}_documents.pdf"
-    headers_resp = {
-        "Content-Disposition": f'attachment; filename=\"{filename}\"',
-        "Access-Control-Expose-Headers": "Content-Disposition",
-    }
 
     return Response(
         content=out_bytes,

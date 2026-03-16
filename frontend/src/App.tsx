@@ -26,8 +26,8 @@ import ProjectMembersPage from "./pages/ProjectMembersPage";
 import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
 import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
-
-
+import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
+import AdminPlaybookVersionsPage from "./pages/AdminPlaybookVersionsPage";
 
 // Временная обёртка для страницы проекта (используем существующий DealPage)
 function DealRouteWrapper() {
@@ -83,6 +83,22 @@ function RequireSuperadmin({
     return <Navigate to="/login" replace />;
   }
   if (globalRole !== "superadmin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+// Защита маршрута для admin или superadmin
+function RequireAdminOrSuperadmin({
+  children,
+}: {
+  children: React.ReactElement;
+}) {
+  const { userId, globalRole } = useAuth();
+  if (!userId) {
+    return <Navigate to="/login" replace />;
+  }
+  if (globalRole !== "superadmin" && globalRole !== "admin") {
     return <Navigate to="/dashboard" replace />;
   }
   return children;
@@ -168,6 +184,26 @@ function App() {
                 <DealPlaybookSelectorPage />
               </ProjectRouteGuard>
             </RequireAuth>
+          }
+        />
+
+        {/* Админ-страница профилей моделей (admin + superadmin) */}
+        <Route
+          path="/admin/model-configs"
+          element={
+            <RequireAdminOrSuperadmin>
+              <ModelConfigsAdminPage />
+            </RequireAdminOrSuperadmin>
+          }
+        />
+
+        {/* Админ-страница версий плейбуков и их профилей моделей */}
+        <Route
+          path="/admin/playbook-versions"
+          element={
+            <RequireAdminOrSuperadmin>
+              <AdminPlaybookVersionsPage />
+            </RequireAdminOrSuperadmin>
           }
         />
 

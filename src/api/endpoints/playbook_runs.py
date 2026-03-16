@@ -59,11 +59,9 @@ from core.playbooks.compiler import (
 from core.utils.semver import bump_semver
 from db.models.playbook import PlaybookVersion
 from db.repositories.deal_repo import DealRepository
-from db.repositories.document_repo import DocumentRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
-from mas_queue.celery_app import celery_app
 
 router = APIRouter(
     prefix="/deals",
@@ -95,7 +93,6 @@ async def get_current_deal_playbook_config(
 
     Важно: это НЕ создаёт новую версию и НЕ запускает run, только читает текущую конфигурацию.
     """
-    # Проверка доступа (любой участник проекта)
     await require_project_role(
         db=db,
         user=user,
@@ -127,8 +124,6 @@ async def get_current_deal_playbook_config(
     meta = compiled.get("meta") or {}
     config_dict = meta.get("config") or {}
 
-    # Если meta.config по какой-то причине пуст, возвращаем "пустой" рецепт
-    # с только model_config_id, чтобы фронт мог начать с нуля.
     try:
         current_config = PlaybookConfig(**config_dict) if config_dict else None
     except Exception:
@@ -159,7 +154,7 @@ async def rebuild_playbook_and_rerun(
     user: CurrentUser = Depends(get_current_user),
 ) -> DealPlaybookRebuildResponse:
     """
-    Пересобирает плейбук для сделки и запускает новый run по всем документам.
+    Пересобирает плейбук для сделки и запускает новый Run по всем документам.
 
     Шаги:
     1) проверка прав (admin/editor);
@@ -172,11 +167,11 @@ async def rebuild_playbook_and_rerun(
     6) создание новой PlaybookVersion;
     7) обновление Deal.playbook_version_id;
     8) создание нового Run;
-    9) постановка задач run_checks для всех документов сделки;
+    9) запуск оркестратора start_run_pipeline для этого Run
+       (extract → pii → structure → classify → run_deal_checks);
     10) обновление Deal.last_run_id;
     11) возврат ID нового плейбука и run.
     """
-    # 1. Проверяем права (только admin/editor).
     await require_project_role(
         db=db,
         user=user,
@@ -187,14 +182,11 @@ async def rebuild_playbook_and_rerun(
     deal_repo = DealRepository(db)
     playbook_repo = PlaybookRepository(db)
     run_repo = RunRepository(db)
-    doc_repo = DocumentRepository(db)
 
-    # 2. Проверяем, что сделка существует
     deal = await deal_repo.get_by_id(deal_id)
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    # 3. Берём текущий плейбук для сделки (явно привязанный или default)
     current_playbook = await playbook_repo.get_for_deal(deal_id)
     if not current_playbook:
         raise HTTPException(
@@ -208,36 +200,32 @@ async def rebuild_playbook_and_rerun(
             detail="Playbook is not configured with model_config",
         )
 
-    # 4. Читаем текущую конфигурацию из compiled_checks.meta.config
     compiled = current_playbook.compiled_checks or {}
     meta = compiled.get("meta") or {}
     config_dict = meta.get("config") or {}
 
-    # PlaybookConfig описывает "рецепт" плейбука:
-    # - bundles, include_ids, exclude_ids, profile.
-    current_config = PlaybookConfig(**config_dict)
+    try:
+        current_config = PlaybookConfig(**config_dict) if config_dict else PlaybookConfig()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid playbook config for deal: {e}",
+        ) from e
 
     # --- Определяем новую конфигурацию плейбука ---
 
-    # Если фронт прислал enabled_check_ids — считаем, что это явный список чеков
-    # после того, как юрист поработал с UI-плашками.
-    # В простейшем варианте можно использовать их как include_ids,
-    # а disabled_check_ids — как exclude_ids.
     if payload.enabled_check_ids:
-        # Новый режим: игнорируем старые bundles/include_ids/exclude_ids,
-        # работаем только с явным составом.
-        bundles = []  # можем не использовать бандлы, т.к. состав задан явно
+        bundles = []
         include_ids = payload.enabled_check_ids
         exclude_ids = payload.disabled_check_ids or []
         profile = payload.profile or current_config.profile
     else:
-        # Старый режим: используем текущий config + перекрытия из payload.
         bundles = payload.bundles or current_config.bundles
         include_ids = payload.include_ids or current_config.include_ids
         exclude_ids = payload.exclude_ids or current_config.exclude_ids
         profile = payload.profile or current_config.profile
 
-    # 5. Загружаем все глобальные чек-файлы и собираем новый compiled_checks
+    # 5. Собираем новый compiled_checks
     all_checks = load_global_checks()
     if not all_checks:
         raise HTTPException(
@@ -252,31 +240,25 @@ async def rebuild_playbook_and_rerun(
             include_ids=include_ids,
             exclude_ids=exclude_ids,
             profile=profile,
-            # primary_bundle_id нужен скорее для трассировки; если bundles пуст,
-            # сохраняем старое значение из meta.bundle_id (если оно есть).
             primary_bundle_id=bundles[0] if bundles else meta.get("bundle_id"),
         )
     except KeyError as e:
-        # Ошибка в check_id (например, несуществующий id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
     except ValueError as e:
-        # Ошибка бизнес-логики сборки (например, всё исключили и список пуст)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
     except Exception as e:
-        # Любая другая ошибка сборки — считаем внутренней ошибкой сервера
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to build compiled_checks for new playbook.",
         ) from e
 
-    # 6. Создаём новую PlaybookVersion
-    # увеличиваем минорную версию плейбука для новой конфигурации
+    # 6. Новая PlaybookVersion
     new_semver = bump_semver(current_playbook.semver, part="minor")
     new_status = PlaybookStatus.STABLE.value
 
@@ -290,46 +272,40 @@ async def rebuild_playbook_and_rerun(
         status=new_status,
     )
 
-    # 7. Обновляем Deal.playbook_version_id на новый плейбук
+    # 7. Обновляем Deal.playbook_version_id
     deal.playbook_version_id = new_playbook.id
 
-    # 8. Создаём новый Run для этой сделки
+    # 8. Создаём новый Run
     new_run = await run_repo.create(
         deal_id=deal_id,
         playbook_version_id=new_playbook.id,
         model_config_id=new_playbook.model_config_id,
         bundle_id=None,
         environment_hash=None,
-        profile=deal.profile,  # используем профиль сделки
+        profile=deal.profile,
     )
 
-    # 9. Загружаем все документы сделки и ставим задачи run_checks
-    docs = await doc_repo.get_by_deal(deal_id)
+    # 9. Запускаем оркестратор пайплайна для этого Run
+    from mas_queue.celery_app import celery_app as _celery
 
-    try:
-        for d in docs:
-            celery_app.send_task(
-                "workers.run_checks",
-                kwargs={
-                    "document_id": str(d.id),
-                    "deal_id": str(d.deal_id),
-                    "tenant_id": str(user.tenant_id),
-                    "run_id": str(new_run.id),
-                },
-            )
-    except Exception:
-        # Здесь сознательно не валим весь эндпоинт, но в проде
-        # имеет смысл добавить логирование (Sentry/логгер).
-        pass
+    _celery.send_task(
+        "workers.start_run_pipeline",
+        kwargs={
+            "run_id": str(new_run.id),
+            "deal_id": str(deal_id),
+            "tenant_id": str(deal.tenant_id),
+            "force_reclassify": False,
+        },
+    )
 
-    # 10. Обновляем last_run_id у сделки и коммитим транзакцию
+    # 10. Обновляем last_run_id и коммитим
     await deal_repo.set_last_run_id(deal_id=deal_id, run_id=new_run.id)
 
     await db.commit()
     await db.refresh(new_run)
     await db.refresh(deal)
 
-    # 11. Возвращаем ID нового плейбука и run
+    # 11. Ответ
     return DealPlaybookRebuildResponse(
         deal_id=deal_id,
         new_playbook_version_id=new_playbook.id,
@@ -355,7 +331,6 @@ async def get_deal_playbook_history(
     - для каждого Run подтягиваем PlaybookVersion;
     - в UI можно показывать цепочку версий плейбука и запусков.
     """
-    # Проверка доступа (любая роль участника проекта)
     await require_project_role(
         db=db,
         user=user,
@@ -364,10 +339,8 @@ async def get_deal_playbook_history(
     )
 
     run_repo = RunRepository(db)
-
     runs = await run_repo.get_by_deal(deal_id)
 
-    # Чтобы не делать N запросов к PlaybookVersion, заранее вытаскиваем все нужные ID.
     playbook_ids = {r.playbook_version_id for r in runs}
     if not playbook_ids:
         return DealPlaybookHistoryResponse(deal_id=deal_id, items=[])
@@ -395,6 +368,4 @@ async def get_deal_playbook_history(
             )
         )
 
-    # RunRepository.get_by_deal уже сортирует по created_at DESC,
-    # поэтому items будут в нужном порядке.
     return DealPlaybookHistoryResponse(deal_id=deal_id, items=items)

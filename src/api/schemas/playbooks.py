@@ -79,10 +79,10 @@ class PlaybookCreateRequest(BaseModel):
     )
 
     model_config_id: UUID | None = Field(
-        default=None,
         description=(
-            "ID ModelConfig, который будет использоваться раннером (опционально). "
-            "Если не задано, версия создаётся без привязки к конфигурации модели."
+        "ID ModelConfig, который будет использоваться раннером. "
+        "Обязательное поле: версия плейбука всегда должна быть привязана "
+        "к конкретной конфигурации модели."
         ),
     )
 
@@ -222,3 +222,58 @@ class PlaybookLineCreate(BaseModel):
 
 class PlaybookLineDetail(PlaybookLineShort):
     items: list[PlaybookLineItemPayload]
+
+
+class ModelConfigResponse(BaseModel):
+    """
+    Конфигурация модели (ModelConfig) для UI.
+
+    Используется фронтом при выборе модели, под которой будет работать playbook:
+    - id — идентификатор конфигурации (UUID);
+    - name — человекочитаемое имя для выпадающего списка;
+    - description — краткое пояснение (опционально);
+    - embeddings_primary / embeddings_fallback и т.п. можно отдать для справки.
+    """
+
+    id: UUID
+    name: str
+    description: Optional[str] = None
+
+    embeddings_primary: Optional[str] = None
+    embeddings_fallback: Optional[str] = None
+
+class ModelConfigCreateRequest(BaseModel):
+    """
+    Входные данные для создания нового профиля модели (ModelConfig).
+    """
+
+    name: str
+    embeddings_primary: str = "intfloat/multilingual-e5-large"
+    embeddings_fallback: Optional[str] = "cointegrated/LaBSE"
+
+    # Простые поля для формы. В бэке мы соберём из них JSON.
+    candidate_n: int = 50
+    llm_context_k: int = 5
+
+    dense_weight: float = 0.6
+    sparse_weight: float = 0.3
+    metadata_boost: float = 0.1
+
+
+class ModelConfigUpdateRequest(BaseModel):
+    """
+    Частичное обновление профиля модели.
+    Все поля опциональные, можно менять только нужное.
+    """
+
+    name: Optional[str] = None
+    embeddings_primary: Optional[str] = None
+    embeddings_fallback: Optional[str] = None
+
+    candidate_n: Optional[int] = None
+    llm_context_k: Optional[int] = None
+
+    dense_weight: Optional[float] = None
+    sparse_weight: Optional[float] = None
+    metadata_boost: Optional[float] = None
+

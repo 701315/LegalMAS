@@ -1,4 +1,6 @@
 # src/workers/runner.py
+# LEGACY: старый rules-only Runner (workers.run_checks).
+# Не используется в текущем пайплайне; оставлен только как reference.
 
 """
 Runner — упрощённая версия для вертикального среза, обновлённая до работы с плейбуком.

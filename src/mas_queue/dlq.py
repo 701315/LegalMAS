@@ -62,7 +62,7 @@ class DLQManager:
         Записать информацию о проваленной задаче в DLQ.
 
         Аргументы:
-            task_type: Тип задачи (например, "extract", "run_checks").
+            task_type: Тип задачи (например, "extract", "run_deal_checks").
             failure_type: Тип сбоя: "transient", "permanent", "timeout", "quota" и т.п.
             job_id: Связанный Job ID (если есть).
             error_details: Детальная информация об ошибке (сообщение, traceback, контекст).

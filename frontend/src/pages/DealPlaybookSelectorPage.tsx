@@ -19,6 +19,10 @@ import type {
   PlaybookCreateResponse,
   ApiError,
   DealPlaybookHistoryItem,
+  // новый тип: одна конфигурация модели
+  // (должен быть описан в ../types)
+  // interface ModelConfig { id: string; name: string; description?: string | null; }
+  ModelConfig,
 } from "../types";
 
 interface DealPlaybookSelectorPageProps {
@@ -56,6 +60,16 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   const [history, setHistory] = useState<DealPlaybookHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // ---- НОВОЕ: модели (ModelConfig) ----
+  /** Список доступных конфигураций моделей, с которыми можно запускать плейбуки. */
+  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
+  /** Выбранная конфигурация модели для создания новой версии плейбука. */
+  const [selectedModelConfigId, setSelectedModelConfigId] = useState<string | null>(null);
+  /** Ошибки загрузки списка моделей. */
+  const [modelConfigsError, setModelConfigsError] = useState<string | null>(null);
+  const [isModelConfigsLoading, setIsModelConfigsLoading] = useState(false);
+  // -------------------------------------
 
   if (!dealId) {
     return (
@@ -205,6 +219,43 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     };
   }, [dealId, effectiveDeal?.playbook_version_id]);
 
+  // НОВОЕ: загрузка списка ModelConfig
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadModelConfigs() {
+      setIsModelConfigsLoading(true);
+      setModelConfigsError(null);
+      try {
+        const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
+        if (cancelled) return;
+        const list = res.data || [];
+        setModelConfigs(list);
+        // Если ещё ничего не выбрано, а список не пуст — выбираем первую модель по умолчанию
+        if (list.length > 0) {
+          setSelectedModelConfigId((prev) => prev ?? list[0].id);
+        }
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (!cancelled) {
+          setModelConfigsError(
+            apiErr.detail ||
+              "Не удалось загрузить список моделей (ModelConfig). Обратитесь к администратору.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsModelConfigsLoading(false);
+        }
+      }
+    }
+
+    loadModelConfigs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Когда выбрана версия — подтягиваем её детали (состав)
   useEffect(() => {
     let cancelled = false;
@@ -304,7 +355,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
       // Обновляем историю сразу после успешной смены playbook
       await loadHistory();
 
-      // При желании можно оставить на странице; сейчас по-прежнему уходим в проект
+      // Можно остаться на странице; сейчас оставляем поведение как есть
     } catch (err) {
       const apiErr = err as ApiError;
       setErrorText(
@@ -328,6 +379,13 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   // Создание версии из выбранного шаблона
   const handleCreateVersionForSelectedLine = async () => {
     if (!selectedLineId) return;
+
+    // Без выбранной модели запрещаем создавать версию и показываем понятную ошибку
+    if (!selectedModelConfigId) {
+      setCreateVersionError("Сначала выберите модель (ModelConfig) для этого playbook.");
+      return;
+    }
+
     setIsCreatingVersion(true);
     setCreateVersionError(null);
     try {
@@ -342,6 +400,8 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         status: "active",
         playbook_id: selectedLineId,
         from_line_id: selectedLineId,
+        // КЛЮЧЕВОЕ: привязка к выбранной модели
+        model_config_id: selectedModelConfigId,
       };
 
       const res = await client.post<PlaybookCreateResponse>(
@@ -479,12 +539,51 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
               ) : visibleVersions.length === 0 ? (
                 <>
                   <p className="text-xs text-gray-500 mb-2">
-                    Для выбранного шаблона пока нет версий.
+                    Для выбранного шаблона пока нет версий. Создайте первую
+                    версию и выберите, под какой моделью её запускать.
                   </p>
+
+                  {/* Выбор ModelConfig для новой версии */}
+                  <div className="mb-2">
+                    <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                      Модель для этого playbook (ModelConfig)
+                    </label>
+
+                    {isModelConfigsLoading ? (
+                      <p className="text-[11px] text-gray-500">
+                        Загружаем список моделей…
+                      </p>
+                    ) : modelConfigsError ? (
+                      <p className="text-[11px] text-red-600">
+                        {modelConfigsError}
+                      </p>
+                    ) : modelConfigs.length === 0 ? (
+                      <p className="text-[11px] text-gray-500">
+                        Нет доступных моделей. Обратитесь к администратору.
+                      </p>
+                    ) : (
+                      <select
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                        value={selectedModelConfigId ?? ""}
+                        onChange={(e) =>
+                          setSelectedModelConfigId(
+                            e.target.value || null,
+                          )
+                        }
+                      >
+                        {modelConfigs.map((mc) => (
+                          <option key={mc.id} value={mc.id}>
+                            {mc.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleCreateVersionForSelectedLine}
-                    disabled={isCreatingVersion}
+                    disabled={isCreatingVersion || !selectedModelConfigId}
                     className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
                   >
                     {isCreatingVersion

@@ -28,6 +28,9 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { userId, userName, globalRole } = useAuth();
 
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+
   // Если по какой-то причине нет userId — отправим на логин (подстрахуемся)
   React.useEffect(() => {
     if (!userId) {
@@ -35,7 +38,7 @@ const DashboardPage: React.FC = () => {
     }
   }, [userId, navigate]);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["user-projects", userId],
     queryFn: () => fetchUserProjects(userId!),
     enabled: !!userId,
@@ -49,6 +52,28 @@ const DashboardPage: React.FC = () => {
 
   const handleCreateProject = () => {
     navigate("/projects/new");
+  };
+
+  const handleDeleteProject = async (dealId: string, dealName: string) => {
+    const ok = window.confirm(
+      `Удалить проект "${dealName}"?\n\n` +
+        "Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно."
+    );
+    if (!ok) return;
+
+    setDeleteError(null);
+    setDeletingId(dealId);
+    try {
+      await client.delete(`/api/v1/deals/${dealId}`);
+      await refetch();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        "Не удалось удалить проект. Возможно, есть связанные данные в системе.";
+      setDeleteError(msg);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (!userId) {
@@ -77,6 +102,12 @@ const DashboardPage: React.FC = () => {
           )}
         </header>
 
+        {deleteError && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+            {deleteError}
+          </div>
+        )}
+
         {isLoading && (
           <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
             Загружаем проекты…
@@ -98,11 +129,9 @@ const DashboardPage: React.FC = () => {
         {!isLoading && !error && projects.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {projects.map((p) => (
-              <button
+              <div
                 key={p.deal_id}
-                type="button"
-                onClick={() => handleOpenProject(p.deal_id)}
-                className="w-full text-left bg-white rounded-lg border p-4 hover:border-blue-500 hover:shadow-sm transition"
+                className="w-full bg-white rounded-lg border p-4 hover:border-blue-500 hover:shadow-sm transition flex flex-col gap-2"
               >
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-base font-semibold text-gray-900">
@@ -114,15 +143,34 @@ const DashboardPage: React.FC = () => {
                 </div>
 
                 {p.contact_person && (
-                  <p className="text-xs text-gray-500 mb-1">
+                  <p className="text-xs text-gray-500">
                     Контактное лицо: {p.contact_person}
                   </p>
                 )}
 
-                <p className="text-xs text-gray-500">
-                  deal_id: {p.deal_id}
-                </p>
-              </button>
+                <p className="text-xs text-gray-500">deal_id: {p.deal_id}</p>
+
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenProject(p.deal_id)}
+                    className="flex-1 px-3 py-1.5 text-xs rounded border border-blue-600 text-blue-600 hover:bg-blue-50"
+                  >
+                    Открыть
+                  </button>
+
+                  {globalRole === "superadmin" && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProject(p.deal_id, p.deal_name)}
+                      disabled={deletingId === p.deal_id}
+                      className="px-3 py-1.5 text-xs rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {deletingId === p.deal_id ? "Удаляем…" : "Удалить"}
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         )}

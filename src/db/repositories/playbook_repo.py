@@ -46,6 +46,47 @@ class PlaybookRepository:
         await self.session.flush()
         return mc
 
+    async def list_model_configs(self) -> list[ModelConfig]:
+        """List all model configurations (for UI selector)."""
+        result = await self.session.execute(select(ModelConfig))
+        return list(result.scalars().all())
+
+    async def get_model_config(self, config_id: uuid.UUID) -> ModelConfig | None:
+        """Get single model configuration by ID."""
+        result = await self.session.execute(
+            select(ModelConfig).where(ModelConfig.id == config_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def update_model_config(
+        self,
+        config_id: uuid.UUID,
+        *,
+        name: str | None = None,
+        embeddings_primary: str | None = None,
+        embeddings_fallback: str | None = None,
+        retrieval_config: dict | None = None,
+        scoring_config: dict | None = None,
+    ) -> ModelConfig | None:
+        """Update fields of a model configuration."""
+        mc = await self.get_model_config(config_id)
+        if mc is None:
+            return None
+
+        if name is not None:
+            mc.name = name
+        if embeddings_primary is not None:
+            mc.embeddings_primary = embeddings_primary
+        if embeddings_fallback is not None:
+            mc.embeddings_fallback = embeddings_fallback
+        if retrieval_config is not None:
+            mc.retrieval_config = retrieval_config
+        if scoring_config is not None:
+            mc.scoring_config = scoring_config
+
+        await self.session.flush()
+        return mc
+
     # --- Playbook (logical line) operations ---
 
     async def create_playbook(

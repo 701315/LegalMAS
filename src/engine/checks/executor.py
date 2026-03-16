@@ -1,3 +1,5 @@
+# src/engine/checks/executor.py
+
 """
 CheckExecutor: запуск одной проверки (check) для одного документа.
 
@@ -120,7 +122,32 @@ class CheckExecutor:
                 result = "unclear"
                 severity = check.severity_if_unclear or check.severity
 
-        # 4. Формируем "DTO" для CheckResult
+        # 4. Достаём координаты evidence (для последующей подсветки в вьюере)
+        page = None
+        clause_uid = None
+        element_id = None
+        bbox = None
+
+        if isinstance(location, dict):
+            page = location.get("page")
+            clause_uid = location.get("clause_uid")
+            element_id = location.get("element_id")
+            # bbox может лежать либо прямо в location, либо в sources[0]
+            bbox = location.get("bbox")
+
+        if bbox is None and isinstance(sources, list) and sources:
+            first_src = sources[0]
+            if isinstance(first_src, dict):
+                # на будущее: если сюда начнём класть bbox в sources
+                bbox = first_src.get("bbox", bbox)
+                if page is None:
+                    page = first_src.get("page")
+                if clause_uid is None:
+                    clause_uid = first_src.get("clause_uid")
+                if element_id is None:
+                    element_id = first_src.get("element_id")
+
+        # 5. Формируем "DTO" для CheckResult
         # Здесь мы не создаём сам ORM-объект, а возвращаем
         # компактный словарь, из которого репозиторий уже сделает CheckResult.
         return {
@@ -142,4 +169,9 @@ class CheckExecutor:
             "raw": raw_details,
             # новое поле для ORM CheckResult.structured_data
             "structured_data": structured_data,
+            # новые поля для точной привязки к фрагменту документа
+            "page": page,
+            "clause_uid": clause_uid,
+            "element_id": element_id,
+            "bbox": bbox,
         }

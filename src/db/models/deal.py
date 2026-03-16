@@ -1,9 +1,27 @@
 # src/db/models/deal.py
 
 """
-Deal model — top-level entity representing an M&A transaction.
-Each deal belongs to a tenant and contains bundles of documents.
+ORM-модель Deal описывает сделку (проект due diligence) в системе.
+
+Сделка — это верхнеуровневый объект, к которому привязаны:
+- арендатор (tenant), от имени которого ведётся проект;
+- базовые атрибуты сделки: название, тип, юрисдикция, языки документов;
+- технический статус прохождения пайплайна (created, в работе и т.п.);
+- режим обработки ПДн (pii_mode) — только локально или с облачным fallback;
+- профиль проверки (profile) — core/full/max на уровне методологии;
+- выбранная версия плейбука (playbook_version_id), которая задаёт набор проверок;
+- явный профиль моделей ИИ (model_config_id), если он выбран для этой сделки;
+- последний запущенный анализ (last_run_id) для быстрого доступа к результатам;
+- произвольные дополнительные метаданные (metadata_).
+
+Эта модель используется:
+- в репозитории сделок (DealRepository) для CRUD-операций;
+- в REST-API сделок для создания проектов, смены плейбука и профиля модели,
+  запуска анализа и отображения статуса;
+- как корневая сущность, к которой косвенно привязаны документы, запуски (Run),
+  результаты проверок, экспортируемые отчёты и аудит-логи.
 """
+
 
 import uuid
 
@@ -73,6 +91,15 @@ class Deal(Base):
         comment="Selected playbook version (FK added after PlaybookVersion model)",
     )
 
+    # Новый атрибут: явный профиль модели для сделки
+    model_config_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Explicit ModelConfig selected for this deal; "
+                "if NULL, profile from PlaybookVersion is used",
+    )
+
     last_run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("runs.id", ondelete="SET NULL"),
@@ -88,4 +115,6 @@ class Deal(Base):
         comment="Arbitrary deal metadata",
     )
 
-    __table_args__ = (Index("idx_deals_tenant_status", "tenant_id", "status"),)
+    __table_args__ = (
+        Index("idx_deals_tenant_status", "tenant_id", "status"),
+    )

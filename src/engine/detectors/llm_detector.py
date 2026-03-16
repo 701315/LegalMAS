@@ -1,3 +1,5 @@
+# src/engine/detectors/llm_detector.py
+
 """
 LLM-based detector for complex checks.
 

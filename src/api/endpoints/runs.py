@@ -65,7 +65,7 @@ async def _start_run_core(
     5) обновляем last_run_id у сделки;
     6) ставим одну оркестрационную Celery-задачу start_run_pipeline(run_id),
        которая уже сама разберётся, какие документы и какие стадии пайплайна
-       нужно пройти (extract → pii → structure → classify → run_checks).
+       нужно пройти (extract → pii → structure → classify → run_deal_checks).
     """
     run_repo = RunRepository(db)
     deal_repo = DealRepository(db)
