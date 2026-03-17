@@ -32,6 +32,8 @@ interface GridTabProps {
   runId: string | null;
 }
 
+type GridScope = "all" | "global" | "doctype";
+
 /**
  * Вкладка DD Grid:
  * - загружает все результаты для выбранного run;
@@ -44,11 +46,17 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [searchText, setSearchText] = React.useState("");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [zoomResult, setZoomResult] = React.useState<CheckResult | null>(null);
-  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(null);
+  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(
+    null,
+  );
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [selectedDocType, setSelectedDocType] = React.useState<string | null>(
     null,
   );
+  const [gridScope, setGridScope] = React.useState<GridScope>("all");
+  const [selectedScopeDocTypes, setSelectedScopeDocTypes] = React.useState<
+    string[]
+  >([]);
 
   const { canReclassifyDocuments } = useDealPermissions(dealId);
   const canDoQc = canReclassifyDocuments;
@@ -133,6 +141,62 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     return results;
   }, [allResults, searchText, quickFilter, selectedDocType]);
 
+  const globalResults = React.useMemo(
+    () => filteredResults.filter((r) => r.origin === "global_playbook"),
+    [filteredResults],
+  );
+
+  const doctypeResults = React.useMemo(
+    () =>
+      filteredResults.filter(
+        (r) => !r.origin || r.origin !== "global_playbook",
+      ),
+    [filteredResults],
+  );
+
+  const scopeDoctypes = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          doctypeResults
+            .map((r) => r.doc_type)
+            .filter((v): v is string => !!v),
+        ),
+      ).sort(),
+    [doctypeResults],
+  );
+
+  const scopeResults = React.useMemo(() => {
+    let base: CheckResult[];
+
+    switch (gridScope) {
+      case "global":
+        base = globalResults;
+        break;
+      case "doctype":
+        base = doctypeResults;
+        break;
+      case "all":
+      default:
+        base = filteredResults;
+        break;
+    }
+
+    if (gridScope === "doctype" && selectedScopeDocTypes.length > 0) {
+      base = base.filter(
+        (r) => r.doc_type && selectedScopeDocTypes.includes(r.doc_type),
+      );
+    }
+
+    return base;
+  }, [
+    gridScope,
+    filteredResults,
+    globalResults,
+    doctypeResults,
+    selectedScopeDocTypes,
+  ]);
+
   const importantCount = React.useMemo(
     () =>
       allResults.filter(
@@ -149,8 +213,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   );
 
   const selectedResults = React.useMemo(
-    () => filteredResults.filter((r) => selectedIds.includes(r.id)),
-    [filteredResults, selectedIds],
+    () => scopeResults.filter((r) => selectedIds.includes(r.id)),
+    [scopeResults, selectedIds],
   );
 
   const handleEyeClick = (result: CheckResult) => {
@@ -226,6 +290,18 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     console.log("QC change from EvidencePanel", result.id, newStatus);
   };
 
+  const toggleScopeDocType = (docType: string) => {
+    setSelectedScopeDocTypes((prev) =>
+      prev.includes(docType)
+        ? prev.filter((d) => d !== docType)
+        : [...prev, docType],
+    );
+  };
+
+  const resetScopeDocTypes = () => {
+    setSelectedScopeDocTypes([]);
+  };
+
   if (!runId) {
     return (
       <div className="text-sm text-gray-500 py-4">
@@ -237,7 +313,9 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (isLoading) {
     return (
-      <div className="text-sm text-gray-500 py-4">Загружаем результаты…</div>
+      <div className="text-sm text-gray-500 py-4">
+        Загружаем результаты…
+      </div>
     );
   }
 
@@ -265,21 +343,97 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         onDocTypeChange={setSelectedDocType}
       />
 
-      <div className="text-[11px] text-gray-400">
-        Важных без QC: {importantCount} · Неясных: {unclearCount}
+      <div className="flex items-center justify-between text-[11px] text-gray-400">
+        <div>
+          Важных без QC: {importantCount} · Неясных: {unclearCount}
+        </div>
+        <div className="flex items-center gap-2">
+          <span>Показывать проверки:</span>
+          <button
+            type="button"
+            className={
+              "px-2 py-1 rounded border text-[11px] " +
+              (gridScope === "all"
+                ? "bg-blue-50 border-blue-400 text-blue-700"
+                : "bg-white border-gray-300 text-gray-600")
+            }
+            onClick={() => setGridScope("all")}
+          >
+            Все
+          </button>
+          <button
+            type="button"
+            className={
+              "px-2 py-1 rounded border text-[11px] " +
+              (gridScope === "global"
+                ? "bg-blue-50 border-blue-400 text-blue-700"
+                : "bg-white border-gray-300 text-gray-600")
+            }
+            onClick={() => setGridScope("global")}
+          >
+            Глобальный плейбук
+          </button>
+          <button
+            type="button"
+            className={
+              "px-2 py-1 rounded border text-[11px] " +
+              (gridScope === "doctype"
+                ? "bg-blue-50 border-blue-400 text-blue-700"
+                : "bg-white border-gray-300 text-gray-600")
+            }
+            onClick={() => setGridScope("doctype")}
+          >
+            По типу документа
+          </button>
+        </div>
       </div>
+
+      {gridScope === "doctype" && scopeDoctypes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+          <span>Типы документов (для этого вида проверок):</span>
+          <button
+            type="button"
+            className="px-2 py-0.5 rounded border border-gray-300 bg-white"
+            onClick={resetScopeDocTypes}
+          >
+            Все
+          </button>
+          {scopeDoctypes.map((dt) => {
+            const checked = selectedScopeDocTypes.includes(dt);
+            return (
+              <label
+                key={dt}
+                className={
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] cursor-pointer " +
+                  (checked
+                    ? "bg-blue-50 border-blue-400 text-blue-700"
+                    : "bg-white border-gray-300 text-gray-700")
+                }
+              >
+                <input
+                  type="checkbox"
+                  className="h-3 w-3"
+                  checked={checked}
+                  onChange={() => toggleScopeDocType(dt)}
+                />
+                <span>{dt}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
 
       <QualityFlagsLegend />
 
       <ExportButtons
-        allResults={filteredResults}
+        allResults={scopeResults}
         selectedResults={selectedResults}
         dealName={dealId}
         runId={runId ?? undefined}
       />
 
       <DDGrid
-        results={filteredResults}
+        results={scopeResults}
         onEyeClick={handleEyeClick}
         onSelectionChange={handleSelectionChange}
       />

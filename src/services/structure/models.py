@@ -1,3 +1,5 @@
+# src/services/structure/models.py
+
 """
 Clause tree data models.
 """

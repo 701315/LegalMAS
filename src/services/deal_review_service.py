@@ -179,6 +179,7 @@ def build_document_detail(
                 conditional_check_triggered=row.conditional_check_triggered,
                 trigger_name=row.trigger_name,
                 structured_data=structured_data,
+                origin=getattr(row, "origin", None),
             )
         )
 

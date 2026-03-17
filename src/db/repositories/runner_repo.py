@@ -1,3 +1,5 @@
+# src/db/repositories/runner_repo.py
+
 """
 Repository for Runner integration (Stage 7–10).
 
@@ -167,6 +169,7 @@ class RunnerRepository:
                     "structured_data": r.structured_data or {},
                     "conditional_check_triggered": r.conditional_check_triggered or False,
                     "trigger_name": r.trigger_name or "",
+                    "origin": r.origin or None,
                 }
             )
         return out

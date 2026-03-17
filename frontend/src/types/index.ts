@@ -356,6 +356,7 @@ export interface CheckResult {
   // Денормализованная классификация документа (новое)
   doc_classification_level?: ClassificationLevel;
   doc_classification_confidence?: number;
+  origin?: string; // "global_playbook" | "doctype_playbook" | ...
 }
 
 // -------------------------------------------------------------

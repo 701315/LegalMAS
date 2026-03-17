@@ -1,3 +1,5 @@
+# src/services/export/models.py
+
 """
 Aggregator & Exporter Data Models.
 
@@ -156,7 +158,7 @@ class ExportRow:
     # NEW: classification metadata
     classification_level: str = ""  # L0-L4
     classification_confidence: float = 0.0
-
+    origin: str | None = None
 
 @dataclass
 class ConditionalCheckRow:

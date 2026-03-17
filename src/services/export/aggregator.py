@@ -1,3 +1,5 @@
+# src/services/export/aggregator.py
+
 """
 Aggregator Service.
 
@@ -135,6 +137,7 @@ def aggregate_results(
             trigger_name=trigger_name,
             classification_level=doc_info.get("classification_level", ""),
             classification_confidence=doc_info.get("classification_confidence", 0.0),
+            origin=cr.get("origin"),
         )
         rows.append(row)
 

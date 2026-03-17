@@ -1,32 +1,29 @@
 """
-Stage 8 CheckRunner: playbook-based checks executor.
+CheckRunner: playbook-based checks executor.
 
 Назначение:
 - Запускает playbook-checks по уже классифицированным документам сделки.
 - Использует playbook и CheckExecutor, но НЕ выполняет повторную классификацию
   документов и НЕ работает с триггерами на уровне запуска пайплайна.
 
-Основные шаги:
-1. Получает non-duplicate документы сделки через RunnerRepository.
+Новая архитектура (после рефакторинга):
+
+1. Получаем non-duplicate документы сделки через RunnerRepository.
 2. Для каждого документа:
-   - берёт doc_type и applicable_triggers (ожидается, что их заполнил классификатор),
-   - выбирает релевантные checks из playbook,
-   - формирует один full-text chunk,
-   - выполняет CheckExecutor.execute и сохраняет результат в check_results.
-3. Возвращает агрегированную статистику по run'у (processed_docs, total_checks,
-   failed_checks, errors).
+   - берём doc_type и applicable_triggers (классификатор уже заполнил),
+   - выбираем релевантные checks из playbook,
+   - через DocumentContentService получаем ЧАНКИ по листовым клаузам
+     (структурно осмысленные куски текста, а не один "простыню" целиком),
+   - выполняем CheckExecutor.execute(doc, check, chunks),
+   - сохраняем результат в check_results.
+3. Возвращаем агрегированную статистику по run'у
+   (processed_docs, total_checks, failed_checks, errors).
 
-Использование:
-    async with db_uow() as uow:
-        runner = CheckRunner(llm_client)
-        summary = await runner.run_deal_checks(deal_id, run_id)
-
-Ограничения / прод-заметки:
-- Есть мягкий лимит на количество документов для одного Run (MAX_DOCS_PER_RUN).
-- Есть мягкий лимит на длину текста документа (MAX_TEXT_CHARS), чтобы не уронить LLM.
-- Ошибки по отдельным документам не валят весь Run; считаются в summary["errors"].
+Главное отличие от старой версии:
+- вместо doc.text теперь работаем со структурированными чанками на основе
+  clause tree + layout. Это сильно повышает качество поиска рисков и
+  делает результаты объяснимыми для юриста.
 """
-
 
 import time
 import uuid
@@ -36,13 +33,15 @@ from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
 from engine.checks.executor import CheckExecutor
+from engine.content.document_content_service import DocumentContentService
 from engine.playbook.loader import load_default_playbook
 
 logger = get_logger(__name__)
 
 # Мягкие лимиты для прод-окружения (можно вынести в settings)
 MAX_DOCS_PER_RUN = 500
-MAX_TEXT_CHARS = 100_000
+MAX_CHUNKS_PER_DOC = 2000  # защита от "взрывных" деревьев
+MAX_CHUNK_TEXT_CHARS = 20_000  # защита от слишком длинных клауз в одном чанке
 
 
 class CheckRunner:
@@ -51,7 +50,8 @@ class CheckRunner:
 
     Ожидания:
     - doc.doc_type и doc.applicable_triggers уже заполнены классификатором.
-    - doc.text содержит текст документа (или как минимум ключевые части для checks).
+    - DocumentContentService умеет отдавать чанки по документу:
+        один чанк = одна листовая клауза (пункт договора) с полным текстом.
 
     Архитектура:
     - async, работает через db_uow().
@@ -60,8 +60,8 @@ class CheckRunner:
         2) по каждому документу запускает _run_checks_for_document в отдельном UoW;
         3) накапливает агрегированную статистику по run'у.
     - На уровне документа:
-        1) выбирает релевантные checks из playbook по doc_type и applicable_triggers;
-        2) формирует один full-text chunk;
+        1) выбирает релевантные checks из playbook по doc_type и триггерам;
+        2) получает чанки через DocumentContentService;
         3) прогоняет checks через CheckExecutor;
         4) сохраняет результаты в check_results через UoW.
     """
@@ -192,6 +192,12 @@ class CheckRunner:
         """
         Выполнить все релевантные checks для одного документа в отдельном UoW.
 
+        Важно:
+        - Здесь мы создаём DocumentContentService на сессии текущего UoW,
+          чтобы читать layout/clause tree и собирать чанки.
+        - Чанки передаются в CheckExecutor, который сам делает retrieval
+          и вызывает детекторы (rules/LLM).
+
         Возвращает:
           (total_checks_for_doc, failed_checks_for_doc)
         """
@@ -201,8 +207,8 @@ class CheckRunner:
         async with db_uow() as uow:
             repo = uow.check_results  # CheckResultRepository
 
+            # 1. Подготовка типов и триггеров
             doc_type = getattr(doc, "doc_type", "") or ""
-            # Нормализуем applicable_triggers в список строк
             raw_triggers = getattr(doc, "applicable_triggers", None) or []
             if isinstance(raw_triggers, list):
                 applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
@@ -220,7 +226,7 @@ class CheckRunner:
                 },
             )
 
-            # Выбираем checks с учётом doc_type и триггеров
+            # 2. Выбор checks из playbook
             checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
 
             if not checks:
@@ -236,32 +242,65 @@ class CheckRunner:
                 )
                 return 0, 0
 
-            # Готовим один full-text chunk с мягким ограничением длины
-            text = getattr(doc, "text", "") or ""
-            orig_len = len(text)
-            if orig_len > MAX_TEXT_CHARS:
+            # 3. Получение чанков по документу
+            content_service = DocumentContentService(
+                session=uow.session,
+            )
+
+            # doc.id — UUID документа из ORM
+            chunks = await content_service.get_chunks(doc.id)
+
+            # Защита от "взрыва" числа чанков, если что-то пошло не так в структуре.
+            if len(chunks) > MAX_CHUNKS_PER_DOC:
                 logger.warning(
-                    "CheckRunner: document text truncated for checks",
+                    "CheckRunner: too many chunks for document, truncating",
                     extra={
                         "doc_id": str(getattr(doc, "id", None)),
-                        "deal_id": str(getattr(doc, "deal_id", "")),
                         "run_id": str(run_id),
-                        "orig_len": orig_len,
-                        "max_len": MAX_TEXT_CHARS,
+                        "chunk_count": len(chunks),
+                        "max_chunks": MAX_CHUNKS_PER_DOC,
                     },
                 )
-                text = text[:MAX_TEXT_CHARS]
+                chunks = chunks[:MAX_CHUNKS_PER_DOC]
 
-            chunks = [
-                {
-                    "id": f"{doc.id}-full",
-                    "text": text,
-                    "metadata": {"doc_id": str(doc.id)},
-                }
-            ]
+            # Дополнительная защита: ограничиваем длину текста в каждом чанке.
+            safe_chunks: list[dict] = []
+            for ch in chunks:
+                text = ch.get("text") or ""
+                if len(text) > MAX_CHUNK_TEXT_CHARS:
+                    logger.warning(
+                        "CheckRunner: chunk text truncated",
+                        extra={
+                            "doc_id": str(getattr(doc, "id", None)),
+                            "run_id": str(run_id),
+                            "chunk_id": ch.get("id"),
+                            "orig_len": len(text),
+                            "max_len": MAX_CHUNK_TEXT_CHARS,
+                        },
+                    )
+                    text = text[:MAX_CHUNK_TEXT_CHARS]
 
+                safe_chunks.append(
+                    {
+                        "id": ch.get("id"),
+                        "text": text,
+                        "metadata": ch.get("metadata") or {},
+                    }
+                )
+
+            # Если по какой-то причине чанков нет, fallback — один пустой.
+            if not safe_chunks:
+                safe_chunks = [
+                    {
+                        "id": f"{doc.id}:empty",
+                        "text": "",
+                        "metadata": {"doc_id": str(doc.id)},
+                    }
+                ]
+
+            # 4. Запуск checks по чанкам
             for check in checks:
-                exec_result = self.executor.execute(doc, check, chunks)
+                exec_result = self.executor.execute(doc, check, safe_chunks)
                 total_checks += 1
 
                 if exec_result.get("result") == "fail":
@@ -298,7 +337,6 @@ class CheckRunner:
                     # по желанию сохраняем весь raw для дебага
                     quality_flags["raw"] = raw
 
-                # structured_data пока не используем (зарезервировано под ExtractionConfig)
                 structured_data = exec_result.get("structured_data")
 
                 # conditional: поддерживаем и старый dict, и новую модель ConditionalConfig
@@ -307,7 +345,6 @@ class CheckRunner:
                     is_conditional = bool(conditional)
                     trigger_name = conditional.get("trigger")
                 else:
-                    # Pydantic-модель ConditionalConfig или None
                     is_conditional = bool(conditional)
                     trigger_name = (
                         getattr(conditional, "trigger", None)
@@ -315,7 +352,6 @@ class CheckRunner:
                         else None
                     )
 
-                # Источник проверки: пока считаем, что CheckRunner использует глобальный плейбук
                 origin = "global_playbook"
 
                 dto = {
@@ -333,7 +369,6 @@ class CheckRunner:
                     "structured_data": structured_data,
                     "conditional_check_triggered": is_conditional,
                     "trigger_name": trigger_name,
-                    # НОВЫЕ ПОЛЯ: координаты evidence / источник плейбука
                     "origin": origin,
                     "page": exec_result.get("page"),
                     "clause_uid": exec_result.get("clause_uid"),

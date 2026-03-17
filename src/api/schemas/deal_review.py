@@ -74,6 +74,7 @@ class CheckItemDTO(BaseModel):
     conditional_check_triggered: bool
     trigger_name: str | None
     structured_data: dict[str, Any]
+    origin: str | None = None
 
 
 class DocumentDetailDTO(BaseModel):

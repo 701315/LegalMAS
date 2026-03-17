@@ -1,3 +1,5 @@
+# src/services/export/summary_builder.py
+
 """
 Deal Summary Builder.
 

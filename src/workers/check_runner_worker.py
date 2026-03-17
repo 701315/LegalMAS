@@ -1,7 +1,7 @@
 # src/workers/check_runner_worker.py
 
 """
-CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки (Stage 8).
+CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки.
 
 Позиция в пайплайне:
 - import → extract → pii → structure → classify → run_deal_checks → export_results.

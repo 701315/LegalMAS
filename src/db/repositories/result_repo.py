@@ -1,3 +1,5 @@
+# src/db/repositories/result_repo.py
+
 """
 Repository for CheckResult operations.
 """
