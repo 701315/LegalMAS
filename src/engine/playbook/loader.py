@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 from pydantic import ValidationError
-
+from db.models.playbook import PlaybookVersion
 from core.config import settings
 from core.logging import get_logger
 from .models import PlaybookDefinition
@@ -130,3 +130,21 @@ def _resolve_relative_to_project_root(relative_path: str) -> Path:
     file_path = Path(__file__).resolve()
     project_root = file_path.parent.parent.parent.parent
     return (project_root / relative_path).resolve()
+
+def load_playbook_from_version(version: PlaybookVersion) -> PlaybookDefinition:
+    """
+    Собрать PlaybookDefinition из PlaybookVersion.
+
+    Ожидания:
+    - в PlaybookVersion.compiled_checks лежит dict,
+      совместимый с моделью PlaybookDefinition.
+
+    Если compiled_checks пустой или None — считаем это ошибкой конфигурации.
+    """
+    raw = version.compiled_checks
+    if not raw or not isinstance(raw, dict):
+        raise ValueError(
+            f"PlaybookVersion {version.id} has empty or invalid compiled_checks"
+        )
+
+    return load_playbook_from_dict(raw)

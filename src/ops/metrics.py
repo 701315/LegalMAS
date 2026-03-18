@@ -11,14 +11,18 @@ Defines all metrics for the MAS DD system, grouped by category:
 4. MIGRATION SIGNALS — track when Graph DB migration needed
 5. CLASSIFICATION metrics — quality of document classification
 6. BUILD INFO — build metadata
+7. LLM metrics — latency / errors / tokens for LLM calls
 
 Usage in workers/API:
 
-    from src.ops.metrics import get_metrics
+    from src.ops.metrics import get_metrics, METRICS
 
-    METRICS = get_metrics()
+    metrics = get_metrics()
+    metrics.checks_executed.labels(detector_type="rules", result="fail").inc()
+    metrics.check_duration.labels(detector_type="rules").observe(0.45)
+
+    # Старый стиль (совместимость):
     METRICS.checks_executed.labels(detector_type="rules", result="fail").inc()
-    METRICS.check_duration.labels(detector_type="rules").observe(0.45)
 
 All metric names use the prefix from settings (default: "mas_dd").
 
@@ -38,7 +42,7 @@ from prometheus_client import Counter, Gauge, Histogram, Info, CollectorRegistry
 
 from src.core.config import settings
 
-_P = settings.METRICS_PREFIX  # "mas_dd"
+_P = settings.METRICS_PREFIX  # e.g. "mas_dd"
 
 
 # One dedicated registry for the entire process.
@@ -172,6 +176,14 @@ class MetricsRegistry:
             registry=registry,
         )
 
+        self.checks_duration = Histogram(
+            f"{_P}_deal_checks_duration_seconds",
+            "Time to run all checks for one deal/run.",
+            labelnames=["stage"],  # e.g.: "deal_checks"
+            buckets=[1, 5, 10, 30, 60, 120],
+            registry=registry,
+        )
+
         # ==============================================================
         # 3. RELIABILITY METRICS
         # ==============================================================
@@ -249,7 +261,7 @@ class MetricsRegistry:
         )
 
         # ==============================================================
-        # 5. CLASSIFICATION METRICS (NEW)
+        # 5. CLASSIFICATION METRICS
         # ==============================================================
 
         self.classification_accuracy = Gauge(
@@ -305,9 +317,38 @@ class MetricsRegistry:
             registry=registry,
         )
 
+        # ==============================================================
+        # 7. LLM METRICS
+        # ==============================================================
+
+        # Время ответа LLM по провайдеру
+        self.llm_request_duration_seconds = Histogram(
+            f"{_P}_llm_request_duration_seconds",
+            "Time to complete one LLM request.",
+            labelnames=["provider"],  # "openai", "ollama", "llamacpp", etc.
+            buckets=[0.1, 0.5, 1, 2, 5, 10, 20],
+            registry=registry,
+        )
+
+        # Количество запросов к LLM по провайдеру и типу ошибки
+        self.llm_requests_total = Counter(
+            f"{_P}_llm_requests_total",
+            "Total LLM requests by provider and error type.",
+            labelnames=["provider", "error_type"],  # error_type: none/timeout/...
+            registry=registry,
+        )
+
+        # Общее количество использованных токенов по провайдеру
+        self.llm_tokens_total = Counter(
+            f"{_P}_llm_tokens_total",
+            "Total tokens generated/consumed by LLM.",
+            labelnames=["provider"],
+            registry=registry,
+        )
+
 
 # ============================================================
-# Singleton helper — импортируйте get_metrics() из любого модуля
+# Singleton helper — import get_metrics() from any module
 # ============================================================
 
 _METRICS_INSTANCE: MetricsRegistry | None = None
@@ -315,12 +356,12 @@ _METRICS_INSTANCE: MetricsRegistry | None = None
 
 def get_metrics() -> MetricsRegistry:
     """
-    Возвращает единственный экземпляр MetricsRegistry.
+    Return the singleton MetricsRegistry instance.
 
-    - При первом вызове создаёт объект и регистрирует все метрики
-      в выделенном CollectorRegistry.
-    - При последующих вызовах возвращает уже созданный экземпляр.
-    - Безопасен для dev-режима и Celery, если импорт пути единообразен.
+    - On first call, creates the object and registers all metrics
+      in the dedicated CollectorRegistry.
+    - On subsequent calls, returns the already created instance.
+    - Safe for dev mode and Celery, as long as import path is consistent.
     """
     global _METRICS_INSTANCE
     if _METRICS_INSTANCE is not None:
@@ -330,14 +371,26 @@ def get_metrics() -> MetricsRegistry:
     return _METRICS_INSTANCE
 
 
-# Для совместимости со старым кодом:
+# For compatibility with older code:
 # from src.ops.metrics import METRICS
-# Теперь это ленивый синглтон, а не немедленное создание.
+# Now this is a lazy proxy, not an eagerly-created instance.
 if TYPE_CHECKING:
     METRICS: MetricsRegistry
 else:
     class _MetricsProxy:
-        def __getattr__(self, item):
+        """
+        Lazy proxy for MetricsRegistry.
+
+        For non-professional programmers:
+        - When you access METRICS.some_metric, this class will
+          create the MetricsRegistry singleton (if needed) and
+          then return the requested metric.
+        - This allows us to keep the old import style
+          (from src.ops.metrics import METRICS) without breaking code.
+        """
+
+        def __getattr__(self, item: str):
+            # Delegate attribute access to the singleton instance
             return getattr(get_metrics(), item)
 
     METRICS = _MetricsProxy()

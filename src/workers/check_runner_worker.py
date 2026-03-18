@@ -34,6 +34,8 @@ from engine.llm.client import LLMClient
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
+from db.repositories.playbook_repo import PlaybookRepository
+from engine.playbook.loader import load_playbook_from_version
 
 logger = get_logger(__name__)
 
@@ -43,7 +45,7 @@ logger = get_logger(__name__)
     bind=True,
     name="workers.run_deal_checks",
     track_job=False,
-    queue="default",
+    #queue="default",
 )
 def run_deal_checks(
     self,
@@ -81,14 +83,36 @@ def run_deal_checks(
     async def _run() -> dict:
         async with db_uow() as uow:
             run_repo = RunRepository(uow.session)
+            pb_repo = PlaybookRepository(uow.session)
 
             try:
-                runner = CheckRunner(llm_client=llm_client)
+                # 1. Достаём Run, чтобы узнать playbook_version_id
+                run_obj = await run_repo.get(run_uuid)
+                if run_obj is None:
+                    raise ValueError(f"Run not found: {run_uuid}")
 
-                # Основной запуск checks по сделке
+                # 2. Достаём PlaybookVersion по этому ID
+                pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
+                if pb_version is None:
+                    raise ValueError(
+                        f"PlaybookVersion not found: {run_obj.playbook_version_id}"
+                    )
+
+                # 3. Собираем PlaybookDefinition из compiled_checks
+                playbook = load_playbook_from_version(pb_version)
+
+                # 4. Создаём CheckRunner с origin=project_playbook
+                runner = CheckRunner(
+                    llm_client=llm_client,
+                    origin="project_playbook",
+                    playbook_version_id=run_obj.playbook_version_id,
+                )
+
+                # 5. Основной запуск checks по сделке
                 summary = await runner.run_deal_checks(
                     deal_id=deal_uuid,
                     run_id=run_uuid,
+                    playbook=playbook,
                 )
 
                 # Обновляем total_checks / completed_checks по фактическим данным
@@ -116,7 +140,13 @@ def run_deal_checks(
                 )
 
                 duration = time.time() - started_at
-                metrics.checks_duration.labels(stage="deal_checks").observe(duration)
+
+                # Метрика длительности всех checks по сделке.
+                # Важно: ошибка метрик не должна ломать бизнес-логику.
+                try:
+                    metrics.checks_duration.labels(stage="deal_checks").observe(duration)
+                except Exception:
+                    logger.exception("run_deal_checks: failed to update checks_duration metric")
 
                 logger.info(
                     "Run deal checks completed",

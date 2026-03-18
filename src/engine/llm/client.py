@@ -17,7 +17,8 @@ import json
 import os
 from dataclasses import dataclass, field
 from typing import Any
-
+import time
+from src.ops.metrics import METRICS
 import httpx
 
 from core.config import settings
@@ -65,11 +66,6 @@ class LLMClient:
         """
         Call the configured LLM provider.
 
-        Args:
-            prompt: Complete prompt text.
-            temperature: Override default temperature.
-            max_tokens: Override default max tokens.
-
         Returns:
             LLMResponse or None if LLM is not available/failed.
         """
@@ -79,31 +75,64 @@ class LLMClient:
         temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
         tokens = max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
 
+        start_time = time.time()
+        error_type_for_metrics: str | None = None
+        result: LLMResponse | None = None
+
         try:
             if self.provider == "openai":
-                return self._call_openai(prompt, temp, tokens)
+                result = self._call_openai(prompt, temp, tokens)
             elif self.provider == "ollama":
-                return self._call_ollama(prompt, temp, tokens)
+                result = self._call_ollama(prompt, temp, tokens)
             elif self.provider == "llamacpp":
-                return self._call_llamacpp(prompt, temp, tokens)
+                result = self._call_llamacpp(prompt, temp, tokens)
             else:
                 logger.warning("Unknown LLM provider", provider=self.provider)
-                return None
+                error_type_for_metrics = "unknown_provider"
+                result = None
         except httpx.TimeoutException:
             logger.warning("LLM call timed out", provider=self.provider)
+            error_type_for_metrics = "timeout"
+            # пробрасываем как TransientError — дальше поймает LLMDetector
             raise TransientError(f"LLM timeout ({self.provider})")
         except httpx.ConnectError:
             logger.warning("LLM connection failed", provider=self.provider)
+            error_type_for_metrics = "connect_error"
             raise TransientError(f"LLM connection failed ({self.provider})")
         except TransientError:
-            # уже залогировано, пробрасываем дальше
+            error_type_for_metrics = "transient_error"
+            # уже залогировано выше, пробрасываем дальше
             raise
         except PermanentError:
-            # уже залогировано, пробрасываем дальше
+            error_type_for_metrics = "permanent_error"
+            # уже залогировано выше, пробрасываем дальше
             raise
         except Exception as e:
             logger.error("LLM call failed", provider=self.provider, error=str(e))
-            return None
+            error_type_for_metrics = "unexpected_error"
+            result = None
+        finally:
+            # Метрики LLM-вызова — считаем всегда, даже при исключениях.
+            # ВАЖНО: любые ошибки метрик не должны ломать бизнес-логику,
+            # поэтому этот блок обёрнут в try/except.
+            duration = time.time() - start_time
+            try:
+                METRICS.llm_request_duration_seconds.labels(
+                    provider=self.provider
+                ).observe(duration)
+                METRICS.llm_requests_total.labels(
+                    provider=self.provider,
+                    error_type=error_type_for_metrics or "none",
+                ).inc()
+                if isinstance(result, LLMResponse):
+                    METRICS.llm_tokens_total.labels(
+                        provider=self.provider,
+                    ).inc(result.tokens_used)
+            except Exception:
+                # Метрики не должны ломать бизнес-логику
+                logger.exception("LLMClient: failed to update LLM metrics")
+
+        return result
 
     # --- OpenAI-compatible provider ---
 
@@ -216,7 +245,7 @@ class LLMClient:
         # Lazy-load модели
         if self._llama_model is None:
             try:
-                from llamacpp import Llama  # type: ignore
+                from llama_cpp import Llama
             except ImportError as e:
                 raise PermanentError(
                     "llama-cpp-python is not installed. " "Install it or switch LLM_PROVIDER."

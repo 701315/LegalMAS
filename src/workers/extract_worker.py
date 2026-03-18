@@ -153,22 +153,72 @@ async def _extract_document_async(
     start_time = time.time()
     store = ArtifactStore(settings)
 
-    # --- ИЗМЕНЕНО: вместо original_ref берём единый PDF‑source ---
-    pdf_ref = await get_pdf_source_ref(document_version_id, db)
-    if not pdf_ref:
-        # Если нет ни converted_pdf_ref, ни original_ref, это фатальная ошибка конфигурации.
-        raise PermanentError(
-            f"No PDF source ref for version {document_version_id} "
-            f"(neither converted_pdf_ref nor original_ref is set)"
+    # --- Чтение PDF из MinIO с защитой и логами ---
+    try:
+        pdf_ref = await get_pdf_source_ref(document_version_id, db)
+        logger.info(
+            "Extract: pdf_ref resolved",
+            document_id=document_id,
+            version_id=document_version_id,
+            pdf_ref=pdf_ref,
         )
 
-    # pdf_ref может быть как полным s3://..., так и относительным путём.
-    s3_path = pdf_ref.replace(f"s3://{store.bucket}/", "")
-    pdf_bytes = store.get_file(s3_path)
-    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        if not pdf_ref:
+            # Если нет ни converted_pdf_ref, ни original_ref, это фатальная ошибка конфигурации.
+            raise PermanentError(
+                f"No PDF source ref for version {document_version_id} "
+                f"(neither converted_pdf_ref nor original_ref is set)"
+            )
+
+        # pdf_ref может быть как полным s3://..., так и относительным путём.
+        s3_path = pdf_ref.replace(f"s3://{store.bucket}/", "")
+        logger.info(
+            "Extract: reading PDF from store",
+            document_id=document_id,
+            version_id=document_version_id,
+            s3_path=s3_path,
+        )
+        pdf_bytes = store.get_file(s3_path)
+        logger.info(
+            "Extract: PDF bytes loaded",
+            document_id=document_id,
+            version_id=document_version_id,
+            size=len(pdf_bytes),
+        )
+    except Exception as e:
+        logger.exception(
+            "Extract: failed to read PDF from store",
+            document_id=document_id,
+            version_id=document_version_id,
+            error=str(e),
+        )
+        # Превращаем в PermanentError, чтобы таска завершилась, а не крутилась бесконечно
+        raise PermanentError(f"Failed to read PDF from store: {e}")
+    # --- КОНЕЦ БЛОКА ЧТЕНИЯ PDF ---
+
 
     # 2. Extract (Stage 4 PDF extractor: text / OCR / hybrid + tables)
-    extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
+    try:
+        extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
+        logger.info(
+            "Extract: pdf parsed",
+            document_id=document_id,
+            version_id=document_version_id,
+            elements=len(extraction.elements),
+            tables=len(extraction.tables),
+            pages=extraction.page_count,
+            strategy=extraction.strategy,
+        )
+    except Exception as e:
+        logger.exception(
+            "Extract: extract_pdf failed",
+            document_id=document_id,
+            version_id=document_version_id,
+            error=str(e),
+        )
+        # Тоже считаем фатальной ошибкой извлечения
+        raise PermanentError(f"extract_pdf failed: {e}")
+
 
     # 3. Quarantine check
     _check_quarantine(extraction, document_id)
@@ -229,10 +279,6 @@ async def _extract_document_async(
             "pii.sanitize_document",
             kwargs={
                 "document_version_id": document_version_id,
-                "document_id": document_id,
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
             },
         )
 

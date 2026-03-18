@@ -1,3 +1,5 @@
+# src/core/circuit_breaker.py
+
 """
 Circuit Breaker implementation.
 

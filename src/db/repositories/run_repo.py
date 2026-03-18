@@ -81,6 +81,16 @@ class RunRepository:
         result = await self.session.execute(select(Run).where(Run.id == run_id))
         return result.scalar_one_or_none()
 
+    async def get(self, run_id: uuid.UUID) -> Run | None:
+        """
+        Удобный псевдоним для get_by_id.
+
+        Нужен, чтобы код, который ожидает метод .get(...),
+        мог работать с RunRepository без лишних изменений.
+        """
+        return await self.get_by_id(run_id)
+
+
     async def update_status(self, run_id: uuid.UUID, status: str, **kwargs) -> Run | None:
         """
         Обновить статус Run и дополнительные поля.

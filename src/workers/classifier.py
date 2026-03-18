@@ -1,6 +1,5 @@
 # src/workers/classifier.py
 
-
 """
 Classifier Worker — каскадная классификация документов (Stage 6/7).
 
@@ -25,7 +24,6 @@ Classifier Worker — каскадная классификация докуме
 - Экземпляр HybridClassifier (_get_classifier) кэшируется на процесс воркера,
   чтобы тяжёлые модели L3/L4 инициализировались один раз.
 """
-
 
 import time
 import uuid
@@ -189,14 +187,18 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             )
 
             # --- Метрики классификации ---
-            metrics.classification_duration.labels(
-                level=level or "UNKNOWN",
-            ).observe(time.time() - start_time)
+            # ВАЖНО: ошибки при обновлении метрик не должны ломать бизнес-логику.
+            try:
+                metrics.classification_duration.labels(
+                    level=level or "UNKNOWN",
+                ).observe(time.time() - start_time)
 
-            metrics.classification_level_distribution.labels(
-                level=level or "UNKNOWN",
-                doc_type=final_type or "UNKNOWN",
-            ).inc()
+                metrics.classification_level_distribution.labels(
+                    level=level or "UNKNOWN",
+                    doc_type=final_type or "UNKNOWN",
+                ).inc()
+            except Exception:
+                logger.exception("classify_document: failed to update classification metrics")
 
             # 5. Обновляем статус документа на CLASSIFIED
             await doc_repo.update_status(
@@ -207,14 +209,14 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
 
             # 6. Проверяем, не пора ли запускать run_deal_checks для этого Run.
             # Для непрофессионального программиста:
-            # - maybe_start_run_checks смотрит на все документы по сделке;
-            # - если все, кто должен участвовать в Run, уже CLASSIFIED/COMPLETED,
+            # - maybe_start_run_checks сам найдёт Run по run_id,
+            #   возьмёт из него deal_id и проверит все документы сделки.
+            # - Если все "живые" документы уже CLASSIFIED/COMPLETED,
             #   он один раз поставит задачу workers.run_deal_checks.
             if run_uuid is not None:
                 await maybe_start_run_checks(
                     db=uow.session,
                     run_id=run_uuid,
-                    deal_id=doc.deal_id,
                 )
             # UoW зафиксирует транзакцию (commit)
 

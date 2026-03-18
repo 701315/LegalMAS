@@ -13,21 +13,9 @@ Run Orchestrator Worker.
   - STRUCTURED  -> workers.classify_document
 - Переводит Run в статус RUNNING и запоминает,
   для скольких документов будут запущены последующие стадии.
-
-Как это выглядит для юриста:
-
-- Он запускает Run по сделке (через HTTP‑эндпоинт).
-- Оркестратор:
-  - переводит Run в статус "running";
-  - проходит по всем документам сделки;
-  - по статусу каждого документа решает, какие следующие этапы запускаются.
-- Дальше отдельные воркеры (extract/pii/structure/classify) делают свою работу.
-- Отдельный воркер run_deal_checks потом выполнит playbook‑checks по уже
-  классифицированным документам и финализирует Run.
 """
 
 import uuid
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +29,7 @@ from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async  # единый мост sync → async
+from services.run_checks_auto_starter import maybe_start_run_checks
 
 logger = get_logger(__name__)
 
@@ -67,10 +56,6 @@ def start_run_pipeline(
     2) по deal_id и tenant_id (из сделки) обходим все документы;
     3) для каждого документа по статусу решаем, какие стадии запускать;
     4) переводим Run в статус "running".
-
-    ВАЖНО:
-    - здесь мы не создаём свой event loop напрямую;
-    - весь async‑код выполняется через общий helper run_async().
     """
 
     async def _wrapper() -> dict:
@@ -98,17 +83,11 @@ async def _start_run_pipeline_async(
     """
     Async‑ядро оркестрации Run.
 
-    Все операции с БД выполняются через переданную AsyncSession (db).
-
-    Важные моменты с точки зрения статусов Run:
-
-    - если Run или deal_id не найдены — помечаем Run как failed;
-    - если документов по сделке нет — Run сразу помечается как "completed"
-      (анализ ничего не делал, но запуск корректен);
-    - для нормального сценария:
-      * ставим задачи по пайплайну;
-      * переводим Run в "running".
+    Для непрофессионального программиста:
+    - Здесь мы решаем, какие задачи по документам надо запустить.
+    - Если документ уже дошёл до нужного статуса, мы можем переиспользовать результат.
     """
+
     logger.info(
         "Starting run pipeline",
         extra={
@@ -126,7 +105,6 @@ async def _start_run_pipeline_async(
     run_uuid = uuid.UUID(run_id)
     run_obj: Run | None = await run_repo.get_by_id(run_uuid)
     if not run_obj:
-        # Конфигурационная ошибка: указанный Run не существует.
         await run_repo.update_status(
             run_uuid,
             RunStatus.FAILED.value,
@@ -150,7 +128,6 @@ async def _start_run_pipeline_async(
         }
 
     # Определяем стратегию пайплайна для этого Run.
-    # Пока поддерживаем только REUSE_STRUCTURE и FULL_RERUN.
     pipeline_strategy = getattr(run_obj, "pipeline_strategy", "REUSE_STRUCTURE")
     is_full_rerun = pipeline_strategy == "FULL_RERUN"
 
@@ -194,14 +171,10 @@ async def _start_run_pipeline_async(
 
     deal_id_str = str(deal_uuid)
 
-    # tenant_id: предполагаем, что Run связан с Deal через ORM (deal.tenant_id),
-    # либо в репозитории RunRepository.get_by_id подгружается deal.
-    # Если нет — используем fallback.
     if tenant_id is None:
         if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
             tenant_id_str = str(run_obj.deal.tenant_id)
         else:
-            # fallback: для dev‑режима используем deal_id как tenant_id
             tenant_id_str = deal_id_str
     else:
         tenant_id_str = tenant_id
@@ -213,7 +186,6 @@ async def _start_run_pipeline_async(
             "No documents for deal, nothing to process",
             extra={"run_id": run_id, "deal_id": deal_id_str},
         )
-        # Если документов нет, считаем Run сразу завершённым.
         await run_repo.update_status(run_uuid, RunStatus.COMPLETED.value)
 
         return {
@@ -242,7 +214,7 @@ async def _start_run_pipeline_async(
             },
         )
 
-        # PENDING (ещё не прошёл extract)
+        # PENDING
         if status == DocumentStatus.PENDING.value:
             if not version:
                 logger.warning(
@@ -264,7 +236,7 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # EXTRACTED: есть raw layout, но ещё не sanitiz'или
+        # EXTRACTED
         if status == DocumentStatus.EXTRACTED.value:
             if not version or not version.text_layout_raw_ref:
                 logger.warning(
@@ -282,7 +254,7 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # SANITIZED: PII уже отработал, но нет структуры
+        # SANITIZED
         if status == DocumentStatus.SANITIZED.value:
             if not version or not version.text_layout_raw_ref:
                 logger.warning(
@@ -301,7 +273,7 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # STRUCTURED: есть clause_tree, но ещё не классифицирован
+        # STRUCTURED
         if status == DocumentStatus.STRUCTURED.value:
             celery_app.send_task(
                 "workers.classify_document",
@@ -315,9 +287,10 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # CLASSIFIED: уже классифицирован; решаем, нужно ли ещё раз запускать классификацию.
+        # CLASSIFIED: уже классифицирован
         if status == DocumentStatus.CLASSIFIED.value:
             if is_full_rerun or force_reclassify:
+                # Вариант "полного прогона" — заново запускаем классификацию.
                 celery_app.send_task(
                     "workers.classify_document",
                     kwargs={
@@ -330,7 +303,7 @@ async def _start_run_pipeline_async(
                 tasks_scheduled += 1
             else:
                 logger.info(
-                    "Document already classified, not re-running without force_reclassify",
+                    "Document already classified, reusing classification for this run",
                     extra={"document_id": doc_id_str, "run_id": run_id},
                 )
             continue
@@ -350,25 +323,38 @@ async def _start_run_pipeline_async(
                 tasks_scheduled += 1
             else:
                 logger.info(
-                    "Document already completed, skipping in run pipeline",
+                    "Document already completed, reusing for this run",
                     extra={"document_id": doc_id_str, "run_id": run_id},
                 )
             continue
 
-        # FAILED / QUARANTINE / другие статусы:
-        # на уровне оркестратора мы их не трогаем, просто логируем.
+        # FAILED / QUARANTINE / другие статусы
+        # ВАЖНО:
+        # - Документы в статусах FAILED / QUARANTINE мы здесь не трогаем.
+        # - Они не участвуют в дальнейших стадиях и не блокируют запуск checks,
+        #   потому что maybe_start_run_checks учитывает только "живые" документы.
+        # - Если оставить документ навсегда в промежуточном статусе
+        #   (например, structured), но не перевести в FAILED/QUARANTINE
+        #   при перманентной ошибке, Run может зависнуть в RUNNING.
+
         logger.info(
             "Document in unsupported status for run pipeline, skipping",
             extra={"document_id": doc_id_str, "status": status, "run_id": run_id},
         )
 
     # Переводим Run в RUNNING.
-    # total_checks/completed_checks теперь будут выставлены воркером run_deal_checks
-    # по фактическим результатам checks, поэтому здесь их не трогаем.
     await run_repo.update_status(
         run_uuid,
         RunStatus.RUNNING.value,
     )
+
+    # После того как Run стал RUNNING, даём сигнал авто-стартеру checks.
+    # Для непрофессионального программиста:
+    # - maybe_start_run_checks сам посмотрит все документы сделки;
+    # - если все "живые" документы уже CLASSIFIED/COMPLETED и
+    #   ещё не запускались checks, он один раз поставит задачу
+    #   workers.run_deal_checks.
+    await maybe_start_run_checks(db=db, run_id=run_uuid)
 
     logger.info(
         "Run pipeline scheduling complete",

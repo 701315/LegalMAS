@@ -34,6 +34,8 @@ interface GridTabProps {
 
 type GridScope = "all" | "global" | "doctype";
 
+type GridMode = "matrix" | "list";
+
 /**
  * Вкладка DD Grid:
  * - загружает все результаты для выбранного run;
@@ -46,9 +48,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [searchText, setSearchText] = React.useState("");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [zoomResult, setZoomResult] = React.useState<CheckResult | null>(null);
-  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(
-    null,
-  );
+  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(null);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [selectedDocType, setSelectedDocType] = React.useState<string | null>(
     null,
@@ -57,6 +57,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [selectedScopeDocTypes, setSelectedScopeDocTypes] = React.useState<
     string[]
   >([]);
+  const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
 
   const { canReclassifyDocuments } = useDealPermissions(dealId);
   const canDoQc = canReclassifyDocuments;
@@ -196,6 +197,12 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     doctypeResults,
     selectedScopeDocTypes,
   ]);
+
+  // НОВОЕ: считаем, по скольким уникальным документам есть проверки
+  const uniqueDocCount = React.useMemo(
+    () => new Set(scopeResults.map((r) => r.document_id)).size,
+    [scopeResults],
+  );
 
   const importantCount = React.useMemo(
     () =>
@@ -346,6 +353,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       <div className="flex items-center justify-between text-[11px] text-gray-400">
         <div>
           Важных без QC: {importantCount} · Неясных: {unclearCount}
+          {" · "}
+          Проверок: {scopeResults.length} по {uniqueDocCount} документам
         </div>
         <div className="flex items-center gap-2">
           <span>Показывать проверки:</span>
@@ -386,6 +395,35 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
             По типу документа
           </button>
         </div>
+      </div>
+
+      {/* Переключатель режима DD Grid: матрица / список */}
+      <div className="flex items-center justify-end text-[11px] text-gray-400 gap-2">
+        <span>Режим:</span>
+        <button
+          type="button"
+          className={
+            "px-2 py-1 rounded border text-[11px] " +
+            (gridMode === "matrix"
+              ? "bg-blue-50 border-blue-400 text-blue-700"
+              : "bg-white border-gray-300 text-gray-600")
+          }
+          onClick={() => setGridMode("matrix")}
+        >
+          Матрица
+        </button>
+        <button
+          type="button"
+          className={
+            "px-2 py-1 rounded border text-[11px] " +
+            (gridMode === "list"
+              ? "bg-blue-50 border-blue-400 text-blue-700"
+              : "bg-white border-gray-300 text-gray-600")
+          }
+          onClick={() => setGridMode("list")}
+        >
+          Список
+        </button>
       </div>
 
       {gridScope === "doctype" && scopeDoctypes.length > 0 && (
@@ -436,6 +474,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         results={scopeResults}
         onEyeClick={handleEyeClick}
         onSelectionChange={handleSelectionChange}
+        mode={gridMode}
       />
 
       {zoomResult && (

@@ -13,6 +13,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.result import CheckResult
+from ..models.document import Document  # НОВОЕ: подтягиваем документы
 
 
 class ResultRepository:
@@ -58,13 +59,73 @@ class ResultRepository:
         return cr
 
     async def get_by_run(self, run_id: uuid.UUID, severity: str | None = None) -> list[CheckResult]:
-        """Get all results for a run, optionally filtered by severity."""
+        """Get all results for a run, optionally filtered by severity (без join с документами)."""
         stmt = select(CheckResult).where(CheckResult.run_id == run_id)
         if severity is not None:
             stmt = stmt.where(CheckResult.severity == severity)
         stmt = stmt.order_by(CheckResult.severity, CheckResult.check_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_by_run_with_docs(self, run_id: uuid.UUID) -> list[dict]:
+        """
+        Получить результаты для run с джойном документов.
+
+        Возвращает список dict'ов, совместимых с CheckResultResponse:
+        - поля из CheckResult;
+        - document_name, doc_type;
+        - doc_classification_level, doc_classification_confidence.
+        """
+        stmt = (
+            select(
+                CheckResult,
+                Document.filename.label("document_name"),
+                Document.doc_type.label("doc_type"),
+                Document.classification_level.label("doc_classification_level"),
+                Document.classification_confidence.label("doc_classification_confidence"),
+            )
+            .join(Document, Document.id == CheckResult.document_id)
+            .where(CheckResult.run_id == run_id)
+            .order_by(CheckResult.severity, CheckResult.check_id)
+        )
+
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        out: list[dict] = []
+        for cr, document_name, doc_type, doc_level, doc_conf in rows:
+            # cr — это ORM-объект CheckResult; берем его attr'ы как есть
+            item = {
+                "id": cr.id,
+                "run_id": cr.run_id,
+                "document_id": cr.document_id,
+                "check_id": cr.check_id,
+                "check_name": cr.check_name,
+                "result": cr.result,
+                "severity": cr.severity,
+                "value_text": cr.value_text,
+                "confidence": cr.confidence,
+                "detector_used": cr.detector_used,
+                "quality_flags": cr.quality_flags,
+                "qc_status": cr.qc_status,
+                "qc_by": cr.qc_by,
+                "qc_comment": cr.qc_comment,
+                "qc_at": cr.qc_at,
+                "created_at": cr.created_at,
+                # обогащение из Document
+                "document_name": document_name,
+                "doc_type": doc_type,
+                # доп. поля, которые уже ждёт фронт (через types)
+                "doc_classification_level": doc_level,
+                "doc_classification_confidence": doc_conf,
+                # structured_data и conditional
+                "structured_data": cr.structured_data,
+                "conditional_check_triggered": cr.conditional_check_triggered,
+                "trigger_name": cr.trigger_name,
+            }
+            out.append(item)
+
+        return out
 
     async def get_by_document(self, document_id: uuid.UUID, run_id: uuid.UUID) -> list[CheckResult]:
         """Get all results for a document within a run."""
@@ -142,34 +203,76 @@ class ResultRepository:
         severity: str | None = None,
         conditional_only: bool | None = None,
         has_structured_data: bool | None = None,
-    ) -> tuple[Sequence[CheckResult], int]:
+    ) -> tuple[Sequence[dict], int]:
         """
         Пагинированный список результатов для одного run с фильтрами.
-        Возвращает (items, total).
+        Возвращает (items, total), где items — dict'ы, совместимые с CheckResultResponse.
         """
-        stmt = select(CheckResult).where(CheckResult.run_id == run_id)
+        base_stmt = (
+            select(
+                CheckResult,
+                Document.filename.label("document_name"),
+                Document.doc_type.label("doc_type"),
+                Document.classification_level.label("doc_classification_level"),
+                Document.classification_confidence.label("doc_classification_confidence"),
+            )
+            .join(Document, Document.id == CheckResult.document_id)
+            .where(CheckResult.run_id == run_id)
+        )
 
         if doc_type is not None:
-            stmt = stmt.where(CheckResult.doc_type == doc_type)
+            base_stmt = base_stmt.where(Document.doc_type == doc_type)
 
         if severity is not None:
-            stmt = stmt.where(CheckResult.severity == severity)
+            base_stmt = base_stmt.where(CheckResult.severity == severity)
 
         if conditional_only is True:
-            stmt = stmt.where(CheckResult.conditional_check_triggered.is_(True))
+            base_stmt = base_stmt.where(CheckResult.conditional_check_triggered.is_(True))
 
         if has_structured_data is True:
-            stmt = stmt.where(CheckResult.structured_data.isnot(None))
+            base_stmt = base_stmt.where(CheckResult.structured_data.isnot(None))
 
         # total
-        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count_stmt = select(func.count()).select_from(base_stmt.subquery())
         total = (await self.session.execute(count_stmt)).scalar_one()
 
         # сортировка + пагинация
-        stmt = stmt.order_by(CheckResult.created_at.desc())
-        stmt = stmt.offset((page - 1) * per_page).limit(per_page)
+        stmt = (
+            base_stmt.order_by(CheckResult.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
 
         result = await self.session.execute(stmt)
-        items = result.scalars().all()
+        rows = result.all()
+
+        items: list[dict] = []
+        for cr, document_name, doc_type_value, doc_level, doc_conf in rows:
+            item = {
+                "id": cr.id,
+                "run_id": cr.run_id,
+                "document_id": cr.document_id,
+                "check_id": cr.check_id,
+                "check_name": cr.check_name,
+                "result": cr.result,
+                "severity": cr.severity,
+                "value_text": cr.value_text,
+                "confidence": cr.confidence,
+                "detector_used": cr.detector_used,
+                "quality_flags": cr.quality_flags,
+                "qc_status": cr.qc_status,
+                "qc_by": cr.qc_by,
+                "qc_comment": cr.qc_comment,
+                "qc_at": cr.qc_at,
+                "created_at": cr.created_at,
+                "document_name": document_name,
+                "doc_type": doc_type_value,
+                "doc_classification_level": doc_level,
+                "doc_classification_confidence": doc_conf,
+                "structured_data": cr.structured_data,
+                "conditional_check_triggered": cr.conditional_check_triggered,
+                "trigger_name": cr.trigger_name,
+            }
+            items.append(item)
 
         return items, total

@@ -218,10 +218,18 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
   const processingError = doc.processing_error_details || null;
   const statusConfig = DOCUMENT_STATUS_CONFIG[doc.status];
+  const statusHint =
+    doc.status === "completed"
+      ? "Проверки по playbook выполнены. Ниже доступны результаты анализа и DD Grid."
+      : doc.status === "classified"
+      ? "Классификация выполнена. Проверки по playbook могут ещё выполняться или не запускались."
+      : null;
+
 
   return (
     <div className="h-full overflow-y-auto p-5 space-y-6">
       {/* ========== Заголовок ========== */}
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-gray-900 break-words">
@@ -231,24 +239,32 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             {doc.folder_path || "/"}
           </p>
         </div>
-        <span
-          className={`shrink-0 px-2.5 py-1 rounded text-xs font-semibold ${
-            statusConfig
-              ? // Простейшее сопоставление цвета на Tailwind-класс.
-                statusConfig.color === "success"
-                ? "bg-green-100 text-green-700"
-                : statusConfig.color === "warning"
-                ? "bg-yellow-100 text-yellow-800"
-                : statusConfig.color === "error"
-                ? "bg-red-100 text-red-700"
-                : statusConfig.color === "info"
-                ? "bg-blue-100 text-blue-700"
+
+        <div className="shrink-0 text-right space-y-1">
+          <span
+            className={`inline-block px-2.5 py-1 rounded text-xs font-semibold ${
+              statusConfig
+                ? statusConfig.color === "success"
+                  ? "bg-green-100 text-green-700"
+                  : statusConfig.color === "warning"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : statusConfig.color === "error"
+                  ? "bg-red-100 text-red-700"
+                  : statusConfig.color === "info"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-gray-100 text-gray-600"
                 : "bg-gray-100 text-gray-600"
-              : "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {statusConfig ? statusConfig.label : doc.status}
-        </span>
+            }`}
+          >
+            {statusConfig ? statusConfig.label : doc.status}
+          </span>
+
+          {statusHint && (
+            <p className="text-[11px] text-gray-500 max-w-[220px]">
+              {statusHint}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* ========== Информация ========== */}
@@ -351,6 +367,12 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 </span>
               )}
             </div>
+
+            {statusHint && (
+              <p className="text-xs text-gray-500">
+                {statusHint}
+              </p>
+            )}
 
             {/* YAML флаг */}
             {classification.yaml_instruction_available ? (

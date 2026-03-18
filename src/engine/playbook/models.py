@@ -298,6 +298,9 @@ class CheckDefinition(BaseModel):
     description: str = ""
     doc_types: list[str] = Field(default_factory=list)  # Empty = all types
 
+    # NEW: scope определяет, на каком уровне выполняется проверка
+    scope: Literal["document", "family", "deal"] = "document"
+
     # Базовая severity по умолчанию
     severity: str = "medium"  # critical, high, medium
 

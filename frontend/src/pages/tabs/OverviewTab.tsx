@@ -207,7 +207,7 @@ const RunProgressCard: React.FC<{
         <>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-gray-500">
-              {run.completed_checks} из {run.total_checks} документов проверено
+              В загруженных документах проведено {run.total_checks} проверок
             </span>
             <span className="font-semibold text-gray-700">
               {Math.round(

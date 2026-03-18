@@ -111,11 +111,25 @@ celery_app.conf.update(
             routing_key="low_priority",
             queue_arguments={"x-max-priority": 1},
         ),
+        Queue(
+            "llm_checks",
+            Exchange("llm_checks"),
+            routing_key="llm_checks",
+        ),
     ),
     # Очередь по умолчанию
     task_default_queue="default",
     task_default_exchange="default",
     task_default_routing_key="default",
+    
+    # Маршрутизация задач
+    task_routes={
+        # остальные роуты, если есть...
+        "workers.run_deal_checks": {
+            "queue": "llm_checks",
+            "routing_key": "llm_checks",
+        },
+    },
 )
 
 # ЯВНАЯ регистрация задач через реестр workers.tasks.

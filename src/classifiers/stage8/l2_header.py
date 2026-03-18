@@ -1,3 +1,5 @@
+# src/classifiers/stage8/l2_header.py
+
 """
 L2 Header Classifier — классификация по заголовку документа (Stage 8).
 
@@ -24,14 +26,14 @@ L2 Header Classifier — классификация по заголовку до
 - Один объект ClassificationResult с полями:
   - doctype: код типа документа (или "UNKNOWN", если совпадений нет),
   - confidence: уверенность L2 (обычно равна порогу ACCEPT),
-  - level: ClassificationLevel.L2_HEADER,
-  - method: "header_pattern",
+  - level: агрегированный уровень каскада (ClassificationLevel.L2_KEYWORDS),
+  - method: "header_pattern" (уточняет, что использовался именно заголовок),
   - evidence: строка вида "Matched header pattern: <regex>" или None.
 
 Роль в каскаде:
 - L2 — более надёжный сигнал, чем L1:
   - если уверенность L2 >= CLASSIFICATION_L2_ACCEPT и не противоречит L1,
-    новый HybridClassifier может принять раннее решение.
+    HybridClassifier может принять раннее решение.
 - Если L2 не даёт уверенного результата, каскад передаёт управление на L3 (эмбеддинги).
 """
 
@@ -55,16 +57,25 @@ class L2HeaderClassifier(BaseClassifier):
     Ожидает, что DocumentTypeConfig формирует header_patterns из:
       - name
       - metadata.doc_types_supported
+
+    Важно:
+    - Этот классификатор относится к агрегированному уровню L2 (keywords/regex),
+      а то, что он работает именно по заголовку, отражается в поле method.
     """
 
     def __init__(self, registry: YAMLRegistry | None = None) -> None:
-        # Используем singleton по умолчанию, но даём возможность подменять в тестах
+        # Используем singleton по умолчанию, но даём возможность подменять в тестах.
         self._registry = registry or YAMLRegistry.get_instance()
 
     @property
     def level(self) -> ClassificationLevel:
-        # Используем существующий enum уровня L2
-        return ClassificationLevel.L2_HEADER
+        """
+        Возвращает агрегированный уровень каскада для этого классификатора.
+
+        Здесь мы указываем, что это L2 (keywords/regex),
+        а не выделяем отдельный уровень "L2_HEADER".
+        """
+        return ClassificationLevel.L2_KEYWORDS
 
     async def classify(
         self,
@@ -84,6 +95,7 @@ class L2HeaderClassifier(BaseClassifier):
         header_text = (text or "").strip()
         header_lower = header_text.lower()
 
+        # Если заголовка нет, сразу возвращаем UNKNOWN с нулевой уверенностью.
         if not header_lower:
             return ClassificationResult(
                 doctype="UNKNOWN",
@@ -97,7 +109,7 @@ class L2HeaderClassifier(BaseClassifier):
         best_conf = 0.0
         best_pattern: str | None = None
 
-        # Перебираем все doc_types из реестра
+        # Перебираем все doc_types из реестра.
         for cfg in self._registry.get_all_configs():
             patterns = getattr(cfg, "header_patterns", []) or []
             if not patterns:
@@ -107,10 +119,12 @@ class L2HeaderClassifier(BaseClassifier):
                 try:
                     if re.search(p, header_lower, flags=re.IGNORECASE):
                         conf = settings.CLASSIFICATION_L2_ACCEPT
+                        # Если нашли совпадение и уверенность лучше, чем текущая — обновляем лучший результат.
                         if conf > best_conf:
                             best_conf = conf
                             best_type = cfg.type_code
                             best_pattern = p
+                        # Дальше этот doc_type не проверяем — одного совпадения достаточно.
                         break
                 except re.error:
                     logger.warning(

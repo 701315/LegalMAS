@@ -1,3 +1,5 @@
+# src/api/schemas/results.py
+
 """
 Pydantic-схемы для результатов проверок (check_results) и evidence.
 """

@@ -588,7 +588,7 @@ async def list_run_results(
     )
 
     result_repo = ResultRepository(db)
-    items_orm, total = await result_repo.get_page_for_run(
+    items_raw, total = await result_repo.get_page_for_run(
         run_id=run_id,
         page=page,
         per_page=per_page,
@@ -598,7 +598,7 @@ async def list_run_results(
         has_structured_data=has_structured_data,
     )
 
-    items = [CheckResultResponse.model_validate(r) for r in items_orm]
+    items = [CheckResultResponse.model_validate(r) for r in items_raw]
 
     total_pages = (total + per_page - 1) // per_page if total > 0 else 1
     has_next = page < total_pages

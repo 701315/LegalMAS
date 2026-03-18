@@ -19,14 +19,14 @@ import DocumentDetailsContainer from "../../components/documents/DocumentDetails
 import { DocumentTree } from "../../components/documents/DocumentTree";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { ALL_DOCUMENT_COLUMNS } from "../../types";
-import type {
-  DocumentColumnDef,
-  DocumentColumnId,
-} from "../../types";
+import type { DocumentColumnDef, DocumentColumnId } from "../../types";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import DocumentOpenModal from "../../components/documents/DocumentOpenModal";
 
-import { DOCUMENT_STATUS_CONFIG, getErrorStageLabel } from "../../utils/statusConfig";
+import {
+  DOCUMENT_STATUS_CONFIG,
+  getErrorStageLabel,
+} from "../../utils/statusConfig";
 
 interface DocumentsTabProps {
   deal: Deal;
@@ -44,7 +44,6 @@ interface ClassificationStats {
   L_manual: number;
   low_confidence: number;
 }
-
 
 // Вспомогательное форматирование риска
 function formatRiskLevel(risk: string | null | undefined): string {
@@ -84,15 +83,12 @@ function hasProcessingError(doc: Document): boolean {
   return Boolean(details.message || details.type);
 }
 
-
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   const [page] = useState(1);
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
 
-  const {
-    canDeleteDocuments,
-  } = useDealPermissions(deal.id);
+  const { canDeleteDocuments } = useDealPermissions(deal.id);
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
 
@@ -128,8 +124,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
     [visibleColumnIds],
   );
 
-  // Статистика по классификации + список low-confidence документов
-  const { classificationStats, lowConfidenceDocs } = useMemo(() => {
+  // Статистика по классификации + список low-confidence документов + L4-count
+  const { classificationStats, lowConfidenceDocs, l4Count } = useMemo(() => {
     const stats: ClassificationStats = {
       L0: 0,
       L1: 0,
@@ -157,9 +153,15 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
       }
     }
 
+    // Количество документов, классифицированных на уровне L4 (LLM)
+    const l4Count = classifiedDocs.filter(
+      (d) => d.classification_level === "L4",
+    ).length;
+
     return {
       classificationStats: stats,
       lowConfidenceDocs: lows,
+      l4Count,
     };
   }, [classifiedDocs]);
 
@@ -325,6 +327,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                   </div>
                 </div>
 
+                {/* Явный индикатор использования L4 LLM */}
+                {l4Count > 0 && (
+                  <p className="text-xs text-green-700">
+                    {l4Count} документ(ов) классифицировано с помощью L4 LLM.
+                  </p>
+                )}
+
                 {/* Предупреждение о low-confidence */}
                 {classificationStats.low_confidence > 0 && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
@@ -380,6 +389,68 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                   <p className="text-xs text-gray-400">
                     Документов с низкой уверенностью классификации нет.
                   </p>
+                )}
+
+                {/* Мини-таблица всех классифицированных документов */}
+                {classifiedDocs.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Список классифицированных документов ({classifiedDocs.length})
+                    </h4>
+                    <div className="border border-gray-100 rounded bg-white max-h-64 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-2 py-1 text-left text-gray-500 font-semibold">
+                              Имя файла
+                            </th>
+                            <th className="px-2 py-1 text-left text-gray-500 font-semibold">
+                              Тип
+                            </th>
+                            <th className="px-2 py-1 text-left text-gray-500 font-semibold">
+                              Уровень
+                            </th>
+                            <th className="px-2 py-1 text-right text-gray-500 font-semibold">
+                              Уверенность
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {classifiedDocs.map((doc) => (
+                            <tr
+                              key={doc.id}
+                              className="hover:bg-gray-50 cursor-pointer"
+                              onClick={() => {
+                                setSelectedDocId(doc.id);
+                                setLeftTab("tree");
+                              }}
+                            >
+                              <td className="px-2 py-1 truncate text-gray-800">
+                                {doc.filename}
+                              </td>
+                              <td className="px-2 py-1 text-gray-500">
+                                {doc.doc_type || "—"}
+                              </td>
+                              <td className="px-2 py-1">
+                                <ClassificationBadge
+                                  level={doc.classification_level}
+                                  confidence={doc.classification_confidence}
+                                  showConfidence={false}
+                                />
+                              </td>
+                              <td className="px-2 py-1 text-right text-gray-500">
+                                {typeof doc.classification_confidence === "number"
+                                  ? `${Math.round(
+                                      doc.classification_confidence * 100,
+                                    )}%`
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -541,23 +612,23 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                               value = (doc as any)[col.field];
                               break;
                           }
-                            let title: string | undefined;
+                          let title: string | undefined;
 
-                            if (col.field === "status" && hasProcessingError(doc)) {
-                              const details = doc.processing_error_details;
-                              const stageLabel = getErrorStageLabel(details);
-                              const message = details?.message;
+                          if (col.field === "status" && hasProcessingError(doc)) {
+                            const details = doc.processing_error_details;
+                            const stageLabel = getErrorStageLabel(details);
+                            const message = details?.message;
 
-                              if (message && stageLabel !== "Неизвестная стадия") {
-                                title = `${stageLabel}: ${message}`;
-                              } else if (message) {
-                                title = message;
-                              } else {
-                                title = typeof value === "string" ? value : undefined;
-                              }
-                            } else if (typeof value === "string") {
-                              title = value;
+                            if (message && stageLabel !== "Неизвестная стадия") {
+                              title = `${stageLabel}: ${message}`;
+                            } else if (message) {
+                              title = message;
+                            } else {
+                              title = typeof value === "string" ? value : undefined;
                             }
+                          } else if (typeof value === "string") {
+                            title = value;
+                          }
 
                           return (
                             <td
@@ -572,7 +643,10 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                                 if (value === null || value === undefined) {
                                   return "";
                                 }
-                                if (typeof value === "number" || typeof value === "string") {
+                                if (
+                                  typeof value === "number" ||
+                                  typeof value === "string"
+                                ) {
                                   return value as React.ReactNode;
                                 }
                                 return String(value);

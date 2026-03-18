@@ -10,20 +10,31 @@ Hybrid detector: сначала rules, затем LLM при необходим�
 - Возвращает единый DetectionResult‑подобный словарь, пригодный для записи
   в CheckResult и дальнейшей аналитики.
 
-Поведение:
-- Если rules дал достаточную уверенность → возвращаем его результат, LLM не зовём.
-- Если rules слабый или ничего не нашёл, а LLM включён в CheckDefinition → вызываем LLM.
-- При конфликте (оба дали found=True, но разную уверенность) побеждает результат
-  с большей confidence. В raw можно хранить обе уверенности для анализа.
+Главные принципы (важно для продакшн‑поведения):
+
+1) Rules — первый, дешёвый и устойчивый слой.
+   Если rules уверенно нашёл риск, LLM вообще не вызываем.
+
+2) LLM — “усилитель”, но НЕ точка отказа.
+   - Если LLM недоступен, даёт ошибку или неопределённый ответ,
+     мы НЕ выбрасываем исключения наверх.
+   - Вместо этого используем результат rules и помечаем в raw,
+     что LLM не смог отработать (тип ошибки, количество попыток).
+
+3) При наличии двух сигналов (rules и LLM) выбираем более уверенный,
+   но сохраняем в raw обе confidence, чтобы можно было анализировать поведение.
 """
 
 from typing import Any
 
 from core.config import settings
+from core.logging import get_logger
 from .llm_detector import LLMDetector
 from .models import RetrievedChunk
 from .rules_detector import RulesDetector
 from ..playbook.models import CheckDefinition
+
+logger = get_logger(__name__)
 
 # Порог уверенности rules, при котором LLM не вызывается.
 RULES_CONFIDENCE_THRESHOLD = getattr(settings, "RULES_CONFIDENCE_THRESHOLD", 0.7)
@@ -70,13 +81,10 @@ class HybridDetector:
         """
         Запустить гибридную детекцию для одного check.
 
-        Args:
-            text: текст, по которому будут работать rules (обычно join контекстных чанков).
-            chunks: чанки из RetrievalEngine (для LLM‑контекста).
-            check: определение проверки из playbook (rules + llm‑часть).
-
-        Returns:
-            DetectionResult‑подобный словарь (см. описание класса).
+        Важно:
+        - Этот метод НЕ бросает исключения наружу из-за LLM.
+        - В худшем случае он возвращает "rules-only" результат
+          с пояснением в raw, почему LLM не использовался или не сработал.
         """
         # --- 1. Rules-based detection ---
         rules_result = self.rules.detect(text, check.rules)
@@ -89,10 +97,10 @@ class HybridDetector:
             rules_result["raw"]["source"] = "rules_confident"
             return rules_result
 
-        # --- 2. LLM fallback (если включён в check) ---
+        # --- 2. Проверяем, есть ли вообще LLM-конфигурация для этого check ---
         llm_config = getattr(check, "llm", None)
         if not llm_config:
-            # LLM не настроен для этого check — возвращаем то, что дали правила
+            # LLM не настроен для этого check — возвращаем то, что дали правила.
             rules_result["raw"]["source"] = "rules_no_llm_config"
             return rules_result
 
@@ -105,8 +113,7 @@ class HybridDetector:
             rules_result["raw"]["source"] = "rules_no_llm_prompt"
             return rules_result
 
-        # Вызов LLM; если он не сможет отработать, detect_with_variables вернёт None
-
+        # --- 3. Попытка вызвать LLM-детектор ---
         extra_variables = {
             "condition_name": check.name,
             "check_id": check.id,
@@ -118,23 +125,55 @@ class HybridDetector:
             "doc_types": ", ".join(check.doc_types or []),
         }
 
-        llm_result = self.llm.detect_with_variables(
-            config=llm_config,
-            chunks=chunks,
-            extra_variables=extra_variables,
-        )
+        try:
+            llm_detection = self.llm.detect_with_variables(
+                config=llm_config,
+                chunks=chunks,
+                extra_variables=extra_variables,
+            )
+        except Exception as e:
+            # На всякий случай: если внутри LLMDetector что-то пошло совсем не так,
+            # мы не роняем весь check, а логируем и остаёмся на rules.
+            logger.exception(
+                "HybridDetector: unexpected error in LLMDetector.detect_with_variables",
+                check_id=getattr(check, "id", None),
+                error=str(e),
+            )
+            rules_result["raw"]["source"] = "rules_llm_exception"
+            rules_result["raw"]["llm_error_type"] = "unexpected_exception"
+            rules_result["raw"]["llm_error_message"] = str(e)
+            return rules_result
 
-        if llm_result is None:
-            # LLM не смог отработать — опираемся только на rules
+        # Если LLMDetector вернул None — он считает, что LLM не может быть использован
+        # (нет провайдера, промпта или других базовых условий).
+        if llm_detection is None:
             rules_result["raw"]["source"] = "rules_llm_unavailable"
             return rules_result
 
-        # --- 3. Приводим LLMResult к "плоскому" DetectionResult ---
-        flat_llm = self._flatten_llm_result(llm_result, check)
+        # --- 4. Приводим LLMDetectionResult к "плоскому" виду ---
+        flat_llm = self._flatten_llm_result(llm_detection, check)
         flat_llm.setdefault("raw", {})
         flat_llm["method"] = "llm"
 
-        # --- 4. Объединение: выбираем более уверенный сигнал ---
+        # Перенесём служебную информацию из details LLM-детектора в raw.llm_details
+        llm_details = getattr(llm_detection, "details", {}) or {}
+        flat_llm["raw"].setdefault("llm_details", llm_details)
+
+        # Если LLM сам по себе не нашёл ничего (found=False, confidence≈0)
+        # и при этом есть ошибки в details, то это хороший сигнал, что
+        # алгоритм должен оставаться на rules-результате.
+        error_type = llm_details.get("error_type")
+        if error_type:
+            # LLM не смог отработать или отработал с ошибкой — не считаем это
+            # позитивным сигналом, а лишь дополняем rules-информацию.
+            rules_result["raw"]["source"] = "rules_llm_error"
+            rules_result["raw"]["llm_error_type"] = error_type
+            rules_result["raw"]["llm_error_message"] = llm_details.get("error_message")
+            rules_result["raw"]["llm_attempts"] = llm_details.get("llm_attempts")
+            # В этом сценарии возвращаем именно rules-результат.
+            return rules_result
+
+        # --- 5. Объединение сигналов rules и LLM ---
         found_rules = bool(rules_result.get("found", False))
         conf_rules = float(rules_result.get("confidence", 0.0) or 0.0)
         found_llm = bool(flat_llm.get("found", False))
@@ -143,6 +182,7 @@ class HybridDetector:
         # Оба не нашли
         if not found_rules and not found_llm:
             flat_llm["raw"]["source"] = "both_not_found_llm_preferred"
+            flat_llm["raw"]["rules_confidence"] = conf_rules
             return flat_llm
 
         # Rules нашёл, LLM нет

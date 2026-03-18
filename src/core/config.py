@@ -104,25 +104,44 @@ class Settings(BaseSettings):
     CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
 
     # --- LLM Provider (Stage 6/8 L4) ---
-    # Провайдер для общего LLM-клиента:
-    #   "none"    — LLM выключен, работаем только по rules/embeddings
-    #   "openai"  — OpenAI-совместимый HTTP API
-    #   "ollama"  — локальный сервер Ollama (HTTP API)
-    #   "llamacpp" — локальная GGUF-модель через llama-cpp-python
-    LLM_PROVIDER: str = "none"
+    # Базовый провайдер LLM для Stage 6/8:
+    #   "none"    — LLM полностью выключен.
+    #   "openai"  — OpenAI-совместимый HTTP API (опция).
+    #   "ollama"  — локальный сервер Ollama (опция).
+    #   "llamacpp" — локальная GGUF-модель (наша базовая конфигурация).
+    LLM_PROVIDER: str = "llamacpp"
 
-    # Путь к локальному GGUF-файлу модели для провайдера "llamacpp".
-    # Этот путь можно переопределить в .env на рабочей машине.
-    LLM_LOCAL_MODEL_PATH: str = "/home/vladi/projects/LegalMAS/LLMmodel/model.gguf"
+    # Общие настройки для всех провайдеров.
+    # Время ожидания ответа от LLM в секундах.
+    LLM_TIMEOUT_SECONDS: int = 30
+    # Температура выборки (0.0 — максимально детерминированный ответ).
+    LLM_TEMPERATURE: float = 0.0
+    # Максимальное количество токенов, которое модель может сгенерировать в ответе.
+    LLM_MAX_TOKENS: int = 512
+
+    # --- OpenAI‑совместимый провайдер ("openai") — опционально ---
+    LLM_OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    LLM_OPENAI_API_KEY: str = ""
+    LLM_OPENAI_MODEL: str = "gpt-4o-mini"
+
+    # --- Локальный провайдер Ollama ("ollama") — опционально ---
+    LLM_OLLAMA_BASE_URL: str = "http://localhost:11434"
+    LLM_OLLAMA_MODEL: str = "llama3.1"
+
+    # --- Локальный провайдер llama-cpp ("llamacpp") — базовый ---
+    # Путь к локальному GGUF-файлу модели.
+    # Важно: используем Windows-путь по умолчанию, но в коде он нормализуется
+    # (обратные слэши меняются на прямые), чтобы работало и под WSL/Linux.
+    LLM_LOCAL_MODEL_PATH: str = r"C:\LegalMAS\LLMmodel\model.gguf"
 
     # Контекстное окно и слои для CPU/GPU при использовании llama-cpp.
     LLM_LOCAL_N_CTX: int = 4096
     LLM_LOCAL_N_GPU_LAYERS: int = 0  # 0 = CPU only, >0 = GPU offload
 
-    # Параметры облачной модели (если используется "openai").
+    # Старые "облачные" поля оставляем для совместимости (если где-то ещё используются).
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
-    LLM_TIMEOUT_SECONDS: int = 30
+
 
     # --- Dedup & Relations (Stage 7) ---
     DEDUP_EXACT_ENABLED: bool = True

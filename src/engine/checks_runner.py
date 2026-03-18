@@ -1,3 +1,5 @@
+# src/engine/checks_runner.py
+
 """
 CheckRunner: playbook-based checks executor.
 
@@ -34,12 +36,13 @@ from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
 from engine.checks.executor import CheckExecutor
 from engine.content.document_content_service import DocumentContentService
-from engine.playbook.loader import load_default_playbook
+from db.repositories.document_repo import DocumentRepository
 
 logger = get_logger(__name__)
 
 # Мягкие лимиты для прод-окружения (можно вынести в settings)
 MAX_DOCS_PER_RUN = 500
+MAX_ERRORS_PER_RUN = 50  # мягкий предохранитель от "развалившихся" прогонов
 MAX_CHUNKS_PER_DOC = 2000  # защита от "взрывных" деревьев
 MAX_CHUNK_TEXT_CHARS = 20_000  # защита от слишком длинных клауз в одном чанке
 
@@ -66,11 +69,30 @@ class CheckRunner:
         4) сохраняет результаты в check_results через UoW.
     """
 
-    def __init__(self, llm_client) -> None:
+    def __init__(
+        self,
+        llm_client,
+        origin: str = "project_playbook",
+        playbook_version_id: uuid.UUID | None = None,
+    ) -> None:
+        """
+        llm_client — клиент для LLM.
+        origin — откуда взят плейбук:
+            - "project_playbook" — плейбук проекта/Run;
+            - "global_playbook" — глобальный/тестовый плейбук.
+        """
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
+        self.origin = origin
+        self.playbook_version_id = playbook_version_id
 
-    async def run_deal_checks(self, deal_id: uuid.UUID, run_id: uuid.UUID) -> dict:
+
+    async def run_deal_checks(
+        self,
+        deal_id: uuid.UUID,
+        run_id: uuid.UUID,
+        playbook,
+    ) -> dict:
         """
         Выполнить checks по всем non-duplicate документам сделки.
 
@@ -104,9 +126,6 @@ class CheckRunner:
             "failed_checks": 0,
             "errors": 0,
         }
-
-        # Один playbook на весь run
-        playbook = load_default_playbook()
 
         # Один UoW для получения списка документов
         async with db_uow() as uow_for_docs:
@@ -162,6 +181,19 @@ class CheckRunner:
                 summary["failed_checks"] += failed_count
             except Exception as e:
                 summary["errors"] += 1
+
+                if summary["errors"] > MAX_ERRORS_PER_RUN:
+                    logger.error(
+                        "CheckRunner: too many errors, aborting remaining checks",
+                        extra={
+                            "deal_id": str(deal_id),
+                            "run_id": str(run_id),
+                            "errors": summary["errors"],
+                            "max_errors": MAX_ERRORS_PER_RUN,
+                        },
+                    )
+                    break
+
                 logger.error(
                     "CheckRunner: checks failed for document",
                     extra={
@@ -352,7 +384,8 @@ class CheckRunner:
                         else None
                     )
 
-                origin = "global_playbook"
+                origin = self.origin
+                playbook_version_id = self.playbook_version_id
 
                 dto = {
                     "run_id": run_id,
@@ -370,6 +403,7 @@ class CheckRunner:
                     "conditional_check_triggered": is_conditional,
                     "trigger_name": trigger_name,
                     "origin": origin,
+                    "playbook_version_id": playbook_version_id,
                     "page": exec_result.get("page"),
                     "clause_uid": exec_result.get("clause_uid"),
                     "element_id": exec_result.get("element_id"),
@@ -377,6 +411,10 @@ class CheckRunner:
                 }
 
                 await repo.create(dto)
+
+            # помечаем документ как полностью проверенный ===
+            doc_repo = DocumentRepository(uow.session)
+            await doc_repo.set_completed(doc.id)
 
             # Коммит делает db_uow() при выходе из контекста
 

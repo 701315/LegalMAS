@@ -1,3 +1,5 @@
+# src/engine/detectors/models.py
+
 """
 Detection Result Models.
 

@@ -243,6 +243,22 @@ class DocumentRepository:
             processing_error_details=details,
         )
 
+    async def set_completed(self, doc_id: uuid.UUID) -> Document | None:
+        """
+        Перевести документ в статус COMPLETED (полный анализ выполнен).
+
+        Важно:
+        - этот метод используется, когда по документу успешно прошли все стадии
+          пайплайна, включая проверки по плейбуку (checks).
+        - в отличие от FAILED / QUARANTINE, здесь мы не пишем processing_error_details,
+          потому что это "нормальное" успешное завершение обработки.
+        """
+        return await self.update_status(
+            doc_id,
+            DocumentStatus.COMPLETED.value,
+        )
+
+
     async def update_classification(
         self,
         doc_id: uuid.UUID,

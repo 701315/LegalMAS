@@ -1,3 +1,5 @@
+# src/core/exceptions.py
+
 """
 Exception hierarchy for the MAS DD system.
 

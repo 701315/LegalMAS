@@ -9,6 +9,7 @@
 """
 
 from typing import List
+import uuid  # НОВОЕ: нужен для uuid.UUID(run_id)
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,20 +57,26 @@ async def list_results(
         * либо ограничить его только для глобальных админов;
         * либо проверять доступ через deal_id/run_id и роли проекта.
     """
+
     repo = ResultRepository(db)
 
     # Базовая загрузка — подстрой под свой репозиторий:
     if run_id:
-        results = await repo.get_by_run(run_id)
+        # Используем вариант с join документов и уже готовыми dict'ами
+        raw_results = await repo.get_by_run_with_docs(uuid.UUID(run_id))
+        out: List[CheckResultResponse] = [
+            CheckResultResponse.model_validate(r) for r in raw_results
+        ]
     elif deal_id:
-        results = await repo.get_by_deal(deal_id)
+        # Если позже добавишь get_by_deal / list_latest,
+        # можно будет поддержать и эти ветки.
+        results = await repo.get_by_run_with_docs(
+            uuid.UUID(run_id)
+        ) if run_id else []
+        out = [CheckResultResponse.model_validate(r) for r in results]
     else:
-        results = await repo.list_latest(limit=500)
-
-    # Преобразуем к Pydantic, если repo отдаёт ORM
-    out: List[CheckResultResponse] = [
-        CheckResultResponse.model_validate(r) for r in results
-    ]
+        # Fallback: пока просто пустой список или можно вызвать get_by_run_with_docs для последнего run
+        out = []
 
     # Фильтр: только условные проверки
     if conditional_only is True:

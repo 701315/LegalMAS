@@ -142,6 +142,13 @@ class CheckResult(Base):
         comment="Bounding box of evidence in document coordinates (for viewer highlight)",
     )
 
+    playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("playbook_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Версия плейбука, которой был выполнен этот check (для аудита)",
+    )
+
     # --- QC fields ---
 
     qc_status: Mapped[str] = mapped_column(
