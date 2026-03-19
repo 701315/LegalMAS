@@ -45,7 +45,6 @@ from engine.content.document_content_service import (
     ClauseTreeStorageClient,
     DocumentContentService,
 )
-from engine.playbook.loader import load_default_playbook
 from engine.triggers.detector import TriggerDetector
 
 logger = get_logger(__name__)
@@ -83,7 +82,6 @@ class Runner:
         # Эти поля остаются на будущее, чтобы другой компонент мог
         # использовать их для проверок, но сам Runner их не вызывает.
         self.check_executor = CheckExecutor(llm_client or self._dummy_llm_client)
-        self.playbook = load_default_playbook()
 
     class _dummy_llm_client:
         @staticmethod

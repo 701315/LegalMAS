@@ -52,3 +52,6 @@ alembic/versions/__pycache__/
 # Logs
 *.log
 .cache/
+
+# LLM модели
+LLMmodel/

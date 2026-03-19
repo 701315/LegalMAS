@@ -36,19 +36,54 @@ type GridScope = "all" | "global" | "doctype";
 
 type GridMode = "matrix" | "list";
 
-/**
- * Вкладка DD Grid:
- * - загружает все результаты для выбранного run;
- * - даёт поиск и несколько быстрых фильтров;
- * - показывает DDGrid + Magic Zoom + EvidencePanel;
- * - поддерживает массовый QC через BulkQCBar;
- * - позволяет экспортировать результаты (все или выбранные).
- */
+// Нормализованный тип источника проверки.
+// Мы не хотим везде по коду сравнивать "GLOBAL_PLAYBOOK", "project_playbook" и т.п.
+type NormalizedOrigin = "global" | "doctype" | "other";
+
+// Функция нормализации значений origin/origin_type из бэкенда
+// в стабильный enum NormalizedOrigin.
+// В одном месте описываем все возможные варианты.
+function normalizeOrigin(
+  rawOrigin: unknown,
+  originType?: "global" | "doctype" | "custom",
+): NormalizedOrigin {
+  // 1) Если бэкенд уже прислал нормализованный origin_type — доверяем ему.
+  if (originType === "global") return "global";
+  if (originType === "doctype") return "doctype";
+
+  // 2) Fallback для старых данных — смотрим на сырое origin.
+  if (!rawOrigin) {
+    return "other";
+  }
+
+  const raw = rawOrigin.toString();
+  const upper = raw.toUpperCase();
+
+  // Глобальный плейбук (старые и новые варианты)
+  if (
+    upper === "GLOBAL_PLAYBOOK" ||
+    raw === "global_playbook" ||
+    raw === "project_playbook"
+  ) {
+    return "global";
+  }
+
+  // Проверки по типу документа
+  if (upper === "DOCUMENT_TYPE") {
+    return "doctype";
+  }
+
+  // Всё остальное (на будущее)
+  return "other";
+}
+
 const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [searchText, setSearchText] = React.useState("");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [zoomResult, setZoomResult] = React.useState<CheckResult | null>(null);
-  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(null);
+  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(
+    null,
+  );
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [selectedDocType, setSelectedDocType] = React.useState<string | null>(
     null,
@@ -139,18 +174,35 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         break;
     }
 
+    console.log(
+      "DEBUG origins in filteredResults",
+      Array.from(new Set(results.map((r) => r.origin ?? "(null)"))),
+    );
+
     return results;
   }, [allResults, searchText, quickFilter, selectedDocType]);
 
+  // Глобальные риски (через нормализованный origin)
   const globalResults = React.useMemo(
-    () => filteredResults.filter((r) => r.origin === "global_playbook"),
+    () =>
+      filteredResults.filter(
+        (r) => normalizeOrigin(r.origin, r.origin_type) === "global",
+      ),
     [filteredResults],
   );
 
+  console.log(
+    "DEBUG globalResults origins",
+    Array.from(new Set(globalResults.map((r) => r.origin ?? "(null)"))),
+    "len=",
+    globalResults.length,
+  );
+
+  // Риски по типу документа (через нормализованный origin)
   const doctypeResults = React.useMemo(
     () =>
       filteredResults.filter(
-        (r) => !r.origin || r.origin !== "global_playbook",
+        (r) => normalizeOrigin(r.origin, r.origin_type) === "doctype",
       ),
     [filteredResults],
   );
@@ -198,7 +250,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     selectedScopeDocTypes,
   ]);
 
-  // НОВОЕ: считаем, по скольким уникальным документам есть проверки
   const uniqueDocCount = React.useMemo(
     () => new Set(scopeResults.map((r) => r.document_id)).size,
     [scopeResults],
@@ -245,7 +296,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     newStatus: Exclude<QCStatus, "pending">,
   ) => {
     if (!canDoQc) return;
-    // TODO: позже вызывать QC API и обновлять useAllResults
     console.log("QC change from MagicZoom", result.id, newStatus);
   };
 
@@ -293,7 +343,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     newStatus: Exclude<QCStatus, "pending">,
   ) => {
     if (!canDoQc) return;
-    // TODO: позже вызывать QC API и обновлять useAllResults
     console.log("QC change from EvidencePanel", result.id, newStatus);
   };
 
@@ -397,7 +446,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         </div>
       </div>
 
-      {/* Переключатель режима DD Grid: матрица / список */}
       <div className="flex items-center justify-end text-[11px] text-gray-400 gap-2">
         <span>Режим:</span>
         <button

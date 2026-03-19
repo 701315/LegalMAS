@@ -2,7 +2,7 @@
 // src/components/grid/DDGrid.tsx
 // DD Grid:
 // - режим 1: «плоский» список CheckResult (AG Grid);
-// - режим 2: матрица документ × риск (wide-format).
+// - режим 2: матрица документ × риск (wide-format, AG Grid).
 // =============================================================
 
 import React, { useMemo } from "react";
@@ -30,7 +30,9 @@ interface DDGridProps {
   onCheckClick?: (result: CheckResult) => void;
   onQcChange?: (result: CheckResult, newStatus: "approved" | "rejected") => void;
 
-  // для bulk QC
+  // для bulk QC:
+  // - в режиме list: ids результатов (CheckResult.id)
+  // - в режиме matrix: ids документов (document_id)
   onSelectionChange?: (ids: string[]) => void;
 
   // Режим отображения: матрица или список
@@ -45,21 +47,33 @@ interface GridContext {
 }
 
 // -------------------------------------------------------------
-// Новый матричный вариант
+// Типы для матричного режима (строка = документ)
 // -------------------------------------------------------------
 
-interface MatrixDoc {
-  id: string;
-  name: string;
+interface MatrixRow {
+  documentId: string;
+  documentName: string;
   docType?: string | null;
   classificationLevel?: string | null;
   classificationConfidence?: number | null;
+
+  totalCritical: number;
+  totalHigh: number;
+  totalMedium: number;
+  totalUnclear: number;
+
+  [key: string]: any;
 }
 
-interface MatrixCheck {
-  id: string;
-  name: string;
+interface MatrixColumnMeta {
+  checkId: string;
+  checkName: string;
+  origin?: string | null;
 }
+
+// -------------------------------------------------------------
+// Главный компонент
+// -------------------------------------------------------------
 
 export const DDGrid: React.FC<DDGridProps> = ({ mode = "matrix", ...rest }) => {
   if (mode === "list") {
@@ -68,8 +82,10 @@ export const DDGrid: React.FC<DDGridProps> = ({ mode = "matrix", ...rest }) => {
   return <MatrixGrid {...rest} />;
 };
 
+export default DDGrid;
+
 // -------------------------------------------------------------
-// Матричный grid: документ × риск
+// Матричный grid: документ × риск (AG Grid)
 // -------------------------------------------------------------
 
 const MatrixGrid: React.FC<DDGridProps> = ({
@@ -77,12 +93,11 @@ const MatrixGrid: React.FC<DDGridProps> = ({
   onEyeClick,
   onDocumentClick,
   onCheckClick,
+  onSelectionChange,
 }) => {
-  // Собираем уникальные документы и проверки + матрицу result'ов
-  const { documents, checks, matrix } = useMemo(() => {
-    const docsMap = new Map<string, MatrixDoc>();
-    const checksMap = new Map<string, MatrixCheck>();
-    const m = new Map<string, Map<string, CheckResult>>();
+  const { rowData, riskColumns } = useMemo(() => {
+    const docMap = new Map<string, MatrixRow>();
+    const riskMetaMap = new Map<string, MatrixColumnMeta>();
 
     for (const r of results) {
       const docId = r.document_id;
@@ -90,42 +105,218 @@ const MatrixGrid: React.FC<DDGridProps> = ({
 
       if (!docId || !checkId) continue;
 
-      // Документы
-      if (!docsMap.has(docId)) {
-        docsMap.set(docId, {
-          id: docId,
-          name: r.document_name || "[no name]",
-          docType: r.doc_type,
-          classificationLevel: r.doc_classification_level,
-          classificationConfidence: r.doc_classification_confidence ?? null,
-        });
-      }
-
-      // Чеки
-      if (!checksMap.has(checkId)) {
-        checksMap.set(checkId, {
-          id: checkId,
-          name: r.check_name || checkId,
-        });
-      }
-
-      // Матрица
-      let row = m.get(docId);
+      let row = docMap.get(docId);
       if (!row) {
-        row = new Map<string, CheckResult>();
-        m.set(docId, row);
+        row = {
+          documentId: docId,
+          documentName: r.document_name || "[no name]",
+          docType: r.doc_type ?? null,
+          classificationLevel: r.doc_classification_level ?? null,
+          classificationConfidence: r.doc_classification_confidence ?? null,
+          totalCritical: 0,
+          totalHigh: 0,
+          totalMedium: 0,
+          totalUnclear: 0,
+        };
+        docMap.set(docId, row);
       }
-      row.set(checkId, r);
+
+      if (!riskMetaMap.has(checkId)) {
+        riskMetaMap.set(checkId, {
+          checkId,
+          checkName: r.check_name || checkId,
+          origin: r.origin ?? null,
+        });
+      }
+
+      const colKey = `risk_${checkId}`;
+      row[colKey] = r;
+
+      if (r.severity === "critical") row.totalCritical += 1;
+      if (r.severity === "high") row.totalHigh += 1;
+      if (r.severity === "medium") row.totalMedium += 1;
+      if (r.result === "unclear") row.totalUnclear += 1;
     }
 
     return {
-      documents: Array.from(docsMap.values()),
-      checks: Array.from(checksMap.values()),
-      matrix: m,
+      rowData: Array.from(docMap.values()),
+      riskColumns: Array.from(riskMetaMap.values()),
     };
   }, [results]);
 
-  if (documents.length === 0 || checks.length === 0) {
+  const context: GridContext = {
+    onEyeClick,
+    onDocumentClick,
+    onCheckClick,
+    onQcChange: undefined,
+  };
+
+  const baseColumns = useMemo<ColDef<MatrixRow>[]>(
+    () => [
+      {
+        headerName: "#",
+        width: 60,
+        valueGetter: (params) =>
+          params.node?.rowIndex != null ? params.node.rowIndex + 1 : "",
+        pinned: "left",
+      },
+      {
+        headerName: "Документ",
+        field: "documentName",
+        minWidth: 220,
+        flex: 2,
+        pinned: "left",
+        cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
+          const handleClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (!onDocumentClick) return;
+            const docId = p.data?.documentId;
+            if (!docId) return;
+            const first = results.find((r) => r.document_id === docId);
+            if (first) onDocumentClick(first);
+          };
+          return (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              {p.value}
+            </button>
+          );
+        },
+      },
+      {
+        headerName: "Тип документа",
+        field: "docType",
+        width: 140,
+      },
+      {
+        headerName: "Классификация",
+        field: "classificationLevel",
+        width: 140,
+        cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
+          const level = params.data?.classificationLevel;
+          const conf = params.data?.classificationConfidence;
+          if (!level) {
+            return <span className="text-[11px] text-gray-300">—</span>;
+          }
+          return (
+            <ClassificationBadge
+              level={level as any}
+              confidence={conf ?? undefined}
+              showConfidence={false}
+            />
+          );
+        },
+      },
+      {
+        headerName: "Crit",
+        field: "totalCritical",
+        width: 70,
+      },
+      {
+        headerName: "High",
+        field: "totalHigh",
+        width: 70,
+      },
+      {
+        headerName: "Med",
+        field: "totalMedium",
+        width: 70,
+      },
+      {
+        headerName: "Unclear",
+        field: "totalUnclear",
+        width: 80,
+      },
+    ],
+    [onDocumentClick, results],
+  );
+
+  const riskCols = useMemo<ColDef<MatrixRow>[]>(
+    () =>
+      riskColumns.map((meta) => {
+        const field = `risk_${meta.checkId}`;
+        return {
+          headerName: meta.checkName,
+          field,
+          minWidth: 180,
+          flex: 1,
+          tooltipValueGetter: (p: any) => {
+            const res: CheckResult | undefined = p.data?.[field];
+            return res?.value_text || "";
+          },
+          cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
+            const res: CheckResult | undefined = p.data?.[field];
+            if (!res) {
+              return <span className="text-[11px] text-gray-300">—</span>;
+            }
+
+            const { result, severity } = res;
+
+            let textStatus = "";
+            if (result === "fail") {
+              if (severity === "critical" || severity === "high") {
+                textStatus = "Требует внимания юриста";
+              } else {
+                textStatus = "Идентифицирован";
+              }
+            } else if (result === "unclear") {
+              textStatus = "Требует внимания юриста";
+            } else {
+              textStatus = "Не найден";
+            }
+
+            const handleClick = (e: React.MouseEvent) => {
+              e.stopPropagation();
+              onEyeClick?.(res);
+            };
+
+            return (
+              <button
+                type="button"
+                onClick={handleClick}
+                className="flex flex-col items-start gap-0.5 text-left w-full"
+                title={res.value_text || ""}
+              >
+                <span className="text-[11px]">{textStatus}</span>
+                {severity && (
+                  <div className="scale-90 origin-left">
+                    <SeverityBadge severity={severity as any} />
+                  </div>
+                )}
+              </button>
+            );
+          },
+        } as ColDef<MatrixRow>;
+      }),
+    [riskColumns, onEyeClick],
+  );
+
+  const columnDefs = useMemo<ColDef<MatrixRow>[]>(
+    () => [...baseColumns, ...riskCols],
+    [baseColumns, riskCols],
+  );
+
+  const defaultColDef = useMemo<ColDef>(
+    () => ({
+      sortable: true,
+      filter: true,
+      resizable: true,
+    }),
+    [],
+  );
+
+  const handleSelectionChanged = (event: any) => {
+    if (!onSelectionChange) return;
+    const ids: string[] = event.api
+      .getSelectedNodes()
+      .map((n: any) => (n.data as MatrixRow).documentId);
+    onSelectionChange(ids);
+  };
+
+  if (!rowData.length) {
     return (
       <div className="text-xs text-gray-400 p-3">
         Нет результатов проверок для отображения.
@@ -133,141 +324,30 @@ const MatrixGrid: React.FC<DDGridProps> = ({
     );
   }
 
-  const getCell = (docId: string, checkId: string): CheckResult | undefined => {
-    const row = matrix.get(docId);
-    return row?.get(checkId);
-  };
-
   return (
-    <div className="w-full overflow-auto border border-gray-200 rounded-md bg-white">
-      <table className="min-w-full text-xs border-collapse">
-        <thead>
-          <tr className="bg-gray-50">
-            <th className="px-2 py-2 text-left text-gray-500 font-semibold sticky left-0 bg-gray-50 z-10">
-              Документ
-            </th>
-            {checks.map((check) => (
-              <th
-                key={check.id}
-                className="px-2 py-2 text-center text-gray-500 font-semibold border-l border-gray-200"
-                title={check.name}
-              >
-                <button
-                  type="button"
-                  className="text-[11px] text-blue-600 hover:underline"
-                  onClick={() => {
-                    // при клике по заголовку: показать все результаты этого чека
-                    const first = results.find((r) => r.check_id === check.id);
-                    if (first && onCheckClick) onCheckClick(first);
-                  }}
-                >
-                  {check.name}
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {documents.map((doc, rowIdx) => (
-            <tr
-              key={doc.id}
-              className={rowIdx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
-            >
-              {/* Левый столбец: документ + классификация */}
-              <td className="px-2 py-2 sticky left-0 bg-white z-10 border-t border-gray-100">
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    type="button"
-                    className="text-xs text-blue-600 hover:underline text-left"
-                    onClick={() => {
-                      const first = results.find((r) => r.document_id === doc.id);
-                      if (first && onDocumentClick) onDocumentClick(first);
-                    }}
-                  >
-                    {doc.name}
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-gray-500">
-                      {doc.docType || "Тип не определён"}
-                    </span>
-                    {doc.classificationLevel && (
-                      <ClassificationBadge
-                        level={doc.classificationLevel as any}
-                        confidence={doc.classificationConfidence ?? undefined}
-                        showConfidence={false}
-                      />
-                    )}
-                  </div>
-                </div>
-              </td>
-
-              {/* Остальные столбцы: проверки/риски */}
-              {checks.map((check) => {
-                const cell = getCell(doc.id, check.id);
-
-                if (!cell) {
-                  return (
-                    <td
-                      key={check.id}
-                      className="px-1 py-2 text-center border-t border-l border-gray-100 text-gray-300"
-                    >
-                      —
-                    </td>
-                  );
-                }
-
-                const hasRisk = cell.result === "fail";
-                const isUnclear = cell.result === "unclear";
-
-                const handleEye = (e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  onEyeClick?.(cell);
-                };
-
-                return (
-                  <td
-                    key={check.id}
-                    className="px-1 py-1 text-center border-t border-l border-gray-100 align-middle"
-                  >
-                    <div className="flex flex-col items-center gap-1">
-                      <button
-                        type="button"
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
-                          hasRisk
-                            ? "bg-red-100 text-red-700"
-                            : isUnclear
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                        title={
-                          cell.value_text ||
-                          (hasRisk
-                            ? "Обнаружен риск"
-                            : isUnclear
-                            ? "Неоднозначный результат"
-                            : "Риск не обнаружен")
-                        }
-                        onClick={handleEye}
-                      >
-                        {hasRisk ? "!" : isUnclear ? "?" : "✓"}
-                      </button>
-                      {cell.severity && (
-                        <SeverityBadge severity={cell.severity as any} />
-                      )}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+      <AgGridReact<MatrixRow>
+        rowData={rowData}
+        columnDefs={columnDefs}
+        defaultColDef={defaultColDef}
+        context={context}
+        rowSelection={{
+          mode: "multiRow",
+          enableSelectionWithoutKeys: true,
+          checkboxes: true,
+          headerCheckbox: true,
+        }}
+        suppressCellFocus={true}
+        onSelectionChanged={handleSelectionChanged}
+        getRowId={(params) => params.data.documentId}
+        theme="legacy"
+      />
     </div>
   );
 };
 
 // -------------------------------------------------------------
-// Старый список (AG Grid) — для режима mode="list"
+// Список (AG Grid) — для режима mode="list"
 // -------------------------------------------------------------
 
 const ListGrid: React.FC<DDGridProps> = ({
@@ -409,6 +489,13 @@ const ListGrid: React.FC<DDGridProps> = ({
         flex: 0.8,
         minWidth: 110,
       },
+      // ВРЕМЕННАЯ колонка для отладки origin
+      {
+        headerName: "Origin",
+        field: "origin",
+        flex: 0.8,
+        minWidth: 130,
+      },
       {
         headerName: "Created",
         field: "created_at",
@@ -463,8 +550,6 @@ const ListGrid: React.FC<DDGridProps> = ({
   );
 };
 
-export default DDGrid;
-
 // -------------------------------------------------------------
 // Cell renderers для списка
 // -------------------------------------------------------------
@@ -474,7 +559,6 @@ interface BaseCellParams extends ICellRendererParams<CheckResult, any> {
   data: CheckResult;
 }
 
-// Severity + ⚡ + 👁
 const SeverityCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { value, data, context } = props;
 
@@ -510,7 +594,6 @@ const SeverityCellRenderer: React.FC<BaseCellParams> = (props) => {
   );
 };
 
-// Документ — кликабелен
 const DocumentCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { value, data, context } = props;
 
@@ -533,7 +616,6 @@ const DocumentCellRenderer: React.FC<BaseCellParams> = (props) => {
   );
 };
 
-// Проверка — кликабельна
 const CheckNameCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { value, data, context } = props;
 
@@ -556,7 +638,6 @@ const CheckNameCellRenderer: React.FC<BaseCellParams> = (props) => {
   );
 };
 
-// Conditional / Trigger (флаг)
 const ConditionalCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { data } = props;
   const triggered = data.conditional_check_triggered;

@@ -328,6 +328,18 @@ export type SeverityLevel =
 
 export type QCStatus = "pending" | "approved" | "rejected" | "needs_review";
 
+// Сырые значения origin, которые приходят от бэкенда.
+// Важно: это именно то, что возвращает API, и оно может меняться
+// по мере эволюции модели данных на сервере.
+export type CheckResultOrigin =
+  | "GLOBAL_PLAYBOOK"
+  | "global_playbook"
+  | "project_playbook"
+  | "DOCUMENT_TYPE"
+  | string; // запасной вариант на будущее
+
+export type CheckResultOriginType = "global" | "doctype" | "custom";
+
 /** Результат одной проверки документа */
 export interface CheckResult {
   id: string;
@@ -348,15 +360,13 @@ export interface CheckResult {
   qc_comment?: string;
   qc_at?: string;
   created_at: string;
-  // Структурированные данные (Этап 10)
   structured_data?: Record<string, unknown>;
-  // Условные проверки (Этап 10)
   conditional_check_triggered?: boolean;
   trigger_name?: string;
-  // Денормализованная классификация документа (новое)
   doc_classification_level?: ClassificationLevel;
   doc_classification_confidence?: number;
-  origin?: string; // "global_playbook" | "doctype_playbook" | ...
+  origin?: CheckResultOrigin; // "global_playbook" | "doctype_playbook" | ...
+  origin_type?: CheckResultOriginType;
 }
 
 // -------------------------------------------------------------

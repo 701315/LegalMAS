@@ -25,6 +25,7 @@ class CheckResultResponse(BaseModel):
     - базовые данные документа,
     - structured_data и условные проверки.
     """
+
     id: UUID
     run_id: UUID
     document_id: UUID
@@ -42,6 +43,19 @@ class CheckResultResponse(BaseModel):
     qc_at: datetime | None
     created_at: datetime
 
+    # Новый важный атрибут: источник определения проверки
+    # (глобальный плейбук, плейбук по типу документа, клиентский кастом и т.п.).
+    # Это напрямую маппится из CheckResult.origin и используется фронтом
+    # для переключателей "Глобальный плейбук" / "По типу документа".
+    origin: str | None = None
+
+    # Нормализованный тип источника проверки для фронта и внешнего API.
+    # Значения:
+    # - "global"  — проверки из глобального плейбука;
+    # - "doctype" — проверки из плейбука по типу документа;
+    # - "custom"  — все прочие/кастомные источники.
+    origin_type: str | None = None
+
     # Обогащаем из таблицы documents (JOIN в репозитории/сервисе)
     document_name: str | None = None
     doc_type: str | None = None
@@ -56,12 +70,14 @@ class CheckResultResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+
 class EvidenceResponse(BaseModel):
     """
     Детальное evidence для результата проверки.
 
     Обычно берётся из NDJSON-файлов в MinIO (сырое и/или санитайзнутое).
     """
+
     result_id: UUID
     check_id: str
     check_name: str
@@ -84,6 +100,7 @@ class StructuredDataResponse(BaseModel):
     Схему можно переиспользовать в будущих сценариях
     (например, для генерации отчётов), но текущий API её не возвращает.
     """
+
     document_id: UUID
     document_name: str
     doc_type: str | None

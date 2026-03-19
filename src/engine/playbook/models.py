@@ -1,17 +1,29 @@
 # src/engine/playbook/models.py
 
 """
-Playbook Data Models.
+Модели данных плейбука (Playbook Data Models).
 
-A Playbook is a YAML file defining a set of checks (inspections)
-to run on a document. Each check specifies:
-- What to look for (keywords, patterns, or LLM prompt)
-- How to look for it (rules, llm, or hybrid)
-- How severe a finding is (critical, high, medium)
-- What document types it applies to
+Задача этого модуля — описать, как выглядят проверки (checks),
+которые выполняет движок, в виде Pydantic-моделей:
 
-These Pydantic models validate the YAML structure and provide
-typed access to check definitions.
+- A Playbook описывает набор проверок (CheckDefinition), которые нужно
+  выполнить для документов в рамках сделки.
+- Каждая проверка задаёт:
+  - Что искать (ключевые слова, паттерны, LLM‑промпт).
+  - Как искать (rules / llm / hybrid).
+  - Насколько серьёзна находка (critical / high / medium / low).
+  - К каким типам документов она относится (doc_types).
+
+Эти модели используются:
+
+1) Для валидации YAML‑плейбуков (ручная/отладочная загрузка).
+2) Для работы с уже скомпилированными плейбуками, которые хранятся
+   в PlaybookVersion.compiled_checks и загружаются через
+   engine.playbook.loader.load_playbook_from_version.
+
+Поле CheckDefinition.origin заполняется на основании source из
+core.playbooks.compiler.GlobalCheckConfig и используется в UI (DD Grid)
+для фильтров по происхождению риска.
 """
 
 from enum import Enum
@@ -19,65 +31,66 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+
 # ────────────────────────── DETECTOR CONFIG ──────────────────────────
 
 
 class DetectorType(str, Enum):
-    """How the check is performed."""
+    """Как именно выполняется проверка."""
 
-    RULES = "rules"  # Keyword/regex search only
-    LLM = "llm"  # LLM-only analysis
-    HYBRID = "hybrid"  # Rules first, LLM as fallback
+    RULES = "rules"   # Только keyword/regex-поиск.
+    LLM = "llm"       # Анализ только через LLM.
+    HYBRID = "hybrid" # Сначала rules, потом LLM какfallback.
 
 
 class KeywordMode(str, Enum):
-    """How multiple keywords are combined."""
+    """Как объединяются несколько ключевых слов."""
 
-    ANY = "any"  # At least one keyword found → match
-    ALL = "all"  # All keywords must be found → match
+    ANY = "any"  # Достаточно найти хотя бы одно ключевое слово.
+    ALL = "all"  # Нужно найти все ключевые слова.
 
 
 class RulesConfig(BaseModel):
-    """Configuration for rules-based detection."""
+    """Конфигурация rules‑базированного детектора."""
 
     keywords: list[str] = Field(default_factory=list)
     keyword_mode: KeywordMode = KeywordMode.ANY
     regex_patterns: list[str] = Field(default_factory=list)
-    clause_patterns: list[str] = Field(default_factory=list)  # Match clause_uid
+    clause_patterns: list[str] = Field(default_factory=list)  # Сопоставление по clause_uid.
 
 
 class LLMConfig(BaseModel):
-    """Configuration for LLM-based detection."""
+    """Конфигурация LLM‑детектора."""
 
-    # Inline prompt text (has highest priority if not empty)
+    # Встроенный текст промпта (если не пустой — имеет приоритет).
     prompt_template: str = ""
 
-    # Name of prompt file in prompts/ (used by LLMDetector._resolve_prompt)
+    # Имя файла с промптом в каталоге prompts/ (используется LLMDetector._resolve_prompt).
     prompt_file: str | None = None
 
-    # How many chunks to include in prompt
+    # Сколько чанков включать в контекст промпта.
     context_k: int = 5
     temperature: float = 0.0
     max_tokens: int = 500
 
 
 class EvidenceConfig(BaseModel):
-    """Configuration for evidence requirements."""
+    """Настройки требований к evidence (фрагменту текста в подтверждение)."""
 
-    required: bool = True  # Must provide evidence snippet
+    required: bool = True  # Нужно ли хранить сниппет текста как доказательство.
     min_snippet_length: int = 20
     max_snippet_length: int = 500
 
 
 class RetrievalConfig(BaseModel):
     """
-    Retrieval / chunk selection config for a check.
+    Конфигурация выбора чанков (retrieval) для проверки.
 
     Управляет тем:
     - сколько чанков брать в контекст (context_k),
-    - какие дополнительные keywords можно использовать для поиска,
+    - какие дополнительные keywords использовать для поиска,
     - включён ли rerank,
-    - фильтрами по metadata (page, section_title, clause_uid, и т.д.).
+    - какие фильтры применять к metadata (page, section_title, clause_uid и т.д.).
     """
 
     context_k: int = 5
@@ -94,7 +107,8 @@ class TriggerCondition(BaseModel):
     """
     Условие по триггеру (Stage 8).
 
-    Пример:
+    Пример YAML:
+
       - name: "land_plot_sale"
         state: "on"
     """
@@ -104,6 +118,8 @@ class TriggerCondition(BaseModel):
 
 
 class StructuredDataCondition(BaseModel):
+    """Условие на поле из structured_data (Stage 8)."""
+
     field: str
     op: Literal[
         "==",
@@ -125,7 +141,7 @@ class StructuredDataCondition(BaseModel):
         # info: ValidationInfo, значения других полей доступны через info.data
         op = info.data.get("op") if hasattr(info, "data") else None
         if op in ("is_null", "not_null"):
-            # Для is_null/not_null value не требуется
+            # Для is_null/not_null value не требуется.
             return None
         if op in ("in", "not_in") and v is not None and not isinstance(v, list):
             raise ValueError(f"value для op={op} должен быть списком")
@@ -143,7 +159,7 @@ class ConditionalConfig(BaseModel):
          conditional:
            trigger: "land_plot_sale"
 
-    2) Список trigger-условий:
+    2) Список trigger‑условий:
          conditional:
            triggers:
              - name: "land_plot_sale"
@@ -167,11 +183,11 @@ class ConditionalConfig(BaseModel):
     triggers: list[TriggerCondition] = Field(default_factory=list)
     when: list[StructuredDataCondition] = Field(default_factory=list)
 
-    # Границы по уровню классификации (как раньше), можно использовать и дальше
+    # Границы по уровню классификации (как раньше), можно использовать и дальше.
     min_level: str | None = None
     max_level: str | None = None
 
-    # Логика объединения групп triggers и when
+    # Логика объединения групп triggers и when.
     logic: Literal["AND", "OR"] = "AND"
 
     # Зарезервировано на будущее для более сложных условий.
@@ -180,17 +196,17 @@ class ConditionalConfig(BaseModel):
     @field_validator("logic")
     @classmethod
     def _validate_logic(cls, v, values):
-        # Если используется только старое поле trigger — ничего не проверяем
+        # Если используется только старое поле trigger — ничего не проверяем.
         if values.get("trigger"):
             return v
 
-        # Если включены новые условия, но они пустые — конфигурационная ошибка
+        # Если включены новые условия, но они пустые — конфигурационная ошибка.
         has_triggers = bool(values.get("triggers"))
         has_when = bool(values.get("when"))
         enabled_new_conditions = has_triggers or has_when
 
         if enabled_new_conditions and not (has_triggers or has_when):
-            # Теоретически сюда не попадём, но оставим на всякий случай
+            # Теоретически сюда не попадём, но оставим на всякий случай.
             raise ValueError("conditional: заданы новые поля, но triggers/when пустые")
 
         return v
@@ -222,19 +238,19 @@ class ExtractionFieldConfig(BaseModel):
     type: ExtractionFieldType = ExtractionFieldType.STRING
     description: str = ""
 
-    # Подсказки для rules-based извлечения
+    # Подсказки для rules‑based извлечения.
     regex_patterns: list[str] = Field(default_factory=list)
     keyword_hints: list[str] = Field(default_factory=list)
 
-    # Инструкция для LLM по этому полю
+    # Инструкция для LLM по этому полю.
     llm_instructions: str = ""
 
-    # Пост-условия / валидация
+    # Пост‑условия / валидация.
     required: bool = False
     allowed_values: list[str] = Field(default_factory=list)
-    unit: str | None = None  # "days", "%", "RUB", и т.п.
+    unit: str | None = None  # "days", "%", "RUB" и т.п.
 
-    # Дополнительные поля Stage 8 (если захочешь использовать):
+    # Дополнительные поля Stage 8 (если захочешь использовать).
     min_value: float | None = None
     max_value: float | None = None
 
@@ -249,9 +265,9 @@ class ExtractionMode(str, Enum):
 
 class ExtractionConfig(BaseModel):
     """
-    Конфигурация структурированного извлечения для check.
+    Конфигурация структурированного извлечения для проверки.
 
-    Если enabled=False — check работает как обычная проверка (pass/fail),
+    Если enabled=False — проверка работает как обычная (pass/fail),
     без попытки вытащить дополнительные поля.
     """
 
@@ -259,7 +275,7 @@ class ExtractionConfig(BaseModel):
     mode: ExtractionMode = ExtractionMode.HYBRID
     fields: list[ExtractionFieldConfig] = Field(default_factory=list)
 
-    # Нужно ли сохранять результат извлечения в structured_data в CheckResult
+    # Нужно ли сохранять результат извлечения в structured_data в CheckResult.
     store_payload: bool = True
 
     @field_validator("fields")
@@ -277,34 +293,46 @@ class ExtractionConfig(BaseModel):
 
 class CheckDefinition(BaseModel):
     """
-    A single check (inspection) defined in a playbook.
+    Описание одной проверки (check), с которой работает движок.
 
-    Example:
-        id: coc_001
-        name: Change of Control
-        description: Check if the contract contains a change of control clause
-        doc_types: [SPA, SHA]
-        severity: critical
-        detector:
-            type: hybrid
-            rules:
-                keywords: ["смена контроля", "change of control"]
-            llm:
-                prompt_template: "Does this contract contain..."
+    Источник данных:
+    - либо YAML‑плейбук (ручная/отладочная загрузка),
+    - либо скомпилированный плейбук из PlaybookVersion.compiled_checks.
+
+    Для боевого пайплайна более типичен второй сценарий: YAML собирается
+    в compiled_checks (core.playbooks.compiler), а затем здесь
+    восстанавливается в CheckDefinition.
     """
 
     id: str
     name: str
     description: str = ""
-    doc_types: list[str] = Field(default_factory=list)  # Empty = all types
+    doc_types: list[str] = Field(default_factory=list)  # Пусто = применимо ко всем типам.
 
-    # NEW: scope определяет, на каком уровне выполняется проверка
+    # Источник определения проверки (для DD Grid / фильтров):
+    #
+    # Значения сюда попадают из GlobalCheckConfig.source (CheckSource) через
+    # loader.load_playbook_from_dict и нормализуются в верхний регистр.
+    #
+    # Основные варианты:
+    #   - "GLOBAL_PLAYBOOK"  – риск из глобального плейбука
+    #                          (общие темы для любых договоров).
+    #   - "DOCUMENT_TYPE"    – риск из инструкций по типу документа.
+    #   - "SYSTEM"           – системные / технические проверки.
+    #
+    # Вручную в YAML это поле обычно не задаётся; его присваивает компилятор.
+    origin: str | None = None
+
+    # NEW: scope определяет, на каком уровне выполняется проверка.
+    # "document" – проверка одного документа (основной и текущий режим).
+    # "family"   – потенциально: проверка группы взаимосвязанных документов.
+    # "deal"     – потенциально: проверка сделки целиком (агрегация по всем докам).
     scope: Literal["document", "family", "deal"] = "document"
 
-    # Базовая severity по умолчанию
-    severity: str = "medium"  # critical, high, medium
+    # Базовая severity по умолчанию.
+    severity: str = "medium"  # critical, high, medium, low
 
-    # Outcome-зависимая severity (опционально)
+    # Outcome‑зависимая severity (опционально).
     severity_if_fail: str | None = None
     severity_if_pass: str | None = None
     severity_if_unclear: str | None = None
@@ -321,9 +349,15 @@ class CheckDefinition(BaseModel):
 
 class PlaybookDefinition(BaseModel):
     """
-    Complete playbook with metadata and checks.
+    Полное описание плейбука (метаданные + список проверок).
 
-    Loaded from a YAML file and validated via Pydantic.
+    Источники:
+    - YAML‑файл (ручная/отладочная загрузка через load_playbook_from_yaml),
+    - dict из PlaybookVersion.compiled_checks (боевой путь через
+      load_playbook_from_version / load_playbook_from_dict).
+
+    В обоих случаях результатом является единый объект PlaybookDefinition,
+    который использует движок для выбора и выполнения проверок.
     """
 
     name: str = "Default Playbook"
@@ -334,11 +368,11 @@ class PlaybookDefinition(BaseModel):
     checks: list[CheckDefinition] = Field(default_factory=list)
 
     def get_checks_for_doc_type(self, doc_type: str) -> list[CheckDefinition]:
-        """Get checks applicable to a specific document type."""
+        """Вернуть проверки, применимые к указанному типу документа."""
         result: list[CheckDefinition] = []
         for check in self.checks:
             if not check.doc_types:
-                # No restriction → applies to all types
+                # Нет ограничений по типу документа → подходит для всех типов.
                 result.append(check)
             elif doc_type in check.doc_types:
                 result.append(check)
@@ -350,18 +384,25 @@ class PlaybookDefinition(BaseModel):
         applicable_triggers: list[str],
     ) -> list[CheckDefinition]:
         """
-        Получить список checks для doc_type с учётом триггеров.
+        Получить список проверок для doc_type с учётом триггеров.
 
-        Для обратной совместимости:
-        - если check.conditional отсутствует или пустой → включаем check;
-        - если в conditional указан старый trigger и он есть в applicable_triggers → включаем;
-        - если используются новые triggers (список TriggerCondition),
-          включаем check, если хотя бы один из name попадает в applicable_triggers.
+        Логика (обратная совместимость):
+
+        - Если у проверки нет conditional → включаем всегда.
+        - Если в conditional указан старый trigger (строка) и он есть
+          в applicable_triggers → включаем.
+        - Если используются новые triggers (список TriggerCondition),
+          включаем проверку, если хотя бы один из name есть
+          в applicable_triggers и его state == "on".
         """
         base_checks = self.get_checks_for_doc_type(doc_type)
         if not applicable_triggers:
-            # Если триггеров нет, возвращаем только безусловные проверки
-            return [check for check in base_checks if not getattr(check, "conditional", None)]
+            # Если триггеров нет, возвращаем только безусловные проверки.
+            return [
+                check
+                for check in base_checks
+                if not getattr(check, "conditional", None)
+            ]
 
         trigger_set = set(applicable_triggers or [])
         result: list[CheckDefinition] = []
@@ -369,17 +410,17 @@ class PlaybookDefinition(BaseModel):
         for check in base_checks:
             cond = getattr(check, "conditional", None)
 
-            # Нет условной конфигурации — всегда включаем
+            # Нет условной конфигурации — всегда включаем.
             if not cond:
                 result.append(check)
                 continue
 
-            # 1) Старое поле trigger (строка)
+            # 1) Старое поле trigger (строка).
             if cond.trigger and cond.trigger in trigger_set:
                 result.append(check)
                 continue
 
-            # 2) Новый список triggers (TriggerCondition)
+            # 2) Новый список triggers (TriggerCondition).
             if cond.triggers:
                 if any(t.name in trigger_set and t.state == "on" for t in cond.triggers):
                     result.append(check)

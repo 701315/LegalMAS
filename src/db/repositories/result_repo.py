@@ -15,6 +15,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.result import CheckResult
 from ..models.document import Document  # НОВОЕ: подтягиваем документы
 
+def normalize_origin_type(origin: str | None) -> str | None:
+    """
+    Нормализует "сырое" поле origin из БД в логический тип источника.
+
+    Возвращает одно из:
+    - "global"  — глобальный плейбук;
+    - "doctype" — плейбук по типу документа;
+    - "custom"  — все прочие случаи / кастомные источники;
+    - None      — если origin пустой.
+    """
+    if origin is None:
+        return None
+
+    raw = origin
+    upper = raw.upper()
+
+    # Глобальный плейбук (старые и новые варианты)
+    if upper == "GLOBAL_PLAYBOOK" or raw == "global_playbook" or raw == "project_playbook":
+        return "global"
+
+    # Проверки по типу документа
+    if upper == "DOCUMENT_TYPE":
+        return "doctype"
+
+    # Всё остальное считаем кастомным/прочим источником
+    return "custom"
+
 
 class ResultRepository:
     def __init__(self, session: AsyncSession):
@@ -36,8 +63,17 @@ class ResultRepository:
         structured_data: dict | None = None,
         conditional_check_triggered: bool = False,
         trigger_name: str | None = None,
+        origin: str | None = None,
     ) -> CheckResult:
-        """Create a check result."""
+        """Create a check result.
+
+        origin:
+            Источник определения проверки. Ожидаются значения:
+            - "GLOBAL_PLAYBOOK"  – глобальный плейбук,
+            - "DOCUMENT_TYPE"    – инструкции по типу документа,
+            - "SYSTEM"           – системные/тех. проверки.
+            Если не задано, можно передать None — поле останется пустым.
+        """
         cr = CheckResult(
             run_id=run_id,
             document_id=document_id,
@@ -53,10 +89,12 @@ class ResultRepository:
             structured_data=structured_data,
             conditional_check_triggered=conditional_check_triggered,
             trigger_name=trigger_name,
+            origin=origin,
         )
         self.session.add(cr)
         await self.session.flush()
         return cr
+
 
     async def get_by_run(self, run_id: uuid.UUID, severity: str | None = None) -> list[CheckResult]:
         """Get all results for a run, optionally filtered by severity (без join с документами)."""
@@ -73,6 +111,7 @@ class ResultRepository:
 
         Возвращает список dict'ов, совместимых с CheckResultResponse:
         - поля из CheckResult;
+        - origin (источник определения проверки);
         - document_name, doc_type;
         - doc_classification_level, doc_classification_confidence.
         """
@@ -112,6 +151,10 @@ class ResultRepository:
                 "qc_comment": cr.qc_comment,
                 "qc_at": cr.qc_at,
                 "created_at": cr.created_at,
+                # исходное "сырое" origin
+                "origin": cr.origin,
+                # нормализованный тип источника для фронта и API
+                "origin_type": normalize_origin_type(cr.origin),
                 # обогащение из Document
                 "document_name": document_name,
                 "doc_type": doc_type,
@@ -123,6 +166,7 @@ class ResultRepository:
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
             }
+
             out.append(item)
 
         return out
@@ -265,6 +309,10 @@ class ResultRepository:
                 "qc_comment": cr.qc_comment,
                 "qc_at": cr.qc_at,
                 "created_at": cr.created_at,
+                # исходное "сырое" origin
+                "origin": cr.origin,
+                # нормализованный тип источника
+                "origin_type": normalize_origin_type(cr.origin),
                 "document_name": document_name,
                 "doc_type": doc_type_value,
                 "doc_classification_level": doc_level,
@@ -273,6 +321,7 @@ class ResultRepository:
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
             }
+
             items.append(item)
 
         return items, total

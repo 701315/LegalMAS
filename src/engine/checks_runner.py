@@ -1,5 +1,6 @@
 # src/engine/checks_runner.py
 
+
 """
 CheckRunner: playbook-based checks executor.
 
@@ -23,7 +24,7 @@ CheckRunner: playbook-based checks executor.
 
 Главное отличие от старой версии:
 - вместо doc.text теперь работаем со структурированными чанками на основе
-  clause tree + layout. Это сильно повышает качество поиска рисков и
+  clause tree + layout. Это повышает качество поиска рисков и
   делает результаты объяснимыми для юриста.
 """
 
@@ -42,9 +43,9 @@ logger = get_logger(__name__)
 
 # Мягкие лимиты для прод-окружения (можно вынести в settings)
 MAX_DOCS_PER_RUN = 500
-MAX_ERRORS_PER_RUN = 50  # мягкий предохранитель от "развалившихся" прогонов
-MAX_CHUNKS_PER_DOC = 2000  # защита от "взрывных" деревьев
-MAX_CHUNK_TEXT_CHARS = 20_000  # защита от слишком длинных клауз в одном чанке
+MAX_ERRORS_PER_RUN = 50       # мягкий предохранитель от "развалившихся" прогонов
+MAX_CHUNKS_PER_DOC = 2000     # защита от "взрывных" деревьев
+MAX_CHUNK_TEXT_CHARS = 20_000 # защита от слишком длинных клауз в одном чанке
 
 
 class CheckRunner:
@@ -66,26 +67,24 @@ class CheckRunner:
         1) выбирает релевантные checks из playbook по doc_type и триггерам;
         2) получает чанки через DocumentContentService;
         3) прогоняет checks через CheckExecutor;
-        4) сохраняет результаты в check_results через UoW.
+        4) сохраняет результаты в check_results через репозиторий.
     """
 
     def __init__(
         self,
         llm_client,
-        origin: str = "project_playbook",
         playbook_version_id: uuid.UUID | None = None,
     ) -> None:
         """
         llm_client — клиент для LLM.
-        origin — откуда взят плейбук:
-            - "project_playbook" — плейбук проекта/Run;
-            - "global_playbook" — глобальный/тестовый плейбук.
+
+        playbook_version_id:
+            Идентификатор версии плейбука, под которой выполняются проверки.
+            Сохраняется в CheckResult.playbook_version_id для аудита.
         """
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
-        self.origin = origin
         self.playbook_version_id = playbook_version_id
-
 
     async def run_deal_checks(
         self,
@@ -99,6 +98,7 @@ class CheckRunner:
         Вход:
           - deal_id: UUID сделки.
           - run_id: UUID сущности Run (создаётся снаружи).
+          - playbook: PlaybookDefinition (загружен из compiled_checks).
 
         Возвращает dict:
           - "deal_id": str
@@ -237,7 +237,7 @@ class CheckRunner:
         failed_checks = 0
 
         async with db_uow() as uow:
-            repo = uow.check_results  # CheckResultRepository
+            repo = uow.check_results  # ResultRepository
 
             # 1. Подготовка типов и триггеров
             doc_type = getattr(doc, "doc_type", "") or ""
@@ -338,7 +338,7 @@ class CheckRunner:
                 if exec_result.get("result") == "fail":
                     failed_checks += 1
 
-                # --- Маппинг exec_result -> DTO для CheckResult ---
+                # --- Маппинг exec_result -> данные для CheckResult ---
                 reason = exec_result.get("reason")
                 evidence = exec_result.get("evidence") or ""
                 detector_method = exec_result.get("detector_method")
@@ -384,38 +384,36 @@ class CheckRunner:
                         else None
                     )
 
-                origin = self.origin
-                playbook_version_id = self.playbook_version_id
+                # Источник определения проверки:
+                # берём из CheckDefinition.origin, если есть.
+                check_origin = getattr(check, "origin", None)
 
-                dto = {
-                    "run_id": run_id,
-                    "document_id": doc.id,
-                    "check_id": exec_result["check_id"],
-                    "check_name": exec_result["check_name"],
-                    "result": exec_result["result"],  # "fail" / "pass" / "unclear"
-                    "severity": exec_result["severity"],
-                    "value_text": value_text,
-                    "evidence_ref": evidence_ref,
-                    "confidence": exec_result.get("confidence"),
-                    "detector_used": detector_method,
-                    "quality_flags": quality_flags or None,
-                    "structured_data": structured_data,
-                    "conditional_check_triggered": is_conditional,
-                    "trigger_name": trigger_name,
-                    "origin": origin,
-                    "playbook_version_id": playbook_version_id,
-                    "page": exec_result.get("page"),
-                    "clause_uid": exec_result.get("clause_uid"),
-                    "element_id": exec_result.get("element_id"),
-                    "bbox": exec_result.get("bbox"),
-                }
+                # Сохраняем результат через репозиторий.
+                await repo.create(
+                    run_id=run_id,
+                    document_id=doc.id,
+                    check_id=exec_result["check_id"],
+                    check_name=exec_result["check_name"],
+                    result=exec_result["result"],  # "fail" / "pass" / "unclear"
+                    severity=exec_result["severity"],
+                    value_text=value_text,
+                    evidence_ref=evidence_ref,
+                    confidence=exec_result.get("confidence"),
+                    detector_used=detector_method,
+                    quality_flags=quality_flags or None,
+                    structured_data=structured_data,
+                    conditional_check_triggered=is_conditional,
+                    trigger_name=trigger_name,
+                    origin=check_origin,
+                )
 
-                await repo.create(dto)
+                # playbook_version_id, page, clause_uid, element_id, bbox
+                # сохраняются в других местах/таблицах (evidence / documents),
+                # либо могут быть добавлены в create() при необходимости.
 
-            # помечаем документ как полностью проверенный ===
+            # помечаем документ как полностью проверенный
             doc_repo = DocumentRepository(uow.session)
             await doc_repo.set_completed(doc.id)
-
             # Коммит делает db_uow() при выходе из контекста
 
         return total_checks, failed_checks

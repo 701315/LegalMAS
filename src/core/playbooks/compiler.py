@@ -1,7 +1,54 @@
 # core/playbooks/compiler.py
 
+"""
+Playbook compiler.
+
+Этот модуль отвечает за:
+
+1) Загрузку определений глобальных чеков из YAML-файлов
+   (каталог playbooks/global_checks, рекурсивно по подпапкам).
+
+2) Загрузку bundle-конфигов (UI-пресетов) из YAML-файлов
+   (каталог playbooks/bundles).
+
+3) Сборку "скомпилированного плейбука" (compiled_checks) для сохранения
+   в PlaybookVersion.compiled_checks.
+
+Compiled плейбук — это простой JSON-совместимый dict со структурой:
+
+    {
+      "checks": [ GlobalCheckConfig, ... ],
+      "meta": {
+        "config": { ... PlaybookConfig ... },
+        "bundle_id": "...",
+        "check_ids": ["CHK_001", "CHK_002", ...],
+        "version_schema": 1,
+        "source_type": "global_checks_v1"
+      }
+    }
+
+Где:
+
+- GlobalCheckConfig описывает один чек, доступный движку проверок.
+- Поле source в GlobalCheckConfig фиксирует происхождение чека и
+  используется, в том числе, для фильтров в DD Grid:
+
+    - GLOBAL_PLAYBOOK  – чек пришёл из глобального плейбука
+                         (универсальные риски "для любых договоров").
+    - DOCUMENT_TYPE    – чек пришёл из инструкций по типу документа.
+                         Для текущего генератора global_checks_v1
+                         это может не использоваться, но поле зарезервировано.
+    - SYSTEM           – системные / технические проверки, созданные кодом.
+
+Текущая реализация build_compiled_checks формирует только GLOBAL_PLAYBOOK
+(глобальные чеки, собранные по bundles + include/exclude).
+Но структура данных уже готова к тому, чтобы в будущем добавлять
+DOCUMENT_TYPE и SYSTEM, не ломая формат.
+"""
+
 from __future__ import annotations
 
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -19,24 +66,29 @@ BUNDLES_DIR = Path("playbooks/bundles")
 
 # ===== Pydantic-схемы для compiled_checks =====
 
+
 class PlaybookConfig(BaseModel):
-    """Снимок настроек, которыми пользователь собрал плейбук."""
+    """Снимок настроек, которыми пользователь собрал плейбук.
+
+    Это "рецепт", по которому был сформирован итоговый набор чеков.
+    Его можно показать в UI и использовать для пересборки.
+    """
 
     bundles: List[str] = Field(
         default_factory=list,
-        description="Список ID bundle-файлов, которые были включены."
+        description="Список ID bundle-файлов, которые были включены.",
     )
     include_ids: List[str] = Field(
         default_factory=list,
-        description="Чек-ID, которые пользователь явно добавил поверх bundle'ов."
+        description="Чек-ID, которые пользователь явно добавил поверх bundle'ов.",
     )
     exclude_ids: List[str] = Field(
         default_factory=list,
-        description="Чек-ID, которые пользователь явно выключил."
+        description="Чек-ID, которые пользователь явно выключил.",
     )
     profile: Optional[str] = Field(
         default=None,
-        description="Профиль глубины проверки: core/full/quick и т.п."
+        description="Профиль глубины проверки: core/full/quick и т.п.",
     )
 
 
@@ -65,8 +117,28 @@ class PlaybookMeta(BaseModel):
     )
 
 
+class CheckSource(str, Enum):
+    """Источник определения проверки (используется и бекендом, и UI).
+
+    Значения:
+
+    - GLOBAL_PLAYBOOK  – чек пришёл из глобального плейбука
+                         (универсальные темы для любых договоров).
+    - DOCUMENT_TYPE    – чек определён в инструкциях по конкретному типу документа.
+    - SYSTEM           – чек сгенерирован системой (тех/диагностические проверки).
+    """
+
+    GLOBAL_PLAYBOOK = "GLOBAL_PLAYBOOK"
+    DOCUMENT_TYPE = "DOCUMENT_TYPE"
+    SYSTEM = "SYSTEM"
+
+
 class GlobalCheckConfig(BaseModel):
-    """Описание одного глобального чека из YAML."""
+    """Описание одного глобального чека (как он хранится в compiled_checks).
+
+    Это уже "плоская" структура, готовая для использования движком проверок
+    и для отображения в UI (через PlaybookDefinition / CheckDefinition).
+    """
 
     id: str
     name: str
@@ -84,9 +156,13 @@ class GlobalCheckConfig(BaseModel):
         default_factory=list,
         description="К каким типам документов чек применим.",
     )
-    source: str = Field(
-        default="global_playbook",
-        description="Источник: global_playbook / type_playbook / client_custom и т.п.",
+
+    # ВАЖНО: это ровно то поле, которое будет транслироваться в origin на уровне CheckDefinition.
+    # Для глобального плейбука мы ставим GLOBAL_PLAYBOOK, для будущих инструкций по типу
+    # документа можно будет использовать DOCUMENT_TYPE, для тех. чеков – SYSTEM.
+    source: CheckSource = Field(
+        default=CheckSource.GLOBAL_PLAYBOOK,
+        description="Источник: GLOBAL_PLAYBOOK / DOCUMENT_TYPE / SYSTEM.",
     )
 
     detector_type: str = Field(
@@ -133,7 +209,11 @@ class GlobalCheckConfig(BaseModel):
 
 
 class BundleConfig(BaseModel):
-    """Описание UI-пресета (bundle) из YAML."""
+    """Описание UI-пресета (bundle) из YAML.
+
+    Bundle – это просто именованный набор чеков (по id), который можно
+    выбрать в интерфейсе для быстрого старта (например, "Core SPA checks").
+    """
 
     id: str
     name: str
@@ -142,7 +222,11 @@ class BundleConfig(BaseModel):
 
 
 class CompiledPlaybook(BaseModel):
-    """Схема JSON, который будет лежать в PlaybookVersion.compiled_checks."""
+    """Схема JSON, который будет лежать в PlaybookVersion.compiled_checks.
+
+    - checks: финальный список чеков (GlobalCheckConfig) после всех фильтров.
+    - meta: служебная информация о том, как этот список был получен.
+    """
 
     checks: List[GlobalCheckConfig]
     meta: PlaybookMeta
@@ -150,7 +234,21 @@ class CompiledPlaybook(BaseModel):
 
 # ===== Загрузка global_checks и bundles =====
 
+
 def load_global_checks() -> Dict[str, GlobalCheckConfig]:
+    """Загрузить все определения глобальных чеков из GLOBAL_CHECKS_DIR.
+
+    Ожидается, что каждый YAML-файл описывает один чек в формате,
+    совместимом с GlobalCheckConfig (id, name, severity, detector_type и т.д.).
+
+    Поиск идёт рекурсивно по подпапкам (rglob("*.yaml")).
+
+    Возвращает:
+        dict: {check_id: GlobalCheckConfig}.
+
+    Исключения:
+        RuntimeError – при ошибке чтения файла или невалидной схеме.
+    """
     import yaml
 
     if not GLOBAL_CHECKS_DIR.exists():
@@ -158,9 +256,8 @@ def load_global_checks() -> Dict[str, GlobalCheckConfig]:
         return {}
 
     checks: Dict[str, GlobalCheckConfig] = {}
-    # было:
-    # for path in sorted(GLOBAL_CHECKS_DIR.glob("*.yaml")):
-    # стало (рекурсивно по подпапкам):
+
+    # Рекурсивно по подпапкам: playbooks/global_checks/**.yaml
     for path in sorted(GLOBAL_CHECKS_DIR.rglob("*.yaml")):
         try:
             with path.open("r", encoding="utf-8") as f:
@@ -184,11 +281,17 @@ def load_global_checks() -> Dict[str, GlobalCheckConfig]:
     return checks
 
 
-
 def load_bundle(bundle_id: str) -> BundleConfig:
-    """Загружает YAML bundle по id из playbooks/bundles.
+    """Загрузить YAML bundle по его id из каталога playbooks/bundles.
 
-    Если файла нет или формат неверный — выбрасывает FileNotFoundError / RuntimeError.
+    bundle_id маппится на файл <bundle_id>.yaml.
+
+    Возвращает:
+        BundleConfig.
+
+    Исключения:
+        FileNotFoundError – если файл не найден.
+        RuntimeError      – если файл не читается или схема невалидна.
     """
     import yaml
 
@@ -229,6 +332,7 @@ def load_bundle(bundle_id: str) -> BundleConfig:
 
 # ===== Построение compiled_checks =====
 
+
 def build_compiled_checks(
     all_checks: Dict[str, GlobalCheckConfig],
     *,
@@ -238,17 +342,40 @@ def build_compiled_checks(
     profile: Optional[str] = None,
     primary_bundle_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Собирает структуру для PlaybookVersion.compiled_checks.
+    """Собрать структуру для PlaybookVersion.compiled_checks.
 
     На вход:
-      - all_checks: все глобальные чек-файлы (из load_global_checks),
-      - bundles: список bundle_id, которые выбрал пользователь,
-      - include_ids: явные добавления,
-      - exclude_ids: явные исключения,
-      - profile: профиль глубины проверки (core/full/quick),
-      - primary_bundle_id: основной bundle для удобства трассировки.
+        all_checks:
+            Все доступные глобальные чеки (результат load_global_checks()).
+        bundles:
+            Список bundle_id, которые выбрал пользователь.
+        include_ids:
+            Чек-ID, которые пользователь явно добавил поверх bundle'ов.
+        exclude_ids:
+            Чек-ID, которые пользователь явно выключил.
+        profile:
+            Профиль глубины проверки (например, 'core' / 'full' / 'quick').
+        primary_bundle_id:
+            Основной bundle для удобства трассировки (может быть None).
 
-    На выход: dict, совместимый с CompiledPlaybook.model_dump().
+    Алгоритм:
+
+        1) Собираем базовый список чек-ID из выбранных bundles.
+        2) Добавляем include_ids.
+        3) Удаляем дубликаты, сохраняя порядок.
+        4) Применяем exclude_ids.
+        5) Проверяем, что все ID присутствуют в all_checks.
+        6) При необходимости фильтруем по profile.
+        7) Формируем CompiledPlaybook (checks + meta) и возвращаем как dict.
+
+    Важно:
+
+    - Поле GlobalCheckConfig.source уже заполнено на этапе чтения YAML.
+      Для текущего генератора global_checks_v1 это, как правило,
+      CheckSource.GLOBAL_PLAYBOOK.
+    - Это поле затем транслируется в origin на уровне CheckDefinition
+      (см. engine/playbook/loader.py) и используется DD Grid для фильтров
+      "Глобальный плэйбук" и "По типу документа".
     """
     bundles = bundles or []
     include_ids = include_ids or []

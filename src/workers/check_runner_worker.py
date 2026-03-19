@@ -1,5 +1,6 @@
 # src/workers/check_runner_worker.py
 
+
 """
 CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки.
 
@@ -45,7 +46,7 @@ logger = get_logger(__name__)
     bind=True,
     name="workers.run_deal_checks",
     track_job=False,
-    #queue="default",
+    # queue="default",
 )
 def run_deal_checks(
     self,
@@ -101,10 +102,16 @@ def run_deal_checks(
                 # 3. Собираем PlaybookDefinition из compiled_checks
                 playbook = load_playbook_from_version(pb_version)
 
-                # 4. Создаём CheckRunner с origin=project_playbook
+                # 4. Создаём CheckRunner.
+                #
+                # Источник конкретной проверки (origin) теперь берётся
+                # из CheckDefinition.origin, который заполняется на этапе
+                # загрузки плейбука (GLOBAL_PLAYBOOK / DOCUMENT_TYPE / SYSTEM)
+                # и затем записывается в CheckResult.origin.
+                #
+                # Поэтому здесь не задаём общий origin для всего ранна.
                 runner = CheckRunner(
                     llm_client=llm_client,
-                    origin="project_playbook",
                     playbook_version_id=run_obj.playbook_version_id,
                 )
 
@@ -146,7 +153,9 @@ def run_deal_checks(
                 try:
                     metrics.checks_duration.labels(stage="deal_checks").observe(duration)
                 except Exception:
-                    logger.exception("run_deal_checks: failed to update checks_duration metric")
+                    logger.exception(
+                        "run_deal_checks: failed to update checks_duration metric"
+                    )
 
                 logger.info(
                     "Run deal checks completed",
