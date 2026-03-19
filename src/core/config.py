@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     EXTRACTION_OCR_DPI: int = 300
     EXTRACTION_MAX_PAGES: int = 500
     EXTRACTION_OCR_ENABLED: bool = True
+    EXTRACTION_HARD_TIMEOUT_SECONDS: int = 300
+
 
     # --- Office → PDF Converter (DOC/DOCX) ---
     DOCX_CONVERTER_URL: str | None = None

@@ -53,7 +53,7 @@ llm:
     5) Насколько формулировка форс-мажора рискованна для Target.
 
     Верни строго JSON:
-    {
+    {{
       "covers_classic_events": "yes|no|unclear",
       "covers_sanctions_and_regulatory_actions": "yes|no|unclear",
       "includes_economic_unfeasibility_or_broad_market_changes": "yes|no|unclear",
@@ -62,7 +62,16 @@ llm:
       "termination_right_on_long_fm": "yes|no|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

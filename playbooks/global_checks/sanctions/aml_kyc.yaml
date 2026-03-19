@@ -48,14 +48,23 @@ llm:
     5) Насколько полный и сбалансированный AML/KYC-блок с точки зрения Target.
 
     Верни строго JSON:
-    {
+    {{
       "has_kyc_obligations": "yes|no|unclear",
       "has_aml_monitoring_and_reporting": "yes|no|unclear",
       "requires_beneficial_owner_disclosure": "yes|no|unclear",
       "aml_kyc_breach_consequences": "none|suspension|termination|mixed|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

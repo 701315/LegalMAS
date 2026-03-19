@@ -52,14 +52,23 @@ llm:
     5) Насколько последствия расторжения рискованны для Target.
 
     Верни строго JSON:
-    {
+    {{
       "advance_and_minimum_payments_treatment": "favorable|neutral|unfavorable|unclear",
       "confidentiality_survival": "none|short|standard|long|unclear",
       "ip_and_license_survival": "none|short|standard|long|unclear",
       "other_surviving_obligations": "строка с перечислением",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

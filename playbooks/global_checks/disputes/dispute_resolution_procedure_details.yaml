@@ -53,14 +53,23 @@ llm:
     4) Есть ли противоречия или неопределённость (например, одновременный выбор суда и арбитража).
 
     Верни строго JSON:
-    {
+    {{
       "arbitration_institution_and_seat": "строка с описанием или 'none'",
       "arbitration_language": "строка с указанием языка или 'unclear'",
       "has_court_support_for_arbitration": "yes|no|unclear",
       "has_potential_conflict_between_court_and_arbitration_clauses": "yes|no|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

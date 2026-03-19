@@ -45,14 +45,23 @@ llm:
     6) Насколько эти положения критичны для операций Target.
 
     Верни строго JSON:
-    {
+    {{
       "mentions_export_control_or_dual_use": "yes|no|unclear",
       "requires_export_compliance": "yes|no|unclear",
       "requires_export_licenses": "yes|no|unclear",
       "restricts_reexport_or_third_party_transfers": "yes|no|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

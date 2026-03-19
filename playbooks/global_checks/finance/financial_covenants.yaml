@@ -54,7 +54,7 @@ llm:
     4) Насколько ковенанты опасны для стабильности структуры долгов Target.
 
     Верни строго JSON:
-    {
+    {{
       "has_leverage_or_coverage_covenants": "yes|no|unclear",
       "has_dividend_restrictions": "yes|no|unclear",
       "has_new_debt_limitations": "yes|no|unclear",
@@ -62,7 +62,16 @@ llm:
       "likelihood_of_breach_after_transaction": "low|medium|high|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

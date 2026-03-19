@@ -25,6 +25,7 @@ Downstream consumers:
   - Runner / Retrieval (Stage 8): BM25 + embeddings over elements
 """
 
+import time
 import hashlib
 import io
 from dataclasses import dataclass, field
@@ -120,23 +121,11 @@ def is_ocr_available() -> bool:
 def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
     """
     Extract text and tables from a PDF document.
-
-    Steps:
-      1. Open PDF with pdfplumber
-      2. For each page — detect strategy (text vs OCR)
-      3. Extract elements using appropriate strategy
-      4. Extract tables (pdfplumber, text pages only)
-      5. Calculate confidence metrics
-
-    Returns ExtractionResult with elements, tables, and metadata.
-
-    Quarantine conditions (evaluated by caller):
-      - 0 elements extracted
-      - avg_ocr_confidence < EXTRACTION_OCR_QUARANTINE_THRESHOLD
-      - PDF parsing failure (errors list non-empty and elements empty)
     """
     result = ExtractionResult()
     element_index = 0
+    start_time = time.time()
+    hard_timeout = getattr(settings, "EXTRACTION_HARD_TIMEOUT_SECONDS", 120)
 
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -148,18 +137,37 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
 
             if result.page_count > settings.EXTRACTION_MAX_PAGES:
                 result.errors.append(
-                    f"PDF has {result.page_count} pages, " f"max {settings.EXTRACTION_MAX_PAGES}"
+                    f"PDF has {result.page_count} pages, "
+                    f"max {settings.EXTRACTION_MAX_PAGES}"
                 )
                 return result
 
             text_pages = ocr_pages = 0
 
             for page_num, page in enumerate(pdf.pages, start=1):
+                # жёсткий таймаут на весь документ
+                if time.time() - start_time > hard_timeout:
+                    msg = (
+                        f"Extraction hard timeout after {hard_timeout} seconds "
+                        f"on page {page_num}"
+                    )
+                    logger.error(msg, document_id=document_id)
+                    result.errors.append(msg)
+                    break
+
+                logger.debug(
+                    "Extract: starting page",
+                    document_id=document_id,
+                    page=page_num,
+                )
+
                 strategy = _detect_page_strategy(page)
                 result.page_strategies[page_num] = strategy.value
 
                 if strategy == PageStrategy.TEXT:
-                    page_elements = _extract_text_page(page, document_id, page_num, element_index)
+                    page_elements = _extract_text_page(
+                        page, document_id, page_num, element_index
+                    )
                     result.elements.extend(page_elements)
                     element_index += len(page_elements)
                     text_pages += 1
@@ -178,13 +186,9 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                             f"Page {page_num}: OCR required but Tesseract not available"
                         )
 
-                # PageStrategy.EMPTY — skip silently
-
-                # Tables: pdfplumber works well for text-based pages
                 page_tables = _extract_tables(page, page_num)
                 result.tables.extend(page_tables)
 
-            # Overall strategy
             if ocr_pages > 0 and text_pages > 0:
                 result.strategy = "hybrid"
             elif ocr_pages > 0:
@@ -192,7 +196,6 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
             else:
                 result.strategy = "text"
 
-            # Average OCR confidence
             result.avg_ocr_confidence = (
                 sum(result.ocr_confidences) / len(result.ocr_confidences)
                 if result.ocr_confidences
@@ -204,6 +207,7 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
         logger.error("PDF extraction failed", error=str(e), document_id=document_id)
 
     return result
+
 
 
 # ─── Strategy detection ───────────────────────────────────────────────────────

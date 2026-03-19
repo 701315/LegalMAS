@@ -58,7 +58,7 @@ llm:
        создают значимый риск для Target.
 
     Верни строго JSON:
-    {
+    {{
       "outsourced_it_functions_summary": "краткое описание аутсорсинг-функций",
       "provider_security_obligations_present": "yes|no|unclear",
       "provider_can_suspend_or_terminate_service_easily": "yes|no|unclear",
@@ -66,7 +66,16 @@ llm:
       "it_dependency_risk_level": "low|medium|high|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{    
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

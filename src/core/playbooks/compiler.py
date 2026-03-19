@@ -266,6 +266,35 @@ def load_global_checks() -> Dict[str, GlobalCheckConfig]:
             logger.error("Failed to read global check YAML %s: %s", path, e)
             raise RuntimeError(f"Cannot read global check file: {path}") from e
 
+        # НОРМАЛИЗАЦИЯ source перед валидацией:
+        # Исторически в YAML могли писать "global_playbook" строчными.
+        # Здесь мы аккуратно приводим это к enum CheckSource, чтобы
+        # не падать на старых плейбуках и при этом сохранить строгий enum.
+        source_raw = raw.get("source")
+        if isinstance(source_raw, str):
+            # Приводим к верхнему регистру для сопоставления с enum
+            normalized = source_raw.strip().upper()
+
+            # Поддерживаем исторический вариант "global_playbook"
+            if normalized == "GLOBAL_PLAYBOOK":
+                raw["source"] = CheckSource.GLOBAL_PLAYBOOK
+            elif normalized == "DOCUMENT_TYPE":
+                raw["source"] = CheckSource.DOCUMENT_TYPE
+            elif normalized == "SYSTEM":
+                raw["source"] = CheckSource.SYSTEM
+            else:
+                # Неизвестное значение — логируем и даём понятную ошибку
+                logger.error(
+                    "Unknown check source '%s' in %s. "
+                    "Expected one of: GLOBAL_PLAYBOOK, DOCUMENT_TYPE, SYSTEM",
+                    source_raw,
+                    path,
+                )
+                raise RuntimeError(
+                    f"Invalid 'source' value '{source_raw}' in {path}. "
+                    "Use GLOBAL_PLAYBOOK / DOCUMENT_TYPE / SYSTEM."
+                )
+
         try:
             cfg = GlobalCheckConfig(**raw)
         except ValidationError as e:

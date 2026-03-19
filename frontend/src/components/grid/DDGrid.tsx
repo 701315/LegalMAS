@@ -243,6 +243,15 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           field,
           minWidth: 180,
           flex: 1,
+          // добавляем простой форматтер для object-значения
+          valueFormatter: (params) => {
+            const res = params.data?.[field] as CheckResult | undefined;
+            if (!res) return "";
+            if (res.result === "fail") {
+              return res.severity ? `fail (${res.severity})` : "fail";
+            }
+            return res.result;
+          },
           tooltipValueGetter: (p: any) => {
             const res: CheckResult | undefined = p.data?.[field];
             return res?.value_text || "";
@@ -452,6 +461,8 @@ const ListGrid: React.FC<DDGridProps> = ({
         headerName: "Flags",
         field: "quality_flags",
         width: 90,
+        valueFormatter: (params) =>
+          params.value ? JSON.stringify(params.value) : "",
         cellRenderer: (params: ICellRendererParams<CheckResult>) => (
           <QualityFlagRenderer result={params.data as CheckResult} />
         ),

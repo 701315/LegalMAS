@@ -61,7 +61,7 @@ llm:
     4) Насколько эти положения адекватно покрывают комплаенс-риск Target.
 
     Верни строго JSON:
-    {
+    {{
       "has_anti_corruption_clauses": "yes|no|unclear",
       "has_code_of_conduct_or_policy_reference": "yes|no|unclear",
       "has_audit_or_inspection_rights": "yes|no|unclear",
@@ -70,7 +70,16 @@ llm:
       "requires_corporate_approvals_for_interested_transactions": "yes|no|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

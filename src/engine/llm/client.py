@@ -75,6 +75,14 @@ class LLMClient:
         temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
         tokens = max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
 
+        logger.info(
+            "LLM call",
+            provider=self.provider,
+            temperature=temp,
+            max_tokens=tokens,
+            prompt_preview=prompt[:200],
+        )
+
         start_time = time.time()
         error_type_for_metrics: str | None = None
         result: LLMResponse | None = None
@@ -276,6 +284,13 @@ class LLMClient:
 
         text = output["choices"][0]["text"].strip()
         tokens_used = output.get("usage", {}).get("total_tokens", 0)
+
+        logger.info(
+            "LLM response",
+            provider="llamacpp",
+            tokens_used=tokens_used,
+            text_preview=text[:200],
+        )
 
         result = LLMResponse(
             text=text,

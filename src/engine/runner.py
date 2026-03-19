@@ -1,7 +1,7 @@
 # src/engine/runner.py
 
 """
-Stage 8 Runner: classification + triggers (Stage 7 integrated).
+Runner: classification + triggers (Stage 7 integrated).
 
 Назначение:
 - Оркестрирует пайплайн анализа документов сделки:

@@ -1,6 +1,5 @@
 # src/engine/checks_runner.py
 
-
 """
 CheckRunner: playbook-based checks executor.
 
@@ -21,11 +20,6 @@ CheckRunner: playbook-based checks executor.
    - сохраняем результат в check_results.
 3. Возвращаем агрегированную статистику по run'у
    (processed_docs, total_checks, failed_checks, errors).
-
-Главное отличие от старой версии:
-- вместо doc.text теперь работаем со структурированными чанками на основе
-  clause tree + layout. Это повышает качество поиска рисков и
-  делает результаты объяснимыми для юриста.
 """
 
 import time
@@ -43,9 +37,9 @@ logger = get_logger(__name__)
 
 # Мягкие лимиты для прод-окружения (можно вынести в settings)
 MAX_DOCS_PER_RUN = 500
-MAX_ERRORS_PER_RUN = 50       # мягкий предохранитель от "развалившихся" прогонов
-MAX_CHUNKS_PER_DOC = 2000     # защита от "взрывных" деревьев
-MAX_CHUNK_TEXT_CHARS = 20_000 # защита от слишком длинных клауз в одном чанке
+MAX_ERRORS_PER_RUN = 50        # мягкий предохранитель от "развалившихся" прогонов
+MAX_CHUNKS_PER_DOC = 2000      # защита от "взрывных" деревьев
+MAX_CHUNK_TEXT_CHARS = 20_000  # защита от слишком длинных клауз в одном чанке
 
 
 class CheckRunner:
@@ -339,18 +333,21 @@ class CheckRunner:
                     failed_checks += 1
 
                 # --- Маппинг exec_result -> данные для CheckResult ---
+
+                # Краткое объяснение для человека
                 reason = exec_result.get("reason")
                 evidence = exec_result.get("evidence") or ""
                 detector_method = exec_result.get("detector_method")
                 raw = exec_result.get("raw") or {}
 
-                # value_text: краткое объяснение для человека
                 value_text = reason or (evidence[:500] if evidence else None)
 
-                # evidence_ref: пока просто сниппет; позже может стать S3 URI
+                # evidence_ref:
+                # Пока это текстовый сниппет. Позже можно заменить на S3 URI,
+                # не ломая фронт (он просто покажет другой источник).
                 evidence_ref = evidence or None
 
-                # quality_flags: вытащим ключевую диагностическую инфу из raw
+                # Качество/диагностика детекции (rules vs LLM, confidence и т.п.)
                 quality_flags: dict = {}
 
                 if isinstance(raw, dict):
@@ -388,7 +385,17 @@ class CheckRunner:
                 # берём из CheckDefinition.origin, если есть.
                 check_origin = getattr(check, "origin", None)
 
+                # Координаты и место в документе для evidence (для подсветки во viewer)
+                page = exec_result.get("page")
+                clause_uid = exec_result.get("clause_uid")
+                element_id = exec_result.get("element_id")
+                bbox = exec_result.get("bbox")
+
                 # Сохраняем результат через репозиторий.
+                # Здесь мы ПОЛНОСТЬЮ наполняем CheckResult, включая:
+                # - playbook_version_id (для аудита),
+                # - page / clause_uid / element_id / bbox (для подсветки),
+                # - origin / conditional / structured_data / quality_flags.
                 await repo.create(
                     run_id=run_id,
                     document_id=doc.id,
@@ -405,11 +412,14 @@ class CheckRunner:
                     conditional_check_triggered=is_conditional,
                     trigger_name=trigger_name,
                     origin=check_origin,
+                    # НОВОЕ: жёстко привязываем результат к версии плейбука
+                    playbook_version_id=self.playbook_version_id,
+                    # НОВОЕ: координаты для навигации/подсветки в документе
+                    page=page,
+                    clause_uid=clause_uid,
+                    element_id=element_id,
+                    bbox=bbox,
                 )
-
-                # playbook_version_id, page, clause_uid, element_id, bbox
-                # сохраняются в других местах/таблицах (evidence / documents),
-                # либо могут быть добавлены в create() при необходимости.
 
             # помечаем документ как полностью проверенный
             doc_repo = DocumentRepository(uow.session)

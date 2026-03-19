@@ -198,7 +198,7 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
     name = (
         meta.get("config", {}).get("profile")
         or meta.get("bundle_id")
-        or "Compiled Playbook"
+        or "build_compiled_checks"
     )
     version = str(meta.get("version_schema", 1))
 

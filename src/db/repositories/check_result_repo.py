@@ -1,5 +1,3 @@
-# src/db/repositories/check_result_repo.py
-
 import uuid
 from typing import Any
 
@@ -15,52 +13,57 @@ class CheckResultRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create(self, data: dict[str, Any]) -> CheckResult:
+    async def create(
+        self,
+        *,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+        check_id: str,
+        check_name: str,
+        result: str,
+        severity: str,
+        value_text: str | None = None,
+        evidence_ref: str | None = None,
+        confidence: float | None = None,
+        detector_used: str | None = None,
+        quality_flags: dict[str, Any] | None = None,
+        structured_data: dict[str, Any] | None = None,
+        conditional_check_triggered: bool = False,
+        trigger_name: str | None = None,
+        origin: str | None = None,
+        playbook_version_id: uuid.UUID | None = None,
+        page: int | None = None,
+        clause_uid: str | None = None,
+        element_id: str | None = None,
+        bbox: dict[str, Any] | None = None,
+    ) -> CheckResult:
         """
         Создать новую запись в check_results.
 
-        Ожидает словарь с полями:
-        - run_id: UUID
-        - document_id: UUID
-        - check_id: str
-        - check_name: str
-        - result: str ("fail", "pass", "unclear")
-        - severity: str
-        - value_text: str | None
-        - evidence_ref: str | None
-        - confidence: float | None
-        - detector_used: str | None
-        - quality_flags: dict | None
-        - structured_data: dict | None
-        - conditional_check_triggered: bool
-        - trigger_name: str | None
-        - origin: str | None
-        - page: int | None
-        - clause_uid: str | None
-        - element_id: str | None
-        - bbox: dict | None
+        Все параметры передаются именованно (как в CheckRunner),
+        без обёртки в dict.
         """
         obj = CheckResult(
-            run_id=data["run_id"],
-            document_id=data["document_id"],
-            check_id=data["check_id"],
-            check_name=data["check_name"],
-            result=data["result"],
-            severity=data["severity"],
-            value_text=data.get("value_text"),
-            evidence_ref=data.get("evidence_ref"),
-            confidence=data.get("confidence"),
-            detector_used=data.get("detector_used"),
-            quality_flags=data.get("quality_flags") or {},
-            structured_data=data.get("structured_data"),
-            conditional_check_triggered=data.get("conditional_check_triggered", False),
-            trigger_name=data.get("trigger_name"),
-            # НОВЫЕ ПОЛЯ
-            origin=data.get("origin"),
-            page=data.get("page"),
-            clause_uid=data.get("clause_uid"),
-            element_id=data.get("element_id"),
-            bbox=data.get("bbox"),
+            run_id=run_id,
+            document_id=document_id,
+            check_id=check_id,
+            check_name=check_name,
+            result=result,
+            severity=severity,
+            value_text=value_text,
+            evidence_ref=evidence_ref,
+            confidence=confidence,
+            detector_used=detector_used,
+            quality_flags=quality_flags or {},
+            structured_data=structured_data,
+            conditional_check_triggered=conditional_check_triggered,
+            trigger_name=trigger_name,
+            origin=origin,
+            playbook_version_id=playbook_version_id,
+            page=page,
+            clause_uid=clause_uid,
+            element_id=element_id,
+            bbox=bbox,
         )
 
         self.session.add(obj)
@@ -68,7 +71,6 @@ class CheckResultRepository:
         await self.session.flush()
         await self.session.refresh(obj)
         return obj
-
 
     async def for_doc(
         self,

@@ -1,3 +1,5 @@
+# src/engine/checks/extraction.py
+
 """
 ExtractionExecutor: structured data extraction for a check.
 

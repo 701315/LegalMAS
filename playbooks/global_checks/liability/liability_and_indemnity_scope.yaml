@@ -46,14 +46,23 @@ llm:
     4) Кого именно защищает indemnity (Target или контрагента).
 
     Верни строго JSON:
-    {
+    {{
       "liability_general": "limited|unlimited|unclear",
       "indemnity_scope": "none|narrow|broad|unclear",
       "has_significant_liquidated_damages_or_fines": "yes|no|unclear",
       "beneficiary_of_indemnity": "target|counterparty|mutual|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

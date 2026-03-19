@@ -45,7 +45,7 @@ llm:
     4) Насколько эти положения создают риск передачи ценной аналитики или IP.
 
     Верни строго JSON:
-    {
+    {{
       "ownership_of_customer_data": "target|counterparty|joint|unclear",
       "ownership_of_work_results": "target|counterparty|joint|unclear",
       "counterparty_can_use_data_for_own_purposes": "yes|no|unclear",
@@ -53,7 +53,16 @@ llm:
       "restrictions_on_data_use_summary": "строка с описанием ограничений",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

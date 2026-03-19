@@ -46,14 +46,24 @@ llm:
     5) Насколько критичны эти лицензии/разрешения для бизнеса Target.
 
     Верни строго JSON:
-    {
+    {{
       "mentions_key_licenses_or_permits": "yes|no|unclear",
       "license_holder_description": "краткое описание, на кого оформлены лицензии",
       "licenses_depend_on_ownership_or_control_structure": "yes|no|unclear",
       "risk_of_license_loss_on_transaction": "low|medium|high|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
+
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

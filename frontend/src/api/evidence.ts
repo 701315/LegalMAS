@@ -29,20 +29,17 @@ export const evidenceApi = {
    */
   get: (resultId: string) =>
     client
-      .get<EvidenceDetail>(`/results/${resultId}/evidence`)
+      .get<EvidenceDetail>(`/api/v1/results/${resultId}/evidence`)
       .then((r) => r.data),
 
   /**
    * Получить временный URL для PDF-документа.
    * GET /api/v1/documents/{document_id}/pdf-url
-   *
-   * Backend должен вернуть объект вида:
-   * { url: string; filename: string }
    */
   getPdfUrl: (documentId: string) =>
     client
       .get<{ url: string; filename: string }>(
-        `/documents/${documentId}/pdf-url`,
+        `/api/v1/documents/${documentId}/pdf-url`,
       )
       .then((r) => r.data),
 };

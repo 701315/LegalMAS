@@ -48,7 +48,7 @@ llm:
     4) Насколько набор оснований балансирован для Target.
 
     Верни строго JSON:
-    {
+    {{
       "termination_for_cause": "none|one_sided|mutual|unclear",
       "termination_for_convenience": "none|one_sided|mutual|unclear",
       "termination_on_coc": "yes|no|unclear",
@@ -57,7 +57,16 @@ llm:
       "notice_period_summary": "строка с описанием сроков уведомления",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null

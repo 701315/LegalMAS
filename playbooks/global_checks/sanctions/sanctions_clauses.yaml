@@ -52,14 +52,23 @@ llm:
     5) Насколько эти положения сбалансированы для Target.
 
     Верни строго JSON:
-    {
+    {{
       "has_sanctions_representations": "yes|no|unclear",
       "has_sanctions_compliance_obligations": "yes|no|unclear",
       "requires_sanctions_event_notification": "yes|no|unclear",
       "sanctions_event_consequences": "none|suspension|termination|payment_refusal|mixed|unclear",
       "overall_risk_level": "low|medium|high",
       "reason": "краткое объяснение на русском"
-    }
+    }}
+
+    ЖЁСТКИЕ правила формата:
+    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
+    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
+    - Не используй Markdown, бэктики ``` и другие обёртки.
+    - Все строки должны быть в двойных кавычках.
+    - Ключи должны совпадать с указанными полями, без добавления новых.
+
+    Начни ответ сразу с символа {{
 
     Не добавляй ничего, кроме JSON.
   prompt_file: null
