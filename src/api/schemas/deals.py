@@ -59,6 +59,10 @@ class DealResponse(BaseModel):
     # либо явный профиль сделки, либо профиль из PlaybookVersion.
     model_config_name: str | None = None
 
+    # Флаг для UI: есть ли документы,
+    # переклассифицированные вручную и требующие перезапуска анализа.
+    has_pending_manual_reclassifications: bool = False
+
     metadata_: dict | None = None
 
     created_at: datetime

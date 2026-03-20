@@ -688,7 +688,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
             docId={selectedDocId}
             dealId={deal.id}
             onNavigateToGrid={(dealId, docName) => {
-              window.location.href = `/deals/${dealId}/grid?document=${encodeURIComponent(
+              window.location.href = `/projects/${dealId}?tab=grid&document=${encodeURIComponent(
                 docName,
               )}`;
             }}

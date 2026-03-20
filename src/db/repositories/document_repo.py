@@ -491,3 +491,22 @@ class DocumentRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def exists_manual_classified_docs(self, deal_id: uuid.UUID) -> bool:
+        """
+        Проверить, есть ли в сделке документы с ручной классификацией.
+
+        Для первого этапа считаем, что "ручная классификация" = уровень L_manual.
+        В будущем можно уточнить логику (учитывать последний run, дату изменения и т.п.).
+        """
+
+        stmt = (
+            select(func.count(Document.id))
+            .where(
+                Document.deal_id == deal_id,
+                Document.classification_level == "L_manual",
+            )
+        )
+        result = await self.session.execute(stmt)
+        count = result.scalar_one() or 0
+        return count > 0

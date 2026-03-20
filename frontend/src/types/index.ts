@@ -239,27 +239,40 @@ export interface ReclassifyResult {
 // СТРУКТУРИРОВАННЫЕ ДАННЫЕ (Этап 10)
 // -------------------------------------------------------------
 
-/**
- * Одно извлечённое поле из документа.
- * Поля соответствуют ответу GET /documents/{doc_id}/structured-data
- */
-export interface StructuredValue {
+// Структурированное дерево (clause tree), как раньше
+export interface ClauseNode {
+  clause_uid: string;
+  title: string;
+  level: number;
+  element_ids: string[];
+  start_page: number;
+  end_page: number;
+  children: ClauseNode[];
+}
+
+// Всё дерево по документу
+export type StructuredClauseTree = ClauseNode[];
+
+// Извлечённые значения (то, что даёт агрегатор/новый эндпоинт)
+export interface ExtractedValue {
   check_id: string;
   check_name: string;
   field_name: string;
   field_value: string;
-  page?: number;
-  clause_uid?: string;
+  field_format: string; // "money" | "date" | "entity_name" | "text"
+  page?: number | null;
+  clause_uid?: string | null;
 }
 
-/** Все структурированные данные по одному документу */
+// Ответ GET /documents/{doc_id}/structured-data (теперь объект, а не массив)
 export interface StructuredDataResult {
   document_id: string;
   filename: string;
-  doc_type?: string;
-  extracted_values: StructuredValue[];
+  doc_type?: string | null;
+  extracted_values: ExtractedValue[];
   total_extracted: number;
 }
+
 
 // -------------------------------------------------------------
 // RUNS (ЗАПУСКИ АНАЛИЗА)
@@ -469,6 +482,7 @@ export interface Deal {
   created_at: string;
   updated_at: string;
   model_config_name?: string | null;
+  has_pending_manual_reclassifications: boolean;
 
   metadata_?: {
     contact_person?: string | null;

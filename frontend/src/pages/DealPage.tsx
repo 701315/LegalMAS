@@ -5,7 +5,7 @@
 // =============================================================
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import type { Deal } from "../types";
 import OverviewTab from "./tabs/OverviewTab";
 import GridTab from "./tabs/GridTab";
@@ -31,11 +31,10 @@ type TabKey =
   | "audit";
 
 const DealPage: React.FC<DealPageProps> = ({ deal }) => {
-  const [activeTab, setActiveTab] = React.useState<TabKey>("overview");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const latestRunId = deal.last_run_id ?? null;
-
-  const navigate = useNavigate();
 
   // Права пользователя в контексте этой сделки
   const {
@@ -45,6 +44,43 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   } = useDealPermissions(deal.id);
 
   const canManageProject = canUploadDocuments || canManageRequests;
+
+  // Инициализация activeTab из query-параметра ?tab=
+  const searchParams = new URLSearchParams(location.search);
+  const tabFromUrl = searchParams.get("tab");
+
+  const initialTab: TabKey =
+    tabFromUrl === "dd_grid"
+      ? "dd_grid"
+      : tabFromUrl === "documents"
+      ? "documents"
+      : tabFromUrl === "requests"
+      ? "requests"
+      : tabFromUrl === "report"
+      ? "report"
+      : tabFromUrl === "audit"
+      ? "audit"
+      : "overview";
+
+  const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
+
+  // Если меняется ?tab= в URL (например, при ручном вводе), синхронизируем activeTab
+  React.useEffect(() => {
+    if (tabFromUrl === "dd_grid") {
+      setActiveTab("dd_grid");
+    } else if (tabFromUrl === "documents") {
+      setActiveTab("documents");
+    } else if (tabFromUrl === "requests") {
+      setActiveTab("requests");
+    } else if (tabFromUrl === "report") {
+      setActiveTab("report");
+    } else if (tabFromUrl === "audit") {
+      setActiveTab("audit");
+    } else {
+      setActiveTab("overview");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabFromUrl]);
 
   const handleOpenMembers = () => {
     if (!canManageProject) return;
@@ -68,13 +104,28 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   // Переход к настройке профиля модели (страница админки ModelConfig)
   const handleOpenModelConfig = () => {
-    // Можно прокинуть dealId и playbookVersionId как query-параметры
     const params = new URLSearchParams();
     params.set("dealId", deal.id);
     if (deal.playbook_version_id) {
       params.set("playbookVersionId", deal.playbook_version_id);
     }
     navigate(`/admin/model-configs?${params.toString()}`);
+  };
+
+  // Опционально: при клике по табам можно обновлять ?tab= в URL,
+  // чтобы ссылка на страницу сохраняла активную вкладку.
+  const handleSetTab = (tab: TabKey) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(location.search);
+    if (tab === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    navigate({
+      pathname: location.pathname,
+      search: params.toString(),
+    }, { replace: true });
   };
 
   return (
@@ -137,7 +188,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         <div className="border-b flex gap-4 text-sm overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveTab("overview")}
+            onClick={() => handleSetTab("overview")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "overview"
                 ? "border-blue-600 text-blue-600"
@@ -149,7 +200,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
-            onClick={() => setActiveTab("dd_grid")}
+            onClick={() => handleSetTab("dd_grid")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "dd_grid"
                 ? "border-blue-600 text-blue-600"
@@ -161,7 +212,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
-            onClick={() => setActiveTab("documents")}
+            onClick={() => handleSetTab("documents")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "documents"
                 ? "border-blue-600 text-blue-600"
@@ -173,7 +224,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
-            onClick={() => setActiveTab("requests")}
+            onClick={() => handleSetTab("requests")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "requests"
                 ? "border-blue-600 text-blue-600"
@@ -185,7 +236,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
-            onClick={() => setActiveTab("report")}
+            onClick={() => handleSetTab("report")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "report"
                 ? "border-blue-600 text-blue-600"
@@ -197,7 +248,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
-            onClick={() => setActiveTab("audit")}
+            onClick={() => handleSetTab("audit")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "audit"
                 ? "border-blue-600 text-blue-600"

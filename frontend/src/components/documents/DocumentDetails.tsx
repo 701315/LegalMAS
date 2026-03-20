@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Upload,
 } from "lucide-react";
+import type { DocumentTypeOption } from "../../api/documentTypes";
 
 import {
   DOCUMENT_STATUS_CONFIG,
@@ -86,6 +87,14 @@ export interface DocumentDetailsViewProps {
   family: DocumentFamilyView | null;
   structuredData: StructuredDataView | null;
 
+  // Список доступных типов документов для ручной переклассификации.
+  // Заполняется контейнером из API /document-types.
+  availableDocTypes: DocumentTypeOption[];
+
+  // Начальное значение для поля "Новый тип документа" в форме
+  // переклассификации (обычно это текущий doc_type документа).
+  initialDocType?: string;
+
   // Состояния загрузки / ошибок (минимум для этого этапа)
   isLoading: boolean;
   notFound: boolean;
@@ -136,12 +145,14 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   lastReclassifyResult,
   onNavigateToGrid,
   onReplaceFile,
+  availableDocTypes,
+  initialDocType,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
   // Состояние формы переклассификации
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
-  const [reclassifyDocType, setReclassifyDocType] = useState("");
+  const [reclassifyDocType, setReclassifyDocType] = useState(initialDocType || "");
   const [reclassifyReason, setReclassifyReason] = useState("");
 
   // Лоадер
@@ -224,7 +235,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       : doc.status === "classified"
       ? "Классификация выполнена. Проверки по playbook могут ещё выполняться или не запускались."
       : null;
-
 
   return (
     <div className="h-full overflow-y-auto p-5 space-y-6">
@@ -436,13 +446,29 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   <label className="text-xs text-gray-500 block mb-1">
                     Новый тип документа
                   </label>
-                  <input
-                    type="text"
+
+                  <select
                     value={reclassifyDocType}
                     onChange={(e) => setReclassifyDocType(e.target.value)}
-                    placeholder="Например: SPA, SHA, Устав, Протокол..."
-                    className="w-full text-sm border rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                    className="w-full text-sm border rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {/* Пустое значение — если тип ещё не выбран */}
+                    <option value="">
+                      — Выберите тип документа —
+                    </option>
+                    {availableDocTypes.map((opt) => (
+                      <option key={opt.type} value={opt.type}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Подсказка с текущим кодом */}
+                  {reclassifyDocType && (
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      Выбран код типа: <code>{reclassifyDocType}</code>
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -496,6 +522,17 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                       : " · YAML-инструкция не найдена"}
                   </p>
                 )}
+
+                {lastReclassifyResult && (
+                  <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2">
+                    <p className="text-[11px] text-red-700">
+                      Документ переклассифицирован. Анализ рисков по новому типу документа
+                      будет произведён только после перезапуска анализа рисков по всей сделке.
+                      Текущее состояние архитектуры. После будет внедрён механизм отдельного
+                      пересчёта рисков по отдельному документу после его переклассификации.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -525,18 +562,16 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       )}
 
       {/* ========== Структурированные данные ========== */}
-
       <Section title="Структурированные данные">
         {structuredNotAvailable ? (
           <p className="text-xs text-gray-400">
-            Структурированные данные можно посмотреть через меню документа
-            (отдельное окно просмотра).
+            Для этого документа пока нет извлечённых значений. Запустите анализ или обновите страницу после завершения проверки.
           </p>
         ) : structuredData && structuredData.extracted_values.length > 0 ? (
           <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
             {structuredData.extracted_values.map((val, idx) => (
               <div
-                key={idx}
+                key={`${val.check_id}-${val.field_name}-${idx}`}
                 className="flex justify-between text-xs py-0.5 border-b border-gray-100 last:border-0"
               >
                 <span className="text-gray-400">
@@ -550,7 +585,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           </div>
         ) : (
           <p className="text-xs text-gray-400">
-            Структурированные данные находятся в обработке или недоступны.
+            Структурированные данные находятся в обработке. Обновите страницу через несколько минут после завершения анализа.
           </p>
         )}
       </Section>

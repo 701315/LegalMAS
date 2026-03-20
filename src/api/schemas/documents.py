@@ -57,10 +57,8 @@ Pydantic‑схемы для документов и связанных сущн
 
 from uuid import UUID
 from datetime import datetime
-from typing import List
-
+from typing import Optional, List
 from pydantic import BaseModel, Field
-
 from core.constants import DocumentStatus, RelationType
 
 
@@ -273,3 +271,34 @@ class DocumentReviewedUpdateRequest(BaseModel):
     в карточке документа или в таблице.
     """
     reviewed_by_person: bool
+
+
+
+class ExtractedValue(BaseModel):
+    """Одно извлечённое значение из документа."""
+
+    check_id: str
+    check_name: str
+    field_name: str       # e.g. "purchase_price", "effective_date"
+    field_value: str      # e.g. "10 000 000 EUR", "01.01.2025"
+    field_format: str     # e.g. "money_or_not_found", "date", "entity_name"
+    page: Optional[int] = None
+    clause_uid: str = ""
+
+
+class DocumentExtractedValuesResponse(BaseModel):
+    """
+    Набор извлечённых значений для одного документа.
+
+    Это как раз то, что фронт видит как StructuredDataResult.
+    """
+
+    document_id: str
+    filename: str
+    doc_type: Optional[str] = None
+    extracted_values: List[ExtractedValue]
+    total_extracted: int
+
+
+
+

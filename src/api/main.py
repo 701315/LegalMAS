@@ -37,6 +37,7 @@ from .endpoints import (
     playbooks,
     playbook_runs,
     model_configs,
+    document_types,
 )
 from .middleware.audit import AuditMiddleware
 
@@ -110,6 +111,9 @@ app.include_router(project_members.router, prefix="/api/v1")
 
 # Плейбуки (playbooks / global_checks / bundles).
 app.include_router(playbooks.router, prefix="/api/v1")
+
+# Типы документов (document types) из YAMLRegistry.
+app.include_router(document_types.router, prefix="/api/v1")
 
 # История и пересборка плейбука по сделке.
 app.include_router(playbook_runs.router, prefix="/api/v1")

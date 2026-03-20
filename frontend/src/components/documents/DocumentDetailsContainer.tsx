@@ -5,8 +5,7 @@
 // Модель:
 // - useDocumentDetailsState возвращает нормализованный стейт документа
 // - контейнер адаптирует стейт → view-пропсы для DocumentDetails
-// - structured-data в UI теперь загружаются только через модалку,
-//   поэтому здесь мы их не запрашиваем и не прокидываем ошибки.
+// - structured-data теперь берём из /documents/{doc_id}/extracted-values
 // =============================================================
 
 import React from "react";
@@ -16,8 +15,12 @@ import {
   useDocumentPdfUrl,
   useSetDocumentReviewed,
 } from "../../api/documents";
-import { useDocumentDetailsState } from "../../api/documents.stateHooks";
+import {
+  useDocumentDetailsState,
+  useStructuredDataState,
+} from "../../api/documents.stateHooks";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import { useDocumentTypes } from "../../api/documentTypes";
 
 import type {
   Document,
@@ -61,6 +64,13 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   // --- Стейт документа (детали + классификация) ---
   const detailsState = useDocumentDetailsState(docId); // DocumentDetailsState
 
+  // --- Structured-data (извлечённые значения) ---
+  const structuredState = useStructuredDataState(docId);
+
+  // --- Типы документов для выпадающего списка переклассификации ---
+  const { data: docTypesData } = useDocumentTypes();
+  const availableDocTypes = docTypesData ?? [];
+
   // --- Дополнительные данные (DTO-хуки) ---
   const { data: familyDto } = useDocumentFamily(docId);
   const { data: pdfData } = useDocumentPdfUrl(docId);
@@ -92,12 +102,18 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     familyDto as DocumentFamilyDto | undefined,
   );
 
-  // Structured-data теперь загружаются только через модалку,
-  // поэтому в правой панели мы:
-  // - не запрашиваем их
-  // - отображаем состояние "данные не сформированы / недоступны"
-  const structuredData: StructuredDataView | null = null;
-  const structuredNotAvailable = true;
+  // Structured-data: маппим из StructuredDataState в view-тип
+  let structuredData: StructuredDataView | null = null;
+  if (!structuredState.isLoading && structuredState.total > 0 && doc) {
+    structuredData = {
+      document_id: docId,
+      filename: doc.filename,
+      doc_type: doc.doc_type ?? undefined,
+      extracted_values: structuredState.items,
+      total_extracted: structuredState.total,
+    };
+  }
+  const structuredNotAvailable = structuredState.notAvailable;
 
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
@@ -140,6 +156,8 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       }
       onNavigateToGrid={onNavigateToGrid}
       onReplaceFile={handleReplaceFile}
+      availableDocTypes={availableDocTypes}
+      initialDocType={doc?.doc_type ?? ""}
     />
   );
 };

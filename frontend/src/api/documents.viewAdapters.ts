@@ -14,6 +14,7 @@ import type {
   StructuredDataView,
 } from "../components/documents/DocumentDetails";
 
+
 export function adaptClassification(
   detail: DocumentDetail | undefined,
 ): DocumentDetailsViewClassification | null {
@@ -56,6 +57,8 @@ export function adaptFamilyFromDto(
   };
 }
 
+
+
 export function adaptStructuredDataView(
   structured: StructuredDataResult | undefined,
 ): StructuredDataView | null {
@@ -63,7 +66,7 @@ export function adaptStructuredDataView(
   return {
     document_id: structured.document_id,
     filename: structured.filename,
-    doc_type: structured.doc_type,
+    doc_type: structured.doc_type ?? undefined,
     extracted_values: structured.extracted_values,
     total_extracted: structured.total_extracted,
   };

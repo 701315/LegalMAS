@@ -3,19 +3,28 @@
 """
 Документный REST-API.
 
-Эндпоинты:
-- GET  /documents/{doc_id}                 — детальная карточка документа
-- POST /documents/{doc_id}/reclassify      — ручная переклассификация документа
-- POST /documents/{doc_id}/replace         — замена файла для документа в карантине
-- GET  /documents/{doc_id}/family          — семья документов (master + appendices)
-- GET  /documents/{doc_id}/pdf-url         — URL на исходный PDF документа
-- GET  /documents/{doc_id}/structured-data — структурированные данные (дерево оглавления)
-- POST /documents/{doc_id}/delete          — мягкое удаление документа
-- PATCH /documents/{doc_id}/reviewed       — флаг проверки документа юристом
-- POST /documents/export/excel             — экспорт списка документов в Excel
-- POST /documents/export/word              — экспорт списка документов в Word
-- POST /documents/export/pdf               — экспорт списка документов в PDF
+Этот модуль содержит HTTP‑эндпоинты для работы с документами MAS-DD.
+
+Используется:
+- фронтендом вкладки Documents (детальная карточка документа, правая панель);
+- DD Grid и отчётами (экспорт списка документов в Excel / Word / PDF);
+- ручной переклассификацией документов и управлением статусом проверки юристом;
+- просмотром семейства документов и структурированных данных (clause tree).
+
+Основные маршруты:
+- GET  /documents/{doc_id}                  — детальная карточка документа
+- POST /documents/{doc_id}/reclassify       — ручная переклассификация документа
+- POST /documents/{doc_id}/replace          — замена файла для документа в карантине
+- GET  /documents/{doc_id}/family           — семья документов (master + appendices)
+- GET  /documents/{doc_id}/pdf-url          — URL на исходный PDF документа
+- GET  /documents/{doc_id}/structured-data  — структурированные данные (дерево оглавления)
+- POST /documents/{doc_id}/delete           — мягкое удаление документа
+- PATCH /documents/{doc_id}/reviewed        — флаг проверки документа юристом
+- POST /documents/export/excel              — экспорт списка документов в Excel
+- POST /documents/export/word               — экспорт списка документов в Word
+- POST /documents/export/pdf                — экспорт списка документов в PDF.
 """
+
 import logging
 
 import uuid
@@ -35,6 +44,10 @@ from api.mappers.documents import map_document_to_response
 from api.mappers.document_versions import map_document_version_to_response
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
+from classifiers.yaml_registry import YAMLRegistry
+from db.repositories.run_repo import RunRepository
+from db.repositories.runner_repo import RunnerRepository
+from services.export.aggregator import aggregate_results
 
 from db.session import get_db
 from db.models.relation import DocumentFamily, DocumentFamilyMember
@@ -59,6 +72,8 @@ from ..schemas.documents import (
     DocumentReviewedUpdateRequest,
 )
 
+from ..schemas.documents import DocumentExtractedValuesResponse, ExtractedValue
+from services.export.models import StructuredValueRow
 from services.document_service import DocumentService, DocumentNotFoundError
 
 from core.document_columns import (
@@ -262,17 +277,21 @@ async def reclassify_document(
     """
     Ручная переклассификация документа.
 
-    Шаги:
-    1. Находим документ.
-    2. Проверяем, что у пользователя есть права на проект (сделку) этого документа.
+    Что делает этот эндпоинт:
+    1. Находит документ по ID и проверяет, что он существует.
+    2. Проверяет, что у пользователя есть права на проект (сделку) этого документа.
        Ручная переклассификация разрешена только для ролей "admin" и "editor".
-    3. Проверяем, есть ли YAML-инструкция для нового doc_type.
-    4. Загружаем applicable_triggers из YAML (если файл есть).
-    5. Обновляем поля классификации документа (L_manual, confidence=1.0).
-    6. [DEPRECATED] Ручной перезапуск checks для одного документа больше не поддерживается.
-       Checks выполняются CheckRunner'ом (run_deal_checks) на уровне всего Run.
-    7. Пишем запись в AuditLog через AuditRepository.
-
+    3. Проверяет, что новый doc_type известен YAMLRegistry (есть в реестре типов).
+    4. Для найденного типа загружает список доступных триггеров из YAMLRegistry.
+       В качестве применённых триггеров используются ключи trigger_definitions.
+    5. Обновляет поля классификации документа:
+       - doc_type = переданное значение,
+       - classification_level = "L_manual",
+       - classification_confidence = 1.0,
+       - applicable_triggers = список триггеров из YAMLRegistry.
+    6. [DEPRECATED] Перезапуск checks для одного документа не выполняется.
+       Checks запускаются на уровне всего Run отдельным пайплайном.
+    7. Пишет запись в AuditLog через AuditRepository.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
@@ -289,19 +308,29 @@ async def reclassify_document(
 
     previous_doc_type = doc.doc_type
 
-    # Проверяем наличие YAML-инструкции
-    yaml_path = Path(f"playbooks/document_types/{data.doc_type}.yaml")
-    yaml_found = yaml_path.exists()
+    # --- НОВОЕ: работаем через YAMLRegistry, а не прямой файловый доступ ---
+    registry = YAMLRegistry.get_instance()
+    cfg = registry.get_config(data.doc_type)
 
-    # Загружаем applicable_triggers из YAML
-    new_triggers: list[str] = []
-    if yaml_found:
-        import yaml as yaml_lib
+    # Если тип не найден в реестре — возвращаем 422 с понятным описанием
+    if cfg is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown document type: '{data.doc_type}'. "
+                   f"Проверьте, что тип существует в YAML‑реестре.",
+        )
 
-        with open(yaml_path, encoding="utf-8") as f:
-            yaml_data = yaml_lib.safe_load(f)
-        triggers = yaml_data.get("conditional_triggers", [])
-        new_triggers = [t.get("name", "") for t in triggers if t.get("name")]
+    # В YAMLRegistry тип найден → YAML-файл загружен
+    yaml_found = True
+
+    # Берём список возможных триггеров для этого типа.
+    # Ключи trigger_definitions — это ID триггеров (используются в TriggerDetector).
+    # Если в DocumentTypeConfig уже есть trigger_ids, можно использовать их.
+    trigger_ids = getattr(cfg, "trigger_ids", None)
+    if trigger_ids is not None:
+        new_triggers: list[str] = list(trigger_ids)
+    else:
+        new_triggers = list(getattr(cfg, "trigger_definitions", {}).keys())
 
     # Обновляем классификацию документа
     await doc_repo.update_classification(
@@ -314,10 +343,8 @@ async def reclassify_document(
     )
 
     # Флаг для аудита: сейчас мы НЕ ставим per-document checks заново
-    # Перезапуск checks для одного документа больше не поддерживается.
     checks_requeued = False
     rerun_checks_requested = bool(getattr(data, "rerun_checks", False))
-
 
     # Запись в AuditLog
     audit_repo = AuditRepository(db)
@@ -348,6 +375,7 @@ async def reclassify_document(
         yaml_instruction_found=yaml_found,
         checks_requeued=checks_requeued,
     )
+
 
 
 @router.get(
@@ -553,6 +581,91 @@ async def get_document_structured_data(
     # payload уже dict/list, фронт получает JSON дерево
     return payload
 
+
+@router.get(
+    "/{doc_id}/extracted-values",
+    response_model=DocumentExtractedValuesResponse,
+    summary="Получить извлечённые структурированные значения для документа",
+)
+async def get_document_extracted_values(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    # 1. Проверяем, что документ существует и доступен
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    # 2. Находим актуальный Run для сделки и агрегируем результаты
+
+    run_repo = RunRepository(db)
+    run = await run_repo.get_latest_for_deal(doc.deal_id)
+    if not run:
+        # По сделке ещё ни разу не запускали анализ — нет ни одного Run.
+        rows: list[StructuredValueRow] = []
+    else:
+        runner_repo = RunnerRepository(db)
+        documents_dict = await runner_repo.load_documents_for_run(run.id)
+        check_results = await runner_repo.load_check_results_for_run(run.id)
+
+        # deal_name можно получить из run.deal, если у тебя есть relationship;
+        # если нет — передаём пустую строку/позже дообогатишь.
+        deal_name = ""
+
+        agg = aggregate_results(
+            deal_id=str(doc.deal_id),
+            deal_name=deal_name,
+            run_id=str(run.id),
+            check_results=check_results,
+            documents=documents_dict,
+        )
+
+        rows: list[StructuredValueRow] = [
+            r for r in agg.structured_value_rows
+            if r.document_id == str(doc_id)
+        ]
+
+
+    # 3. Если значений нет — возвращаем пустой набор (notAvailable, но без ошибки)
+    if not rows:
+        return DocumentExtractedValuesResponse(
+            document_id=str(doc_id),
+            filename=doc.filename,
+            doc_type=doc.doc_type,
+            extracted_values=[],
+            total_extracted=0,
+        )
+
+    # 4. Маппинг StructuredValueRow -> ExtractedValue
+    extracted_values = [
+        ExtractedValue(
+            check_id=r.check_id,
+            check_name=r.check_name,
+            field_name=r.field_name,
+            field_value=r.field_value,
+            field_format=r.field_format,
+            page=r.page,
+            clause_uid=r.clause_uid or "",
+        )
+        for r in rows
+    ]
+
+    return DocumentExtractedValuesResponse(
+        document_id=str(doc_id),
+        filename=doc.filename,
+        doc_type=doc.doc_type,
+        extracted_values=extracted_values,
+        total_extracted=len(extracted_values),
+    )
 
 
 @router.post(

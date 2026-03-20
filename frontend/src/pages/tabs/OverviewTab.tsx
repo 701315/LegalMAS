@@ -366,6 +366,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           </button>
         </div>
 
+        {deal.has_pending_manual_reclassifications && (
+          <div className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 max-w-xl">
+            <p className="text-xs text-red-700">
+              Перезапусти анализ документов, т.к. была произведена переклассификация
+              документа. Анализ рисков по новому типу документа будет произведён
+              только после перезапуска анализа рисков по всей сделке. Текущее
+              состояние архитектуры. После будет внедрён механизм отдельного
+              пересмотра рисков по отдельному документу после его переклассификации.
+            </p>
+          </div>
+        )}
         {/* Краткая информация о playbook проекта */}
         <div className="flex flex-col gap-1 text-xs pt-2 border-t border-gray-100">
           <div className="flex items-center justify-between">

@@ -8,7 +8,7 @@
 import React from "react";
 import { FileText, ListTree, X } from "lucide-react";
 import { useDocumentPdfUrl, useStructuredData } from "../../api/documents";
-import type { Document } from "../../types";
+import type { Document, ClauseNode } from "../../types";
 
 interface DocumentOpenModalProps {
   doc: Document;
@@ -31,8 +31,6 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   } = useDocumentPdfUrl(doc.id);
 
   // Загружаем structured-data "по требованию" — включаем запрос только при нажатии кнопки
-  // В твоём API useStructuredData(docId) уже сам включает запрос по docId,
-  // поэтому чтобы не дёргать его сразу, можно добавить локальный флаг.
   const [loadStructured, setLoadStructured] = React.useState(false);
   const {
     data: structuredData,
@@ -66,6 +64,48 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
     setLoadStructured(true);
   };
 
+  // Одна строка оглавления
+  const renderClauseRow = (node: ClauseNode, key: React.Key, indentPx: number) => (
+    <div
+      key={key}
+      className="flex justify-between text-[11px] py-0.5 border-b border-gray-100 last:border-0"
+      style={{ paddingLeft: indentPx }}
+    >
+      <span className="text-gray-400">
+        {node.clause_uid}
+      </span>
+      <span className="text-gray-800 font-medium text-right">
+        {node.title}
+      </span>
+    </div>
+  );
+
+  // Рекурсивный рендер дерева (с ограничением на количество строк)
+  const renderClauseTree = (
+    nodes: ClauseNode[] | undefined | null,
+    indentPx = 0,
+    maxRows = 80,
+    acc: React.ReactNode[] = [],
+  ): React.ReactNode[] => {
+    // Защита от любых не-массивов и лимит строк
+    if (!nodes || !Array.isArray(nodes) || acc.length >= maxRows) {
+      return acc;
+    }
+
+    for (const node of nodes) {
+      if (!node || acc.length >= maxRows) break;
+
+      const key = `${node.clause_uid}-${node.start_page}-${acc.length}`;
+      acc.push(renderClauseRow(node, key, indentPx));
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        renderClauseTree(node.children, indentPx + 12, maxRows, acc);
+      }
+    }
+
+    return acc;
+  };
+
   const renderStructuredBlock = () => {
     if (!loadStructured) {
       return (
@@ -93,6 +133,11 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
       const status = err?.status;
       const detail = err?.detail || "Ошибка при загрузке structured-data.";
 
+      const detailMessage =
+        typeof detail === "string"
+          ? detail
+          : (detail?.message as string) || "Ошибка при загрузке structured-data.";
+
       if (status === 404) {
         return (
           <div className="mt-2 text-xs text-gray-500">
@@ -104,12 +149,13 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
 
       return (
         <div className="mt-2 text-xs text-red-600">
-          {String(detail)}
+          {String(detailMessage)}
         </div>
       );
     }
 
-    if (!structuredData || structuredData.extracted_values.length === 0) {
+    // structuredData – это массив узлов дерева или undefined
+    if (!structuredData || !Array.isArray(structuredData) || structuredData.length === 0) {
       return (
         <div className="mt-2 text-xs text-gray-500">
           Структурированные данные находятся в обработке или недоступны.
@@ -117,24 +163,14 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
       );
     }
 
+    const rows = renderClauseTree(structuredData);
+
     return (
       <div className="mt-3 max-h-40 overflow-y-auto border border-gray-100 rounded p-2 bg-gray-50">
         <p className="text-xs text-gray-500 mb-1">
-          Краткий список полей (structured-data):
+          Краткое оглавление (structured-data):
         </p>
-        {structuredData.extracted_values.map((val, idx) => (
-          <div
-            key={idx}
-            className="flex justify-between text-[11px] py-0.5 border-b border-gray-100 last:border-0"
-          >
-            <span className="text-gray-400">
-              {val.field_name.replace(/_/g, " ")}
-            </span>
-            <span className="text-gray-800 font-medium text-right">
-              {val.field_value}
-            </span>
-          </div>
-        ))}
+        {rows}
       </div>
     );
   };
@@ -171,7 +207,9 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
             <FileText size={16} />
-            {isPdfLoading ? "Загружаем ссылку на PDF…" : "Открыть исходный файл (PDF)"}
+            {isPdfLoading
+              ? "Загружаем ссылку на PDF…"
+              : "Открыть исходный файл (PDF)"}
           </button>
 
           {/* Блок structured-data */}

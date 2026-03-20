@@ -17,7 +17,6 @@ import type {
   DocumentColumnId,
 } from "../types";
 
-
 // -------------------------------------------------------------
 // НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
 // -------------------------------------------------------------
@@ -98,13 +97,16 @@ export const documentApi = {
       .then((response) => response.data),
 
   /**
-   * Структурированные данные по документу.
-   * GET /api/v1/documents/{doc_id}/structured-data
+   * Извлечённые структурированные значения по документу.
+   * GET /api/v1/documents/{doc_id}/extracted-values
+   *
+   * Важно: StructuredDataResult здесь — это DocumentExtractedValuesResponse,
+   * а не дерево clause tree.
    */
   getStructuredData: (docId: string) =>
     client
       .get<StructuredDataResult>(
-        `/api/v1/documents/${docId}/structured-data`,
+        `/api/v1/documents/${docId}/extracted-values`,
       )
       .then((response) => response.data),
 
@@ -176,8 +178,6 @@ export const documentApi = {
       });
   },
 
-
-
   /**
    * Мягкое удаление документа (soft-delete).
    *
@@ -204,7 +204,6 @@ export const documentApi = {
         { reviewed_by_person: reviewedByPerson },
       )
       .then((r) => r.data),
-
 
   /**
    * Экспорт списка документов сделки в Excel.
@@ -256,10 +255,7 @@ export const documentApi = {
         responseType: "blob",
       })
       .then((r) => r.data),
-
 };
-
-
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = window.URL.createObjectURL(blob);
@@ -295,8 +291,6 @@ export async function exportDocumentsPDF(
   const blob = await documentApi.exportPdf(dealId, visibleColumnIds);
   downloadBlob(blob as unknown as Blob, `deal_${dealId}_documents.pdf`);
 }
-
-
 
 // -------------------------------------------------------------
 // REACT QUERY ХУКИ

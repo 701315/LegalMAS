@@ -162,21 +162,30 @@ def aggregate_results(
         # NEW: Structured value rows
         if structured_data and settings.EXPORT_STRUCTURED_DATA_ENABLED:
             for field_name, field_value in structured_data.items():
-                if field_value and str(field_value) not in ("not_found", "None", ""):
-                    structured_value_rows.append(
-                        StructuredValueRow(
-                            document_name=doc_info.get("name", "Unknown"),
-                            doc_type=doc_info.get("doc_type", "Generic"),
-                            check_name=cr.get("check_name", ""),
-                            field_name=field_name,
-                            field_value=str(field_value),
-                            field_format=_infer_format(field_name, field_value),
-                            page=cr.get("page"),
-                            clause_uid=cr.get("clause_uid", ""),
-                            document_id=doc_id,
-                            check_id=cr.get("check_id", ""),  # NEW
-                        )
+                if not field_value or str(field_value) in ("not_found", "None", ""):
+                    continue
+
+                # Аккуратно приводим к строке для отображения
+                if isinstance(field_value, dict) and "value" in field_value:
+                    display_value = str(field_value["value"])
+                else:
+                    display_value = str(field_value)
+
+                structured_value_rows.append(
+                    StructuredValueRow(
+                        document_name=doc_info.get("name", "Unknown"),
+                        doc_type=doc_info.get("doc_type", "Generic"),
+                        check_name=cr.get("check_name", ""),
+                        field_name=field_name,
+                        field_value=display_value,
+                        field_format=_infer_format(field_name, display_value),
+                        page=cr.get("page"),
+                        clause_uid=cr.get("clause_uid", ""),
+                        document_id=doc_id,
+                        check_id=cr.get("check_id", ""),  # NEW
                     )
+                )
+
 
     agg.severity_counts = counts
     agg.rows = rows

@@ -218,7 +218,13 @@ async def get_deal(
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    deal_resp = DealResponse.model_validate(deal)
+    # Новый код: проверяем, есть ли документы с ручной переклассификацией
+    doc_repo = DocumentRepository(db)
+    has_manual = await doc_repo.exists_manual_classified_docs(deal_id=deal_id)
+
+    # Создаём DealResponse с учётом флага
+    deal_resp = DealResponse.from_orm(deal)
+    deal_resp.has_pending_manual_reclassifications = has_manual
 
     model_config_name: str | None = None
     pb_repo = PlaybookRepository(db)
