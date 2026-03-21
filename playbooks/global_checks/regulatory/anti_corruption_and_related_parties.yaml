@@ -4,7 +4,9 @@ description: >
   Анализирует антикоррупционные положения (запрет взяток, откатов, подарков,
   кодексы этики, права аудита) и регулирование сделок с аффилированными лицами,
   включая требования arm's length и корпоративные одобрения.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -43,45 +45,184 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по комплаенсу и корпоративному праву.
-    Тебе даны фрагменты договора и/или политик, где могут упоминаться
-    антикоррупционные положения и сделки с аффилированными лицами.
+    Твоя специализация — антикоррупционные политики, корпоративное управление
+    и контроль сделок с аффилированными лицами.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора и/или политик, где могут упоминаться
+    антикоррупционные положения и сделки с аффилированными лицами:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Какие антикоррупционные положения есть в договоре:
-       - запрет взяток, откатов, неподобающих подарков и hospitality;
-       - ссылка на кодекс этики или политику комплаенса;
-       - права на аудит и проверки;
-       - обязанность сообщать о нарушениях.
-    2) Упоминаются ли сделки с аффилированными лицами:
-       - требование arm's length условий,
-       - необходимость корпоративных одобрений для крупных/заинтересованных сделок.
-    3) Есть ли заверения об отсутствии существенных нарушений антикоррупционного
-       законодательства и правил по сделкам с аффилированными лицами.
-    4) Насколько эти положения адекватно покрывают комплаенс-риск Target.
 
-    Верни строго JSON:
+    1) Наличие антикоррупционных положений (has_anti_corruption_clauses):
+       - прямые запреты взяток, откатов, незаконных платежей, неподобающих подарков
+         и hospitality;
+       - запрет оплат в пользу госслужащих/чиновников вне рамок закона;
+       - упоминание anti-corruption / anti-bribery законов (FCPA, UK Bribery Act и др.).
+       Если такие нормы явно есть — "yes", если их явно нет — "no",
+       если по фрагментам непонятно — "unclear".
+
+    2) Ссылки на кодексы и политики (has_code_of_conduct_or_policy_reference):
+       - упоминания code of conduct, ethics & compliance policy, антикоррупционной
+         политики группы, внутренних регламентов;
+       - обязательство соблюдать политику контрагента или собственную политику Target.
+
+    3) Права на аудит и проверки (has_audit_or_inspection_rights):
+       - права стороны (обычно покупателя/инвестора) проводить аудит, проверку
+         соблюдения антикоррупционных требований, инспекции документов и записей;
+       - права требовать предоставления отчётности/сертификатов комплаенса.
+
+    4) Регулирование сделок с аффилированными лицами (has_related_party_transactions_regulation):
+       - наличие специальных правил для related party / affiliate / interested party
+         transactions;
+       - раскрытие таких сделок, ограничения на их заключение.
+
+    5) Требования arm's length для аффилированных (requires_arms_length_terms_for_related_parties):
+       - прямые требования, что сделки с аффилированными лицами должны
+         заключаться на рыночных условиях (arm's length / on market terms).
+
+    6) Требования корпоративных одобрений (requires_corporate_approvals_for_interested_transactions):
+       - необходимость одобрения органами управления (совет директоров, собрание
+         участников, независимые директора) для крупных или заинтересованных сделок;
+       - ссылки на корпоративные процедуры согласования related party transactions.
+
+    7) Оцени общий комплаенс‑риск для Target по совокупности:
+       - overall_risk_level: low / medium / high, учитывая:
+         * наличие/отсутствие антикоррупционных норм;
+         * наличие кодексов/политик и прав на аудит;
+         * наличие/отсутствие контроля за сделками с аффилированными лицами,
+           arm's length и корпоративных одобрений.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если антикоррупционные положения минимальны или декларативны
+      (общие фразы "Стороны обязуются соблюдать применимое законодательство")
+      и нет конкретики по взяткам/откатам:
+      has_anti_corruption_clauses может быть "unclear",
+      риск обычно не ниже "medium".
+
+    — Если текст содержит развитый anti-bribery раздел, ссылку на code of conduct,
+      права аудита и обязанность уведомлять о нарушениях:
+      has_anti_corruption_clauses = "yes",
+      has_code_of_conduct_or_policy_reference = "yes",
+      has_audit_or_inspection_rights = "yes",
+      риск часто "low" или "medium" (в зависимости от related parties).
+
+    — Если по сделкам с аффилированными лицами нет ни одного упоминания
+      раскрытия, arm's length или корпоративных одобрений:
+      has_related_party_transactions_regulation = "no",
+      requires_arms_length_terms_for_related_parties = "no",
+      requires_corporate_approvals_for_interested_transactions = "no",
+      особенно при высоком риске конфликтов интересов это тянет риск вверх.
+
+    — Если указано только "Сторона заверяет, что соблюдает антикоррупционное
+      законодательство", но нет механизмов аудита/контроля:
+      заверения можно упомянуть в reason, но флаги по audit/code-of-conduct
+      ставь по прямым формулировкам.
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear",
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа антикоррупционных положений и регулирования сделок с аффилированными лицами."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — СИЛЬНЫЙ ANTI-BRIBERY БЛОК И КОНТРОЛЬ RELATED PARTIES (LOW/MEDIUM):
+
+    Фрагмент: "Стороны обязуются соблюдать применимые anti-bribery и anti-corruption
+    законы. Поставщик обязуется соблюдать Кодекс этики Группы Покупателя и
+    предоставляет Покупателю право проводить аудит соблюдения указанного Кодекса.
+    Любые сделки с аффилированными лицами Поставщика допускаются только на условиях
+    arm's length и подлежат одобрению его Советом директоров."
+
     {{
-      "has_anti_corruption_clauses": "yes|no|unclear",
-      "has_code_of_conduct_or_policy_reference": "yes|no|unclear",
-      "has_audit_or_inspection_rights": "yes|no|unclear",
-      "has_related_party_transactions_regulation": "yes|no|unclear",
-      "requires_arms_length_terms_for_related_parties": "yes|no|unclear",
-      "requires_corporate_approvals_for_interested_transactions": "yes|no|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "has_anti_corruption_clauses": "yes",
+      "has_code_of_conduct_or_policy_reference": "yes",
+      "has_audit_or_inspection_rights": "yes",
+      "has_related_party_transactions_regulation": "yes",
+      "requires_arms_length_terms_for_related_parties": "yes",
+      "requires_corporate_approvals_for_interested_transactions": "yes",
+      "overall_risk_level": "low",
+      "reason": "Есть подробные anti-bribery обязательства, ссылка на Кодекс этики, право на аудит и требования arm's length и корпоративных одобрений по сделкам с аффилированными лицами, что существенно снижает комплаенс-риск."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — СЛАБАЯ АНТИКОРРУПЦИЯ, НЕТ КОНТРОЛЯ RELATED PARTIES (HIGH):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Стороны обязуются действовать добросовестно и соблюдать законы.
+    Специальные положения об антикоррупции, а также о сделках с аффилированными
+    лицами Договором не предусмотрены."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "has_anti_corruption_clauses": "unclear",
+      "has_code_of_conduct_or_policy_reference": "no",
+      "has_audit_or_inspection_rights": "no",
+      "has_related_party_transactions_regulation": "no",
+      "requires_arms_length_terms_for_related_parties": "no",
+      "requires_corporate_approvals_for_interested_transactions": "no",
+      "overall_risk_level": "high",
+      "reason": "Отсутствуют специализированные антикоррупционные положения и правила по сделкам с аффилированными лицами, нет ссылок на кодексы и прав аудита, что повышает риск нарушений и конфликтов интересов."
+    }}
+
+    ПРИМЕР 3 — ТОЛЬКО ЗАВЕРЕНИЯ О СОБЛЮДЕНИИ ЗАКОНОВ (MEDIUM):
+
+    Фрагмент: "Поставщик заявляет и гарантирует, что в своей деятельности
+    соблюдает все применимые антикоррупционные законы и не участвовал
+    в нарушениях, связанных с взяточничеством."
+
+    {{
+      "has_anti_corruption_clauses": "yes",
+      "has_code_of_conduct_or_policy_reference": "unclear",
+      "has_audit_or_inspection_rights": "no",
+      "has_related_party_transactions_regulation": "unclear",
+      "requires_arms_length_terms_for_related_parties": "unclear",
+      "requires_corporate_approvals_for_interested_transactions": "unclear",
+      "overall_risk_level": "medium",
+      "reason": "Есть заверения о соблюдении антикоррупционного законодательства, но отсутствуют ссылки на кодексы, права аудита и явные правила по сделкам с аффилированными лицами."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "has_anti_corruption_clauses": "one of: yes | no | unclear",
+      "has_code_of_conduct_or_policy_reference": "one of: yes | no | unclear",
+      "has_audit_or_inspection_rights": "one of: yes | no | unclear",
+      "has_related_party_transactions_regulation": "one of: yes | no | unclear",
+      "requires_arms_length_terms_for_related_parties": "one of: yes | no | unclear",
+      "requires_corporate_approvals_for_interested_transactions": "one of: yes | no | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и оценки комплаенс-риска для Target"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные формулировки из фрагментов
+       и вывод по рискам, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 5
   temperature: 0.0
@@ -113,18 +254,46 @@ extraction:
   fields:
     - name: "has_anti_corruption_clauses"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_code_of_conduct_or_policy_reference"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_audit_or_inspection_rights"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_related_party_transactions_regulation"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "requires_arms_length_terms_for_related_parties"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "requires_corporate_approvals_for_interested_transactions"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true
@@ -135,3 +304,4 @@ red_flags:
       description: "Слабые или отсутствующие антикоррупционные положения при высоком комплаенс-риск профиле."
     - code: "REG6"
       description: "Отсутствие контроля за сделками с аффилированными лицами и корпоративных одобрений."
+      

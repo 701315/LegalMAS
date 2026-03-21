@@ -3,7 +3,9 @@ name: "Кибербезопасность, ИБ и инциденты"
 description: >
   Анализирует наличие политик по ИБ/кибербезопасности, журналов инцидентов,
   требований к защите, а также упоминания утечек данных и реакцию на них.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -35,42 +37,160 @@ rules:
 
 llm:
   prompt_template: |
-    Ты — юрист по ИБ и кибербезопасности.
-    Тебе даны фрагменты договора и/или политик компании.
+    <role>
+    Ты — юрист по информационной безопасности и кибербезопасности.
+    Твоя специализация — договорное оформление требований ИБ, планов реагирования
+    и управления инцидентами.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора и/или политик компании:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Есть ли упоминания политик по информационной безопасности/кибербезопасности
-       и описания технических/организационных мер (шифрование, контроль доступа,
-       логирование, тестирование на уязвимости и т.п.).
-    2) Указаны ли процедуры обработки инцидентов:
-       - выявление, журналирование, расследование,
-       - уведомление клиентов/регуляторов.
-    3) Упоминаются ли прошлые инциденты (утечки данных, кибератаки) и как
-       описана их обработка (remediation).
-    4) Насколько текущий уровень формализации ИБ/кибербезопасности выглядит
-       адекватным с точки зрения рисков Target.
 
-    Верни строго JSON:
+    1) Наличие формализованных политик по ИБ/кибербезопасности:
+       - упоминания security policy, политика безопасности, ISMS и т.п.;
+       - ссылки на внутренние регламенты, стандарты, программы ИБ.
+
+    2) Описание технических и организационных мер:
+       - шифрование, управление доступом, логирование, мониторинг,
+         тестирование на уязвимости, резервное копирование и т.п.
+
+    3) Наличие процедур реагирования на инциденты и журналирования:
+       - процессы выявления, регистрации (incident log), расследования,
+         эскалации и документирования инцидентов;
+       - уведомление клиентов и/или регуляторов об инцидентах/утечках.
+
+    4) Упоминания прошлых инцидентов ИБ / утечек данных:
+       - описаны ли прошлые security incidents / data breaches,
+         какие меры remediation были приняты, есть ли выводы/улучшения.
+
+    5) Оцени уровень киберриска (cyber_risk_level: low / medium / high / unclear)
+       исходя из сочетания:
+       - формализованности политик;
+       - конкретности мер защиты;
+       - наличия/отсутствия процедур реагирования.
+
+    6) Оцени общий уровень риска для Target (overall_risk_level: low / medium / high),
+       учитывая киберриски и возможное влияние на бизнес, клиентов и регуляторные
+       требования.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если упомянута только "конфиденциальность и защита информации" без
+      конкретных мер и процедур:
+      has_documented_security_policies = "unclear",
+      describes_security_measures = "no",
+      has_incident_response_and_logging = "unclear".
+
+    — Если есть детальное описание мер (шифрование, контроль доступа, логирование),
+      но нет ни слова о реагировании на инциденты и уведомлении:
+      describes_security_measures = "yes",
+      has_incident_response_and_logging = "no",
+      cyber_risk_level обычно не ниже "medium" (обоснуй в reason).
+
+    — Если упомянуты прошлые инциденты/утечки, но:
+      * не описаны меры по устранению и предотвращению повторов,
+      то mentions_past_security_or_data_breach_incidents = "yes",
+      а cyber_risk_level и overall_risk_level, как правило, повышаются.
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear" или null,
+      cyber_risk_level = "unclear",
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для оценки кибербезопасности и управления инцидентами."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — ФОРМАЛИЗОВАННАЯ ИБ, НИЗКИЙ/СРЕДНИЙ РИСК:
+
+    Фрагмент: "У Компании действует утверждённая Политика информационной безопасности,
+    включающая требования к шифрованию, управлению доступом, журналированию и
+    мониторингу. Инциденты безопасности регистрируются в Журнале инцидентов,
+    подлежат расследованию и документированию. При утечке данных Клиент уведомляется
+    без неоправданной задержки."
+
     {{
-      "has_documented_security_policies": "yes|no|unclear",
-      "describes_security_measures": "yes|no|unclear",
-      "has_incident_response_and_logging": "yes|no|unclear",
-      "mentions_past_security_or_data_breach_incidents": "yes|no|unclear",
-      "cyber_risk_level": "low|medium|high|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "has_documented_security_policies": "yes",
+      "describes_security_measures": "yes",
+      "has_incident_response_and_logging": "yes",
+      "mentions_past_security_or_data_breach_incidents": "no",
+      "cyber_risk_level": "low",
+      "overall_risk_level": "low",
+      "reason": "Есть формализованная политика ИБ с конкретными мерами и процедурами реагирования и уведомления; прошлые инциденты не упоминаются."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — МЕРЫ ЕСТЬ, РЕАГИРОВАНИЕ НЕ ОПИСАНО (MEDIUM):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Поставщик обязуется применять стандартные технические и организационные
+    меры защиты, включая шифрование, контроль доступа и регулярное тестирование на
+    уязвимости."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "has_documented_security_policies": "unclear",
+      "describes_security_measures": "yes",
+      "has_incident_response_and_logging": "no",
+      "mentions_past_security_or_data_breach_incidents": "no",
+      "cyber_risk_level": "medium",
+      "overall_risk_level": "medium",
+      "reason": "Описаны меры защиты, но отсутствует явное регулирование реагирования на инциденты и журналирования, что создаёт неопределённость в управлении киберрисками."
+    }}
+
+    ПРИМЕР 3 — УПОМИНАНИЕ ИНЦИДЕНТОВ БЕЗ REMEDIATION (MEDIUM/HIGH):
+
+    Фрагмент: "В 2023 году Компания столкнулась с утечкой данных клиентов.
+    Информация об инциденте приведена в приложении; Компания продолжает
+    совершенствовать меры безопасности."
+
+    {{
+      "has_documented_security_policies": "unclear",
+      "describes_security_measures": "unclear",
+      "has_incident_response_and_logging": "unclear",
+      "mentions_past_security_or_data_breach_incidents": "yes",
+      "cyber_risk_level": "unclear",
+      "overall_risk_level": "high",
+      "reason": "Упоминается утечка данных без конкретного описания принятых мер и новых процедур, что создаёт высокий риск при отсутствии прозрачности по remediation."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "has_documented_security_policies": "one of: yes | no | unclear",
+      "describes_security_measures": "one of: yes | no | unclear",
+      "has_incident_response_and_logging": "one of: yes | no | unclear",
+      "mentions_past_security_or_data_breach_incidents": "one of: yes | no | unclear",
+      "cyber_risk_level": "one of: low | medium | high | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и оценки рисков"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
+       из фрагментов, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 5
   temperature: 0.0
@@ -101,16 +221,41 @@ extraction:
   fields:
     - name: "has_documented_security_policies"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "describes_security_measures"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_incident_response_and_logging"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "mentions_past_security_or_data_breach_incidents"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "cyber_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true
@@ -121,3 +266,5 @@ red_flags:
       description: "Отсутствие формализированной политики ИБ/кибербезопасности при очевидно большом массиве данных."
     - code: "CYB2"
       description: "Упоминания инцидентов без должного описания мер по устранению и предотвращению повторов."
+
+      

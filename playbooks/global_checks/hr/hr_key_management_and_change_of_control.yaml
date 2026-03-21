@@ -4,7 +4,9 @@ description: >
   Анализирует трудовые договоры и соглашения с топ-менеджментом и ключевыми
   сотрудниками: golden parachutes, выплаты при смене контроля или увольнении,
   основания расторжения, non-compete/non-solicit, retention-бонусы.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -38,42 +40,180 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по трудовому праву и M&A.
-    Тебе даны фрагменты трудовых договоров/соглашений с топ-менеджментом
-    и ключевыми сотрудниками.
+    Твоя специализация — условия договоров с топ-менеджментом и key employees
+    в контексте смены контроля и сделок.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты трудовых договоров/соглашений с топ-менеджментом
+    и ключевыми сотрудниками:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Есть ли специальные выплаты при смене контроля или увольнении
-       (golden parachutes, severance, retention-бонусы) и как они рассчитаны.
-    2) Каковы основания расторжения договоров с key persons и связаны ли они
-       со сменой контроля.
-    3) Есть ли non-compete/non-solicit обязательства и насколько они
-       применимы/исполняемы.
-    4) Насколько набор этих условий создаёт риск для удержания ключевых лиц
-       и финансовую нагрузку при сделке.
 
-    Верни строго JSON:
+    1) Есть ли специальные выплаты при смене контроля или увольнении
+       (golden parachutes, severance, бонусы при CoC, exit-платежи):
+       - фиксированные суммы, кратные окладу (например, 6–12 окладов);
+       - бонусы, завязанные на совершение сделки или смену контроля;
+       - специальные выплаты при увольнении без вины работника.
+       Отрази факт их наличия в has_change_of_control_or_exit_payments
+       и кратко опиши структуру в coc_or_exit_payments_description.
+
+    2) Есть ли retention-бонусы:
+       - выплаты за продолжение работы до/после сделки, при удержании
+         в компании N месяцев/лет после CoC;
+       - условия их получения/утраты.
+       Отрази это в has_retention_bonuses.
+
+    3) Есть ли non-compete/non-solicit обязательства:
+       - запрет работать у конкурентов, создавать конкурирующий бизнес;
+       - запрет переманивать работников/клиентов;
+       - срок и территория (если указаны).
+       Отрази это в has_non_compete_or_non_solicit, а специфику упомяни в reason.
+
+    4) Насколько условия создают риск ухода ключевых лиц:
+       - оцени key_person_departure_risk_level: low / medium / high / unclear
+         с учётом:
+         * наличия/отсутствия удерживающих механизмов (retention, vesting),
+         * “легкости” ухода с крупной компенсацией после CoC,
+         * силы/слабости non-compete/non-solicit.
+
+    5) Насколько условия создают финансовую нагрузку при сделке:
+       - оцени financial_impact_risk_level: low / medium / high / unclear
+         с точки зрения суммарного возможного объёма выплат (severance, CoC-бонусы,
+         retention) и триггеров их возникновения (смена контроля, увольнение).
+
+    6) Оцени общий риск (overall_risk_level: low / medium / high) для покупателя
+       бизнеса/инвестора, учитывая риск одновременно потери key persons и
+       значительных выплат.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если явно указано, что при смене контроля топ-менеджер вправе расторгнуть
+      договор с выплатой крупного severance (несколько окладов, бонусы и т.п.):
+      has_change_of_control_or_exit_payments = "yes",
+      key_person_departure_risk_level и financial_impact_risk_level
+      обычно не ниже "medium" (обоснуй в reason).
+
+    — Если есть только стандартные выходные пособия по закону, без специальных
+      CoC/exit-условий:
+      has_change_of_control_or_exit_payments = "no",
+      financial_impact_risk_level скорее "low" (если нет иных крупных выплат).
+
+    — Если non-compete/non-solicit упомянуты, но без срока, территории или механизма
+      исполнения:
+      has_non_compete_or_non_solicit = "yes",
+      но в reason укажи, что их исполнимость сомнительна; при оценке риска ухода
+      учитывай это.
+
+    — Если текст явно говорит, что при смене контроля условия не меняются и
+      дополнительных выплат нет:
+      has_change_of_control_or_exit_payments = "no",
+      key_person_departure_risk_level может быть "medium" или "high" только
+      если есть иные причины (например, нет удерживающих механизмов).
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear" или пустые строки,
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа условий договоров с топ-менеджментом и key employees."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — КРУПНЫЕ CoC/SEVERANCE ВЫПЛАТЫ (HIGH):
+
+    Фрагмент: "В случае смены контроля Работодатель обязан выплатить
+    Генеральному директору выходное пособие в размере 12 месячных окладов
+    и годового бонуса. При увольнении по инициативе Работодателя без вины
+    Работника выплачивается 6 окладов."
+
     {{
-      "has_change_of_control_or_exit_payments": "yes|no|unclear",
-      "coc_or_exit_payments_description": "краткое описание выплат",
-      "has_retention_bonuses": "yes|no|unclear",
-      "has_non_compete_or_non_solicit": "yes|no|unclear",
-      "key_person_departure_risk_level": "low|medium|high|unclear",
-      "financial_impact_risk_level": "low|medium|high|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "has_change_of_control_or_exit_payments": "yes",
+      "coc_or_exit_payments_description": "12 окладов + годовой бонус при смене контроля, 6 окладов при увольнении без вины.",
+      "has_retention_bonuses": "no",
+      "has_non_compete_or_non_solicit": "unclear",
+      "key_person_departure_risk_level": "high",
+      "financial_impact_risk_level": "high",
+      "overall_risk_level": "high",
+      "reason": "Крупные выплаты при CoC и увольнении создают значительную финансовую нагрузку и стимулируют уход топ-менеджера после сделки."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — RETENTION-БОНУСЫ, УМЕРЕННЫЙ РИСК:
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Key employees имеют право на retention-бонус в размере
+    3 окладов при условии продолжения работы в течение 12 месяцев после
+    смены контроля. Специальные выплаты при увольнении сверх закона
+    не предусмотрены."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "has_change_of_control_or_exit_payments": "no",
+      "coc_or_exit_payments_description": "Специальных exit-выплат нет, только retention-бонус при условии продолжения работы.",
+      "has_retention_bonuses": "yes",
+      "has_non_compete_or_non_solicit": "unclear",
+      "key_person_departure_risk_level": "medium",
+      "financial_impact_risk_level": "medium",
+      "overall_risk_level": "medium",
+      "reason": "Retention-бонусы стимулируют удержание key employees после сделки, но создают умеренную дополнительную финансовую нагрузку."
+    }}
+
+    ПРИМЕР 3 — СЛАБЫЕ УДЕРЖИВАЮЩИЕ МЕХАНИЗМЫ, НИЗКИЕ ВЫПЛАТЫ (MEDIUM):
+
+    Фрагмент: "Трудовой договор с Коммерческим директором может быть
+    расторгнут любой стороной с уведомлением за 1 месяц без специальных
+    выходных пособий. Non-compete не установлен, действует только общий
+    запрет разглашения конфиденциальной информации."
+
+    {{
+      "has_change_of_control_or_exit_payments": "no",
+      "coc_or_exit_payments_description": "Специальных выплат при CoC или увольнении нет.",
+      "has_retention_bonuses": "no",
+      "has_non_compete_or_non_solicit": "no",
+      "key_person_departure_risk_level": "high",
+      "financial_impact_risk_level": "low",
+      "overall_risk_level": "medium",
+      "reason": "Отсутствие удерживающих механизмов и non-compete повышает риск быстрого ухода key person при минимальной финансовой нагрузке."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "has_change_of_control_or_exit_payments": "one of: yes | no | unclear",
+      "coc_or_exit_payments_description": "string — краткое описание структуры CoC/exit-выплат (если есть)",
+      "has_retention_bonuses": "one of: yes | no | unclear",
+      "has_non_compete_or_non_solicit": "one of: yes | no | unclear",
+      "key_person_departure_risk_level": "one of: low | medium | high | unclear",
+      "financial_impact_risk_level": "one of: low | medium | high | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и влияния на удержание key persons и финансовую нагрузку"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
+       из фрагментов, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 5
   temperature: 0.0
@@ -105,18 +245,44 @@ extraction:
   fields:
     - name: "has_change_of_control_or_exit_payments"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "coc_or_exit_payments_description"
       type: "string"
     - name: "has_retention_bonuses"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_non_compete_or_non_solicit"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "key_person_departure_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
     - name: "financial_impact_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true
@@ -127,3 +293,5 @@ red_flags:
       description: "Крупные выплаты при смене контроля/увольнении нескольких key persons."
     - code: "HR2"
       description: "Права ключевых лиц легко уйти при смене контроля с значительной компенсацией."
+
+      

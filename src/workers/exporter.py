@@ -26,11 +26,11 @@ from ops.metrics import get_metrics
 from core.logging import get_logger
 from db.uow import db_uow
 from db.repositories.run_repo import RunRepository
+from core.constants import RunStatus
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
 from services.export.core import export_core
-from core.constants import RunStatus
 
 logger = get_logger(__name__)
 
@@ -58,7 +58,22 @@ def export_results(
       - при ошибке помечает Run как failed;
       - возвращает результат с refs на сгенерированные файлы.
     """
-    logger.info("Запуск экспорта", run_id=run_id, deal_id=deal_id)
+    logger.info(
+        "Export results task received",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+        },
+    )
+
+    logger.info(
+        "Запуск экспорта",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+        },
+    )
 
     started_at = time.time()
     metrics = get_metrics()
@@ -83,10 +98,12 @@ def export_results(
 
                 logger.info(
                     "Экспорт завершён",
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    duration_sec=round(duration, 2),
-                    files_generated=len(result.get("refs", {})),
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "duration_sec": round(duration, 2),
+                        "files_generated": len(result.get("refs", {})),
+                    },
                 )
 
                 return result

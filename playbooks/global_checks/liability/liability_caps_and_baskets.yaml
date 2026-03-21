@@ -3,7 +3,9 @@ name: "Лимиты ответственности и пороги (caps, basket
 description: >
   Анализирует наличие и структуру лимитов ответственности (caps),
   порогов (basket, de minimis) и carve-out для ключевых рисков.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -37,41 +39,163 @@ rules:
 
 llm:
   prompt_template: |
-    Ты — юрист по сделкам и контрактам.
-    Тебе даны фрагменты договора с положениями об ограничении ответственности.
+    <role>
+    Ты — юрист по сделкам и коммерческим контрактам.
+    Твоя специализация — ограничения ответственности (caps), пороги (basket, de minimis)
+    и carve-out для ключевых рисков.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора с положениями об ограничении ответственности:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Есть ли лимиты ответственности (caps) и как они определены:
-       - в абсолютной сумме, как процент цены договора и т.п.
-    2) Есть ли пороги и механика их применения:
-       - basket (aggregate threshold),
-       - de minimis (минимальный размер каждой претензии).
-    3) Есть ли carve-out, выводящие отдельные виды нарушений из-под cap:
-       - fraud, willful misconduct, грубая неосторожность,
-       - нарушения санкций, конфиденциальности, IP, данных и т.п.
-    4) Насколько структура caps/baskets/carve-outs защищает Target.
 
-    Верни строго JSON:
+    1) Есть ли лимиты ответственности (has_liability_cap) и как они определены:
+       - в абсолютной сумме (fixed amount),
+       - как процент или кратность цены договора / годовых платежей,
+       - как aggregate liability (в совокупности по договору) или per-claim.
+       Кратко опиши это в cap_description.
+
+    2) Есть ли пороги и механика их применения:
+       - basket (aggregate threshold) — общий порог убытков, после достижения
+         которого возникает право на взыскание всей суммы или суммы сверх порога;
+       - de minimis — минимальный размер каждой отдельной претензии, ниже которого
+         требования не учитываются.
+       Отрази наличие basket в has_basket: yes / no / unclear,
+       наличие de minimis — в has_de_minimis: yes / no / unclear.
+
+    3) Есть ли carve-out, выводящие отдельные виды нарушений из-под cap
+       или из-под basket/de minimis (has_key_carveouts):
+       - fraud, willful misconduct, грубая неосторожность (gross negligence);
+       - нарушения санкционного режима, конфиденциальности, прав ИС, защиты данных,
+         комплаенса и т.п.
+       Если такие carve-out явно прописаны, has_key_carveouts = "yes".
+
+    4) Насколько структура caps/baskets/carve-outs защищает Target:
+       - оцени overall_risk_level: low / medium / high, учитывая:
+         * наличие разумного cap (по отношению к цене/масштабу договора),
+         * наличие/отсутствие basket и de minimis,
+         * наличие carve-out по ключевым высокорисковым нарушениям.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если cap отсутствует, а ответственность по закону принципиально полная
+      и договор не вводит ограничений:
+      has_liability_cap = "no",
+      overall_risk_level обычно не ниже "high" для значимых по объёму договоров.
+
+    — Если cap есть, но очень низкий относительно разумного уровня (например,
+      5–10% цены крупной сделки) и при этом нет carve-out для ключевых рисков:
+      cap_description опиши это явно,
+      overall_risk_level часто "high", так как Target может недополучить компенсацию.
+
+    — Если cap установлен на уровне 100% цены договора или 12-месячных платежей
+      с carve-out для fraud, грубой неосторожности, санкций, IP, данных:
+      has_liability_cap = "yes",
+      has_key_carveouts = "yes",
+      риск может быть "medium" или даже "low" в зависимости от контекста.
+
+    — Если basket и/или de minimis явно описаны как порог для warranty/indemnity
+      требований (опрокидывающий или вычитаемый basket, минимальный размер претензии):
+      так и укажи в has_basket / has_de_minimis = "yes" и отрази механику в reason.
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear" или пустые строки,
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа лимитов ответственности, порогов и carve-out."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — РАЗУМНЫЙ CAP С CARVE-OUT (MEDIUM/LOW):
+
+    Фрагмент: "Совокупная ответственность Поставщика по настоящему Договору
+    ограничивается суммой, равной 100% размера вознаграждения, фактически
+    уплаченного Клиентом за последние 12 месяцев, за исключением ответственности
+    за умысел, грубую неосторожность, нарушение конфиденциальности и прав
+    интеллектуальной собственности."
+
     {{
-      "has_liability_cap": "yes|no|unclear",
-      "cap_description": "строка с описанием cap",
-      "has_basket": "yes|no|unclear",
-      "has_de_minimis": "yes|no|unclear",
-      "has_key_carveouts": "yes|no|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "has_liability_cap": "yes",
+      "cap_description": "Cap на уровне 100% платежей за последние 12 месяцев.",
+      "has_basket": "no",
+      "has_de_minimis": "no",
+      "has_key_carveouts": "yes",
+      "overall_risk_level": "medium",
+      "reason": "Есть разумный совокупный cap и carve-out для fraud/gross negligence, конфиденциальности и IP, что снижает риск для Target."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — НЕТ CAP И CARVE-OUT (HIGH):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Ответственность Поставщика не ограничивается никакими суммами
+    и включает полное возмещение всех убытков, причиненных Клиенту."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "has_liability_cap": "no",
+      "cap_description": "Cap отсутствует, ответственность не ограничена.",
+      "has_basket": "unclear",
+      "has_de_minimis": "unclear",
+      "has_key_carveouts": "no",
+      "overall_risk_level": "high",
+      "reason": "Отсутствуют договорные лимиты ответственности и carve-out для ключевых рисков; потенциальные убытки не ограничены."
+    }}
+
+    ПРИМЕР 3 — BASKET И DE MINIMIS ДЛЯ W&I (MEDIUM):
+
+    Фрагмент: "Продавец несет ответственность за нарушение гарантий только
+    в случае, если совокупный размер убытков Покупателя превышает 1% Цены
+    Договора (basket). При этом убытки по отдельным нарушениям менее 10 000
+    единиц валюты (de minimis) не учитываются при расчете basket. Ограничения
+    не применяются к fraud."
+
+    {{
+      "has_liability_cap": "unclear",
+      "cap_description": "Cap явно не указан, но есть basket и de minimis для гарантий.",
+      "has_basket": "yes",
+      "has_de_minimis": "yes",
+      "has_key_carveouts": "yes",
+      "overall_risk_level": "medium",
+      "reason": "Структура basket и de minimis ограничивает мелкие претензии, при этом fraud выведен из-под ограничений; риск умеренный и зависит от размера сделки."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "has_liability_cap": "one of: yes | no | unclear",
+      "cap_description": "string — краткое описание cap (сумма/процент/агрегированный характер и т.п.)",
+      "has_basket": "one of: yes | no | unclear",
+      "has_de_minimis": "one of: yes | no | unclear",
+      "has_key_carveouts": "one of: yes | no | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок о caps/baskets/carve-outs и их влиянии на риск для Target"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
+       из фрагментов, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 4
   temperature: 0.0
@@ -102,16 +226,36 @@ extraction:
   fields:
     - name: "has_liability_cap"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "cap_description"
       type: "string"
     - name: "has_basket"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_de_minimis"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_key_carveouts"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true
@@ -122,3 +266,4 @@ red_flags:
       description: "Отсутствие разумного cap при существенных обязательствах."
     - code: "LIAB4"
       description: "Отсутствие carve-out для ключевых рисков (данные, IP, санкции, комплаенс)."
+      

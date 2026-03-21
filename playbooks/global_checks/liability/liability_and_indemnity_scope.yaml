@@ -4,7 +4,9 @@ description: >
   Анализирует общий объём ответственности и формулировки indemnity:
   неограниченная ответственность, широкие обязательства возмещения любых потерь,
   фиксированные штрафы и liquidated damages.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -34,37 +36,160 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по контрактам.
-    Тебе даны фрагменты договора с положениями об ответственности и indemnity.
+    Твоя специализация — ответственность сторон, indemnity и договорные штрафы.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора с положениями об ответственности и indemnity:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Каков общий характер ответственности:
-       - ограниченная или фактически неограниченная (unlimited liability).
-    2) Есть ли широкие indemnity-обязательства (возмещение любых потерь,
-       включая штрафы третьих лиц, косвенные убытки и т.п.).
-    3) Есть ли крупные фиксированные штрафы или liquidated damages.
-    4) Кого именно защищает indemnity (Target или контрагента).
 
-    Верни строго JSON:
+    1) Общий характер ответственности (liability_general):
+       - limited — если ответственность явно ограничена (caps, исключения
+         косвенных убытков, ограничение по видам убытков и т.п.);
+       - unlimited — если есть формулировки о неограниченной ответственности
+         либо отсутствуют caps и при этом допускается возмещение любых убытков;
+       - unclear — если по фрагментам нельзя уверенно отнести к limited/unlimited.
+
+    2) Масштаб и характер indemnity (indemnity_scope):
+       - none — indemnity-обязательства отсутствуют;
+       - narrow — indemnity ограничено конкретными рисками (например, IP-нарушение,
+         претензии властей по чётко обозначенному вопросу);
+       - broad — indemnity охватывает "any and all losses", включая штрафы,
+         косвенные убытки, требования третьих лиц в широком перечне ситуаций;
+       - unclear — если есть упоминание indemnity, но объём трудно однозначно оценить.
+
+    3) Есть ли существенные фиксированные штрафы или liquidated damages:
+       - крупные штрафы/penalties;
+       - liquidated damages с высокой ставкой или большим фиксированным размером.
+       Отрази это в has_significant_liquidated_damages_or_fines: yes / no / unclear.
+
+    4) Кого именно защищает indemnity (beneficiary_of_indemnity):
+       - target — если indemnity преимущественно в пользу Target;
+       - counterparty — если преимущественно в пользу другого контрагента;
+       - mutual — если формулировки симметричны;
+       - unclear — если по фрагментам нельзя понять баланс.
+
+    5) Оцени общий уровень риска (overall_risk_level: low / medium / high):
+       - учитывай сочетание общего объёма ответственности, широты indemnity
+         и размера/жёсткости liquidated damages.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если договор содержит прямую оговорку об "unlimited liability" за любой ущерб
+      либо "any and all losses" без caps:
+      liability_general = "unlimited",
+      indemnity_scope, как правило, "broad" (если в пользу контрагента),
+      риск часто "high".
+
+    — Если ответственность ограничена определённой суммой (cap, например, стоимость
+      договора или её кратное значение), исключены косвенные убытки и lost profits:
+      liability_general = "limited".
+
+    — Если indemnity в пользу контрагента покрывает "any and all losses, damages,
+      fines, penalties, costs and expenses" без существенных carve-out:
+      indemnity_scope = "broad",
+      beneficiary_of_indemnity = "counterparty",
+      риск, как правило, не ниже "medium".
+
+    — Если присутствуют только стандартные неустойки/штрафы за просрочку в разумном
+      размере (например, 0,1% в день с капом) и нет широкого indemnity:
+      has_significant_liquidated_damages_or_fines = "no",
+      overall_risk_level может быть "low" или "medium" (обоснуй в reason).
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear" или пустые строки,
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа объёма ответственности и indemnity."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — ШИРОКАЯ INDEMNITY В ПОЛЬЗУ КОНТРАГЕНТА (HIGH):
+
+    Фрагмент: "Поставщик обязуется indemnify, defend and hold harmless Покупателя
+    от any and all losses, damages, fines, penalties, costs and expenses, arising
+    out of or in connection with исполнением настоящего Договора."
+
     {{
-      "liability_general": "limited|unlimited|unclear",
-      "indemnity_scope": "none|narrow|broad|unclear",
-      "has_significant_liquidated_damages_or_fines": "yes|no|unclear",
-      "beneficiary_of_indemnity": "target|counterparty|mutual|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "liability_general": "unclear",
+      "indemnity_scope": "broad",
+      "has_significant_liquidated_damages_or_fines": "unclear",
+      "beneficiary_of_indemnity": "counterparty",
+      "overall_risk_level": "high",
+      "reason": "Широкая indemnity с формулировками 'any and all losses, fines, penalties' в пользу контрагента создаёт высокий риск значительных выплат без чётких ограничений."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — ОГРАНИЧЕННАЯ ОТВЕТСТВЕННОСТЬ С CAP (MEDIUM):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Ответственность Поставщика по настоящему Договору ограничивается
+    суммой, уплаченной Покупателем за последние 12 месяцев. Стороны исключают
+    ответственность за упущенную выгоду и косвенные убытки. Indemnity
+    не предусмотрено."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "liability_general": "limited",
+      "indemnity_scope": "none",
+      "has_significant_liquidated_damages_or_fines": "no",
+      "beneficiary_of_indemnity": "unclear",
+      "overall_risk_level": "medium",
+      "reason": "Ответственность Поставщика ограничена суммой платежей за 12 месяцев с исключением косвенных убытков и отсутствием indemnity; риск ограничен, но зависит от масштаба контракта."
+    }}
+
+    ПРИМЕР 3 — LIQUIDATED DAMAGES, НО УМЕРЕННО (MEDIUM):
+
+    Фрагмент: "В случае нарушения сроков поставки Поставщик уплачивает
+    Покупателю штраф (liquidated damages) в размере 5% от цены просроченной
+    партии товара."
+
+    {{
+      "liability_general": "unclear",
+      "indemnity_scope": "none",
+      "has_significant_liquidated_damages_or_fines": "yes",
+      "beneficiary_of_indemnity": "target",
+      "overall_risk_level": "medium",
+      "reason": "Предусмотрен фиксированный штраф 5% за просрочку поставки; размер значим, но ограничен объёмом конкретного нарушения."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "liability_general": "one of: limited | unlimited | unclear",
+      "indemnity_scope": "one of: none | narrow | broad | unclear",
+      "has_significant_liquidated_damages_or_fines": "one of: yes | no | unclear",
+      "beneficiary_of_indemnity": "one of: target | counterparty | mutual | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и оценки риска распределения ответственности"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
+       из фрагментов, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 4
   temperature: 0.0
@@ -95,14 +220,36 @@ extraction:
   fields:
     - name: "liability_general"
       type: "string"
+      allowed_values:
+        - "limited"
+        - "unlimited"
+        - "unclear"
     - name: "indemnity_scope"
       type: "string"
+      allowed_values:
+        - "none"
+        - "narrow"
+        - "broad"
+        - "unclear"
     - name: "has_significant_liquidated_damages_or_fines"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "beneficiary_of_indemnity"
       type: "string"
+      allowed_values:
+        - "target"
+        - "counterparty"
+        - "mutual"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true

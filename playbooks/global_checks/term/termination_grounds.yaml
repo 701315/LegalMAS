@@ -3,7 +3,9 @@ name: "Основания досрочного расторжения"
 description: >
   Анализирует основания для досрочного расторжения: по вине, без причины,
   при смене контроля, банкротстве, изменении законодательства, санкциях.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -33,42 +35,187 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по коммерческим договорам и M&A.
-    Тебе даны фрагменты договора.
+    Твоя специализация — основания досрочного расторжения и распределение рисков.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты этого договора:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Какие основания досрочного расторжения предусмотрены:
-       - по вине (существенное нарушение, material breach),
-       - без причины (termination for convenience),
-       - при смене контроля,
-       - при банкротстве/несостоятельности,
-       - при существенном изменении закона или санкционных ограничениях.
-    2) У кого есть такие права (у одной или обеих сторон).
-    3) Какой срок уведомления для каждого основания (если указан).
-    4) Насколько набор оснований балансирован для Target.
 
-    Верни строго JSON:
+    1) Основания досрочного расторжения по вине (termination_for_cause):
+       - существенное нарушение / material breach,
+       - иные нарушения, прямо указанные как основание расторжения.
+       Оцени, у кого есть право расторжения:
+       - "none" — оснований по вине нет;
+       - "one_sided" — право расторжения по вине есть только у одной стороны;
+       - "mutual" — симметричное право у обеих сторон;
+       - "unclear" — нельзя понять из фрагментов.
+
+    2) Основания расторжения без причины (termination_for_convenience):
+       - termination for convenience, односторонний отказ без указания нарушения,
+         право отказаться «по собственному усмотрению» и т.п.
+       Так же оцени, у кого есть такое право: "none" | "one_sided" | "mutual" | "unclear".
+
+    3) Право расторжения при смене контроля (termination_on_coc):
+       - есть ли условие, что при смене контроля/смене собственника одной из сторон
+         контрагент вправе расторгнуть договор;
+       - оцени как "yes" | "no" | "unclear".
+
+    4) Право расторжения при банкротстве/несостоятельности (termination_on_insolvency):
+       - упоминаются ли bankruptcy, insolvency, administration, ликвидация;
+       - есть ли право прекратить договор при наступлении таких событий.
+
+    5) Право расторжения при изменении законодательства или санкций
+       (termination_on_law_change_or_sanctions):
+       - основания вида:
+         * существенное изменение закона,
+         * введение запретов/санкций, делающих исполнение незаконным или невозможным,
+         * специальные санкционные/регуляторные триггеры для расторжения.
+
+    6) Сроки уведомления (notice_period_summary):
+       - какие сроки уведомления указаны для отдельных оснований:
+         * по вине (grace period / cure period, если есть),
+         * без причины,
+         * при смене контроля/банкротстве/санкциях;
+       - кратко опиши структуру сроков в одной строке, например:
+         "For cause — 30 дней на устранение; for convenience — уведомление за 60 дней".
+
+    7) Оцени общий баланс и риск для Target (overall_risk_level: low / medium / high):
+       - учитывая:
+         * односторонность/взаимность прав на расторжение,
+         * наличие/отсутствие termination for convenience у ключевого контрагента,
+         * жёсткость триггеров (особенно по санкциям/законодательству),
+         * длительность/наличие grace period.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если у ключевого контрагента есть широкое право termination for convenience
+      с коротким сроком уведомления (например, 30 дней), а у Target такого права нет:
+      termination_for_convenience = "one_sided",
+      overall_risk_level обычно "high" (обоснуй в reason).
+
+    — Если termination for cause прописан только в пользу одной стороны
+      (например, поставщик может расторгнуть при любом нарушении, а клиент — нет):
+      termination_for_cause = "one_sided",
+      это тоже усиливает дисбаланс.
+
+    — Если есть право расторжения при смене контроля Target без зеркального права
+      для Target при смене контроля другой стороны:
+      termination_on_coc = "yes",
+      отрази, в чью пользу диспозиция, и учитывай это в риске.
+
+    — Если триггеры по санкциям и изменению закона позволяют контрагенту
+      расторгнуть договор уже при "риске нарушения" без объективного запрета,
+      и это право одностороннее:
+      termination_on_law_change_or_sanctions = "yes",
+      риск обычно "high".
+
+    — Если текст фрагментарный: видно упоминание расторжения, но неясно,
+      по какому основанию и у кого конкретно право:
+      используй "unclear" и явно укажи в reason, какие элементы не просматриваются.
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear",
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа оснований досрочного расторжения и их баланса между сторонами."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — СИММЕТРИЧНЫЙ TERMINATION FOR CAUSE, НЕТ FOR CONVENIENCE (MEDIUM/LOW):
+
+    Фрагмент: "Каждая из Сторон вправе расторгнуть настоящий Договор при существенном
+    нарушении его условий другой Стороной, если такое нарушение не будет устранено
+    в течение 30 дней с даты получения письменного уведомления. Расторжение договора
+    без указания причины не допускается."
+
     {{
-      "termination_for_cause": "none|one_sided|mutual|unclear",
-      "termination_for_convenience": "none|one_sided|mutual|unclear",
-      "termination_on_coc": "yes|no|unclear",
-      "termination_on_insolvency": "yes|no|unclear",
-      "termination_on_law_change_or_sanctions": "yes|no|unclear",
-      "notice_period_summary": "строка с описанием сроков уведомления",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "termination_for_cause": "mutual",
+      "termination_for_convenience": "none",
+      "termination_on_coc": "unclear",
+      "termination_on_insolvency": "unclear",
+      "termination_on_law_change_or_sanctions": "unclear",
+      "notice_period_summary": "For cause: 30 дней на устранение после письменного уведомления.",
+      "overall_risk_level": "low",
+      "reason": "Есть взаимное право расторжения только при существенном нарушении с 30-дневным сроком на устранение; termination for convenience не предусмотрен, баланс для Target благоприятный."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — ОДНОСТОРОННИЙ TERMINATION FOR CONVENIENCE У КОНТРАГЕНТА (HIGH):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Поставщик вправе расторгнуть Договор в одностороннем порядке
+    по своему усмотрению, уведомив Клиента не менее чем за 30 дней. Клиент
+    не вправе расторгнуть Договор без указания причины."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "termination_for_cause": "unclear",
+      "termination_for_convenience": "one_sided",
+      "termination_on_coc": "unclear",
+      "termination_on_insolvency": "unclear",
+      "termination_on_law_change_or_sanctions": "unclear",
+      "notice_period_summary": "For convenience: право Поставщика с уведомлением за 30 дней; у Клиента права нет.",
+      "overall_risk_level": "high",
+      "reason": "Ключевой контрагент имеет одностороннее право расторжения без причины с коротким сроком уведомления, что создаёт высокий риск для Target."
+    }}
+
+    ПРИМЕР 3 — TERMINATION ПРИ БАНКРОТСТВЕ И СМЕНЕ КОНТРОЛЯ (MEDIUM):
+
+    Фрагмент: "Каждая из Сторон вправе расторгнуть настоящий Договор в случае
+    признания другой Стороны банкротом или при смене контроля над другой Стороной
+    без предварительного письменного согласия."
+
+    {{
+      "termination_for_cause": "unclear",
+      "termination_for_convenience": "none",
+      "termination_on_coc": "yes",
+      "termination_on_insolvency": "yes",
+      "termination_on_law_change_or_sanctions": "unclear",
+      "notice_period_summary": "Срок уведомления о расторжении не указан во фрагменте.",
+      "overall_risk_level": "medium",
+      "reason": "Взаимные права на расторжение при банкротстве и смене контроля создают умеренный риск для Target; сроки уведомления и другие основания в фрагменте не раскрыты."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "termination_for_cause": "one of: none | one_sided | mutual | unclear",
+      "termination_for_convenience": "one of: none | one_sided | mutual | unclear",
+      "termination_on_coc": "one of: yes | no | unclear",
+      "termination_on_insolvency": "one of: yes | no | unclear",
+      "termination_on_law_change_or_sanctions": "one of: yes | no | unclear",
+      "notice_period_summary": "string — краткое описание сроков и условий уведомления по разным основаниям",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок по расторжению и их влияния на риск для Target"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null или пустой строке.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные формулировки из фрагментов
+       и вывод по балансу прав на расторжение, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации —
+       используй 'unclear' и опиши, чего не хватает; reason не может быть пустым.
+       НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 4
   temperature: 0.0
@@ -101,18 +248,44 @@ extraction:
   fields:
     - name: "termination_for_cause"
       type: "string"
+      allowed_values:
+        - "none"
+        - "one_sided"
+        - "mutual"
+        - "unclear"
     - name: "termination_for_convenience"
       type: "string"
+      allowed_values:
+        - "none"
+        - "one_sided"
+        - "mutual"
+        - "unclear"
     - name: "termination_on_coc"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "termination_on_insolvency"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "termination_on_law_change_or_sanctions"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "notice_period_summary"
       type: "string"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true

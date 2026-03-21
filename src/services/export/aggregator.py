@@ -60,6 +60,16 @@ def aggregate_results(
             applicable_triggers (NEW)
         }
     """
+    logger.info(
+        "Aggregate results starting",
+        extra={
+            "deal_id": deal_id,
+            "run_id": run_id,
+            "check_results_count": len(check_results),
+            "documents_count": len(documents),
+        },
+    )
+
     agg = AggregatedResults(
         deal_id=deal_id,
         deal_name=deal_name,
@@ -69,6 +79,15 @@ def aggregate_results(
     )
 
     if not check_results:
+        logger.info(
+            "Aggregate results completed",
+            extra={
+                "deal_id": deal_id,
+                "run_id": run_id,
+                "structured_values": len(agg.structured_value_rows),
+                "dd_requests": len(agg.dd_requests),
+            },
+        )
         return agg
 
     # --- Step 1: Build ExportRows and count severities ---
@@ -98,7 +117,9 @@ def aggregate_results(
 
         flags = cr.get("quality_flags", {})
         flags_str = (
-            ", ".join(k for k, v in flags.items() if v is True) if isinstance(flags, dict) else ""
+            ", ".join(k for k, v in flags.items() if v is True)
+            if isinstance(flags, dict)
+            else ""
         )
 
         # NEW: structured_data preview
@@ -152,7 +173,10 @@ def aggregate_results(
                     check_name=cr.get("check_name", ""),
                     result=result,
                     severity=severity,
-                    evidence_snippet=_truncate(cr.get("value_text", ""), 200),
+                    evidence_snippet=_truncate(
+                        cr.get("value_text", ""),
+                        settings.EXPORT_EVIDENCE_MAX_LENGTH,
+                    ),
                     page=cr.get("page"),
                     confidence=cr.get("confidence", 0.0),
                     quality_flags=flags_str,
@@ -185,7 +209,6 @@ def aggregate_results(
                         check_id=cr.get("check_id", ""),  # NEW
                     )
                 )
-
 
     agg.severity_counts = counts
     agg.rows = rows
@@ -224,7 +247,13 @@ def aggregate_results(
     ]
 
     # --- Step 3: DD Requests (text from YAML templates) ---
-    agg.dd_requests = _generate_dd_requests(fail_rows, check_results)
+    # NEW (Ошибка 6): добавляем unclear-critical/high в список для DD-запросов
+    unclear_important = [
+        r for r in rows
+        if r.result == "unclear" and r.severity in ("critical", "high")
+    ]
+    all_rows_for_requests = fail_rows + unclear_important
+    agg.dd_requests = _generate_dd_requests(all_rows_for_requests, check_results)
 
     # --- Step 4: Doc Type Summaries (with classification metadata) ---
     agg.doc_type_summaries = _build_doc_type_summaries(rows, documents)
@@ -271,10 +300,19 @@ def _generate_dd_requests(
     loader = get_dd_request_loader()
     severity_order = {"critical": 0, "high": 1, "medium": 2}
 
+    # rows_for_requests может содержать и fail, и unclear (critical/high)
+    rows_for_requests = fail_rows
+
     if not settings.EXPORT_DD_REQUEST_DEDUP:
-        result = []
-        for r in fail_rows:
+        result: list[DDRequest] = []
+        for r in rows_for_requests:
             text, addressee = loader.render(r.check_id, r.check_name, [r.document_name])
+
+            # NEW (Ошибка 6): пометка unclear-critical/high как "требует уточнения"
+            if r.result == "unclear" and r.severity in ("critical", "high"):
+                text = f"[ТРЕБУЕТ УТОЧНЕНИЯ] {text}"
+
+            max_ev = getattr(settings, "EXPORT_EVIDENCE_MAX_LENGTH", 300)
             result.append(
                 DDRequest(
                     request_id=str(uuid_module.uuid4()),
@@ -286,21 +324,21 @@ def _generate_dd_requests(
                     document_ids=[r.document_id],
                     document_names=[r.document_name],
                     doc_types=[r.doc_type],
-                    evidence_refs=[r.evidence_snippet[:100]],
+                    evidence_refs=[r.evidence_snippet[:max_ev]],
                 )
             )
         return result
 
-    # Group by check_id
+    # Group by check_id (и для fail, и для unclear critical/high)
     by_check: dict[str, list[ExportRow]] = defaultdict(list)
-    for row in fail_rows:
+    for row in rows_for_requests:
         by_check[row.check_id].append(row)
 
     # Map check_id → structured values from results
     structured_by_check: dict[str, list[dict]] = defaultdict(list)
     for cr in check_results:
         sd = cr.get("structured_data") or {}
-        if sd and cr.get("result") == "fail":
+        if sd and cr.get("result") in ("fail", "unclear"):
             for k, v in sd.items():
                 if v and str(v) not in ("not_found", "None", ""):
                     structured_by_check[cr.get("check_id", "")].append(
@@ -308,6 +346,9 @@ def _generate_dd_requests(
                     )
 
     requests: list[DDRequest] = []
+    seen_keys: set[str] = set()  # NEW (Ошибка 11): реальное использование dedup_key
+    max_ev = getattr(settings, "EXPORT_EVIDENCE_MAX_LENGTH", 300)
+
     for check_id, group in by_check.items():
         best_severity = min(
             group,
@@ -317,11 +358,26 @@ def _generate_dd_requests(
         doc_ids = list(dict.fromkeys(r.document_id for r in group))
         doc_names = list(dict.fromkeys(r.document_name for r in group))
         doc_types = list(dict.fromkeys(r.doc_type for r in group))
-        evidence_refs = [r.evidence_snippet[:100] for r in group if r.evidence_snippet]
+        evidence_refs = [
+            r.evidence_snippet[:max_ev] for r in group if r.evidence_snippet
+        ]
 
         text, addressee = loader.render(check_id, group[0].check_name, doc_names)
 
-        dedup_key = hashlib.md5(f"{check_id}:{','.join(sorted(doc_ids))}".encode()).hexdigest()[:12]
+        # NEW (Ошибка 6): если все строки в группе unclear-critical/high — запрос на уточнение
+        if all(r.result == "unclear" for r in group) and any(
+            r.severity in ("critical", "high") for r in group
+        ):
+            text = f"[ТРЕБУЕТ УТОЧНЕНИЯ] {text}"
+
+        dedup_key = hashlib.md5(
+            f"{check_id}:{','.join(sorted(doc_ids))}".encode()
+        ).hexdigest()[:12]
+
+        # NEW (Ошибка 11): пропускаем дубли по dedup_key
+        if dedup_key in seen_keys:
+            continue
+        seen_keys.add(dedup_key)
 
         requests.append(
             DDRequest(
@@ -367,16 +423,21 @@ def _build_doc_type_summaries(
         avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
         low_conf = sum(1 for c in confidences if c < 0.6)
 
+        # NEW (Ошибка 13): считаем уникальные проверки, а не строки
+        unique_checks = set(r.check_id for r in type_rows)
+
         summaries.append(
             DocTypeSummary(
                 doc_type=doc_type,
                 document_count=len(unique_doc_ids),
-                check_count=len(type_rows),
+                check_count=len(unique_checks),
                 critical=sum(
                     1 for r in type_rows if r.severity == "critical" and r.result == "fail"
                 ),
                 high=sum(1 for r in type_rows if r.severity == "high" and r.result == "fail"),
-                medium=sum(1 for r in type_rows if r.severity == "medium" and r.result == "fail"),
+                medium=sum(
+                    1 for r in type_rows if r.severity == "medium" and r.result == "fail"
+                ),
                 pass_count=sum(1 for r in type_rows if r.result == "pass"),
                 unclear=sum(1 for r in type_rows if r.result == "unclear"),
                 avg_classification_confidence=round(avg_conf, 3),

@@ -50,13 +50,18 @@ async def maybe_start_run_checks(
     if not run_id:
         return
 
+    logger.info(
+        "maybe_start_run_checks: starting",
+        extra={"run_id": str(run_id)},
+    )
+
     # 1. Загружаем Run
     result = await db.execute(select(Run).where(Run.id == run_id))
     run_obj: Run | None = result.scalar_one_or_none()
     if not run_obj:
         logger.warning(
             "maybe_start_run_checks: run not found",
-            run_id=str(run_id),
+            extra={"run_id": str(run_id)},
         )
         return
 
@@ -64,8 +69,10 @@ async def maybe_start_run_checks(
     if run_obj.status != RunStatus.RUNNING.value:
         logger.debug(
             "maybe_start_run_checks: run is not RUNNING, skip",
-            run_id=str(run_id),
-            status=run_obj.status,
+            extra={
+                "run_id": str(run_id),
+                "status": run_obj.status,
+            },
         )
         return
 
@@ -74,7 +81,7 @@ async def maybe_start_run_checks(
     if job_exists:
         logger.debug(
             "maybe_start_run_checks: run_deal_checks job already exists, skip",
-            run_id=str(run_id),
+            extra={"run_id": str(run_id)},
         )
         return
 
@@ -88,8 +95,10 @@ async def maybe_start_run_checks(
         # Нет документов — логируем и не запускаем checks.
         logger.info(
             "maybe_start_run_checks: no documents for deal, nothing to check",
-            run_id=str(run_id),
-            deal_id=str(deal_id),
+            extra={
+                "run_id": str(run_id),
+                "deal_id": str(deal_id),
+            },
         )
         return
 
@@ -99,16 +108,16 @@ async def maybe_start_run_checks(
     ready_statuses = {DocumentStatus.CLASSIFIED.value, DocumentStatus.COMPLETED.value}
     error_statuses = {DocumentStatus.FAILED.value, DocumentStatus.QUARANTINE.value}
 
-    participating_docs = [
-        d for d in docs if d.status not in error_statuses
-    ]
+    participating_docs = [d for d in docs if d.status not in error_statuses]
 
     if not participating_docs:
         # Все документы либо упали/в карантине, либо их нет — checks запускать бессмысленно.
         logger.info(
             "maybe_start_run_checks: no participating documents, skip checks",
-            run_id=str(run_id),
-            deal_id=str(deal_id),
+            extra={
+                "run_id": str(run_id),
+                "deal_id": str(deal_id),
+            },
         )
         return
 
@@ -118,13 +127,30 @@ async def maybe_start_run_checks(
         # Есть ещё документы, которые не дошли до классификации.
         logger.debug(
             "maybe_start_run_checks: not all documents are ready for checks",
-            run_id=str(run_id),
-            deal_id=str(deal_id),
+            extra={
+                "run_id": str(run_id),
+                "deal_id": str(deal_id),
+                "participating_docs": len(participating_docs),
+                "ready_docs": sum(
+                    1 for d in participating_docs if d.status in ready_statuses
+                ),
+            },
         )
         return
 
+    total_checks = None  # сюда можно будет положить реальное число при планировании
+
+    logger.info(
+        "maybe_start_run_checks: all documents ready, planning checks",
+        extra={
+            "run_id": str(run_id),
+            "deal_id": str(deal_id),
+            "participating_docs": len(participating_docs),
+        },
+    )
+
     # 4. Все нужные документы готовы, checks ещё не запускались — ставим задачу.
-    tenant_id = None
+    tenant_id: str | None
     if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
         tenant_id = str(run_obj.deal.tenant_id)
     else:
@@ -143,9 +169,13 @@ async def maybe_start_run_checks(
 
     logger.info(
         "maybe_start_run_checks: scheduling run_deal_checks",
-        run_id=str(run_id),
-        deal_id=str(deal_id),
-        tenant_id=tenant_id,
+        extra={
+            "run_id": str(run_id),
+            "deal_id": str(deal_id),
+            "tenant_id": tenant_id,
+            "checks_planned": total_checks,
+            "job_id": str(job.id),
+        },
     )
 
     celery_app.send_task(
@@ -154,6 +184,16 @@ async def maybe_start_run_checks(
             "run_id": str(run_id),
             "deal_id": str(deal_id),
             "tenant_id": tenant_id,
+        },
+    )
+
+    logger.info(
+        "maybe_start_run_checks: run_deal_checks task sent",
+        extra={
+            "run_id": str(run_id),
+            "deal_id": str(deal_id),
+            "tenant_id": tenant_id,
+            "job_id": str(job.id),
         },
     )
 

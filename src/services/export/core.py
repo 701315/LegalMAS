@@ -74,10 +74,19 @@ async def _load_documents_metadata(
     repo = RunnerRepository(db)
     documents = await repo.get_non_duplicate_docs(uuid.UUID(deal_id))
 
+    logger.info(
+        "Export: loading documents metadata",
+        extra={
+            "deal_id": str(deal_id),
+            "documents_count": len(documents),
+        },
+    )
+
     docs: Dict[str, Dict[str, Any]] = {}
+
     for d in documents:
         docs[str(d.id)] = {
-            "name": d.name,
+            "name": getattr(d, "filename", None) or getattr(d, "name", ""),
             "folder_path": getattr(d, "folder_path", "") or "",
             "doc_type": getattr(d, "doc_type", "Generic") or "Generic",
             "status": getattr(d, "status", "active") or "active",
@@ -190,6 +199,12 @@ async def export_core(
         },
     }
     """
+
+    logger.info(
+        "Export core starting",
+        extra={"deal_id": deal_id, "run_id": run_id},
+    )
+
     store = ArtifactStore()
 
     # 1. Загрузка данных
@@ -337,6 +352,11 @@ async def export_core(
 
     # Основной ref для обратной совместимости — dd_grid
     export_ref = refs.get("dd_grid")
+
+    logger.info(
+        "Export core completed",
+        extra={"deal_id": deal_id, "run_id": run_id},
+    )
 
     return {
         "run_id": run_id,

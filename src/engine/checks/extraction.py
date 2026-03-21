@@ -26,6 +26,38 @@ from ..playbook.models import (
 
 logger = get_logger(__name__)
 
+# ✅ ИСПРАВЛЕНИЕ Ошибки 5, шаг A:
+# Набор "мусорных" значений которые LLM возвращает когда не нашёл ответ.
+# Определяем на уровне модуля — один раз, используем везде в файле.
+# Все значения в нижнем регистре — сравниваем через .lower().strip()
+_NULL_VALUES = frozenset({
+    "null",
+    "none",
+    "not_found",
+    "n/a",
+    "na",
+    "не найдено",
+    "отсутствует",
+    "нет данных",
+    "",
+    "unknown",
+    "неизвестно",
+    "-",
+    "—",
+})
+
+
+def _is_null_value(raw: Any) -> bool:
+    """
+    Проверяет, является ли значение "пустым" ответом LLM или rules.
+
+    Возвращает True если значение нужно отбросить (не добавлять в structured).
+    Возвращает False если значение реальное и его нужно сохранить.
+    """
+    if raw is None:
+        return True
+    return str(raw).strip().lower() in _NULL_VALUES
+
 
 class ExtractionExecutor:
     """
@@ -98,6 +130,21 @@ class ExtractionExecutor:
                         continue
 
                     value_raw = llm_payload.get("value")
+
+                    # ✅ ИСПРАВЛЕНИЕ Ошибки 5, шаг A:
+                    # Фильтруем "мусорные" значения сразу после получения от LLM —
+                    # ДО того как значение попадёт в structured и затем в БД.
+                    # Раньше "not_found", "N/A", None проходили дальше и записывались
+                    # в CheckResult.structured_data. Теперь — пропускаем такие значения.
+                    if _is_null_value(value_raw):
+                        logger.debug(
+                            "LLM returned null-like value for field, skipping",
+                            field_name=name,
+                            value_raw=str(value_raw),
+                            check_id=check.id,
+                        )
+                        continue
+
                     conf_raw = llm_payload.get("confidence", 0.7)
                     try:
                         confidence_llm = float(conf_raw)
@@ -105,11 +152,7 @@ class ExtractionExecutor:
                         confidence_llm = 0.7
 
                     # Приводим к типу поля (MVP: через _cast_value)
-                    value_cast = (
-                        self._cast_value(field_cfg, str(value_raw))
-                        if value_raw is not None
-                        else None
-                    )
+                    value_cast = self._cast_value(field_cfg, str(value_raw))
 
                     if name not in structured:
                         # rules ничего не дал — используем LLM
@@ -167,7 +210,7 @@ class ExtractionExecutor:
 
         Возвращает:
           {"value": ..., "unit": ..., "source": "rules", "confidence": float}
-          или None, если ничего не нашли.
+          или None, если ничего не нашли или найденное значение — "мусор".
         """
         # 1. Regex-поиск: берём первый match из первого сработавшего паттерна.
         for pattern in field_cfg.regex_patterns or []:
@@ -184,31 +227,40 @@ class ExtractionExecutor:
 
             if m:
                 raw_value = m.group(1) if m.groups() else m.group(0)
+
+                # ✅ ИСПРАВЛЕНИЕ Ошибки 5 (rules-часть):
+                # Regex может поймать "N/A" или "не указано" прямо из текста договора.
+                # Проверяем и отбрасываем такие значения.
+                if _is_null_value(raw_value):
+                    continue
+
                 value = self._cast_value(field_cfg, raw_value)
                 return {
                     "value": value,
                     "unit": field_cfg.unit,
                     "source": "rules",
-                    "confidence": 0.8,  # правило сработало, считаем достаточно уверенным
+                    "confidence": 0.8,
                 }
 
         # 2. keyword_hints: если regex не сработал, попробуем понять "есть/нет" по ключевым словам.
-        # Для числовых полей без regex тут обычно мало смысла; для boolean/строковых — может быть.
         if field_cfg.keyword_hints:
             lowered = text.lower()
             hits = [kw for kw in field_cfg.keyword_hints if kw.lower() in lowered]
             if hits:
-                # Для boolean-полей можно трактовать "есть хоть один hint" как True.
                 if field_cfg.type == ExtractionFieldType.BOOLEAN:
                     value: Any = True
                 else:
-                    # Для строковых полей сохраним список найденных хинтов.
                     value = ", ".join(hits)
+
+                # ✅ Для keyword_hints тоже применяем фильтр на всякий случай
+                if _is_null_value(value):
+                    return None
+
                 return {
                     "value": value,
                     "unit": field_cfg.unit,
                     "source": "rules",
-                    "confidence": 0.5,  # эвристика: слабее, чем regex
+                    "confidence": 0.5,
                 }
 
         return None
@@ -228,7 +280,6 @@ class ExtractionExecutor:
             cleaned = raw_value.replace(" ", "").replace(",", ".")
             try:
                 num = float(cleaned)
-                # Если целое — вернуть int, чтобы было приятнее в JSON/БД.
                 if num.is_integer():
                     return int(num)
                 return num
@@ -243,7 +294,6 @@ class ExtractionExecutor:
                 return True
             if v in false_vals:
                 return False
-            # если не удалось однозначно интерпретировать — оставим как строку
             return raw_value
 
         # По умолчанию STRING

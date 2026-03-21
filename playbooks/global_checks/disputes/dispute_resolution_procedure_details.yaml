@@ -4,7 +4,9 @@ description: >
   Анализирует детали dispute resolution: язык процесса, interim measures,
   сочетание суда и арбитража, а также типичные процедурные особенности,
   влияющие на enforceability и удобство.
+
 doc_types: []
+
 severity: "medium"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -37,41 +39,165 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по международному арбитражу и судебным спорам.
-    Тебе даны фрагменты договора с деталями dispute resolution.
+    Твоя специализация — анализ арбитражных и юрисдикционных оговорок,
+    включая процедурные детали, влияющие на enforceability и удобство.
+    </role>
 
-    Определи:
-    1) Если выбран арбитраж:
-       - какой институт и регламент (ICC, LCIA, и т.п.),
-       - место арбитража (seat),
-       - язык арбитража,
-       - есть ли дополнительные процедурные положения (число арбитров, порядок назначения и т.п.).
-    2) Есть ли отдельные положения о поддерживающей юрисдикции судов
-       (для interim measures, исполнения арбитражного решения).
-    3) Если выбран суд, а не арбитраж, выделены ли особенности
-       (специальный суд, язык, необходимость предварительных процедур).
-    4) Есть ли противоречия или неопределённость (например, одновременный выбор суда и арбитража).
+    <context>
+    Ниже приведены фрагменты договора с деталями dispute resolution:
 
-    Верни строго JSON:
+    {context}
+    </context>
+
+    <instructions>
+    Проведи анализ строго по следующим шагам:
+
+    Шаг 1 — АРБИТРАЖНЫЙ ИНСТИТУТ И МЕСТО:
+    - Если выбран арбитраж, определи:
+      * институт (ICC, LCIA, SIAC, HKIAC, ICAC и т.п.),
+      * место арбитража (seat),
+      * при наличии — ссылку на арбитражные правила.
+    - Сформулируй это в свободной форме в поле arbitration_institution_and_seat.
+      Если арбитраж не выбран вообще, установи значение 'none'.
+
+    Шаг 2 — ЯЗЫК АРБИТРАЖА/ПРОЦЕССА:
+    - Определи, указан ли язык арбитража (например, "language of the arbitration shall be English")
+      или языка судебного процесса.
+    - Если язык прямо указан — отрази его в arbitration_language (например, "English", "русский").
+    - Если язык не указан или по фрагментам это непонятно — arbitration_language = "unclear".
+
+    Шаг 3 — ПОДДЕРЖИВАЮЩАЯ ЮРИСДИКЦИЯ СУДОВ:
+    - Проверь, есть ли отдельные положения о компетентном суде для:
+      * interim measures (временные обеспечительные меры),
+      * содействия арбитражу,
+      * исполнения арбитражного решения.
+    - Установи has_court_support_for_arbitration = yes / no / unclear.
+
+    Шаг 4 — КОНФЛИКТ МЕЖДУ СУДОМ И АРБИТРАЖЕМ:
+    - Оцени, есть ли потенциальный конфликт между судебной и арбитражной подсудностью:
+      * одновременный выбор суда и арбитража без ясного приоритета,
+      * противоречивые формулировки компетенции.
+    - Установи has_potential_conflict_between_court_and_arbitration_clauses = yes / no / unclear.
+
+    Шаг 5 — ОБЩИЙ УРОВЕНЬ ПРОЦЕССУАЛЬНОГО РИСКА:
+    - Оцени overall_risk_level: low / medium / high с точки зрения:
+      * предсказуемости и удобства процедуры,
+      * риска параллельных процессов,
+      * риска проблем с enforceability.
+    - Обоснуй вывод в поле "reason", ссылаясь на конкретные формулировки.
+
+    Если разные фрагменты противоречат друг другу (например, в одном месте
+    указан только арбитраж, а в другом — только суд без оговорки о приоритете),
+    не усредняй. Отрази противоречие в "reason" и установи риск не ниже "medium".
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — как обрабатывать пограничные ситуации:
+
+    — Если арбитраж не выбран вообще, а есть только суд:
+      arbitration_institution_and_seat = "none",
+      arbitration_language = "unclear",
+      has_court_support_for_arbitration = "no".
+
+    — Если указан арбитражный институт, но не указан seat:
+      arbitration_institution_and_seat должен ясно отражать отсутствие seat,
+      это повышает процессуальный риск (учти в overall_risk_level и reason).
+
+    — Если язык арбитража не указан:
+      arbitration_language = "unclear".
+
+    — Если одновременно указаны и суд, и арбитраж без приоритета:
+      has_potential_conflict_between_court_and_arbitration_clauses = "yes",
+      overall_risk_level не ниже "medium".
+
+    — Пустые или нерелевантные фрагменты:
+      все поля = "unclear" или null, overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа процедурных деталей разрешения споров".
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — ЧЁТКАЯ АРБИТРАЖНАЯ ОГОВОРКА (LOW/MEDIUM):
+
+    Фрагмент: "Все споры подлежат окончательному рассмотрению в
+    Международном арбитражном суде ICC в соответствии с его Регламентом.
+    Местом арбитража является Париж, язык арбитража — английский.
+    Стороны сохраняют право обращаться в компетентные суды Франции
+    за обеспечительными мерами до или в ходе арбитража."
+
     {{
-      "arbitration_institution_and_seat": "строка с описанием или 'none'",
-      "arbitration_language": "строка с указанием языка или 'unclear'",
-      "has_court_support_for_arbitration": "yes|no|unclear",
-      "has_potential_conflict_between_court_and_arbitration_clauses": "yes|no|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "arbitration_institution_and_seat": "ICC, место арбитража Париж",
+      "arbitration_language": "English",
+      "has_court_support_for_arbitration": "yes",
+      "has_potential_conflict_between_court_and_arbitration_clauses": "no",
+      "overall_risk_level": "low",
+      "reason": "Чётко определены институт (ICC), seat (Париж) и язык; предусмотрена поддержка суда по обеспечительным мерам, без конфликта с арбитражной оговоркой."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — КОНФЛИКТ СУД/АРБИТРАЖ (HIGH):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Все споры разрешаются арбитражем в соответствии с Регламентом LCIA,
+    местом арбитража является Лондон. Одновременно все споры подлежат рассмотрению
+    судами города Москва, решение которых является окончательным."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "arbitration_institution_and_seat": "LCIA, место арбитража Лондон",
+      "arbitration_language": "unclear",
+      "has_court_support_for_arbitration": "unclear",
+      "has_potential_conflict_between_court_and_arbitration_clauses": "yes",
+      "overall_risk_level": "high",
+      "reason": "Оговорка одновременно передаёт споры в LCIA и в суды Москвы без явного приоритета, что создаёт высокий риск параллельных процессов и проблем с enforceability."
+    }}
+
+    ПРИМЕР 3 — ТОЛЬКО СУД, НЕТ АРБИТРАЖА (MEDIUM):
+
+    Фрагмент: "Все споры разрешаются в компетентных судах по месту нахождения
+    Ответчика. Стороны вправе обращаться за обеспечительными мерами в такие суды."
+
+    {{
+      "arbitration_institution_and_seat": "none",
+      "arbitration_language": "unclear",
+      "has_court_support_for_arbitration": "no",
+      "has_potential_conflict_between_court_and_arbitration_clauses": "no",
+      "overall_risk_level": "medium",
+      "reason": "Арбитраж не выбран, споры переданы только в суды по месту нахождения Ответчика; поддержка арбитража не требуется, но выбор форума может быть неудобным."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "arbitration_institution_and_seat": "string — описание института и места арбитража или 'none'",
+      "arbitration_language": "string — язык арбитража/процесса или 'unclear'",
+      "has_court_support_for_arbitration": "one of: yes | no | unclear",
+      "has_potential_conflict_between_court_and_arbitration_clauses": "one of: yes | no | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок из фрагментов"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты из фрагментов,
+       а не общие фразы вроде "есть риски". Желательно включать короткие
+       цитаты из текста в кавычках.
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него null или 'unclear' (для полей, где это явно
+       предусмотрено). НЕ придумывай значения, не интерполируй,
+       не используй формулировки вроде "не указано", "N/A", "не найдено".
+    </constraints>
   prompt_file: null
   context_k: 5
   temperature: 0.0
@@ -106,10 +232,22 @@ extraction:
       type: "string"
     - name: "has_court_support_for_arbitration"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_potential_conflict_between_court_and_arbitration_clauses"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true

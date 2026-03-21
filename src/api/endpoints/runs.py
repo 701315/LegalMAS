@@ -44,6 +44,10 @@ from ..schemas.runs import (
 )
 from ..schemas.results import CheckResultResponse
 from ..schemas.pagination import PaginatedResponse as PaginatedResponseSchema
+from core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -143,6 +147,18 @@ async def _start_run_core(
         pipeline_strategy=pipeline_strategy,
     )
 
+    logger.info(
+        "Run created",
+        extra={
+            "run_id": str(run.id),
+            "deal_id": str(deal_uuid),
+            "playbook_version_id": str(playbook_version_id),
+            "model_config_id": str(model_config_id),
+            "pipeline_strategy": pipeline_strategy,
+            "created_by": getattr(user, "id", None),
+        },
+    )
+
     # 5. Обновляем last_run_id у сделки
     await deal_repo.set_last_run_id(deal_id=deal_uuid, run_id=run.id)
 
@@ -159,6 +175,15 @@ async def _start_run_core(
     tenant_id = getattr(user, "tenant_id", None)
 
     try:
+
+        logger.info(
+            "Scheduling start_run_pipeline",
+            extra={
+                "run_id": str(run.id),
+                "deal_id": str(deal_uuid),
+            },
+        )
+
         celery_app.send_task(
             "workers.start_run_pipeline",
             kwargs={

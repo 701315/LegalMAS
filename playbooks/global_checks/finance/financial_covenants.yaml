@@ -3,7 +3,9 @@ name: "Финансовые ковенанты"
 description: >
   Анализирует финансовые ковенанты: показатели левериджа, ликвидности,
   ограничения на дивиденды, новые заимствования и сделки с активами.
+
 doc_types: []
+
 severity: "critical"
 severity_if_fail: "critical"
 severity_if_pass: "pass"
@@ -37,43 +39,152 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по финансированию.
-    Тебе даны фрагменты договора, где могут быть финансовые ковенанты.
+    Твоя специализация — кредитные договоры и финансовые ковенанты.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора, где могут быть финансовые ковенанты:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Какие финансовые ковенанты установлены:
-       - показатели левериджа,
-       - покрытия долга (DSCR, interest coverage),
-       - ликвидности.
-    2) Есть ли ограничения на:
-       - выплату дивидендов,
-       - привлечение новых заимствований,
-       - сделки с активами (asset sales/dispositions).
-    3) Насколько вероятно, что после сделки эти ковенанты будут нарушены
-       в обычной модели бизнеса Target.
-    4) Насколько ковенанты опасны для стабильности структуры долгов Target.
 
-    Верни строго JSON:
+    1) Есть ли в договоре финансовые ковенанты, связанные с:
+       - показателями левериджа (debt/EBITDA и аналогичные),
+       - покрытием долга (DSCR, interest coverage),
+       - ликвидностью или иными финансовыми коэффициентами.
+       Отрази это в has_leverage_or_coverage_covenants.
+
+    2) Есть ли ограничения на:
+       - выплату дивидендов (dividend restrictions),
+       - привлечение новых заимствований (incurrence of indebtedness),
+       - сделки с активами (asset sales/dispositions, ограничения на распоряжение активами).
+       Отрази это соответственно в has_dividend_restrictions,
+       has_new_debt_limitations, has_asset_disposition_restrictions.
+
+    3) Насколько вероятно, что после сделки (M&A / рефинансирование) эти ковенанты
+       будут нарушены в обычной модели бизнеса Target:
+       - оцени likelihood_of_breach_after_transaction: low / medium / high / unclear,
+         исходя из типичных для таких ковенантов уровней и ожидаемой нагрузки на бизнес.
+
+    4) Насколько эти ковенанты опасны для стабильности структуры долгов Target:
+       - оцени overall_risk_level: low / medium / high с точки зрения:
+         * риска ускорения (acceleration),
+         * запрета на дивиденды и новые заимствования,
+         * ограничений на сделки с активами и реструктуризацию.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если ковенанты присутствуют, но уровни коэффициентов не указаны
+      в доступных фрагментах:
+      has_leverage_or_coverage_covenants = "yes",
+      likelihood_of_breach_after_transaction = "unclear",
+      объясни в reason, что числовые значения отсутствуют.
+
+    — Если есть только общие обязательства "поддерживать удовлетворительное
+      финансовое состояние" без конкретных метрик:
+      has_leverage_or_coverage_covenants = "unclear".
+
+    — Если ковенанты очевидно жёсткие (например, низкий допустимый leverage ratio,
+      строгие дивидендные ограничения) и по описанию бизнеса Target их соблюдение
+      проблематично:
+      likelihood_of_breach_after_transaction = "high",
+      overall_risk_level обычно "high" (обоснуй, на что именно указывают фрагменты).
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear" или null,
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа финансовых ковенантов."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — ЖЁСТКИЕ КОВЕНАНТЫ, ВЫСОКИЙ РИСК:
+
+    Фрагмент: "Заёмщик обязуется поддерживать отношение Чистый долг/EBITDA
+    не выше 2,5 и коэффициент покрытия процентов не ниже 3,0. Нарушение
+    указанных ковенантов является Событием дефолта и даёт Кредитору право
+    требовать досрочного погашения."
+
     {{
-      "has_leverage_or_coverage_covenants": "yes|no|unclear",
-      "has_dividend_restrictions": "yes|no|unclear",
-      "has_new_debt_limitations": "yes|no|unclear",
-      "has_asset_disposition_restrictions": "yes|no|unclear",
-      "likelihood_of_breach_after_transaction": "low|medium|high|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "has_leverage_or_coverage_covenants": "yes",
+      "has_dividend_restrictions": "unclear",
+      "has_new_debt_limitations": "unclear",
+      "has_asset_disposition_restrictions": "unclear",
+      "likelihood_of_breach_after_transaction": "high",
+      "overall_risk_level": "high",
+      "reason": "Установлены жёсткие ковенанты по левериджу и покрытию процентов, нарушение которых ведёт к событию дефолта и досрочному погашению; вероятен риск нарушения после сделки."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — ОГРАНИЧЕНИЯ НА ДИВИДЕНДЫ И НОВЫЙ ДОЛГ (MEDIUM):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Заёмщик не вправе выплачивать дивиденды сверх 30% чистой
+    прибыли и привлекать новые заимствования без предварительного согласия
+    Кредитора, за исключением внутригруппового финансирования."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "has_leverage_or_coverage_covenants": "unclear",
+      "has_dividend_restrictions": "yes",
+      "has_new_debt_limitations": "yes",
+      "has_asset_disposition_restrictions": "unclear",
+      "likelihood_of_breach_after_transaction": "medium",
+      "overall_risk_level": "medium",
+      "reason": "Существуют ограничения на дивиденды и новые заимствования, допускающие согласие Кредитора и внутригрупповые исключения; риск зависит от планов по реструктуризации."
+    }}
+
+    ПРИМЕР 3 — ОТСУТСТВИЕ ЯВНЫХ ФИНАНСОВЫХ КОВЕНАНТОВ (LOW):
+
+    Фрагмент: "Заёмщик обязан своевременно исполнять платёжные обязательства
+    по Кредиту и предоставлять отчётность по требованию Банка."
+
+    {{
+      "has_leverage_or_coverage_covenants": "no",
+      "has_dividend_restrictions": "no",
+      "has_new_debt_limitations": "no",
+      "has_asset_disposition_restrictions": "unclear",
+      "likelihood_of_breach_after_transaction": "low",
+      "overall_risk_level": "low",
+      "reason": "Договор не содержит явных финансовых ковенантов по коэффициентам, дивидендам или новому долгу; риск связан в основном с общим исполнением обязательств."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "has_leverage_or_coverage_covenants": "one of: yes | no | unclear",
+      "has_dividend_restrictions": "one of: yes | no | unclear",
+      "has_new_debt_limitations": "one of: yes | no | unclear",
+      "has_asset_disposition_restrictions": "one of: yes | no | unclear",
+      "likelihood_of_breach_after_transaction": "one of: low | medium | high | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и оценкой риска ковенантов"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
+       из фрагментов, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 5
   temperature: 0.0
@@ -105,16 +216,41 @@ extraction:
   fields:
     - name: "has_leverage_or_coverage_covenants"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_dividend_restrictions"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_new_debt_limitations"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_asset_disposition_restrictions"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "likelihood_of_breach_after_transaction"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true
@@ -125,3 +261,5 @@ red_flags:
       description: "Жёсткие ковенанты, которые очевидно будут нарушены после сделки."
     - code: "FIN4"
       description: "Сильные ограничения на дивиденды/новые заимствования при планах пост-Closing реструктуризации."
+
+      

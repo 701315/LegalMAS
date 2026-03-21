@@ -108,7 +108,6 @@ def build_document_summaries(
                 "pass_count": 0,
                 "unclear_count": 0,
                 "has_degraded_structure": "structure_degraded" in (row.quality_flags or ""),
-                # in_quarantine можно доработать, если статус quarantine прокидывается в documents
                 "in_quarantine": doc_meta.get("status", "") == "quarantine",
                 "classification_level": doc_meta.get("classification_level", ""),
                 "classification_confidence": float(doc_meta.get("classification_confidence", 0.0)),
@@ -141,28 +140,34 @@ def build_document_detail(
     if not doc_meta:
         raise ValueError(f"Document {document_id} not found in aggregated data")
 
-    # --- NEW: индекс структурированных значений по документу и проверке ---
-    structured_by_doc_check: Dict[tuple[str, str], dict[str, Any]] = {}
+    # Строим индекс: (document_id, check_id) → dict полей со значениями
+    # Это нужно чтобы потом быстро найти structured_data для каждого чека
+    structured_by_doc_check: Dict[tuple, Dict[str, Any]] = {}
 
     for sv in agg.structured_value_rows:
         if sv.document_id != document_id:
             continue
-        key = (sv.document_id, sv.check_id)  # мы добавили check_id в StructuredValueRow
+        key = (sv.document_id, sv.check_id)
         bucket = structured_by_doc_check.setdefault(key, {})
         bucket[sv.field_name] = sv.field_value
 
+    # ✅ ИСПРАВЛЕНИЕ БАГа 1:
+    # Был ОДИН цикл для построения индекса и ВТОРОЙ цикл для построения checks.
+    # Проблема: переменная structured_data из первого цикла после его завершения
+    # содержала значение только от ПОСЛЕДНЕЙ строки — и это значение
+    # применялось ко ВСЕМ CheckItemDTO во втором цикле.
+    #
+    # Решение: объединяем в ОДИН цикл — для каждой строки сразу берём
+    # её собственный structured_data и сразу создаём CheckItemDTO.
     checks: List[CheckItemDTO] = []
     for row in agg.rows:
         if row.document_id != document_id:
             continue
 
+        # Берём structured_data именно для ЭТОЙ строки (этого чека этого документа)
         key = (row.document_id, row.check_id)
-        structured_data = structured_by_doc_check.get(key, {})  # dict по полям для этой проверки
+        structured_data = structured_by_doc_check.get(key, {})
 
-    checks: List[CheckItemDTO] = []
-    for row in agg.rows:
-        if row.document_id != document_id:
-            continue
         checks.append(
             CheckItemDTO(
                 check_id=row.check_id,
@@ -170,15 +175,14 @@ def build_document_detail(
                 result=row.result,
                 severity=row.severity,
                 evidence_snippet=row.evidence_snippet,
-                page=row.page,              # в ExportRow могут быть None — это ок
+                page=row.page,
                 clause_uid=row.clause_uid,
                 confidence=row.confidence,
                 detector_used=row.detector_used,
-                # в Aggregator quality_flags — строка; для DTO делаем простую обёртку
                 quality_flags={"flags": row.quality_flags} if row.quality_flags else None,
                 conditional_check_triggered=row.conditional_check_triggered,
                 trigger_name=row.trigger_name,
-                structured_data=structured_data,
+                structured_data=structured_data,  # ← теперь своё значение для каждого чека
                 origin=getattr(row, "origin", None),
             )
         )
@@ -235,7 +239,6 @@ def build_conditional_checks(agg: AggregatedResults) -> List[ConditionalCheckDTO
                 evidence_snippet=cr.evidence_snippet,
                 page=cr.page,
                 confidence=cr.confidence,
-                # аналогично: quality_flags в Aggregator строка, заворачиваем в dict
                 quality_flags={"flags": cr.quality_flags} if cr.quality_flags else None,
             )
         )

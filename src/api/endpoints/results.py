@@ -14,7 +14,7 @@
 from typing import List
 import uuid
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -26,7 +26,6 @@ from db.models.result import CheckResult
 from ..schemas.results import CheckResultResponse
 
 from pydantic import BaseModel
-
 
 router = APIRouter(prefix="/results", tags=["results"])
 
@@ -154,12 +153,6 @@ async def get_evidence(
     """
     Возвращает подробную информацию о доказательствах (evidence) для одного CheckResult.
 
-    Как это работает для пользователя:
-    - Если результат найден и в нём есть информация о месте в документе (page, clause_uid,
-      element_id, bbox) и evidence_ref — фронт сможет подсветить нужный фрагмент.
-    - Если результат найден, но evidence не заполнен (старые запуски, агрегированные проверки),
-      фронт покажет сообщение вида: "доказательства не найдены, проверьте документ вручную".
-
     Технические сценарии:
     - Некорректный UUID -> 400.
     - Результат не найден -> 404.
@@ -173,22 +166,16 @@ async def get_evidence(
         raise HTTPException(status_code=400, detail="Invalid result_id format")
 
     # 2. Ищем результат в базе
-    # Здесь можно использовать репозиторий, но для простоты делаем прямой select.
-    # Если тебе удобнее — добавим метод get_by_id в CheckResultRepository и используем его.
+    # TODO (улучшение 16): перенести в CheckResultRepository.get_by_id
     stmt = select(CheckResult).where(CheckResult.id == result_uuid)
     db_result = await db.execute(stmt)
     check_result: CheckResult | None = db_result.scalar_one_or_none()
 
     if check_result is None:
-        # Для фронта это понятная ситуация: результат не существует/удалён.
         raise HTTPException(status_code=404, detail="Result not found")
 
-    # 3. TODO: сюда можно добавить ACL‑проверку:
-    #    удостовериться, что user имеет доступ к сделке / документу.
-    #    Сейчас предполагается, что доступ к Result уже контролируется выше по уровню.
+    # 3. TODO: добавить ACL‑проверку доступа к сделке/документу.
 
-    # 4. Собираем ответ. Если evidence_ref / метаданные пустые,
-    #    фронт по этим полям поймёт, что подсветить ничего нельзя.
     return EvidenceResponse(
         result_id=check_result.id,
         document_id=check_result.document_id,
@@ -204,10 +191,10 @@ async def get_evidence(
         confidence=check_result.confidence,
         detector_used=check_result.detector_used,
         origin=check_result.origin,
-        # Пока doc_type и yaml_instruction_ref не подтягиваем.
         doc_type=None,
         yaml_instruction_ref=None,
     )
+
 
 @router.get(
     "/debug/{result_id}",
@@ -218,13 +205,26 @@ async def debug_check_result(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    DEBUG-эндпоинт для проверки наличия CheckResult по id.
+
+    ВАЖНО:
+    - Доступен ТОЛЬКО для глобальной роли superadmin.
+    - Возвращает внутренние идентификаторы (run_id, document_id),
+      поэтому должен быть максимально ограничен.
+    """
+
+    # NEW: защита по глобальной роли
+    if user.global_role != "superadmin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superadmin only",
+        )
+
     try:
         result_uuid = uuid.UUID(result_id)
     except ValueError:
         return {"ok": False, "reason": "invalid_uuid"}
-
-    from sqlalchemy import select
-    from db.models.result import CheckResult
 
     stmt = select(CheckResult).where(CheckResult.id == result_uuid)
     db_result = await db.execute(stmt)
@@ -243,4 +243,3 @@ async def debug_check_result(
         "clause_uid": obj.clause_uid,
         "element_id": obj.element_id,
     }
-

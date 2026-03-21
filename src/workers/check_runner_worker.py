@@ -1,6 +1,5 @@
 # src/workers/check_runner_worker.py
 
-
 """
 CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки.
 
@@ -30,13 +29,13 @@ from core.logging import get_logger
 from core.constants import RunStatus
 from db.uow import db_uow
 from db.repositories.run_repo import RunRepository
+from db.repositories.playbook_repo import PlaybookRepository
 from engine.checks_runner import CheckRunner
 from engine.llm.client import LLMClient
+from engine.playbook.loader import load_playbook_from_version
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
-from db.repositories.playbook_repo import PlaybookRepository
-from engine.playbook.loader import load_playbook_from_version
 
 logger = get_logger(__name__)
 
@@ -69,10 +68,12 @@ def run_deal_checks(
     - Основная логика находится во внутренней async‑функции _run().
     """
     logger.info(
-        "Run deal checks started",
-        run_id=run_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
+        "Run deal checks task received",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+        },
     )
 
     started_at = time.time()
@@ -87,6 +88,14 @@ def run_deal_checks(
             pb_repo = PlaybookRepository(uow.session)
 
             try:
+                logger.info(
+                    "Run deal checks: loading run and playbook",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                    },
+                )
+
                 # 1. Достаём Run, чтобы узнать playbook_version_id
                 run_obj = await run_repo.get(run_uuid)
                 if run_obj is None:
@@ -102,17 +111,27 @@ def run_deal_checks(
                 # 3. Собираем PlaybookDefinition из compiled_checks
                 playbook = load_playbook_from_version(pb_version)
 
+                logger.info(
+                    "Run deal checks: playbook loaded",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "playbook_version_id": str(run_obj.playbook_version_id),
+                    },
+                )
+
                 # 4. Создаём CheckRunner.
-                #
-                # Источник конкретной проверки (origin) теперь берётся
-                # из CheckDefinition.origin, который заполняется на этапе
-                # загрузки плейбука (GLOBAL_PLAYBOOK / DOCUMENT_TYPE / SYSTEM)
-                # и затем записывается в CheckResult.origin.
-                #
-                # Поэтому здесь не задаём общий origin для всего ранна.
                 runner = CheckRunner(
                     llm_client=llm_client,
                     playbook_version_id=run_obj.playbook_version_id,
+                )
+
+                logger.info(
+                    "Run deal checks: starting CheckRunner",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                    },
                 )
 
                 # 5. Основной запуск checks по сделке
@@ -128,7 +147,6 @@ def run_deal_checks(
                 errors = int(summary.get("errors", 0) or 0)
 
                 # Прогресс: считаем, что completed_checks == total_checks
-                # для run_deal_checks, т.к. все проверки выполняются в этом воркере.
                 completed_checks = total_checks
 
                 # Определяем финальный статус Run:
@@ -154,19 +172,25 @@ def run_deal_checks(
                     metrics.checks_duration.labels(stage="deal_checks").observe(duration)
                 except Exception:
                     logger.exception(
-                        "run_deal_checks: failed to update checks_duration metric"
+                        "run_deal_checks: failed to update checks_duration metric",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                        },
                     )
 
                 logger.info(
                     "Run deal checks completed",
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    duration_sec=round(duration, 2),
-                    processed_docs=summary.get("processed_docs"),
-                    total_checks=total_checks,
-                    failed_checks=failed_checks,
-                    errors=errors,
-                    status=final_status,
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "duration_sec": round(duration, 2),
+                        "processed_docs": summary.get("processed_docs"),
+                        "total_checks": total_checks,
+                        "failed_checks": failed_checks,
+                        "errors": errors,
+                        "status": final_status,
+                    },
                 )
 
                 return {
@@ -178,9 +202,11 @@ def run_deal_checks(
             except Exception as e:
                 logger.error(
                     "Run deal checks failed",
-                    run_id=run_id,
-                    deal_id=deal_id,
-                    error=str(e),
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "error": str(e),
+                    },
                 )
                 # Помечаем Run как failed и сохраняем детали ошибки
                 await run_repo.update_status(

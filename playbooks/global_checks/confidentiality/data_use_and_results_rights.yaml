@@ -3,7 +3,9 @@ name: "Права использования данных и результат�
 description: >
   Анализирует права контрагента на использование данных, отчётов и результатов работ,
   включая риски скрытой передачи IP/аналитики и ограничения для Target.
+
 doc_types: []
+
 severity: "medium"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -32,39 +34,163 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по ИТ и данным.
-    Тебе даны фрагменты договора, касающиеся данных и результатов работ.
+    Твоя специализация — распределение прав на данные, результаты работ и аналитику
+    между заказчиком (Target) и контрагентом (поставщиком сервиса).
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора, касающиеся данных и результатов работ:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Кому принадлежат исходные данные (customer/client data) и результаты работ.
-    2) Есть ли у контрагента право использовать данные и/или результаты:
-       - для собственных целей,
-       - для аналитики, обучения моделей, улучшения сервисов,
-       - только в обезличенном/агрегированном виде.
-    3) Есть ли ограничения на использование данных (scope, срок, цель).
-    4) Насколько эти положения создают риск передачи ценной аналитики или IP.
 
-    Верни строго JSON:
+    1) Принадлежность исходных данных (customer/client data):
+       - кому принадлежат данные, предоставленные Target (заказчиком);
+       - есть ли формулировки, что "all Customer Data remains the property of Customer"
+         или аналогичные.
+
+    2) Принадлежность результатов работ / work product:
+       - кому принадлежат отчёты, аналитика, отчётные материалы, модели, разработанные
+         в рамках договора (Target / контрагент / совместно / непонятно);
+       - отличай результаты работ от исходных данных.
+
+    3) Права контрагента использовать данные и/или результаты:
+       - для собственных целей (product development, benchmarking, analytics, ML training),
+       - только в обезличенном/агрегированном виде (aggregated, de-identified),
+       - либо строго для исполнения договора.
+
+    4) Ограничения на использование данных:
+       - по цели (только для исполнения договора, только статистика),
+       - по сроку (только на срок договора или после),
+       - по объёму (только обезличенные/агрегированные данные, запрет передачи третьим лицам).
+
+    5) Оцени общий риск:
+       - есть ли риск скрытой передачи ценной аналитики или IP контрагенту,
+         например через право использовать агрегированные данные и derived analytics,
+       - оцени overall_risk_level: low / medium / high и обоснуй в reason.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если прямо указано, что все "Customer Data" принадлежат заказчику,
+      но при этом контрагент получает широкое право использовать "anonymized
+      and aggregated data" для любых целей, это может повышать риск (отрази
+      это в overall_risk_level и reason).
+
+    — Если принадлежность результатов работ не определена:
+      ownership_of_work_results = "unclear", даже если по умолчанию ты бы
+      трактовал их в пользу одной из сторон. Не опирайся на национальное
+      право или "обычаи", смотри только на текст.
+
+    — Если указано, что контрагент может использовать данные "для улучшения
+      своих сервисов и продуктов", даже в обезличенном виде:
+      counterparty_can_use_data_for_own_purposes = "yes",
+      даже если есть оговорка про anonymized/aggregated.
+
+    — Если явно запрещено использовать данные для любых иных целей, кроме
+      исполнения договора, и нет carve-out для агрегированных/обезличенных
+      данных:
+      counterparty_can_use_data_for_own_purposes = "no",
+      counterparty_can_use_aggregated_or_anonymized_data = "no".
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear" или null,
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа распределения прав на данные и результаты работ."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — НИЗКИЙ РИСК:
+
+    Фрагмент: "Все Клиентские данные (Customer Data), переданные Исполнителю,
+    остаются в исключительной собственности Клиента. Все отчёты и результаты
+    работ, созданные Исполнителем в рамках Договора, переходят в собственность
+    Клиента после полной оплаты. Исполнитель использует данные исключительно
+    для исполнения настоящего Договора и не вправе использовать их для иных
+    целей."
+
     {{
-      "ownership_of_customer_data": "target|counterparty|joint|unclear",
-      "ownership_of_work_results": "target|counterparty|joint|unclear",
-      "counterparty_can_use_data_for_own_purposes": "yes|no|unclear",
-      "counterparty_can_use_aggregated_or_anonymized_data": "yes|no|unclear",
-      "restrictions_on_data_use_summary": "строка с описанием ограничений",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "ownership_of_customer_data": "target",
+      "ownership_of_work_results": "target",
+      "counterparty_can_use_data_for_own_purposes": "no",
+      "counterparty_can_use_aggregated_or_anonymized_data": "no",
+      "restrictions_on_data_use_summary": "Исполнитель может использовать данные только для исполнения договора, все данные и результаты принадлежат Клиенту.",
+      "overall_risk_level": "low",
+      "reason": "Клиент сохраняет права на данные и результаты; использование данных контрагентом ограничено исключительно исполнением договора, без прав на собственную аналитику."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — СРЕДНИЙ/ВЫСОКИЙ РИСК ИЗ-ЗА AGGREGATED DATA:
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "Клиент сохраняет все права собственности на свои данные.
+    Исполнитель вправе использовать обезличенные и агрегированные данные,
+    полученные в результате оказания услуг, для внутреннего анализа,
+    разработки и улучшения своих продуктов и услуг."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "ownership_of_customer_data": "target",
+      "ownership_of_work_results": "unclear",
+      "counterparty_can_use_data_for_own_purposes": "yes",
+      "counterparty_can_use_aggregated_or_anonymized_data": "yes",
+      "restrictions_on_data_use_summary": "Исполнитель вправе использовать агрегированные и обезличенные данные для собственной аналитики и развития продуктов.",
+      "overall_risk_level": "medium",
+      "reason": "Хотя права на исходные данные сохраняются за Клиентом, Исполнитель получает широкое право использовать агрегированные/обезличенные данные для своих целей, что создаёт риск утечки ценной аналитики."
+    }}
+
+    ПРИМЕР 3 — НЕЯСНАЯ ПРИнадлежность WORK PRODUCT (MEDIUM/HIGH):
+
+    Фрагмент: "Исполнитель предоставляет Клиенту отчёты и аналитические материалы
+    по результатам оказания услуг. Права на отчёты регулируются применимым правом,
+    если иное прямо не согласовано Сторонами."
+
+    {{
+      "ownership_of_customer_data": "unclear",
+      "ownership_of_work_results": "unclear",
+      "counterparty_can_use_data_for_own_purposes": "unclear",
+      "counterparty_can_use_aggregated_or_anonymized_data": "unclear",
+      "restrictions_on_data_use_summary": "Принадлежность данных и отчётов прямо не урегулирована, указана только отсылка к применимому праву.",
+      "overall_risk_level": "medium",
+      "reason": "Отсутствует явное распределение прав на данные и результаты работ, что создаёт неопределённость и риск спора о принадлежности аналитики и IP."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "ownership_of_customer_data": "one of: target | counterparty | joint | unclear",
+      "ownership_of_work_results": "one of: target | counterparty | joint | unclear",
+      "counterparty_can_use_data_for_own_purposes": "one of: yes | no | unclear",
+      "counterparty_can_use_aggregated_or_anonymized_data": "one of: yes | no | unclear",
+      "restrictions_on_data_use_summary": "string — краткое описание ограничений по цели/сроку/объёму использования данных",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и связанных рисков"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
+       из фрагментов, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 4
   temperature: 0.0
@@ -95,16 +221,38 @@ extraction:
   fields:
     - name: "ownership_of_customer_data"
       type: "string"
+      allowed_values:
+        - "target"
+        - "counterparty"
+        - "joint"
+        - "unclear"
     - name: "ownership_of_work_results"
       type: "string"
+      allowed_values:
+        - "target"
+        - "counterparty"
+        - "joint"
+        - "unclear"
     - name: "counterparty_can_use_data_for_own_purposes"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "counterparty_can_use_aggregated_or_anonymized_data"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "restrictions_on_data_use_summary"
       type: "string"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true

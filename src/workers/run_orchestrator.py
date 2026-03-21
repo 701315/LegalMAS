@@ -342,10 +342,29 @@ async def _start_run_pipeline_async(
             extra={"document_id": doc_id_str, "status": status, "run_id": run_id},
         )
 
+    logger.info(
+        "Run pipeline documents evaluation complete",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": len(docs),
+            "tasks_scheduled": tasks_scheduled,
+        },
+    )
+
     # Переводим Run в RUNNING.
     await run_repo.update_status(
         run_uuid,
         RunStatus.RUNNING.value,
+    )
+
+    logger.info(
+        "Run marked as RUNNING, calling maybe_start_run_checks",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+        },
     )
 
     # После того как Run стал RUNNING, даём сигнал авто-стартеру checks.

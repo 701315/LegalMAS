@@ -4,7 +4,9 @@ description: >
   Анализирует обязательства соблюдать отраслевые требования (финансы, медицина,
   телеком, энергетика, образование и др.), а также наличие упоминаний о
   нарушениях, проверках, предписаниях и штрафах.
+
 doc_types: []
+
 severity: "high"
 severity_if_fail: "high"
 severity_if_pass: "pass"
@@ -37,40 +39,164 @@ rules:
 
 llm:
   prompt_template: |
+    <role>
     Ты — юрист по регуляторному комплаенсу.
-    Тебе даны фрагменты договора и/или заявлений сторон, где могут
-    упоминаться отраслевые требования и отношения с регуляторами.
+    Твоя специализация — отраслевое регулирование (финансы, медицина, телеком,
+    энергетика, образование и т.п.) и взаимодействие с надзорными органами.
+    </role>
 
+    <context>
+    Ниже приведены фрагменты договора и/или заявлений сторон, где могут
+    упоминаться отраслевые требования и отношения с регуляторами:
+
+    {context}
+    </context>
+
+    <instructions>
     Определи:
-    1) Есть ли общие или отраслевые обязательства соблюдать
-       применимые законы и регуляторные требования (включая специфические
-       для отрасли: финансы, медицина, телеком, энергетика, образование и т.п.).
-    2) Упоминаются ли существующие или недавние проверки, расследования,
-       предписания, штрафы или иные меры со стороны регуляторов.
-    3) Есть ли заверения об отсутствии существенных регуляторных нарушений.
-    4) Насколько описанные факты/обязанности указывают на регуляторный риск
-       для Target.
 
-    Верни строго JSON:
+    1) Есть ли общие или отраслевые обязательства соблюдать применимые законы
+       и регуляторные требования (has_industry_or_general_compliance_obligations):
+       - общие формулировки "compliance with all applicable laws and regulations";
+       - специальные отраслевые требования (банковское, страховое, медицину,
+         телеком, энергетику, образование, защита данных и др.);
+       - отсылки к конкретным регуляторам и их нормативке.
+       Если такие обязательства явно есть — "yes", если их явно нет — "no",
+       иначе — "unclear".
+
+    2) Упоминаются ли проверки/расследования/штрафы (mentions_regulatory_investigations_or_fines):
+       - факты прошлых или текущих проверок, расследований, инспекций;
+       - предписания, enforcement actions, штрафы, penalties, fines;
+       - settlement agreements с регуляторами.
+       Любое содержательное упоминание таких событий — "yes".
+
+    3) Есть ли заверения об отсутствии существенных регуляторных нарушений
+       (has_representations_about_no_material_violations):
+       - reps & warranties в духе "no material violations of applicable regulatory requirements",
+         "no ongoing investigations", "no material fines outstanding";
+       - уточнение о материальности (material) и периоде (за последние X лет).
+
+    4) Оцени уровень регуляторного риска (regulatory_risk_level: low / medium / high / unclear):
+       - учитывай содержимое фрагментов: наличие/отсутствие нарушений, штрафов,
+         предписаний, remedial‑мер и стабильность комплаенс‑истории;
+       - "unclear" — только если по тексту объективно неясно, что происходит.
+
+    5) Оцени общий риск для сделки/Target (overall_risk_level: low / medium / high):
+       - исходя из сочетания: обязательства по комплаенсу, присутствие/отсутствие
+         серьёзных расследований и штрафов, наличие заверений и remedial‑плана.
+    </instructions>
+
+    <edge_cases>
+    ВАЖНО — пограничные случаи:
+
+    — Если есть только стандартная фраза "компания соблюдает применимое законодательство"
+      без отраслевой конкретики:
+      has_industry_or_general_compliance_obligations = "yes",
+      но в reason отметь, что это общая формула, без отраслевого уровня детализации.
+
+    — Если прямо указано, что против компании ведётся расследование/есть крупные штрафы,
+      но не описано, устранены ли нарушения:
+      mentions_regulatory_investigations_or_fines = "yes",
+      regulatory_risk_level часто "high" или "medium" (обоснуй по масштабу).
+
+    — Если в тексте есть заверения "no material violations" и "no ongoing investigations",
+      а про штрафы ничего не говорится:
+      has_representations_about_no_material_violations = "yes",
+      regulatory_risk_level может быть "low" или "medium" в зависимости от отрасли.
+
+    — Если упоминаются прошлые штрафы/предписания, но при этом явно описан remedial‑план
+      и закрытие вопросов с регулятором:
+      отмечай mentions_regulatory_investigations_or_fines = "yes",
+      а в reason указывай, что нарушения были закрыты/устранены — это может
+      снижать risk_level.
+
+    — Пустые или нерелевантные фрагменты:
+      большинство полей = "unclear",
+      regulatory_risk_level = "unclear",
+      overall_risk_level = "medium",
+      reason = "Недостаточно данных для анализа отраслевого комплаенса и регуляторных нарушений."
+    </edge_cases>
+
+    <examples>
+    ПРИМЕР 1 — ЯВНЫЙ КОМПЛАЕНС, БЕЗ НАРУШЕНИЙ (LOW):
+
+    Фрагмент: "Компания обязуется соблюдать все применимые regulatory requirements,
+    включая законодательство о ценных бумагах и требования Центрального банка.
+    Сторона заявляет, что на дату подписания Договора против нее не ведутся
+    расследования со стороны надзорных органов и отсутствуют существенные
+    нарушения или штрафы."
+
     {{
-      "has_industry_or_general_compliance_obligations": "yes|no|unclear",
-      "mentions_regulatory_investigations_or_fines": "yes|no|unclear",
-      "has_representations_about_no_material_violations": "yes|no|unclear",
-      "regulatory_risk_level": "low|medium|high|unclear",
-      "overall_risk_level": "low|medium|high",
-      "reason": "краткое объяснение на русском"
+      "has_industry_or_general_compliance_obligations": "yes",
+      "mentions_regulatory_investigations_or_fines": "no",
+      "has_representations_about_no_material_violations": "yes",
+      "regulatory_risk_level": "low",
+      "overall_risk_level": "low",
+      "reason": "Есть прямые обязательства соблюдать отраслевые регуляторные требования и заверения об отсутствии расследований и существенных нарушений, что указывает на низкий регуляторный риск."
     }}
 
-    ЖЁСТКИЕ правила формата:
-    - Выведи ТОЛЬКО один JSON-объект, без пояснений, комментариев и текста до или после.
-    - Не пиши фразы вроде "Вот JSON", "Here is the JSON" и т.п.
-    - Не используй Markdown, бэктики ``` и другие обёртки.
-    - Все строки должны быть в двойных кавычках.
-    - Ключи должны совпадать с указанными полями, без добавления новых.
+    ПРИМЕР 2 — НАЛИЧИЕ ШТРАФОВ И ПРЕДПИСАНИЙ, НЕЯСНЫЙ СТАТУС (HIGH):
 
-    Начни ответ сразу с символа {{
+    Фрагмент: "В течение последних двух лет в отношении Общества проводились
+    несколько проверок надзорного органа, по итогам которых были вынесены
+    предписания и наложены штрафы. Вопрос о полном исполнении предписаний
+    находится в процессе согласования."
 
-    Не добавляй ничего, кроме JSON.
+    {{
+      "has_industry_or_general_compliance_obligations": "unclear",
+      "mentions_regulatory_investigations_or_fines": "yes",
+      "has_representations_about_no_material_violations": "no",
+      "regulatory_risk_level": "high",
+      "overall_risk_level": "high",
+      "reason": "Упомянуты недавние проверки, предписания и штрафы с незавершенным статусом исполнения, что указывает на повышенный регуляторный риск для Target."
+    }}
+
+    ПРИМЕР 3 — ФОРМАЛЬНЫЙ КОМПЛАЕНС БЕЗ ДЕТАЛЕЙ (MEDIUM):
+
+    Фрагмент: "Стороны обязуются действовать в соответствии с применимым
+    законодательством и нормативными актами надзорных органов."
+
+    {{
+      "has_industry_or_general_compliance_obligations": "yes",
+      "mentions_regulatory_investigations_or_fines": "unclear",
+      "has_representations_about_no_material_violations": "unclear",
+      "regulatory_risk_level": "unclear",
+      "overall_risk_level": "medium",
+      "reason": "Имеются только общие обязательства по соблюдению законодательства, без информации о проверках, штрафах или заверениях об отсутствии нарушений."
+    }}
+    </examples>
+
+    <output_format>
+    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
+    полями:
+
+    {{
+      "has_industry_or_general_compliance_obligations": "one of: yes | no | unclear",
+      "mentions_regulatory_investigations_or_fines": "one of: yes | no | unclear",
+      "has_representations_about_no_material_violations": "one of: yes | no | unclear",
+      "regulatory_risk_level": "one of: low | medium | high | unclear",
+      "overall_risk_level": "one of: low | medium | high",
+      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок о комплаенс‑обязательствах, расследованиях/штрафах и их влиянии на риск для Target"
+    }}
+
+    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
+    </output_format>
+
+    <constraints>
+    ЖЁСТКИЕ ПРАВИЛА:
+    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
+    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
+    3. Не используй Markdown, бэктики ``` или любые обёртки.
+    4. Все строки — в двойных кавычках.
+    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
+    6. Ключи — точно как указано, без добавления новых.
+    7. Поле "reason" ДОЛЖНО содержать конкретные формулировки из фрагментов
+       и вывод по регуляторному риску, а не общие фразы вроде "есть риски".
+    8. Начни ответ сразу с символа {{
+    9. Если по какому‑то полю нет достаточно информации в тексте —
+       верни для него 'unclear' или null (для reason пустое значение
+       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
+    </constraints>
   prompt_file: null
   context_k: 5
   temperature: 0.0
@@ -102,14 +228,35 @@ extraction:
   fields:
     - name: "has_industry_or_general_compliance_obligations"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "mentions_regulatory_investigations_or_fines"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "has_representations_about_no_material_violations"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
     - name: "regulatory_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
+        - "unclear"
     - name: "overall_risk_level"
       type: "string"
+      allowed_values:
+        - "low"
+        - "medium"
+        - "high"
     - name: "reason"
       type: "string"
   store_payload: true
@@ -120,3 +267,4 @@ red_flags:
       description: "Упоминания расследований/штрафов без ясного статуса и remedial-плана."
     - code: "REG4"
       description: "Чисто формальные комплаенс-положения при очевидно высокорискованной отрасли."
+      

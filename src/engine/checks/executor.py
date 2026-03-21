@@ -61,16 +61,37 @@ class CheckExecutor:
         # 1. Retrieval (поиск релевантных чанков для rules/LLM)
         retriever = RetrievalEngine(chunks)
 
-        # Простая эвристика: query = название проверки
-        query = check.name
+        # Расширяем query: к названию проверки добавляем boost_keywords из playbook.
+        # Например: "Смена контроля" → "Смена контроля change of control смена собственника"
+        boost_keywords = getattr(check.retrieval, "boost_keywords", []) or []
+        query = f"{check.name} {' '.join(boost_keywords[:3])}".strip()
 
         # retrieval уже знает про context_k, но мы продублируем из playbook
         context_k = getattr(check.retrieval, "context_k", 5)
 
         contexts = retriever.search(query, top_k=context_k)
 
-        # Склеенный текст контекста для rules-детектора
-        joined_text = "\n\n".join(c["text"] for c in contexts)
+        # Строим структурированный контекст для детектора и LLM.
+        # Каждый чанк получает заголовок с номером пункта, названием раздела и страницей.
+        context_parts = []
+        for c in contexts:
+            meta = c.get("metadata", {}) or {}
+            clause = meta.get("clause_uid", "")
+            page = meta.get("page", "")
+            section = meta.get("section_title", "")
+
+            header_parts = []
+            if clause:
+                header_parts.append(f"Пункт {clause}")
+            if section:
+                header_parts.append(section)
+            if page:
+                header_parts.append(f"стр. {page}")
+
+            header = f"[{', '.join(header_parts)}]" if header_parts else ""
+            context_parts.append(f"{header}\n{c['text']}".strip() if header else c["text"])
+
+        joined_text = "\n\n---\n\n".join(context_parts)
 
         # 2. Hybrid detection (rules + LLM)
         # Здесь мы любыми средствами избегаем выбрасывания исключений наружу.
