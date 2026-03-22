@@ -1,0 +1,2499 @@
+type: contract_3.4_design_survey
+name: "Договор на выполнение проектных и изыскательских работ (ПИР)"
+
+description: |
+  Специализированный вид подряда, направленный на создание интеллектуального продукта:
+  проектной и рабочей документации для строительства (стадии «П» и «Р») и/или отчётов
+  по инженерным изысканиям. Результат имеет документарную форму и служит основой для
+  последующих строительных работ, определяя их стоимость, безопасность и реализуемость.
+  Отличается от строительного подряда отсутствием вещественного результата, но сохраняет
+  признаки работы по заданию. Регулируется § 4 Главы 37 ГК РФ (ст. 758–762)
+  и Градостроительным кодексом РФ (ст. 47–49, 55.8).
+
+version: 4.0
+parent: class_3_work_performance
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: work_performance
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 4 Главы 37 ГК РФ (ст. 758-762), ГрК РФ (ст. 47-49, 55.8)"
+  doc_types_supported:
+    - "договор на выполнение проектных работ"
+    - "договор на выполнение изыскательских работ"
+    - "договор на выполнение проектных и изыскательских работ (ПИР)"
+    - "договор подряда на проектирование"
+    - "контракт на инженерные изыскания"
+    - "договор на разработку проектно-сметной документации"
+    - "договор на разработку проектной документации стадии П"
+    - "договор на разработку рабочей документации стадии Р"
+    - "договор генерального проектирования"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)проектн"
+      - "(?i)изыскан"
+      - "(?i)ПИР"
+      - "(?i)design[\\s_.]?contract"
+      - "(?i)survey[\\s_.]?contract"
+
+    folder_patterns:
+      - "(?i)проектн"
+      - "(?i)изыскан"
+      - "(?i)design"
+      - "(?i)ПИР"
+
+    keywords:
+
+      high:
+        - "проектирование"
+        - "изыскания"
+        - "проектная документация"
+        - "рабочая документация"
+        - "стадия П"
+        - "стадия Р"
+        - "техническое задание на проектирование"
+        - "отчет по изысканиям"
+        - "инженерные изыскания"
+        - "экспертиза проектной документации"
+        - "ГПЗУ"
+        - "градостроительный план земельного участка"
+        - "разделы проектной документации"
+        - "Постановление 87"
+
+      medium:
+        - "исходные данные"
+        - "авторский надзор"
+        - "согласование в органах"
+        - "чертежи"
+        - "сметная стоимость"
+        - "пояснительная записка"
+        - "СБЦ"
+        - "справочник базовых цен"
+        - "объект капитального строительства"
+        - "разрешение на строительство"
+        - "СРО проектировщиков"
+        - "технические условия"
+        - "ТУ на подключение"
+        - "BIM модель"
+        - "информационная модель"
+        - "генеральный проектировщик"
+        - "субподрядчик по разделу"
+
+      low:
+        - "проект"
+        - "проектный"
+        - "объект строительства"
+        - "план этажа"
+        - "фасад"
+        - "конструктивные решения"
+        - "инженерные сети"
+        - "архитектурные решения"
+
+    exclusions:
+      - "строительно-монтажные работы"
+      - "научно-исследовательские работы"
+      - "разработка программного обеспечения"
+      - "дизайн-проект интерьера"
+      - "ландшафтный дизайн"
+      - "НИОКР"
+      - "технологическое проектирование процессов"
+      - "дизайн мебели"
+      - "веб-дизайн"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  capital_construction_object:
+    any_keywords:
+      - "объект капитального строительства"
+      - "здание"
+      - "сооружение"
+      - "многоквартирный дом"
+      - "производственный объект"
+      - "промышленный объект"
+
+  expertise_required:
+    any_keywords:
+      - "экспертиза проектной документации"
+      - "положительное заключение экспертизы"
+      - "государственная экспертиза"
+      - "негосударственная экспертиза"
+      - "заключение экспертизы"
+      - "ст. 49 ГрК"
+
+  land_plot_survey:
+    any_keywords:
+      - "инженерно-геодезические изыскания"
+      - "топографическая съёмка"
+      - "геодезические изыскания"
+      - "топосъёмка"
+      - "инженерно-геологические изыскания"
+      - "геологические изыскания"
+      - "геология участка"
+
+  building_survey:
+    any_keywords:
+      - "обследование здания"
+      - "техническое обследование"
+      - "обследование конструкций"
+      - "обследование фундамента"
+      - "дефектоскопия"
+
+  environmental_survey:
+    any_keywords:
+      - "инженерно-экологические изыскания"
+      - "экологические изыскания"
+      - "оценка воздействия на окружающую среду"
+      - "ОВОС"
+      - "экологическая экспертиза"
+
+  legal_entity_party:
+    any_keywords:
+      - "ооо"
+      - "ао"
+      - "пао"
+      - "зао"
+      - "общество"
+      - "инн"
+      - "огрн"
+      - "кпп"
+
+  individual_party:
+    any_keywords:
+      - "паспорт"
+      - "гражданин"
+      - "физическое лицо"
+      - "индивидуальный предприниматель"
+      - "ИП"
+
+  subcontractor_involved:
+    any_keywords:
+      - "субподрядчик"
+      - "субподряд"
+      - "субпроектировщик"
+      - "привлечение третьих лиц"
+      - "генеральный проектировщик"
+      - "с согласия заказчика привлекать"
+
+  sro_required:
+    any_keywords:
+      - "СРО"
+      - "саморегулируемая организация"
+      - "допуск СРО"
+      - "членство в СРО"
+      - "свидетельство СРО"
+      - "компенсационный фонд"
+
+  ip_rights_transfer:
+    any_keywords:
+      - "исключительные права"
+      - "интеллектуальные права"
+      - "авторские права"
+      - "передача прав на документацию"
+      - "лицензия на использование"
+      - "отчуждение исключительного права"
+
+  author_supervision:
+    any_keywords:
+      - "авторский надзор"
+      - "надзор автора проекта"
+      - "контроль за реализацией проекта"
+      - "участие проектировщика в приёмке"
+
+  residential_building:
+    any_keywords:
+      - "жилой дом"
+      - "многоквартирный дом"
+      - "МКД"
+      - "жилое здание"
+      - "квартира"
+      - "апартаменты"
+      - "жилой комплекс"
+
+  industrial_object:
+    any_keywords:
+      - "промышленный объект"
+      - "производственное здание"
+      - "цех"
+      - "завод"
+      - "фабрика"
+      - "склад"
+      - "промышленная площадка"
+
+  linear_object:
+    any_keywords:
+      - "линейный объект"
+      - "трубопровод"
+      - "газопровод"
+      - "водопровод"
+      - "канализация"
+      - "ЛЭП"
+      - "автомобильная дорога"
+      - "железная дорога"
+      - "мост"
+
+  bim_technology:
+    any_keywords:
+      - "BIM"
+      - "информационная модель"
+      - "информационное моделирование"
+      - "цифровая модель"
+      - "IFC"
+      - "Revit"
+      - "OpenBIM"
+
+  hazardous_facility:
+    any_keywords:
+      - "опасный производственный объект"
+      - "ОПО"
+      - "класс опасности"
+      - "промышленная безопасность"
+      - "Ростехнадзор"
+      - "ФЗ-116"
+      - "взрывоопасн"
+      - "химически опасн"
+      - "ядерн"
+
+  reconstruction_project:
+    any_keywords:
+      - "реконструкция"
+      - "капитальный ремонт"
+      - "техническое перевооружение"
+      - "модернизация"
+      - "усиление конструкций"
+
+  government_contract:
+    any_keywords:
+      - "44-ФЗ"
+      - "223-ФЗ"
+      - "государственный контракт"
+      - "муниципальный контракт"
+      - "госзакупка"
+      - "начальная максимальная цена"
+      - "НМЦК"
+      - "обеспечение исполнения контракта"
+      - "реестр контрактов"
+      - "ЕИС"
+
+  cultural_heritage_object:
+    any_keywords:
+      - "объект культурного наследия"
+      - "ОКН"
+      - "памятник архитектуры"
+      - "памятник истории"
+      - "охранное обязательство"
+      - "предмет охраны"
+      - "историко-культурная экспертиза"
+      - "реставрация"
+      - "приспособление для современного использования"
+      - "ФЗ-73"
+
+  ecological_impact_assessment:
+    any_keywords:
+      - "оценка воздействия на окружающую среду"
+      - "ОВОС"
+      - "экологическая экспертиза"
+      - "государственная экологическая экспертиза"
+      - "ФЗ-174"
+      - "особо охраняемая природная территория"
+      - "ООПТ"
+      - "санитарно-защитная зона"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  sro_number: "(?i)\\bСРО[\\s\\-]*[А-Яа-яA-Za-z]*[\\s\\-]*\\d+"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  percentage: "(?i)\\b\\d{1,3}[,.]?\\d{0,2}\\s*%"
+  working_days: "(?i)\\b\\d+\\s*(рабочих|календарных)\\s+дн"
+  design_stage: "(?i)(стади[яи]\\s*[«\"']?[ПР][»\"']?|проектная\\s+документация|рабочая\\s+документация)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "sro_membership_absent_for_expertise_object"
+    name: "Отсутствие СРО при проектировании объекта, требующего экспертизы (ст. 55.8 ГрК РФ)"
+    description: |
+      Проектировщик обязан быть членом СРО для выполнения работ на объектах капитального строительства,
+      подлежащих экспертизе. Отсутствие допуска делает невозможным получение положительного заключения
+      и влечёт ничтожность результатов работ.
+    legal_base: "ст. 55.8 Градостроительного кодекса РФ"
+    required_triggers: ["expertise_required"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "на расчётный счёт подрядчика"
+        - "проектная документация"
+        - "рабочая документация"
+        - "разделы ПД"
+      keyword_mode: "any"
+      negative_keywords:
+        - "СРО"
+        - "саморегулируемая организация"
+        - "допуск СРО"
+        - "членство в СРО"
+        - "свидетельство СРО"
+        - "компенсационный фонд"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "СРО"
+        - "допуск"
+        - "саморегулируемая организация"
+        - "членство"
+      rerank: true
+
+  - id: "hazardous_facility_special_permit"
+    name: "ОПО: специальные допуски при проектировании опасных объектов (ФЗ-116)"
+    description: |
+      Проектирование опасных производственных объектов требует специальных допусков,
+      лицензий Ростехнадзора и соблюдения норм промышленной безопасности.
+      Отсутствие соответствующих допусков влечёт недействительность результатов.
+    legal_base: "ФЗ от 21.07.1997 № 116-ФЗ «О промышленной безопасности опасных производственных объектов»"
+    required_triggers: ["hazardous_facility", "expertise_required"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "опасный производственный объект"
+        - "ОПО"
+        - "промышленная безопасность"
+        - "Ростехнадзор"
+        - "лицензия"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "опасный производственный объект"
+        - "лицензия Ростехнадзор"
+        - "промышленная безопасность"
+      rerank: true
+
+  - id: "pd_composition_pp87_violation"
+    name: "Нарушение требований к составу ПД (ПП РФ № 87)"
+    description: |
+      Для объектов капитального строительства состав проектной документации
+      определяется Постановлением Правительства РФ от 16.02.2008 № 87.
+      Несоответствие ТЗ и перечня разделов этим требованиям влечёт отрицательное
+      заключение экспертизы.
+    legal_base: "Постановление Правительства РФ от 16.02.2008 № 87"
+    required_triggers: ["capital_construction_object", "expertise_required"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "состав проектной документации"
+        - "разделы проектной документации"
+        - "Постановление 87"
+        - "ПП 87"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "состав проектной документации"
+        - "Постановление 87"
+        - "разделы ПД"
+      rerank: true
+
+  - id: "cultural_heritage_without_permit"
+    name: "Проектирование на объекте культурного наследия без согласования (ФЗ-73)"
+    description: |
+      Проектирование работ на объектах культурного наследия (памятниках) требует
+      лицензии Минкультуры, историко-культурной экспертизы, согласования с органом
+      охраны ОКН. Без этого проектная документация не может быть реализована,
+      а работы на объекте — запрещены.
+    legal_base: "ФЗ от 25.06.2002 № 73-ФЗ «Об объектах культурного наследия»"
+    required_triggers: ["cultural_heritage_object"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "лицензия Минкультуры"
+        - "историко-культурная экспертиза"
+        - "согласование с органом охраны"
+        - "охранное обязательство"
+        - "предмет охраны"
+        - "реставрационная лицензия"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "объект культурного наследия"
+        - "лицензия Минкультуры"
+        - "историко-культурная экспертиза"
+        - "орган охраны"
+      rerank: true
+
+  - id: "ecological_expertise_required"
+    name: "Обязательная экологическая экспертиза для определённых категорий объектов (ФЗ-174)"
+    description: |
+      Проектная документация объектов, размещаемых на ООПТ, в границах
+      водоохранных зон, на континентальном шельфе, объектов обезвреживания
+      и размещения отходов I–V классов подлежит государственной экологической
+      экспертизе. Отсутствие положительного заключения ГЭЭ — основание для
+      отказа в выдаче разрешения на строительство.
+    legal_base: "ФЗ от 23.11.1995 № 174-ФЗ «Об экологической экспертизе»"
+    required_triggers: ["ecological_impact_assessment"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "государственная экологическая экспертиза"
+        - "ГЭЭ"
+        - "заключение экологической экспертизы"
+        - "ОВОС"
+        - "оценка воздействия на окружающую среду"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "экологическая экспертиза"
+        - "ОВОС"
+        - "ООПТ"
+        - "водоохранная зона"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: pir_subject_extraction
+    name: "ПИР: базовое извлечение предмета договора"
+    description: "Извлекает наименование объекта, вид работ, стадию проектирования, ссылку на ТЗ"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "проектная документация"
+        - "рабочая документация"
+        - "инженерные изыскания"
+        - "предмет договора"
+        - "объект проектирования"
+        - "стадия П"
+        - "стадия Р"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(стади[яи]\\s*[«\"']?[ПР][»\"']?|проектная\\s+документация|рабочая\\s+документация)"
+        - "(?i)(проектн.*и.*изыскательск|инженерн.*изыскани)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор на выполнение проектных и изыскательских работ (ПИР).
+        Найди в тексте сведения о предмете договора.
+
+        Ответь строго в JSON:
+        {
+          "work_type": "<design / survey / design_and_survey / not_found>",
+          "object_name": "<наименование объекта проектирования или not_found>",
+          "object_location": "<местоположение объекта или not_found>",
+          "design_stage": "<P / R / P_and_R / not_found>",
+          "tz_reference": "<ссылка на ТЗ (номер приложения) или not_found>",
+          "design_sections_listed": "<yes / no / not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text. Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "предмет договора"
+        - "проектная документация"
+        - "рабочая документация"
+        - "инженерные изыскания"
+        - "техническое задание"
+        - "объект проектирования"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "work_type"
+          type: "string"
+          allowed_values: ["design", "survey", "design_and_survey", "not_found"]
+          description: "Вид работ по договору"
+        - name: "object_name"
+          type: "string"
+          keyword_hints: ["объект", "наименование объекта", "проектируемый объект"]
+          description: "Наименование объекта проектирования"
+        - name: "design_stage"
+          type: "string"
+          allowed_values: ["P", "R", "P_and_R", "not_found"]
+          keyword_hints: ["стадия П", "стадия Р", "проектная документация", "рабочая документация"]
+          description: "Стадия проектирования"
+        - name: "tz_reference"
+          type: "string"
+          keyword_hints: ["техническое задание", "ТЗ", "приложение"]
+          description: "Ссылка на техническое задание"
+      store_payload: true
+
+  - id: technical_specification_completeness
+    name: "ТЗ на проектирование: наличие и полнота (ст. 759 ГК РФ)"
+    description: |
+      Проверяет наличие ТЗ как приложения, его содержание (параметры объекта,
+      нормативы, требования к результату). Без детального ТЗ границы требований
+      не определены — спор о качестве и объёме неизбежен.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "техническое задание"
+        - "ТЗ на проектирование"
+        - "задание на проектирование"
+        - "приложение"
+        - "параметры объекта"
+        - "требования к проекту"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)техническ(ое|ого)\\s+задани"
+        - "(?i)задани(е|я)\\s+на\\s+проектирован"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь наличие и полноту технического задания (ТЗ) на проектирование (ст. 759 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "tz_present": "<yes / referenced_but_missing / not_found>",
+          "tz_attachment_number": "<номер приложения или not_found>",
+          "tz_contains_object_parameters": "<yes / no / unclear>",
+          "tz_contains_norms_references": "<yes / no / unclear>",
+          "tz_contains_result_requirements": "<yes / no / unclear>",
+          "tz_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "yes" — ТЗ приложено и содержит соответствующий раздел
+        - "referenced_but_missing" — ТЗ упоминается, но не приложено
+        - "not_found" — ТЗ не упоминается
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "техническое задание"
+        - "задание на проектирование"
+        - "параметры объекта"
+        - "требования"
+        - "нормативы"
+        - "приложение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "tz_present"
+          type: "string"
+          allowed_values: ["yes", "referenced_but_missing", "not_found"]
+          description: "Наличие ТЗ"
+        - name: "tz_attachment_number"
+          type: "string"
+          keyword_hints: ["приложение №", "приложение"]
+          description: "Номер приложения с ТЗ"
+      store_payload: true
+
+  - id: expertise_procedure_and_payment_link
+    name: "Экспертиза ПД: порядок прохождения и привязка оплаты (ст. 49 ГрК РФ)"
+    description: |
+      Проверяет наличие условий о прохождении экспертизы ПД, распределение обязанностей
+      по подаче и оплате экспертизы, привязку окончательного расчёта к получению
+      положительного заключения. Без привязки оплаты к экспертизе заказчик рискует
+      оплатить непригодный результат.
+    triggers:
+      any: ["expertise_required"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "экспертиза проектной документации"
+        - "положительное заключение"
+        - "отрицательное заключение"
+        - "государственная экспертиза"
+        - "негосударственная экспертиза"
+        - "оплата после экспертизы"
+        - "окончательный расчёт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)положительн(ое|ого)\\s+заключени"
+        - "(?i)экспертиз(а|ы|у)\\s+проектн"
+        - "(?i)(окончательн|финальн).*оплат.*после.*заключени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь условия прохождения экспертизы проектной документации (ст. 49 ГрК РФ).
+
+        Ответь строго в JSON:
+        {
+          "expertise_mentioned": "<yes / no>",
+          "expertise_type": "<state / non_state / not_specified / not_found>",
+          "who_submits_to_expertise": "<contractor / client / jointly / not_specified / not_found>",
+          "who_pays_expertise": "<contractor / client / jointly / not_specified / not_found>",
+          "payment_linked_to_positive_conclusion": "<yes / no / not_found>",
+          "negative_conclusion_consequences": "<rework_free / rework_paid / termination / not_specified / not_found>",
+          "expertise_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "экспертиза"
+        - "положительное заключение"
+        - "окончательный расчёт"
+        - "отрицательное заключение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "expertise_type"
+          type: "string"
+          allowed_values: ["state", "non_state", "not_specified", "not_found"]
+          description: "Вид экспертизы"
+        - name: "payment_linked_to_positive_conclusion"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Привязана ли оплата к положительному заключению"
+        - name: "negative_conclusion_consequences"
+          type: "string"
+          allowed_values: ["rework_free", "rework_paid", "termination", "not_specified", "not_found"]
+          description: "Последствия отрицательного заключения"
+      store_payload: true
+
+  - id: ip_rights_on_documentation
+    name: "Интеллектуальные права на ПД (ст. 1296, 1298 ГК РФ)"
+    description: |
+      Проверяет условия передачи исключительных прав на проектную документацию.
+      По умолчанию ИП принадлежат автору/подрядчику. Без явной передачи заказчик
+      получает лишь право на однократную реализацию проекта и не сможет использовать
+      его повторно (типовая застройка), вносить изменения или передавать третьим лицам.
+    triggers:
+      any: ["ip_rights_transfer"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "исключительные права"
+        - "интеллектуальные права"
+        - "авторские права"
+        - "передача прав"
+        - "отчуждение исключительного права"
+        - "лицензия на использование"
+        - "право на использование"
+        - "тиражирование"
+        - "модификация проекта"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исключительн(ые|ое|ых)\\s+прав"
+        - "(?i)интеллектуальн(ые|ых)\\s+прав"
+        - "(?i)передач(а|и)\\s+прав.*на.*документац"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь условия передачи интеллектуальных прав на проектную документацию (ст. 1296, 1298 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "ip_transfer_status": "<full_transfer / license / retained_by_contractor / not_found>",
+          "ip_transfer_moment": "<upon_payment / upon_signing / upon_acceptance / not_specified / not_found>",
+          "reuse_allowed": "<yes / no / unclear / not_found>",
+          "modification_allowed": "<yes / no / unclear / not_found>",
+          "ip_snippet": "<цитата или not_found>"
+        }
+
+        - "full_transfer" — полная передача исключительных прав заказчику
+        - "license" — лицензия (ограниченное право использования)
+        - "retained_by_contractor" — права остаются у подрядчика
+        - "not_found" — вопрос не раскрыт
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "исключительные права"
+        - "интеллектуальные права"
+        - "передача прав"
+        - "лицензия"
+        - "авторские права"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "ip_transfer_status"
+          type: "string"
+          allowed_values: ["full_transfer", "license", "retained_by_contractor", "not_found"]
+          description: "Статус передачи исключительных прав"
+        - name: "reuse_allowed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Разрешено ли повторное использование проекта"
+        - name: "modification_allowed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Разрешена ли модификация проекта без согласия автора"
+      store_payload: true
+
+  - id: designer_liability_for_errors
+    name: "Ответственность проектировщика за ошибки в ПД (ст. 761 ГК РФ)"
+    description: |
+      Проверяет наличие условий об ответственности проектировщика за ошибки,
+      включая расходы на переделку СМР. Ошибки в проекте часто всплывают только
+      при строительстве или эксплуатации; убытки могут многократно превышать
+      стоимость проектных работ.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ответственность за ошибки"
+        - "ответственность за недостатки"
+        - "недостатки документации"
+        - "переделка"
+        - "устранение дефектов"
+        - "убытки вследствие ошибок"
+        - "ст. 761"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност.*за.*недостатк.*документац"
+        - "(?i)возмест.*убытк.*вызванн.*ошибк"
+        - "(?i)ст\\.?\\s*761"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь условия ответственности проектировщика за ошибки в документации (ст. 761 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "liability_for_errors_present": "<yes / no / not_found>",
+          "liability_scope": "<documentation_only / includes_construction_rework / full_damages / not_specified / not_found>",
+          "liability_cap_present": "<yes / no / not_found>",
+          "liability_cap_amount": "<сумма/процент или not_found>",
+          "indirect_damages_excluded": "<yes / no / not_found>",
+          "liability_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ответственность проектировщика"
+        - "ответственность за ошибки"
+        - "недостатки документации"
+        - "убытки"
+        - "ст. 761"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "liability_for_errors_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия об ответственности за ошибки"
+        - name: "liability_scope"
+          type: "string"
+          allowed_values: ["documentation_only", "includes_construction_rework", "full_damages", "not_specified", "not_found"]
+          description: "Объём ответственности проектировщика"
+        - name: "liability_cap_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие лимита ответственности"
+        - name: "liability_cap_amount"
+          type: "string"
+          keyword_hints: ["ограничение ответственности", "совокупная ответственность не превышает", "в пределах стоимости"]
+          description: "Размер лимита ответственности"
+      store_payload: true
+
+  - id: initial_data_provision_check
+    name: "Исходные данные: перечень, сроки, последствия задержки (ст. 759 ГК РФ)"
+    description: |
+      Проверяет наличие перечня исходных данных, сроков их предоставления заказчиком
+      и последствий задержки. Если данные окажутся неполными или недостоверными,
+      проект будет ошибочен, а спор о том, кто платит за переделку — неизбежен.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "исходные данные"
+        - "исходно-разрешительная документация"
+        - "ГПЗУ"
+        - "технические условия"
+        - "ТУ на подключение"
+        - "материалы изысканий"
+        - "перечень исходных данных"
+        - "сроки предоставления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исходн(ые|ых)\\s+данн"
+        - "(?i)ГПЗУ|градостроительн.*план"
+        - "(?i)техническ(ие|их)\\s+услови"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь условия предоставления исходных данных заказчиком (ст. 759 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "initial_data_list_present": "<yes / no / not_found>",
+          "initial_data_deadlines": "<specified / not_specified / not_found>",
+          "delay_consequences": "<deadline_extension / rework_at_client_cost / termination_right / not_specified / not_found>",
+          "data_accuracy_disclaimer": "<yes / no / not_found>",
+          "initial_data_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "исходные данные"
+        - "ГПЗУ"
+        - "технические условия"
+        - "сроки предоставления"
+        - "задержка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "initial_data_list_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие перечня исходных данных"
+        - name: "delay_consequences"
+          type: "string"
+          allowed_values: ["deadline_extension", "rework_at_client_cost", "termination_right", "not_specified", "not_found"]
+          description: "Последствия задержки предоставления данных"
+        - name: "data_accuracy_disclaimer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Оговорка об ответственности заказчика за достоверность данных"
+      store_payload: true
+
+  - id: designer_vs_builder_liability
+    name: "Разграничение ответственности проектировщика и строителя (ст. 761 ГК РФ)"
+    description: |
+      Проверяет наличие условия о разграничении ответственности проектировщика
+      и строительного подрядчика. Без чёткого разграничения проектировщик
+      втягивается в споры о строительных дефектах, к которым не причастен.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ответственность ограничивается качеством документации"
+        - "не несет ответственности за действия строителей"
+        - "отклонения от проекта без согласования"
+        - "авторский надзор"
+        - "реализация проекта строителями"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+отвеча(ет|ть)\\s+за.*реализац.*строител"
+        - "(?i)ответственност.*ограничива(ется|ясь).*качеств.*документац"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь наличие разграничения ответственности между проектировщиком и строителем.
+
+        Ответь строго в JSON:
+        {
+          "delimitation_present": "<yes / no / not_found>",
+          "designer_scope": "<documentation_quality_only / includes_supervision / not_specified / not_found>",
+          "author_supervision_separate": "<yes / no / not_found>",
+          "delimitation_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "разграничение ответственности"
+        - "проектировщик и строитель"
+        - "качество документации"
+        - "авторский надзор"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "delimitation_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие разграничения ответственности"
+        - name: "author_supervision_separate"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Авторский надзор — отдельная услуга/договор"
+      store_payload: true
+
+  - id: author_supervision_terms
+    name: "Авторский надзор: условия и порядок (ст. 12 ФЗ-169)"
+    description: |
+      Проверяет наличие условий авторского надзора — обязателен ли он,
+      порядок осуществления, оплата, ответственность.
+    triggers:
+      any: ["author_supervision"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "авторский надзор"
+        - "надзор автора проекта"
+        - "контроль за реализацией"
+        - "участие проектировщика в приёмке"
+        - "журнал авторского надзора"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)авторск(ий|ого)\\s+надзор"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь условия авторского надзора.
+
+        Ответь строго в JSON:
+        {
+          "author_supervision_included": "<yes / separate_contract / not_found>",
+          "supervision_scope": "<full / limited / not_specified / not_found>",
+          "supervision_payment": "<included_in_price / separate_fee / not_specified / not_found>",
+          "supervision_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "авторский надзор"
+        - "надзор за строительством"
+        - "журнал авторского надзора"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "author_supervision_included"
+          type: "string"
+          allowed_values: ["yes", "separate_contract", "not_found"]
+          description: "Включён ли авторский надзор в договор"
+        - name: "supervision_payment"
+          type: "string"
+          allowed_values: ["included_in_price", "separate_fee", "not_specified", "not_found"]
+          description: "Порядок оплаты авторского надзора"
+      store_payload: true
+
+  - id: sro_membership_check
+    name: "Членство в СРО проектировщиков (ст. 55.8 ГрК РФ)"
+    description: |
+      Проверяет наличие в договоре подтверждения членства подрядчика в СРО
+      и обязанности поддерживать его на весь срок действия договора.
+    triggers:
+      any: ["sro_required"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "СРО"
+        - "саморегулируемая организация"
+        - "допуск СРО"
+        - "членство в СРО"
+        - "свидетельство СРО"
+        - "компенсационный фонд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bСРО\\b"
+        - "(?i)саморегулируем(ая|ой)\\s+организац"
+        - "(?i)допуск\\s+СРО"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь наличие подтверждения членства подрядчика в СРО (ст. 55.8 ГрК РФ).
+
+        Ответь строго в JSON:
+        {
+          "sro_mentioned": "<yes / no>",
+          "sro_name_or_number": "<наименование/номер или not_found>",
+          "sro_maintenance_obligation": "<yes / no / not_found>",
+          "sro_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "СРО"
+        - "допуск"
+        - "членство"
+        - "саморегулируемая"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "sro_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Упоминание СРО в договоре"
+        - name: "sro_maintenance_obligation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Обязательство поддерживать членство в СРО"
+      store_payload: true
+
+  - id: bim_model_requirements
+    name: "BIM-модель: требования к информационной модели"
+    description: |
+      Проверяет наличие требований к BIM-моделированию, формату данных,
+      уровню детализации (LOD), порядку передачи модели.
+    triggers:
+      any: ["bim_technology"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "BIM"
+        - "информационная модель"
+        - "информационное моделирование"
+        - "цифровая модель"
+        - "IFC"
+        - "LOD"
+        - "уровень детализации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bBIM\\b"
+        - "(?i)информационн(ая|ой)\\s+модел"
+        - "(?i)\\bLOD\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь наличие требований к BIM-модели (информационной модели).
+
+        Ответь строго в JSON:
+        {
+          "bim_required": "<yes / no / not_found>",
+          "bim_format": "<IFC / native / not_specified / not_found>",
+          "bim_lod_level": "<значение LOD или not_found>",
+          "bim_transfer_terms": "<specified / not_specified / not_found>",
+          "bim_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "BIM"
+        - "информационная модель"
+        - "LOD"
+        - "IFC"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "bim_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требуется ли BIM-модель"
+        - name: "bim_format"
+          type: "string"
+          allowed_values: ["IFC", "native", "not_specified", "not_found"]
+          description: "Формат BIM-модели"
+      store_payload: true
+
+  - id: external_approvals_coordination
+    name: "Согласования с ресурсоснабжающими организациями и органами (ст. 48 ГрК РФ)"
+    description: |
+      Проверяет наличие условий о получении и согласовании технических условий (ТУ)
+      на подключение к сетям, согласовании с ГИБДД, пожарным надзором, органами охраны
+      ОКН, Роспотребнадзором. Кто получает ТУ, кто несёт расходы, кто отвечает
+      за задержки при согласовании.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "технические условия на подключение"
+        - "ТУ на подключение"
+        - "согласование с"
+        - "ресурсоснабжающая организация"
+        - "сетевая организация"
+        - "Роспотребнадзор"
+        - "МЧС"
+        - "пожарный надзор"
+        - "ГИБДД"
+        - "орган охраны"
+        - "Ростехнадзор"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)техническ(ие|их)\\s+услови(я|й)\\s+на\\s+подключен"
+        - "(?i)согласован(ие|ия)\\s+с\\s+"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР.
+        Проверь условия о согласованиях с внешними организациями и получении ТУ.
+
+        Ответь строго в JSON:
+        {
+          "tu_acquisition_defined": "<yes / no / not_found>",
+          "tu_responsibility": "<contractor / client / jointly / not_specified / not_found>",
+          "tu_cost_bearer": "<contractor / client / jointly / not_specified / not_found>",
+          "external_approvals_listed": "<yes / no / not_found>",
+          "approval_delay_consequences": "<deadline_extension / contractor_risk / not_specified / not_found>",
+          "approvals_snippet": "<цитата или not_found>"
+        }
+
+        - "tu_responsibility": кто обязан получить ТУ от ресурсоснабжающих организаций
+        - "tu_cost_bearer": кто несёт расходы на получение ТУ и согласования
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "технические условия"
+        - "согласование"
+        - "ресурсоснабжающая организация"
+        - "подключение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "tu_responsibility"
+          type: "string"
+          allowed_values: ["contractor", "client", "jointly", "not_specified", "not_found"]
+          description: "Кто получает ТУ"
+        - name: "tu_cost_bearer"
+          type: "string"
+          allowed_values: ["contractor", "client", "jointly", "not_specified", "not_found"]
+          description: "Кто оплачивает получение ТУ"
+      store_payload: true
+
+  - id: reconstruction_building_survey_check
+    name: "Реконструкция: результаты обследования существующих конструкций"
+    description: |
+      При реконструкции/капремонте проектирование невозможно без результатов
+      технического обследования существующих конструкций. Проверяет наличие ссылки
+      на отчёт об обследовании, кто его выполняет, ответственность за достоверность.
+    triggers:
+      any: ["reconstruction_project"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обследование здания"
+        - "техническое обследование"
+        - "обследование конструкций"
+        - "дефектоскопия"
+        - "отчёт об обследовании"
+        - "заключение о техническом состоянии"
+        - "несущая способность"
+        - "фактическое состояние"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обследован(ие|ия)\\s+(здан|конструкц|фундамент)"
+        - "(?i)техническ(ое|ого)\\s+состоян"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ПИР на реконструкцию/капремонт.
+        Проверь наличие условий об обследовании существующих конструкций.
+
+        Ответь строго в JSON:
+        {
+          "building_survey_referenced": "<yes / no / not_found>",
+          "survey_provider": "<contractor / client / third_party / not_specified / not_found>",
+          "survey_results_as_initial_data": "<yes / no / not_found>",
+          "accuracy_responsibility": "<survey_provider / client / not_specified / not_found>",
+          "survey_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "обследование"
+        - "техническое состояние"
+        - "существующие конструкции"
+        - "реконструкция"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "building_survey_referenced"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие ссылки на обследование"
+        - name: "survey_provider"
+          type: "string"
+          allowed_values: ["contractor", "client", "third_party", "not_specified", "not_found"]
+          description: "Кто проводит обследование"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "price_and_calculation_basis"
+    name: "Цена работ и основание расчёта (ст. 709 ГК РФ)"
+    description: "Цена (твёрдая или приблизительная) и базис определения (смета по СБЦ, % от СМР, фиксированная сумма)"
+    legal_base: "ст. 709 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена"
+        - "стоимость"
+        - "вознаграждение"
+        - "рублей"
+        - "смета"
+        - "СБЦ"
+        - "справочник базовых цен"
+        - "процент от стоимости строительства"
+        - "твёрдая цена"
+        - "приблизительная цена"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)(твёрд|приблизительн)(ая|ой)\\s+цен"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_amount"
+          type: "number"
+          keyword_hints: ["цена", "стоимость", "вознаграждение", "рублей"]
+          unit: "RUB"
+          description: "Цена работ"
+        - name: "price_type"
+          type: "string"
+          allowed_values: ["fixed", "approximate", "cost_plus", "percentage", "sbc", "not_found"]
+          keyword_hints: ["твёрдая цена", "приблизительная цена", "по СБЦ", "процент"]
+          description: "Тип цены"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС", "НДС не облагается"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "parties_identification"
+    name: "Стороны договора: идентификация заказчика и подрядчика"
+    description: "Проверяет наличие и достаточность идентификации сторон, полномочия подписантов"
+    legal_base: "ст. 432, 758 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заказчик"
+        - "подрядчик"
+        - "проектировщик"
+        - "изыскатель"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(заказчик|подрядчик|проектировщик|изыскатель).*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "client_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "state_entity", "unclear"]
+          keyword_hints: ["ООО", "ПАО", "АО", "государственное", "муниципальное", "застройщик"]
+          description: "Тип заказчика"
+        - name: "contractor_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "unclear"]
+          keyword_hints: ["ООО", "ПАО", "АО", "проектный институт", "ИП"]
+          description: "Тип подрядчика"
+      store_payload: true
+
+  - id: "object_and_stage_identification"
+    name: "Предмет: объект проектирования и стадия (ст. 758 ГК РФ)"
+    description: "Проверяет наличие наименования объекта, местоположения и стадии проектирования"
+    legal_base: "ст. 758 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "объект проектирования"
+        - "наименование объекта"
+        - "местоположение"
+        - "адрес объекта"
+        - "стадия П"
+        - "стадия Р"
+        - "проектная документация"
+        - "рабочая документация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(стади[яи]\\s*[«\"']?[ПР][»\"']?)"
+        - "(?i)(объект.*проектирован|предмет.*договор)"
+
+  - id: "performance_deadlines_milestones"
+    name: "Сроки выполнения и этапы (ст. 708, 760 ГК РФ)"
+    description: "Проверяет наличие сроков начала и окончания, календарного плана, ключевых этапов"
+    legal_base: "ст. 708, 760 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок выполнения"
+        - "календарный план"
+        - "график выполнения"
+        - "дата начала"
+        - "дата окончания"
+        - "этап"
+        - "промежуточный срок"
+        - "не позднее"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(календарн|график).*?(план|работ)"
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "milestone_plan_present"
+          type: "string"
+          allowed_values: ["yes", "referenced", "no", "not_found"]
+          keyword_hints: ["календарный план", "график выполнения", "этап", "приложение"]
+          description: "Наличие этапного плана"
+      store_payload: true
+
+  - id: "stagewise_approval_procedure"
+    name: "Поэтапное согласование и право отклонения промежуточных результатов (ст. 760 ГК РФ)"
+    description: "Проверяет наличие процедуры поэтапного согласования, сроков рассмотрения заказчиком, права на замечания"
+    legal_base: "ст. 760 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "поэтапное согласование"
+        - "эскизный проект"
+        - "утверждение этапа"
+        - "замечания заказчика"
+        - "срок рассмотрения"
+        - "отклонение промежуточного результата"
+        - "мотивированный отказ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)поэтапн(ое|ого)\\s+согласован"
+        - "(?i)замечан(ия|ий)\\s+заказчик"
+        - "(?i)срок\\s+рассмотрен"
+
+  - id: "acceptance_procedure"
+    name: "Порядок сдачи-приёмки результатов работ"
+    description: "Проверяет наличие процедуры сдачи-приёмки, акта, комплектности документации"
+    legal_base: "ст. 720, 760 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт сдачи-приёмки"
+        - "приёмка результатов"
+        - "комплектность документации"
+        - "передача документации"
+        - "подписание акта"
+        - "мотивированный отказ от приёмки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(сдачи|приёмки|приемки)"
+        - "(?i)передач(а|и)\\s+документац"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "review_period_days"
+          type: "number"
+          keyword_hints: ["в течение", "рабочих дней", "календарных дней", "срок рассмотрения"]
+          unit: "days"
+          description: "Срок рассмотрения документации заказчиком"
+        - name: "auto_acceptance"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["считаются принятыми", "считаются сданными", "молчание"]
+          description: "Автоматическая приёмка при молчании"
+      store_payload: true
+
+  - id: "stage_payment_schedule"
+    name: "Поэтапная оплата: привязка к согласованию и актам (ст. 711, 762 ГК РФ)"
+    description: "Проверяет наличие аванса и поэтапной оплаты, привязку к подписанию актов"
+    legal_base: "ст. 711, 762 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "оплата по этапам"
+        - "поэтапная оплата"
+        - "авансовый платеж"
+        - "аванс"
+        - "после подписания акта"
+        - "окончательный расчёт"
+        - "счёт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оплат(а|ы).*поэтапн"
+        - "(?i)оплат(а|ы).*после.*подписани.*акт"
+        - "(?i)аванс.*\\d"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "advance_payment_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["аванс", "авансовый платёж", "предоплата"]
+          description: "Наличие аванса"
+        - name: "payment_linked_to_acts"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          keyword_hints: ["после подписания акта", "по факту сдачи этапа"]
+          description: "Привязка оплаты к подписанию актов"
+      store_payload: true
+
+  - id: "auto_deadline_extension"
+    name: "Автопродление сроков при задержке согласования заказчиком (ст. 328, 719 ГК РФ)"
+    description: "Проверяет наличие условия о продлении сроков при задержке со стороны заказчика"
+    legal_base: "ст. 328, 719 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "продление сроков"
+        - "автоматическое продление"
+        - "задержка согласования"
+        - "время рассмотрения не включается"
+        - "обязанность предоставить замечания в течение"
+        - "просрочка заказчика"
+        - "встречное исполнение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок.*продлева(ется|ться).*на.*срок.*задержк"
+        - "(?i)не\\s+включа(ется|ться)\\s+в\\s+срок\\s+выполнени"
+
+  - id: "termination_and_consequences"
+    name: "Расторжение: основания и последствия (ст. 715, 717, 758 ГК РФ)"
+    description: "Проверяет основания расторжения, порядок оплаты выполненной части, возврат документации"
+    legal_base: "ст. 715, 717, 758 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение"
+        - "отказ от договора"
+        - "отказ заказчика"
+        - "оплата выполненной части"
+        - "возврат документации"
+        - "неустойка"
+        - "штраф"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении)"
+        - "(?i)отказ.*от.*договор"
+        - "(?i)оплат.*выполненн.*част"
+
+  - id: "assignment_and_subcontracting"
+    name: "Субподряд и уступка прав (ст. 706 ГК РФ)"
+    description: "Проверяет ограничения на привлечение субподрядчиков и уступку прав"
+    legal_base: "ст. 706 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "субподрядчик"
+        - "субподряд"
+        - "привлечение третьих лиц"
+        - "с согласия заказчика"
+        - "без согласия"
+        - "уступка"
+        - "генеральный проектировщик"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субподряд"
+        - "(?i)привлечен(ие|ия)\\s+треть(их|его)"
+        - "(?i)уступк(а|и)\\s+прав"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "subcontracting_allowed"
+          type: "string"
+          allowed_values: ["yes_with_consent", "yes_without_consent", "prohibited", "unclear", "not_found"]
+          keyword_hints: ["с согласия", "без согласия", "запрещается привлечение"]
+          description: "Допустимость субподряда"
+      store_payload: true
+
+  - id: "quality_warranty"
+    name: "Гарантия качества документации (ст. 761 ГК РФ)"
+    description: "Проверяет наличие гарантий соответствия ПД нормативам, ТЗ и исходным данным"
+    legal_base: "ст. 761 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантирует соответствие"
+        - "нормативные требования"
+        - "техническое задание"
+        - "действующие нормы"
+        - "СНиП"
+        - "СП"
+        - "ГОСТ"
+        - "качество документации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)гарантиру(ет|ют).*соответств"
+        - "(?i)документаци.*соответств.*норм"
+
+  - id: "warranty_period_for_documentation"
+    name: "Гарантийный срок на проектную документацию"
+    description: "Проверяет наличие гарантийного срока, в течение которого проектировщик обязан безвозмездно устранять дефекты"
+    legal_base: "ст. 724, 761 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантийный срок"
+        - "гарантия на документацию"
+        - "безвозмездное устранение"
+        - "дефекты документации"
+        - "гарантийные обязательства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)гарантийн(ый|ого)\\s+срок"
+        - "(?i)безвозмездн(ое|ого)\\s+устранен"
+
+  - id: "liability_cap"
+    name: "Лимит ответственности подрядчика (ст. 15, 393, 401 ГК РФ)"
+    description: "Проверяет наличие ограничения совокупной ответственности (обычно суммой договора)"
+    legal_base: "ст. 15, 393, 401 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность ограничена"
+        - "совокупная ответственность"
+        - "не превышает стоимости"
+        - "в пределах цены договора"
+        - "косвенные убытки"
+        - "упущенная выгода"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност.*ограничен.*стоимост"
+        - "(?i)совокупн.*ответственност.*не.*превыша"
+        - "(?i)не\\s+возмеща(ются|ется).*косвенн"
+
+  - id: "initial_data_accuracy_disclaimer"
+    name: "Оговорка об ответственности заказчика за достоверность исходных данных"
+    description: "Проверяет наличие оговорки, освобождающей подрядчика от ответственности за последствия недостоверных исходных данных"
+    legal_base: "ст. 759 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "достоверность исходных данных"
+        - "ответственность за исходные данные"
+        - "не проверяет достоверность"
+        - "освобождение от ответственности"
+        - "право на дополнительную оплату при изменении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+провер(яет|ять).*достоверност.*исходн"
+        - "(?i)ответственност.*за.*достоверност.*лежит.*на.*заказчик"
+
+  - id: "deviation_from_tz_approval"
+    name: "Согласование отступлений от ТЗ"
+    description: "Проверяет наличие порядка согласования отступлений от ТЗ (ст. 760 ГК РФ)"
+    legal_base: "ст. 760 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отступление от ТЗ"
+        - "изменение ТЗ"
+        - "корректировка задания"
+        - "дополнительное соглашение"
+        - "согласование изменений"
+        - "изменение объёма работ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отступлени(е|я)\\s+от\\s+(ТЗ|техническ)"
+        - "(?i)изменени(е|я)\\s+(ТЗ|техническ.*задани)"
+
+  - id: "defect_remarks_register"
+    name: "Реестр замечаний и порядок их устранения"
+    description: "Проверяет наличие процедуры фиксации, рассмотрения и устранения замечаний"
+    legal_base: "ст. 720, 760 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "реестр замечаний"
+        - "перечень замечаний"
+        - "устранение замечаний"
+        - "срок устранения"
+        - "акт об устранении"
+        - "мотивированный отказ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)замечан(ия|ий).*устранен"
+        - "(?i)реестр\\s+замечан"
+
+  - id: "confidentiality_and_data_return"
+    name: "Конфиденциальность и возврат материалов"
+    description: "Проверяет наличие условий о конфиденциальности и судьбе материалов/черновиков"
+    legal_base: "ФЗ № 98-ФЗ «О коммерческой тайне»"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "возврат материалов"
+        - "уничтожение черновиков"
+        - "промежуточные материалы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)возврат.*материал"
+        - "(?i)уничтожен.*черновик"
+
+  - id: "insurance_professional_liability"
+    name: "Страхование профессиональной ответственности проектировщика"
+    description: "Проверяет наличие требования о страховании ответственности проектировщика"
+    legal_base: "ст. 55.5 ГрК РФ, условия СРО"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхование ответственности"
+        - "страховой полис"
+        - "профессиональная ответственность"
+        - "страховое покрытие"
+        - "застраховать ответственность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ание|ка).*ответственност"
+        - "(?i)профессиональн(ой|ая)\\s+ответственност"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "insurance_required"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          keyword_hints: ["обязан застраховать", "страхование обязательно", "полис"]
+          description: "Обязательность страхования"
+      store_payload: true
+
+  - id: "force_majeure"
+    name: "Форс-мажор и обстоятельства непреодолимой силы"
+    description: "Проверяет наличие оговорки о форс-мажоре, порядок уведомления и последствия"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "уведомление о форс-мажоре"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[\\s\\-]?мажор"
+        - "(?i)непреодолим(ой|ая)\\s+сил"
+
+  - id: "dispute_resolution"
+    name: "Разрешение споров: подсудность и претензионный порядок"
+    description: "Проверяет наличие претензионного порядка, подсудности, арбитражной оговорки"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "претензионный порядок"
+        - "арбитражный суд"
+        - "подсудность"
+        - "медиация"
+        - "третейский суд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензионн(ый|ого)\\s+порядк"
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+
+  - id: "anticorruption_clause"
+    name: "Антикоррупционная оговорка"
+    description: "Проверяет наличие антикоррупционных заверений"
+    legal_base: "ФЗ № 273-ФЗ «О противодействии коррупции»"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "антикоррупционная оговорка"
+        - "противодействие коррупции"
+        - "взятка"
+        - "коммерческий подкуп"
+        - "compliance"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)антикоррупц"
+        - "(?i)противодейств.*коррупц"
+
+  - id: "vat_and_tax_allocation"
+    name: "НДС/налоги/распределение расходов"
+    description: "Проверяет наличие налоговых оговорок и распределения расходов"
+    legal_base: "НК РФ, ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+        - "налог"
+        - "расходы на экспертизу"
+        - "расходы на согласование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+
+  - id: "data_security_and_backup"
+    name: "Безопасность данных и резервное копирование"
+    description: "Проверяет наличие условий о хранении, резервировании и защите проектных данных"
+    legal_base: "ФЗ-149 «Об информации»"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "резервное копирование"
+        - "хранение данных"
+        - "защита информации"
+        - "электронный архив"
+        - "облачное хранилище"
+        - "передача электронной версии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)резервн(ое|ого)\\s+копирован"
+        - "(?i)электронн(ый|ого)\\s+архив"
+
+  - id: "governing_law"
+    name: "Применимое право"
+    description: "Проверяет указание применимого законодательства"
+    legal_base: "ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется законодательством"
+        - "Российской Федерации"
+        - "по законам РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)законодательств(о|ом)\\s+Российск"
+
+  - id: "penalty_for_delay"
+    name: "Неустойка за просрочку выполнения работ"
+    description: "Проверяет наличие и размер неустойки за нарушение сроков"
+    legal_base: "ст. 330 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка"
+        - "пеня"
+        - "штраф"
+        - "за каждый день просрочки"
+        - "процент за просрочку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|и|у).*\\d"
+        - "(?i)пен(я|и|ю).*\\d.*%"
+        - "(?i)за\\s+каждый\\s+день\\s+просрочк"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "penalty_rate"
+          type: "string"
+          keyword_hints: ["неустойка", "пеня", "за каждый день"]
+          description: "Размер неустойки"
+      store_payload: true
+
+  - id: "norms_and_standards_reference"
+    name: "Ссылка на нормативы проектирования (СП, ГОСТ, СНиП)"
+    description: "Проверяет наличие ссылок на применимые нормативы проектирования"
+    legal_base: "ФЗ-384 «Технический регламент о безопасности зданий и сооружений»"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "СП"
+        - "ГОСТ"
+        - "СНиП"
+        - "Свод правил"
+        - "технический регламент"
+        - "действующие нормативы"
+        - "нормы проектирования"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(СП|ГОСТ|СНиП)\\s+\\d"
+        - "(?i)техническ(ий|ого)\\s+регламент"
+
+  - id: "documentation_delivery_format"
+    name: "Формат и количество экземпляров передаваемой документации"
+    description: "Проверяет наличие условий о формате (бумажный/электронный), количестве экземпляров, формате файлов (DWG, PDF, IFC)"
+    legal_base: "ГК РФ (общие положения), ПП РФ № 87"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "экземпляр"
+        - "комплект документации"
+        - "бумажный носитель"
+        - "электронный вид"
+        - "формат DWG"
+        - "формат PDF"
+        - "формат IFC"
+        - "электронная версия"
+        - "количество копий"
+        - "CD"
+        - "DVD"
+        - "flash-накопитель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\d+\\s*(экземпляр|комплект)"
+        - "(?i)(бумажн|электронн)(ый|ом|ой)\\s+(носител|вид|версии|формат)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "paper_copies_count"
+          type: "number"
+          keyword_hints: ["экземпляров", "комплектов", "на бумажном носителе"]
+          description: "Количество бумажных экземпляров"
+        - name: "electronic_format"
+          type: "string"
+          keyword_hints: ["DWG", "PDF", "IFC", "Revit", "электронный формат"]
+          description: "Формат электронной версии"
+      store_payload: true
+
+  - id: "energy_efficiency_requirements"
+    name: "Требования к энергетической эффективности (ФЗ-261)"
+    description: "Проверяет наличие требований к классу энергоэффективности здания и соответствующих разделов ПД"
+    legal_base: "ФЗ от 23.11.2009 № 261-ФЗ «Об энергосбережении»; ПП РФ № 87"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["capital_construction_object", "residential_building"]
+    rules:
+      keywords:
+        - "энергоэффективность"
+        - "класс энергетической эффективности"
+        - "энергосбережение"
+        - "энергетический паспорт"
+        - "тепловая защита"
+        - "ФЗ-261"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)энерг(о|етическ)(эффективн|сбережен)"
+        - "(?i)класс.*энерг"
+
+  - id: "reconstruction_survey_requirement"
+    name: "Обследование существующих конструкций при реконструкции (СП 13-102-2003)"
+    description: "При реконструкции проектирование без результатов обследования невозможно — проектировщик не знает фактического состояния конструкций"
+    legal_base: "СП 13-102-2003; ПП РФ № 87"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["reconstruction_project"]
+    rules:
+      keywords:
+        - "обследование здания"
+        - "техническое обследование"
+        - "обследование конструкций"
+        - "отчёт об обследовании"
+        - "заключение о техническом состоянии"
+        - "дефектоскопия"
+        - "несущая способность"
+        - "СП 13-102"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обследован(ие|ия)\\s+(здан|конструкц|сооружен)"
+        - "(?i)техническ(ое|ого)\\s+состоян"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  pir_subject_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: (а) полное наименование объекта проектирования;
+      (б) стадию проектирования (П/Р/П+Р); (в) перечень разделов ПД;
+      (г) ссылку на ТЗ с подтверждением его утверждения заказчиком.
+    addressee: "Обе стороны"
+
+  technical_specification_completeness:
+    text: >
+      В {doc_names} необходимо подтвердить наличие и полноту ТЗ на проектирование (ст. 759 ГК РФ):
+      (а) приложено ли ТЗ к договору; (б) содержит ли оно параметры объекта, ссылки на нормативы,
+      требования к результату; (в) утверждено ли заказчиком.
+    addressee: "Заказчик"
+
+  object_and_stage_identification:
+    text: >
+      Просим уточнить в {doc_names}: наименование объекта, его местоположение (адрес/кадастровый номер),
+      стадию проектирования, перечень разделов ПД по ПП РФ № 87.
+    addressee: "Заказчик"
+
+  price_and_calculation_basis:
+    text: >
+      Просим подтвердить по {doc_names}: (а) цену работ цифрами и прописью;
+      (б) вид цены (твёрдая/приблизительная); (в) основание расчёта (СБЦ, % от СМР, фиксированная);
+      (г) включает ли цена НДС; (д) порядок изменения цены при увеличении объёма.
+    addressee: "Обе стороны"
+
+  stage_payment_schedule:
+    text: >
+      Просим уточнить в {doc_names}: (а) размер авансового платежа; (б) привязку промежуточных
+      платежей к подписанию актов этапов; (в) условия окончательного расчёта;
+      (г) реквизиты для оплаты.
+    addressee: "Обе стороны"
+
+  expertise_procedure_and_payment_link:
+    text: >
+      Просим подтвердить по {doc_names}: (а) вид экспертизы (государственная/негосударственная);
+      (б) кто подаёт документы на экспертизу; (в) кто оплачивает экспертизу;
+      (г) привязана ли окончательная оплата к положительному заключению;
+      (д) последствия отрицательного заключения (бесплатная доработка / за дополнительную плату).
+    addressee: "Обе стороны"
+
+  ip_rights_on_documentation:
+    text: >
+      Просим уточнить в {doc_names}: (а) кому принадлежат исключительные права на ПД;
+      (б) момент перехода прав; (в) вправе ли заказчик повторно использовать проект
+      (типовая застройка); (г) вправе ли заказчик модифицировать проект;
+      (д) сохраняется ли за автором право авторства и иные личные неимущественные права.
+    addressee: "Юридический советник"
+
+  designer_liability_for_errors:
+    text: >
+      Просим уточнить в {doc_names}: (а) объём ответственности проектировщика за ошибки в ПД;
+      (б) включает ли ответственность расходы на переделку СМР;
+      (в) наличие лимита ответственности и его размер;
+      (г) исключены ли косвенные убытки и упущенная выгода.
+    addressee: "Юридический советник"
+
+  liability_cap:
+    text: >
+      Просим согласовать в {doc_names}: лимит совокупной ответственности подрядчика,
+      исключения из лимита (умысел, грубая неосторожность), порядок исчисления убытков.
+    addressee: "Юридический советник"
+
+  designer_vs_builder_liability:
+    text: >
+      Просим включить в {doc_names} чёткое разграничение ответственности:
+      проектировщик отвечает за качество документации, но не за её реализацию строителями.
+      Авторский надзор — отдельная услуга / договор.
+    addressee: "Юридический советник"
+
+  initial_data_provision_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) полный перечень исходных данных с указанием
+      ответственного за предоставление; (б) сроки предоставления каждого документа;
+      (в) последствия задержки; (г) оговорку об ответственности заказчика за достоверность.
+    addressee: "Заказчик"
+
+  initial_data_accuracy_disclaimer:
+    text: >
+      Просим включить в {doc_names} оговорку: подрядчик не проверяет достоверность исходных данных,
+      ответственность за их достоверность несёт заказчик; при выявлении несоответствия — право
+      на продление сроков и дополнительную оплату.
+    addressee: "Юридический советник подрядчика"
+
+  sro_membership_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) наименование и номер СРО;
+      (б) реквизиты свидетельства/выписки; (в) обязательство поддерживать членство
+      на весь срок действия договора.
+    addressee: "Подрядчик"
+
+  sro_membership_absent_for_expertise_object:
+    text: >
+      ВНИМАНИЕ: объект по {doc_names} требует экспертизы, но членство подрядчика в СРО
+      не подтверждено. Просим незамедлительно предоставить подтверждение членства в СРО
+      проектировщиков (ст. 55.8 ГрК РФ). Без этого получение положительного заключения
+      экспертизы невозможно.
+    addressee: "Подрядчик"
+
+  author_supervision_terms:
+    text: >
+      Просим уточнить в {doc_names}: (а) включён ли авторский надзор в договор
+      или осуществляется по отдельному договору; (б) объём и периодичность;
+      (в) порядок оплаты; (г) ответственность при отказе от авторского надзора.
+    addressee: "Обе стороны"
+
+  bim_model_requirements:
+    text: >
+      Просим уточнить в {doc_names}: (а) требуется ли BIM-модель;
+      (б) формат (IFC / native); (в) уровень детализации (LOD);
+      (г) порядок и сроки передачи модели; (д) требования к среде общих данных (CDE).
+    addressee: "Заказчик"
+
+  performance_deadlines_milestones:
+    text: >
+      Просим предоставить по {doc_names}: (а) календарный план-график работ с этапами;
+      (б) ключевые даты (начало, эскиз, экспертиза, сдача РД);
+      (в) привязку сроков к предоставлению исходных данных.
+    addressee: "Обе стороны"
+
+  auto_deadline_extension:
+    text: >
+      Просим включить в {doc_names} условие: при задержке согласования заказчиком
+      сроки выполнения автоматически продлеваются на период задержки;
+      время рассмотрения заказчиком не включается в сроки подрядчика.
+    addressee: "Юридический советник подрядчика"
+
+  acceptance_procedure:
+    text: >
+      Просим уточнить в {doc_names}: порядок сдачи-приёмки, форму акта,
+      срок рассмотрения документации заказчиком, основания для мотивированного отказа,
+      комплектность передаваемой документации.
+    addressee: "Обе стороны"
+
+  stagewise_approval_procedure:
+    text: >
+      Просим согласовать в {doc_names}: перечень этапов, подлежащих согласованию;
+      сроки рассмотрения каждого этапа; право заказчика на замечания;
+      порядок учёта или отклонения замечаний.
+    addressee: "Обе стороны"
+
+  defect_remarks_register:
+    text: >
+      Просим включить в {doc_names}: порядок ведения реестра замечаний,
+      сроки устранения, акт об устранении, последствия неустранения в срок.
+    addressee: "Юридический советник"
+
+  termination_and_consequences:
+    text: >
+      Просим уточнить в {doc_names}: (а) основания для одностороннего отказа каждой стороны;
+      (б) порядок оплаты выполненной части; (в) возврат документации и исходных данных;
+      (г) неустойки и штрафы; (д) судьба авансовых платежей.
+    addressee: "Юридический советник"
+
+  assignment_and_subcontracting:
+    text: >
+      Просим уточнить в {doc_names}: (а) допускается ли привлечение субподрядчиков;
+      (б) требуется ли согласие заказчика; (в) сохраняется ли ответственность
+      генерального проектировщика; (г) ограничения на уступку прав.
+    addressee: "Юридический советник"
+
+  quality_warranty:
+    text: >
+      Просим подтвердить в {doc_names}: гарантию соответствия ПД действующим нормативам (СП, ГОСТ, СНиП),
+      ТЗ и исходным данным. Указать перечень применяемых нормативов.
+    addressee: "Подрядчик"
+
+  warranty_period_for_documentation:
+    text: >
+      Просим включить в {doc_names} гарантийный срок на ПД: продолжительность,
+      обязанность безвозмездного устранения дефектов, порядок предъявления претензий.
+    addressee: "Юридический советник"
+
+  norms_and_standards_reference:
+    text: >
+      Просим указать в {doc_names} полный перечень применимых нормативов проектирования
+      (СП, ГОСТ, СНиП, технические регламенты) с указанием актуальных редакций.
+    addressee: "Подрядчик"
+
+  confidentiality_and_data_return:
+    text: >
+      Просим включить в {doc_names}: перечень конфиденциальных сведений, срок неразглашения,
+      порядок возврата/уничтожения материалов после завершения работ,
+      ответственность за нарушение.
+    addressee: "Юридический советник"
+
+  insurance_professional_liability:
+    text: >
+      Просим подтвердить по {doc_names}: наличие полиса страхования профессиональной
+      ответственности проектировщика, страховую сумму, срок действия,
+      соответствие требованиям СРО.
+    addressee: "Подрядчик"
+
+  hazardous_facility_special_permit:
+    text: >
+      ВНИМАНИЕ: объект по {doc_names} является опасным производственным объектом.
+      Просим предоставить: лицензию Ростехнадзора, подтверждение допуска к проектированию ОПО,
+      страховой полис, перечень специалистов с допуском к работам на ОПО.
+    addressee: "Подрядчик"
+
+  penalty_for_delay:
+    text: >
+      Просим согласовать в {doc_names}: размер неустойки за просрочку (для обеих сторон),
+      предельный размер (cap), порядок исчисления, основания для освобождения.
+    addressee: "Юридический советник"
+
+  deviation_from_tz_approval:
+    text: >
+      Просим включить в {doc_names}: порядок согласования отступлений от ТЗ,
+      форму уведомления, срок рассмотрения, последствия несогласования
+      (доплата / продление сроков).
+    addressee: "Обе стороны"
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование/ФИО,
+      ИНН, ОГРН, адрес, документы уполномоченных лиц, подтверждение полномочий.
+    addressee: "Обе стороны"
+
+  force_majeure:
+    text: >
+      Просим уточнить в {doc_names}: перечень обстоятельств форс-мажора,
+      порядок и сроки уведомления, последствия (приостановка / расторжение),
+      подтверждающие документы (ТПП).
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: претензионный порядок (срок),
+      подсудность, возможность медиации / третейского разбирательства.
+    addressee: "Юридический советник"
+
+  anticorruption_clause:
+    text: >
+      Просим включить в {doc_names} антикоррупционную оговорку в соответствии с ФЗ-273:
+      заверения сторон, порядок уведомления, последствия нарушения.
+    addressee: "Юридический советник"
+
+  vat_and_tax_allocation:
+    text: >
+      Просим уточнить в {doc_names}: режим НДС, распределение расходов
+      на экспертизу и согласования, порядок документооборота (УПД/акт/счёт-фактура).
+    addressee: "Бухгалтерия / Юридический советник"
+
+  data_security_and_backup:
+    text: >
+      Просим включить в {doc_names}: условия хранения и резервирования проектных данных,
+      формат передачи электронной версии, требования к среде общих данных.
+    addressee: "IT-служба / Юридический советник"
+
+  governing_law:
+    text: >
+      Просим подтвердить в {doc_names} применимое право (законодательство РФ)
+      и язык договора.
+    addressee: "Юридический советник"
+
+  pd_composition_pp87_violation:
+    text: >
+      Просим предоставить по {doc_names}: перечень разделов ПД в соответствии с ПП РФ № 87,
+      подтверждение соответствия ТЗ требованиям к составу ПД для данного типа объекта.
+    addressee: "Подрядчик / Юридический советник"
+
+  external_approvals_coordination:
+    text: >
+      Просим уточнить в {doc_names}: (а) кто обязан получить технические условия
+      на подключение к сетям; (б) кто несёт расходы на ТУ и согласования;
+      (в) перечень органов/организаций для согласования;
+      (г) последствия задержки согласований для сроков проектирования.
+    addressee: "Обе стороны"
+
+  reconstruction_building_survey_check:
+    text: >
+      Для {doc_names} (реконструкция/капремонт) просим предоставить:
+      (а) отчёт об обследовании существующих конструкций;
+      (б) подтверждение квалификации организации, проводившей обследование;
+      (в) указать, кто несёт ответственность за достоверность результатов обследования;
+      (г) порядок действий при выявлении расхождений в ходе проектирования.
+    addressee: "Заказчик"
+
+  reconstruction_survey_requirement:
+    text: >
+      В {doc_names} предусмотрена реконструкция/капремонт. Просим предоставить:
+      результаты обследования существующих конструкций (СП 13-102-2003),
+      заключение о техническом состоянии, рекомендации по усилению.
+    addressee: "Заказчик"
+
+  documentation_delivery_format:
+    text: >
+      Просим уточнить в {doc_names}: (а) количество бумажных экземпляров ПД;
+      (б) формат электронной версии (DWG/PDF/IFC); (в) требования к BIM-модели
+      (если применимо); (г) носитель/способ передачи электронных файлов.
+    addressee: "Заказчик"
+
+  energy_efficiency_requirements:
+    text: >
+      Просим уточнить в {doc_names}: (а) требуемый класс энергетической
+      эффективности здания; (б) необходимость разработки энергетического паспорта;
+      (в) применимые нормативы по тепловой защите (ФЗ-261).
+    addressee: "Заказчик"
+
+  cultural_heritage_without_permit:
+    text: >
+      ВНИМАНИЕ: объект по {doc_names} является объектом культурного наследия.
+      Просим предоставить: (а) лицензию Минкультуры на проектирование работ на ОКН;
+      (б) заключение историко-культурной экспертизы; (в) охранное обязательство;
+      (г) согласование с органом охраны ОКН; (д) перечень предметов охраны.
+    addressee: "Подрядчик / Заказчик"
+
+  ecological_expertise_required:
+    text: >
+      ВНИМАНИЕ: объект по {doc_names} может подлежать государственной экологической
+      экспертизе (ФЗ-174). Просим подтвердить: (а) необходимость ГЭЭ;
+      (б) кто подаёт материалы; (в) кто несёт расходы; (г) включена ли ОВОС
+      в состав проектной документации.
+    addressee: "Заказчик / Экологический консультант"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

@@ -1,0 +1,1843 @@
+type: contract_6.3_agency
+name: "Агентский договор"
+
+description: |
+  Универсальный возмездный посреднический договор, по которому агент обязуется
+  за вознаграждение совершать по поручению принципала юридические и/или фактические действия
+  либо от имени и за счет принципала, либо от своего имени, но за счет принципала.
+  Регулируется Главой 52 ГК РФ с субсидиарным применением норм о поручении или комиссии
+  в зависимости от выбранной модели. На практике агентский договор часто имеет рамочный
+  и длящийся характер, а конкретизация действий переносится в задания, заявки, отчеты
+  и дополнительные соглашения.
+  Основные риски связаны с неясностью выбранной модели, спорами о триггерах выплаты
+  агентского вознаграждения, переквалификацией в трудовые отношения, контролем
+  денежных потоков при модели действия от своего имени, субагентством, условиями
+  exclusivity/non-compete и урегулированием постконтрактных последствий.
+
+version: 4.1
+parent: class_6_intermediary
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: intermediary
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 52 ГК РФ (ст. 1005-1011)"
+  doc_types_supported:
+    - "агентский договор"
+    - "договор на оказание агентских услуг"
+    - "дистрибьюторский агентский договор"
+    - "маркетинговый агентский договор"
+    - "договор на продвижение товаров/услуг"
+    - "агентский договор на поиск клиентов"
+    - "рамочный агентский договор"
+    - "эксклюзивный агентский договор"
+    - "sales agency agreement"
+    - "marketing agency agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)агентск"
+      - "(?i)agency"
+      - "(?i)sales[\\s_.]?agent"
+      - "(?i)marketing[\\s_.]?agent"
+      - "(?i)дистриб"
+
+    folder_patterns:
+      - "(?i)agency"
+      - "(?i)агент"
+      - "(?i)sales"
+      - "(?i)distribution"
+
+    keywords:
+
+      high:
+        - "агентский договор"
+        - "принципал"
+        - "агент"
+        - "агентское вознаграждение"
+        - "от имени принципала"
+        - "от своего имени"
+        - "за счет принципала"
+        - "юридические и иные действия"
+
+      medium:
+        - "отчет агента"
+        - "субагент"
+        - "территория"
+        - "исключительность"
+        - "эксклюзивность"
+        - "поиск клиентов"
+        - "продвижение товаров"
+        - "маркетинговые услуги"
+        - "дистрибуция"
+        - "tail commission"
+        - "постконтрактное вознаграждение"
+
+      low:
+        - "рамочный договор"
+        - "неконкуренция"
+        - "коммерческое представительство"
+        - "переквалификация в трудовой"
+        - "брендбук"
+        - "лиды"
+        - "клиентская база"
+
+    exclusions:
+      - "трудовой договор"
+      - "договор оказания услуг"
+      - "договор поручения"
+      - "договор комиссии"
+      - "коммерческая концессия"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  acts_in_principal_name:
+    any_keywords:
+      - "от имени принципала"
+      - "права и обязанности возникают у принципала"
+      - "доверенность"
+      - "представление интересов"
+
+  acts_in_own_name:
+    any_keywords:
+      - "от своего имени"
+      - "за счет принципала"
+      - "права и обязанности по сделке возникают у агента"
+
+  mixed_actions_model:
+    any_keywords:
+      - "юридические и иные действия"
+      - "юридические и фактические действия"
+      - "привлечение клиентов"
+      - "продвижение товаров"
+
+  subagency_allowed:
+    any_keywords:
+      - "субагент"
+      - "субагентский договор"
+      - "привлечение субагентов"
+
+  exclusivity_terms:
+    any_keywords:
+      - "исключительные права"
+      - "эксклюзивность"
+      - "единственный агент"
+      - "запрет другим агентам"
+      - "неконкуренция"
+
+  report_based_settlement:
+    any_keywords:
+      - "отчет агента"
+      - "утверждение отчета"
+      - "возражения на отчет"
+      - "на основании отчета"
+
+  tail_commission_terms:
+    any_keywords:
+      - "tail commission"
+      - "постконтрактное вознаграждение"
+      - "сделки, заключенные в период действия"
+      - "оплаченные после окончания"
+
+  marketing_promotion_scope:
+    any_keywords:
+      - "маркетинговые услуги"
+      - "продвижение товаров"
+      - "реклама"
+      - "поиск клиентов"
+      - "лидогенерация"
+
+  anti_labor_risk:
+    any_keywords:
+      - "рабочий график"
+      - "подчинение внутреннему распорядку"
+      - "должностная инструкция"
+      - "отпуск"
+      - "рабочее место"
+
+  principal_money_flow_sensitive:
+    any_keywords:
+      - "получает денежные средства от третьих лиц"
+      - "перечисление выручки"
+      - "средства принципала"
+      - "специальный счет"
+
+  cross_border_agency:
+    any_keywords:
+      - "иностранный принципал"
+      - "иностранный агент"
+      - "нерезидент"
+      - "международное агентирование"
+      - "валютный контроль"
+      - "налог у источника"
+      - "USD"
+      - "EUR"
+      - "применимое право"
+
+  client_data_handling:
+    any_keywords:
+      - "клиентская база"
+      - "персональные данные"
+      - "CRM"
+      - "база данных клиентов"
+      - "лиды"
+      - "контактные данные клиентов"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|коп|тыс|млн|млрд)"
+  percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  deadline_pattern: "(?i)(?:в течение|не позднее)\\s+\\d+\\s+(?:календарн|рабоч|дн|дня|дней)"
+  assignment_or_order_ref: "(?i)(?:задани[ея]|поручени[ея]|заявк[аи]|order|statement\\s+of\\s+work)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "labor_requalification_red_flag"
+    name: "Признаки переквалификации в трудовой договор"
+    description: "Если в агентском договоре присутствуют признаки трудовых отношений, существует критический риск переквалификации"
+    legal_base: "ст. 15, 16 ТК РФ, судебная практика"
+    required_triggers: ["anti_labor_risk"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "рабочий день с"
+        - "подчиняется правилам внутреннего трудового распорядка"
+        - "ежегодный оплачиваемый отпуск"
+        - "должностная инструкция"
+        - "рабочее место предоставляется"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "рабочий график"
+        - "внутренний трудовой распорядок"
+        - "должностная инструкция"
+      rerank: true
+
+  - id: "agency_model_unclear"
+    name: "Неясна модель действий агента"
+    description: |
+      Если неясно, действует агент от имени принципала или от своего имени,
+      повышается риск неправильного распределения прав и обязанностей.
+      ПРИМЕЧАНИЕ v4.1: эта проверка использует negative_keywords —
+      срабатывает, если НИ ОДНО из ключевых слов не найдено.
+    legal_base: "ст. 1005, 1011 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "от имени принципала"
+        - "от своего имени"
+        - "за счет принципала"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "от имени принципала"
+        - "от своего имени"
+        - "за счет принципала"
+      rerank: true
+
+  - id: "gratuitous_agency_red_flag"
+    name: "Попытка безвозмездной агентской конструкции"
+    description: "Агентский договор является возмездным; отсутствие ясной модели вознаграждения создает высокий риск спора"
+    legal_base: "ст. 1005, 1006 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "безвозмездно"
+        - "без выплаты вознаграждения"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "агентское вознаграждение"
+        - "безвозмездно"
+      rerank: true
+
+  - id: "money_flow_control_missing"
+    name: "Неурегулирован контроль денежных потоков принципала"
+    description: "При получении агентом средств от третьих лиц отсутствие сроков перечисления и отчетности создает высокий риск"
+    legal_base: "ст. 1005, 1008, 1011 ГК РФ"
+    required_triggers: ["acts_in_own_name", "principal_money_flow_sensitive"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "перечисление выручки"
+        - "срок перечисления"
+        - "обособленный учет средств принципала"
+        - "отчет о полученных средствах"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "перечисление выручки"
+        - "средства принципала"
+        - "специальный счет"
+      rerank: true
+
+  - id: "subagency_without_control"
+    name: "Субагентство без достаточного контроля"
+    description: "Если допускается субагентство, но нет режима согласия и ответственности, риск для принципала высок"
+    legal_base: "ст. 1009 ГК РФ"
+    required_triggers: ["subagency_allowed"]
+    severity: "high"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "субагент"
+      negative_keywords:
+        - "с согласия принципала"
+        - "агент отвечает за действия субагента"
+        - "запрет на субагентство"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "субагент"
+        - "согласие принципала"
+        - "ответственность агента"
+      rerank: true
+
+  - id: "antitrust_exclusive_agency"
+    name: "Антимонопольный риск эксклюзивного агентства (ФЗ-135)"
+    description: |
+      Эксклюзивный агентский договор с запретом работы с конкурентами
+      может быть квалифицирован как вертикальное соглашение, ограничивающее
+      конкуренцию (ст. 11 ФЗ-135). Особенно критично для сторон с долей рынка > 35%.
+    legal_base: "ФЗ-135 «О защите конкуренции», ст. 11, 12"
+    required_triggers: ["exclusivity_terms"]
+    severity: "high"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "эксклюзивность"
+        - "запрет работы с конкурентами"
+        - "единственный агент"
+        - "вертикальное соглашение"
+        - "ФАС"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "эксклюзивность"
+        - "конкуренция"
+        - "антимонопольный"
+      rerank: true
+
+  - id: "currency_control_cross_border_agency"
+    name: "Валютный контроль при трансграничном агентировании (ФЗ-173)"
+    description: |
+      При выплате агентского вознаграждения нерезиденту необходимо:
+      (а) оформить паспорт сделки; (б) удержать налог у источника;
+      (в) соблюсти валютное законодательство.
+    legal_base: "ФЗ-173, НК РФ ст. 309, 310"
+    required_triggers: ["cross_border_agency"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "валютный контроль"
+        - "паспорт сделки"
+        - "налог у источника"
+        - "нерезидент"
+        - "СОИДН"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "валютный контроль"
+        - "нерезидент"
+        - "налог у источника"
+      rerank: true
+
+  - id: "power_of_attorney_absence"
+    name: "Отсутствие доверенности при модели «от имени принципала» (ст. 185, 1005 ГК РФ)"
+    description: |
+      При модели «от имени принципала» агент должен действовать на основании
+      доверенности. Без неё сделки с третьими лицами не создают прав/обязанностей
+      для принципала → агент может быть признан действующим от своего имени.
+    legal_base: "ст. 185, 1005 ГК РФ"
+    required_triggers: ["acts_in_principal_name"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "доверенность"
+        - "на основании доверенности"
+        - "полномочия агента"
+      keyword_mode: "any"
+      negative_keywords:
+        - "без доверенности"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "доверенность"
+        - "полномочия"
+        - "от имени принципала"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: agency_subject_extraction
+    name: "Базовое извлечение структуры агентского договора"
+    description: "Извлекает принципала, агента, предмет, модель агентирования, вознаграждение, отчетность и special clauses"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "агентский договор"
+        - "принципал"
+        - "агент"
+        - "агентское вознаграждение"
+        - "отчет агента"
+        - "от имени принципала"
+        - "от своего имени"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(агентск(ий|ого)\\s+договор|принципал|агент)"
+        - "(?i)(от\\s+имени\\s+принципала|от\\s+своего\\s+имени)"
+        - "(?i)вознаграждени[ея].{0,30}агент"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Извлеки ключевые параметры строго по тексту договора.
+
+        Ответь строго в JSON:
+        {
+          "principal": "<принципал или not_found>",
+          "agent": "<агент или not_found>",
+          "agency_model": "<principal_name_model / own_name_model / mixed_or_unclear / not_found>",
+          "actions_scope": "<юридические/фактические действия или not_found>",
+          "remuneration_status": "<present / unclear / not_found>",
+          "reporting_status": "<present / not_found>",
+          "subagency_status": "<present / absent / not_found>",
+          "exclusivity_status": "<present / absent / not_found>",
+          "tail_commission_status": "<present / absent / not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "агентский договор"
+        - "от имени принципала"
+        - "от своего имени"
+        - "агентское вознаграждение"
+        - "отчет агента"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "principal"
+          type: "string"
+          keyword_hints: ["принципал"]
+          description: "Принципал"
+        - name: "agent"
+          type: "string"
+          keyword_hints: ["агент"]
+          description: "Агент"
+        - name: "agency_model"
+          type: "string"
+          allowed_values: ["principal_name_model", "own_name_model", "mixed_or_unclear", "not_found"]
+          description: "Модель агентирования"
+        - name: "remuneration_status"
+          type: "string"
+          allowed_values: ["present", "unclear", "not_found"]
+          description: "Статус вознаграждения"
+        - name: "exclusivity_status"
+          type: "string"
+          allowed_values: ["present", "absent", "not_found"]
+          description: "Есть ли exclusivity"
+      store_payload: true
+
+  - id: agency_model_check
+    name: "Модель агентирования: от чьего имени действует агент"
+    description: "Проверяет выбранную модель и юридические последствия"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "от имени принципала"
+        - "от своего имени"
+        - "за счет принципала"
+        - "права и обязанности возникают у принципала"
+        - "права и обязанности возникают у агента"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)от\\s+имени\\s+принципала"
+        - "(?i)от\\s+своего\\s+имени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь модель действий агента.
+
+        Ответь строго в JSON:
+        {
+          "agency_model": "<principal_name_model / own_name_model / mixed_or_unclear / not_found>",
+          "direct_principal_rights_against_third_parties": "<yes / no / unclear / not_found>",
+          "model_clarity": "<clear / unclear / not_found>",
+          "subsidiary_regime_hint": "<mandate / commission / mixed / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "от имени принципала"
+        - "от своего имени"
+        - "права и обязанности"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 580
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "agency_model"
+          type: "string"
+          allowed_values: ["principal_name_model", "own_name_model", "mixed_or_unclear", "not_found"]
+          description: "Модель агентирования"
+        - name: "model_clarity"
+          type: "string"
+          allowed_values: ["clear", "unclear", "not_found"]
+          description: "Понятность модели"
+      store_payload: true
+
+  - id: remuneration_and_payment_trigger_check
+    name: "Вознаграждение агента и триггеры оплаты"
+    description: "Проверяет размер/формулу вознаграждения, момент возникновения права на оплату и tail commission"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "агентское вознаграждение"
+        - "размер вознаграждения"
+        - "процент от сделок"
+        - "момент возникновения права на вознаграждение"
+        - "постконтрактное вознаграждение"
+        - "tail commission"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)агентск(ое|ого)\\s+вознаграждени"
+        - "(?i)право\\s+на\\s+вознаграждение\\s+возникает"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь экономику агентского вознаграждения.
+
+        Ответь строго в JSON:
+        {
+          "remuneration_clarity": "<clear / partial / not_found>",
+          "payment_trigger": "<deal_signed / payment_received / service_completed / mixed / unclear / not_found>",
+          "tail_commission_status": "<present / not_found>",
+          "payment_dispute_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "агентское вознаграждение"
+        - "право на вознаграждение"
+        - "постконтрактное вознаграждение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 580
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "remuneration_clarity"
+          type: "string"
+          allowed_values: ["clear", "partial", "not_found"]
+          description: "Понятность вознаграждения"
+        - name: "payment_trigger"
+          type: "string"
+          allowed_values: ["deal_signed", "payment_received", "service_completed", "mixed", "unclear", "not_found"]
+          description: "Триггер оплаты"
+        - name: "tail_commission_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли tail commission"
+      store_payload: true
+
+  - id: reporting_and_settlement_check
+    name: "Отчет агента и расчеты по договору"
+    description: "Проверяет порядок отчетности, срок возражений и связь отчета с оплатой"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "отчет агента"
+        - "срок представления отчета"
+        - "возражения на отчет"
+        - "молчание считается согласием"
+        - "на основании отчета"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь порядок отчетности агента и расчетов.
+
+        Ответь строго в JSON:
+        {
+          "reporting_status": "<present / partial / not_found>",
+          "objection_period_status": "<present / not_found>",
+          "report_to_payment_linkage": "<present / not_found>",
+          "report_approval_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "отчет агента"
+        - "возражения на отчет"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "reporting_status"
+          type: "string"
+          allowed_values: ["present", "partial", "not_found"]
+          description: "Статус отчетности"
+        - name: "objection_period_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли срок для возражений"
+      store_payload: true
+
+  - id: funds_and_assets_control_check
+    name: "Контроль средств/имущества принципала у агента"
+    description: "Проверяет сроки перечисления выручки, режим учета средств принципала"
+    triggers:
+      any: ["acts_in_own_name", "principal_money_flow_sensitive"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "перечисление выручки"
+        - "срок перечисления"
+        - "обособленный учет средств принципала"
+        - "специальный счет"
+        - "средства принципала"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь контроль денежных потоков принципала.
+
+        Ответь строго в JSON:
+        {
+          "proceeds_transfer_timing": "<present / not_found>",
+          "segregated_funds_mechanism": "<present / not_found>",
+          "agent_holds_principal_money": "<yes / no / unclear / not_found>",
+          "principal_cashflow_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "перечисление выручки"
+        - "средства принципала"
+        - "специальный счет"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "proceeds_transfer_timing"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли срок перечисления выручки"
+        - name: "segregated_funds_mechanism"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли обособление средств"
+      store_payload: true
+
+  - id: exclusivity_and_non_compete_check
+    name: "Исключительность, территория и запрет конкуренции"
+    description: "Проверяет exclusivity/non-compete, территорию"
+    triggers:
+      any: ["exclusivity_terms"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "исключительные права"
+        - "эксклюзивность"
+        - "территория действия"
+        - "агент не вправе представлять конкурентов"
+        - "принципал не вправе заключать договоры с другими агентами"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь exclusivity/non-compete.
+
+        Ответь строго в JSON:
+        {
+          "exclusivity_status": "<present / partial / not_found>",
+          "territory_defined": "<yes / no / not_found>",
+          "non_compete_clause": "<present / not_found>",
+          "exclusivity_imbalance_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "эксклюзивность"
+        - "территория"
+        - "конкуренты"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "exclusivity_status"
+          type: "string"
+          allowed_values: ["present", "partial", "not_found"]
+          description: "Статус exclusivity"
+        - name: "non_compete_clause"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли non-compete"
+      store_payload: true
+
+  - id: subagency_check
+    name: "Субагентство: допустимость, согласие и ответственность"
+    description: "Проверяет режим привлечения субагентов"
+    triggers:
+      any: ["subagency_allowed"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "субагент"
+        - "субагентский договор"
+        - "с согласия принципала"
+        - "агент отвечает за действия субагента"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь режим субагентства.
+
+        Ответь строго в JSON:
+        {
+          "subagency_status": "<allowed / prohibited / unclear / not_found>",
+          "principal_consent_required": "<yes / no / not_found>",
+          "agent_liability_for_subagent": "<present / not_found>",
+          "subagency_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 340
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "субагент"
+        - "согласие принципала"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 540
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "subagency_status"
+          type: "string"
+          allowed_values: ["allowed", "prohibited", "unclear", "not_found"]
+          description: "Статус субагентства"
+      store_payload: true
+
+  - id: anti_requalification_check
+    name: "Анти-переквалификация в трудовой договор"
+    description: "Проверяет наличие safeguard clauses против переквалификации"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "не являются трудовыми отношениями"
+        - "агент действует самостоятельно и на свой риск"
+        - "свободный график работы"
+        - "самостоятельно организует деятельность"
+      keyword_mode: "any"
+      negative_keywords:
+        - "рабочий день"
+        - "внутренний трудовой распорядок"
+        - "отпуск"
+        - "должностная инструкция"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь риск переквалификации в трудовой договор.
+
+        Ответь строго в JSON:
+        {
+          "anti_labor_clause_status": "<present / partial / not_found>",
+          "labor_like_indicators_found": "<yes / no>",
+          "independence_language_status": "<strong / weak / not_found>",
+          "requalification_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "не являются трудовыми отношениями"
+        - "самостоятельно и на свой риск"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 560
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "requalification_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "not_found"]
+          description: "Риск переквалификации"
+      store_payload: true
+
+  - id: client_database_ownership
+    name: "Принадлежность клиентской базы и лидов"
+    description: |
+      Частый спор при расторжении: кому принадлежат клиенты, привлечённые агентом?
+      Если клиентская база — актив агента, принципал рискует потерять клиентов.
+      Если актив принципала — агент теряет наработки.
+    triggers:
+      any: ["client_data_handling", "marketing_promotion_scope"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "клиентская база"
+        - "лиды"
+        - "контактные данные клиентов"
+        - "CRM"
+        - "база данных клиентов"
+        - "принадлежат принципалу"
+        - "принадлежат агенту"
+        - "передача клиентской базы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)клиентск(ая|ой)\\s+баз(а|ы|у)"
+        - "(?i)принадлежат\\s+(принципалу|агенту)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь условия о принадлежности клиентской базы и лидов.
+
+        Ответь строго в JSON:
+        {
+          "client_database_ownership": "<principal / agent / joint / not_specified / not_found>",
+          "transfer_on_termination": "<to_principal / retained_by_agent / not_specified / not_found>",
+          "data_access_restrictions": "<yes / no / not_found>",
+          "ownership_dispute_risk": "<high / medium / low / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "клиентская база"
+        - "лиды"
+        - "принадлежат"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "client_database_ownership"
+          type: "string"
+          allowed_values: ["principal", "agent", "joint", "not_specified", "not_found"]
+          description: "Принадлежность клиентской базы"
+      store_payload: true
+
+  - id: expense_reimbursement_check
+    name: "Порядок возмещения расходов агента (ст. 1005, 1011 ГК РФ)"
+    description: |
+      Агент несёт расходы при исполнении поручения (поездки, реклама, материалы).
+      Без чёткого порядка возмещения — споры о том, какие расходы подлежат компенсации.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "возмещение расходов"
+        - "компенсация расходов"
+        - "за счет принципала"
+        - "документально подтвержденные расходы"
+        - "расходы агента"
+        - "бюджет"
+        - "смета расходов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возмещени[ея]\\s+расход"
+        - "(?i)компенсаци[ия]\\s+расход"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь условия о возмещении расходов агента.
+
+        Ответь строго в JSON:
+        {
+          "expense_reimbursement_present": "<yes / no / not_found>",
+          "reimbursement_type": "<actual / budget / included_in_fee / not_specified>",
+          "documentation_required": "<yes / no / not_found>",
+          "budget_cap": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "возмещение расходов"
+        - "компенсация"
+        - "расходы агента"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "expense_reimbursement_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия о возмещении расходов"
+      store_payload: true
+
+  - id: liability_and_indemnity_check
+    name: "Ответственность сторон и возмещение убытков"
+    description: |
+      Распределение ответственности: отвечает ли агент за неисполнение третьими лицами,
+      ограничение ответственности, порядок возмещения убытков.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ответственность агента"
+        - "ответственность принципала"
+        - "неустойка"
+        - "возмещение убытков"
+        - "ограничение ответственности"
+        - "агент не отвечает за"
+        - "делькредере"
+        - "del credere"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност(ь|и)\\s+(агент|принципал)"
+        - "(?i)делькредере|del\\s+credere"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь условия об ответственности сторон.
+
+        Ответь строго в JSON:
+        {
+          "agent_liability_for_third_parties": "<yes / no / del_credere / not_found>",
+          "liability_cap_present": "<yes / no / not_found>",
+          "indemnity_clause_present": "<yes / no / not_found>",
+          "penalty_clause_present": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "ответственность"
+        - "неустойка"
+        - "делькредере"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "agent_liability_for_third_parties"
+          type: "string"
+          allowed_values: ["yes", "no", "del_credere", "not_found"]
+          description: "Отвечает ли агент за третьих лиц"
+      store_payload: true
+
+  - id: insurance_requirements_agency
+    name: "Страхование ответственности агента"
+    description: "Проверяет наличие требований к страхованию"
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страхование ответственности"
+        - "страховой полис"
+        - "обязан застраховать"
+        - "профессиональная ответственность"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь требования к страхованию.
+
+        Ответь строго в JSON:
+        {
+          "insurance_required": "<yes / no / not_found>",
+          "insurance_type": "<тип страхования или not_found>",
+          "minimum_coverage": "<минимальная сумма или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 200
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "страхование"
+        - "полис"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insurance_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Обязательность страхования"
+      store_payload: true
+
+  - id: dispute_resolution_agency
+    name: "Порядок разрешения споров"
+    description: "Арбитраж, медиация, претензионный порядок, подсудность"
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "третейский суд"
+        - "медиация"
+        - "претензионный порядок"
+        - "подсудность"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь порядок разрешения споров.
+
+        Ответь строго в JSON:
+        {
+          "dispute_resolution_method": "<court / arbitration / mediation / mixed / not_found>",
+          "pretrial_procedure_required": "<yes / no / unclear>",
+          "pretrial_period_days": "<срок или not_found>",
+          "governing_law": "<применимое право или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "претензионный порядок"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dispute_resolution_method"
+          type: "string"
+          allowed_values: ["court", "arbitration", "mediation", "mixed", "not_found"]
+          description: "Способ разрешения споров"
+      store_payload: true
+
+  - id: kpi_and_performance_targets
+    name: "KPI и целевые показатели агента"
+    description: |
+      KPI (план продаж, минимум клиентов) — двоякий инструмент:
+      (а) защита принципала от пассивного агента;
+      (б) риск переквалификации в трудовой (если KPI = должностные обязанности).
+      Критично правильно формулировать: как условие вознаграждения, а не как трудовую функцию.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "KPI"
+        - "план продаж"
+        - "целевые показатели"
+        - "минимальный объём"
+        - "target"
+        - "минимальное количество клиентов"
+        - "выполнение плана"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)KPI|план\\s+продаж|целев(ые|ых)\\s+показател"
+        - "(?i)минимальн\\w+\\s+(объём|количество)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий агентский договор.
+        Проверь наличие KPI/целевых показателей.
+
+        Ответь строго в JSON:
+        {
+          "kpi_present": "<yes / no / not_found>",
+          "kpi_type": "<revenue / clients / deals / other / not_found>",
+          "kpi_linked_to_remuneration": "<yes / no / unclear>",
+          "kpi_labor_risk": "<high / medium / low / not_found>"
+        }
+
+        ВАЖНО: Если KPI сформулирован как обязательная трудовая функция
+        (а не как условие вознаграждения) — повышенный риск переквалификации.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "KPI"
+        - "план продаж"
+        - "целевые показатели"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "kpi_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие KPI"
+        - name: "kpi_labor_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "not_found"]
+          description: "Риск переквалификации из-за KPI"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "subject_actions_scope"
+    name: "Предмет агентского договора: сфера действий агента"
+    description: "Проверяет определенность действий агента"
+    legal_base: "ст. 432, 1005 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "совершать действия"
+        - "юридические и иные действия"
+        - "поиск клиентов"
+        - "продвижение товаров"
+        - "заключение сделок"
+      keyword_mode: "any"
+
+  - id: "agency_model_specification"
+    name: "Указание модели агентирования"
+    description: "Определено ли, действует агент от имени принципала или от своего имени"
+    legal_base: "ст. 1005 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "от имени принципала"
+        - "от своего имени"
+        - "за счет принципала"
+      keyword_mode: "any"
+
+  - id: "agency_remuneration"
+    name: "Агентское вознаграждение"
+    description: "Наличие размера/формулы вознаграждения"
+    legal_base: "ст. 1006 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "агентское вознаграждение"
+        - "размер вознаграждения"
+        - "процент от суммы"
+        - "порядок выплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)агентск(ое|ого)\\s+вознаграждени"
+        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+
+  - id: "funds_and_assets_control"
+    name: "Контроль денежных средств принципала"
+    description: "Порядок учета и перечисления средств"
+    legal_base: "ст. 1005, 1008, 1011 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["acts_in_own_name", "principal_money_flow_sensitive"]
+    rules:
+      keywords:
+        - "перечисление выручки"
+        - "срок перечисления"
+        - "обособленный учет средств принципала"
+        - "специальный счет"
+      keyword_mode: "any"
+
+  - id: "report_approval_and_dispute_resolution"
+    name: "Отчет агента и порядок возражений"
+    description: "Отчетность, срок возражений, порядок урегулирования"
+    legal_base: "ст. 1008 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["report_based_settlement"]
+    rules:
+      keywords:
+        - "отчет агента"
+        - "срок для заявления возражений"
+        - "молчание считается согласием"
+      keyword_mode: "any"
+
+  - id: "exclusivity_and_non_competition"
+    name: "Исключительность и неконкуренция"
+    description: "Exclusivity, территория, запрет работы с конкурентами"
+    legal_base: "ст. 1007 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["exclusivity_terms"]
+    rules:
+      keywords:
+        - "исключительные права"
+        - "эксклюзивность"
+        - "территория действия"
+        - "не вправе представлять интересы конкурентов"
+      keyword_mode: "any"
+
+  - id: "subagency_control"
+    name: "Субагентство: допустимость и контроль"
+    description: "Условия привлечения субагентов"
+    legal_base: "ст. 1009 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["subagency_allowed"]
+    rules:
+      keywords:
+        - "субагент"
+        - "субагентский договор"
+        - "с согласия принципала"
+        - "агент отвечает за действия субагента"
+      keyword_mode: "any"
+
+  - id: "clear_payment_triggers"
+    name: "Триггеры выплаты вознаграждения"
+    description: "Момент возникновения права на вознаграждение"
+    legal_base: "ст. 1006 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право на вознаграждение возникает"
+        - "вознаграждение начисляется при"
+        - "заключение сделки"
+        - "поступление оплаты"
+      keyword_mode: "any"
+
+  - id: "post_termination_remuneration"
+    name: "Постконтрактное вознаграждение (tail commission)"
+    description: "Право на вознаграждение по сделкам после окончания договора"
+    legal_base: "ст. 1006, 1010 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["tail_commission_terms"]
+    rules:
+      keywords:
+        - "tail commission"
+        - "постконтрактное вознаграждение"
+        - "сделки, заключенные в период действия"
+      keyword_mode: "any"
+
+  - id: "anti_requalification_measures"
+    name: "Анти-переквалификация в трудовой договор"
+    description: "Положения, исключающие трудовые признаки"
+    legal_base: "ТК РФ, судебная практика"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "не являются трудовыми отношениями"
+        - "агент действует самостоятельно и на свой риск"
+        - "свободный график"
+      keyword_mode: "any"
+      negative_keywords:
+        - "рабочий день"
+        - "внутренний трудовой распорядок"
+        - "ежегодный оплачиваемый отпуск"
+
+  - id: "applicable_law_and_model_clarification"
+    name: "Субсидиарное применение норм о поручении или комиссии"
+    description: "Оговорка о применении главы 49 или 51 ГК РФ"
+    legal_base: "ст. 1011 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применяются нормы о договоре поручения"
+        - "применяются нормы о договоре комиссии"
+        - "субсидиарное применение"
+      keyword_mode: "any"
+
+  - id: "ip_and_brand_use_controls"
+    name: "Использование бренда, ИС и маркетинговых материалов"
+    description: "Правила использования ТЗ, брендбука, маркетинговых материалов"
+    legal_base: "ГК РФ (ИС), свобода договора"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["marketing_promotion_scope"]
+    rules:
+      keywords:
+        - "товарный знак"
+        - "брендбук"
+        - "маркетинговые материалы"
+        - "использование бренда"
+      keyword_mode: "any"
+
+  - id: "termination_and_post_contract_settlement"
+    name: "Прекращение договора и постконтрактные расчеты"
+    description: "Порядок расторжения, завершение поручений, окончательные расчеты"
+    legal_base: "ст. 1010 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение договора"
+        - "прекращение договора"
+        - "завершение начатых поручений"
+        - "окончательный расчет"
+      keyword_mode: "any"
+
+  - id: "power_of_attorney_clause"
+    name: "Доверенность (для модели «от имени принципала»)"
+    description: "При модели «от имени принципала» агент должен действовать на основании доверенности"
+    legal_base: "ст. 185, 1005 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["acts_in_principal_name"]
+    rules:
+      keywords:
+        - "доверенность"
+        - "на основании доверенности"
+        - "полномочия агента"
+        - "нотариальная доверенность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)доверенност(ь|и|ью)"
+
+  - id: "force_majeure_agency"
+    name: "Форс-мажор"
+    description: "Обстоятельства непреодолимой силы"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "непредвиденные обстоятельства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+
+  - id: "confidentiality_clause_agency"
+    name: "Конфиденциальность"
+    description: "Защита коммерческой информации сторон"
+    legal_base: "ст. 421 ГК РФ, ФЗ-98"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "NDA"
+      keyword_mode: "any"
+
+  - id: "personal_data_agency"
+    name: "Персональные данные (при работе с клиентами)"
+    description: "Условия обработки ПД при привлечении клиентов"
+    legal_base: "ФЗ-152"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["client_data_handling"]
+    rules:
+      keywords:
+        - "персональные данные"
+        - "ФЗ-152"
+        - "оператор персональных данных"
+        - "обработчик"
+        - "согласие на обработку"
+      keyword_mode: "any"
+
+  - id: "assignment_agency"
+    name: "Уступка прав / перемена лиц"
+    description: "Ограничения на уступку прав по агентскому договору"
+    legal_base: "ст. 388, 391 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка прав"
+        - "перевод долга"
+        - "без согласия"
+        - "замена агента"
+      keyword_mode: "any"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  agency_subject_extraction:
+    text: >
+      Просим предоставить по {doc_names}: базовую структуру агентского договора —
+      принципала, агента, предмет действий, модель агентирования,
+      вознаграждение, порядок отчетности, exclusivity, субагентство и post-termination условия.
+    addressee: "Принципал / Агент"
+
+  agency_model_check:
+    text: >
+      Просим уточнить по {doc_names}: действует ли агент от имени принципала
+      или от своего имени, какие права и обязанности возникают у сторон.
+    addressee: "Юридический советник"
+
+  agency_model_specification:
+    text: >
+      Просим прямо закрепить в {doc_names} выбранную модель агентирования.
+    addressee: "Юридический советник"
+
+  agency_model_unclear:
+    text: >
+      В {doc_names} не выявлена ясность относительно модели агентирования.
+      Просим срочно уточнить.
+    addressee: "Юридический советник"
+
+  subject_actions_scope:
+    text: >
+      Просим уточнить в {doc_names}: действия агента, сферу, территорию.
+    addressee: "Принципал"
+
+  remuneration_and_payment_trigger_check:
+    text: >
+      Просим предоставить по {doc_names}: структуру вознаграждения, триггеры оплаты, tail commission.
+    addressee: "Принципал / Агент"
+
+  agency_remuneration:
+    text: >
+      Просим уточнить в {doc_names}: размер, формулу и порядок расчета вознаграждения.
+    addressee: "Обе стороны"
+
+  gratuitous_agency_red_flag:
+    text: >
+      В {doc_names} выявлен риск безвозмездности. Просим урегулировать вознаграждение.
+    addressee: "Юридический советник"
+
+  clear_payment_triggers:
+    text: >
+      Просим уточнить по {doc_names}: триггер выплаты вознаграждения.
+    addressee: "Юридический советник / Принципал"
+
+  post_termination_remuneration:
+    text: >
+      Просим уточнить в {doc_names}: tail commission.
+    addressee: "Принципал / Юридический советник"
+
+  reporting_and_settlement_check:
+    text: >
+      Просим предоставить по {doc_names}: порядок отчетов, срок возражений, связь с оплатой.
+    addressee: "Агент / Принципал"
+
+  report_approval_and_dispute_resolution:
+    text: >
+      Просим уточнить в {doc_names}: порядок утверждения отчета, возражения.
+    addressee: "Юридический советник"
+
+  funds_and_assets_control_check:
+    text: >
+      По {doc_names} просим: порядок учета средств, сроки перечисления, спец. счёт.
+    addressee: "Агент / Принципал"
+
+  funds_and_assets_control:
+    text: >
+      Просим уточнить в {doc_names}: учет и перечисление средств принципала.
+    addressee: "Агент"
+
+  money_flow_control_missing:
+    text: >
+      В {doc_names} — риск отсутствия контроля денежных потоков. Просим урегулировать.
+    addressee: "Юридический советник / Агент"
+
+  exclusivity_and_non_compete_check:
+    text: >
+      Просим уточнить по {doc_names}: exclusivity, территорию, non-compete.
+    addressee: "Принципал / Агент"
+
+  exclusivity_and_non_competition:
+    text: >
+      Просим уточнить в {doc_names}: exclusivity, конкуренты, последствия нарушения.
+    addressee: "Юридический советник"
+
+  subagency_check:
+    text: >
+      По {doc_names} просим: режим субагентства, согласие, ответственность.
+    addressee: "Агент / Юридический советник"
+
+  subagency_control:
+    text: >
+      Просим уточнить в {doc_names}: субагентство.
+    addressee: "Юридический советник"
+
+  subagency_without_control:
+    text: >
+      В {doc_names} — субагентство без контроля. Просим доработать.
+    addressee: "Юридический советник"
+
+  anti_requalification_check:
+    text: >
+      Просим предоставить по {doc_names}: anti-labor safeguards.
+    addressee: "Юридический советник / HR / Налоговый консультант"
+
+  anti_requalification_measures:
+    text: >
+      Просим включить в {doc_names}: anti-labor safeguards.
+    addressee: "Юридический советник"
+
+  labor_requalification_red_flag:
+    text: >
+      В {doc_names} — признаки переквалификации в трудовой. Просим ревизию.
+    addressee: "Юридический советник / HR"
+
+  applicable_law_and_model_clarification:
+    text: >
+      Просим уточнить в {doc_names}: субсидиарный режим.
+    addressee: "Юридический советник"
+
+  ip_and_brand_use_controls:
+    text: >
+      По {doc_names} просим: правила использования бренда, ТЗ, маркетинговых материалов.
+    addressee: "Принципал / IP-юрист"
+
+  termination_and_post_contract_settlement:
+    text: >
+      Просим уточнить по {doc_names}: прекращение, final settlement, клиентская база.
+    addressee: "Обе стороны"
+
+  antitrust_exclusive_agency:
+    text: >
+      ВНИМАНИЕ: {doc_names} содержит эксклюзивные условия.
+      Просим получить антимонопольное заключение (ФЗ-135) о допустимости
+      вертикальных ограничений, особенно при доле рынка > 35%.
+    addressee: "Юридический советник / Антимонопольный консультант"
+
+  currency_control_cross_border_agency:
+    text: >
+      По {doc_names} — трансграничное агентирование. Просим обеспечить:
+      (а) валютный контроль; (б) удержание налога у источника;
+      (в) сертификат резидентства (для СОИДН).
+    addressee: "Финансовый отдел / Налоговый консультант"
+
+  power_of_attorney_absence:
+    text: >
+      По {doc_names} агент действует от имени принципала.
+      Просим предоставить доверенность с надлежащими полномочиями
+      или включить условие о выдаче доверенности.
+    addressee: "Принципал"
+
+  client_database_ownership:
+    text: >
+      Просим согласовать для {doc_names}: кому принадлежит клиентская база
+      (принципалу/агенту/совместно), порядок доступа и передачи при расторжении.
+    addressee: "Обе стороны"
+
+  expense_reimbursement_check:
+    text: >
+      Просим согласовать для {doc_names}: порядок возмещения расходов агента,
+      перечень возмещаемых расходов, бюджет, требования к документации.
+    addressee: "Обе стороны"
+
+  liability_and_indemnity_check:
+    text: >
+      Просим согласовать для {doc_names}: распределение ответственности,
+      ограничение ответственности, делькредере, индемнити.
+    addressee: "Юридический советник"
+
+  insurance_requirements_agency:
+    text: >
+      Просим согласовать для {doc_names} требования к страхованию
+      ответственности агента.
+    addressee: "Обе стороны"
+
+  dispute_resolution_agency:
+    text: >
+      Просим согласовать для {doc_names}: порядок разрешения споров,
+      претензионный порядок, подсудность.
+    addressee: "Юридический советник"
+
+  kpi_and_performance_targets:
+    text: >
+      Просим согласовать для {doc_names}: KPI/целевые показатели агента.
+      ВНИМАНИЕ: формулировка KPI должна исключать признаки трудовой функции
+      (использовать «условие вознаграждения», а не «обязанность выполнения»).
+    addressee: "Юридический советник / Принципал"
+
+  power_of_attorney_clause:
+    text: >
+      По {doc_names} (модель «от имени принципала») просим согласовать:
+      порядок выдачи и объём полномочий доверенности.
+    addressee: "Принципал"
+
+  force_majeure_agency:
+    text: >
+      Просим уточнить для {doc_names} условия о форс-мажоре.
+    addressee: "Юридический советник"
+
+  confidentiality_clause_agency:
+    text: >
+      Просим согласовать для {doc_names} условия о конфиденциальности.
+    addressee: "Юридический советник"
+
+  personal_data_agency:
+    text: >
+      По {doc_names} (работа с клиентами) просим согласовать:
+      роли сторон по ФЗ-152, порядок обработки ПД, согласие субъектов.
+    addressee: "DPO / Юридический советник"
+
+  assignment_agency:
+    text: >
+      Просим уточнить для {doc_names} ограничения на уступку прав.
+    addressee: "Юридический советник"
+  
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

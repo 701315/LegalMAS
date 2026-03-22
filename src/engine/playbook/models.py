@@ -57,6 +57,7 @@ class RulesConfig(BaseModel):
     keyword_mode: KeywordMode = KeywordMode.ANY
     regex_patterns: list[str] = Field(default_factory=list)
     clause_patterns: list[str] = Field(default_factory=list)  # Сопоставление по clause_uid.
+    negative_keywords: list[str] = Field(default_factory=list)
 
 
 class LLMConfig(BaseModel):

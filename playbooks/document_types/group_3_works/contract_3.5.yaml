@@ -1,0 +1,1893 @@
+type: contract_3.5
+name: "Договор на выполнение научно-исследовательских, опытно-конструкторских и технологических работ (НИОКР)"
+
+description: |
+  Регулирует отношения по проведению научных исследований (НИР), направленных на получение новых знаний,
+  и опытно-конструкторских работ (ОКР), направленных на создание новых изделий, технологий или материалов.
+  Ключевое отличие от подряда: принципиальная невозможность гарантировать успех. Заказчик финансирует
+  поисковый процесс и по умолчанию несёт риск недостижения запланированного результата (ст. 769 ГК РФ).
+  Результатом являются интеллектуальные активы (отчёты, ноу-хау, прототипы), права на которые требуют
+  детального распределения.
+
+version: 3.0
+parent: class_3_work_performance
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: work_performance
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 38 ГК РФ (ст. 769-778)"
+  hierarchy_position: "child_specialized_high_risk"
+  doc_types_supported:
+    - "договор НИОКР"
+    - "договор на выполнение НИР"
+    - "договор на выполнение ОКР"
+    - "договор на научно-исследовательские работы"
+    - "договор на опытно-конструкторские работы"
+    - "договор на технологические работы"
+    - "R&D contract"
+    - "соглашение о технологическом партнёрстве"
+    - "договор на научно-техническую разработку"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)НИОКР"
+      - "(?i)(НИР|ОКР)"
+      - "(?i)научно.исследовательск"
+      - "(?i)опытно.конструкторск"
+      - "(?i)(R&D|R\\sD|research.*development).*contract"
+    
+    folder_patterns:
+      - "(?i)НИОКР"
+      - "(?i)(НИР|ОКР)"
+      - "(?i)(R.?D|research)"
+      - "(?i)научные.*разработки"
+
+    keywords:
+
+      high:
+        - "НИОКР"
+        - "научно-исследовательские работы"
+        - "НИР"
+        - "опытно-конструкторские работы"
+        - "ОКР"
+        - "риск недостижения результата"
+        - "техническое задание на НИОКР"
+        - "патентная чистота"
+        - "результат интеллектуальной деятельности"
+        - "РИД"
+
+      medium:
+        - "технологические работы"
+        - "создание образца"
+        - "прототип"
+        - "научный отчёт"
+        - "экспериментальные работы"
+        - "ноу-хау"
+        - "секрет производства"
+        - "конфиденциальность сведений"
+        - "фундаментальные исследования"
+        - "прикладные исследования"
+
+      low:
+        - "роялти"
+        - "стендовые испытания"
+        - "предварительные результаты"
+        - "фонд фундаментальных исследований"
+        - "опытный образец"
+        - "лицензия на РИД"
+
+    exclusions:
+      - "серийное производство"
+      - "изготовление по готовой документации"
+      - "стандартное проектирование"
+      - "ПИР"
+      - "консультационные услуги без исследовательской составляющей"
+      - "рутинные испытания"
+      - "рутинные измерения"
+      - "гарантированный результат"
+      - "техническое обслуживание"
+      - "ремонт оборудования"
+      - "авторский надзор"
+      - "рутинный контроль качества"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  nir_keywords:
+    any_keywords:
+      - "научно-исследовательские работы"
+      - "НИР"
+      - "фундаментальные исследования"
+      - "прикладные исследования"
+      - "научные исследования"
+
+  okr_keywords:
+    any_keywords:
+      - "опытно-конструкторские работы"
+      - "ОКР"
+      - "опытный образец"
+      - "прототип"
+      - "технологические работы"
+      - "опытно-технологические работы"
+
+  risk_of_failure_present:
+    any_keywords:
+      - "риск недостижения результата"
+      - "риск случайной невозможности исполнения"
+      - "отрицательный результат является результатом"
+      - "ст. 769 ГК РФ"
+      - "риск несёт заказчик"
+      - "риск несет заказчик"
+
+  technical_assignment_present:
+    any_keywords:
+      - "техническое задание"
+      - "ТЗ"
+      - "программа исследований"
+      - "план научных работ"
+      - "техническое задание является приложением"
+      - "цели и задачи исследований"
+
+  ip_rights_present:
+    any_keywords:
+      - "результаты интеллектуальной деятельности"
+      - "РИД"
+      - "исключительные права"
+      - "права на результаты"
+      - "патент"
+      - "ноу-хау"
+      - "право использования"
+      - "распределение прав"
+
+  confidentiality_present:
+    any_keywords:
+      - "конфиденциальность"
+      - "коммерческая тайна"
+      - "ноу-хау"
+      - "NDA"
+      - "режим конфиденциальности"
+      - "не разглашать"
+      - "секрет производства"
+
+  patent_filing_present:
+    any_keywords:
+      - "заявка на патент"
+      - "подача заявки"
+      - "Роспатент"
+      - "патентная чистота"
+      - "патентные исследования"
+      - "патентоспособность"
+      - "изобретение"
+      - "полезная модель"
+
+  subcontractors_present:
+    any_keywords:
+      - "соисполнители"
+      - "третьи лица для выполнения"
+      - "субподрядчик"
+      - "привлечение соисполнителей"
+      - "с согласия заказчика"
+      - "соисполнитель по договору НИОКР"
+
+  staged_payments_present:
+    any_keywords:
+      - "поэтапное финансирование"
+      - "оплата по результатам этапа"
+      - "финансирование следующего этапа"
+      - "промежуточный отчёт"
+      - "этапный платёж"
+      - "финансирование этапа исследований"
+
+  background_ip_present:
+    any_keywords:
+      - "фоновые РИД"
+      - "фоновая интеллектуальная собственность"
+      - "ранее созданные ноу-хау"
+      - "background IP"
+      - "ранее разработанные методики"
+      - "предсуществующие права"
+
+  publication_rights_present:
+    any_keywords:
+      - "право на публикацию"
+      - "публикации согласовываются"
+      - "согласие на публикацию"
+      - "научные публикации"
+      - "академические публикации"
+      - "рецензируемые журналы"
+      - "открытый доступ к результатам"
+
+  government_funded_rd:
+    any_keywords:
+      - "государственный контракт"
+      - "госзаказ"
+      - "бюджетное финансирование"
+      - "субсидия на НИОКР"
+      - "грант"
+      - "44-ФЗ"
+      - "ЕГИСУ НИОКР"
+      - "единый реестр результатов НИОКР"
+      - "государственное задание"
+      - "федеральная целевая программа"
+      - "ФЦП"
+
+  dual_use_defense:
+    any_keywords:
+      - "двойного назначения"
+      - "оборонная продукция"
+      - "военно-техническое"
+      - "государственная тайна"
+      - "секретно"
+      - "экспортный контроль"
+      - "ФСТЭК"
+      - "специальная экспертиза"
+      - "лицензия на экспорт"
+      - "санкционный список"
+
+  prototype_testing:
+    any_keywords:
+      - "испытания прототипа"
+      - "стендовые испытания"
+      - "натурные испытания"
+      - "приёмочные испытания"
+      - "программа и методика испытаний"
+      - "ПМИ"
+      - "протокол испытаний"
+      - "опытный образец"
+      - "макет"
+      - "лётные испытания"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  date_period: "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн|месяц)"
+  rid_transfer_pattern: "(?i)(исключительн.*прав.*переход|передач.*исключительн.*прав|патент.*на.*имя.*заказчика)"
+  confidentiality_period: "(?i)в\\s+течение\\s+\\d+\\s*(лет|год|месяц)"
+  patent_article_ref: "(?i)ст\\.?\\s*(1350|1354|1371|1465)\\s+ГК\\s+РФ"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "guaranteed_result_disqualification"
+    name: "Дисквалификация: гарантированный или рутинный результат (не НИОКР)"
+    description: |
+      Договор НИОКР (Глава 38 ГК РФ) применяется только когда результат принципиально
+      неизвестен и содержит элемент научного поиска. Если результат гарантирован
+      технически (как в подряде или ПИР) или работа является рутинными испытаниями
+      без исследовательской составляющей — это не НИОКР.
+    legal_base: "ст. 769 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "гарантирует достижение результата"
+        - "гарантирует работоспособность"
+        - "рутинные испытания"
+        - "стандартное проектирование"
+        - "выполнение по готовой документации"
+        - "серийное производство"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "предмет договора"
+        - "гарантирует результат"
+        - "испытания"
+      rerank: true
+
+  - id: "success_only_payment_nir_illegal"
+    name: "Незаконное условие: оплата только за успешный результат при НИР (ст. 775 ГК РФ)"
+    description: |
+      Для НИР риск недостижения цели несёт Заказчик (ст. 769 ГК РФ). Условие
+      «оплата только за работающий прототип», «оплата по факту успеха» или аналогичные
+      противоречат ст. 775 ГК РФ и могут быть признаны недействительными.
+      Исполнитель при недостижении цели не по своей вине получает оплату фактически
+      выполненных работ.
+    legal_base: "ст. 769, 775 ГК РФ"
+    required_triggers: ["nir_keywords"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "оплата только при успешном результате"
+        - "оплата по факту работающего образца"
+        - "вознаграждение только при достижении цели"
+        - "оплата при условии положительного результата"
+        - "оплата если результат достигнут"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "порядок оплаты"
+        - "условие оплаты"
+        - "успешный результат"
+        - "ст. 775 ГК РФ"
+      rerank: true
+
+  - id: "unauthorized_subcontractors_nir"
+    name: "Несогласованное привлечение соисполнителей при НИР (ст. 770 ГК РФ)"
+    description: |
+      Для НИР установлена презумпция личного исполнения (ст. 770 ГК РФ).
+      Привлечение соисполнителей без согласия Заказчика является нарушением договора.
+      Любое упоминание соисполнителей без оговорки об обязательном письменном согласии
+      Заказчика — правовой риск для Исполнителя.
+    legal_base: "ст. 770 ГК РФ"
+    required_triggers: ["nir_keywords", "subcontractors_present"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "вправе привлекать соисполнителей без согласования"
+        - "самостоятельно привлекать третьих лиц"
+        - "без уведомления заказчика"
+        - "по своему усмотрению привлекает субподрядчиков"
+      keyword_mode: "any"
+      negative_keywords:
+        - "с письменного согласия заказчика"
+        - "по согласованию с заказчиком"
+        - "с предварительного одобрения"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "соисполнители"
+        - "третьи лица"
+        - "согласие заказчика"
+        - "ст. 770 ГК РФ"
+      rerank: true
+
+  - id: "government_funded_rd_registration"
+    name: "Обязательная регистрация НИОКР в ЕГИСУ (госфинансирование)"
+    description: |
+      При выполнении НИОКР за счёт бюджетных средств Исполнитель обязан
+      зарегистрировать работу в ЕГИСУ НИОКР. Результаты подлежат учёту
+      в Едином реестре. Нарушение — административная ответственность
+      и невозможность подтвердить расходы.
+    legal_base: "Постановление Правительства РФ от 12.04.2013 № 327; ФЗ от 23.08.1996 № 127-ФЗ"
+    required_triggers: ["government_funded_rd"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ЕГИСУ НИОКР"
+        - "регистрация НИОКР"
+        - "единый реестр"
+        - "учётная карточка"
+        - "регистрационный номер НИОКР"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ЕГИСУ"
+        - "регистрация"
+        - "государственный контракт"
+        - "бюджетное финансирование"
+      rerank: true
+
+  - id: "export_control_dual_use_technologies"
+    name: "Экспортный контроль: двойные технологии и санкционные ограничения"
+    description: |
+      Результаты НИОКР, относящиеся к технологиям двойного назначения, подлежат
+      экспортному контролю (ФЗ-183). Передача результатов иностранным лицам без
+      лицензии ФСТЭК — уголовная ответственность (ст. 189 УК РФ).
+    legal_base: "ФЗ от 18.07.1999 № 183-ФЗ «Об экспортном контроле»; ст. 189 УК РФ"
+    required_triggers: ["dual_use_defense"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "двойного назначения"
+        - "экспортный контроль"
+        - "ФСТЭК"
+        - "лицензия на экспорт"
+        - "контролируемые технологии"
+        - "иностранный заказчик"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "двойное назначение"
+        - "экспортный контроль"
+        - "ФСТЭК"
+        - "иностранный"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: technical_assignment_and_research_program_extraction
+    name: "Техническое задание и программа исследований (ст. 773 ГК РФ)"
+    description: "Без детального ТЗ невозможно оценить, выполнена ли работа и соответствует ли результат ожиданиям. Анализирует наличие ТЗ, описание целей, методов, ожидаемых результатов (включая возможность отрицательного)"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "техническое задание"
+        - "ТЗ"
+        - "программа исследований"
+        - "план научных работ"
+        - "цели и задачи"
+        - "методы исследований"
+        - "ожидаемые результаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)техническое\\s+задание.*является.*приложением"
+        - "(?i)приложение.*№.*техническое\\s+задание"
+        - "(?i)(программа.*исследований|план.*научных\\s+работ)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР (Глава 38 ГК РФ).
+        Извлеки сведения о техническом задании и программе исследований.
+
+        Ответь строго в JSON:
+        {
+          "technical_assignment_present": "<yes / referenced / absent / not_found>",
+          "research_goals_described": "<yes / partial / no / not_found>",
+          "methods_specified": "<yes / no / not_found>",
+          "expected_results_listed": "<yes / no / not_found>",
+          "negative_result_acknowledged": "<yes / no / not_found>",
+          "work_type": "<NIR / OKR / combined / unclear / not_found>",
+          "tz_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "technical_assignment_present": "yes" — ТЗ является приложением к договору;
+          "referenced" — есть ссылка, но само ТЗ не приложено;
+        - "negative_result_acknowledged": прямо указано, что отрицательный результат
+          является результатом работ и подлежит оплате.
+
+        ВАЖНО: Если значение явно не указано в тексте — пиши "not_found".
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "техническое задание"
+        - "программа исследований"
+        - "ожидаемые результаты"
+        - "ст. 773 ГК РФ"
+        - "отрицательный результат"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "technical_assignment_present"
+          type: "string"
+          allowed_values: ["yes", "referenced", "absent", "not_found"]
+          description: "Статус ТЗ в договоре"
+        - name: "work_type"
+          type: "string"
+          allowed_values: ["NIR", "OKR", "combined", "unclear", "not_found"]
+          description: "Вид работ: НИР, ОКР или комплекс"
+        - name: "negative_result_acknowledged"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Признан ли отрицательный результат результатом работ"
+      store_payload: true
+
+  - id: risk_of_failure_allocation_analysis
+    name: "Распределение риска недостижения положительного результата (ст. 769, 775 ГК РФ)"
+    description: "Ключевое отличие НИОКР от подряда. Для НИР риск несёт Заказчик по умолчанию. Анализирует явность распределения риска, условия оплаты при неудаче, допустимые основания для снижения оплаты"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "риск недостижения результата"
+        - "риск случайной невозможности исполнения"
+        - "заказчик несёт риск"
+        - "отрицательный результат"
+        - "ст. 769 ГК РФ"
+        - "ст. 775 ГК РФ"
+        - "оплата фактически выполненных работ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск.*несёт.*заказчик"
+        - "(?i)ст\\.?\\s*(769|775)\\s+ГК\\s+РФ"
+        - "(?i)оплат.*фактически.*выполненных.*работ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР (Глава 38 ГК РФ).
+        Проверь распределение риска недостижения положительного результата
+        (ст. 769, 775 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "risk_bearer_identified": "<customer / contractor / shared / unclear / not_found>",
+          "risk_allocation_explicit": "<yes / implied / absent / not_found>",
+          "payment_on_failure_defined": "<yes / no / not_found>",
+          "success_only_payment_clause": "<yes / no / not_found>",
+          "customer_refusal_right_on_futility": "<yes / no / not_found>",
+          "risk_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "success_only_payment_clause": "yes" — ОПАСНО, нарушает ст. 775 ГК РФ для НИР;
+        - "customer_refusal_right_on_futility": право заказчика прекратить финансирование
+          при явной бесперспективности исследования.
+
+        ВАЖНО: Если значение явно не указано в тексте — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "риск недостижения"
+        - "оплата при неудаче"
+        - "ст. 769 ГК РФ"
+        - "ст. 775 ГК РФ"
+        - "отрицательный результат"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "risk_bearer_identified"
+          type: "string"
+          allowed_values: ["customer", "contractor", "shared", "unclear", "not_found"]
+          description: "Кто несёт риск недостижения результата"
+        - name: "success_only_payment_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли незаконная оговорка об оплате только за успех (для НИР)"
+      store_payload: true
+
+  - id: ip_rights_allocation_analysis
+    name: "Распределение прав на результаты интеллектуальной деятельности (ст. 772 ГК РФ)"
+    description: "По умолчанию исключительные права принадлежат Исполнителю (ст. 772 ГК РФ). Для перехода к Заказчику нужно прямое условие. Анализирует распределение прав на РИД, фоновые РИД, побочные результаты и право использования"
+    triggers:
+      any: ["ip_rights_present"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "исключительные права"
+        - "переходят к заказчику"
+        - "принадлежат исполнителю"
+        - "право использования"
+        - "лицензия"
+        - "РИД"
+        - "фоновые РИД"
+        - "побочные результаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исключительн.*прав.*переход.*заказчику"
+        - "(?i)ст\\.?\\s*772\\s+ГК\\s+РФ"
+        - "(?i)патент.*на\\s+имя.*заказчика"
+        - "(?i)(фоновые\\s+РИД|фоновая\\s+ИС)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР.
+        Проверь распределение прав на результаты интеллектуальной деятельности
+        (ст. 772 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "exclusive_rights_owner": "<customer / contractor / joint / not_specified / not_found>",
+          "rights_transfer_explicit": "<yes / implied / absent / not_found>",
+          "customer_usage_right": "<exclusive / non_exclusive / absent / not_found>",
+          "background_ip_addressed": "<yes / no / not_found>",
+          "background_ip_owner": "<contractor / not_specified / not_found>",
+          "side_results_addressed": "<yes / no / not_found>",
+          "patent_filing_responsibility": "<customer / contractor / joint / not_specified / not_found>",
+          "ip_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "exclusive_rights_owner": кому принадлежат исключительные права на созданные РИД;
+        - "background_ip_addressed": урегулированы ли права на ранее существовавшие РИД
+          Исполнителя, использованные при выполнении работ.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "исключительные права"
+        - "РИД"
+        - "фоновые РИД"
+        - "ст. 772 ГК РФ"
+        - "патент"
+        - "ноу-хау"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "exclusive_rights_owner"
+          type: "string"
+          allowed_values: ["customer", "contractor", "joint", "not_specified", "not_found"]
+          description: "Кому принадлежат исключительные права на созданные РИД"
+        - name: "background_ip_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Урегулированы ли фоновые РИД"
+        - name: "rights_transfer_explicit"
+          type: "string"
+          allowed_values: ["yes", "implied", "absent", "not_found"]
+          description: "Явность условия о передаче прав Заказчику"
+      store_payload: true
+
+  - id: confidentiality_and_patent_purity_check
+    name: "Конфиденциальность до подачи заявки на патент и гарантия патентной чистоты (ст. 771, 773 ГК РФ)"
+    description: "Публичное раскрытие до подачи заявки уничтожает новизну (ст. 1350 ГК РФ). Нарушение патентных прав при коммерциализации — иски патентных троллей. Оба риска взаимосвязаны и критичны"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "коммерческая тайна"
+        - "до подачи заявки на патент"
+        - "патентная чистота"
+        - "патентные исследования"
+        - "не нарушает права третьих лиц"
+        - "ноу-хау"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциальн.*до.*подачи.*заявки"
+        - "(?i)ст\\.?\\s*(771|773)\\s+ГК\\s+РФ"
+        - "(?i)патентн.*чистот"
+        - "(?i)ст\\.?\\s*1350\\s+ГК\\s+РФ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР.
+        Проверь условия конфиденциальности и гарантию патентной чистоты
+        (ст. 771, 773 ГК РФ, ст. 1350 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "confidentiality_clause_present": "<yes / partial / absent / not_found>",
+          "confidentiality_period": "<срок или not_found>",
+          "pre_patent_publication_ban": "<yes / no / not_found>",
+          "publication_approval_procedure": "<yes / no / not_found>",
+          "patent_purity_warranty": "<yes / implied / absent / not_found>",
+          "patent_research_obligation": "<yes / no / not_found>",
+          "confidentiality_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "pre_patent_publication_ban": запрет публикаций до подачи заявки на патент;
+        - "patent_purity_warranty": гарантия Исполнителя, что результат не нарушает
+          исключительные права третьих лиц.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "конфиденциальность"
+        - "патентная чистота"
+        - "публикации"
+        - "ст. 771 ГК РФ"
+        - "ст. 773 ГК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "confidentiality_clause_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "absent", "not_found"]
+          description: "Наличие обязательств по конфиденциальности"
+        - name: "pre_patent_publication_ban"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Запрет публикаций до подачи заявки на патент"
+        - name: "patent_purity_warranty"
+          type: "string"
+          allowed_values: ["yes", "implied", "absent", "not_found"]
+          description: "Гарантия патентной чистоты результатов"
+      store_payload: true
+
+  - id: staged_funding_and_payment_structure_check
+    name: "Поэтапное финансирование и право прекратить финансирование (ст. 775 ГК РФ)"
+    description: "Без поэтапного финансирования Заказчик теряет контроль. При явной бесперспективности исследования — право прекратить финансирование без признания себя нарушившим договор. Анализирует структуру платежей и права на остановку"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "поэтапное финансирование"
+        - "оплата по результатам этапа"
+        - "право приостановить финансирование"
+        - "право прекратить финансирование"
+        - "этапный платёж"
+        - "промежуточный отчёт"
+        - "оплата авансом"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)поэтапн.*финансирован"
+        - "(?i)заказчик.*вправе.*приостановить.*финансирование"
+        - "(?i)оплат.*по.*результатам.*этапа"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР.
+        Проверь структуру финансирования и право Заказчика на прекращение работ
+        (ст. 775 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "payment_structure": "<staged / advance_only / completion_only / mixed / not_found>",
+          "advance_present": "<yes / no / not_found>",
+          "advance_amount": "<сумма или % или not_found>",
+          "payment_linked_to_reports": "<yes / no / not_found>",
+          "customer_stop_right": "<yes / no / not_found>",
+          "stop_procedure_described": "<yes / no / not_found>",
+          "payment_on_failure_amount": "<договорная сумма / фактические затраты / not_specified / not_found>",
+          "financing_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "staged" — оплата разбита по этапам;
+        - "customer_stop_right": право Заказчика прекратить финансирование при
+          неудовлетворительных промежуточных результатах или бесперспективности темы.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "порядок финансирования"
+        - "этапный платёж"
+        - "приостановить финансирование"
+        - "ст. 775 ГК РФ"
+        - "промежуточный отчёт"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "payment_structure"
+          type: "string"
+          allowed_values: ["staged", "advance_only", "completion_only", "mixed", "not_found"]
+          description: "Структура платежей"
+        - name: "customer_stop_right"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Право Заказчика прекратить финансирование"
+      store_payload: true
+
+  - id: ip_fate_on_early_termination
+    name: "Судьба РИД и промежуточных результатов при досрочном расторжении"
+    description: |
+      При досрочном расторжении НИОКР критически важно определить:
+      кому достаются уже созданные РИД, промежуточные отчёты, прототипы;
+      получает ли Заказчик лицензию на использование; возвращаются ли
+      материалы; как соотносятся уплаченные суммы и объём переданных прав.
+      Без этих условий — затяжные споры в суде.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "при расторжении договора"
+        - "при досрочном прекращении"
+        - "права на созданные результаты при расторжении"
+        - "промежуточные результаты передаются"
+        - "лицензия сохраняется при расторжении"
+        - "возврат уплаченных сумм"
+        - "оплаченные этапы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(при\\s+расторжени|при\\s+досрочном\\s+прекращени).*прав"
+        - "(?i)промежуточн.*результат.*при.*расторжени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР.
+        Проверь, как урегулирована судьба РИД и промежуточных результатов
+        при досрочном расторжении договора.
+
+        Ответь строго в JSON:
+        {
+          "ip_on_termination_addressed": "<yes / no / not_found>",
+          "completed_stages_ip_transfer": "<to_customer / retained_by_contractor / proportional / not_specified / not_found>",
+          "license_survives_termination": "<yes / no / not_specified / not_found>",
+          "interim_reports_transfer": "<yes / no / not_specified / not_found>",
+          "payment_for_completed_stages": "<full / proportional / none / not_specified / not_found>",
+          "materials_return_obligation": "<yes / no / not_specified / not_found>",
+          "termination_ip_snippet": "<цитата или not_found>"
+        }
+
+        - "completed_stages_ip_transfer": кому переходят права на результаты оплаченных этапов
+        - "license_survives_termination": сохраняется ли лицензия Заказчика после расторжения
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "расторжение"
+        - "досрочное прекращение"
+        - "промежуточные результаты"
+        - "права при расторжении"
+        - "оплаченные этапы"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "ip_on_termination_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Урегулирована ли судьба РИД при расторжении"
+        - name: "completed_stages_ip_transfer"
+          type: "string"
+          allowed_values: ["to_customer", "retained_by_contractor", "proportional", "not_specified", "not_found"]
+          description: "Кому переходят права на результаты оплаченных этапов"
+      store_payload: true
+
+  - id: materials_data_return_check
+    name: "Возврат материалов, образцов, данных и оборудования (ст. 773 ГК РФ)"
+    description: |
+      При завершении или расторжении НИОКР стороны должны урегулировать:
+      возврат предоставленного оборудования, образцов, сырья; передачу
+      экспериментальных данных; уничтожение конфиденциальных материалов;
+      судьбу прототипов и макетов.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "возврат материалов"
+        - "возврат оборудования"
+        - "возврат образцов"
+        - "передача экспериментальных данных"
+        - "уничтожение конфиденциальных"
+        - "судьба прототипов"
+        - "предоставленное оборудование"
+        - "демонтаж"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возврат.*(материал|оборудован|образц|данн)"
+        - "(?i)(уничтожен|удален).*конфиденциальн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор НИОКР.
+        Проверь условия возврата материалов, образцов и данных при завершении
+        или расторжении договора.
+
+        Ответь строго в JSON:
+        {
+          "materials_return_clause": "<yes / no / not_found>",
+          "equipment_return_obligation": "<yes / no / not_applicable / not_found>",
+          "experimental_data_transfer": "<yes / no / not_found>",
+          "prototype_disposition": "<to_customer / destroyed / retained / not_specified / not_found>",
+          "confidential_materials_destruction": "<yes / no / not_found>",
+          "return_deadline_specified": "<yes / no / not_found>",
+          "materials_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "возврат материалов"
+        - "оборудование"
+        - "экспериментальные данные"
+        - "прототип"
+        - "уничтожение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "materials_return_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия о возврате материалов"
+        - name: "prototype_disposition"
+          type: "string"
+          allowed_values: ["to_customer", "destroyed", "retained", "not_specified", "not_found"]
+          description: "Судьба прототипов"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "subject_nir_okr_type"
+    name: "Предмет: вид работ (НИР, ОКР, технологические), научно-техническая проблема (ст. 769 ГК РФ)"
+    description: "Чёткое указание вида работ и научно-технической проблемы. Без разграничения НИР/ОКР невозможно правильно применить режим риска и правила личного исполнения"
+    legal_base: "ст. 769, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "научно-исследовательские работы"
+        - "опытно-конструкторские работы"
+        - "НИР"
+        - "ОКР"
+        - "технологические работы"
+        - "исполнитель обязуется провести"
+        - "цель исследования"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(НИР|научно-исследовательск|ОКР|опытно-конструкторск|технологическ).*работ"
+        - "(?i)исполнитель.*обязуется.*(провести|выполнить).*(исследован|разработ)"
+
+  - id: "technical_assignment_as_attachment"
+    name: "Техническое задание как неотъемлемое приложение (ст. 773 ГК РФ)"
+    description: "ТЗ — главный инструмент контроля объёма и качества. Без ТЗ невозможно определить, выполнена ли работа и соответствует ли результат ожиданиям"
+    legal_base: "ст. 773 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["technical_assignment_present"]
+    rules:
+      keywords:
+        - "техническое задание"
+        - "ТЗ"
+        - "программа исследований"
+        - "план научных работ"
+        - "является неотъемлемой частью"
+        - "приложение к договору"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)техническое\\s+задание.*является.*приложением"
+        - "(?i)приложение.*№.*ТЗ|ТЗ.*приложение"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "tz_status"
+          type: "string"
+          allowed_values: ["attached", "referenced", "absent", "not_found"]
+          keyword_hints: ["является приложением", "прилагается", "указана в приложении"]
+          description: "Статус ТЗ в договоре"
+      store_payload: true
+
+  - id: "risk_of_failure_allocation_clause"
+    name: "Явное распределение риска недостижения результата (ст. 769 ГК РФ)"
+    description: "Для НИР риск несёт Заказчик по умолчанию. Должно быть прямо указано в договоре. Без явного условия возникают споры при неудаче"
+    legal_base: "ст. 769, 775 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риск недостижения результата"
+        - "риск случайной невозможности исполнения"
+        - "несёт заказчик"
+        - "несет заказчик"
+        - "отрицательный результат является результатом"
+        - "ст. 769 ГК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск.*несёт.*заказчик"
+        - "(?i)ст\\.?\\s*769\\s+ГК\\s+РФ"
+
+  - id: "performance_deadlines_and_stages"
+    name: "Сроки выполнения и этапный план (ст. 708, 773 ГК РФ)"
+    description: "Сроки начала и окончания, этапный план с промежуточными результатами. Реалистичные сроки критически важны с учётом неопределённости НИОКР"
+    legal_base: "ст. 708, 773 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок начала работ"
+        - "срок окончания работ"
+        - "этапы выполнения"
+        - "календарный план"
+        - "этапный план"
+        - "не позднее"
+        - "промежуточные результаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(месяц|календарн|рабоч|дн)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "milestone_plan_present"
+          type: "string"
+          allowed_values: ["yes", "referenced", "no", "not_found"]
+          keyword_hints: ["этапный план", "календарный план", "приложение"]
+          description: "Наличие этапного плана"
+      store_payload: true
+
+  - id: "cost_estimate_and_payment_terms"
+    name: "Стоимость (смета) и порядок финансирования (ст. 709, 774 ГК РФ)"
+    description: "Цена работ и график платежей с учётом поэтапного характера. Нельзя ставить оплату в полную зависимость от достижения результата при НИР"
+    legal_base: "ст. 709, 774 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "стоимость работ"
+        - "смета"
+        - "цена договора"
+        - "порядок финансирования"
+        - "график платежей"
+        - "рублей"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+        - "(?i)стоимость\\s+работ|цен[аеуой]\\s+договора"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "contract_price"
+          type: "number"
+          keyword_hints: ["стоимость работ", "цена договора", "рублей"]
+          unit: "RUB"
+          description: "Общая стоимость НИОКР"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС", "НДС не облагается"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "exclusive_ip_rights_transfer_clause"
+    name: "Условие о переходе исключительных прав на РИД к Заказчику (ст. 772 ГК РФ)"
+    description: "По умолчанию права остаются у Исполнителя. Без прямого условия Заказчик получает только лицензию, не может запрещать использование конкурентам или свободно дорабатывать результат"
+    legal_base: "ст. 772, 1296, 1371 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["ip_rights_present"]
+    rules:
+      keywords:
+        - "исключительные права переходят к заказчику"
+        - "отчуждение исключительного права"
+        - "патент выдаётся на имя заказчика"
+        - "права на РИД принадлежат заказчику"
+        - "полный объём прав"
+      keyword_mode: "any"
+      negative_keywords:
+        - "права остаются у исполнителя"
+        - "лицензия простого пользования"
+        - "неисключительная лицензия"
+      regex_patterns:
+        - "(?i)исключительн.*прав.*переход.*заказчику"
+        - "(?i)патент.*на\\s+имя.*заказчика"
+
+  - id: "background_ip_retention_clause"
+    name: "Сохранение фоновых РИД за Исполнителем (ст. 772 ГК РФ)"
+    description: "Фоновые РИД (методики, ноу-хау, инструменты, созданные до договора) не должны переходить Заказчику. Без оговорки — риск утраты собственных разработок Исполнителя"
+    legal_base: "ст. 772 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "фоновые РИД"
+        - "фоновая интеллектуальная собственность"
+        - "ранее созданные ноу-хау"
+        - "background IP"
+        - "ранее разработанные методики"
+        - "сохраняются за исполнителем"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)фоновые\\s+РИД|фоновая\\s+(ИС|интеллектуальная)"
+        - "(?i)ранее.*созданные.*права.*сохраняются"
+
+  - id: "side_results_ownership_and_reporting"
+    name: "Права на побочные (незапланированные) результаты (ст. 772 ГК РФ)"
+    description: "В ходе исследований могут появиться ценные результаты, не предусмотренные ТЗ. Без регулирования — споры о принадлежности. Рекомендуется: права у Исполнителя, преимущественное право лицензии у Заказчика"
+    legal_base: "ст. 772 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "побочные результаты"
+        - "незапланированные результаты"
+        - "результаты, не предусмотренные ТЗ"
+        - "преимущественное право на лицензию"
+        - "обязанность уведомить о побочных результатах"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)побочн.*результат"
+        - "(?i)не.*предусмотренн.*ТЗ.*результат"
+
+  - id: "patent_purity_warranty"
+    name: "Гарантия патентной чистоты результатов (ст. 773 ГК РФ)"
+    description: "Исполнитель гарантирует, что результат не нарушает патентных прав третьих лиц. Патентный иск при коммерциализации — полная остановка производства и колоссальные убытки"
+    legal_base: "ст. 773 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантирует патентную чистоту"
+        - "не нарушает права третьих лиц"
+        - "патентные исследования"
+        - "отсутствие патентных ограничений"
+        - "ответственность за нарушение патентных прав"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исполнитель.*гарантирует.*не.*нарушает.*исключительные.*права.*третьих.*лиц"
+        - "(?i)патентн.*чистот"
+        - "(?i)ст\\.?\\s*773\\s+ГК\\s+РФ"
+
+  - id: "confidentiality_pre_patent_nda"
+    name: "Конфиденциальность до подачи заявки на патент (ст. 771, 1350 ГК РФ)"
+    description: "Публикация до подачи заявки уничтожает новизну и делает невозможным патентование. Режим коммерческой тайны для ноу-хау. Санкции за разглашение должны быть ощутимыми"
+    legal_base: "ст. 771 ГК РФ; ст. 1350, 1465 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "до подачи заявки на патент"
+        - "режим коммерческой тайны"
+        - "запрет публикаций без согласия"
+        - "ноу-хау"
+        - "санкции за разглашение"
+      keyword_mode: "any"
+      negative_keywords:
+        - "свободная публикация результатов"
+        - "открытый доступ без ограничений"
+      regex_patterns:
+        - "(?i)конфиденциальн.*до.*подачи.*заявки"
+        - "(?i)ст\\.?\\s*771\\s+ГК\\s+РФ"
+        - "(?i)ст\\.?\\s*1465\\s+ГК\\s+РФ"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "confidentiality_period"
+          type: "string"
+          keyword_hints: ["в течение", "лет", "месяцев", "бессрочно"]
+          description: "Срок действия обязательств по конфиденциальности"
+      store_payload: true
+
+  - id: "publication_rights_and_patent_procedure"
+    name: "Порядок публикаций и подача заявок на патент (ст. 1350, 1354, 1371 ГК РФ)"
+    description: "Баланс между правом учёных на публикацию и защитой интересов Заказчика. Кто подаёт заявку на патент, кто несёт расходы на патентование. Срок для подачи до публикации"
+    legal_base: "ст. 1350, 1354, 1371 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["publication_rights_present", "patent_filing_present"]
+    rules:
+      keywords:
+        - "публикации согласовываются с заказчиком"
+        - "срок для подачи заявки до публикации"
+        - "кто подаёт заявку на патент"
+        - "расходы на патентование"
+        - "патентоспособность результатов"
+        - "заявка на изобретение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)публикац.*только.*с.*письменного.*согласия.*заказчика"
+        - "(?i)(заявк.*на.*патент|патентн.*заявк)"
+        - "(?i)ст\\.?\\s*(1350|1354|1371)\\s+ГК\\s+РФ"
+
+  - id: "staged_funding_and_customer_stop_right"
+    name: "Поэтапное финансирование и право прекратить при бесперспективности (ст. 775 ГК РФ)"
+    description: "Поэтапная оплата = контроль за прогрессом. Право прекратить финансирование при явной бесперспективности — критический инструмент управления рисками Заказчика"
+    legal_base: "ст. 775 ГК РФ; ст. 310, 450.1 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "поэтапное финансирование"
+        - "оплата по результатам этапа"
+        - "право приостановить финансирование"
+        - "право прекратить финансирование"
+        - "бесперспективность продолжения"
+        - "неудовлетворительные результаты этапа"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик.*вправе.*приостановить.*финансирование"
+        - "(?i)оплат.*по.*результатам.*этапа"
+        - "(?i)ст\\.?\\s*775\\s+ГК\\s+РФ"
+
+  - id: "payment_for_negative_result_nir"
+    name: "Оплата при недостижении положительного результата при НИР (ст. 775 ГК РФ)"
+    description: "При недостижении цели не по вине Исполнителя он получает оплату фактически выполненных работ. Отрицательный результат тоже является результатом. Нельзя лишать Исполнителя оплаты за добросовестные усилия"
+    legal_base: "ст. 769, 775 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["nir_keywords"]
+    rules:
+      keywords:
+        - "оплата фактически выполненных работ"
+        - "оплата независимо от достижения результата"
+        - "риск недостижения несёт заказчик"
+        - "отрицательный результат является результатом"
+        - "ст. 775 ГК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)фактически\\s+выполненн.*работ.*оплачивается"
+        - "(?i)ст\\.?\\s*775\\s+ГК\\s+РФ"
+
+  - id: "personal_performance_and_subcontractors_nir"
+    name: "Личное исполнение НИР и порядок привлечения соисполнителей (ст. 770 ГК РФ)"
+    description: "Для НИР — презумпция личного исполнения. Соисполнители только с согласия Заказчика. Для ОКР — привлечение третьих лиц допускается, как в подряде. Различие принципиально"
+    legal_base: "ст. 770 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "личное исполнение"
+        - "привлечение соисполнителей с согласия заказчика"
+        - "право привлекать третьих лиц"
+        - "только с письменного согласия"
+        - "соисполнители"
+        - "ст. 770 ГК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ст\\.?\\s*770\\s+ГК\\s+РФ"
+        - "(?i)соисполнителей.*с.*согласия.*заказчика"
+
+  - id: "reporting_and_acceptance_procedure"
+    name: "Порядок сдачи-приёмки результатов: отчёты, прототипы, акты (ст. 773 ГК РФ)"
+    description: "НИОКР сдаётся поэтапно через отчёты и акты. Заказчик вправе отказаться от приёмки только при наличии мотивированных возражений"
+    legal_base: "ст. 773, 720 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт сдачи-приёмки"
+        - "научно-технический отчёт"
+        - "технический отчёт по этапу"
+        - "мотивированный отказ"
+        - "приёмка результатов"
+        - "приёмочная комиссия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(сдачи-приёмки|выполненных|приёмки)"
+        - "(?i)(научно-технический\\s+отчёт|НТО)"
+        - "(?i)мотивированн.*отказ"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "review_period_days"
+          type: "number"
+          keyword_hints: ["в течение", "рабочих дней", "календарных дней", "срок рассмотрения"]
+          unit: "days"
+          description: "Срок рассмотрения отчёта Заказчиком"
+        - name: "auto_acceptance"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["считаются принятыми", "считаются выполненными", "молчание"]
+          description: "Автоматическая приёмка при молчании"
+      store_payload: true
+
+  - id: "limitation_of_liability_rd"
+    name: "Ограничение ответственности прямыми убытками (ст. 15, 393 ГК РФ)"
+    description: "Затраты на НИОКР значительны, но упущенная выгода Заказчика от неполучения коммерческого продукта может быть колоссальной. Без cap ответственности Исполнитель несёт непосильный риск за то, что по закону — риск Заказчика"
+    legal_base: "ст. 15, 393, 401 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность ограничена суммой договора"
+        - "не возмещаются косвенные убытки"
+        - "не возмещается упущенная выгода"
+        - "только прямой реальный ущерб"
+        - "максимальный размер ответственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исполнитель.*не.*несёт.*ответственности.*за.*косвенные.*убытки"
+        - "(?i)ответственность.*ограничена.*суммой.*договора"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "liability_cap_type"
+          type: "string"
+          allowed_values: ["contract_price", "stage_price", "fixed_amount", "unlimited", "not_found"]
+          keyword_hints: ["ограничена суммой договора", "не превышает стоимости этапа", "максимальный размер"]
+          description: "Тип ограничения ответственности"
+        - name: "consequential_damages_excluded"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["косвенные убытки", "упущенная выгода", "не возмещаются"]
+          description: "Исключены ли косвенные убытки"
+      store_payload: true
+
+  - id: "termination_for_convenience_and_settlement"
+    name: "Право Заказчика на односторонний отказ и взаиморасчёты (ст. 310, 450.1 ГК РФ)"
+    description: "Заказчик может утратить интерес к теме или изменить стратегию. Право отказа с оплатой фактически выполненных работ — важный инструмент управления рисками. Без него отказ = нарушение с полным возмещением убытков"
+    legal_base: "ст. 310, 450.1 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право на односторонний отказ"
+        - "прекращение договора по инициативе заказчика"
+        - "оплата фактически выполненных работ"
+        - "возмещение документально подтверждённых расходов"
+        - "уведомление об отказе"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик.*вправе.*в\\s+одностороннем.*порядке.*отказаться.*от\\s+договора"
+        - "(?i)ст\\.?\\s*450\\.?1\\s+ГК\\s+РФ"
+
+  - id: "contractor_withdrawal_on_ip_conflict"
+    name: "Право Исполнителя прекратить работы при возникновении патентного конфликта (ст. 773 ГК РФ)"
+    description: "В ходе работ Исполнитель может обнаружить, что продолжение приведёт к нарушению прав третьих лиц. Без права на остановку он вынужден выбирать между нарушением договора и нарушением патента"
+    legal_base: "ст. 773 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право приостановить работы при патентном конфликте"
+        - "выявление прав третьих лиц в ходе работ"
+        - "уведомление о патентных ограничениях"
+        - "невозможность продолжения без нарушения патентных прав"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исполнитель.*обязан.*уведомить.*о.*выявленных.*правах.*третьих.*лиц"
+        - "(?i)патентный.*конфликт"
+
+  - id: "dispute_resolution_technical_expertise_rd"
+    name: "Досудебный порядок и техническая экспертиза для НИОКР-споров"
+    description: "Споры о качестве и объёме НИОКР требуют специализированных научно-технических экспертиз. Порядок назначения, выбора эксперта и распределения расходов должен быть определён заранее"
+    legal_base: "АПК РФ; ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "научно-техническая экспертиза"
+        - "досудебный порядок"
+        - "претензионный порядок"
+        - "экспертная организация по согласованию"
+        - "независимая экспертиза качества"
+        - "привлечение специалистов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензионный\\s+порядок"
+        - "(?i)научно.техническ.*экспертиз"
+
+  - id: "force_majeure_rd_specific"
+    name: "Форс-мажор для НИОКР (включая запрет на технологии и санкции) (ст. 401 ГК РФ)"
+    description: "Специфика НИОКР: санкционные ограничения на технологии и оборудование, отзыв лицензий на ПО, ограничения доступа к научным базам данных — реальные форс-мажорные риски"
+    legal_base: "ст. 401, 416, 417 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "санкционные ограничения"
+        - "недоступность технологий"
+        - "уведомление о форс-мажоре"
+        - "продление сроков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс.мажор"
+        - "(?i)непреодолимой\\s+силы"
+
+  - id: "tax_accounting_rd_expenses"
+    name: "Налоговый учёт расходов на НИОКР (ст. 262 НК РФ)"
+    description: "Расходы на НИОКР имеют специальный порядок учёта (ст. 262 НК РФ), в т.ч. с коэффициентом 1.5 для ряда исследований. Необходима корректная квалификация работ для налогового учёта Заказчика"
+    legal_base: "ст. 262 НК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "налоговый учёт расходов на НИОКР"
+        - "ст. 262 НК РФ"
+        - "квалификация работ для налогообложения"
+        - "документы для налогового учёта"
+        - "регистрация НИОКР"
+        - "отчёт для налоговых органов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ст\\.?\\s*262\\s+НК\\s+РФ"
+        - "(?i)налоговый\\s+учёт.*НИОКР"
+
+  - id: "parties_identification_rd"
+    name: "Стороны договора: идентификация заказчика и исполнителя"
+    description: "Проверяет наличие и достаточность идентификации сторон"
+    legal_base: "ст. 432, 769 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заказчик"
+        - "исполнитель"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(заказчик|исполнитель).*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "customer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "state_entity", "individual", "unclear"]
+          keyword_hints: ["ООО", "ПАО", "АО", "ФГБУ", "ФГУП", "министерство", "гражданин"]
+          description: "Тип заказчика"
+        - name: "contractor_type"
+          type: "string"
+          allowed_values: ["legal_entity", "research_institute", "university", "individual", "unclear"]
+          keyword_hints: ["ООО", "ФГБУН", "ФГБНУ", "НИИ", "университет", "ИП"]
+          description: "Тип исполнителя"
+      store_payload: true
+
+  - id: "governing_law_rd"
+    name: "Применимое право и подсудность"
+    description: "Проверяет указание применимого законодательства"
+    legal_base: "ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется законодательством"
+        - "Российской Федерации"
+        - "арбитражный суд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)законодательств(о|ом)\\s+Российск"
+
+  - id: "non_compete_non_circumvention_rd"
+    name: "Запрет конкуренции и обхода (non-compete / non-circumvention)"
+    description: "Проверяет наличие ограничений на использование Исполнителем результатов для конкурентов Заказчика или на самостоятельную коммерциализацию"
+    legal_base: "ст. 421 ГК РФ (свобода договора)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "запрет конкуренции"
+        - "non-compete"
+        - "не выполнять аналогичные работы"
+        - "не использовать результаты в интересах конкурентов"
+        - "эксклюзивность"
+        - "не вправе предлагать результаты третьим лицам"
+        - "запрет обхода"
+        - "non-circumvention"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(запрет|не\\s+вправе).*конкурент"
+        - "(?i)non[\\s\\-]?compete"
+        - "(?i)эксклюзивн(ость|ое|ый)"
+
+  - id: "rd_insurance_liability"
+    name: "Страхование ответственности исследователя и оборудования"
+    description: "Проверяет наличие требований о страховании профессиональной ответственности, оборудования, опытных образцов"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхование ответственности"
+        - "страхование оборудования"
+        - "страховой полис"
+        - "страхование образцов"
+        - "профессиональная ответственность"
+        - "страхование результатов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ание|ка).*ответственност"
+        - "(?i)страхов(ание|ка).*оборудован"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  subject_nir_okr_type:
+    text: >
+      Просим уточнить в {doc_names}: (а) точный вид работ — НИР, ОКР или комплексный
+      договор (НИР + ОКР); (б) формулировку научно-технической проблемы; (в) цель работ.
+      Различие НИР/ОКР критично для режима риска и правил личного исполнения
+      (ст. 769, 770 ГК РФ).
+    addressee: "Обе стороны"
+
+  technical_assignment_as_attachment:
+    text: >
+      Просим подтвердить по {doc_names}: (а) ТЗ является приложением к договору или
+      существует как отдельный документ; (б) ТЗ содержит цели, задачи, методы, ожидаемые
+      результаты (включая возможность отрицательного); (в) ТЗ подписано обеими сторонами
+      (ст. 773 ГК РФ). Без ТЗ невозможно определить соответствие результата.
+    addressee: "Обе стороны"
+
+  risk_of_failure_allocation_clause:
+    text: >
+      Просим уточнить в {doc_names}: (а) явно ли указано, кто несёт риск недостижения
+      результата (ст. 769 ГК РФ — по умолчанию Заказчик); (б) что происходит с оплатой
+      при неудаче не по вине Исполнителя (ст. 775 ГК РФ); (в) признан ли отрицательный
+      результат результатом работ.
+    addressee: "Юридический советник"
+
+  performance_deadlines_and_stages:
+    text: >
+      Просим уточнить в {doc_names}: (а) даты начала и окончания работ; (б) этапный план
+      с промежуточными вехами и датами; (в) реалистичность сроков с учётом неопределённости
+      НИОКР (ст. 708, 773 ГК РФ). Рекомендуется предусмотреть механизм продления сроков
+      при форс-мажоре или выявлении непредвиденных технических сложностей.
+    addressee: "Обе стороны"
+
+  cost_estimate_and_payment_terms:
+    text: >
+      Просим уточнить в {doc_names}: (а) общую стоимость работ; (б) включает ли НДС;
+      (в) структуру платежей по этапам; (г) соответствует ли порядок оплаты ст. 775 ГК РФ
+      (нельзя полностью ставить оплату в зависимость от успеха для НИР).
+    addressee: "Обе стороны"
+
+  exclusive_ip_rights_transfer_clause:
+    text: >
+      Просим уточнить в {doc_names}: (а) кому принадлежат исключительные права на созданные
+      РИД (по умолчанию — Исполнителю, ст. 772 ГК РФ); (б) если предусмотрен переход к
+      Заказчику — полный или частичный; (в) на чьё имя подаётся заявка на патент;
+      (г) право Заказчика на использование при сохранении прав у Исполнителя.
+    addressee: "Юридический советник"
+
+  background_ip_retention_clause:
+    text: >
+      Просим включить в {doc_names} явную оговорку о фоновых РИД: (а) ранее созданные
+      ноу-хау, методики, инструменты Исполнителя не переходят Заказчику; (б) Заказчик
+      получает лицензию на использование фоновых РИД только в части, необходимой для
+      использования результатов договора (ст. 772 ГК РФ).
+    addressee: "Юридический советник исполнителя"
+
+  side_results_ownership_and_reporting:
+    text: >
+      Просим предусмотреть в {doc_names}: (а) обязанность Исполнителя уведомлять Заказчика
+      о побочных (незапланированных) результатах; (б) права на них — рекомендуется:
+      принадлежат Исполнителю с преимущественным правом Заказчика на лицензию
+      (ст. 772 ГК РФ).
+    addressee: "Юридический советник"
+
+  patent_purity_warranty:
+    text: >
+      Просим подтвердить по {doc_names}: (а) обязанность Исполнителя провести патентные
+      исследования; (б) гарантию патентной чистоты результатов (ст. 773 ГК РФ);
+      (в) последствия нарушения — возмещение убытков Заказчика от патентных исков.
+      Нарушение патента при коммерциализации = полная остановка производства.
+    addressee: "Исполнитель"
+
+  confidentiality_pre_patent_nda:
+    text: >
+      Просим уточнить в {doc_names}: (а) срок действия обязательств по конфиденциальности;
+      (б) запрет публикаций до подачи заявки на патент (ст. 1350 ГК РФ — потеря новизны);
+      (в) режим ноу-хау для результатов, не патентуемых (ст. 1465 ГК РФ); (г) санкции
+      за разглашение; (д) круг лиц с допуском к конфиденциальным сведениям (ст. 771 ГК РФ).
+    addressee: "Обе стороны"
+
+  publication_rights_and_patent_procedure:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок согласования публикаций — только с
+      письменного согласия Заказчика или по истечении срока для патентования; (б) кто
+      несёт расходы на патентование; (в) кто подаёт заявку на патент (ст. 1371 ГК РФ);
+      (г) порядок проверки патентоспособности.
+    addressee: "Обе стороны"
+
+  staged_funding_and_customer_stop_right:
+    text: >
+      Просим уточнить в {doc_names}: (а) разбивку финансирования по этапам; (б) право
+      Заказчика приостановить финансирование следующего этапа при неудовлетворительных
+      результатах предыдущего; (в) порядок уведомления и расчётов при остановке (ст. 775
+      ГК РФ). Это ключевой инструмент контроля рисков Заказчика.
+    addressee: "Заказчик"
+
+  payment_for_negative_result_nir:
+    text: >
+      Просим подтвердить в {doc_names}: при недостижении цели НИР не по вине Исполнителя
+      работы оплачиваются по фактически выполненному объёму (ст. 775 ГК РФ).
+      Условие «оплата только за успешный прототип» — недействительно для НИР.
+      Просим исключить подобные оговорки из договора.
+    addressee: "Юридический советник"
+
+  personal_performance_and_subcontractors_nir:
+    text: >
+      Просим уточнить в {doc_names}: (а) предусмотрено ли личное исполнение НИР
+      (ст. 770 ГК РФ — презумпция для НИР); (б) порядок привлечения соисполнителей —
+      только с письменного согласия Заказчика; (в) список согласованных соисполнителей
+      как приложение (если применимо).
+    addressee: "Исполнитель"
+
+  reporting_and_acceptance_procedure:
+    text: >
+      Просим уточнить в {doc_names}: (а) форматы отчётности — НТО, технические отчёты
+      по этапам, промежуточные сводки; (б) срок рассмотрения отчёта Заказчиком;
+      (в) форма мотивированного отказа от приёмки; (г) механизм разрешения разногласий
+      по качеству отчёта (ст. 773, 720 ГК РФ).
+    addressee: "Обе стороны"
+
+  limitation_of_liability_rd:
+    text: >
+      Просим включить в {doc_names} ограничение ответственности Исполнителя: (а) cap
+      ответственности — не более стоимости этапа или договора; (б) исключение косвенных
+      убытков и упущенной выгоды (риск Заказчика по ст. 769 ГК РФ); (в) ответственность
+      только за прямой реальный ущерб (ст. 15, 393 ГК РФ).
+    addressee: "Юридический советник исполнителя"
+
+  termination_for_convenience_and_settlement:
+    text: >
+      Просим предусмотреть в {doc_names}: (а) право Заказчика на отказ от договора с
+      уведомлением за [N] дней; (б) оплата фактически выполненных работ + документально
+      подтверждённые расходы Исполнителя; (в) судьба результатов выполненных этапов —
+      переходят Заказчику с уплатой; (г) запрет использования результатов при неоплате
+      (ст. 310, 450.1 ГК РФ).
+    addressee: "Юридический советник"
+
+  contractor_withdrawal_on_ip_conflict:
+    text: >
+      Просим предусмотреть в {doc_names}: право и обязанность Исполнителя немедленно
+      уведомить Заказчика при выявлении патентного конфликта в ходе работ (ст. 773 ГК РФ),
+      приостановить работы и совместно определить дальнейшие действия (обход патента,
+      лицензирование, смена направления).
+    addressee: "Юридический советник исполнителя"
+
+  dispute_resolution_technical_expertise_rd:
+    text: >
+      Просим уточнить в {doc_names}: (а) претензионный порядок (срок — 30 дней);
+      (б) при технических спорах — привлечение независимого эксперта из согласованного
+      пула специализированных организаций; (в) распределение расходов на экспертизу;
+      (г) подсудность — суд по месту нахождения ответчика или выбранный суд.
+    addressee: "Юридический советник"
+
+  force_majeure_rd_specific:
+    text: >
+      Просим уточнить в {doc_names}: (а) перечень форс-мажора (включая санкционные
+      ограничения на технологии, отзыв лицензий на ПО, недоступность научных баз данных);
+      (б) срок уведомления; (в) максимальный период приостановки; (г) право на расторжение
+      при длительном форс-мажоре (ст. 401, 417 ГК РФ).
+    addressee: "Обе стороны"
+
+  tax_accounting_rd_expenses:
+    text: >
+      Просим уточнить в {doc_names}: (а) предусмотрены ли документы для налогового учёта
+      расходов на НИОКР Заказчиком (ст. 262 НК РФ); (б) обязанность Исполнителя предоставить
+      отчёт НИОКР для налоговых органов; (в) корректная квалификация работ как «НИОКР»
+      в актах (для применения коэффициента 1.5 при наличии оснований).
+    addressee: "Заказчик"
+
+  guaranteed_result_disqualification:
+    text: >
+      Внимание: в {doc_names} обнаружены признаки того, что результат гарантирован или
+      работа является рутинной без исследовательской составляющей. НИОКР (Глава 38 ГК РФ)
+      применяется только при наличии элемента научного поиска и неопределённости.
+      Просим уточнить: применяется ли общий подряд (Глава 37) или ПИР (§ 4 Главы 37)?
+    addressee: "Юридический советник"
+
+  success_only_payment_nir_illegal:
+    text: >
+      Внимание: в {doc_names} обнаружена оговорка об оплате только за успешный результат.
+      Для НИР такое условие противоречит ст. 775 ГК РФ и может быть признано
+      недействительным. Просим: (а) исключить оговорку; (б) заменить на законный порядок:
+      оплата фактически выполненных работ при неудаче не по вине Исполнителя.
+    addressee: "Юридический советник"
+
+  unauthorized_subcontractors_nir:
+    text: >
+      Внимание: в {doc_names} предусмотрено привлечение соисполнителей без согласия
+      Заказчика. Для НИР это нарушает ст. 770 ГК РФ (презумпция личного исполнения).
+      Просим: (а) добавить требование письменного согласия Заказчика; (б) согласовать
+      список конкретных соисполнителей как приложение.
+    addressee: "Исполнитель"
+
+  ip_fate_on_early_termination:
+    text: >
+      Просим включить в {doc_names}: (а) кому переходят права на РИД оплаченных этапов
+      при досрочном расторжении; (б) сохраняется ли лицензия Заказчика; (в) порядок
+      передачи промежуточных отчётов и прототипов; (г) расчёт оплаты за выполненную часть;
+      (д) обязанность вернуть конфиденциальные материалы.
+    addressee: "Юридический советник"
+
+  materials_data_return_check:
+    text: >
+      Просим включить в {doc_names}: (а) обязанность вернуть предоставленное оборудование,
+      образцы и сырьё; (б) порядок передачи экспериментальных данных; (в) судьбу прототипов
+      и макетов; (г) сроки возврата; (д) порядок уничтожения конфиденциальных материалов.
+    addressee: "Обе стороны"
+
+  parties_identification_rd:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование,
+      ИНН, ОГРН, адрес, документы уполномоченных лиц, научный руководитель (если применимо).
+    addressee: "Обе стороны"
+
+  governing_law_rd:
+    text: >
+      Просим подтвердить в {doc_names}: применимое право, подсудность,
+      язык документов.
+    addressee: "Юридический советник"
+
+  non_compete_non_circumvention_rd:
+    text: >
+      Просим согласовать в {doc_names}: (а) ограничения на выполнение аналогичных
+      работ для конкурентов Заказчика; (б) срок действия запрета; (в) территорию
+      действия; (г) компенсацию Исполнителю за ограничение (при наличии);
+      (д) исключения (академические исследования, ранее начатые проекты).
+    addressee: "Юридический советник"
+
+  rd_insurance_liability:
+    text: >
+      Просим уточнить в {doc_names}: (а) требуется ли страхование профессиональной
+      ответственности Исполнителя; (б) страхование предоставленного оборудования;
+      (в) страхование опытных образцов; (г) минимальная страховая сумма.
+    addressee: "Исполнитель"
+
+  government_funded_rd_registration:
+    text: >
+      ВНИМАНИЕ: {doc_names} финансируется из бюджетных средств. Просим подтвердить:
+      (а) регистрацию НИОКР в ЕГИСУ; (б) соблюдение требований Постановления
+      Правительства РФ № 327; (в) порядок учёта результатов в Едином реестре.
+    addressee: "Исполнитель"
+
+  export_control_dual_use_technologies:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены признаки технологий двойного назначения.
+      Просим предоставить: (а) анализ применимости экспортного контроля (ФЗ-183);
+      (б) лицензию ФСТЭК (при необходимости); (в) подтверждение отсутствия
+      ограничений на передачу результатов иностранным лицам.
+    addressee: "Юридический советник / Служба экспортного контроля"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

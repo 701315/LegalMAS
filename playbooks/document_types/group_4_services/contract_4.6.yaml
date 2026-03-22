@@ -1,0 +1,2161 @@
+type: contract_4.6_trust_management
+name: "Договор доверительного управления имуществом"
+
+description: |
+  Соглашение, по которому учредитель управления передает доверительному управляющему
+  имущество на определенный срок, а доверительный управляющий обязуется осуществлять
+  управление этим имуществом в интересах учредителя управления или указанного им
+  выгодоприобретателя. Регулируется Главой 53 ГК РФ.
+  Характеризуется фидуциарным характером, обязательным обособлением имущества,
+  специальными требованиями к статусу управляющего, обязанностью действовать от своего
+  имени с указанием статуса доверительного управляющего ("Д.У."), а для отдельных видов
+  имущества — специальными требованиями закона, включая государственную регистрацию
+  доверительного управления недвижимостью.
+
+version: 4.0
+parent: class_4_service_provision
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: asset_management
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 53 ГК РФ (ст. 1012-1026)"
+  doc_types_supported:
+    - "договор доверительного управления имуществом"
+    - "договор доверительного управления недвижимостью"
+    - "договор доверительного управления ценными бумагами"
+    - "договор доверительного управления имущественными правами"
+    - "договор доверительного управления активами"
+    - "договор ДУ"
+    - "trust management agreement"
+    - "asset management agreement"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)доверительн.*управлен"
+      - "(?i)договор.*ду\\b"
+      - "(?i)trust[\\s_.]?management"
+      - "(?i)asset[\\s_.]?management"
+
+    folder_patterns:
+      - "(?i)trust[\\s_]?management"
+      - "(?i)доверительн.*управлен"
+      - "(?i)asset[\\s_]?management"
+
+    keywords:
+
+      high:
+        - "доверительное управление"
+        - "доверительный управляющий"
+        - "учредитель управления"
+        - "выгодоприобретатель"
+        - "имущество в доверительном управлении"
+        - "д.у."
+        - "обособление имущества"
+
+      medium:
+        - "отдельный баланс"
+        - "отдельный банковский счет"
+        - "отчет управляющего"
+        - "вознаграждение управляющего"
+        - "инвестиционная декларация"
+        - "заботливость добросовестного управляющего"
+        - "управление активами"
+        - "имущество учитывается отдельно"
+
+      low:
+        - "ценные бумаги"
+        - "имущественные права"
+        - "недвижимость"
+        - "земельный участок"
+        - "обременение"
+        - "конфликт интересов"
+        - "аффилированные лица"
+        - "профессиональный участник"
+
+    exclusions:
+      - "управление многоквартирным домом"
+      - "договор аренды"
+      - "хранение"
+      - "комиссия"
+      - "поручение"
+      - "агентский договор"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  real_estate_in_trust:
+    any_keywords:
+      - "недвижимость"
+      - "здание"
+      - "помещение"
+      - "квартира"
+      - "земельный участок"
+      - "объект недвижимости"
+      - "егрн"
+
+  securities_in_trust:
+    any_keywords:
+      - "ценные бумаги"
+      - "акции"
+      - "облигации"
+      - "брокерский счет"
+      - "депозитарий"
+      - "эмиссионные ценные бумаги"
+
+  cash_in_trust:
+    any_keywords:
+      - "денежные средства"
+      - "деньги в доверительное управление"
+      - "денежные средства передаются"
+      - "передача денежных средств"
+
+  beneficiary_third_party:
+    any_keywords:
+      - "выгодоприобретатель"
+      - "в интересах третьего лица"
+      - "третье лицо"
+      - "получатель дохода"
+
+  professional_trustee_required:
+    any_keywords:
+      - "доверительный управляющий"
+      - "коммерческая организация"
+      - "индивидуальный предприниматель"
+      - "управляющая компания"
+      - "профессиональный участник"
+
+  investment_declaration_present:
+    any_keywords:
+      - "инвестиционная декларация"
+      - "стратегия управления"
+      - "ограничение полномочий"
+      - "лимиты по рискам"
+      - "допустимые операции"
+
+  segregation_mechanism_present:
+    any_keywords:
+      - "отдельный баланс"
+      - "отдельный банковский счет"
+      - "обособленный учет"
+      - "обособление имущества"
+      - "имущество учитывается отдельно"
+
+  reporting_terms_present:
+    any_keywords:
+      - "отчет управляющего"
+      - "периодичность отчетности"
+      - "ежемесячный отчет"
+      - "ежеквартальный отчет"
+      - "право запроса информации"
+
+  du_mark_terms_present:
+    any_keywords:
+      - "д.у."
+      - "действует как доверительный управляющий"
+      - "с указанием статуса"
+      - "в документах указывается"
+
+  conflict_of_interest_terms:
+    any_keywords:
+      - "конфликт интересов"
+      - "аффилированные лица"
+      - "сделки с самим собой"
+      - "раскрытие конфликта интересов"
+
+  professional_securities_management:
+    any_keywords:
+      - "профессиональный участник рынка ценных бумаг"
+      - "лицензия на управление ценными бумагами"
+      - "брокер"
+      - "депозитарий"
+      - "управляющая компания"
+      - "паевой инвестиционный фонд"
+      - "пиф"
+
+  pledge_of_trust_rights:
+    any_keywords:
+      - "залог прав по договору"
+      - "залог прав требования"
+      - "обременение прав"
+      - "залогодержатель"
+      - "права из договора доверительного управления"
+
+  delegation_to_third_party:
+    any_keywords:
+      - "передача управления"
+      - "поручение третьему лицу"
+      - "субуправление"
+      - "привлечение третьих лиц"
+      - "действия от имени управляющего"
+
+  trustee_personal_liability:
+    any_keywords:
+      - "ответственность личным имуществом"
+      - "взыскание на имущество управляющего"
+      - "субсидиарная ответственность"
+      - "превышение полномочий"
+      - "без указания статуса"
+
+  bankruptcy_of_parties:
+    any_keywords:
+      - "банкротство"
+      - "несостоятельность"
+      - "конкурсная масса"
+      - "арбитражный управляющий"
+      - "реестр кредиторов"
+
+  trust_for_minors_or_incapacitated:
+    any_keywords:
+      - "несовершеннолетний"
+      - "недееспособный"
+      - "орган опеки"
+      - "попечительство"
+      - "опекун"
+
+  succession_of_beneficiary:
+    any_keywords:
+      - "смерть выгодоприобретателя"
+      - "правопреемство"
+      - "наследник выгодоприобретателя"
+      - "переход прав выгодоприобретателя"
+
+  mixed_trust_property:
+    any_keywords:
+      - "различные виды имущества"
+      - "смешанный состав"
+      - "недвижимость и ценные бумаги"
+      - "имущественный комплекс"
+      - "предприятие как имущественный комплекс"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  term_years_pattern: "(?i)\\b\\d+\\s*(?:год|года|лет)\\b"
+  du_mark_pattern: "(?i)\\bД[.]?\\s?У[.]?\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "trustee_status_non_compliant"
+    name: "Неподходящий статус доверительного управляющего"
+    description: "Доверительный управляющий по общему правилу должен быть ИП или коммерческой организацией, если иное не установлено законом"
+    legal_base: "ст. 1015 ГК РФ"
+    required_triggers: ["professional_trustee_required"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "унитарное предприятие"
+        - "государственное унитарное предприятие"
+        - "муниципальное унитарное предприятие"
+        - "физическое лицо"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "доверительный управляющий"
+        - "ип"
+        - "коммерческая организация"
+        - "унитарное предприятие"
+      rerank: true
+
+  - id: "cash_in_trust_without_legal_basis"
+    name: "Денежные средства передаются в ДУ без явного законного основания"
+    description: "Денежные средства могут быть самостоятельным объектом доверительного управления не во всех случаях; требуется специальное законное основание"
+    legal_base: "ст. 1013 ГК РФ, специальное регулирование"
+    required_triggers: ["cash_in_trust"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "денежные средства"
+      negative_keywords:
+        - "предусмотрено законом"
+        - "управляющая компания"
+        - "инвестиционный фонд"
+        - "профессиональный участник рынка ценных бумаг"
+        - "специальный закон"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "денежные средства"
+        - "ст. 1013"
+        - "специальный закон"
+      rerank: true
+
+  - id: "term_exceeds_five_years"
+    name: "Срок договора превышает 5 лет"
+    description: "По общему правилу срок договора доверительного управления не должен превышать пяти лет, если иное не установлено законом"
+    legal_base: "ст. 1016 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "6 лет"
+        - "7 лет"
+        - "8 лет"
+        - "9 лет"
+        - "10 лет"
+        - "десять лет"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "срок договора"
+        - "лет"
+        - "ст. 1016"
+      rerank: true
+
+  - id: "real_estate_trust_without_registration"
+    name: "Недвижимость в ДУ без механизма государственной регистрации"
+    description: "Передача недвижимого имущества в доверительное управление требует государственной регистрации"
+    legal_base: "ст. 1017 ГК РФ, ФЗ-218"
+    required_triggers: ["real_estate_in_trust"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "государственная регистрация"
+        - "егрн"
+        - "регистрация доверительного управления"
+        - "обременение"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "государственная регистрация"
+        - "доверительное управление недвижимостью"
+        - "егрн"
+      rerank: true
+
+  - id: "securities_trust_without_license"
+    name: "ДУ ценными бумагами без лицензии профучастника"
+    description: |
+      Доверительное управление ценными бумагами требует наличия у управляющего 
+      лицензии профессионального участника рынка ценных бумаг (ФЗ-39).
+    legal_base: "ст. 5 ФЗ № 39-ФЗ «О рынке ценных бумаг»"
+    required_triggers: ["securities_in_trust"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ценные бумаги"
+        - "акции"
+        - "облигации"
+      keyword_mode: "any"
+      negative_keywords:
+        - "лицензия"
+        - "профессиональный участник"
+        - "управляющая компания"
+        - "брокер"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "лицензия"
+        - "профессиональный участник"
+        - "ценные бумаги"
+      rerank: true
+
+  - id: "trustee_beneficiary_same_person"
+    name: "Доверительный управляющий не может быть выгодоприобретателем"
+    description: |
+      По ст. 1015 ГК РФ доверительный управляющий не может быть 
+      выгодоприобретателем по договору доверительного управления.
+    legal_base: "ст. 1015 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "доверительный управляющий является выгодоприобретателем"
+        - "управляющий в свою пользу"
+        - "в интересах управляющего"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "выгодоприобретатель"
+        - "доверительный управляющий"
+      rerank: true
+
+  - id: "delegation_without_authorization"
+    name: "Передача управления третьему лицу без полномочий"
+    description: |
+      По ст. 1021 ГК РФ управляющий должен осуществлять управление лично, 
+      кроме случаев, когда договор или обстоятельства допускают иное.
+    legal_base: "ст. 1021 ГК РФ"
+    required_triggers: ["delegation_to_third_party"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "передача управления"
+        - "поручение третьему лицу"
+        - "привлечение третьих лиц"
+      keyword_mode: "any"
+      negative_keywords:
+        - "с согласия учредителя"
+        - "вправе привлекать"
+        - "допускается привлечение"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "передача управления"
+        - "третье лицо"
+        - "личное исполнение"
+      rerank: true
+
+  - id: "no_liability_limitation_clause"
+    name: "Недопустимое ограничение ответственности управляющего"
+    description: |
+      Условия, полностью освобождающие управляющего от ответственности 
+      за убытки, противоречат существу фидуциарных обязанностей.
+    legal_base: "ст. 1022 ГК РФ, ст. 10 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "управляющий освобождается от ответственности"
+        - "не несет ответственности за убытки"
+        - "ответственность ограничена вознаграждением"
+        - "полное освобождение от ответственности"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "освобождение от ответственности"
+        - "ограничение ответственности"
+        - "убытки"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: trust_subject_extraction
+    name: "Базовое извлечение структуры договора доверительного управления"
+    description: "Извлекает стороны, выгодоприобретателя, состав имущества, срок, вознаграждение и ключевые параметры доверительного управления"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "учредитель управления"
+        - "доверительный управляющий"
+        - "выгодоприобретатель"
+        - "имущество в доверительном управлении"
+        - "вознаграждение управляющего"
+        - "срок договора"
+        - "доверительное управление"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(учредитель\\s+управления|доверительный\\s+управляющий|выгодоприобретател)"
+        - "(?i)(доверительн(ое|ого)\\s+управлен)"
+        - "(?i)\\bД[.]?\\s?У[.]?\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления имуществом.
+        Извлеки ключевые сведения строго по тексту документа.
+
+        Ответь строго в JSON:
+        {
+          "settlor": "<учредитель управления или not_found>",
+          "trustee": "<доверительный управляющий или not_found>",
+          "beneficiary": "<выгодоприобретатель или not_found>",
+          "beneficiary_relation": "<settlor_self / third_party / unclear / not_found>",
+          "trust_property": "<имущество, передаваемое в управление, или not_found>",
+          "property_type": "<real_estate / securities / rights / cash / mixed / other / not_found>",
+          "term": "<срок договора или not_found>",
+          "term_exceeds_5_years": "<yes / no / unclear / not_found>",
+          "trustee_remuneration": "<условия вознаграждения или not_found>"
+        }
+
+        Используй только явно указанные в тексте сведения.
+        Если данных нет — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "учредитель управления"
+        - "доверительный управляющий"
+        - "выгодоприобретатель"
+        - "имущество"
+        - "срок"
+        - "вознаграждение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "settlor"
+          type: "string"
+          keyword_hints: ["учредитель управления"]
+          description: "Учредитель управления"
+        - name: "trustee"
+          type: "string"
+          keyword_hints: ["доверительный управляющий", "управляющая компания"]
+          description: "Доверительный управляющий"
+        - name: "beneficiary"
+          type: "string"
+          keyword_hints: ["выгодоприобретатель"]
+          description: "Выгодоприобретатель"
+        - name: "beneficiary_relation"
+          type: "string"
+          allowed_values: ["settlor_self", "third_party", "unclear", "not_found"]
+          description: "Соотношение выгодоприобретателя и учредителя"
+        - name: "trust_property"
+          type: "string"
+          keyword_hints: ["состав имущества", "имущество, передаваемое", "предмет договора"]
+          description: "Имущество, передаваемое в доверительное управление"
+        - name: "property_type"
+          type: "string"
+          allowed_values: ["real_estate", "securities", "rights", "cash", "mixed", "other", "not_found"]
+          description: "Тип имущества"
+        - name: "term"
+          type: "string"
+          keyword_hints: ["срок договора", "договор заключен на срок"]
+          description: "Срок договора"
+        - name: "term_exceeds_5_years"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Превышает ли срок 5 лет"
+        - name: "trustee_remuneration"
+          type: "string"
+          keyword_hints: ["вознаграждение управляющего", "вознаграждение доверительного управляющего"]
+          description: "Условия вознаграждения"
+      store_payload: true
+
+  - id: trust_property_segregation_check
+    name: "Обособление имущества: отдельный учет, баланс и счета"
+    description: "Проверяет наличие механизма обособления имущества в доверительном управлении"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обособление имущества"
+        - "отдельный баланс"
+        - "отдельный банковский счет"
+        - "обособленный учет"
+        - "имущество учитывается отдельно"
+        - "не является собственностью управляющего"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отдельн(ый|ом)\\s+баланс"
+        - "(?i)отдельн(ый|ом)\\s+банковск(ий|ом)\\s+счет"
+        - "(?i)обособлен(ный|ного)\\s+учет"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления имуществом.
+        Проверь, предусмотрено ли в договоре обособление имущества.
+
+        Ответь строго в JSON:
+        {
+          "segregation_status": "<full / partial / not_found>",
+          "separate_balance": "<yes / no / not_found>",
+          "separate_bank_account": "<yes / no / not_found>",
+          "statement_on_non_ownership": "<yes / no / not_found>"
+        }
+
+        - "full" — явно есть отдельный учет + как минимум отдельный баланс/счет
+        - "partial" — есть лишь общая формула об обособлении без механики
+        - "not_found" — положения не найдены
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "обособление имущества"
+        - "отдельный баланс"
+        - "отдельный банковский счет"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "segregation_status"
+          type: "string"
+          allowed_values: ["full", "partial", "not_found"]
+          description: "Статус обособления имущества"
+        - name: "separate_balance"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие отдельного баланса"
+        - name: "separate_bank_account"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие отдельного банковского счета"
+        - name: "statement_on_non_ownership"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли указание, что имущество не становится собственностью управляющего"
+      store_payload: true
+
+  - id: trustee_powers_and_investment_limits_check
+    name: "Полномочия управляющего и инвестиционные ограничения"
+    description: "Проверяет объем полномочий управляющего, наличие инвестиционной декларации и ограничений на сделки"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "инвестиционная декларация"
+        - "ограничение полномочий"
+        - "лимиты по рискам"
+        - "стратегия управления"
+        - "согласование сделок"
+        - "запрещенные операции"
+        - "без предварительного согласия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)инвестиционн(ая|ой)\\s+деклараци"
+        - "(?i)ограничен(ие|ия)\\s+полномоч"
+        - "(?i)без\\s+предварительного\\s+согласия"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь, раскрыты ли полномочия управляющего и ограничения на совершение сделок.
+
+        Ответь строго в JSON:
+        {
+          "powers_scope": "<broad / limited / unclear / not_found>",
+          "investment_declaration_status": "<present / referenced / not_found>",
+          "requires_prior_consent_for_major_actions": "<yes / no / unclear / not_found>",
+          "restricted_actions_summary": "<кратко или not_found>"
+        }
+
+        Используй только текст договора.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "инвестиционная декларация"
+        - "полномочия управляющего"
+        - "согласование сделок"
+        - "ограничения"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 45
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "powers_scope"
+          type: "string"
+          allowed_values: ["broad", "limited", "unclear", "not_found"]
+          description: "Объем полномочий управляющего"
+        - name: "investment_declaration_status"
+          type: "string"
+          allowed_values: ["present", "referenced", "not_found"]
+          description: "Статус инвестиционной декларации"
+        - name: "requires_prior_consent_for_major_actions"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Требуется ли предварительное согласие на существенные действия"
+      store_payload: true
+
+  - id: trustee_reporting_check
+    name: "Отчетность управляющего и право контроля учредителя"
+    description: "Проверяет периодичность, содержание и форму отчетности управляющего"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "отчет управляющего"
+        - "ежемесячно"
+        - "ежеквартально"
+        - "форма отчета"
+        - "перечень информации"
+        - "право запроса информации"
+        - "отчет о совершенных сделках"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отчет\\s+управляющ"
+        - "(?i)(ежемесяч|ежекварт|ежегод)"
+        - "(?i)право\\s+запроса\\s+информац"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь условия отчетности управляющего.
+
+        Ответь строго в JSON:
+        {
+          "reporting_frequency": "<monthly / quarterly / annual / other / not_found>",
+          "report_content_defined": "<yes / no / unclear>",
+          "right_to_request_additional_info": "<yes / no / not_found>",
+          "report_approval_mechanism": "<present / not_found>"
+        }
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "отчет управляющего"
+        - "ежеквартально"
+        - "форма отчета"
+        - "дополнительная информация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "reporting_frequency"
+          type: "string"
+          allowed_values: ["monthly", "quarterly", "annual", "other", "not_found"]
+          description: "Периодичность отчетности"
+        - name: "report_content_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Определено ли содержание отчета"
+        - name: "right_to_request_additional_info"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли право запроса дополнительной информации"
+        - name: "report_approval_mechanism"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли механизм принятия/оспаривания отчета"
+      store_payload: true
+
+  - id: du_mark_usage_check
+    name: "Использование обозначения 'Д.У.' в деятельности управляющего"
+    description: "Проверяет наличие обязанности управляющего указывать свой статус доверительного управляющего"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "д.у."
+        - "действует в качестве доверительного управляющего"
+        - "указание статуса"
+        - "во всех документах"
+        - "при подписании документов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bД[.]?\\s?У[.]?\\b"
+        - "(?i)действует.*доверительн(ого|ый)\\s+управляющ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь, предусмотрено ли в договоре использование управляющим обозначения "Д.У." и аналогичных указаний на статус.
+
+        Ответь строго в JSON:
+        {
+          "du_mark_obligation": "<present / not_found>",
+          "all_documents_covered": "<yes / no / unclear / not_found>",
+          "liability_if_omitted": "<specified / not_found>"
+        }
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "Д.У."
+        - "доверительный управляющий"
+        - "во всех документах"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 450
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "du_mark_obligation"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли обязанность использовать обозначение Д.У."
+        - name: "all_documents_covered"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Распространяется ли требование на все документы/сделки"
+        - name: "liability_if_omitted"
+          type: "string"
+          allowed_values: ["specified", "not_found"]
+          description: "Указаны ли последствия неиспользования обозначения"
+      store_payload: true
+
+  - id: real_estate_registration_check
+    name: "Недвижимость в ДУ: государственная регистрация"
+    description: "Проверяет наличие регистрационного механизма при передаче недвижимости в доверительное управление"
+    triggers:
+      any: ["real_estate_in_trust"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "егрн"
+        - "обременение"
+        - "регистрация доверительного управления"
+        - "росреестр"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)ЕГРН|Росреестр"
+        - "(?i)обременени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления недвижимостью.
+        Проверь, урегулирована ли государственная регистрация доверительного управления.
+
+        Ответь строго в JSON:
+        {
+          "registration_clause_status": "<present / not_found>",
+          "registration_body": "<rosreestr / other / not_found>",
+          "who_files_for_registration": "<settlor / trustee / both / not_found>",
+          "registration_costs_allocated": "<yes / no / not_found>"
+        }
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "государственная регистрация"
+        - "росреестр"
+        - "егрн"
+        - "обременение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "registration_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Есть ли регистрационная оговорка"
+        - name: "registration_body"
+          type: "string"
+          allowed_values: ["rosreestr", "other", "not_found"]
+          description: "Орган регистрации"
+        - name: "who_files_for_registration"
+          type: "string"
+          allowed_values: ["settlor", "trustee", "both", "not_found"]
+          description: "Кто подает документы на регистрацию"
+        - name: "registration_costs_allocated"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Распределены ли расходы на регистрацию"
+      store_payload: true
+
+  - id: conflict_of_interest_check
+    name: "Конфликт интересов и сделки с аффилированными лицами"
+    description: "Проверяет раскрытие и ограничение конфликта интересов при управлении имуществом"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "конфликт интересов"
+        - "аффилированные лица"
+        - "сделки с самим собой"
+        - "раскрытие конфликта интересов"
+        - "приоритет интересов учредителя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфликт\\s+интерес"
+        - "(?i)аффилированн"
+        - "(?i)сделк.*с\\s+самим\\s+собой"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь, урегулирован ли конфликт интересов управляющего.
+
+        Ответь строго в JSON:
+        {
+          "conflict_management_status": "<present / partial / not_found>",
+          "affiliate_transactions_regulated": "<yes / no / not_found>",
+          "disclosure_obligation": "<yes / no / not_found>"
+        }
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "конфликт интересов"
+        - "аффилированные лица"
+        - "раскрытие"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "conflict_management_status"
+          type: "string"
+          allowed_values: ["present", "partial", "not_found"]
+          description: "Статус регулирования конфликта интересов"
+        - name: "affiliate_transactions_regulated"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Урегулированы ли сделки с аффилированными лицами"
+        - name: "disclosure_obligation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли обязанность раскрытия конфликта интересов"
+      store_payload: true
+
+  - id: trustee_personal_liability_check
+    name: "Ответственность управляющего личным имуществом (ст. 1022 ГК РФ)"
+    description: "Проверяет условия субсидиарной ответственности управляющего личным имуществом"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ответственность личным имуществом"
+        - "субсидиарная ответственность"
+        - "взыскание на имущество управляющего"
+        - "превышение полномочий"
+        - "без указания статуса"
+        - "обязательства за счет управляющего"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност[ьи].{0,40}личн(ым|ого)\\s+имуществ"
+        - "(?i)субсидиарн(ая|ой)\\s+ответственност"
+        - "(?i)превышен(ие|ия)\\s+полномоч"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь условия ответственности управляющего личным имуществом.
+
+        По ст. 1022 ГК РФ:
+        - При превышении полномочий или без указания статуса "Д.У." — 
+          управляющий отвечает личным имуществом.
+        - При недостаточности имущества в ДУ — субсидиарная ответственность.
+
+        Ответь в JSON:
+        {
+          "personal_liability_clause_present": "<yes / no / not_found>",
+          "excess_powers_liability": "<specified / not_specified / not_found>",
+          "du_mark_omission_liability": "<specified / not_specified / not_found>",
+          "subsidiary_liability_for_insufficient_assets": "<specified / not_specified / not_found>",
+          "liability_cap_present": "<yes / no / not_found>",
+          "liability_clause_risk": "<high / medium / low>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "ответственность личным имуществом"
+        - "субсидиарная ответственность"
+        - "превышение полномочий"
+        - "без указания статуса"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "personal_liability_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия о личной ответственности"
+        - name: "excess_powers_liability"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Ответственность за превышение полномочий"
+        - name: "subsidiary_liability_for_insufficient_assets"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Субсидиарная ответственность"
+        - name: "liability_clause_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low"]
+          description: "Риск недостаточности регулирования"
+      store_payload: true
+
+  - id: delegation_and_subcontracting_check
+    name: "Передача управления третьим лицам (ст. 1021 ГК РФ)"
+    description: "Проверяет условия привлечения третьих лиц к осуществлению управления"
+    triggers:
+      any: ["delegation_to_third_party"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "передача управления"
+        - "привлечение третьих лиц"
+        - "поручение третьему лицу"
+        - "действия от имени управляющего"
+        - "лично осуществляет управление"
+        - "с согласия учредителя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)передач[аи]\\s+управлен"
+        - "(?i)привлечен(ие|ия)\\s+третьих\\s+лиц"
+        - "(?i)лично\\s+осуществля"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь условия передачи управления третьим лицам.
+
+        По ст. 1021 ГК РФ:
+        - Управляющий должен осуществлять управление лично
+        - Исключение: договор/обстоятельства допускают иное
+        - При делегировании управляющий отвечает за действия третьего лица
+
+        Ответь в JSON:
+        {
+          "personal_management_obligation": "<present / absent / not_found>",
+          "delegation_permitted": "<yes / no / with_consent / not_found>",
+          "delegation_conditions": "<описание или not_found>",
+          "liability_for_delegates": "<specified / not_specified / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "передача управления"
+        - "третьи лица"
+        - "лично"
+        - "поручение"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "personal_management_obligation"
+          type: "string"
+          allowed_values: ["present", "absent", "not_found"]
+          description: "Обязанность личного управления"
+        - name: "delegation_permitted"
+          type: "string"
+          allowed_values: ["yes", "no", "with_consent", "not_found"]
+          description: "Допустимость делегирования"
+        - name: "liability_for_delegates"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Ответственность за действия третьих лиц"
+      store_payload: true
+
+  - id: bankruptcy_protection_check
+    name: "Защита имущества при банкротстве участников"
+    description: "Проверяет защиту имущества в ДУ при банкротстве учредителя, управляющего или выгодоприобретателя"
+    triggers:
+      any: ["bankruptcy_of_parties"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "банкротство"
+        - "несостоятельность"
+        - "конкурсная масса"
+        - "обращение взыскания"
+        - "имущество не включается в конкурсную массу"
+        - "прекращение договора"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)банкротств|несостоятельност"
+        - "(?i)конкурсн(ая|ой)\\s+масс"
+        - "(?i)обращени[ея]\\s+взыскан"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь защиту имущества при банкротстве участников.
+
+        Ключевые моменты:
+        - Имущество в ДУ не включается в конкурсную массу управляющего (ст. 1018)
+        - При банкротстве учредителя — прекращение ДУ, имущество в конкурсную массу
+        - При банкротстве выгодоприобретателя — особенности
+
+        Ответь в JSON:
+        {
+          "bankruptcy_clauses_present": "<yes / no / not_found>",
+          "settlor_bankruptcy_consequences": "<specified / not_specified / not_found>",
+          "trustee_bankruptcy_protection": "<specified / not_specified / not_found>",
+          "beneficiary_bankruptcy_consequences": "<specified / not_specified / not_found>",
+          "early_termination_on_bankruptcy": "<automatic / by_notice / not_specified / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "банкротство"
+        - "конкурсная масса"
+        - "прекращение договора"
+        - "несостоятельность"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "bankruptcy_clauses_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие банкротных оговорок"
+        - name: "settlor_bankruptcy_consequences"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Последствия банкротства учредителя"
+        - name: "trustee_bankruptcy_protection"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Защита при банкротстве управляющего"
+      store_payload: true
+
+  - id: securities_management_license_check
+    name: "ДУ ценными бумагами: лицензия и специальные требования"
+    description: "Проверяет наличие лицензии и соблюдение требований ФЗ-39"
+    triggers:
+      any: ["securities_in_trust", "professional_securities_management"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "лицензия"
+        - "профессиональный участник"
+        - "управление ценными бумагами"
+        - "банк россии"
+        - "фкцб"
+        - "управляющая компания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лиценз(ия|ии).{0,50}(управлен|ценн.*бумаг)"
+        - "(?i)профессиональн(ый|ого)\\s+участник"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор ДУ ценными бумагами.
+        Проверь соблюдение требований ФЗ-39 о рынке ценных бумаг.
+
+        Ответь в JSON:
+        {
+          "license_reference_present": "<yes / no / not_found>",
+          "license_details": "<реквизиты или not_found>",
+          "special_regulation_compliance": "<yes / no / unclear / not_found>",
+          "investment_profile_required": "<yes / no / not_found>",
+          "risk_disclosure_present": "<yes / no / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "лицензия"
+        - "профессиональный участник"
+        - "ценные бумаги"
+        - "управляющая компания"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "license_reference_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Ссылка на лицензию"
+        - name: "special_regulation_compliance"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Соответствие специальному регулированию"
+        - name: "risk_disclosure_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Раскрытие рисков"
+      store_payload: true
+
+  - id: termination_consequences_check
+    name: "Прекращение ДУ: основания, порядок и возврат имущества"
+    description: "Проверяет основания прекращения, процедуру и распределение имущества"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "прекращение договора"
+        - "расторжение"
+        - "возврат имущества"
+        - "окончательный отчет"
+        - "основания прекращения"
+        - "отказ от договора"
+        - "смерть учредителя"
+        - "ликвидация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прекращени[ея]\\s+(договора|доверительного)"
+        - "(?i)возврат\\s+имуществ"
+        - "(?i)окончательн(ый|ого)\\s+отчет"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор доверительного управления.
+        Проверь условия прекращения договора (ст. 1024 ГК РФ).
+
+        Ответь в JSON:
+        {
+          "termination_grounds_listed": "<exhaustive / non_exhaustive / not_found>",
+          "unilateral_termination_right": "<both_parties / settlor_only / trustee_only / not_found>",
+          "notice_period": "<срок или not_found>",
+          "final_report_required": "<yes / no / not_found>",
+          "property_return_procedure": "<specified / not_specified / not_found>",
+          "income_distribution_on_termination": "<specified / not_specified / not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "прекращение договора"
+        - "возврат имущества"
+        - "расторжение"
+        - "окончательный отчет"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "termination_grounds_listed"
+          type: "string"
+          allowed_values: ["exhaustive", "non_exhaustive", "not_found"]
+          description: "Перечень оснований прекращения"
+        - name: "unilateral_termination_right"
+          type: "string"
+          allowed_values: ["both_parties", "settlor_only", "trustee_only", "not_found"]
+          description: "Право на односторонний отказ"
+        - name: "property_return_procedure"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Порядок возврата имущества"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "trust_property_identification"
+    name: "Состав имущества, передаваемого в доверительное управление"
+    description: "Проверяет наличие достаточной идентификации имущества, передаваемого в управление"
+    legal_base: "ст. 1012, 1016 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "состав имущества"
+        - "имущество, передаваемое"
+        - "передается в доверительное управление"
+        - "перечень имущества"
+        - "имущественные права"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)передает\\s+в\\s+доверительное\\s+управление"
+        - "(?i)состав\\s+имуществ"
+        - "(?i)перечень\\s+имуществ"
+
+  - id: "beneficiary_identification_required"
+    name: "Выгодоприобретатель: идентификация"
+    description: "Проверяет наличие имени/наименования выгодоприобретателя либо указание, что управление осуществляется в интересах самого учредителя"
+    legal_base: "ст. 1016 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "выгодоприобретатель"
+        - "в интересах учредителя"
+        - "в интересах третьего лица"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)выгодоприобретател"
+        - "(?i)в\\s+интересах\\s+(учредителя|третьего\\s+лица)"
+
+  - id: "trustee_remuneration_required"
+    name: "Вознаграждение доверительного управляющего"
+    description: "Проверяет наличие размера/формы/порядка выплаты вознаграждения управляющего"
+    legal_base: "ст. 1016, 1023 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "вознаграждение управляющего"
+        - "вознаграждение доверительного управляющего"
+        - "размер вознаграждения"
+        - "процент от дохода"
+        - "фиксированное вознаграждение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вознаграждени[ея].{0,40}управляющ"
+        - "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%\\b"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+
+  - id: "contract_term_required"
+    name: "Срок договора доверительного управления"
+    description: "Проверяет наличие срока действия договора"
+    legal_base: "ст. 1016 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок договора"
+        - "заключен на срок"
+        - "договор действует"
+        - "лет"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заключен\\s+на\\s+срок"
+        - "(?i)\\b\\d+\\s*(?:год|года|лет)\\b"
+
+  - id: "trustee_status_required"
+    name: "Статус доверительного управляющего"
+    description: "Проверяет наличие признаков допустимого статуса доверительного управляющего"
+    legal_base: "ст. 1015 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "индивидуальный предприниматель"
+        - "коммерческая организация"
+        - "ооо"
+        - "ао"
+        - "пао"
+        - "управляющая компания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(индивидуальн(ый|ого)\\s+предпринимател|ооо|ао|пао|управляющ(ая|ей)\\s+компан)"
+
+  - id: "cash_subject_legal_basis"
+    name: "Денежные средства как объект ДУ: наличие законного основания"
+    description: "Проверяет, раскрыто ли законное основание, если предметом ДУ являются денежные средства"
+    legal_base: "ст. 1013 ГК РФ, специальное законодательство"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["cash_in_trust"]
+    rules:
+      keywords:
+        - "денежные средства"
+        - "специальный закон"
+        - "управляющая компания"
+        - "инвестиционный фонд"
+        - "профессиональный участник"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)денежн(ые|ых)\\s+средств"
+        - "(?i)специальн(ый|ого)\\s+закон"
+
+  - id: "asset_segregation_required"
+    name: "Обособление имущества"
+    description: "Проверяет наличие условий об обособлении имущества от имущества учредителя и управляющего"
+    legal_base: "ст. 1018 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "обособление имущества"
+        - "отдельный баланс"
+        - "отдельный банковский счет"
+        - "обособленный учет"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обособлен(ие|ный)\\s+имуществ"
+        - "(?i)отдельн(ый|ом)\\s+баланс"
+        - "(?i)отдельн(ый|ом)\\s+банковск(ий|ом)\\s+счет"
+
+  - id: "expenses_reimbursement_mechanism"
+    name: "Возмещение необходимых расходов управляющего"
+    description: "Проверяет наличие механизма возмещения расходов доверительного управляющего"
+    legal_base: "ст. 1023 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возмещение необходимых расходов"
+        - "расходы управляющего"
+        - "за счет доходов"
+        - "возмещаемые расходы"
+        - "предварительное согласование расходов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возмещени[ея]\\s+необходим(ых|ые)\\s+расход"
+        - "(?i)расходы\\s+управляющ"
+
+  - id: "trustee_liability_standard"
+    name: "Ответственность управляющего и стандарт заботливости"
+    description: "Проверяет наличие стандарта заботливости добросовестного управляющего и правил возмещения убытков"
+    legal_base: "ст. 1022 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заботливость добросовестного управляющего"
+        - "возместить убытки"
+        - "реальный ущерб"
+        - "упущенная выгода"
+        - "если не докажет"
+      keyword_mode: "any"
+      negative_keywords:
+        - "только за вину"
+        - "ответственность ограничена вознаграждением"
+      regex_patterns:
+        - "(?i)заботливост[ьи].{0,30}добросовестн"
+        - "(?i)возместить\\s+убытк"
+
+  - id: "trustee_reporting_required"
+    name: "Отчетность доверительного управляющего"
+    description: "Проверяет наличие обязанности управляющего представлять отчеты"
+    legal_base: "ст. 1020 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отчет управляющего"
+        - "представляет отчет"
+        - "ежеквартально"
+        - "ежемесячно"
+        - "информация о совершенных сделках"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)отчет\\s+управляющ"
+        - "(?i)представля(ет|ются).*отчет"
+
+  - id: "du_mark_required"
+    name: "Указание статуса доверительного управляющего ('Д.У.')"
+    description: "Проверяет наличие обязанности управляющего действовать с указанием своего статуса"
+    legal_base: "ст. 1012 п. 3 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "д.у."
+        - "доверительный управляющий"
+        - "указывать статус"
+        - "во всех документах"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bД[.]?\\s?У[.]?\\b"
+        - "(?i)указыват[ья].{0,30}статус"
+
+  - id: "real_estate_registration_required"
+    name: "Недвижимость в ДУ: регистрация в ЕГРН"
+    description: "Проверяет наличие условий о государственной регистрации доверительного управления недвижимостью"
+    legal_base: "ст. 1017 ГК РФ, ФЗ-218"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["real_estate_in_trust"]
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "егрн"
+        - "росреестр"
+        - "обременение"
+        - "регистрация доверительного управления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)ЕГРН|Росреестр"
+
+  - id: "conflict_of_interest_management"
+    name: "Конфликт интересов и сделки с аффилированными лицами"
+    description: "Проверяет наличие оговорок о конфликте интересов и аффилированности"
+    legal_base: "ст. 10 ГК РФ, общие принципы добросовестности"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфликт интересов"
+        - "аффилированные лица"
+        - "сделки с самим собой"
+        - "раскрытие конфликта"
+        - "приоритет интересов учредителя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфликт\\s+интерес"
+        - "(?i)аффилированн"
+
+  - id: "termination_and_return_of_property"
+    name: "Прекращение ДУ и возврат имущества"
+    description: "Проверяет порядок прекращения договора, окончательного отчета и возврата имущества"
+    legal_base: "ст. 1024 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "прекращение договора"
+        - "возврат имущества"
+        - "окончательный отчет"
+        - "передача имущества учредителю"
+        - "основания прекращения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прекращени[ея]\\s+договора"
+        - "(?i)возврат\\s+имуществ"
+
+  - id: "personal_liability_for_excess_powers"
+    name: "Ответственность управляющего личным имуществом при превышении полномочий"
+    description: "Проверяет раскрытие последствий превышения полномочий управляющего"
+    legal_base: "ст. 1022 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "превышение полномочий"
+        - "ответственность личным имуществом"
+        - "без указания статуса"
+        - "за счет управляющего"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)превышен(ие|ия)\\s+полномоч"
+        - "(?i)ответственност[ьи].{0,30}личн(ым|ого)"
+
+  - id: "delegation_restrictions"
+    name: "Ограничения на передачу управления третьим лицам"
+    description: "Проверяет условия привлечения третьих лиц к управлению"
+    legal_base: "ст. 1021 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "лично осуществляет"
+        - "передача управления"
+        - "привлечение третьих лиц"
+        - "с согласия учредителя"
+        - "отвечает за действия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лично\\s+осуществля"
+        - "(?i)привлечен(ие|ия)\\s+третьих"
+
+  - id: "securities_license_required"
+    name: "Лицензия для ДУ ценными бумагами"
+    description: "Проверяет наличие лицензии профучастника при ДУ ценными бумагами"
+    legal_base: "ст. 5 ФЗ № 39-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["securities_in_trust"]
+    rules:
+      keywords:
+        - "лицензия"
+        - "профессиональный участник"
+        - "управляющая компания"
+        - "брокер"
+        - "депозитарий"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лиценз(ия|ии|ию)"
+        - "(?i)профессиональн(ый|ого)\\s+участник"
+
+  - id: "bankruptcy_consequences_clause"
+    name: "Последствия банкротства участников ДУ"
+    description: "Проверяет наличие условий о последствиях банкротства сторон"
+    legal_base: "ст. 1018, 1024 ГК РФ, ФЗ-127"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "банкротство"
+        - "несостоятельность"
+        - "конкурсная масса"
+        - "прекращение при банкротстве"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)банкротств|несостоятельност"
+        - "(?i)конкурсн(ая|ой)\\s+масс"
+
+  - id: "pledge_of_trust_rights"
+    name: "Залог прав из договора ДУ"
+    description: "Проверяет условия залога прав требования из договора ДУ"
+    legal_base: "ст. 358.1-358.8 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["pledge_of_trust_rights"]
+    rules:
+      keywords:
+        - "залог прав"
+        - "залог требования"
+        - "обременение прав"
+        - "права из договора"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)залог\\s+прав"
+        - "(?i)обременен(ие|ия)\\s+прав"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор и освобождение от ответственности"
+    description: "Проверяет условия об обстоятельствах непреодолимой силы"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "чрезвычайные обстоятельства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+        - "(?i)непреодолим(ая|ой)\\s+сил"
+
+  - id: "confidentiality_clause"
+    name: "Конфиденциальность информации о ДУ"
+    description: "Проверяет условия о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "банковская тайна"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)неразглашен"
+
+  - id: "governing_law_and_disputes"
+    name: "Применимое право и разрешение споров"
+    description: "Проверяет наличие арбитражной оговорки"
+    legal_base: "ГК РФ, АПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "арбитражный суд"
+        - "разрешение споров"
+        - "подсудность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+
+  - id: "automatic_renewal_clause"
+    name: "Автоматическое продление договора"
+    description: "Проверяет условия автоматического продления"
+    legal_base: "ст. 1016 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "автоматическое продление"
+        - "пролонгация"
+        - "возобновление договора"
+        - "на тех же условиях"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)автоматическ(ое|ого|и)\\s+(продлен|пролонгац)"
+        - "(?i)возобновл(ение|яется)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  trust_subject_extraction:
+    text: >
+      Просим предоставить по {doc_names}: полную структуру доверительного управления —
+      состав передаваемого имущества, сведения об учредителе управления,
+      доверительном управляющем, выгодоприобретателе, срок договора,
+      размер и порядок выплаты вознаграждения управляющего.
+    addressee: "Учредитель управления / Доверительный управляющий"
+
+  trust_property_identification:
+    text: >
+      Просим предоставить по {doc_names} точный перечень имущества,
+      передаваемого в доверительное управление, с индивидуализирующими признаками,
+      приложениями-описями и подтверждающими правами учредителя документами.
+    addressee: "Учредитель управления"
+
+  beneficiary_identification_required:
+    text: >
+      Просим уточнить по {doc_names}, кто является выгодоприобретателем:
+      сам учредитель управления или третье лицо, и предоставить полные
+      идентификационные данные выгодоприобретателя.
+    addressee: "Учредитель управления"
+
+  trustee_remuneration_required:
+    text: >
+      Просим уточнить в {doc_names}: размер, форму и порядок выплаты
+      вознаграждения доверительного управляющего, а также отдельно раскрыть
+      базу расчета переменной части вознаграждения, если она предусмотрена.
+    addressee: "Доверительный управляющий / Юридический советник"
+
+  contract_term_required:
+    text: >
+      Просим уточнить по {doc_names} срок договора доверительного управления,
+      дату начала и окончания управления, а также основания продления/возобновления договора.
+    addressee: "Обе стороны"
+
+  term_exceeds_five_years:
+    text: >
+      В {doc_names} выявлен риск превышения общего предельного срока доверительного управления.
+      Просим предоставить правовое обоснование срока свыше 5 лет
+      со ссылкой на специальный закон или скорректировать договор.
+    addressee: "Юридический советник"
+
+  trustee_status_required:
+    text: >
+      Просим предоставить по {doc_names}: документы, подтверждающие допустимый статус
+      доверительного управляющего (ИП/коммерческая организация), а также регистрационные данные.
+    addressee: "Доверительный управляющий"
+
+  trustee_status_non_compliant:
+    text: >
+      В {doc_names} выявлен риск несоответствия статуса доверительного управляющего требованиям закона.
+      Просим предоставить правовое заключение о допустимости данного субъекта
+      и подтверждающие документы.
+    addressee: "Юридический советник / Доверительный управляющий"
+
+  trust_property_segregation_check:
+    text: >
+      Просим предоставить по {doc_names}: описание механизма обособления имущества,
+      сведения об отдельном балансе, отдельном банковском счете,
+      правилах раздельного учета и подтверждение, что имущество не смешивается
+      с собственным имуществом управляющего.
+    addressee: "Доверительный управляющий"
+
+  asset_segregation_required:
+    text: >
+      Просим включить/уточнить в {doc_names} положения об обособлении имущества:
+      отдельный баланс, отдельный банковский счет, раздельный учет,
+      запрет смешения активов и последствия нарушения этих требований.
+    addressee: "Юридический советник / Доверительный управляющий"
+
+  trustee_powers_and_investment_limits_check:
+    text: >
+      Просим предоставить по {doc_names}: инвестиционную декларацию,
+      перечень разрешенных и запрещенных операций, лимиты по рискам,
+      а также список действий управляющего, требующих предварительного согласия учредителя.
+    addressee: "Доверительный управляющий / Учредитель управления"
+
+  trustee_reporting_check:
+    text: >
+      Просим уточнить по {doc_names}: периодичность отчетности управляющего,
+      форму отчета, обязательное содержание, сроки направления отчета,
+      порядок утверждения/оспаривания отчета и право учредителя запрашивать дополнительную информацию.
+    addressee: "Доверительный управляющий"
+
+  trustee_reporting_required:
+    text: >
+      Просим включить в {doc_names} подробные условия отчетности управляющего:
+      периодичность, содержание, подтверждающие документы и право учредителя на проверку.
+    addressee: "Юридический советник"
+
+  expenses_reimbursement_mechanism:
+    text: >
+      Просим уточнить по {doc_names}: какие расходы доверительного управляющего
+      подлежат возмещению, за счет каких источников они покрываются,
+      какие расходы требуют предварительного согласования и как подтверждаются документально.
+    addressee: "Доверительный управляющий / Учредитель управления"
+
+  trustee_liability_standard:
+    text: >
+      Просим уточнить в {doc_names}: стандарт поведения доверительного управляющего,
+      основания ответственности за убытки, возможность взыскания упущенной выгоды,
+      а также перечень недопустимых ограничений ответственности управляющего.
+    addressee: "Юридический советник"
+
+  du_mark_usage_check:
+    text: >
+      Просим подтвердить по {doc_names}, что доверительный управляющий
+      обязан использовать обозначение "Д.У." или иное ясное указание на свой статус
+      во всех сделках и документах, связанных с имуществом в управлении.
+    addressee: "Доверительный управляющий"
+
+  du_mark_required:
+    text: >
+      Просим включить в {doc_names} прямую обязанность доверительного управляющего
+      указывать свой статус ("Д.У.") во всех документах и сделках,
+      а также последствия неисполнения этого требования.
+    addressee: "Юридический советник"
+
+  real_estate_registration_check:
+    text: >
+      По {doc_names} (недвижимость в доверительном управлении) просим предоставить:
+      порядок государственной регистрации, сведения о подаче документов в Росреестр,
+      распределение расходов на регистрацию и перечень необходимых регистрационных документов.
+    addressee: "Учредитель управления / Доверительный управляющий"
+
+  real_estate_registration_required:
+    text: >
+      Просим включить/уточнить в {doc_names} условия о государственной регистрации
+      доверительного управления недвижимостью в ЕГРН, включая порядок подачи документов,
+      распределение расходов и последствия уклонения стороны от регистрации.
+    addressee: "Юридический советник"
+
+  real_estate_trust_without_registration:
+    text: >
+      В {doc_names} выявлено отсутствие достаточного регистрационного механизма
+      при передаче недвижимости в доверительное управление.
+      Просим срочно предоставить проект регистрационной оговорки и комплект документов для ЕГРН.
+    addressee: "Юридический советник / Учредитель управления"
+
+  cash_subject_legal_basis:
+    text: >
+      По {doc_names} просим предоставить правовое основание допустимости передачи
+      денежных средств в доверительное управление со ссылкой на специальный закон,
+      статус управляющего и применимый режим регулирования.
+    addressee: "Юридический советник / Доверительный управляющий"
+
+  cash_in_trust_without_legal_basis:
+    text: >
+      В {doc_names} выявлен риск передачи денежных средств в доверительное управление
+      без достаточного законного основания. Просим предоставить правовое заключение
+      о допустимости такой конструкции и специальное нормативное основание.
+    addressee: "Юридический советник"
+
+  conflict_of_interest_check:
+    text: >
+      Просим предоставить по {doc_names}: политику управления конфликтом интересов,
+      правила сделок с аффилированными лицами, порядок раскрытия конфликта
+      и механизмы защиты интересов учредителя и выгодоприобретателя.
+    addressee: "Доверительный управляющий"
+
+  conflict_of_interest_management:
+    text: >
+      Просим включить/уточнить в {doc_names} положения о конфликте интересов:
+      раскрытие аффилированности, ограничения на сделки с самим собой,
+      предварительное согласование конфликтных сделок и последствия нарушения.
+    addressee: "Юридический советник"
+
+  termination_and_return_of_property:
+    text: >
+      Просим уточнить по {doc_names}: основания прекращения доверительного управления,
+      порядок составления окончательного отчета, сроки возврата имущества,
+      передачи документов и распределения доходов/расходов на дату прекращения.
+    addressee: "Обе стороны"
+
+  trustee_personal_liability_check:
+    text: >
+      Просим предоставить по {doc_names}: условия ответственности управляющего
+      личным имуществом, включая последствия превышения полномочий,
+      неиспользования обозначения "Д.У." и субсидиарную ответственность
+      при недостаточности имущества в управлении.
+    addressee: "Юридический советник / Доверительный управляющий"
+
+  personal_liability_for_excess_powers:
+    text: >
+      Просим уточнить в {doc_names}: какие действия управляющего считаются
+      превышением полномочий, каковы последствия и как распределяется
+      ответственность между имуществом в ДУ и личным имуществом управляющего.
+    addressee: "Юридический советник"
+
+  delegation_and_subcontracting_check:
+    text: >
+      Просим предоставить по {doc_names}: условия привлечения третьих лиц
+      к осуществлению управления, требуется ли согласие учредителя,
+      как распределяется ответственность за действия таких лиц.
+    addressee: "Доверительный управляющий / Юридический советник"
+
+  delegation_restrictions:
+    text: >
+      Просим уточнить в {doc_names}: вправе ли управляющий привлекать
+      третьих лиц к управлению, при каких условиях, и кто несёт
+      ответственность за их действия.
+    addressee: "Юридический советник"
+
+  delegation_without_authorization:
+    text: >
+      В {doc_names} выявлен риск делегирования управления без надлежащих
+      полномочий. Просим уточнить основания привлечения третьих лиц
+      и ответственность управляющего за их действия.
+    addressee: "Юридический советник / Доверительный управляющий"
+
+  bankruptcy_protection_check:
+    text: >
+      Просим предоставить по {doc_names}: условия о последствиях банкротства
+      учредителя, управляющего и выгодоприобретателя, включая защиту
+      имущества от включения в конкурсную массу и порядок прекращения ДУ.
+    addressee: "Юридический советник"
+
+  bankruptcy_consequences_clause:
+    text: >
+      Просим включить/уточнить в {doc_names}: последствия банкротства
+      каждой из сторон, порядок прекращения ДУ и возврата имущества,
+      очерёдность удовлетворения требований.
+    addressee: "Юридический советник"
+
+  securities_management_license_check:
+    text: >
+      По {doc_names} (ДУ ценными бумагами) просим предоставить: реквизиты
+      лицензии профессионального участника рынка ценных бумаг,
+      подтверждение соответствия требованиям ФЗ-39 и Банка России.
+    addressee: "Доверительный управляющий"
+
+  securities_license_required:
+    text: >
+      Просим предоставить по {doc_names}: лицензию на осуществление
+      деятельности по управлению ценными бумагами и подтверждение
+      статуса профессионального участника рынка ценных бумаг.
+    addressee: "Доверительный управляющий"
+
+  securities_trust_without_license:
+    text: >
+      В {doc_names} выявлен риск ДУ ценными бумагами без лицензии.
+      Просим срочно предоставить лицензию профучастника или
+      скорректировать предмет договора.
+    addressee: "Юридический советник / Доверительный управляющий"
+
+  termination_consequences_check:
+    text: >
+      Просим предоставить по {doc_names}: исчерпывающий перечень оснований
+      прекращения ДУ, право на односторонний отказ, сроки уведомления,
+      порядок составления окончательного отчёта и возврата имущества.
+    addressee: "Обе стороны / Юридический советник"
+
+  pledge_of_trust_rights:
+    text: >
+      Просим уточнить по {doc_names}: допустим ли залог прав из договора ДУ,
+      каковы условия и ограничения, требуется ли согласие управляющего.
+    addressee: "Юридический советник"
+
+  force_majeure_clause:
+    text: >
+      Просим включить/уточнить в {doc_names}: перечень обстоятельств
+      непреодолимой силы, порядок уведомления, последствия для
+      обязательств сторон.
+    addressee: "Юридический советник"
+
+  confidentiality_clause:
+    text: >
+      Просим включить/уточнить в {doc_names}: условия о конфиденциальности
+      информации, связанной с договором ДУ, срок неразглашения, исключения.
+    addressee: "Юридический советник"
+
+  governing_law_and_disputes:
+    text: >
+      Просим уточнить в {doc_names}: применимое право и компетентный суд
+      для разрешения споров.
+    addressee: "Юридический советник"
+
+  automatic_renewal_clause:
+    text: >
+      Просим уточнить в {doc_names}: условия автоматического продления
+      договора, порядок отказа от продления и последствия.
+    addressee: "Обе стороны"
+
+  no_liability_limitation_clause:
+    text: >
+      В {doc_names} выявлен риск недопустимого ограничения ответственности
+      управляющего. Просим привести условия в соответствие со ст. 1022 ГК РФ
+      и фидуциарным характером отношений.
+    addressee: "Юридический советник"
+
+  trustee_beneficiary_same_person:
+    text: >
+      В {doc_names} выявлен риск совпадения управляющего и выгодоприобретателя,
+      что запрещено ст. 1015 ГК РФ. Просим скорректировать структуру сторон.
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

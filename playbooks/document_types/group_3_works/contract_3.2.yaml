@@ -1,0 +1,1829 @@
+type: contract_3.2
+name: "Договор бытового подряда"
+
+description: |
+  Специальный вид подряда, где Заказчиком всегда выступает гражданин (потребитель),
+  заказывающий работу для удовлетворения бытовых, семейных, личных и иных нужд,
+  не связанных с предпринимательской деятельностью. Подрядчик — предприниматель или
+  организация, осуществляющая соответствующую деятельность. Регулируется § 2 Главы 37
+  ГК РФ и Законом о защите прав потребителей (ЗоЗПП), что создаёт повышенный уровень
+  защиты прав Заказчика. Договор является публичным (ст. 426 ГК РФ).
+
+version: 3.0
+parent: class_3_work_performance
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: work_performance
+  complexity: medium
+  risk_level: high  # Высокий риск для подрядчика из-за потребительского законодательства
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 2 Главы 37 ГК РФ (ст. 730-739); ЗоЗПП № 2300-1"
+  doc_types_supported:
+    - "договор бытового подряда"
+    - "договор на выполнение работ для граждан"
+    - "договор на ремонт для физического лица"
+    - "договор на пошив одежды (потребительский)"
+    - "договор на изготовление мебели для граждан"
+    - "потребительский подряд"
+    - "публичный договор подряда"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)бытов.*подряд"
+      - "(?i)потребитель.*подряд"
+      - "(?i)ремонт.*граждан"
+      - "(?i)заказ.*граждан"
+
+    folder_patterns:
+      - "(?i)бытовой.*подряд"
+      - "(?i)consumer.*contract"
+      - "(?i)ремонт.*население"
+
+    keywords:
+
+      high:
+        - "бытовой подряд"
+        - "заказчик-потребитель"
+        - "для личных бытовых нужд"
+        - "потребитель"
+        - "закон о защите прав потребителей"
+        - "зозпп"
+        - "публичный договор"
+        - "гражданин-заказчик"
+
+      medium:
+        - "гражданин"
+        - "для личных нужд"
+        - "для семейных нужд"
+        - "ремонт для граждан"
+        - "бытовые услуги"
+        - "смета для потребителя"
+        - "гарантийный срок"
+        - "претензия потребителя"
+        - "подрядчик-предприниматель"
+        - "услуги населению"
+
+      low:
+        - "для семьи"
+        - "не для предпринимательской деятельности"
+        - "розничные услуги"
+        - "ип"
+        - "физическое лицо"
+
+    exclusions:
+      - "для предпринимательской деятельности заказчика"
+      - "юридическое лицо в роли заказчика"
+      - "строительный подряд между организациями"
+      - "возмездное оказание услуг"
+      - "договор возмездного оказания услуг"
+      - "неовеществлённый результат"
+      - "НИОКР"
+      - "научно-исследовательские работы"
+      - "агентский договор"
+      - "договор комиссии"
+      - "транспортная экспедиция"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  consumer_party:
+    any_keywords:
+      - "гражданин"
+      - "потребитель"
+      - "физическое лицо"
+      - "паспорт"
+      - "дата рождения"
+      - "для личных нужд"
+      - "для семейных нужд"
+      - "для бытовых нужд"
+      - "не для предпринимательской деятельности"
+
+  legal_entity_as_customer:
+    any_keywords:
+      - "ООО"
+      - "АО"
+      - "ЗАО"
+      - "ПАО"
+      - "заказчик-организация"
+      - "юридическое лицо"
+      - "ОГРН"
+      - "КПП"
+      - "общество"
+
+  business_purpose:
+    any_keywords:
+      - "для бизнеса"
+      - "для предпринимательской деятельности"
+      - "для коммерческого использования"
+      - "в производственных целях"
+
+  estimate_present:
+    any_keywords:
+      - "смета"
+      - "калькуляция"
+      - "расчёт стоимости"
+      - "твёрдая смета"
+      - "смета является твёрдой"
+
+  advance_payment:
+    any_keywords:
+      - "аванс"
+      - "предоплата"
+      - "авансовый платёж"
+      - "предварительная оплата"
+      - "уплачивает до начала работ"
+
+  customer_supplied_materials:
+    any_keywords:
+      - "материалы заказчика"
+      - "давальческие материалы"
+      - "предоставляет заказчик"
+      - "из материалов заказчика"
+
+  warranty_period_set:
+    any_keywords:
+      - "гарантийный срок"
+      - "гарантия качества"
+      - "в течение гарантийного срока"
+      - "гарантийные обязательства"
+
+  significant_defects_present:
+    any_keywords:
+      - "существенный недостаток"
+      - "существенные недостатки"
+      - "неоднократное проявление"
+      - "неустранимый недостаток"
+
+  delay_occurred:
+    any_keywords:
+      - "просрочка"
+      - "нарушение сроков"
+      - "не выполнено в срок"
+      - "превышение срока"
+      - "задержка выполнения"
+
+  materials_by_contractor:
+    any_keywords:
+      - "материалы подрядчика"
+      - "иждивение подрядчика"
+      - "из материалов подрядчика"
+      - "подрядчик обеспечивает материалами"
+
+  renovation_work:
+    any_keywords:
+      - "ремонт квартиры"
+      - "ремонт дома"
+      - "ремонт жилого помещения"
+      - "отделочные работы"
+      - "косметический ремонт"
+      - "капитальный ремонт квартиры"
+      - "сантехнические работы"
+      - "электромонтажные работы"
+      - "установка окон"
+      - "установка дверей"
+      - "укладка плитки"
+      - "поклейка обоев"
+      - "натяжной потолок"
+
+  custom_manufacturing:
+    any_keywords:
+      - "пошив одежды"
+      - "пошив штор"
+      - "изготовление мебели"
+      - "изготовление на заказ"
+      - "по индивидуальному проекту"
+      - "по эскизу заказчика"
+      - "индивидуальный заказ"
+      - "ювелирное изделие на заказ"
+      - "изготовление ключей"
+      - "ателье"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  date_period: "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн)"
+  percent_pattern: "(?i)\\b\\d+([,.]\\d+)?\\s*%\\s*(в\\s+(день|месяц|год))?"
+  passport_pattern: "(?i)(паспорт.*серия|серия\\s+\\d{4}\\s+номер\\s+\\d{6})"
+  inn_individual: "(?i)\\bИНН\\s*:?\\s*\\d{12}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "legal_entity_customer_disqualification"
+    name: "Дисквалификация: заказчик — юридическое лицо (не бытовой подряд)"
+    description: |
+      Бытовой подряд применяется ТОЛЬКО если заказчик — гражданин (физическое лицо),
+      заказывающий работу для личных, семейных, бытовых нужд (ст. 730 ГК РФ).
+      Если заказчик — организация или ИП, заказывающий работу для бизнеса,
+      это общий подряд (§ 1 Главы 37 ГК РФ). ЗоЗПП не применяется.
+    legal_base: "ст. 730 ГК РФ"
+    required_triggers: ["legal_entity_as_customer"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ООО"
+        - "АО"
+        - "ОГРН"
+        - "юридическое лицо"
+        - "КПП"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "заказчик"
+        - "юридическое лицо"
+        - "ОГРН"
+      rerank: true
+
+  - id: "business_purpose_disqualification"
+    name: "Дисквалификация: работа для предпринимательской деятельности (не бытовой подряд)"
+    description: |
+      Бытовой подряд требует, чтобы работа заказывалась НЕ для предпринимательских целей.
+      Если результат используется в коммерческих целях — применяется общий подряд.
+    legal_base: "ст. 730 ГК РФ"
+    required_triggers: ["business_purpose", "consumer_party"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "для бизнеса"
+        - "для предпринимательской деятельности"
+        - "в производственных целях"
+        - "для коммерческого использования"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "цель использования"
+        - "предпринимательская деятельность"
+      rerank: true
+
+  - id: "illegal_refusal_penalty_clause"
+    name: "Незаконное ограничение права потребителя на отказ: штраф/неустойка за расторжение (ст. 731 ГК РФ, ст. 32 ЗоЗПП)"
+    description: |
+      Любое договорное условие, ограничивающее право потребителя на отказ от договора
+      (штраф, неустойка, запрет отказа), НИЧТОЖНО по ст. 16 ЗоЗПП.
+      Потребитель вправе отказаться в любое время, оплатив только фактически выполненное
+      и возместив расходы на материалы.
+    legal_base: "ст. 731 ГК РФ; ст. 32, ст. 16 ЗоЗПП"
+    required_triggers: ["consumer_party"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "штраф за отказ"
+        - "неустойка за расторжение"
+        - "запрет на односторонний отказ"
+        - "штраф за досрочное расторжение"
+        - "удержание аванса в полном размере при отказе"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "штраф за отказ"
+        - "неустойка за расторжение"
+        - "запрет отказа"
+      rerank: true
+
+  - id: "illegal_warranty_claim_period_reduction"
+    name: "Незаконное сокращение сроков предъявления претензий (ст. 29 ЗоЗПП)"
+    description: |
+      Потребитель вправе предъявить претензии по качеству в течение гарантийного срока,
+      а при его отсутствии — в разумный срок, но в пределах 2 лет (5 лет для недвижимости).
+      Условия вроде «претензии принимаются только в течение 3/5/7 дней с момента приёмки»
+      или «после подписания акта претензии не принимаются» — ничтожны по ст. 16 ЗоЗПП.
+    legal_base: "ст. 29 ЗоЗПП; ст. 16 ЗоЗПП; ст. 737 ГК РФ"
+    required_triggers: ["consumer_party"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "претензии принимаются только в течение"
+        - "претензии не принимаются после подписания акта"
+        - "претензии предъявляются в течение 3 дней"
+        - "претензии предъявляются в течение 5 дней"
+        - "после приёмки претензии не принимаются"
+        - "подписание акта исключает претензии"
+        - "акт подтверждает отсутствие недостатков"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "претензии"
+        - "срок предъявления"
+        - "после приёмки"
+        - "подписание акта"
+      rerank: true
+
+  - id: "illegal_bundled_services_consumer"
+    name: "Навязывание дополнительных платных услуг/материалов (ст. 16 ЗоЗПП, ст. 731 ГК РФ)"
+    description: |
+      Подрядчик не вправе обусловливать выполнение основной работы обязательным
+      приобретением дополнительных услуг или материалов, не предусмотренных
+      первоначальным соглашением. Навязывание допуслуг (страхование, сервисное
+      обслуживание, расходные материалы) — нарушение ст. 16 ЗоЗПП.
+    legal_base: "ст. 16 ЗоЗПП; ст. 731 ГК РФ; п. 1 ст. 421 ГК РФ"
+    required_triggers: ["consumer_party"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "обязан приобрести дополнительно"
+        - "услуга оказывается при условии"
+        - "обязательное сервисное обслуживание"
+        - "обязательная страховка"
+        - "обязательное приобретение материалов у подрядчика"
+        - "работа выполняется только при условии"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "дополнительные услуги"
+        - "обязательное"
+        - "навязывание"
+        - "при условии приобретения"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: subject_consumer_purpose_extraction
+    name: "Предмет и потребительское назначение работы (ст. 730, 732 ГК РФ)"
+    description: "Извлекает описание работы, результата и подтверждение личного/бытового назначения. Коммерческое назначение = не бытовой подряд"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "для личных нужд"
+        - "для бытовых нужд"
+        - "для семейных нужд"
+        - "подрядчик обязуется выполнить"
+        - "результат работы"
+        - "не для предпринимательской деятельности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)для\\s+(личных|бытовых|семейных|домашних)\\s+нужд"
+        - "(?i)подрядчик.*обязуется.*выполнить"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор бытового подряда (§ 2 Главы 37 ГК РФ).
+        Извлеки сведения о предмете договора и его потребительском назначении.
+
+        Ответь строго в JSON:
+        {
+          "work_description": "<описание работы или not_found>",
+          "material_result": "<описание овеществлённого результата или not_found>",
+          "consumer_purpose": "<yes / no / unclear / not_found>",
+          "purpose_snippet": "<цитата о назначении работы или not_found>",
+          "technical_task_referenced": "<yes / no / not_found>"
+        }
+
+        - "consumer_purpose": "yes" — работа прямо для личных/бытовых/семейных нужд;
+          "no" — коммерческое использование; "unclear" — назначение не указано.
+
+        ВАЖНО: Если значение явно не указано в тексте — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "предмет договора"
+        - "для личных нужд"
+        - "результат работы"
+        - "техническое задание"
+        - "не для предпринимательской деятельности"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "work_description"
+          type: "string"
+          keyword_hints: ["подрядчик обязуется", "выполнить работу", "предмет"]
+          description: "Описание содержания работы"
+        - name: "material_result"
+          type: "string"
+          keyword_hints: ["результат работы", "сдать заказчику", "изготовить", "отремонтировать"]
+          description: "Описание овеществлённого результата"
+        - name: "consumer_purpose"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Работа заказана для личных/бытовых/семейных нужд"
+      store_payload: true
+
+  - id: deadlines_and_penalty_risk_analysis
+    name: "Сроки выполнения и риск неустойки 3%/день (ст. 27, 28 ЗоЗПП)"
+    description: "Проверяет конкретность сроков. При просрочке по ЗоЗПП автоматически начисляется 3% цены работы за каждый день — крупный финансовый риск для подрядчика"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "срок выполнения"
+        - "начало работ"
+        - "конечный срок"
+        - "не позднее"
+        - "в течение"
+        - "дата начала"
+        - "дата окончания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор бытового подряда.
+        Проверь сроки выполнения работ и оцени риск неустойки по ст. 28 ЗоЗПП
+        (3% цены работы за каждый день просрочки).
+
+        Ответь строго в JSON:
+        {
+          "start_date": "<дата начала или not_found>",
+          "end_date": "<дата окончания или not_found>",
+          "deadlines_specific": "<yes / vague / not_found>",
+          "penalty_3pct_mentioned": "<yes / no / not_found>",
+          "deadline_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "deadlines_specific": "yes" — конкретные даты; "vague" — размытые формулировки.
+        - "penalty_3pct_mentioned": упоминается ли неустойка 3% по ст. 28 ЗоЗПП явно.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "срок выполнения"
+        - "начало работ"
+        - "не позднее"
+        - "ст. 28 ЗоЗПП"
+        - "3% цены работы"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "start_date"
+          type: "string"
+          keyword_hints: ["начало работ", "дата начала", "начальный срок"]
+          description: "Начальный срок выполнения работ"
+        - name: "end_date"
+          type: "string"
+          keyword_hints: ["срок завершения", "конечный срок", "не позднее"]
+          description: "Конечный срок выполнения работ"
+        - name: "deadlines_specific"
+          type: "string"
+          allowed_values: ["yes", "vague", "not_found"]
+          description: "Конкретность указания сроков"
+        - name: "penalty_3pct_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упоминание неустойки 3% по ст. 28 ЗоЗПП"
+      store_payload: true
+
+  - id: estimate_firmness_check
+    name: "Смета: твёрдость, запрет доплат, порядок изменения (ст. 735 ГК РФ, ст. 33 ЗоЗПП)"
+    description: "Смета в бытовом подряде — всегда твёрдая. Подрядчик не вправе требовать доплат; потребитель — уменьшения цены. Нарушение → право потребителя на отказ от договора с возвратом уплаченного"
+    triggers:
+      any: ["estimate_present"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "смета"
+        - "твёрдая смета"
+        - "цена не подлежит изменению"
+        - "запрет на требование доплат"
+        - "изменение цены только с согласия"
+        - "дополнительные работы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)твёрд(ая|ой)\\s+(смет|цен)"
+        - "(?i)цена.*не\\s+подлежит.*изменению"
+        - "(?i)смет[аы].*является.*твёрдой"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор бытового подряда.
+        Проверь условия о смете и цене работы (ст. 735 ГК РФ, ст. 33 ЗоЗПП).
+
+        Ответь строго в JSON:
+        {
+          "estimate_type": "<firm / approximate / not_specified / not_found>",
+          "price_amount": "<сумма с валютой или not_found>",
+          "surcharge_prohibition": "<explicit / implied / absent / not_found>",
+          "additional_works_procedure": "<described / not_described / not_found>",
+          "estimate_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "firm" — смета прямо названа твёрдой, изменение запрещено без согласия;
+        - "approximate" — указано, что цена может меняться (риск нарушения ст. 735 ГК РФ);
+        - "surcharge_prohibition": "explicit" — прямо запрещено требовать доплат.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "смета"
+        - "твёрдая смета"
+        - "цена не подлежит изменению"
+        - "ст. 735 ГК РФ"
+        - "ст. 33 ЗоЗПП"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "estimate_type"
+          type: "string"
+          allowed_values: ["firm", "approximate", "not_specified", "not_found"]
+          description: "Тип сметы/цены: твёрдая или приблизительная"
+        - name: "surcharge_prohibition"
+          type: "string"
+          allowed_values: ["explicit", "implied", "absent", "not_found"]
+          description: "Запрет на требование доплат сверх сметы"
+        - name: "additional_works_procedure"
+          type: "string"
+          allowed_values: ["described", "not_described", "not_found"]
+          description: "Порядок согласования дополнительных работ"
+      store_payload: true
+
+  - id: mandatory_consumer_information_check
+    name: "Обязательная информация подрядчика для потребителя (ст. 8-10 ЗоЗПП, ст. 732 ГК РФ)"
+    description: "Подрядчик обязан предоставить полную информацию о себе, работе, материалах, порядке исполнения и правах потребителя. Нарушение → административная ответственность и право потребителя на отказ"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "подрядчик предоставляет информацию"
+        - "сведения о материалах"
+        - "информация о подрядчике"
+        - "права потребителя"
+        - "памятка потребителя"
+        - "рекомендации по эксплуатации"
+        - "предупреждение о последствиях"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*обязан.*предоставить.*информацию"
+        - "(?i)ст\\.?\\s*8.*(10)?\\s+ЗоЗПП"
+        - "(?i)ст\\.?\\s*732\\s+ГК\\s+РФ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор бытового подряда.
+        Проверь наличие обязательной информации для потребителя (ст. 8-10 ЗоЗПП, ст. 732 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "contractor_info_provided": "<yes / partial / no / not_found>",
+          "work_info_provided": "<yes / partial / no / not_found>",
+          "consumer_rights_mentioned": "<yes / no / not_found>",
+          "materials_info_provided": "<yes / no / not_found>",
+          "information_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "contractor_info_provided": включает регистрационные данные, лицензию (если есть), адрес;
+        - "work_info_provided": описание работы, сроки, материалы, способ выполнения;
+        - "consumer_rights_mentioned": прямое упоминание прав потребителя по ЗоЗПП.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "информация для потребителя"
+        - "сведения о подрядчике"
+        - "права потребителя"
+        - "ст. 8 ЗоЗПП"
+        - "ст. 732 ГК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "contractor_info_provided"
+          type: "string"
+          allowed_values: ["yes", "partial", "no", "not_found"]
+          description: "Предоставлена ли информация о подрядчике"
+        - name: "consumer_rights_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упомянуты ли права потребителя"
+      store_payload: true
+
+  - id: consumer_defect_rights_check
+    name: "Права потребителя при недостатках работы (ст. 29, 30, 31 ЗоЗПП, ст. 737 ГК РФ)"
+    description: "Анализирует полноту урегулирования прав потребителя при обнаружении недостатков: безвозмездное устранение, уменьшение цены, возмещение расходов, расторжение при существенных недостатках"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "устранение недостатков"
+        - "безвозмездное исправление"
+        - "уменьшение цены"
+        - "возмещение расходов на устранение"
+        - "право отказаться от договора"
+        - "существенный недостаток"
+        - "гарантийный срок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ст\\.?\\s*29\\s+ЗоЗПП"
+        - "(?i)потребитель.*вправе.*требовать.*(устранения|уменьшения)"
+        - "(?i)существенн(ый|ые)\\s+недостат"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор бытового подряда.
+        Проверь, как урегулированы права потребителя при обнаружении недостатков (ст. 29 ЗоЗПП).
+
+        Ответь строго в JSON:
+        {
+          "free_remedy_right": "<explicit / implied / absent / not_found>",
+          "price_reduction_right": "<explicit / implied / absent / not_found>",
+          "reimbursement_right": "<explicit / implied / absent / not_found>",
+          "refusal_right_for_significant_defects": "<explicit / implied / absent / not_found>",
+          "warranty_period": "<срок или not_found>",
+          "defect_remedy_deadline": "<срок устранения или not_found>",
+          "defect_rights_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "explicit" — право прямо прописано в договоре;
+        - "implied" — вытекает из ссылки на ЗоЗПП без детализации;
+        - "absent" — условие отсутствует.
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "права потребителя при недостатках"
+        - "ст. 29 ЗоЗПП"
+        - "устранение недостатков"
+        - "существенный недостаток"
+        - "гарантийный срок"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "free_remedy_right"
+          type: "string"
+          allowed_values: ["explicit", "implied", "absent", "not_found"]
+          description: "Право на безвозмездное устранение недостатков"
+        - name: "refusal_right_for_significant_defects"
+          type: "string"
+          allowed_values: ["explicit", "implied", "absent", "not_found"]
+          description: "Право на отказ при существенных недостатках"
+        - name: "warranty_period"
+          type: "string"
+          keyword_hints: ["гарантийный срок составляет", "в течение", "месяцев", "лет"]
+          description: "Продолжительность гарантийного срока"
+      store_payload: true
+
+  - id: materials_responsibility_consumer_check
+    name: "Материалы: чьи, качество, цена, информирование (ст. 733–734 ГК РФ)"
+    description: |
+      Проверяет урегулированность вопроса о материалах: из чьих материалов
+      выполняется работа, качество и цена материалов подрядчика, сбережение
+      материалов заказчика, информирование о свойствах материалов.
+      При работе из материалов подрядчика — подрядчик несёт ответственность
+      за их качество (ст. 733 ГК РФ). При давальческих материалах —
+      подрядчик обязан сберечь и вернуть остатки (ст. 714, 728 ГК РФ).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "материалы подрядчика"
+        - "материалы заказчика"
+        - "давальческие материалы"
+        - "из материалов подрядчика"
+        - "из материалов заказчика"
+        - "иждивение подрядчика"
+        - "качество материалов"
+        - "цена материалов"
+        - "наименование материала"
+        - "стоимость материалов"
+        - "возврат остатков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)материал(ы|ов|ами)\\s+(подрядчик|заказчик)"
+        - "(?i)из\\s+(своих\\s+)?материалов"
+        - "(?i)давальческ(ие|их)\\s+материал"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор бытового подряда.
+        Проверь условия о материалах (ст. 733–734 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "materials_provider": "<contractor / customer / mixed / not_specified / not_found>",
+          "contractor_materials_price_specified": "<yes / no / not_applicable / not_found>",
+          "contractor_materials_quality_warranty": "<yes / no / not_applicable / not_found>",
+          "customer_materials_preservation": "<yes / no / not_applicable / not_found>",
+          "customer_materials_return_obligation": "<yes / no / not_applicable / not_found>",
+          "materials_information_provided": "<yes / no / not_found>",
+          "materials_snippet": "<цитата или not_found>"
+        }
+
+        - "contractor" — работа из материалов подрядчика (иждивение подрядчика)
+        - "customer" — из давальческих материалов заказчика
+        - "mixed" — часть материалов от подрядчика, часть от заказчика
+        - "contractor_materials_price_specified": указана ли цена материалов подрядчика отдельно
+        - "customer_materials_preservation": обязанность бережного хранения материалов заказчика
+        - "customer_materials_return_obligation": обязанность вернуть остатки материалов
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "материалы"
+        - "иждивение"
+        - "давальческие"
+        - "качество материалов"
+        - "возврат остатков"
+        - "ст. 733"
+        - "ст. 734"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "materials_provider"
+          type: "string"
+          allowed_values: ["contractor", "customer", "mixed", "not_specified", "not_found"]
+          description: "Кто предоставляет материалы"
+        - name: "contractor_materials_quality_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "not_found"]
+          description: "Гарантия качества материалов подрядчика"
+        - name: "customer_materials_return_obligation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "not_found"]
+          description: "Обязанность возврата остатков материалов заказчика"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_info_consumer"
+    name: "Идентификация сторон: паспортные данные потребителя и реквизиты подрядчика (ст. 9, 10 ЗоЗПП)"
+    description: "Для потребителя — ФИО, паспортные данные, адрес. Для подрядчика — полное наименование, ИНН, ОГРН/ОГРНИП, адрес, основание деятельности"
+    legal_base: "ст. 9, 10 ЗоЗПП; ст. 732 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "паспорт"
+        - "серия"
+        - "гражданин"
+        - "место жительства"
+        - "ОГРН"
+        - "ИНН"
+        - "именуем"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)паспорт.*серия"
+        - "(?i)\\bОГРН\\s*:?\\s*\\d{13,15}\\b"
+        - "(?i)\\bИНН\\s*:?\\s*\\d{10,12}\\b"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "contractor_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual_entrepreneur", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "индивидуальный предприниматель"]
+          description: "Тип подрядчика"
+        - name: "consumer_passport_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["паспорт", "серия", "выдан"]
+          description: "Наличие паспортных данных потребителя"
+      store_payload: true
+
+  - id: "subject_consumer_work"
+    name: "Предмет: работа для личных/бытовых нужд (ст. 730, 703 ГК РФ)"
+    description: "Должны быть описаны работа, результат и его личное/бытовое назначение. Отсутствие указания на назначение = риск переквалификации"
+    legal_base: "ст. 730, 703, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "для личных нужд"
+        - "для бытовых нужд"
+        - "для семейных нужд"
+        - "подрядчик обязуется выполнить"
+        - "результат работы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)для\\s+(личных|бытовых|семейных|домашних)\\s+нужд"
+        - "(?i)подрядчик.*обязуется.*выполнить"
+
+  - id: "start_and_end_dates_required"
+    name: "Начальный и конечный сроки — существенные условия (ст. 708 ГК РФ, ст. 27 ЗоЗПП)"
+    description: "Конкретные даты критически важны: просрочка по ЗоЗПП влечёт автоматическую неустойку 3% в день без доказательства убытков"
+    legal_base: "ст. 708, 432 ГК РФ; ст. 27 ЗоЗПП"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "начало работ"
+        - "начальный срок"
+        - "конечный срок"
+        - "срок выполнения"
+        - "не позднее"
+        - "в течение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+        - "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн)"
+
+  - id: "price_consumer_required"
+    name: "Цена работы (смета) — существенное условие (ст. 735 ГК РФ, ст. 37 ЗоЗПП)"
+    description: "Цена должна быть указана явно. Смета является твёрдой, подрядчик не вправе требовать доплат"
+    legal_base: "ст. 735 ГК РФ; ст. 37 ЗоЗПП"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена работы"
+        - "стоимость работ"
+        - "смета"
+        - "рублей"
+        - "вознаграждение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_amount"
+          type: "number"
+          keyword_hints: ["цена работы", "стоимость", "рублей"]
+          unit: "RUB"
+          description: "Цена договора бытового подряда"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС", "НДС не облагается"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "estimate_firmness_no_surcharge"
+    name: "Твёрдость сметы: запрет доплат сверх согласованной цены (ст. 735 ГК РФ, ст. 33 ЗоЗПП)"
+    description: "Подрядчик не вправе требовать увеличения твёрдой цены. Нарушение → право потребителя отказаться от договора и вернуть уплаченное"
+    legal_base: "ст. 735 ГК РФ; ст. 33 ЗоЗПП"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "смета является твёрдой"
+        - "цена не подлежит изменению"
+        - "запрет на требование доплат"
+        - "изменение цены только с согласия"
+        - "дополнительные работы по отдельному соглашению"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)смет[аы].*является.*твёрдой"
+        - "(?i)цена.*не\\s+подлежит.*изменению.*в\\s+одностороннем"
+        - "(?i)не\\s+вправе.*требовать.*увеличен(ия|ие).*цен"
+
+  - id: "acceptance_procedure_consumer"
+    name: "Порядок приёмки работ потребителем (ст. 720 ГК РФ)"
+    description: "Срок для приёмки и механизм односторонней приёмки при уклонении заказчика"
+    legal_base: "ст. 720 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт выполненных работ"
+        - "акт сдачи-приёмки"
+        - "порядок приёмки"
+        - "уведомление о готовности"
+        - "срок для приёмки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(сдачи|выполненных|приёмки)"
+        - "(?i)(сдать|сдача)\\s+результат"
+
+  - id: "consumer_unilateral_refusal_right"
+    name: "Право потребителя на отказ от договора в любое время (ст. 731 ГК РФ, ст. 32 ЗоЗПП)"
+    description: "Право действует в силу закона, но договор должен его отражать. Любые штрафы за отказ — ничтожны (ст. 16 ЗоЗПП)"
+    legal_base: "ст. 731 ГК РФ; ст. 32, ст. 16 ЗоЗПП"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право отказаться от договора"
+        - "в любое время до сдачи работы"
+        - "оплата фактически выполненной работы"
+        - "без применения штрафных санкций"
+      keyword_mode: "any"
+      negative_keywords:
+        - "штраф за отказ"
+        - "неустойка за расторжение"
+        - "запрет на односторонний отказ"
+      regex_patterns:
+        - "(?i)заказчик.*вправе.*отказаться.*от.*договора.*в\\s+любое\\s+время"
+        - "(?i)ст\\.?\\s*731\\s+ГК\\s+РФ"
+
+  - id: "penalty_3pct_for_delay_consumer"
+    name: "Неустойка 3% цены работы за каждый день просрочки (ст. 28 ЗоЗПП)"
+    description: "Применяется автоматически по закону. Рекомендуется прямое упоминание для информирования потребителя и управления ожиданиями подрядчика"
+    legal_base: "ст. 28 ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка 3%"
+        - "3% цены работы"
+        - "за каждый день просрочки"
+        - "ст. 28 ЗоЗПП"
+        - "пеня по закону о защите прав потребителей"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)за.*нарушение.*сроков.*3%.*цены\\s+работы"
+        - "(?i)ст\\.?\\s*28\\s+ЗоЗПП"
+
+  - id: "warranty_consumer_rights_full"
+    name: "Гарантийный срок и права потребителя при недостатках (ст. 29, 30, 31 ЗоЗПП)"
+    description: "Права потребителя: бесплатное устранение, уменьшение цены, возмещение расходов на устранение, отказ при существенных недостатках. Ограничение этих прав — ничтожно"
+    legal_base: "ст. 29, 30, 31 ЗоЗПП; ст. 722, 723, 737 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантийный срок"
+        - "устранение недостатков бесплатно"
+        - "уменьшение цены"
+        - "возмещение расходов"
+        - "существенные недостатки"
+        - "право отказаться от договора"
+      keyword_mode: "any"
+      negative_keywords:
+        - "претензии принимаются только в течение 7 дней"
+        - "гарантия не распространяется"
+      regex_patterns:
+        - "(?i)гарантийный\\s+срок\\s+составляет\\s+\\d+"
+        - "(?i)ст\\.?\\s*(29|30|31)\\s+ЗоЗПП"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "warranty_duration"
+          type: "string"
+          keyword_hints: ["гарантийный срок составляет", "в течение", "месяцев", "лет"]
+          description: "Продолжительность гарантийного срока"
+        - name: "defect_remedy_period"
+          type: "string"
+          keyword_hints: ["устранить недостатки", "в течение", "дней"]
+          description: "Срок для устранения недостатков"
+      store_payload: true
+
+  - id: "information_provision_requirement"
+    name: "Обязанность предоставления полной информации подрядчиком (ст. 8-12 ЗоЗПП, ст. 732 ГК РФ)"
+    description: "Непредоставление информации — самостоятельное нарушение: административная ответственность + право потребителя отказаться от договора с полным возвратом уплаченного"
+    legal_base: "ст. 8-12 ЗоЗПП; ст. 732 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подрядчик предоставляет информацию"
+        - "сведения о материалах"
+        - "права потребителя"
+        - "памятка потребителя"
+        - "рекомендации по эксплуатации"
+        - "предупреждение о возможных последствиях"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*обязан.*предоставить.*информацию"
+        - "(?i)ст\\.?\\s*8.*(10)?\\s+ЗоЗПП"
+
+  - id: "jurisdiction_consumer_choice"
+    name: "Подсудность по выбору потребителя (ст. 17 ЗоЗПП, ст. 29 ГПК РФ)"
+    description: "Условие об исключительной подсудности по месту нахождения подрядчика — ничтожно. Потребитель выбирает суд по своему усмотрению"
+    legal_base: "ст. 17 ЗоЗПП; ст. 29 ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подсудность по выбору потребителя"
+        - "по месту жительства потребителя"
+        - "право выбора суда"
+        - "ст. 17 ЗоЗПП"
+      keyword_mode: "any"
+      negative_keywords:
+        - "исключительная подсудность"
+        - "только по месту нахождения подрядчика"
+        - "арбитражный суд"
+      regex_patterns:
+        - "(?i)потребитель.*вправе.*обратиться.*в\\s+суд.*по.*своему\\s+выбору"
+        - "(?i)ст\\.?\\s*17\\s+ЗоЗПП"
+
+  - id: "moral_harm_acknowledgment"
+    name: "Компенсация морального вреда потребителю (ст. 15 ЗоЗПП)"
+    description: "Суды регулярно взыскивают моральный вред по делам ЗоЗПП. Упоминание в договоре повышает правовую грамотность потребителя и осведомлённость подрядчика о рисках"
+    legal_base: "ст. 15 ЗоЗПП"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "компенсация морального вреда"
+        - "возмещение морального вреда"
+        - "ст. 15 ЗоЗПП"
+        - "нравственные страдания"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)моральн(ый|ого)\\s+вред"
+        - "(?i)ст\\.?\\s*15\\s+ЗоЗПП"
+
+  - id: "advance_payment_consumer"
+    name: "Авансовый платёж и порядок расчётов при отказе (ст. 731 ГК РФ, ст. 32 ЗоЗПП)"
+    description: "При отказе потребителя подрядчик возмещает только фактические расходы. Аванс фиксирует покрытие стоимости материалов и подготовительных работ"
+    legal_base: "ст. 731 ГК РФ; ст. 32 ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "аванс"
+        - "предоплата"
+        - "авансовый платёж"
+        - "оплата по этапам"
+        - "расчёт за фактически выполненное"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик.*уплачивает.*аванс.*в\\s+размере"
+        - "(?i)при.*отказе.*заказчика.*аванс.*возврату"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "advance_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["аванс", "предоплата"]
+          description: "Наличие аванса"
+        - name: "advance_return_on_refusal"
+          type: "string"
+          allowed_values: ["full_return", "partial_return", "no_return", "not_specified", "not_found"]
+          keyword_hints: ["возврат аванса", "за вычетом расходов", "аванс не возвращается"]
+          description: "Условия возврата аванса при отказе потребителя"
+      store_payload: true
+
+  - id: "unilateral_acceptance_mechanism"
+    name: "Механизм односторонней приёмки при уклонении потребителя (ст. 720 ГК РФ)"
+    description: "Потребитель может уклоняться от приёмки. Без механизма автоматической приёмки подрядчик не может считать обязательство исполненным и требовать окончательного расчёта"
+    legal_base: "ст. 720 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "работы считаются принятыми"
+        - "односторонний акт при уклонении"
+        - "уведомление о готовности работ"
+        - "отсутствие возражений в течение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)если.*заказчик.*не.*явился.*для.*приёмки.*в\\s+течение.*\\d+.*дней.*работы.*считаются.*принятыми"
+        - "(?i)при.*уклонении.*от.*приёмки.*подрядчик.*составляет.*односторонний.*акт"
+
+  - id: "material_selection_approval"
+    name: "Согласование выбора материалов и дизайнерских решений (ст. 721 ГК РФ)"
+    description: "Потребитель может оспорить соответствие результата ожиданиям. Письменное подтверждение образцов/цветов/модели снимает претензии к качеству субъективного характера"
+    legal_base: "ст. 721 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "образцы материалов"
+        - "выбор материалов согласовывается"
+        - "утверждение дизайн-проекта"
+        - "письменное подтверждение выбора"
+        - "акт выбора материалов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заказчик.*утверждает.*образцы.*материалов"
+        - "(?i)изменение.*выбранных.*материалов.*после.*утверждения"
+
+  - id: "claim_procedure_and_timeframe"
+    name: "Процедура и сроки предъявления претензий по качеству (ст. 29 ЗоЗПП)"
+    description: "Разумный порядок предъявления претензий снижает риск необоснованных требований. Нельзя устанавливать сроки короче, чем предусмотрено ЗоЗПП"
+    legal_base: "ст. 29 ЗоЗПП"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "претензия в письменной форме"
+        - "срок для предъявления претензий"
+        - "акт о недостатках"
+        - "совместный осмотр"
+        - "экспертиза качества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензии.*предъявляются.*в\\s+письменной\\s+форме"
+        - "(?i)осмотр.*совместно\\s+с.*специалистом.*подрядчика"
+
+  - id: "improper_operation_exclusion"
+    name: "Исключение гарантии при нарушении правил эксплуатации (ст. 18 ЗоЗПП)"
+    description: "Важно разграничить: дефекты от производства и дефекты от неправильной эксплуатации. Без условия подрядчик несёт гарантию за повреждения, вызванные действиями потребителя"
+    legal_base: "ст. 18 ЗоЗПП"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "нарушение правил эксплуатации"
+        - "самостоятельный ремонт"
+        - "гарантия не распространяется"
+        - "акт о нарушении условий эксплуатации"
+        - "техническая документация и инструкции"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)гарантийные.*обязательства.*не.*распространяются.*на.*повреждения.*нарушением"
+        - "(?i)при\\s+самостоятельном\\s+ремонте.*гарантия\\s+прекращается"
+
+  - id: "retention_right_before_payment"
+    name: "Право удержания результата работ до оплаты (ст. 712, 359 ГК РФ)"
+    description: "Подрядчик вправе удерживать результат до исполнения потребителем обязанности по оплате. Ключевой инструмент при работе с заказчиками-физлицами"
+    legal_base: "ст. 712, 359 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право удержания"
+        - "удерживает результат"
+        - "не передаётся до оплаты"
+        - "до полной оплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подрядчик.*вправе.*удерживать.*результат.*до.*оплат"
+
+  - id: "payment_terms_and_schedule"
+    name: "Порядок и сроки оплаты (ст. 711 ГК РФ, ст. 37 ЗоЗПП)"
+    description: "Чёткий порядок оплаты: момент возникновения обязанности, срок оплаты после приёмки, способ расчётов"
+    legal_base: "ст. 711 ГК РФ; ст. 37 ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок оплаты"
+        - "после подписания акта"
+        - "в день приёмки"
+        - "порядок расчётов"
+        - "наличными"
+        - "безналичный расчёт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)оплат(а|у).*в\\s+течение.*\\d+.*(дней|рабоч)"
+        - "(?i)после.*подписания.*акта"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "payment_method"
+          type: "string"
+          allowed_values: ["cash", "cashless_transfer", "card", "mixed", "other", "not_found"]
+          keyword_hints: ["наличными", "безналичный расчёт", "банковская карта"]
+          description: "Способ расчётов"
+      store_payload: true
+
+  - id: "termination_grounds_and_refund"
+    name: "Расторжение: основания, возврат аванса, взаиморасчёты (ст. 453, 731 ГК РФ; ст. 32 ЗоЗПП)"
+    description: "При отказе потребителя: возврат уплаченного за вычетом фактически понесённых расходов. При отказе подрядчика: полный возврат аванса"
+    legal_base: "ст. 453, 731 ГК РФ; ст. 32 ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение договора"
+        - "отказ от исполнения"
+        - "возврат аванса"
+        - "фактически понесённые расходы"
+        - "взаиморасчёты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении)\\s+договора"
+        - "(?i)возврат.*аванс"
+        - "(?i)фактически\\s+понесённые\\s+расходы"
+
+  - id: "dispute_resolution_pretension_order"
+    name: "Претензионный порядок и разрешение споров (ст. 4 ГПК РФ; ст. 17 ЗоЗПП)"
+    description: "Срок рассмотрения претензии — 10 дней по ст. 31 ЗоЗПП. Подсудность — по выбору потребителя, не в арбитражный суд"
+    legal_base: "ст. 31 ЗоЗПП; ст. 17 ЗоЗПП; ст. 29 ГПК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "претензионный порядок"
+        - "срок рассмотрения претензии"
+        - "10 дней"
+        - "суд общей юрисдикции"
+        - "разрешение споров"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претензионный\\s+порядок"
+        - "(?i)в\\s+суд(е|ах)\\s+общей\\s+юрисдикции"
+        - "(?i)в\\s+течение\\s+10\\s+(дней|календарных)"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор: определение и последствия (ст. 401 ГК РФ)"
+    description: "При форс-мажоре сроки приостанавливаются. Важны: уведомление, максимальный период, право расторжения. Нельзя использовать для обхода неустойки по ЗоЗПП"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "чрезвычайные обстоятельства"
+        - "приостановление сроков"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс.мажор"
+        - "(?i)непреодолимой\\s+силы"
+
+  - id: "consumer_public_contract_provision"
+    name: "Публичный характер договора (ст. 426 ГК РФ)"
+    description: "Бытовой подряд — публичный договор. Подрядчик не вправе отказать потребителю при наличии возможности выполнить работу. Условия должны быть одинаковы для всех"
+    legal_base: "ст. 426 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "публичный договор"
+        - "ст. 426 ГК РФ"
+        - "одинаковые условия для всех"
+        - "не вправе отказать в заключении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)публичный\\s+договор"
+        - "(?i)ст\\.?\\s*426\\s+ГК\\s+РФ"
+
+  - id: "receipt_document_required"
+    name: "Квитанция / приёмочный документ при оформлении заказа (ст. 734 ГК РФ)"
+    description: "При оформлении заказа подрядчик выдаёт потребителю квитанцию или иной документ, содержащий обязательные реквизиты. Отсутствие квитанции затрудняет доказывание условий заказа"
+    legal_base: "ст. 734 ГК РФ; Правила бытового обслуживания населения"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "квитанция"
+        - "приёмочный документ"
+        - "расписка"
+        - "заказ-наряд"
+        - "номер заказа"
+        - "дата приёма заказа"
+        - "наименование работы"
+        - "ориентировочная стоимость"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)квитанци(я|ю|и)"
+        - "(?i)заказ[\\s\\-]?наряд"
+        - "(?i)ст\\.?\\s*734\\s+ГК\\s+РФ"
+
+  - id: "customer_materials_safekeeping"
+    name: "Сбережение материалов заказчика и возврат остатков (ст. 714, 728 ГК РФ)"
+    description: "При работе из давальческих материалов подрядчик обязан использовать их экономно, вернуть остатки и отходы, а также нести ответственность за порчу/утрату"
+    legal_base: "ст. 714, 728, 733 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["customer_supplied_materials"]
+    rules:
+      keywords:
+        - "сбережение материалов"
+        - "бережное отношение"
+        - "возврат остатков"
+        - "возврат неиспользованных материалов"
+        - "ответственность за утрату"
+        - "ответственность за повреждение"
+        - "акт приёма материалов"
+        - "расход материалов"
+        - "отходы материалов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возврат.*(остатк|неиспользованн)"
+        - "(?i)ответственност.*за.*(утрат|повреждени|порч).*материал"
+
+  - id: "contractor_materials_price_quality"
+    name: "Материалы подрядчика: цена, качество, замена (ст. 733 ГК РФ)"
+    description: "При работе из материалов подрядчика: их стоимость указывается отдельно в смете, подрядчик гарантирует качество, замена на эквивалент — с согласия заказчика"
+    legal_base: "ст. 733 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["materials_by_contractor"]
+    rules:
+      keywords:
+        - "стоимость материалов"
+        - "наименование материала"
+        - "марка материала"
+        - "качество материалов гарантируется"
+        - "замена материалов"
+        - "согласование замены"
+        - "эквивалентный материал"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)стоимост(ь|и)\\s+материал"
+        - "(?i)замен(а|ы)\\s+материал.*согласован"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "materials_price_separate"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["стоимость материалов", "цена материалов отдельно"]
+          description: "Выделена ли стоимость материалов отдельно"
+      store_payload: true
+
+  - id: "confidentiality_renovation"
+    name: "Конфиденциальность при ремонте жилья (доступ в жилое помещение)"
+    description: "При ремонте квартиры/дома подрядчик получает доступ к жилому помещению. Необходимы условия о конфиденциальности, допуске третьих лиц, сохранности имущества"
+    legal_base: "ст. 25 Конституции РФ; ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["renovation_work"]
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "доступ в жилое помещение"
+        - "сохранность имущества"
+        - "допуск работников"
+        - "режим доступа"
+        - "ответственность за имущество заказчика"
+        - "график доступа"
+        - "ключи от помещения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)доступ.*в.*жилое\\s+помещени"
+        - "(?i)сохранност(ь|и)\\s+имуществ"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_info_consumer:
+    text: >
+      Просим подтвердить по {doc_names}: (а) ФИО, паспортные данные (серия, номер,
+      кем выдан), дату рождения, адрес регистрации потребителя; (б) полное наименование,
+      ИНН, ОГРН/ОГРНИП, адрес, ФИО подписанта подрядчика (ст. 9, 10 ЗоЗПП).
+    addressee: "Обе стороны"
+
+  subject_consumer_work:
+    text: >
+      В {doc_names} просим уточнить: (а) детальное описание работы и результата;
+      (б) явное указание на личное/бытовое назначение (не для предпринимательской
+      деятельности); (в) ТЗ или спецификацию как приложение (ст. 730, 732 ГК РФ).
+    addressee: "Обе стороны"
+
+  start_and_end_dates_required:
+    text: >
+      В {doc_names} просим указать конкретные даты начала и окончания работ (ст. 708 ГК РФ,
+      ст. 27 ЗоЗПП). Внимание: размытые сроки увеличивают риск неустойки 3% в день
+      по ст. 28 ЗоЗПП при любых задержках.
+    addressee: "Подрядчик"
+
+  price_consumer_required:
+    text: >
+      Просим уточнить в {doc_names}: (а) итоговую цену работ цифрами и прописью;
+      (б) включает ли цена стоимость материалов; (в) НДС (если применимо).
+      Смета является твёрдой по ст. 735 ГК РФ.
+    addressee: "Обе стороны"
+
+  estimate_firmness_no_surcharge:
+    text: >
+      Просим добавить в {doc_names} явное условие о твёрдости сметы: подрядчик не вправе
+      требовать доплат сверх согласованной цены (ст. 735 ГК РФ, ст. 33 ЗоЗПП).
+      Дополнительные работы — только по отдельному письменному соглашению.
+    addressee: "Юридический советник подрядчика"
+
+  acceptance_procedure_consumer:
+    text: >
+      Просим уточнить в {doc_names}: (а) форму акта выполненных работ; (б) срок
+      для приёмки после уведомления о готовности; (в) механизм автоматической приёмки
+      при уклонении заказчика (ст. 720 ГК РФ).
+    addressee: "Обе стороны"
+
+  consumer_unilateral_refusal_right:
+    text: >
+      Просим добавить в {doc_names} условие о праве потребителя отказаться от договора
+      в любое время до сдачи работы, оплатив только фактически выполненное и возместив
+      расходы на материалы (ст. 731 ГК РФ, ст. 32 ЗоЗПП). Любые штрафы за отказ —
+      ничтожны (ст. 16 ЗоЗПП).
+    addressee: "Юридический советник"
+
+  penalty_3pct_for_delay_consumer:
+    text: >
+      Просим включить в {doc_names} информацию для потребителя: при нарушении сроков
+      подрядчик уплачивает неустойку 3% цены работы за каждый день просрочки (ст. 28
+      ЗоЗПП), но не более полной цены работы. Сумма неустойки не ограничивается договором.
+    addressee: "Юридический советник подрядчика"
+
+  warranty_consumer_rights_full:
+    text: >
+      Просим уточнить в {doc_names}: (а) гарантийный срок; (б) срок для безвозмездного
+      устранения недостатков (по закону — 20 дней, ст. 30 ЗоЗПП); (в) права потребителя
+      при существенных/неустранимых недостатках (отказ от договора + возврат денег,
+      ст. 29 ЗоЗПП). Сокращение этих прав договором — ничтожно.
+    addressee: "Юридический советник"
+
+  information_provision_requirement:
+    text: >
+      Просим подтвердить по {doc_names}: как выполняется обязанность по предоставлению
+      полной информации (ст. 8-10 ЗоЗПП, ст. 732 ГК РФ): (а) сведения о подрядчике
+      (регистрация, лицензия); (б) о работе (материалы, технология); (в) рекомендации
+      по эксплуатации; (г) памятка о правах потребителя. Непредоставление = право
+      потребителя на отказ с полным возвратом.
+    addressee: "Подрядчик"
+
+  jurisdiction_consumer_choice:
+    text: >
+      Просим проверить в {doc_names}: условие о подсудности. Любая оговорка об
+      исключительной подсудности по месту нахождения подрядчика — ничтожна.
+      Потребитель вправе обратиться: по месту жительства, нахождения подрядчика
+      или заключения договора (ст. 17 ЗоЗПП, ст. 29 ГПК РФ).
+    addressee: "Юридический советник подрядчика"
+
+  moral_harm_acknowledgment:
+    text: >
+      Рекомендуем включить в {doc_names} информацию для потребителя о праве на
+      компенсацию морального вреда при нарушении его прав (ст. 15 ЗоЗПП).
+      Для подрядчика: это повышенный финансовый риск при любых нарушениях сроков или качества.
+    addressee: "Юридический советник"
+
+  advance_payment_consumer:
+    text: >
+      Просим уточнить в {doc_names}: (а) размер аванса (% от цены); (б) порядок возврата
+      при отказе потребителя — только фактически понесённые расходы, остаток подлежит
+      возврату (ст. 731 ГК РФ, ст. 32 ЗоЗПП); (в) срок возврата.
+    addressee: "Обе стороны"
+
+  unilateral_acceptance_mechanism:
+    text: >
+      Просим добавить в {doc_names} механизм автоматической приёмки: если заказчик
+      не явился для приёмки в течение [N] дней после уведомления о готовности —
+      работы считаются принятыми, подрядчик составляет односторонний акт (ст. 720 ГК РФ).
+    addressee: "Юридический советник подрядчика"
+
+  material_selection_approval:
+    text: >
+      Просим предусмотреть в {doc_names} фиксацию выбора материалов потребителем:
+      акт/протокол выбора образцов, цветов, моделей с подписью заказчика. Изменение
+      выбора после утверждения — за дополнительную плату.
+    addressee: "Подрядчик"
+
+  claim_procedure_and_timeframe:
+    text: >
+      Просим уточнить в {doc_names} порядок предъявления претензий по качеству:
+      (а) форма — письменная; (б) совместный осмотр в течение [N] дней; (в) срок
+      устранения недостатков (до 20 дней по ст. 30 ЗоЗПП); (г) возможность независимой
+      экспертизы. Нельзя устанавливать сроки короче, чем в ЗоЗПП.
+    addressee: "Юридический советник"
+
+  improper_operation_exclusion:
+    text: >
+      Просим уточнить в {doc_names}: при каких условиях гарантийные обязательства
+      не распространяются на выявленные недостатки (нарушение правил эксплуатации,
+      самостоятельный ремонт, механические повреждения). Основание — ст. 18 ЗоЗПП.
+      Бремя доказывания лежит на подрядчике.
+    addressee: "Юридический советник подрядчика"
+
+  retention_right_before_payment:
+    text: >
+      Просим включить в {doc_names} право удержания результата работ до полной оплаты
+      потребителем (ст. 712, 359 ГК РФ). Особенно актуально при работе с физлицами:
+      после передачи результата рычаг воздействия теряется.
+    addressee: "Юридический советник подрядчика"
+
+  payment_terms_and_schedule:
+    text: >
+      Просим уточнить в {doc_names}: (а) способ расчётов (наличные, безналичный);
+      (б) момент возникновения обязанности оплаты (подписание акта / получение результата);
+      (в) срок окончательного расчёта.
+    addressee: "Обе стороны"
+
+  termination_grounds_and_refund:
+    text: >
+      Просим уточнить в {doc_names}: (а) основания расторжения для каждой стороны;
+      (б) порядок возврата аванса при отказе потребителя — за вычетом фактически
+      понесённых расходов (ст. 731 ГК РФ); (в) срок возврата денежных средств.
+    addressee: "Юридический советник"
+
+  dispute_resolution_pretension_order:
+    text: >
+      Просим уточнить в {doc_names}: (а) претензионный порядок (срок — 10 дней по ст. 31
+      ЗоЗПП); (б) подсудность — суд общей юрисдикции по выбору потребителя; (в) исключить
+      упоминание арбитражного суда — он неприменим к потребительским спорам.
+    addressee: "Юридический советник"
+
+  force_majeure_clause:
+    text: >
+      Просим уточнить в {doc_names} форс-мажорную оговорку: (а) перечень обстоятельств;
+      (б) срок уведомления контрагента; (в) максимальный период приостановки. Важно:
+      форс-мажор не отменяет неустойку по ст. 28 ЗоЗПП — только приостанавливает
+      течение срока, если это прямо предусмотрено.
+    addressee: "Юридический советник"
+
+  consumer_public_contract_provision:
+    text: >
+      Просим подтвердить по {doc_names}: договор является публичным (ст. 426 ГК РФ) —
+      условия должны быть одинаковы для всех потребителей. Отказ в заключении договора
+      при наличии возможности выполнить работу — незаконен. Рекомендуем прямое
+      упоминание публичного характера в преамбуле.
+    addressee: "Юридический советник подрядчика"
+
+  legal_entity_customer_disqualification:
+    text: >
+      Внимание: в {doc_names} выявлены признаки того, что заказчик — юридическое лицо
+      или ИП. Бытовой подряд (§ 2 Главы 37 ГК РФ) применяется ТОЛЬКО когда заказчик —
+      гражданин для личных нужд. Просим подтвердить: (а) статус заказчика;
+      (б) назначение работ. При коммерческом заказчике применяется общий подряд,
+      ЗоЗПП не применяется.
+    addressee: "Юридический советник"
+
+  illegal_refusal_penalty_clause:
+    text: >
+      Внимание: в {doc_names} обнаружено условие, ограничивающее право потребителя
+      на отказ от договора (штраф, неустойка, запрет). Данное условие НИЧТОЖНО
+      по ст. 16 ЗоЗПП. Просим: (а) исключить указанное условие; (б) заменить на
+      законный порядок: при отказе заказчик оплачивает только фактически выполненное
+      и возмещает расходы (ст. 731 ГК РФ, ст. 32 ЗоЗПП).
+    addressee: "Юридический советник подрядчика"
+
+  subject_consumer_purpose_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: (а) описание работы и её результата;
+      (б) явное указание на личное/бытовое/семейное назначение (ст. 730 ГК РФ);
+      (в) наличие ТЗ/спецификации как приложения.
+    addressee: "Обе стороны"
+
+  deadlines_and_penalty_risk_analysis:
+    text: >
+      Просим подтвердить по {doc_names}: (а) конкретные даты начала и окончания;
+      (б) промежуточные сроки (если применимо); (в) понимание риска неустойки
+      3% цены работы за каждый день просрочки (ст. 28 ЗоЗПП).
+    addressee: "Подрядчик"
+
+  estimate_firmness_check:
+    text: >
+      Просим подтвердить по {doc_names}: (а) смета является твёрдой (ст. 735 ГК РФ);
+      (б) подрядчик не вправе требовать доплат; (в) порядок оформления
+      дополнительных работ — только по отдельному письменному соглашению.
+    addressee: "Юридический советник"
+
+  mandatory_consumer_information_check:
+    text: >
+      Просим подтвердить по {doc_names} выполнение обязанности информирования
+      (ст. 8–10 ЗоЗПП, ст. 732 ГК РФ): (а) полные данные о подрядчике;
+      (б) описание работы, материалов, технологии; (в) рекомендации по эксплуатации;
+      (г) информация о правах потребителя по ЗоЗПП.
+    addressee: "Подрядчик"
+
+  consumer_defect_rights_check:
+    text: >
+      Просим подтвердить по {doc_names}: полнота прав потребителя при недостатках
+      (ст. 29 ЗоЗПП): безвозмездное устранение, уменьшение цены, возмещение
+      расходов, отказ при существенных недостатках. Сокращение этих прав — ничтожно.
+    addressee: "Юридический советник"
+
+  materials_responsibility_consumer_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) из чьих материалов выполняется работа
+      (ст. 733–734 ГК РФ); (б) если из материалов подрядчика — указана ли их
+      стоимость отдельно, гарантировано ли качество; (в) если из материалов
+      заказчика — обязанность сбережения и возврата остатков; (г) порядок
+      согласования замены материалов.
+    addressee: "Обе стороны"
+
+  receipt_document_required:
+    text: >
+      Просим включить в {doc_names}: выдачу квитанции или заказ-наряда при
+      оформлении заказа (ст. 734 ГК РФ): номер заказа, дата приёма, наименование
+      работы, материалы, ориентировочная стоимость, сроки выполнения, ФИО приёмщика.
+    addressee: "Подрядчик"
+
+  customer_materials_safekeeping:
+    text: >
+      Просим включить в {doc_names}: (а) акт приёма-передачи материалов заказчика;
+      (б) обязанность бережного отношения; (в) порядок и сроки возврата остатков
+      и отходов; (г) ответственность за утрату/повреждение (ст. 714, 728 ГК РФ).
+    addressee: "Подрядчик"
+
+  contractor_materials_price_quality:
+    text: >
+      Просим включить в {doc_names}: (а) наименование, марку и стоимость материалов
+      подрядчика отдельной строкой в смете (ст. 733 ГК РФ); (б) гарантию качества;
+      (в) порядок замены материалов на эквивалент — только с согласия заказчика.
+    addressee: "Подрядчик"
+
+  confidentiality_renovation:
+    text: >
+      Просим включить в {doc_names} (ремонт жилого помещения): (а) обязанность
+      конфиденциальности; (б) режим доступа работников в помещение; (в) ответственность
+      за сохранность имущества заказчика; (г) порядок передачи ключей.
+    addressee: "Подрядчик"
+
+  illegal_warranty_claim_period_reduction:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены условия, сокращающие срок предъявления
+      претензий по качеству по сравнению с ЗоЗПП (ст. 29). Условия вроде
+      «претензии только в течение 3 дней» или «подписание акта исключает претензии» —
+      ничтожны. Просим исключить такие условия.
+    addressee: "Юридический советник подрядчика"
+
+  illegal_bundled_services_consumer:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены условия о навязывании дополнительных
+      платных услуг или обязательном приобретении материалов у подрядчика
+      как условие выполнения основной работы. Это нарушает ст. 16 ЗоЗПП.
+      Просим сделать дополнительные услуги опциональными.
+    addressee: "Юридический советник подрядчика"
+
+  business_purpose_disqualification:
+    text: >
+      Внимание: в {doc_names} заказчик — физическое лицо, но работа заказана
+      для предпринимательских/коммерческих целей. Бытовой подряд (§ 2 Главы 37 ГК РФ)
+      и ЗоЗПП в этом случае не применяются. Просим переквалифицировать договор
+      в общий подряд (§ 1 Главы 37 ГК РФ).
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

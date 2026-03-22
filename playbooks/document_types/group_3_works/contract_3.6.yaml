@@ -1,0 +1,1560 @@
+type: contract_3.6
+name: "Договор участия в долевом строительстве (ДДУ)"
+
+description: |
+  Специализированный публичный договор, жёстко регулируемый Федеральным законом № 214-ФЗ.
+  Сочетает элементы подряда (обязанность построить объект) и купли-продажи будущей недвижимости.
+  Характеризуется максимальной защитой прав дольщиков: обязательная государственная регистрация договора,
+  расчёты через эскроу-счета, фиксированная законом неустойка, гарантии Фонда защиты прав.
+  Отклонение от императивных норм 214-ФЗ не допускается. Любые "серые" схемы привлечения средств (ПДКП, займы) незаконны.
+
+version: 3.0
+parent: class_3_work_performance
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: real_estate_development
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "Федеральный закон от 30.12.2004 № 214-ФЗ"
+  hierarchy_position: "child_specialized_high_risk"
+  doc_types_supported:
+    - "договор участия в долевом строительстве"
+    - "ДДУ"
+    - "договор долевого участия"
+    - "договор с застройщиком на квартиру в новостройке"
+    - "договор долевого строительства многоквартирного дома"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)дду"
+      - "(?i)долев.*строительств"
+      - "(?i)ddu"
+      - "(?i)dolev.*"
+
+    folder_patterns:
+      - "(?i)214.?фз"
+      - "(?i)долев.*строительств"
+      - "(?i)новостройк"
+      - "(?i)дду"
+
+    keywords:
+
+      high:
+        - "долевое строительство"
+        - "договор участия в долевом строительстве"
+        - "ДДУ"
+        - "застройщик"
+        - "участник долевого строительства"
+        - "объект долевого строительства"
+        - "ОДС"
+        - "проектная декларация"
+        - "эскроу-счёт"
+        - "эскроу-счет"
+        - "Федеральный закон № 214-ФЗ"
+        - "214-ФЗ"
+        - "разрешение на строительство"
+
+      medium:
+        - "условный номер объекта"
+        - "передаточный акт"
+        - "неустойка по 214-ФЗ"
+        - "разрешение на ввод в эксплуатацию"
+        - "кадастровые работы"
+        - "экспликация"
+        - "взнос в компенсационный фонд"
+        - "фонд защиты прав дольщиков"
+        
+      low:
+        - "многоквартирный дом"
+        - "квартира в новостройке"
+        - "паевый взнос"
+        - "застройщик обязан построить"
+        - "дольщик"
+
+    exclusions:
+      - "жилищно-строительный кооператив"
+      - "ЖСК"
+      - "инвестиционный договор"
+      - "предварительный договор купли-продажи"
+      - "ПДКП"
+      - "договор купли-продажи готовой недвижимости"
+      - "договор займа"
+      - "вексельная схема"
+      - "серый"
+      - "договор подряда"
+      - "строительный подряд"
+      - "генподряд"
+      - "договор инвестирования"
+      - "договор купли-продажи готовой квартиры"
+      - "договор управления МКД"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  ddu_legal_markers:
+    any_keywords:
+      - "договор участия в долевом строительстве"
+      - "ДДУ"
+      - "Федеральный закон № 214-ФЗ"
+      - "214-ФЗ"
+      - "объект долевого строительства"
+      - "ОДС"
+
+  escrow_present:
+    any_keywords:
+      - "эскроу-счёт"
+      - "эскроу-счет"
+      - "счёт эскроу"
+      - "банк-эскроу"
+      - "кредитная организация-эскроу"
+
+  participant_is_individual:
+    any_keywords:
+      - "паспорт гражданина"
+      - "физическое лицо"
+      - "гражданин"
+      - "дата рождения"
+      - "место жительства"
+
+  illegal_scheme_indicators:
+    any_keywords:
+      - "предварительный договор купли-продажи"
+      - "ПДКП"
+      - "инвестиционный договор"
+      - "договор займа"
+      - "вексель"
+      - "пай"
+      - "член ЖСК"
+      - "жилищно-строительный кооператив"
+
+  ready_real_estate:
+    any_keywords:
+      - "объект построен и введён в эксплуатацию"
+      - "объект введен в эксплуатацию"
+      - "свидетельство о праве собственности"
+      - "зарегистрирован переход права"
+
+  with_finishing:
+    any_keywords:
+      - "с отделкой"
+      - "чистовая отделка"
+      - "под ключ"
+      - "отделка квартиры"
+      - "отделочные работы"
+
+  consumer_context:
+    any_keywords:
+      - "потребитель"
+      - "Закон о защите прав потребителей"
+      - "ЗоЗПП"
+      - "ст. 17 Закона о защите прав потребителей"
+
+  penalty_214_pattern:
+    any_keywords:
+      - "1/300 ключевой ставки"
+      - "1/150 ключевой ставки"
+      - "п. 2 ст. 6 214-ФЗ"
+      - "неустойка за просрочку передачи"
+
+  unilateral_refusal_participant:
+    any_keywords:
+      - "право на односторонний отказ"
+      - "ст. 9 214-ФЗ"
+      - "отказ в любое время до передачи объекта"
+
+  assignment_clause_present:
+    any_keywords:
+      - "уступка прав требования"
+      - "цессия"
+      - "договор уступки"
+      - "переуступка ДДУ"
+
+  force_majeure_present:
+    any_keywords:
+      - "обстоятельства непреодолимой силы"
+      - "форс-мажор"
+      - "не отвечает за просрочку при форс-мажоре"
+
+  mortgage_purchase:
+    any_keywords:
+      - "ипотека"
+      - "ипотечный кредит"
+      - "кредитный договор"
+      - "кредитные средства"
+      - "заёмные средства"
+      - "банк-кредитор"
+      - "целевой кредит"
+      - "закладная"
+
+  acceptance_inspection:
+    any_keywords:
+      - "осмотр Объекта"
+      - "осмотр квартиры"
+      - "приёмка Объекта"
+      - "акт осмотра"
+      - "замечания по качеству"
+      - "дефектная ведомость"
+      - "акт о несоответствии"
+      - "существенные недостатки"
+      - "несущественные недостатки"
+
+  project_changes_reserved:
+    any_keywords:
+      - "изменение проектной документации"
+      - "изменение проекта"
+      - "вправе вносить изменения"
+      - "корректировка проекта"
+      - "отклонение от проекта"
+      - "застройщик вправе изменить"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб\\.?|рублей|₽|тыс\\.?|млн\\.?|млрд\\.?)"
+  date_pattern: "\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  date_period: "(?i)(не\\s+позднее|в\\s+течение)\\s+\\d+\\s*(календарн|рабоч|дн|месяц)"
+  percent_pattern: "\\b\\d+([,.]\\d+)?\\s*%\\b"
+  cb_rate_fraction: "1/150|1/300"
+  escrow_account_pattern: "(?i)(сч[её]т\\s+эскроу|эскроу-сч[её]т)"
+  ddu_required_mention: "(?i)договор.*участия.*в.*долевом.*строительстве"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "illegal_scheme_disqualification"
+    name: "Дисквалификация: серые схемы привлечения средств вместо ДДУ"
+    description: |
+      Использование ПДКП, займов, векселей, ЖСК и иных схем вместо ДДУ по 214-ФЗ
+      является незаконным способом привлечения средств граждан в строительство.
+    legal_base: "ФЗ № 214-ФЗ, ст. 1, 3, 4"
+    required_triggers: ["illegal_scheme_indicators"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "предварительный договор купли-продажи"
+        - "ПДКП"
+        - "инвестиционный договор"
+        - "договор займа"
+        - "вексель"
+        - "ЖСК"
+        - "жилищно-строительный кооператив"
+        - "пай"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "предмет договора"
+        - "инвестиционный договор"
+        - "привлечение средств"
+      rerank: true
+
+  - id: "ready_real_estate_disqualification"
+    name: "Дисквалификация: объект уже введён в эксплуатацию — ДДУ неприменим"
+    description: |
+      ДДУ по 214-ФЗ применяется только к объектам, ещё не введённым в эксплуатацию.
+      Для готовой недвижимости используется договор купли-продажи (§ 7 Главы 30 ГК РФ).
+    legal_base: "ФЗ № 214-ФЗ, ст. 4; ФЗ № 218-ФЗ"
+    required_triggers: ["ready_real_estate"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "объект введён в эксплуатацию"
+        - "объект введен в эксплуатацию"
+        - "разрешение на ввод получено"
+        - "зарегистрировано право собственности"
+        - "свидетельство о праве собственности"
+        - "готовый объект"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "ввод в эксплуатацию"
+        - "готовый объект"
+        - "свидетельство о праве"
+      rerank: true
+      
+  - id: "payment_before_registration_forbidden"
+    name: "Незаконная оплата до государственной регистрации ДДУ (ст. 5 ч. 3 214-ФЗ)"
+    description: |
+      Ст. 5 ч. 3 214-ФЗ запрещает застройщику принимать денежные средства до государственной регистрации ДДУ.
+      Условия о предоплате, авансе или полной оплате до регистрации создают высокий риск потери средств
+      и являются ничтожными.
+    legal_base: "ст. 5 ч. 3 214-ФЗ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "оплата в день подписания"
+        - "внести аванс до регистрации"
+        - "оплатить до регистрации"
+        - "оплата при заключении договора"
+      keyword_mode: "any"
+      negative_keywords:
+        - "после государственной регистрации"
+        - "с даты регистрации договора"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "порядок расчётов"
+        - "оплата"
+        - "регистрация"
+      rerank: true
+
+  - id: "no_escrow_for_individual_participant"
+    name: "Отсутствие эскроу-счёта для гражданина-участника"
+    description: |
+      Для участников-граждан расчёты по ДДУ после 01.07.2019 должны осуществляться через счета эскроу.
+      Прямая оплата на счёт застройщика при наличии физлица как участника — нарушение 214-ФЗ.
+    legal_base: "ст. 15.4, 15.5 214-ФЗ"
+    required_triggers: ["participant_is_individual"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "оплата на расчётный счёт застройщика"
+        - "перечислить на счёт застройщика"
+        - "наличными денежными средствами"
+        - "по реквизитам застройщика"
+        - "оплата непосредственно застройщику"
+      keyword_mode: "any"
+      negative_keywords:
+        - "эскроу-счёт"
+        - "эскроу-счет"
+        - "счёт эскроу"
+        - "счет эскроу"
+        - "банк-эскроу"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "порядок расчётов"
+        - "оплата"
+        - "эскроу"
+        - "счёт застройщика"
+      rerank: true
+
+  - id: "penalty_reduction_below_statutory"
+    name: "Незаконное снижение законной неустойки ниже 1/300 (1/150) (ст. 6 ч. 2 214-ФЗ)"
+    description: |
+      Застройщик не вправе снижать размер законной неустойки за просрочку передачи ОДС
+      ниже 1/300 (для юрлиц) или 1/150 (для граждан) ключевой ставки ЦБ РФ.
+      Условия о фиксированном штрафе, кэпе неустойки, её отмене при форс-мажоре — ничтожны.
+    legal_base: "ст. 6 ч. 2 214-ФЗ, ст. 332 ГК РФ"
+    required_triggers: ["ddu_legal_markers"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "фиксированная сумма неустойки"
+        - "неустойка ограничена суммой"
+        - "не более"
+        - "неустойка не выплачивается"
+        - "неустойка не начисляется при форс-мажоре"
+        - "совокупный размер неустойки не может превышать"
+        - "максимальный размер неустойки"
+      keyword_mode: "any"
+      negative_keywords:
+        - "1/300"
+        - "1/150"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "неустойка"
+        - "ограничение"
+        - "фиксированная сумма"
+        - "максимальный размер"
+      rerank: true
+
+  - id: "bundled_services_prohibition"
+    name: "Навязывание допуслуг как условие заключения ДДУ (ст. 16 ЗоЗПП)"
+    description: |
+      Застройщик не вправе обусловливать заключение ДДУ обязательным приобретением
+      дополнительных услуг: страхование, управляющая компания, отделка, парковка, кладовая.
+      Навязывание допуслуг — нарушение ст. 16 ЗоЗПП.
+    legal_base: "ст. 16 Закона о ЗПП; п. 1 ст. 421 ГК РФ"
+    required_triggers: ["consumer_context"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "обязан заключить договор управления"
+        - "обязан приобрести"
+        - "обязательное страхование"
+        - "парковочное место является обязательным"
+        - "условием заключения настоящего Договора является"
+        - "дольщик обязуется заключить"
+        - "не может быть заключён без"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "дополнительные услуги"
+        - "обязан заключить"
+        - "условие заключения"
+        - "навязывание"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: ddu_object_description_extraction
+    name: "Описание Объекта долевого строительства (местоположение, номер, этаж, площадь)"
+    description: "Извлекает описание ОДС: адрес, условный/кадастровый номер, этаж, номер, площадь и ссылку на поэтажный план."
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "объект долевого строительства"
+        - "ОДС"
+        - "квартира"
+        - "многоквартирном доме"
+        - "условный номер"
+        - "этаж"
+        - "общая площадь"
+        - "жилая площадь"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)площад.*\\d+.*кв"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ по 214-ФЗ. Извлеки описание Объекта долевого строительства.
+
+        Ответь строго в JSON:
+        {
+          "object_address": "<адрес или not_found>",
+          "building_id": "<идентификатор дома или not_found>",
+          "unit_number": "<номер квартиры/помещения или not_found>",
+          "floor": "<этаж или not_found>",
+          "area_total": "<число кв.м или not_found>",
+          "area_living": "<число кв.м или not_found>",
+          "layout_plan_attached": "<yes / no / not_found>",
+          "object_snippet": "<цитата или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "объект долевого строительства"
+        - "условный номер"
+        - "этаж"
+        - "площадь"
+        - "поэтажный план"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 60
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "unit_number"
+          type: "string"
+          description: "Номер ОДС (квартиры/помещения)"
+        - name: "area_total"
+          type: "number"
+          description: "Общая площадь по договору, кв.м"
+      store_payload: true
+
+  - id: ddu_price_and_escrow_payment_structure
+    name: "Цена ДДУ, оплата после регистрации, эскроу-счёт"
+    description: "Проверяет твёрдость цены, порядок оплаты, запрет платёж до регистрации, использование эскроу."
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "цена договора"
+        - "стоимость Объекта"
+        - "оплата"
+        - "эскроу-счёт"
+        - "после государственной регистрации договора"
+        - "график платежей"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s]*(?:руб\\.?|рублей|₽|тыс\\.?|млн\\.?)"
+        - "(?i)(сч[её]т\\s+эскроу|эскроу-сч[её]т)"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ по 214-ФЗ. Проверь цену, порядок оплаты и эскроу.
+
+        Ответь строго в JSON:
+        {
+          "price_defined": "<yes / partial / no / not_found>",
+          "price_amount": "<сумма или not_found>",
+          "price_is_fixed": "<yes / no / not_found>",
+          "payment_after_registration": "<yes / no / not_found>",
+          "escrow_used": "<yes / no / not_found>",
+          "escrow_bank_named": "<yes / no / not_found>",
+          "payment_schedule_defined": "<yes / no / not_found>",
+          "illegal_pre_registration_payment": "<yes / no / not_found>",
+          "payment_snippet": "<цитата или not_found>"
+        }
+
+        "illegal_pre_registration_payment" = yes, если оплата допускается до регистрации ДДУ.
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "цена договора"
+        - "оплата"
+        - "эскроу"
+        - "регистрация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 60
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "price_is_fixed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Твёрдость цены ДДУ"
+        - name: "escrow_used"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Используется ли эскроу-счёт"
+      store_payload: true
+
+  - id: ddu_transfer_deadline_and_penalty
+    name: "Срок передачи ОДС и неустойка 1/300 (1/150) ставки ЦБ РФ"
+    description: "Проверяет, как указан срок передачи и отражена ли законная неустойка за просрочку."
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "срок передачи Объекта"
+        - "передача Объекта долевого строительства"
+        - "неустойка за просрочку"
+        - "1/300"
+        - "1/150"
+        - "ключевой ставки Банка России"
+      keyword_mode: "any"
+      regex_patterns:
+        - "1/300"
+        - "1/150"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ. Проверь срок передачи и неустойку по 214-ФЗ.
+
+        Ответь строго в JSON:
+        {
+          "transfer_deadline_defined": "<yes / partial / no / not_found>",
+          "transfer_deadline_type": "<calendar_date / period / vague / not_found>",
+          "penalty_clause_present": "<yes / no / not_found>",
+          "penalty_rate_compliant": "<yes / no / unclear / not_found>",
+          "consumer_participant": "<yes / no / not_found>",
+          "transfer_snippet": "<цитата или not_found>",
+          "penalty_snippet": "<цитата или not_found>"
+        }
+
+        "penalty_rate_compliant" = yes, если указаны 1/300 или 1/150 ключевой ставки ЦБ РФ
+        за каждый день просрочки от цены договора/оплаченной части.
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "срок передачи"
+        - "неустойка за просрочку"
+        - "1/300"
+        - "1/150"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 60
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "penalty_rate_compliant"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Соответствует ли размер неустойки 214-ФЗ"
+      store_payload: true
+
+  - id: ddu_participant_rights_refusal_and_assignment
+    name: "Права участника: односторонний отказ и уступка прав"
+    description: "Проверяет, отражены ли права на односторонний отказ до передачи и уступку без незаконных ограничений."
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право на односторонний отказ"
+        - "в любое время до передачи Объекта"
+        - "уступка прав требования"
+        - "цессия"
+        - "переуступка"
+        - "без согласия застройщика"
+        - "комиссия за уступку"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ. Проверь права Участника на односторонний отказ и уступку.
+
+        Ответь строго в JSON:
+        {
+          "unilateral_refusal_right_mentioned": "<yes / no / not_found>",
+          "unilateral_refusal_limitations": "<lawful / unlawful / not_found>",
+          "assignment_allowed": "<yes / no / not_found>",
+          "assignment_needs_developer_consent": "<yes / no / not_found>",
+          "assignment_fee_charged": "<yes / no / not_found>",
+          "participant_is_consumer": "<yes / no / not_found>",
+          "refusal_snippet": "<цитата или not_found>",
+          "assignment_snippet": "<цитата или not_found>"
+        }
+
+        Незаконны: запрет на уступку, комиссия за согласование, требование согласия после полной оплаты.
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "односторонний отказ"
+        - "ст. 9 214-ФЗ"
+        - "уступка прав"
+        - "цессия"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 60
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "unilateral_refusal_right_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+        - name: "assignment_needs_developer_consent"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+      store_payload: true
+
+  - id: ddu_warranty_and_defects_handling
+    name: "Гарантийные сроки и порядок устранения недостатков"
+    description: "Проверяет наличие гарантийных сроков 5/3 года и процедур устранения недостатков и претензионного порядка."
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "гарантийный срок"
+        - "конструктивные элементы"
+        - "инженерное оборудование"
+        - "5 лет"
+        - "3 года"
+        - "недостатки Объекта"
+        - "устранение недостатков"
+        - "претензия"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ. Проверь гарантийные сроки и порядок устранения недостатков.
+
+        Ответь строго в JSON:
+        {
+          "warranty_term_structural": "<>=5_years / less / not_specified / not_found>",
+          "warranty_term_engineering": "<>=3_years / less / not_specified / not_found>",
+          "defect_notification_procedure": "<yes / no / not_found>",
+          "repair_time_limit_specified": "<yes / no / not_found>",
+          "consumer_reference": "<yes / no / not_found>",
+          "warranty_snippet": "<цитата или not_found>"
+        }
+
+        Сравнивай с минимумами: 5 лет — конструктивные элементы, 3 года — инженерное оборудование.
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "гарантийный срок"
+        - "конструктивные элементы"
+        - "инженерное оборудование"
+        - "недостатки"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 60
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "warranty_term_structural"
+          type: "string"
+          allowed_values: [">=5_years", "less", "not_specified", "not_found"]
+        - name: "warranty_term_engineering"
+          type: "string"
+          allowed_values: [">=3_years", "less", "not_specified", "not_found"]
+      store_payload: true
+
+  - id: ddu_escrow_verification
+    name: "Эскроу-счёт: наличие, банк, условия раскрытия (ст. 15.4–15.5 214-ФЗ)"
+    description: |
+      Полная проверка механизма эскроу: указан ли банк, условия раскрытия счёта,
+      порядок возврата средств при банкротстве застройщика, размер страхового покрытия АСВ.
+      Для договоров после 01.07.2019 с гражданами эскроу обязателен.
+    triggers:
+      any: ["participant_is_individual", "escrow_present"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "эскроу-счёт"
+        - "эскроу-счет"
+        - "счёт эскроу"
+        - "банк-эскроу"
+        - "условия раскрытия"
+        - "раскрытие счёта"
+        - "разрешение на ввод"
+        - "АСВ"
+        - "страхование вкладов"
+        - "возврат средств с эскроу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(сч[её]т\\s+эскроу|эскроу[\\s\\-]сч[её]т)"
+        - "(?i)раскрыт(ие|ь)\\s+сч[её]т"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ по 214-ФЗ. Проверь механизм расчётов через эскроу-счёт.
+
+        Ответь строго в JSON:
+        {
+          "escrow_clause_present": "<yes / no / not_found>",
+          "escrow_bank_named": "<yes / no / not_found>",
+          "escrow_bank_name": "<название банка или not_found>",
+          "escrow_release_conditions": "<upon_permit / upon_registration / other / not_specified / not_found>",
+          "funds_return_on_bankruptcy": "<yes / no / not_found>",
+          "asv_coverage_mentioned": "<yes / no / not_found>",
+          "escrow_snippet": "<цитата или not_found>"
+        }
+
+        - "upon_permit" — раскрытие после разрешения на ввод в эксплуатацию
+        - "upon_registration" — после регистрации права собственности первого участника
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "эскроу"
+        - "банк"
+        - "раскрытие"
+        - "АСВ"
+        - "возврат средств"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "escrow_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условия об эскроу"
+        - name: "escrow_release_conditions"
+          type: "string"
+          allowed_values: ["upon_permit", "upon_registration", "other", "not_specified", "not_found"]
+          description: "Условия раскрытия эскроу"
+        - name: "asv_coverage_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упомянуто ли страхование АСВ"
+      store_payload: true
+
+  - id: ddu_acceptance_inspection_procedure
+    name: "Порядок осмотра, приёмки ОДС и фиксации недостатков (ст. 7, 8 214-ФЗ)"
+    description: |
+      Проверяет наличие процедуры осмотра объекта до подписания передаточного акта:
+      срок для осмотра, порядок фиксации недостатков, дефектная ведомость,
+      разграничение существенных/несущественных недостатков, право отказаться от приёмки.
+    triggers:
+      any: ["acceptance_inspection"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "осмотр Объекта"
+        - "осмотр квартиры"
+        - "приёмка Объекта"
+        - "передаточный акт"
+        - "дефектная ведомость"
+        - "акт о несоответствии"
+        - "существенные недостатки"
+        - "несущественные недостатки"
+        - "устранение замечаний"
+        - "повторный осмотр"
+        - "отказ от приёмки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)осмотр.*объект"
+        - "(?i)дефектн(ая|ую|ой)\\s+ведомост"
+        - "(?i)существенн(ые|ых)\\s+недостатк"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ по 214-ФЗ. Проверь порядок осмотра и приёмки Объекта.
+
+        Ответь строго в JSON:
+        {
+          "inspection_procedure_defined": "<yes / no / not_found>",
+          "inspection_period_days": "<число дней или not_found>",
+          "defect_recording_method": "<defect_sheet / written_claim / photo_protocol / not_specified / not_found>",
+          "substantial_defect_right_to_refuse": "<yes / no / not_found>",
+          "repair_deadline_specified": "<yes / no / not_found>",
+          "repeat_inspection_allowed": "<yes / no / not_found>",
+          "inspection_snippet": "<цитата или not_found>"
+        }
+
+        - "substantial_defect_right_to_refuse" = yes, если участник вправе отказаться от приёмки
+          при существенных недостатках (без подписания одностороннего акта застройщиком)
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "осмотр"
+        - "приёмка"
+        - "дефектная ведомость"
+        - "недостатки"
+        - "передаточный акт"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "inspection_procedure_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определена ли процедура осмотра"
+        - name: "substantial_defect_right_to_refuse"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Право отказаться при существенных недостатках"
+      store_payload: true
+
+  - id: ddu_force_majeure_scope_check
+    name: "Форс-мажор: проверка на злоупотребление расширением перечня (ст. 401 ГК РФ)"
+    description: |
+      Застройщики часто расширяют перечень форс-мажорных обстоятельств, включая
+      задержки получения разрешений, смену подрядчиков, нехватку стройматериалов,
+      что не является непреодолимой силой. Такие условия ухудшают положение дольщика
+      и могут быть признаны недействительными.
+    triggers:
+      any: ["force_majeure_present"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "не отвечает за просрочку"
+        - "освобождается от ответственности"
+        - "задержка получения разрешений"
+        - "действия подрядчиков"
+        - "перебои в поставках"
+        - "нехватка материалов"
+      keyword_mode: "any"
+      negative_keywords:
+        - "исключительно стихийные бедствия"
+      regex_patterns:
+        - "(?i)форс[\\s\\-]?мажор"
+        - "(?i)непреодолим(ой|ая)\\s+сил"
+    llm:
+      prompt_template: |
+        Ты анализируешь ДДУ по 214-ФЗ. Проверь оговорку о форс-мажоре на предмет
+        злоупотребления расширением перечня.
+
+        Ответь строго в JSON:
+        {
+          "force_majeure_clause_present": "<yes / no / not_found>",
+          "force_majeure_events_listed": ["<перечень событий>"],
+          "includes_non_force_majeure_events": "<yes / no / not_found>",
+          "non_fm_events_list": ["<список ненадлежащих событий (задержки разрешений, подрядчиков и т.п.)>"],
+          "abuse_risk": "<high / medium / low / none>",
+          "fm_snippet": "<цитата или not_found>"
+        }
+
+        НЕ являются форс-мажором: задержки получения разрешений, действия/бездействие подрядчиков,
+        нехватка стройматериалов, финансовые трудности, изменение курсов валют, действия контрагентов.
+        Являются: стихийные бедствия, военные действия, эпидемии (по решению властей), запретительные
+        акты государственных органов.
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "просрочка передачи"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "includes_non_force_majeure_events"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Включены ли события, не являющиеся форс-мажором"
+        - name: "abuse_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "none"]
+          description: "Риск злоупотребления форс-мажорной оговоркой"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "ddu_state_registration_clause"
+    name: "Госрегистрация ДДУ как условие заключённости"
+    description: "Проверяет, есть ли прямое указание на обязательную госрегистрацию в Росреестре и момент заключения договора."
+    legal_base: "ст. 1, 4 214-ФЗ; ФЗ № 218-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "Росреестр"
+        - "считается заключенным с момента государственной регистрации"
+        - "подлежит государственной регистрации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)считается.*заключен.*с момента.*государственной.*регистрации"
+
+  - id: "ddu_object_description_rule"
+    name: "Детальное описание ОДС (адрес, номер, этаж, площадь, планировка)"
+    description: "Проверяет наличие обязательных характеристик объекта долевого строительства и ссылки на поэтажный план."
+    legal_base: "ст. 4 ч. 4 214-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "объект долевого строительства"
+        - "условный номер"
+        - "этаж"
+        - "общая площадь"
+        - "площадь Объекта"
+        - "планировка"
+        - "поэтажный план"
+      keyword_mode: "any"
+
+  - id: "ddu_price_and_payment_after_registration_rule"
+    name: "Цена, порядок оплаты, запрет оплаты до регистрации"
+    description: "Фиксированная цена, порядок расчётов, запрет на оплату до госрегистрации."
+    legal_base: "ст. 5 214-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "цена договора"
+        - "стоимость Объекта"
+        - "оплата производится после государственной регистрации"
+        - "в течение"
+        - "рабочих дней с даты регистрации"
+      keyword_mode: "any"
+
+  - id: "ddu_transfer_deadline_rule"
+    name: "Определённый срок передачи Объекта"
+    description: "Проверяет, что срок передачи определён датой или чётко измеримым периодом, не привязан к размытым событиям."
+    legal_base: "ст. 6 214-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "срок передачи Объекта"
+        - "передать Объект не позднее"
+        - "в течение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+
+  - id: "ddu_penalty_clause_compliance_rule"
+    name: "Неустойка: 1/300 (1/150) ключевой ставки ЦБ РФ"
+    description: "Проверяет, что формулировка неустойки не ухудшает положение участника по сравнению с 214-ФЗ."
+    legal_base: "ст. 6 214-ФЗ; ЗоЗПП"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "неустойка за просрочку"
+        - "1/300"
+        - "1/150"
+        - "ключевой ставки Банка России"
+      keyword_mode: "any"
+      negative_keywords:
+        - "фиксированная сумма неустойки"
+        - "ограничивается суммой"
+        - "неустойка не выплачивается"
+      regex_patterns:
+        - "1/300"
+        - "1/150"
+
+  - id: "ddu_area_discrepancy_recalculation_rule"
+    name: "Перерасчёт цены при отклонении фактической площади"
+    description: "Проверяет наличие механизма перерасчёта и возврата/доплаты при отличии фактической площади от договорной."
+    legal_base: "ст. 6 214-ФЗ; ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "отклонения фактической площади"
+        - "перерасчёт цены"
+        - "возврат разницы"
+        - "фактическая площадь по данным БТИ"
+      keyword_mode: "any"
+
+  - id: "ddu_participant_unilateral_refusal_rule"
+    name: "Право участника-гражданина на односторонний отказ до передачи Объекта"
+    description: "Проверяет, отражено ли в тексте право на отказ и нет ли незаконных штрафов за реализацию этого права."
+    legal_base: "ст. 9 214-ФЗ; ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "право на односторонний отказ от договора"
+        - "в любое время до передачи Объекта"
+        - "возврат уплаченных денежных средств"
+        - "проценты за пользование"
+      keyword_mode: "any"
+      negative_keywords:
+        - "штраф за отказ"
+        - "неустойка за расторжение"
+        - "отказ не допускается"
+
+  - id: "ddu_assignment_right_rule"
+    name: "Уступка прав требования без незаконных ограничений"
+    description: "Проверяет, что уступка допускается и не обременена незаконными комиссиями и запретами."
+    legal_base: "ст. 11 214-ФЗ; ЗоЗПП"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "уступка прав требования"
+        - "цессия"
+        - "переуступка"
+      keyword_mode: "any"
+      negative_keywords:
+        - "комиссия за согласование уступки"
+        - "только с согласия застройщика"
+        - "уступка запрещена"
+
+  - id: "ddu_unilateral_transfer_act_rule"
+    name: "Односторонний акт передачи при уклонении участника (2 месяца)"
+    description: "Проверяет наличие права застройщика составить односторонний акт при уклонении участника."
+    legal_base: "ст. 8 ч. 6 214-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "односторонний передаточный акт"
+        - "при уклонении участника"
+        - "по истечении 2 месяцев"
+        - "уведомление о готовности Объекта"
+      keyword_mode: "any"
+
+  - id: "ddu_finishing_works_specification_rule"
+    name: "Детализированное ТЗ на отделку (если квартира 'с отделкой')"
+    description: "Проверяет наличие приложений с перечнем работ и материалов для отделки."
+    legal_base: "ст. 7 214-ФЗ; ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["with_finishing"]
+    rules:
+      keywords:
+        - "перечень работ по отделке"
+        - "техническое задание на отделку"
+        - "спецификация материалов"
+        - "чистовая отделка"
+        - "описание отделки в приложении"
+      keyword_mode: "any"
+
+  - id: "ddu_dispute_resolution_consumer_jurisdiction_rule"
+    name: "Подсудность по месту жительства потребителя и претензионный порядок"
+    description: "Проверяет отсутствие навязанной подсудности по месту нахождения застройщика и наличие претензионного порядка."
+    legal_base: "ст. 17 ЗоЗПП; ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "споры рассматриваются по месту жительства участника"
+        - "претензионный порядок"
+        - "срок для ответа на претензию"
+      keyword_mode: "any"
+      negative_keywords:
+        - "все споры рассматриваются по месту нахождения застройщика"
+        - "исключительная подсудность"
+
+  - id: "ddu_project_declaration_reference"
+    name: "Ссылка на проектную декларацию (ст. 19–21 214-ФЗ)"
+    description: "Проверяет наличие ссылки на проектную декларацию и её размещение в ЕИСЖС"
+    legal_base: "ст. 19, 20, 21 214-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "проектная декларация"
+        - "ЕИСЖС"
+        - "наш.дом.рф"
+        - "размещена на сайте"
+        - "опубликована"
+        - "ознакомлен с проектной декларацией"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)проектн(ая|ой)\\s+декларац"
+
+  - id: "ddu_developer_permits_and_land_rights"
+    name: "Разрешение на строительство и права на землю застройщика (ст. 3, 4 214-ФЗ)"
+    description: "Проверяет наличие ссылок на разрешение на строительство и правоустанавливающие документы на земельный участок"
+    legal_base: "ст. 3, 4 214-ФЗ; ГрК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение на строительство"
+        - "номер разрешения"
+        - "правоустанавливающие документы на земельный участок"
+        - "договор аренды земельного участка"
+        - "право собственности на земельный участок"
+        - "кадастровый номер земельного участка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)разрешени(е|я)\\s+на\\s+строительств"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+
+  - id: "ddu_common_property_description"
+    name: "Общее имущество МКД: описание состава и характеристик"
+    description: "Проверяет наличие описания общего имущества многоквартирного дома, передаваемого дольщикам"
+    legal_base: "ст. 4 ч. 4 п. 1 214-ФЗ; ЖК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "общее имущество"
+        - "общедомовое имущество"
+        - "места общего пользования"
+        - "придомовая территория"
+        - "благоустройство"
+        - "парковка"
+        - "подземный паркинг"
+        - "детская площадка"
+        - "инфраструктура"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)общ(ее|его)\\s+имуществ"
+        - "(?i)общедомов(ое|ого)\\s+имуществ"
+
+  - id: "ddu_compensation_fund_contribution"
+    name: "Взнос в компенсационный фонд / Фонд защиты прав дольщиков"
+    description: "Проверяет наличие информации о взносе в компенсационный фонд (для проектов без эскроу)"
+    legal_base: "ст. 23.2 214-ФЗ; ФЗ от 29.07.2017 № 218-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "компенсационный фонд"
+        - "фонд защиты прав"
+        - "фонд развития территорий"
+        - "взнос в фонд"
+        - "отчисления в фонд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)компенсационн(ый|ого)\\s+фонд"
+        - "(?i)фонд\\s+защиты\\s+прав"
+
+  - id: "ddu_developer_unilateral_project_changes"
+    name: "Право застройщика на одностороннее изменение проекта — ограничения"
+    description: "Проверяет наличие и пределы права застройщика на изменение проектной документации без согласия дольщика"
+    legal_base: "ст. 7 214-ФЗ; ст. 310 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["project_changes_reserved"]
+    rules:
+      keywords:
+        - "вправе вносить изменения в проектную документацию"
+        - "изменение проекта"
+        - "отклонение от проекта"
+        - "корректировка проектной документации"
+        - "без согласия участника"
+        - "уведомить участника"
+      keyword_mode: "any"
+      negative_keywords:
+        - "только с согласия участника"
+        - "с предварительного письменного согласия"
+      regex_patterns:
+        - "(?i)вправе.*изменять.*проектн"
+        - "(?i)без\\s+согласия\\s+участник"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  ddu_state_registration_clause:
+    text: >
+      Просим подтвердить в {doc_names}, что договор подлежит государственной регистрации
+      в Росреестре и считается заключённым с момента такой регистрации (ст. 1, 4 214-ФЗ),
+      а также что иные условия не вступают в силу до регистрации.
+    addressee: "Юридический советник"
+
+  ddu_price_and_payment_after_registration_rule:
+    text: >
+      Просим уточнить по {doc_names}: (а) указана ли твёрдая цена Договора; (б) прямо ли
+      закреплено, что оплата цены производится только после государственной регистрации ДДУ
+      (ст. 5 ч. 3 214-ФЗ); (в) приведён ли график платежей.
+    addressee: "Обе стороны"
+
+  ddu_object_description_rule:
+    text: >
+      Просим проверить, что в {doc_names} Объект долевого строительства описан в соответствии
+      с ст. 4 ч. 4 214-ФЗ: указаны адрес, условный/кадастровый номер, этаж, номер, общая
+      и жилая площадь, планировка, а также есть ссылка на поэтажный план в приложении.
+    addressee: "Обе стороны"
+
+  ddu_transfer_deadline_rule:
+    text: >
+      Просим уточнить в {doc_names} формулировку срока передачи Объекта: указана ли конкретная
+      календарная дата или чётко определённый период, не зависящий от расплывчатых событий
+      (ст. 6 214-ФЗ). Формулировки вида "после ввода дома" без даты несут повышенный риск.
+    addressee: "Юридический советник"
+
+  ddu_penalty_clause_compliance_rule:
+    text: >
+      Просим подтвердить по {doc_names}, что размер неустойки за просрочку передачи Объекта
+      соответствует ст. 6 214-ФЗ (1/300 ключевой ставки ЦБ РФ, а для граждан — 1/150)
+      и не снижен по сравнению с законом, а также не ограничен фиксированной суммой.
+    addressee: "Юридический советник"
+
+  ddu_area_discrepancy_recalculation_rule:
+    text: >
+      Просим уточнить, как в {doc_names} урегулирован перерасчёт цены при отличии фактической
+      площади Объекта от договорной: предусмотрен ли возврат разницы при уменьшении площади
+      и порядок доплаты/возврата при увеличении/уменьшении. Условия об отказе от перерасчёта
+      при "небольшом" отклонении могут быть признаны недействительными.
+    addressee: "Обе стороны"
+
+  ddu_participant_unilateral_refusal_rule:
+    text: >
+      Просим подтвердить в {doc_names} наличие указания на право участника-гражданина
+      на односторонний отказ от ДДУ до передачи Объекта (ст. 9 214-ФЗ), отсутствие штрафов
+      и неустоек за реализацию этого права, а также порядок и сроки возврата уплаченных средств.
+    addressee: "Юридический советник участника"
+
+  ddu_assignment_right_rule:
+    text: >
+      Просим уточнить в {doc_names} условия уступки прав требования (цессии): допускается ли
+      уступка после полной оплаты без согласия застройщика (ст. 11 214-ФЗ), отсутствуют ли
+      незаконные комиссии за согласование уступки и запреты на переуступку.
+    addressee: "Юридический советник"
+
+  ddu_unilateral_transfer_act_rule:
+    text: >
+      Просим подтвердить, что в {doc_names} реализовано право застройщика составить
+      односторонний передаточный акт при уклонении участника от приёмки в течение 2 месяцев
+      после уведомления о готовности Объекта (ст. 8 ч. 6 214-ФЗ), и описан порядок уведомления.
+    addressee: "Застройщик"
+
+  ddu_finishing_works_specification_rule:
+    text: >
+      Поскольку в {doc_names} квартира передаётся "с отделкой", просим приложить детальное ТЗ:
+      перечень отделочных работ, конкретные материалы, марки, производители, единицы измерения.
+      Это критично для оценки качества и последующего доказывания недостатков отделки.
+    addressee: "Застройщик"
+
+  ddu_dispute_resolution_consumer_jurisdiction_rule:
+    text: >
+      Просим проверить, что подсудность споров в {doc_names} не ограничена местом нахождения
+      застройщика и соответствует праву потребителя выбирать суд по месту своего жительства
+      (ст. 17 Закона о защите прав потребителей), а также зафиксирован претензионный порядок.
+    addressee: "Юридический советник"
+
+  payment_before_registration_forbidden:
+    text: >
+      Внимание: в {doc_names} имеются формулировки, допускающие оплату до государственной
+      регистрации ДДУ (ст. 5 ч. 3 214-ФЗ прямо запрещает приём денег до регистрации).
+      Просим удалить/исправить такие условия и закрепить оплату только после регистрации.
+    addressee: "Юридический советник"
+
+  no_escrow_for_individual_participant:
+    text: >
+      Внимание: в {doc_names} участником выступает гражданин, но не содержится условий
+      о расчётах через счёт эскроу (ст. 15.1 214-ФЗ). Просим подтвердить, почему не
+      применяется эскроу-модель, либо предусмотреть расчёты только через эскроу.
+    addressee: "Банк и застройщик"
+
+  ddu_object_description_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: описание ОДС — адрес, условный/кадастровый номер,
+      этаж, номер квартиры, общая и жилая площадь, наличие поэтажного плана в приложении.
+    addressee: "Застройщик"
+
+  ddu_price_and_escrow_payment_structure:
+    text: >
+      Просим подтвердить по {doc_names}: (а) твёрдость цены; (б) привязка оплаты
+      к государственной регистрации ДДУ; (в) использование эскроу-счёта;
+      (г) наименование банка-эскроу; (д) график платежей.
+    addressee: "Обе стороны"
+
+  ddu_transfer_deadline_and_penalty:
+    text: >
+      Просим подтвердить по {doc_names}: (а) конкретную дату передачи ОДС;
+      (б) соответствие размера неустойки ст. 6 214-ФЗ (1/300 или 1/150 ставки ЦБ);
+      (в) отсутствие кэпа неустойки и её отмены при форс-мажоре.
+    addressee: "Юридический советник участника"
+
+  ddu_participant_rights_refusal_and_assignment:
+    text: >
+      Просим подтвердить по {doc_names}: (а) право участника на односторонний отказ
+      до передачи ОДС (ст. 9 214-ФЗ); (б) отсутствие штрафов за отказ;
+      (в) допустимость уступки прав после полной оплаты без согласия застройщика;
+      (г) отсутствие комиссий за согласование уступки.
+    addressee: "Юридический советник"
+
+  ddu_warranty_and_defects_handling:
+    text: >
+      Просим подтвердить по {doc_names}: (а) гарантийный срок ≥ 5 лет на конструктив
+      и ≥ 3 лет на инженерное оборудование; (б) порядок уведомления о недостатках;
+      (в) срок устранения; (г) последствия неустранения (соразмерное уменьшение, расторжение).
+    addressee: "Застройщик"
+
+  ddu_escrow_verification:
+    text: >
+      Просим предоставить по {doc_names}: (а) реквизиты банка-эскроу;
+      (б) условия раскрытия счёта; (в) порядок возврата средств при банкротстве
+      застройщика; (г) подтверждение размера покрытия АСВ.
+    addressee: "Банк-эскроу / Застройщик"
+
+  ddu_acceptance_inspection_procedure:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок и сроки осмотра ОДС перед приёмкой;
+      (б) форму фиксации недостатков (дефектная ведомость); (в) разграничение существенных
+      и несущественных недостатков; (г) право отказаться от приёмки при существенных
+      недостатках; (д) срок устранения; (е) возможность повторного осмотра.
+    addressee: "Застройщик / Юридический советник участника"
+
+  ddu_force_majeure_scope_check:
+    text: >
+      В {doc_names} оговорка о форс-мажоре может содержать расширенный перечень
+      обстоятельств. Просим исключить из числа форс-мажора: задержки получения
+      разрешений, действия подрядчиков, нехватку стройматериалов, финансовые
+      трудности, изменение курсов валют. Эти обстоятельства не являются
+      непреодолимой силой (ст. 401 ГК РФ).
+    addressee: "Юридический советник"
+
+  ddu_project_declaration_reference:
+    text: >
+      Просим подтвердить по {doc_names}: (а) ссылку на проектную декларацию;
+      (б) дату её размещения в ЕИСЖС; (в) подтверждение ознакомления участника.
+    addressee: "Застройщик"
+
+  ddu_developer_permits_and_land_rights:
+    text: >
+      Просим предоставить по {doc_names}: (а) копию разрешения на строительство;
+      (б) правоустанавливающие документы на земельный участок (собственность/аренда);
+      (в) выписку ЕГРН на участок; (г) кадастровый номер.
+    addressee: "Застройщик"
+
+  ddu_common_property_description:
+    text: >
+      Просим уточнить в {doc_names}: описание общего имущества МКД —
+      парковка, кладовые, благоустройство, детские площадки, места общего пользования.
+    addressee: "Застройщик"
+
+  ddu_compensation_fund_contribution:
+    text: >
+      Просим подтвердить по {doc_names}: (а) уплачен ли взнос в компенсационный фонд
+      (Фонд защиты прав дольщиков / Фонд развития территорий); (б) если используется
+      эскроу — подтверждение, что взнос в фонд не требуется.
+    addressee: "Застройщик"
+
+  ddu_developer_unilateral_project_changes:
+    text: >
+      В {doc_names} может быть предусмотрено право застройщика на одностороннее
+      изменение проектной документации. Просим: (а) ограничить пределы допустимых
+      изменений; (б) установить обязанность уведомления; (в) предусмотреть право
+      участника на расторжение при существенных изменениях.
+    addressee: "Юридический советник участника"
+
+  penalty_reduction_below_statutory:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены признаки снижения законной неустойки
+      ниже размера, установленного ст. 6 ч. 2 214-ФЗ (1/300, для граждан — 1/150
+      ставки ЦБ РФ). Условия о фиксированном штрафе, кэпе неустойки — ничтожны.
+      Просим привести формулировку в соответствие с законом.
+    addressee: "Юридический советник"
+
+  bundled_services_prohibition:
+    text: >
+      ВНИМАНИЕ: в {doc_names} обнаружены условия о навязывании дополнительных услуг
+      (управляющая компания, страхование, парковка) как условие заключения ДДУ.
+      Просим исключить такие условия (ст. 16 ЗоЗПП) либо сделать их опциональными.
+    addressee: "Юридический советник участника"
+
+  illegal_scheme_disqualification:
+    text: >
+      В {doc_names} выявлены признаки «серой» схемы привлечения средств (ПДКП, займ,
+      вексель, ЖСК) вместо ДДУ по 214-ФЗ. Просим пояснить правовую модель сделки
+      и подтвердить, почему не используется ДДУ.
+    addressee: "Юридический советник"
+
+  ready_real_estate_disqualification:
+    text: >
+      В {doc_names} объект уже введён в эксплуатацию, что исключает применение
+      214-ФЗ. Для готовой недвижимости следует использовать договор купли-продажи
+      (§ 7 Главы 30 ГК РФ). Просим переоформить сделку.
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}» применительно
+      к {doc_names} для оценки соответствия ДДУ требованиям 214-ФЗ и защиты прав участника.
+    addressee: "Юридический советник"

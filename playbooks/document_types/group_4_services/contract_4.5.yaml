@@ -1,0 +1,2181 @@
+type: contract_4.5_insurance
+name: "Договор страхования"
+
+description: |
+  Соглашение, по которому страховщик обязуется за страховую премию при наступлении
+  предусмотренного договором страхового случая выплатить страховое возмещение
+  (имущественное страхование) либо страховую сумму (личное страхование).
+  Регулируется Главой 48 ГК РФ и Законом РФ от 27.11.1992 № 4015-1
+  «Об организации страхового дела в Российской Федерации».
+  Характеризуется высокой формализацией, тесной связью с Правилами страхования,
+  повышенной значимостью точного описания страхового риска, исключений из покрытия,
+  порядка уведомления о страховом случае и условий страховой выплаты.
+
+version: 4.0
+parent: class_4_service_provision
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: financial_services
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 48 ГК РФ (ст. 927-970), Закон РФ № 4015-1"
+  doc_types_supported:
+    - "договор имущественного страхования"
+    - "договор личного страхования"
+    - "страховой полис"
+    - "генеральный полис"
+    - "договор страхования ответственности"
+    - "договор добровольного страхования"
+    - "договор обязательного страхования"
+    - "полис ОСАГО"
+    - "полис КАСКО"
+    - "договор страхования груза"
+    - "договор страхования имущества"
+    - "договор страхования жизни и здоровья"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)страхован"
+      - "(?i)полис"
+      - "(?i)insurance"
+      - "(?i)osago|осаго|каско"
+
+    folder_patterns:
+      - "(?i)insurance"
+      - "(?i)страхован"
+      - "(?i)полис"
+
+    keywords:
+
+      high:
+        - "страховщик"
+        - "страхователь"
+        - "страховой полис"
+        - "страховая премия"
+        - "страховой случай"
+        - "страховая сумма"
+        - "страховое возмещение"
+        - "выгодоприобретатель"
+        - "правила страхования"
+
+      medium:
+        - "застрахованное лицо"
+        - "страховой риск"
+        - "франшиза"
+        - "суброгация"
+        - "абандон"
+        - "имущественное страхование"
+        - "личное страхование"
+        - "страхование ответственности"
+        - "обязательное страхование"
+        - "осаго"
+        - "каско"
+        - "уведомление о страховом случае"
+        - "страховая выплата"
+        - "страховое покрытие"
+
+      low:
+        - "перестрахование"
+        - "лимит ответственности"
+        - "неполное страхование"
+        - "двойное страхование"
+        - "страховой тариф"
+        - "агент"
+        - "брокер"
+
+    exclusions:
+      - "социальное страхование"
+      - "омс"
+      - "пенсионное страхование"
+      - "банковская гарантия"
+      - "поручительство"
+      - "игра и пари"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  property_insurance:
+    any_keywords:
+      - "имущественное страхование"
+      - "страхование имущества"
+      - "страховое возмещение"
+      - "имущество"
+      - "объект недвижимости"
+      - "груз"
+      - "транспортное средство"
+      - "каско"
+
+  personal_insurance:
+    any_keywords:
+      - "личное страхование"
+      - "страхование жизни"
+      - "страхование здоровья"
+      - "застрахованное лицо"
+      - "смерть"
+      - "дожитие"
+      - "несчастный случай"
+      - "болезнь"
+
+  liability_insurance:
+    any_keywords:
+      - "страхование ответственности"
+      - "гражданская ответственность"
+      - "ответственность перед третьими лицами"
+      - "профессиональная ответственность"
+      - "ответственность перевозчика"
+      - "ответственность владельца"
+
+  compulsory_insurance:
+    any_keywords:
+      - "обязательное страхование"
+      - "осаго"
+      - "федеральный закон № 40-фз"
+      - "федеральный закон № 225-фз"
+      - "обязательного страхования"
+
+  consumer_policyholder:
+    any_keywords:
+      - "гражданин"
+      - "физическое лицо"
+      - "паспорт"
+      - "страхователь - физическое лицо"
+      - "потребитель"
+
+  franchise_present:
+    any_keywords:
+      - "франшиза"
+      - "безусловная франшиза"
+      - "условная франшиза"
+      - "невозмещаемая часть убытка"
+
+  beneficiary_present:
+    any_keywords:
+      - "выгодоприобретатель"
+      - "в пользу третьего лица"
+      - "получатель страховой выплаты"
+
+  insured_person_differs_from_policyholder:
+    any_keywords:
+      - "застрахованное лицо"
+      - "в отношении жизни"
+      - "в отношении здоровья"
+      - "третье лицо является застрахованным"
+
+  mortgage_collateral_insurance:
+    any_keywords:
+      - "предмет ипотеки"
+      - "ипотечное страхование"
+      - "залогодержатель"
+      - "банк является выгодоприобретателем"
+
+  transport_insurance:
+    any_keywords:
+      - "транспортное средство"
+      - "автомобиль"
+      - "каско"
+      - "осаго"
+      - "судно"
+      - "авиа"
+
+  cargo_insurance:
+    any_keywords:
+      - "страхование груза"
+      - "груз"
+      - "перевозка"
+      - "товар в пути"
+
+  reinsurance_related:
+    any_keywords:
+      - "перестрахование"
+      - "перестраховщик"
+      - "ретроцессия"
+
+  insurer_license_reference:
+    any_keywords:
+      - "лицензия"
+      - "лицензия банка россии"
+      - "центральный банк российской федерации"
+      - "реестр субъектов страхового дела"
+
+  d_and_o_insurance:
+    any_keywords:
+      - "страхование ответственности директоров"
+      - "страхование ответственности руководителей"
+      - "d&o"
+      - "directors and officers"
+      - "должностные лица"
+
+  cyber_insurance:
+    any_keywords:
+      - "киберстрахование"
+      - "кибер-риски"
+      - "утечка данных"
+      - "информационная безопасность"
+      - "cyber insurance"
+
+  construction_insurance:
+    any_keywords:
+      - "строительно-монтажное страхование"
+      - "смр"
+      - "car"
+      - "ear"
+      - "строительные риски"
+      - "монтажные работы"
+
+  retroactive_coverage:
+    any_keywords:
+      - "ретроактивная дата"
+      - "ретроактивное покрытие"
+      - "retroactive date"
+      - "события до начала срока"
+
+  claims_made_basis:
+    any_keywords:
+      - "claims made"
+      - "на базе предъявленных требований"
+      - "дата предъявления требования"
+      - "discovery period"
+      - "extended reporting period"
+
+  aggregate_limit:
+    any_keywords:
+      - "агрегатный лимит"
+      - "совокупный лимит"
+      - "aggregate limit"
+      - "лимит на период страхования"
+      - "годовой лимит"
+
+  premium_installments:
+    any_keywords:
+      - "рассрочка"
+      - "в рассрочку"
+      - "поэтапная оплата"
+      - "ежемесячный взнос"
+      - "ежеквартальный взнос"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  policy_number: "(?i)(?:полис|договор)\\s*№?\\s*[A-ZА-Я0-9\\-\\/]+"
+  period_pattern: "(?i)(срок|период)\\s*(?:действия|страхования)?.{0,30}(с|по|до)"
+  percentage_pattern: "(?i)\\b\\d+(?:[.,]\\d+)?\\s*%"
+  deadline_pattern: "(?i)(?:в течение|не позднее)\\s+\\d+\\s+(?:календарн|рабоч|час|дн)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "insurer_license_missing"
+    name: "Отсутствие признаков лицензии страховщика"
+    description: "Проверка на отсутствие упоминания лицензии или статуса страховщика как субъекта страхового дела"
+    legal_base: "ст. 938 ГК РФ, Закон РФ № 4015-1"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "лицензия"
+        - "лицензия банка россии"
+        - "цб рф"
+        - "реестр субъектов страхового дела"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "лицензия"
+        - "страховщик"
+        - "цб рф"
+      rerank: true
+
+  - id: "illegal_interest_insurance"
+    name: "Страхование противоправного интереса"
+    description: "Договор не должен предусматривать страхование противоправных интересов"
+    legal_base: "ст. 928 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "противоправный интерес"
+        - "незаконный интерес"
+        - "убытки от участия в играх"
+        - "пари"
+        - "расходы по освобождению заложников"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "ст. 928"
+        - "игры"
+        - "пари"
+        - "противоправный интерес"
+      rerank: true
+
+  - id: "sum_insured_exceeds_property_value"
+    name: "Страховая сумма может превышать действительную стоимость имущества"
+    description: "Для имущественного страхования страховая сумма не должна превышать страховую стоимость"
+    legal_base: "ст. 947, 951 ГК РФ"
+    required_triggers: ["property_insurance"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "страховая сумма"
+        - "действительная стоимость"
+        - "страховая стоимость"
+        - "оценочная стоимость"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "страховая сумма"
+        - "страховая стоимость"
+        - "действительная стоимость"
+      rerank: true
+
+  - id: "insured_person_consent_missing"
+    name: "Отсутствие явного согласия застрахованного лица в личном страховании"
+    description: "При личном страховании в отношении третьего лица отсутствие согласия может создавать риск недействительности или спора о выплате"
+    legal_base: "ст. 934 ГК РФ"
+    required_triggers: ["personal_insurance", "insured_person_differs_from_policyholder"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      negative_keywords:
+        - "согласие застрахованного лица"
+        - "застрахованное лицо дало согласие"
+        - "письменное согласие"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "согласие застрахованного лица"
+        - "личное страхование"
+      rerank: true
+  - id: "risk_increase_notification_missing"
+    name: "Отсутствие порядка уведомления об увеличении степени риска"
+    description: |
+      По ст. 959 ГК РФ страхователь обязан уведомить страховщика об изменении 
+      обстоятельств, существенно увеличивающих степень риска. Отсутствие порядка 
+      уведомления создаёт риск отказа в выплате.
+    legal_base: "ст. 959 ГК РФ"
+    required_triggers: []
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "увеличение степени риска"
+        - "изменение обстоятельств"
+        - "уведомить страховщика"
+        - "обязан сообщить"
+      keyword_mode: "any"
+      negative_keywords:
+        - "уведомить об увеличении"
+        - "сообщить об изменении"
+        - "увеличение степени риска"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "увеличение риска"
+        - "изменение обстоятельств"
+        - "уведомление"
+      rerank: true
+
+  - id: "premium_non_payment_consequences_unclear"
+    name: "Неясные последствия неуплаты очередного взноса при рассрочке"
+    description: |
+      При оплате премии в рассрочку отсутствие чётких последствий просрочки 
+      очередного взноса (приостановление покрытия, расторжение) создаёт 
+      существенную неопределённость.
+    legal_base: "ст. 954 ГК РФ"
+    required_triggers: ["premium_installments"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "рассрочка"
+        - "очередной взнос"
+        - "ежемесячный взнос"
+      keyword_mode: "any"
+      negative_keywords:
+        - "приостановление покрытия"
+        - "прекращение договора"
+        - "просрочка уплаты взноса"
+        - "последствия неуплаты"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "рассрочка"
+        - "просрочка взноса"
+        - "приостановление"
+      rerank: true
+
+  - id: "financial_ombudsman_missing_for_consumer"
+    name: "Потребительское страхование без упоминания финансового уполномоченного"
+    description: |
+      С 2019 года обращение к финансовому уполномоченному является обязательным 
+      досудебным этапом для физических лиц по спорам со страховщиками (ФЗ-123).
+    legal_base: "ФЗ № 123-ФЗ"
+    required_triggers: ["consumer_policyholder"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "потребитель"
+        - "физическое лицо"
+        - "гражданин"
+      keyword_mode: "any"
+      negative_keywords:
+        - "финансовый уполномоченный"
+        - "омбудсмен"
+        - "фз-123"
+        - "фз № 123"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "финансовый уполномоченный"
+        - "досудебный порядок"
+        - "омбудсмен"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: insurance_subject_extraction
+    name: "Базовое извлечение предмета и конструкции страхования"
+    description: "Извлекает тип страхования, объект, стороны, застрахованное лицо, выгодоприобретателя, страховую сумму и срок"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страховщик"
+        - "страхователь"
+        - "объект страхования"
+        - "страховой случай"
+        - "страховая сумма"
+        - "выгодоприобретатель"
+        - "застрахованное лицо"
+        - "срок действия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(страховщик|страхователь|страховой\\s+случай)"
+        - "(?i)(страховая\\s+сумма|страховая\\s+премия)"
+        - "(?i)(?:полис|договор)\\s*№?\\s*[A-ZА-Я0-9\\-\\/]+"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Извлеки базовую структуру договора строго по тексту документа.
+
+        Ответь строго в JSON:
+        {
+          "insurance_type": "<property / personal / liability / mixed / unclear / not_found>",
+          "policy_number": "<номер полиса/договора или not_found>",
+          "insurer": "<наименование страховщика или not_found>",
+          "policyholder": "<страхователь или not_found>",
+          "insured_person": "<застрахованное лицо или not_found>",
+          "beneficiary": "<выгодоприобретатель или not_found>",
+          "insured_object": "<объект страхования или not_found>",
+          "insured_event": "<страховой случай/риск или not_found>",
+          "sum_insured": "<страховая сумма или not_found>",
+          "premium": "<страховая премия или not_found>",
+          "term": "<срок страхования или not_found>"
+        }
+
+        Используй только явно указанные в тексте сведения.
+        Если значение не найдено — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "объект страхования"
+        - "страховой случай"
+        - "страховая сумма"
+        - "страховая премия"
+        - "выгодоприобретатель"
+        - "застрахованное лицо"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insurance_type"
+          type: "string"
+          allowed_values: ["property", "personal", "liability", "mixed", "unclear", "not_found"]
+          description: "Тип страхования"
+        - name: "policy_number"
+          type: "string"
+          regex_patterns:
+            - "(?i)(?:полис|договор)\\s*№?\\s*[A-ZА-Я0-9\\-\\/]+"
+          description: "Номер полиса/договора"
+        - name: "insurer"
+          type: "string"
+          keyword_hints: ["страховщик", "страховая организация", "акционерное общество"]
+          description: "Страховщик"
+        - name: "policyholder"
+          type: "string"
+          keyword_hints: ["страхователь"]
+          description: "Страхователь"
+        - name: "insured_person"
+          type: "string"
+          keyword_hints: ["застрахованное лицо"]
+          description: "Застрахованное лицо"
+        - name: "beneficiary"
+          type: "string"
+          keyword_hints: ["выгодоприобретатель", "в пользу"]
+          description: "Выгодоприобретатель"
+        - name: "insured_object"
+          type: "string"
+          keyword_hints: ["объект страхования", "имущественный интерес", "жизнь", "здоровье", "ответственность"]
+          description: "Объект страхования"
+        - name: "insured_event"
+          type: "string"
+          keyword_hints: ["страховой случай", "страховой риск"]
+          description: "Страховой случай/риск"
+        - name: "sum_insured"
+          type: "string"
+          keyword_hints: ["страховая сумма", "лимит ответственности"]
+          description: "Страховая сумма"
+        - name: "premium"
+          type: "string"
+          keyword_hints: ["страховая премия", "страховой взнос"]
+          description: "Страховая премия"
+        - name: "term"
+          type: "string"
+          keyword_hints: ["срок действия", "период страхования", "договор действует"]
+          description: "Срок страхования"
+      store_payload: true
+
+  - id: insured_event_and_exclusions_check
+    name: "Страховой случай и исключения из покрытия"
+    description: "Проверяет ясность определения страхового случая и прозрачность исключений"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страховой случай"
+        - "страховой риск"
+        - "не является страховым случаем"
+        - "исключения из страхового покрытия"
+        - "отказ в выплате"
+        - "умысел"
+        - "грубая неосторожность"
+        - "военные действия"
+        - "ядерный взрыв"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+является\\s+страхов(ым|ым\\s+случаем)"
+        - "(?i)исключени[яе].{0,40}покрыт"
+        - "(?i)выплата\\s+не\\s+производится"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь, как в договоре определены страховой случай и исключения из страхового покрытия.
+
+        Ответь строго в JSON:
+        {
+          "insured_event_defined": "<yes / no / unclear>",
+          "exclusions_present": "<yes / no>",
+          "exclusions_clarity": "<clear / vague / not_found>",
+          "contains_open_ended_exclusions": "<yes / no / unclear>",
+          "key_exclusions_summary": "<краткое перечисление или not_found>"
+        }
+
+        - "vague" — если исключения сформулированы размыто, через "иные случаи", "по усмотрению страховщика" и т.п.
+        - "contains_open_ended_exclusions" = "yes", если есть признаки открытого или неограниченного перечня исключений.
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 7
+      max_chunks: 10
+      boost_keywords:
+        - "страховой случай"
+        - "исключения"
+        - "не является страховым случаем"
+        - "отказ в выплате"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insured_event_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Определен ли страховой случай"
+        - name: "exclusions_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли исключения из покрытия"
+        - name: "exclusions_clarity"
+          type: "string"
+          allowed_values: ["clear", "vague", "not_found"]
+          description: "Понятность исключений"
+        - name: "contains_open_ended_exclusions"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Есть ли открытые/размытые исключения"
+      store_payload: true
+
+  - id: rules_of_insurance_attachment_check
+    name: "Правила страхования: включение в договор и подтверждение вручения"
+    description: "Проверяет ссылку на Правила страхования и признаки их вручения/ознакомления страхователя"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "правила страхования"
+        - "с правилами ознакомлен"
+        - "правила вручены"
+        - "экземпляр правил"
+        - "получил на руки"
+        - "правила являются неотъемлемой частью"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)с\\s+правилами\\s+страхования\\s+ознакомлен"
+        - "(?i)правила\\s+страхования\\s+(?:вручены|получены|прилагаются)"
+        - "(?i)неотъемлем(ой|ой\\s+частью)\\s+договора"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь, включены ли в договор Правила страхования и есть ли подтверждение их вручения или ознакомления страхователя.
+
+        Ответь строго в JSON:
+        {
+          "rules_referenced": "<yes / no>",
+          "rules_delivery_status": "<delivered / acknowledged_only / not_found>",
+          "rules_incorporation_status": "<incorporated / unclear / not_found>",
+          "rules_snippet": "<цитата или not_found>"
+        }
+
+        - "delivered" — есть явное указание на вручение/получение экземпляра
+        - "acknowledged_only" — есть только формула об ознакомлении без ясного подтверждения вручения
+        - "not_found" — ничего не найдено
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "правила страхования"
+        - "ознакомлен"
+        - "вручены"
+        - "неотъемлемая часть"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "rules_referenced"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли ссылка на Правила страхования"
+        - name: "rules_delivery_status"
+          type: "string"
+          allowed_values: ["delivered", "acknowledged_only", "not_found"]
+          description: "Статус вручения Правил страхования"
+        - name: "rules_incorporation_status"
+          type: "string"
+          allowed_values: ["incorporated", "unclear", "not_found"]
+          description: "Включены ли Правила в договорную конструкцию"
+      store_payload: true
+
+  - id: claim_notification_check
+    name: "Уведомление о страховом случае: срок, способ, последствия"
+    description: "Проверяет наличие срока и способа уведомления о страховом случае, а также последствий просрочки"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "уведомить страховщика"
+        - "незамедлительно"
+        - "в течение 24 часов"
+        - "в течение"
+        - "письменное уведомление"
+        - "по телефону"
+        - "сообщить о страховом случае"
+        - "последствия несвоевременного уведомления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уведомит[ья].{0,60}страховщик"
+        - "(?i)о\\s+наступлении\\s+страхового\\s+случая"
+        - "(?i)(?:в\\s+течение|не\\s+позднее)\\s+\\d+\\s+(?:час|дн|рабоч)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь порядок уведомления о страховом случае.
+
+        Ответь строго в JSON:
+        {
+          "notification_deadline_present": "<yes / no>",
+          "notification_deadline": "<срок или not_found>",
+          "notification_methods": ["<метод 1>", "<метод 2>"],
+          "late_notice_consequences": "<specified / not_found>",
+          "notice_clause_clarity": "<clear / unclear / not_found>"
+        }
+
+        Используй только сведения из текста.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "уведомление о страховом случае"
+        - "незамедлительно"
+        - "в течение 24 часов"
+        - "последствия"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "notification_deadline_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли срок уведомления"
+        - name: "notification_deadline"
+          type: "string"
+          description: "Срок уведомления"
+        - name: "late_notice_consequences"
+          type: "string"
+          allowed_values: ["specified", "not_found"]
+          description: "Указаны ли последствия просрочки уведомления"
+        - name: "notice_clause_clarity"
+          type: "string"
+          allowed_values: ["clear", "unclear", "not_found"]
+          description: "Понятность порядка уведомления"
+      store_payload: true
+
+  - id: claims_payment_procedure_check
+    name: "Страховая выплата: документы, сроки, основание для отказа"
+    description: "Проверяет перечень документов, срок выплаты, порядок урегулирования и признаки дискреции страховщика"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страховая выплата"
+        - "страховое возмещение"
+        - "в течение рабочих дней"
+        - "полный комплект документов"
+        - "перечень документов"
+        - "отказ в выплате"
+        - "выплата производится"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+течение\\s+\\d+\\s+рабочих\\s+дней"
+        - "(?i)полного\\s+комплекта\\s+документ"
+        - "(?i)отказ\\s+в\\s+выплат"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь порядок страховой выплаты.
+
+        Ответь строго в JSON:
+        {
+          "payment_deadline_present": "<yes / no>",
+          "payment_deadline": "<срок или not_found>",
+          "documents_list_status": "<exhaustive / open_ended / unclear / not_found>",
+          "refusal_grounds_present": "<yes / no>",
+          "insurer_discretion_risk": "<high / medium / low / not_found>"
+        }
+
+        - "open_ended" — если перечень документов открыт ("и иные документы", "по усмотрению страховщика")
+        - "insurer_discretion_risk" = "high", если у страховщика широкое усмотрение без критериев
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 9
+      boost_keywords:
+        - "страховая выплата"
+        - "перечень документов"
+        - "полный комплект документов"
+        - "отказ в выплате"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "payment_deadline_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли срок выплаты"
+        - name: "payment_deadline"
+          type: "string"
+          description: "Срок выплаты"
+        - name: "documents_list_status"
+          type: "string"
+          allowed_values: ["exhaustive", "open_ended", "unclear", "not_found"]
+          description: "Статус перечня документов"
+        - name: "refusal_grounds_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Указаны ли основания отказа"
+        - name: "insurer_discretion_risk"
+          type: "string"
+          allowed_values: ["high", "medium", "low", "not_found"]
+          description: "Риск чрезмерной дискреции страховщика"
+      store_payload: true
+
+  - id: insured_person_consent_check
+    name: "Личное страхование: согласие застрахованного лица и статус выгодоприобретателя"
+    description: "Проверяет наличие согласия застрахованного лица и корректность указания выгодоприобретателя"
+    triggers:
+      any: ["personal_insurance", "insured_person_differs_from_policyholder"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "согласие застрахованного лица"
+        - "застрахованное лицо"
+        - "выгодоприобретатель"
+        - "письменное согласие"
+        - "назначение выгодоприобретателя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)согласие\\s+застрахованного\\s+лица"
+        - "(?i)выгодоприобретател"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор личного страхования.
+        Проверь, раскрыты ли вопросы согласия застрахованного лица и выгодоприобретателя.
+
+        Ответь строго в JSON:
+        {
+          "insured_person_identified": "<yes / no>",
+          "insured_person_consent_status": "<present / not_found / unclear>",
+          "beneficiary_status": "<named / default_rules / not_found>",
+          "consent_snippet": "<цитата или not_found>"
+        }
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "согласие застрахованного лица"
+        - "выгодоприобретатель"
+        - "личное страхование"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insured_person_identified"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Идентифицировано ли застрахованное лицо"
+        - name: "insured_person_consent_status"
+          type: "string"
+          allowed_values: ["present", "not_found", "unclear"]
+          description: "Статус согласия застрахованного лица"
+        - name: "beneficiary_status"
+          type: "string"
+          allowed_values: ["named", "default_rules", "not_found"]
+          description: "Статус выгодоприобретателя"
+      store_payload: true
+
+  - id: early_termination_and_premium_refund_check
+    name: "Досрочное прекращение и возврат страховой премии"
+    description: "Проверяет условия досрочного прекращения договора и судьбу премии/части премии"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "досрочное прекращение"
+        - "досрочное расторжение"
+        - "возврат страховой премии"
+        - "часть страховой премии"
+        - "отказ страхователя"
+        - "прекращение договора"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)досрочн(ое|ого)\\s+(?:прекращен|расторжен)"
+        - "(?i)возврат\\s+страхов(ой|ую)\\s+прем"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь условия досрочного прекращения договора и возврата премии.
+
+        Ответь строго в JSON:
+        {
+          "early_termination_present": "<yes / no>",
+          "premium_refund_status": "<full / proportional / none / unclear / not_found>",
+          "termination_grounds_summary": "<кратко или not_found>"
+        }
+
+        Используй только текст документа.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "досрочное прекращение"
+        - "возврат премии"
+        - "отказ страхователя"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "early_termination_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Есть ли условия досрочного прекращения"
+        - name: "premium_refund_status"
+          type: "string"
+          allowed_values: ["full", "proportional", "none", "unclear", "not_found"]
+          description: "Статус возврата премии"
+      store_payload: true
+
+  - id: risk_increase_and_policyholder_duties_check
+    name: "Обязанности страхователя в период действия договора (ст. 959, 961 ГК РФ)"
+    description: "Проверяет обязанности страхователя: уведомление об увеличении риска, сохранение имущества, допуск к осмотру"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "увеличение степени риска"
+        - "изменение обстоятельств"
+        - "обязан уведомить"
+        - "обязан сообщить"
+        - "осмотр имущества"
+        - "допуск к осмотру"
+        - "сохранность имущества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)увеличен(ие|ия)\\s+(степени\\s+)?риска"
+        - "(?i)обязан.*(уведомить|сообщить).*(страховщик|об\\s+изменен)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь обязанности страхователя в период действия договора.
+
+        Проверь наличие:
+        1. Обязанность уведомить об увеличении степени риска (ст. 959 ГК РФ)
+        2. Срок и способ уведомления
+        3. Последствия неуведомления
+        4. Обязанность допускать осмотр имущества
+        5. Обязанность соблюдать условия эксплуатации / хранения
+
+        Ответь в JSON:
+        {
+          "risk_increase_notification_clause": "<present / absent>",
+          "notification_deadline": "<указан / не указан / not_found>",
+          "non_notification_consequences": "<specified / not_specified>",
+          "inspection_access_clause": "<present / absent / not_applicable>",
+          "policyholder_duties_completeness": "<comprehensive / partial / minimal / absent>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "увеличение риска"
+        - "уведомить страховщика"
+        - "осмотр"
+        - "обязанности страхователя"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "risk_increase_notification_clause"
+          type: "string"
+          allowed_values: ["present", "absent"]
+          description: "Обязанность уведомить об увеличении риска"
+        - name: "non_notification_consequences"
+          type: "string"
+          allowed_values: ["specified", "not_specified"]
+          description: "Последствия неуведомления"
+        - name: "policyholder_duties_completeness"
+          type: "string"
+          allowed_values: ["comprehensive", "partial", "minimal", "absent"]
+          description: "Полнота раздела обязанностей страхователя"
+      store_payload: true
+
+  - id: policyholder_actions_on_event_check
+    name: "Действия страхователя при наступлении страхового случая"
+    description: "Проверяет перечень обязательных действий страхователя при наступлении события"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "при наступлении страхового случая"
+        - "обязан незамедлительно"
+        - "вызвать компетентные органы"
+        - "сохранить повреждённое имущество"
+        - "обратиться в полицию"
+        - "акт осмотра"
+        - "зафиксировать"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)при\\s+наступлении\\s+страхового\\s+случая"
+        - "(?i)обязан.*(незамедлительно|в\\s+течение)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь, раскрыты ли действия страхователя при наступлении страхового случая.
+
+        Типичные обязанности:
+        - уведомить страховщика
+        - вызвать компетентные органы (полиция, МЧС, ГИБДД)
+        - принять меры к уменьшению убытков
+        - сохранить повреждённое имущество до осмотра
+        - не производить ремонт до согласования
+        - собрать и передать документы
+
+        Ответь в JSON:
+        {
+          "actions_section_present": "<yes / no>",
+          "notify_insurer": "<present / absent>",
+          "contact_authorities": "<present / absent / not_applicable>",
+          "preserve_evidence": "<present / absent>",
+          "no_repair_before_inspection": "<present / absent / not_applicable>",
+          "actions_completeness": "<comprehensive / partial / minimal / absent>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "при наступлении страхового случая"
+        - "обязан"
+        - "компетентные органы"
+        - "сохранить"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "actions_section_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие раздела о действиях при страховом случае"
+        - name: "actions_completeness"
+          type: "string"
+          allowed_values: ["comprehensive", "partial", "minimal", "absent"]
+          description: "Полнота перечня действий"
+      store_payload: true
+
+  - id: territory_and_jurisdiction_check
+    name: "Территория страхового покрытия"
+    description: "Проверяет наличие определения территории действия страхового покрытия"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "территория страхования"
+        - "территория покрытия"
+        - "на территории"
+        - "российская федерация"
+        - "весь мир"
+        - "worldwide"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)территори[яи]\\s+(страхован|покрыт|действи)"
+        - "(?i)на\\s+территории\\s+(?:российской\\s+федерации|рф)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования.
+        Проверь, определена ли территория действия страхового покрытия.
+
+        Ответь в JSON:
+        {
+          "territory_defined": "<yes / no / not_found>",
+          "territory_scope": "<russia / cis / worldwide / specified_countries / not_found>",
+          "territorial_exclusions": "<present / absent / not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 250
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "территория"
+        - "покрытие"
+        - "действие"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "territory_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определена ли территория"
+        - name: "territory_scope"
+          type: "string"
+          allowed_values: ["russia", "cis", "worldwide", "specified_countries", "not_found"]
+          description: "Охват территории"
+      store_payload: true
+
+  - id: claims_made_vs_occurrence_check
+    name: "Базис покрытия: claims-made vs. occurrence"
+    description: "Проверяет базис покрытия для страхования ответственности"
+    triggers:
+      any: ["liability_insurance", "d_and_o_insurance", "claims_made_basis"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "claims made"
+        - "на базе предъявленных требований"
+        - "occurrence"
+        - "на базе происшествия"
+        - "ретроактивная дата"
+        - "extended reporting period"
+        - "дополнительный период"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)claims[- ]?made"
+        - "(?i)ретроактивн(ая|ой)\\s+дат"
+        - "(?i)дополнительн(ый|ого)\\s+период"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор страхования ответственности.
+        Определи базис покрытия.
+
+        Ответь в JSON:
+        {
+          "coverage_basis": "<claims_made / occurrence / mixed / unclear / not_found>",
+          "retroactive_date": "<указана дата / none / not_found>",
+          "extended_reporting_period": "<present / absent / not_found>",
+          "erp_duration": "<срок или not_found>",
+          "coverage_basis_risk": "<high / medium / low>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "claims made"
+        - "occurrence"
+        - "ретроактивная дата"
+        - "дополнительный период"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "coverage_basis"
+          type: "string"
+          allowed_values: ["claims_made", "occurrence", "mixed", "unclear", "not_found"]
+          description: "Базис покрытия"
+        - name: "retroactive_date"
+          type: "string"
+          description: "Ретроактивная дата"
+        - name: "extended_reporting_period"
+          type: "string"
+          allowed_values: ["present", "absent", "not_found"]
+          description: "Дополнительный период"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "insurer_identification_and_license"
+    name: "Страховщик: идентификация и лицензия"
+    description: "Проверяет наличие идентификации страховщика и признаков наличия лицензии на страховую деятельность"
+    legal_base: "ст. 938 ГК РФ, Закон РФ № 4015-1"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страховщик"
+        - "лицензия"
+        - "лицензия банка россии"
+        - "цб рф"
+        - "реестр субъектов страхового дела"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лиценз[ияе].{0,40}(банка\\s+россии|цб|центрального\\s+банка)"
+        - "(?i)страховщик"
+
+  - id: "policyholder_and_beneficiary_identification"
+    name: "Страхователь, застрахованное лицо и выгодоприобретатель: идентификация"
+    description: "Проверяет идентификацию ключевых участников страховой конструкции"
+    legal_base: "ст. 432, 934, 942 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхователь"
+        - "застрахованное лицо"
+        - "выгодоприобретатель"
+        - "в пользу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(страхователь|застрахованное\\s+лицо|выгодоприобретател)"
+
+  - id: "insured_object_required"
+    name: "Объект страхования / имущественный интерес (ст. 942 ГК РФ)"
+    description: "Проверяет наличие четко определенного объекта страхования"
+    legal_base: "ст. 942 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "объект страхования"
+        - "имущественный интерес"
+        - "имущество"
+        - "жизнь"
+        - "здоровье"
+        - "ответственность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(объект\\s+страхования|имущественн(ый|ого)\\s+интерес)"
+
+  - id: "insured_event_required"
+    name: "Страховой случай / страховой риск (ст. 942 ГК РФ)"
+    description: "Проверяет наличие определения страхового случая"
+    legal_base: "ст. 942 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страховой случай"
+        - "страховой риск"
+        - "при наступлении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ой|ого)\\s+(случа[йя]|риск)"
+
+  - id: "sum_insured_required"
+    name: "Страховая сумма / лимит ответственности"
+    description: "Проверяет наличие страховой суммы или лимита ответственности"
+    legal_base: "ст. 942, 947 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страховая сумма"
+        - "лимит ответственности"
+        - "страховая стоимость"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(страховая\\s+сумма|лимит\\s+ответственности)"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+
+  - id: "insurance_term_required"
+    name: "Срок действия договора страхования"
+    description: "Проверяет наличие срока страхования и периода действия покрытия"
+    legal_base: "ст. 942, 957 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "период страхования"
+        - "договор действует"
+        - "вступает в силу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(срок|период)\\s+(?:действия|страхования)"
+        - "(?i)вступает\\s+в\\s+силу"
+
+  - id: "premium_and_payment_order"
+    name: "Страховая премия: размер и порядок уплаты"
+    description: "Проверяет наличие размера премии и порядка ее оплаты"
+    legal_base: "ст. 954, 957 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страховая премия"
+        - "страховой взнос"
+        - "уплатить премию"
+        - "единовременно"
+        - "в рассрочку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(страховая\\s+премия|страховой\\s+взнос)"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+
+  - id: "effective_date_linked_to_premium"
+    name: "Момент вступления в силу и связь с уплатой премии"
+    description: "Проверяет, урегулирован ли момент начала страхового покрытия"
+    legal_base: "ст. 957 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "вступает в силу"
+        - "с момента уплаты"
+        - "со дня уплаты"
+        - "страховая защита действует"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вступает\\s+в\\s+силу.*(уплат|оплат)"
+        - "(?i)с\\s+момента\\s+уплаты"
+
+  - id: "franchise_clarity"
+    name: "Франшиза: вид и размер"
+    description: "Проверяет наличие и ясность условий о франшизе"
+    legal_base: "ст. 421 ГК РФ, практика страхования"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["franchise_present"]
+    rules:
+      keywords:
+        - "франшиза"
+        - "безусловная франшиза"
+        - "условная франшиза"
+        - "размер франшизы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(условная|безусловная)\\s+франшиза"
+        - "(?i)франшиза\\s+в\\s+размере"
+
+  - id: "material_facts_disclosure"
+    name: "Раскрытие существенных обстоятельств страхователем"
+    description: "Проверяет обязанность страхователя раскрыть существенные для оценки риска обстоятельства"
+    legal_base: "ст. 944 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "существенные обстоятельства"
+        - "обязан сообщить"
+        - "имеющие существенное значение"
+        - "опросный лист"
+        - "анкета страхователя"
+        - "последствия сокрытия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обязан\\s+сообщить.*существен"
+        - "(?i)опросн(ый|ого)\\s+лист|анкета"
+
+  - id: "duty_to_reduce_losses"
+    name: "Обязанность уменьшать убытки"
+    description: "Проверяет наличие обязанности страхователя принять разумные меры к уменьшению убытков"
+    legal_base: "ст. 962 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["property_insurance", "cargo_insurance", "transport_insurance"]
+    rules:
+      keywords:
+        - "уменьшение убытков"
+        - "разумные меры"
+        - "принять меры"
+        - "предотвращение дальнейшего ущерба"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)разумн(ые|ых)\\s+мер"
+        - "(?i)уменьшен(ие|ия)\\s+убытк"
+
+  - id: "subrogation_clause"
+    name: "Суброгация: переход права требования"
+    description: "Проверяет условия о переходе к страховщику прав требования к причинителю вреда"
+    legal_base: "ст. 965 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["property_insurance", "cargo_insurance", "transport_insurance"]
+    rules:
+      keywords:
+        - "суброгация"
+        - "переходит право требования"
+        - "к лицу, ответственному за убытки"
+        - "обязан передать документы"
+      keyword_mode: "any"
+      negative_keywords:
+        - "без права суброгации"
+        - "отказ от права требования"
+      regex_patterns:
+        - "(?i)переходит\\s+право\\s+требования"
+        - "(?i)суброгац"
+
+  - id: "double_insurance_and_underinsurance"
+    name: "Двойное страхование / неполное страхование"
+    description: "Проверяет наличие оговорок о двойном страховании и пропорциональности выплаты"
+    legal_base: "ст. 949-951 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["property_insurance"]
+    rules:
+      keywords:
+        - "двойное страхование"
+        - "неполное страхование"
+        - "пропорционально"
+        - "страховая стоимость"
+        - "в части непокрытого риска"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)двойн(ое|ого)\\s+страхован"
+        - "(?i)неполн(ое|ого)\\s+страхован"
+
+  - id: "compulsory_insurance_special_law_reference"
+    name: "Обязательное страхование: ссылка на специальный закон"
+    description: "Проверяет наличие ссылки на специальное регулирование обязательного страхования"
+    legal_base: "ФЗ № 40-ФЗ, ФЗ № 225-ФЗ, специальные законы"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["compulsory_insurance"]
+    rules:
+      keywords:
+        - "федеральный закон"
+        - "осаго"
+        - "обязательное страхование"
+        - "лимиты ответственности"
+        - "тариф"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)федеральн(ый|ого)\\s+закон"
+        - "(?i)осаго|обязательн(ое|ого)\\s+страхован"
+
+  - id: "beneficiary_change_and_revocation"
+    name: "Выгодоприобретатель: порядок назначения и замены"
+    description: "Проверяет наличие условий о назначении и замене выгодоприобретателя"
+    legal_base: "ст. 934, 956 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["beneficiary_present"]
+    rules:
+      keywords:
+        - "выгодоприобретатель"
+        - "замена выгодоприобретателя"
+        - "назначение выгодоприобретателя"
+        - "с согласия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)выгодоприобретател"
+        - "(?i)замен(а|ить).*выгодоприобретател"
+
+  - id: "liability_insurance_scope"
+    name: "Страхование ответственности: объем покрытия и третьи лица"
+    description: "Проверяет описание ответственности, лимитов и круга третьих лиц"
+    legal_base: "ст. 931-932 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["liability_insurance"]
+    rules:
+      keywords:
+        - "ответственность перед третьими лицами"
+        - "лимит ответственности"
+        - "страхование ответственности"
+        - "вред третьим лицам"
+        - "договорная ответственность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност[ьи].*треть"
+        - "(?i)вред\\s+третьим\\s+лицам"
+
+  - id: "property_insurance_value_basis"
+    name: "Имущественное страхование: страховая стоимость и база оценки"
+    description: "Проверяет раскрытие страховой стоимости и способа ее определения"
+    legal_base: "ст. 947, 951 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["property_insurance"]
+    rules:
+      keywords:
+        - "страховая стоимость"
+        - "действительная стоимость"
+        - "рыночная стоимость"
+        - "оценка"
+        - "отчет об оценке"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(страховая|действительная|рыночная)\\s+стоим"
+
+  - id: "dispute_resolution_and_complaints"
+    name: "Порядок урегулирования споров и претензий"
+    description: "Проверяет наличие досудебного порядка, претензионной процедуры и подсудности"
+    legal_base: "ГК РФ, ГПК РФ, АПК РФ, ЗоЗПП"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "претензия"
+        - "досудебный порядок"
+        - "урегулирование споров"
+        - "подсудность"
+        - "суд по месту"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)досудебн(ый|ого)\\s+поряд"
+        - "(?i)урегулировани[ея]\\s+спор"
+
+  - id: "consumer_protection_reference"
+    name: "Потребительское страхование: применение ЗоЗПП"
+    description: "Проверяет наличие ориентиров на потребительскую конструкцию при страховании граждан"
+    legal_base: "Закон РФ № 2300-1, практика ВС РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_policyholder"]
+    rules:
+      keywords:
+        - "потребитель"
+        - "физическое лицо"
+        - "закон о защите прав потребителей"
+        - "гражданин"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)закон\\s+о\\s+защите\\s+прав\\s+потребител"
+
+  - id: "risk_increase_notification"
+    name: "Обязанность уведомления об увеличении степени риска"
+    description: "Проверяет наличие обязанности страхователя уведомить об увеличении риска"
+    legal_base: "ст. 959 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "увеличение степени риска"
+        - "изменение обстоятельств"
+        - "уведомить страховщика"
+        - "обязан сообщить"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)увеличен(ие|ия)\\s+(степени\\s+)?риск"
+
+  - id: "policyholder_actions_on_event"
+    name: "Действия страхователя при страховом случае"
+    description: "Проверяет наличие перечня обязательных действий при наступлении события"
+    legal_base: "ст. 961-962 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "при наступлении страхового случая"
+        - "обязан незамедлительно"
+        - "вызвать компетентные органы"
+        - "сохранить повреждённое имущество"
+        - "принять меры"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)при\\s+наступлении\\s+страхового\\s+случая"
+
+  - id: "territory_of_coverage"
+    name: "Территория страхового покрытия"
+    description: "Проверяет наличие определения территории покрытия"
+    legal_base: "Практика страхования"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "территория страхования"
+        - "территория покрытия"
+        - "на территории"
+        - "распространяется на территорию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)территори[яи]\\s+(страхован|покрыт|действи)"
+
+  - id: "aggregate_and_per_event_limits"
+    name: "Агрегатный лимит и лимит на одно событие"
+    description: "Проверяет наличие лимитов ответственности: агрегатного и на одно событие"
+    legal_base: "ст. 947 ГК РФ, практика страхования"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["liability_insurance", "aggregate_limit"]
+    rules:
+      keywords:
+        - "агрегатный лимит"
+        - "совокупный лимит"
+        - "лимит на одно событие"
+        - "лимит на период"
+        - "sublimit"
+        - "подлимит"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)агрегатн(ый|ого)\\s+лимит"
+        - "(?i)лимит\\s+на\\s+одно\\s+событие"
+
+  - id: "claims_made_basis_terms"
+    name: "Claims-made: ретроактивная дата и дополнительный период"
+    description: "Проверяет условия claims-made покрытия"
+    legal_base: "Практика страхования"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["claims_made_basis", "liability_insurance", "d_and_o_insurance"]
+    rules:
+      keywords:
+        - "claims made"
+        - "ретроактивная дата"
+        - "extended reporting period"
+        - "дополнительный период уведомления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)claims[- ]?made"
+        - "(?i)ретроактивн"
+
+  - id: "cooling_off_period"
+    name: "Период охлаждения для потребительского страхования"
+    description: "Проверяет наличие права на отказ от договора в период охлаждения"
+    legal_base: "Указание ЦБ РФ № 3854-У"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_policyholder"]
+    rules:
+      keywords:
+        - "период охлаждения"
+        - "14 календарных дней"
+        - "отказ от договора"
+        - "право отказаться"
+        - "вернуть премию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)14\\s+календарн"
+        - "(?i)период\\s+охлажден"
+
+  - id: "financial_ombudsman_reference"
+    name: "Финансовый уполномоченный: обязательный досудебный порядок"
+    description: "Проверяет наличие упоминания финансового уполномоченного"
+    legal_base: "ФЗ № 123-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_policyholder"]
+    rules:
+      keywords:
+        - "финансовый уполномоченный"
+        - "омбудсмен"
+        - "фз-123"
+        - "досудебное обращение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)финансов(ый|ого)\\s+уполномоченн"
+
+  - id: "premium_non_payment_consequences"
+    name: "Последствия неуплаты премии / очередного взноса"
+    description: "Проверяет наличие порядка при просрочке оплаты премии"
+    legal_base: "ст. 954, 957 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "просрочка оплаты"
+        - "неуплата премии"
+        - "приостановление покрытия"
+        - "прекращение договора"
+        - "льготный период оплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(просрочк|неуплат).*прем"
+        - "(?i)приостановлен(ие|ия)\\s+покрыт"
+
+  - id: "war_sanctions_exclusions"
+    name: "Исключения: санкции, война, терроризм, ядерные риски"
+    description: "Проверяет наличие стандартных глобальных исключений"
+    legal_base: "Практика страхования"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "военные действия"
+        - "терроризм"
+        - "ядерный"
+        - "радиоактивное"
+        - "санкции"
+        - "sanctions"
+        - "embargo"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(военн|террорис|ядерн|радиоактивн|санкци)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  insurance_subject_extraction:
+    text: >
+      Просим предоставить по {doc_names}: полную страховую конструкцию —
+      вид страхования, номер полиса/договора, объект страхования, страховой случай,
+      страховую сумму, страховую премию, срок действия, сведения о страховщике,
+      страхователе, застрахованном лице и выгодоприобретателе.
+    addressee: "Страховщик / Юридический советник"
+
+  insured_object_required:
+    text: >
+      Просим уточнить по {doc_names} объект страхования (имущественный интерес),
+      в отношении которого предоставляется страховая защита, и предоставить формулировку,
+      позволяющую однозначно определить предмет страхования.
+    addressee: "Страховщик"
+
+  insured_event_required:
+    text: >
+      Просим предоставить по {doc_names} точное описание страхового случая/риска,
+      а также разграничение между покрываемыми событиями и исключениями из покрытия.
+    addressee: "Страховщик"
+
+  insured_event_and_exclusions_check:
+    text: >
+      Просим предоставить по {doc_names}: полный перечень страховых случаев,
+      исключений из покрытия и оснований отказа в выплате; отдельно просим подтвердить,
+      что перечень исключений не является открытым и не содержит формул
+      "иные случаи" / "по усмотрению страховщика".
+    addressee: "Страховщик / Юридический советник страхователя"
+
+  insurer_identification_and_license:
+    text: >
+      Просим предоставить по {doc_names}: полное наименование страховщика,
+      ОГРН/ИНН, сведения о действующей лицензии Банка России на соответствующий вид страхования,
+      а также ссылку на запись в реестре субъектов страхового дела.
+    addressee: "Страховщик"
+
+  insurer_license_missing:
+    text: >
+      В {doc_names} не выявлены достаточные признаки лицензии страховщика.
+      Просим срочно предоставить реквизиты лицензии Банка России и подтверждение
+      права осуществлять соответствующий вид страхования.
+    addressee: "Страховщик"
+
+  rules_of_insurance_attachment_check:
+    text: >
+      Просим предоставить по {doc_names}: текст Правил страхования, редакцию/дату их утверждения,
+      подтверждение вручения или направления страхователю, а также формулировку о включении
+      Правил страхования в состав договорной документации.
+    addressee: "Страховщик"
+
+  claim_notification_check:
+    text: >
+      Просим уточнить в {doc_names}: срок уведомления о страховом случае,
+      допустимые способы уведомления, адреса/каналы связи, последствия просрочки,
+      а также доказательства получения уведомления страховщиком.
+    addressee: "Страховщик / Юридический советник"
+
+  claims_payment_procedure_check:
+    text: >
+      Просим предоставить по {doc_names}: исчерпывающий перечень документов для выплаты,
+      срок принятия решения и срок выплаты, основания отказа в выплате,
+      а также пояснить, имеются ли у страховщика дискреционные полномочия
+      требовать дополнительные документы сверх перечисленных.
+    addressee: "Страховщик"
+
+  premium_and_payment_order:
+    text: >
+      Просим уточнить по {doc_names}: размер страховой премии, график и способ ее уплаты,
+      последствия просрочки оплаты, а также момент начала действия страхового покрытия.
+    addressee: "Страховщик / Страхователь"
+
+  effective_date_linked_to_premium:
+    text: >
+      Просим подтвердить по {doc_names}: с какого момента договор считается вступившим в силу,
+      связано ли начало страховой защиты с фактической оплатой премии,
+      и распространяется ли покрытие на события до даты оплаты.
+    addressee: "Страховщик"
+
+  franchise_clarity:
+    text: >
+      Просим предоставить по {doc_names}: вид франшизы (условная/безусловная),
+      ее размер, порядок применения к убытку и пример расчета страховой выплаты
+      с учетом франшизы.
+    addressee: "Страховщик"
+
+  material_facts_disclosure:
+    text: >
+      Просим предоставить по {doc_names}: перечень существенных обстоятельств,
+      подлежащих раскрытию страхователем, анкету/опросный лист,
+      а также последствия неполного или недостоверного раскрытия информации.
+    addressee: "Страховщик / Страхователь"
+
+  insured_person_consent_check:
+    text: >
+      По {doc_names} просим предоставить письменное согласие застрахованного лица
+      на заключение договора личного страхования в его отношении (если страхователь и застрахованное лицо различаются),
+      а также документы о назначении выгодоприобретателя.
+    addressee: "Страхователь / Страховщик"
+
+  insured_person_consent_missing:
+    text: >
+      В {doc_names} не выявлено явное согласие застрахованного лица.
+      Просим предоставить письменное согласие, а также разъяснение о правовой конструкции
+      договора и допустимости назначения выгодоприобретателя.
+    addressee: "Страхователь / Страховщик"
+
+  early_termination_and_premium_refund_check:
+    text: >
+      Просим уточнить по {doc_names}: основания досрочного прекращения договора,
+      судьбу страховой премии (полный/частичный возврат либо отсутствие возврата),
+      методику расчета возвращаемой суммы и сроки возврата.
+    addressee: "Страховщик"
+
+  subrogation_clause:
+    text: >
+      Просим предоставить по {doc_names}: условия о суброгации,
+      порядке передачи страховщику документов и прав требования к причинителю вреда,
+      а также подтвердить, что договор не исключает право суброгации без специального согласования.
+    addressee: "Страховщик"
+
+  double_insurance_and_underinsurance:
+    text: >
+      Просим раскрыть по {doc_names}: имеются ли иные договоры страхования того же имущества/интереса,
+      как урегулировано двойное страхование, и как определяется выплата при неполном страховании.
+    addressee: "Страхователь / Страховщик"
+
+  compulsory_insurance_special_law_reference:
+    text: >
+      Для {doc_names} просим указать конкретный специальный закон об обязательном страховании,
+      применимые лимиты ответственности, тарифы, обязательные условия полиса и основания отказа,
+      предусмотренные специальным регулированием.
+    addressee: "Страховщик / Юридический советник"
+
+  property_insurance_value_basis:
+    text: >
+      Просим предоставить по {doc_names}: страховую стоимость имущества,
+      документы/оценку, на основании которых она определена,
+      и подтвердить, что страховая сумма не превышает действительную стоимость имущества.
+    addressee: "Страхователь / Страховщик"
+
+  sum_insured_exceeds_property_value:
+    text: >
+      В {doc_names} выявлен риск несоответствия страховой суммы страховой стоимости имущества.
+      Просим предоставить расчет действительной стоимости имущества на дату заключения договора
+      и пояснить корректность установленной страховой суммы.
+    addressee: "Страховщик / Страхователь"
+
+  liability_insurance_scope:
+    text: >
+      Просим предоставить по {doc_names}: описание страхуемой ответственности,
+      круг третьих лиц, лимиты ответственности, исключения из покрытия и механизм определения убытков.
+    addressee: "Страховщик"
+
+  consumer_protection_reference:
+    text: >
+      Просим подтвердить по {doc_names}: применяется ли к отношениям Закон о защите прав потребителей,
+      каков порядок подачи претензий потребителем, сроки ответа и последствия нарушения сроков выплаты.
+    addressee: "Страховщик / Юридический советник"
+
+  dispute_resolution_and_complaints:
+    text: >
+      Просим уточнить в {doc_names}: досудебный порядок урегулирования споров,
+      срок рассмотрения претензии, компетентный суд/подсудность,
+      а также наличие обязательного обращения к финансовому уполномоченному, если применимо.
+    addressee: "Юридический советник"
+
+  illegal_interest_insurance:
+    text: >
+      Внимание: по {doc_names} выявлен риск страхования противоправного либо недопустимого интереса.
+      Просим предоставить правовое заключение о допустимости объекта страхования
+      и подтвердить отсутствие обстоятельств, подпадающих под ст. 928 ГК РФ.
+    addressee: "Юридический советник"
+
+  risk_increase_and_policyholder_duties_check:
+    text: >
+      Просим предоставить по {doc_names}: полный перечень обязанностей страхователя 
+      в период действия договора, включая уведомление об увеличении степени риска,
+      допуск к осмотру имущества, соблюдение условий эксплуатации,
+      а также последствия нарушения каждой обязанности.
+    addressee: "Страховщик / Юридический советник"
+
+  risk_increase_notification:
+    text: >
+      Просим уточнить в {doc_names}: в какой срок и каким способом страхователь обязан
+      уведомить об увеличении степени риска, какие обстоятельства считаются существенными
+      и каковы последствия неуведомления.
+    addressee: "Страховщик"
+
+  risk_increase_notification_missing:
+    text: >
+      В {doc_names} не выявлен порядок уведомления об увеличении степени риска (ст. 959 ГК РФ).
+      Просим предусмотреть срок, способ уведомления и последствия несоблюдения.
+    addressee: "Юридический советник"
+
+  policyholder_actions_on_event_check:
+    text: >
+      Просим предоставить по {doc_names}: исчерпывающий перечень действий страхователя
+      при наступлении страхового случая, включая уведомление, вызов органов,
+      сохранение повреждённого имущества, запрет на ремонт до осмотра,
+      а также последствия неисполнения.
+    addressee: "Страховщик"
+
+  policyholder_actions_on_event:
+    text: >
+      Просим уточнить в {doc_names}: перечень обязательных действий страхователя 
+      при страховом случае и последствия их неисполнения.
+    addressee: "Страховщик"
+
+  territory_and_jurisdiction_check:
+    text: >
+      Просим уточнить по {doc_names}: территорию действия покрытия,
+      ограничения по юрисдикциям и наличие территориальных исключений.
+    addressee: "Страховщик"
+
+  territory_of_coverage:
+    text: >
+      Просим уточнить в {doc_names}: на какую территорию распространяется
+      страховое покрытие.
+    addressee: "Страховщик"
+
+  claims_made_vs_occurrence_check:
+    text: >
+      Просим предоставить по {doc_names}: базис покрытия (claims-made или occurrence),
+      ретроактивную дату, наличие и продолжительность дополнительного периода 
+      уведомления (extended reporting period), а также условия его активации.
+    addressee: "Страховщик / Юридический советник"
+
+  claims_made_basis_terms:
+    text: >
+      Просим уточнить в {doc_names}: ретроактивную дату, наличие ERP/discovery period
+      и условия его предоставления.
+    addressee: "Страховщик"
+
+  aggregate_and_per_event_limits:
+    text: >
+      Просим уточнить по {doc_names}: агрегатный лимит на период страхования,
+      лимит на одно событие, подлимиты по отдельным рискам
+      и порядок восстановления лимита.
+    addressee: "Страховщик"
+
+  cooling_off_period:
+    text: >
+      Просим подтвердить по {doc_names}: наличие периода охлаждения (14 дней),
+      порядок отказа от договора в этот период и условия возврата премии.
+    addressee: "Страховщик"
+
+  financial_ombudsman_reference:
+    text: >
+      Просим уточнить в {doc_names}: порядок обращения к финансовому уполномоченному
+      как обязательный досудебный этап для потребителей (ФЗ-123).
+    addressee: "Страховщик"
+
+  financial_ombudsman_missing_for_consumer:
+    text: >
+      В {doc_names} не выявлено упоминание финансового уполномоченного.
+      Просим включить информацию об обязательном досудебном обращении 
+      к финансовому уполномоченному для потребительских договоров.
+    addressee: "Юридический советник"
+
+  premium_non_payment_consequences:
+    text: >
+      Просим уточнить в {doc_names}: последствия просрочки оплаты очередного взноса —
+      приостановление покрытия, льготный период, автоматическое расторжение.
+    addressee: "Страховщик"
+
+  premium_non_payment_consequences_unclear:
+    text: >
+      В {doc_names} неясны последствия неуплаты очередного взноса при рассрочке.
+      Просим предусмотреть: льготный период, момент приостановления покрытия
+      и условия восстановления.
+    addressee: "Юридический советник"
+
+  war_sanctions_exclusions:
+    text: >
+      Просим предоставить по {doc_names}: полный перечень глобальных исключений
+      (война, терроризм, ядерные риски, санкции), а также подтвердить,
+      не затрагивают ли санкционные исключения интересы страхователя.
+    addressee: "Страховщик / Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

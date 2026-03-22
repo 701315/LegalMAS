@@ -13,7 +13,8 @@ CheckRunner: playbook-based checks executor.
 1. Получаем non-duplicate документы сделки через RunnerRepository.
 2. Для каждого документа:
    - берём doc_type и applicable_triggers (классификатор уже заполнил),
-   - выбираем релевантные checks из playbook,
+   - выбираем релевантные checks из playbook и YAML типа документа
+     (в зависимости от режима),
    - через DocumentContentService получаем ЧАНКИ по листовым клаузам
      (структурно осмысленные куски текста, а не один "простыню" целиком),
    - выполняем CheckExecutor.execute(doc, check, chunks),
@@ -26,12 +27,14 @@ import time
 import uuid
 from typing import Tuple
 
+from core.config import settings
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
+from db.repositories.document_repo import DocumentRepository
 from db.uow import db_uow
 from engine.checks.executor import CheckExecutor
 from engine.content.document_content_service import DocumentContentService
-from db.repositories.document_repo import DocumentRepository
+from engine.doc_type_checks.loader import DocTypeCheckLoader
 
 logger = get_logger(__name__)
 
@@ -58,7 +61,9 @@ class CheckRunner:
         2) по каждому документу запускает _run_checks_for_document в отдельном UoW;
         3) накапливает агрегированную статистику по run'у.
     - На уровне документа:
-        1) выбирает релевантные checks из playbook по doc_type и триггерам;
+        1) выбирает релевантные checks из playbook по doc_type и триггерам,
+           ДОПОЛНИТЕЛЬНО подмешивает doc-type-специфичные проверки из YAML
+           (если это разрешено режимом);
         2) получает чанки через DocumentContentService;
         3) прогоняет checks через CheckExecutor;
         4) сохраняет результаты в check_results через репозиторий.
@@ -79,6 +84,15 @@ class CheckRunner:
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
         self.playbook_version_id = playbook_version_id
+        # Новый лоадер проверок из YAML-инструкций типов документов
+        self.doc_type_loader = DocTypeCheckLoader()
+        # Режим: какие проверки запускать.
+        # "global_and_doc_type" (по умолчанию), "global_only", "doc_type_only".
+        self.checks_mode = getattr(
+            settings,
+            "CHECK_RUNNER_MODE",
+            "global_and_doc_type",
+        )
 
     async def run_deal_checks(
         self,
@@ -109,6 +123,7 @@ class CheckRunner:
             extra={
                 "deal_id": str(deal_id),
                 "run_id": str(run_id),
+                "checks_mode": self.checks_mode,
             },
         )
 
@@ -249,11 +264,39 @@ class CheckRunner:
                     "run_id": str(run_id),
                     "doc_type": doc_type,
                     "triggers": applicable_triggers,
+                    "checks_mode": self.checks_mode,
                 },
             )
 
-            # 2. Выбор checks из playbook
-            checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
+            # 2. Выбор checks: глобальные из плейбука + doc-type из YAML (в зависимости от режима)
+            global_checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
+            doc_type_checks = self.doc_type_loader.load_checks_for_doc(
+                doc_type=doc_type,
+                applicable_triggers=applicable_triggers,
+            )
+
+            mode = self.checks_mode
+            if mode == "global_only":
+                checks = global_checks
+            elif mode == "doc_type_only":
+                checks = doc_type_checks
+            else:  # "global_and_doc_type" по умолчанию
+                checks = global_checks + doc_type_checks
+
+            logger.info(
+                "CheckRunner: checks selected for document",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "deal_id": str(getattr(doc, "deal_id", "")),
+                    "run_id": str(run_id),
+                    "doc_type": doc_type,
+                    "triggers": applicable_triggers,
+                    "checks_mode": mode,
+                    "global_checks": len(global_checks),
+                    "doc_type_checks": len(doc_type_checks),
+                    "total_checks": len(checks),
+                },
+            )
 
             if not checks:
                 logger.info(
@@ -264,9 +307,54 @@ class CheckRunner:
                         "run_id": str(run_id),
                         "doc_type": doc_type,
                         "triggers": applicable_triggers,
+                        "checks_mode": mode,
                     },
                 )
                 return 0, 0
+
+            # Диагностика: какие conditional-checks из плейбука были пропущены
+            # из-за отсутствия нужного триггера у документа.
+            try:
+                for check in getattr(playbook, "checks", []):
+                    # Фильтруем по doc_type, если он задан в CheckDefinition
+                    if getattr(check, "doc_types", None) and doc_type not in check.doc_types:
+                        continue
+
+                    conditional = getattr(check, "conditional", None)
+                    if not conditional:
+                        continue
+
+                    # Поддержка старого/нового формата ConditionalConfig
+                    trigger = None
+                    if isinstance(conditional, dict):
+                        trigger = conditional.get("trigger")
+                    else:
+                        trigger = getattr(conditional, "trigger", None)
+
+                    if trigger and trigger not in applicable_triggers:
+                        logger.info(
+                            "CheckRunner: conditional check skipped (trigger not detected)",
+                            extra={
+                                "doc_id": str(getattr(doc, "id", None)),
+                                "deal_id": str(getattr(doc, "deal_id", "")),
+                                "run_id": str(run_id),
+                                "doc_type": doc_type,
+                                "check_id": getattr(check, "id", None),
+                                "check_name": getattr(check, "name", None),
+                                "required_trigger": trigger,
+                                "doc_applicable_triggers": applicable_triggers,
+                            },
+                        )
+            except Exception as e:
+                # Любые ошибки диагностики не должны ломать основной прогон checks
+                logger.warning(
+                    "CheckRunner: failed to log skipped conditional checks",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "run_id": str(run_id),
+                        "error": str(e),
+                    },
+                )
 
             # 3. Получение чанков по документу
             content_service = DocumentContentService(
@@ -427,3 +515,5 @@ class CheckRunner:
             # Коммит делает db_uow() при выходе из контекста
 
         return total_checks, failed_checks
+    
+    

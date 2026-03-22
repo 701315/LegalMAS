@@ -1,0 +1,2115 @@
+type: contract_7.1_ip_assignment
+name: "Договор об отчуждении исключительного права"
+
+description: |
+  Соглашение, по которому правообладатель передаёт или обязуется передать принадлежащее ему
+  исключительное право на результат интеллектуальной деятельности (РИД) или средство
+  индивидуализации в полном объёме приобретателю.
+
+  Ключевые особенности:
+  • Является «продажей права» — влечёт безвозвратную утрату права первоначальным обладателем
+  • Для регистрируемых объектов (патенты, ТЗ, ПМ, ПО) переход права подлежит регистрации в Роспатенте
+  • Автор сохраняет неотчуждаемые личные неимущественные права (право авторства, право на имя)
+  • Безвозмездное отчуждение между коммерческими организациями запрещено
+
+  Регулируется ст. 1234 ГК РФ (общие положения), а также специальными нормами для отдельных
+  объектов: ст. 1285 (произведения), ст. 1365 (изобретения, ПМ, ПО), ст. 1488 (товарные знаки),
+  ст. 1468 (ноу-хау).
+
+version: 4.1
+parent: class_7_intellectual_property
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: intellectual_property
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "ст. 1234 ГК РФ, Часть 4 ГК РФ"
+  doc_types_supported:
+    - "договор об отчуждении исключительного права на изобретение"
+    - "договор об отчуждении исключительного права на полезную модель"
+    - "договор об отчуждении исключительного права на промышленный образец"
+    - "договор об отчуждении исключительного права на товарный знак"
+    - "договор об отчуждении исключительного права на программу для ЭВМ"
+    - "договор об отчуждении исключительного права на базу данных"
+    - "договор об отчуждении исключительного права на произведение"
+    - "договор об отчуждении исключительного права на секрет производства (ноу-хау)"
+    - "договор уступки патента"
+    - "договор уступки товарного знака"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)отчужден.*исключительн"
+      - "(?i)уступк.*патент"
+      - "(?i)уступк.*товарн.*знак"
+      - "(?i)передач.*исключительн.*прав"
+      - "(?i)ip[\\s_.-]?assign"
+      - "(?i)patent[\\s_.-]?assign"
+      - "(?i)trademark[\\s_.-]?assign"
+
+    folder_patterns:
+      - "(?i)ip[\\s_-]?transfer"
+      - "(?i)интеллектуальн.*собственност"
+      - "(?i)патент"
+
+    keywords:
+
+      high:
+        - "отчуждение исключительного права"
+        - "передача исключительного права"
+        - "уступка исключительного права"
+        - "исключительное право в полном объеме"
+        - "переход исключительного права"
+        - "правообладатель передает"
+        - "приобретатель принимает"
+        - "утрата права"
+
+      medium:
+        - "патент"
+        - "товарный знак"
+        - "изобретение"
+        - "полезная модель"
+        - "промышленный образец"
+        - "программа для ЭВМ"
+        - "база данных"
+        - "ноу-хау"
+        - "секрет производства"
+        - "произведение"
+        - "авторское право"
+        - "исключительное право"
+        - "правообладатель"
+        - "приобретатель"
+
+      low:
+        - "государственная регистрация перехода права"
+        - "Роспатент"
+        - "ФИПС"
+        - "паушальный платеж"
+        - "вознаграждение за отчуждение"
+        - "свидетельство"
+        - "патентное ведомство"
+        - "регистрационный номер"
+        - "номер государственной регистрации"
+
+    exclusions:
+      - "лицензионный договор"
+      - "предоставление права использования"
+      - "неисключительная лицензия"
+      - "исключительная лицензия"
+      - "сублицензия"
+      - "договор коммерческой концессии"
+      - "франчайзинг"
+      - "договор залога исключительного права"
+      - "договор доверительного управления"
+      - "авторский договор заказа"
+      - "договор на создание произведения"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  registered_ip_patent:
+    description: "Регистрируемые объекты патентного права"
+    any_keywords:
+      - "патент"
+      - "изобретение"
+      - "полезная модель"
+      - "промышленный образец"
+      - "патент №"
+      - "патент RU"
+      - "регистрационный номер"
+
+  registered_ip_trademark:
+    description: "Товарные знаки и НМПТ"
+    any_keywords:
+      - "товарный знак"
+      - "знак обслуживания"
+      - "НМПТ"
+      - "наименование места происхождения"
+      - "свидетельство №"
+      - "свидетельство на товарный знак"
+
+  copyright_objects:
+    description: "Объекты авторского права"
+    any_keywords:
+      - "произведение"
+      - "программа для ЭВМ"
+      - "программное обеспечение"
+      - "база данных"
+      - "авторское право"
+      - "литературное произведение"
+      - "музыкальное произведение"
+      - "аудиовизуальное произведение"
+      - "фотографическое произведение"
+
+  know_how_trade_secret:
+    description: "Секреты производства (ноу-хау)"
+    any_keywords:
+      - "ноу-хау"
+      - "секрет производства"
+      - "коммерческая тайна"
+      - "конфиденциальная информация"
+      - "режим коммерческой тайны"
+
+  commercial_parties:
+    description: "Коммерческие организации как стороны"
+    any_keywords:
+      - "ООО"
+      - "АО"
+      - "ЗАО"
+      - "ПАО"
+      - "ИП"
+      - "индивидуальный предприниматель"
+      - "ОГРН"
+      - "ИНН"
+      - "юридическое лицо"
+      - "коммерческая организация"
+
+  individual_author:
+    description: "Физическое лицо — автор"
+    any_keywords:
+      - "автор"
+      - "физическое лицо"
+      - "гражданин"
+      - "паспорт"
+      - "создатель"
+
+  service_invention:
+    description: "Служебные результаты интеллектуальной деятельности"
+    any_keywords:
+      - "служебное произведение"
+      - "служебное изобретение"
+      - "служебная полезная модель"
+      - "служебный промышленный образец"
+      - "создано работником"
+      - "в рамках трудовых обязанностей"
+      - "по заданию работодателя"
+      - "права работодателя"
+
+  existing_licenses:
+    description: "Наличие действующих лицензий"
+    any_keywords:
+      - "действующие лицензии"
+      - "лицензионные договоры"
+      - "лицензиаты"
+      - "предоставлено право использования"
+      - "обременение лицензиями"
+
+  pledged_ip:
+    description: "Залог исключительного права"
+    any_keywords:
+      - "залог"
+      - "заложено"
+      - "залогодержатель"
+      - "обеспечение обязательств"
+      - "согласие залогодержателя"
+
+  cross_border_ip:
+    description: "Международный элемент"
+    any_keywords:
+      - "иностранное лицо"
+      - "нерезидент"
+      - "международный патент"
+      - "PCT"
+      - "Мадридский протокол"
+      - "евразийский патент"
+      - "ЕАПО"
+      - "иностранная валюта"
+      - "применимое право"
+
+  deferred_payment:
+    description: "Отложенная или поэтапная оплата"
+    any_keywords:
+      - "рассрочка"
+      - "поэтапная оплата"
+      - "в течение"
+      - "после регистрации"
+      - "отсрочка платежа"
+      - "роялти"
+
+  gratuitous_transfer:
+    description: "Безвозмездная передача"
+    any_keywords:
+      - "безвозмездно"
+      - "без вознаграждения"
+      - "дарение"
+      - "на безвозмездной основе"
+
+  multiple_ip_objects:
+    description: "Сделка с портфелем/несколькими объектами ИС"
+    any_keywords:
+      - "портфель патентов"
+      - "комплекс прав"
+      - "несколько объектов"
+      - "перечень объектов"
+      - "приложение №"
+      - "группа патентов"
+      - "семейство патентов"
+
+  author_is_party:
+    description: "Автор является стороной договора"
+    any_keywords:
+      - "автор передаёт"
+      - "автор отчуждает"
+      - "автор — правообладатель"
+      - "создатель произведения"
+      - "право авторства"
+      - "право на имя"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  patent_number: "(?i)\\b(патент|patent)\\s*(№|#|N)?\\s*\\d{5,}"
+  trademark_number: "(?i)\\b(свидетельство|certificate)\\s*(№|#|N)?\\s*\\d{5,}"
+  registration_number: "(?i)\\b(регистраци\\w+\\s+)?№?\\s*\\d{4,}[\\s/-]?\\d{0,6}"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|USD|EUR|долл|евро)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  inn_pattern: "(?i)ИНН\\s*:?\\s*\\d{10,12}"
+  ogrn_pattern: "(?i)ОГРН\\s*:?\\s*\\d{13,15}"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "gratuitous_between_commercial_prohibited"
+    name: "Запрет безвозмездного отчуждения между коммерческими организациями"
+    description: |
+      Безвозмездное отчуждение исключительного права между коммерческими организациями
+      не допускается (п. 3 ст. 1234, ст. 575 ГК РФ).
+    legal_base: "п. 3 ст. 1234, ст. 575 ГК РФ"
+    required_triggers: ["commercial_parties", "gratuitous_transfer"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "безвозмездно"
+        - "без вознаграждения"
+        - "дарение"
+        - "коммерческая организация"
+        - "юридическое лицо"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Определи:
+        1. Являются ли обе стороны коммерческими организациями?
+        2. Предусмотрено ли вознаграждение?
+
+        Ответь в JSON:
+        {
+          "seller_is_commercial": "<yes / no / unclear>",
+          "buyer_is_commercial": "<yes / no / unclear>",
+          "remuneration_present": "<yes / no / unclear>",
+          "gratuitous_indicators": "<yes / no / unclear>",
+          "violation_risk": "<high / medium / low / none>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      boost_keywords:
+        - "безвозмездно"
+        - "вознаграждение"
+        - "ООО"
+        - "АО"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+
+  - id: "unregistered_transfer_void"
+    name: "Отсутствие регистрации перехода права на регистрируемые объекты"
+    description: |
+      Для регистрируемых объектов переход права без регистрации в Роспатенте
+      не состоится (ст. 1232, 1234 ГК РФ).
+    legal_base: "ст. 1232, 1234 ГК РФ"
+    required_triggers: ["registered_ip_patent"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "патент"
+        - "товарный знак"
+        - "полезная модель"
+        - "промышленный образец"
+        - "регистрация"
+        - "Роспатент"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)регистраци\\w+\\s+(перехода\\s+)?права"
+        - "(?i)подлежит\\s+регистрации"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "государственная регистрация"
+        - "Роспатент"
+        - "переход права"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+
+  - id: "trademark_assignment_goodwill_risk"
+    name: "Уступка ТЗ для товаров иного рода → введение в заблуждение (ст. 1488 п. 2 ГК РФ)"
+    description: |
+      Отчуждение товарного знака не допускается, если оно может ввести потребителя
+      в заблуждение относительно товара или его изготовителя.
+      Роспатент может отказать в регистрации перехода.
+    legal_base: "ст. 1488 п. 2 ГК РФ"
+    required_triggers: ["registered_ip_trademark"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "введение в заблуждение"
+        - "однородные товары"
+        - "перечень товаров и услуг"
+        - "класс МКТУ"
+        - "Роспатент отказал"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "товарный знак"
+        - "введение в заблуждение"
+        - "МКТУ"
+      rerank: true
+
+  - id: "partial_trademark_assignment_confusion"
+    name: "Частичная уступка ТЗ с риском смешения (ст. 1488 п. 3 ГК РФ)"
+    description: |
+      Не допускается отчуждение ТЗ в отношении части товаров, если это порождает
+      вероятность смешения товаров и услуг (сходные ТЗ остаются у разных лиц).
+    legal_base: "ст. 1488 п. 3 ГК РФ"
+    required_triggers: ["registered_ip_trademark"]
+    severity: "high"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "частичная уступка"
+        - "в отношении части товаров"
+        - "часть перечня"
+        - "сходные товарные знаки"
+        - "вероятность смешения"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "частичная уступка"
+        - "смешение"
+        - "часть товаров"
+      rerank: true
+
+  - id: "currency_control_cross_border_ip"
+    name: "Валютный контроль при трансграничном отчуждении ИС (ФЗ-173, НК РФ ст. 309-310)"
+    description: |
+      При оплате иностранному правообладателю необходимо:
+      (а) оформить паспорт сделки (если сумма ≥ 3 млн руб.);
+      (б) удержать налог у источника (20%, если нет СОИДН);
+      (в) соблюсти валютное законодательство.
+    legal_base: "ФЗ-173, НК РФ ст. 309, 310, 312"
+    required_triggers: ["cross_border_ip"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "паспорт сделки"
+        - "валютный контроль"
+        - "налог у источника"
+        - "withholding tax"
+        - "СОИДН"
+        - "нерезидент"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "валютный контроль"
+        - "нерезидент"
+        - "налог у источника"
+      rerank: true
+
+  - id: "author_moral_rights_inalienable"
+    name: "Неотчуждаемость личных неимущественных прав автора (ст. 1265 ГК РФ)"
+    description: |
+      Договор НЕ может передавать право авторства и право на имя —
+      они неотчуждаемы и непередаваемы (ст. 1265 ГК РФ).
+      Условия договора, ограничивающие эти права, НИЧТОЖНЫ.
+    legal_base: "ст. 1265, 1228 ГК РФ"
+    required_triggers: ["author_is_party"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "передача права авторства"
+        - "отказ от авторства"
+        - "передача права на имя"
+        - "анонимность"
+        - "псевдоним переходит"
+      keyword_mode: "any"
+      negative_keywords:
+        - "сохраняет право авторства"
+        - "неотчуждаемые права"
+        - "личные неимущественные права"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "право авторства"
+        - "право на имя"
+        - "неотчуждаемые"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: ip_object_extraction
+    name: "Извлечение данных об объекте интеллектуальной собственности"
+    description: "Извлекает тип объекта ИС, регистрационные данные, описание, срок действия"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "патент"
+        - "товарный знак"
+        - "изобретение"
+        - "полезная модель"
+        - "промышленный образец"
+        - "программа для ЭВМ"
+        - "произведение"
+        - "ноу-хау"
+        - "регистрационный номер"
+        - "свидетельство"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(патент|свидетельство)\\s*(№|#|N)?\\s*\\d{5,}"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор об отчуждении исключительного права.
+        Найди в тексте сведения об объекте интеллектуальной собственности.
+
+        Ответь строго в JSON:
+        {
+          "ip_object_type": "<patent / utility_model / industrial_design / trademark / software / database / work / know_how / other / not_found>",
+          "registration_number": "<номер патента/свидетельства или not_found>",
+          "registration_date": "<дата регистрации или not_found>",
+          "expiry_date": "<дата окончания срока действия или not_found>",
+          "object_description": "<краткое описание объекта или not_found>",
+          "registration_authority": "<Роспатент / иной орган / not_applicable / not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "патент"
+        - "товарный знак"
+        - "регистрационный номер"
+        - "свидетельство"
+        - "срок действия"
+        - "объект"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "ip_object_type"
+          type: "string"
+          allowed_values: ["patent", "utility_model", "industrial_design", "trademark", "software", "database", "work", "know_how", "other", "not_found"]
+          description: "Тип объекта ИС"
+        - name: "registration_number"
+          type: "string"
+          regex_patterns:
+            - "(?i)\\b(патент|свидетельство)\\s*(№|#|N)?\\s*\\d{5,}"
+          description: "Номер регистрации"
+        - name: "registration_date"
+          type: "string"
+          keyword_hints: ["дата регистрации", "зарегистрирован", "дата приоритета"]
+          description: "Дата регистрации"
+        - name: "expiry_date"
+          type: "string"
+          keyword_hints: ["срок действия", "действует до", "истекает"]
+          description: "Дата окончания срока действия"
+      store_payload: true
+
+  - id: patent_validity_check
+    name: "Проверка действительности патента/свидетельства"
+    description: "Проверяет срок действия, уплату пошлин, отсутствие досрочного прекращения"
+    triggers:
+      any: ["registered_ip_patent", "registered_ip_trademark"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "действующий патент"
+        - "срок действия"
+        - "патент действует"
+        - "поддержание в силе"
+        - "пошлина уплачена"
+        - "не прекращен"
+        - "не аннулирован"
+        - "не оспорен"
+      keyword_mode: "any"
+      negative_keywords:
+        - "прекращен"
+        - "аннулирован"
+        - "истек"
+        - "недействителен"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении патента/товарного знака.
+        Определи, содержит ли договор подтверждение действительности права:
+
+        Ответь в JSON:
+        {
+          "validity_confirmed": "<yes / no / unclear>",
+          "expiry_date_specified": "<yes / no>",
+          "maintenance_fees_paid": "<confirmed / not_mentioned / unclear>",
+          "no_invalidation_proceedings": "<confirmed / not_mentioned / unclear>",
+          "validity_snippet": "<цитата или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "действующий"
+        - "срок действия"
+        - "пошлина"
+        - "поддержание в силе"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "validity_confirmed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Подтверждена ли действительность права"
+        - name: "maintenance_fees_paid"
+          type: "string"
+          allowed_values: ["confirmed", "not_mentioned", "unclear"]
+          description: "Уплачены ли пошлины за поддержание"
+      store_payload: true
+
+  - id: encumbrances_licenses_check
+    name: "Проверка обременений и действующих лицензий (ст. 1235 п. 7 ГК РФ)"
+    description: "Проверяет раскрытие информации о залоге, лицензиях, спорах"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обременения"
+        - "залог"
+        - "лицензии"
+        - "лицензионные договоры"
+        - "права третьих лиц"
+        - "споры"
+        - "судебные разбирательства"
+        - "свободен от обременений"
+        - "отсутствие лицензий"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Найди информацию об обременениях:
+
+        Ответь в JSON:
+        {
+          "encumbrances_disclosed": "<yes_none / yes_exist / not_disclosed>",
+          "pledge_status": "<no_pledge / pledged / not_mentioned>",
+          "licenses_status": "<no_licenses / licenses_exist / not_mentioned>",
+          "license_details": "<описание лицензий или not_found>",
+          "disputes_status": "<no_disputes / disputes_exist / not_mentioned>",
+          "encumbrances_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Лицензии сохраняют силу при переходе права (ст. 1235 п. 7 ГК РФ).
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "обременения"
+        - "залог"
+        - "лицензии"
+        - "третьи лица"
+        - "споры"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "encumbrances_disclosed"
+          type: "string"
+          allowed_values: ["yes_none", "yes_exist", "not_disclosed"]
+          description: "Раскрыты ли обременения"
+        - name: "pledge_status"
+          type: "string"
+          allowed_values: ["no_pledge", "pledged", "not_mentioned"]
+          description: "Статус залога"
+        - name: "licenses_status"
+          type: "string"
+          allowed_values: ["no_licenses", "licenses_exist", "not_mentioned"]
+          description: "Статус лицензий"
+      store_payload: true
+
+  - id: service_invention_rights_check
+    name: "Служебные РИД: урегулирование прав автора (ст. 1295, 1370 ГК РФ)"
+    description: "Проверяет урегулирование прав работника-автора на вознаграждение"
+    triggers:
+      any: ["service_invention"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "служебное"
+        - "создано работником"
+        - "трудовые обязанности"
+        - "работодатель"
+        - "вознаграждение автору"
+        - "согласие автора"
+        - "права автора урегулированы"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права на служебный РИД.
+        Определи, урегулированы ли права автора-работника:
+
+        Ответь в JSON:
+        {
+          "service_work_indicated": "<yes / no / unclear>",
+          "author_remuneration_settled": "<confirmed / not_mentioned / unclear>",
+          "author_consent_present": "<yes / no / not_applicable / unclear>",
+          "employer_rights_confirmed": "<yes / no / unclear>",
+          "service_work_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Автор служебного РИД сохраняет право на вознаграждение (ст. 1295, 1370 ГК РФ).
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "служебное"
+        - "работник"
+        - "автор"
+        - "вознаграждение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "service_work_indicated"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Указано ли, что РИД служебный"
+        - name: "author_remuneration_settled"
+          type: "string"
+          allowed_values: ["confirmed", "not_mentioned", "unclear"]
+          description: "Урегулировано ли вознаграждение автора"
+      store_payload: true
+
+  - id: know_how_confidentiality_check
+    name: "Ноу-хау: режим конфиденциальности и передача информации"
+    description: "Проверяет сохранение режима коммерческой тайны и порядок передачи"
+    triggers:
+      any: ["know_how_trade_secret"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ноу-хау"
+        - "секрет производства"
+        - "коммерческая тайна"
+        - "конфиденциальность"
+        - "режим секретности"
+        - "неразглашение"
+        - "передача информации"
+        - "носители информации"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении права на ноу-хау.
+        Определи условия сохранения конфиденциальности:
+
+        Ответь в JSON:
+        {
+          "confidentiality_regime": "<maintained / terminated / not_specified>",
+          "seller_obligations": "<non_disclosure / disclosure_allowed / not_specified>",
+          "information_transfer_method": "<specified / not_specified>",
+          "third_party_access_risk": "<addressed / not_addressed>",
+          "confidentiality_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: При разглашении ноу-хау исключительное право прекращается (ст. 1467 ГК РФ).
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "ноу-хау"
+        - "конфиденциальность"
+        - "секрет производства"
+        - "неразглашение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "confidentiality_regime"
+          type: "string"
+          allowed_values: ["maintained", "terminated", "not_specified"]
+          description: "Режим конфиденциальности"
+        - name: "seller_obligations"
+          type: "string"
+          allowed_values: ["non_disclosure", "disclosure_allowed", "not_specified"]
+          description: "Обязанности продавца по неразглашению"
+      store_payload: true
+
+  - id: cross_border_ip_check
+    name: "Международный элемент: территория, применимое право, валюта"
+    description: "Проверяет аспекты трансграничного отчуждения ИС"
+    triggers:
+      any: ["cross_border_ip"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "иностранное лицо"
+        - "нерезидент"
+        - "территория действия"
+        - "применимое право"
+        - "иностранная валюта"
+        - "USD"
+        - "EUR"
+        - "международный патент"
+        - "PCT"
+        - "Мадридский протокол"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права с международным элементом.
+
+        Ответь в JSON:
+        {
+          "foreign_party": "<seller / buyer / both / none>",
+          "territory_specified": "<yes / no>",
+          "territory_list": "<перечень стран/регионов или not_found>",
+          "governing_law": "<RU / other / not_specified>",
+          "currency": "<RUB / USD / EUR / other / not_specified>",
+          "currency_control_risk": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "иностранный"
+        - "территория"
+        - "применимое право"
+        - "валюта"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "foreign_party"
+          type: "string"
+          allowed_values: ["seller", "buyer", "both", "none"]
+          description: "Иностранная сторона"
+        - name: "governing_law"
+          type: "string"
+          allowed_values: ["RU", "other", "not_specified"]
+          description: "Применимое право"
+      store_payload: true
+
+  - id: reverse_license_check
+    name: "Обратная лицензия для отчуждателя"
+    description: "Проверяет, предусмотрено ли сохранение права использования за бывшим правообладателем"
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обратная лицензия"
+        - "право использования сохраняется"
+        - "лицензия отчуждателю"
+        - "продолжение использования"
+        - "неисключительное право отчуждателя"
+        - "правообладатель сохраняет право"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Определи, предусмотрена ли обратная лицензия для отчуждателя:
+
+        Ответь в JSON:
+        {
+          "reverse_license_granted": "<yes / no / not_found>",
+          "license_type": "<exclusive / non_exclusive / not_applicable>",
+          "license_scope": "<описание объёма или not_found>",
+          "license_term": "<срок или not_found>",
+          "reverse_license_snippet": "<цитата или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 350
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "обратная лицензия"
+        - "сохраняет право"
+        - "продолжение использования"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "reverse_license_granted"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Предоставлена ли обратная лицензия"
+      store_payload: true
+
+  - id: author_moral_rights_preserved
+    name: "Сохранение личных неимущественных прав автора (ст. 1228, 1265 ГК РФ)"
+    description: |
+      Право авторства и право на имя неотчуждаемы. Договор должен подтвердить
+      сохранение этих прав за автором. Условия, ограничивающие их, ничтожны.
+    triggers:
+      any: ["author_is_party", "copyright_objects"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право авторства"
+        - "право на имя"
+        - "личные неимущественные"
+        - "неотчуждаемые права"
+        - "автор сохраняет"
+        - "указание имени автора"
+      keyword_mode: "any"
+      negative_keywords:
+        - "передача права авторства"
+        - "отказ от авторства"
+      regex_patterns:
+        - "(?i)автор\\s+сохраняет.*прав(о|а)"
+        - "(?i)неотчуждаем\\w+.*прав"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Проверь сохранение личных неимущественных прав автора.
+
+        Ответь в JSON:
+        {
+          "moral_rights_preserved": "<yes / no / not_mentioned>",
+          "authorship_right": "<preserved / violated / not_mentioned>",
+          "name_right": "<preserved / violated / not_mentioned>",
+          "integrity_right": "<preserved / violated / not_mentioned>",
+          "moral_rights_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Право авторства и право на имя НЕОТЧУЖДАЕМЫ (ст. 1265 ГК РФ).
+        Любое условие об их передаче НИЧТОЖНО.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "право авторства"
+        - "право на имя"
+        - "неотчуждаемые"
+        - "автор сохраняет"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "moral_rights_preserved"
+          type: "string"
+          allowed_values: ["yes", "no", "not_mentioned"]
+          description: "Сохранены ли моральные права автора"
+      store_payload: true
+
+  - id: ip_due_diligence_completeness
+    name: "Полнота IP due diligence: цепочка правообладателей"
+    description: |
+      При покупке ИС критично проверить историю переходов права:
+      кто первоначальный правообладатель, были ли промежуточные передачи,
+      все ли зарегистрированы, нет ли разрывов в цепочке.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "история права"
+        - "цепочка правообладателей"
+        - "предыдущий правообладатель"
+        - "основание приобретения"
+        - "договор о создании"
+        - "приказ о закреплении"
+        - "правопреемство"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)основани(е|ем)\\s+приобретения\\s+прав"
+        - "(?i)предыдущ\\w+\\s+правообладател"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Проверь, раскрыта ли история/цепочка правообладателей:
+
+        Ответь в JSON:
+        {
+          "chain_of_title_disclosed": "<yes / partial / no>",
+          "original_rightsholder": "<указан / not_found>",
+          "basis_of_acquisition": "<описание основания или not_found>",
+          "intermediate_transfers": "<описание или not_found>",
+          "gaps_in_chain": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "основание приобретения"
+        - "правообладатель"
+        - "история права"
+        - "цепочка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "chain_of_title_disclosed"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Раскрыта ли цепочка правообладателей"
+      store_payload: true
+
+  - id: non_compete_seller
+    name: "Запрет конкуренции продавца после отчуждения"
+    description: |
+      После отчуждения ИС продавец может конкурировать с покупателем,
+      используя накопленные знания/контакты. Non-compete оговорка защищает покупателя.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "запрет конкуренции"
+        - "non-compete"
+        - "неконкуренция"
+        - "воздерживается от"
+        - "не создавать конкурирующий"
+        - "не использовать аналогичные"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(запрет|обязуется\\s+не).*конкурир"
+        - "(?i)non[- ]?compete"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Проверь наличие условия о неконкуренции продавца:
+
+        Ответь в JSON:
+        {
+          "non_compete_present": "<yes / no / not_found>",
+          "non_compete_scope": "<описание или not_found>",
+          "non_compete_period": "<срок или not_found>",
+          "non_compete_territory": "<территория или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "запрет конкуренции"
+        - "non-compete"
+        - "неконкуренция"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "non_compete_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие non-compete оговорки"
+      store_payload: true
+
+  - id: escrow_registration_mechanism
+    name: "Escrow-механизм синхронизации оплаты и регистрации"
+    description: |
+      Главный риск: покупатель платит, но регистрация не проходит (или наоборот).
+      Escrow/аккредитив синхронизирует оплату с регистрацией перехода права.
+    triggers:
+      any: ["registered_ip_patent", "registered_ip_trademark"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "эскроу"
+        - "escrow"
+        - "аккредитив"
+        - "банковская ячейка"
+        - "депозит нотариуса"
+        - "условие раскрытия"
+        - "после регистрации перехода"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(эскроу|escrow|аккредитив).*регистрац"
+        - "(?i)оплат.*после.*регистрац.*перехода"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Проверь наличие escrow/аккредитив механизма для синхронизации оплаты и регистрации:
+
+        Ответь в JSON:
+        {
+          "escrow_mechanism_present": "<yes / no / not_found>",
+          "mechanism_type": "<escrow / accreditive / notary_deposit / bank_cell / other / not_found>",
+          "release_condition": "<описание условия или not_found>",
+          "risk_allocation": "<описание или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "эскроу"
+        - "аккредитив"
+        - "регистрация перехода"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "escrow_mechanism_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие escrow-механизма"
+      store_payload: true
+
+  - id: representations_and_warranties_scope
+    name: "Полнота заверений и гарантий (reps & warranties)"
+    description: |
+      LLM-анализ полноты заверений правообладателя:
+      принадлежность права, отсутствие обременений, действительность,
+      отсутствие споров, отсутствие нарушения прав третьих лиц.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "гарантирует"
+        - "заверяет"
+        - "подтверждает"
+        - "является правообладателем"
+        - "отсутствие обременений"
+        - "не нарушает прав"
+        - "не оспаривается"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Проанализируй заверения и гарантии (representations & warranties)
+        правообладателя в договоре об отчуждении ИС.
+
+        Оцени наличие КАЖДОГО из следующих заверений:
+
+        Ответь в JSON:
+        {
+          "ownership_warranty": "<yes / no / not_found>",
+          "validity_warranty": "<yes / no / not_found>",
+          "no_encumbrances_warranty": "<yes / no / not_found>",
+          "no_disputes_warranty": "<yes / no / not_found>",
+          "no_infringement_warranty": "<yes / no / not_found>",
+          "authority_to_transfer": "<yes / no / not_found>",
+          "no_prior_assignments": "<yes / no / not_found>",
+          "completeness_score": "<complete / partial / minimal / absent>"
+        }
+
+        "completeness_score":
+        - "complete" = все 7 заверений присутствуют
+        - "partial" = 4-6 заверений
+        - "minimal" = 1-3 заверения
+        - "absent" = нет заверений
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 8
+      max_chunks: 10
+      boost_keywords:
+        - "гарантирует"
+        - "заверяет"
+        - "правообладатель"
+        - "отсутствие"
+        - "обременений"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "completeness_score"
+          type: "string"
+          allowed_values: ["complete", "partial", "minimal", "absent"]
+          description: "Полнота заверений"
+        - name: "ownership_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия принадлежности права"
+      store_payload: true
+
+  - id: tax_exemption_nds_check
+    name: "Проверка применимости льготы по НДС (пп. 26 п. 2 ст. 149 НК РФ)"
+    description: |
+      Отчуждение исключительных прав на изобретения, полезные модели, промышленные образцы,
+      программы для ЭВМ, базы данных и ноу-хау может быть освобождено от НДС.
+      Критично правильно структурировать сделку и документацию.
+    triggers:
+      any: ["registered_ip_patent", "copyright_objects", "know_how_trade_secret"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "НДС"
+        - "освобождение от НДС"
+        - "не облагается НДС"
+        - "пп. 26 п. 2 ст. 149"
+        - "без НДС"
+        - "в том числе НДС"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)освобожден\\w+\\s+от\\s+НДС"
+        - "(?i)не\\s+облагается\\s+НДС"
+        - "(?i)пп\\.?\\s*26\\s+п\\.?\\s*2\\s+ст\\.?\\s*149"
+    llm:
+      prompt_template: |
+        Проанализируй договор об отчуждении исключительного права.
+        Проверь налоговые аспекты (НДС):
+
+        Ответь в JSON:
+        {
+          "vat_clause_present": "<yes / no / not_found>",
+          "vat_status": "<exempt / included / excluded / not_specified>",
+          "exemption_basis": "<пп. 26 п. 2 ст. 149 НК РФ / other / not_found>",
+          "vat_amount": "<сумма НДС или not_applicable / not_found>"
+        }
+
+        ВАЖНО: По пп. 26 п. 2 ст. 149 НК РФ отчуждение исключительных прав
+        на изобретения, ПМ, ПО, БД, ноу-хау может быть освобождено от НДС.
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "НДС"
+        - "освобождение"
+        - "ст. 149"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "vat_status"
+          type: "string"
+          allowed_values: ["exempt", "included", "excluded", "not_specified"]
+          description: "Статус НДС"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: правообладатель и приобретатель"
+    description: "Проверяет наличие и идентификацию сторон договора"
+    legal_base: "ст. 432, 1234 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "правообладатель"
+        - "отчуждатель"
+        - "приобретатель"
+        - "сторона"
+        - "именуем"
+        - "в лице"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(правообладатель|приобретатель).*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "seller_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "ip", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин", "физическое лицо"]
+          description: "Тип правообладателя"
+        - name: "buyer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "ip", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин", "физическое лицо"]
+          description: "Тип приобретателя"
+      store_payload: true
+
+  - id: "subject_ip_object_required"
+    name: "Предмет: идентификация объекта ИС (ст. 1234 ГК РФ)"
+    description: "Проверяет наличие конкретного описания объекта ИС"
+    legal_base: "ст. 1234 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "предмет договора"
+        - "исключительное право на"
+        - "патент №"
+        - "свидетельство №"
+        - "регистрационный номер"
+        - "произведение"
+        - "программа для ЭВМ"
+        - "товарный знак"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исключительн\\w+\\s+прав\\w+\\s+на"
+        - "(?i)(патент|свидетельство)\\s*(№|#)?\\s*\\d+"
+
+  - id: "full_transfer_scope_required"
+    name: "Полный объём передачи права (отличие от лицензии)"
+    description: "Проверяет явное указание на передачу в полном объёме"
+    legal_base: "ст. 1234 п. 1 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "в полном объеме"
+        - "полностью"
+        - "исключительное право передается"
+        - "исключительное право переходит"
+        - "отчуждает исключительное право"
+        - "утрачивает право"
+      keyword_mode: "any"
+      negative_keywords:
+        - "право использования"
+        - "неисключительная лицензия"
+        - "исключительная лицензия"
+        - "на срок"
+        - "на территории"
+      regex_patterns:
+        - "(?i)исключительн\\w+\\s+прав\\w+.*в\\s+полном\\s+объем"
+
+  - id: "remuneration_required"
+    name: "Вознаграждение — существенное условие возмездного договора"
+    description: "Проверяет наличие условия о размере/порядке определения вознаграждения"
+    legal_base: "ст. 1234 п. 3 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "вознаграждение"
+        - "цена"
+        - "стоимость"
+        - "оплата"
+        - "паушальный платеж"
+        - "рублей"
+        - "безвозмездно"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вознагражден\\w+.*\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "remuneration_amount"
+          type: "number"
+          keyword_hints: ["вознаграждение", "цена", "стоимость", "рублей"]
+          unit: "RUB"
+          description: "Сумма вознаграждения"
+        - name: "payment_type"
+          type: "string"
+          allowed_values: ["lump_sum", "installments", "royalty", "gratuitous", "unclear"]
+          keyword_hints: ["единовременно", "поэтапно", "рассрочка", "безвозмездно"]
+          description: "Тип оплаты"
+      store_payload: true
+
+  - id: "transfer_moment_specified"
+    name: "Момент перехода исключительного права"
+    description: "Проверяет указание момента перехода права"
+    legal_base: "ст. 1234 п. 4 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "момент перехода"
+        - "право переходит"
+        - "с момента"
+        - "после оплаты"
+        - "после регистрации"
+        - "при подписании"
+        - "переход права"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прав\\w+\\s+переходит.*с\\s+момента"
+
+  - id: "registration_obligation_clause"
+    name: "Обязанность регистрации перехода права"
+    description: "Для регистрируемых объектов"
+    legal_base: "ст. 1232, 1234 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["registered_ip_patent", "registered_ip_trademark"]
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "регистрация перехода права"
+        - "Роспатент"
+        - "ФИПС"
+        - "заявление о регистрации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)регистраци\\w+\\s+(перехода\\s+)?прав"
+
+  - id: "registration_costs_allocation"
+    name: "Распределение расходов на регистрацию"
+    description: "Кто несёт расходы на регистрацию"
+    legal_base: "ст. 1232 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["registered_ip_patent", "registered_ip_trademark"]
+    rules:
+      keywords:
+        - "расходы на регистрацию"
+        - "государственная пошлина"
+        - "несет расходы"
+        - "оплата пошлины"
+        - "за счет"
+      keyword_mode: "any"
+
+  - id: "rightsholder_warranties"
+    name: "Гарантии правообладателя о принадлежности и чистоте права"
+    description: "Заверения о действительности и отсутствии обременений"
+    legal_base: "ст. 431.2, 1234 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантирует"
+        - "заверяет"
+        - "подтверждает"
+        - "является правообладателем"
+        - "принадлежит право"
+        - "отсутствие обременений"
+        - "не оспаривается"
+        - "свободно от прав третьих лиц"
+      keyword_mode: "any"
+
+  - id: "third_party_claims_indemnity"
+    name: "Ответственность за претензии третьих лиц (индемнити)"
+    description: "Защита приобретателя от требований третьих лиц"
+    legal_base: "ст. 393, 431.2, 1234 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "претензии третьих лиц"
+        - "требования третьих лиц"
+        - "освобождение от ответственности"
+        - "индемнити"
+        - "возмещение убытков"
+      keyword_mode: "any"
+
+  - id: "payment_security"
+    name: "Обеспечение оплаты"
+    description: "Механизм обеспечения получения вознаграждения"
+    legal_base: "ст. 1234, 329 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "обеспечение оплаты"
+        - "аккредитив"
+        - "эскроу"
+        - "задаток"
+        - "предоплата"
+        - "банковская гарантия"
+        - "неустойка за просрочку"
+      keyword_mode: "any"
+
+  - id: "retention_until_payment"
+    name: "Сохранение права до полной оплаты"
+    description: "Переход права только после получения полной оплаты"
+    legal_base: "ст. 1234 п. 4 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "после полной оплаты"
+        - "после получения вознаграждения"
+        - "сохранение права до оплаты"
+        - "отлагательное условие"
+      keyword_mode: "any"
+
+  - id: "license_disclosure"
+    name: "Раскрытие действующих лицензий (ст. 1235 п. 7 ГК РФ)"
+    description: "Лицензии сохраняются при переходе права"
+    legal_base: "ст. 1235 п. 7, 1234 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "действующие лицензии"
+        - "лицензионные договоры"
+        - "перечень лицензий"
+        - "отсутствие лицензий"
+      keyword_mode: "any"
+
+  - id: "liability_for_warranty_breach"
+    name: "Ответственность за нарушение гарантий"
+    description: "Последствия нарушения заверений правообладателя"
+    legal_base: "ст. 431.2, 393 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "нарушение гарантий"
+        - "нарушение заверений"
+        - "недостоверность"
+        - "возмещение убытков"
+        - "расторжение договора"
+        - "неустойка"
+      keyword_mode: "any"
+
+  - id: "payment_default_consequences"
+    name: "Последствия просрочки/неоплаты"
+    description: "Санкции за неисполнение обязанности по оплате"
+    legal_base: "ст. 330, 395 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "просрочка оплаты"
+        - "неустойка"
+        - "пени"
+        - "проценты за просрочку"
+        - "расторжение при неоплате"
+      keyword_mode: "any"
+
+  - id: "dispute_resolution"
+    name: "Порядок разрешения споров"
+    description: "Подсудность, арбитраж, медиация"
+    legal_base: "ГК РФ, АПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "суд по интеллектуальным правам"
+        - "подсудность"
+        - "медиация"
+      keyword_mode: "any"
+
+  - id: "confidentiality_clause"
+    name: "Конфиденциальность условий договора"
+    description: "Неразглашение условий сделки"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+      keyword_mode: "any"
+
+  - id: "governing_law"
+    name: "Применимое право"
+    description: "Выбор применимого права"
+    legal_base: "ст. 1210 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["cross_border_ip"]
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется законодательством"
+        - "governing law"
+      keyword_mode: "any"
+
+  - id: "vat_tax_clause"
+    name: "НДС и налоговые аспекты"
+    description: "Налоговые оговорки"
+    legal_base: "НК РФ ст. 149 п. 2 пп. 26"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+        - "НДС не облагается"
+        - "освобождение от НДС"
+      keyword_mode: "any"
+
+  - id: "assignment_prohibition"
+    name: "Запрет уступки прав по договору"
+    description: "Ограничения на уступку прав/обязанностей"
+    legal_base: "ст. 388, 391 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка прав"
+        - "перевод долга"
+        - "без согласия"
+        - "запрещается передача"
+      keyword_mode: "any"
+
+  - id: "force_majeure_ip"
+    name: "Форс-мажор"
+    description: "Обстоятельства непреодолимой силы"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "непредвиденные обстоятельства"
+        - "санкции"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+
+  - id: "entire_agreement_clause"
+    name: "Оговорка о полноте договора (entire agreement)"
+    description: "Договор заменяет все предыдущие договорённости"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "полный договор"
+        - "заменяет все предыдущие"
+        - "entire agreement"
+        - "исчерпывающее соглашение"
+        - "все предыдущие договорённости"
+      keyword_mode: "any"
+
+  - id: "successor_obligations"
+    name: "Обязательства правопреемников"
+    description: "Договор обязателен для правопреемников"
+    legal_base: "ст. 1234, 387 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "правопреемники"
+        - "универсальное правопреемство"
+        - "реорганизация"
+        - "наследники"
+        - "обязателен для правопреемников"
+      keyword_mode: "any"
+
+  - id: "transition_support"
+    name: "Содействие в переходе (документация, обучение)"
+    description: "Обязательства продавца по передаче документации и содействию"
+    legal_base: "ст. 1234, 307 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "передача документации"
+        - "техническая документация"
+        - "обучение"
+        - "содействие"
+        - "передача знаний"
+        - "переходный период"
+        - "transition"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)передач(а|у)\\s+документац"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование/ФИО,
+      ИНН, ОГРН/ОГРНИП, адрес, документы уполномоченных лиц.
+    addressee: "Обе стороны"
+
+  subject_ip_object_required:
+    text: >
+      Просим предоставить полную информацию об объекте ИС по {doc_names}:
+      тип объекта, регистрационный номер, дата регистрации, срок действия, описание.
+    addressee: "Правообладатель"
+
+  ip_object_extraction:
+    text: >
+      Просим предоставить документы, подтверждающие идентификацию объекта ИС
+      по {doc_names}: копию патента/свидетельства, выписку из реестра Роспатента.
+    addressee: "Правообладатель"
+
+  full_transfer_scope_required:
+    text: >
+      Просим подтвердить, что по {doc_names} передаётся исключительное право
+      в полном объёме (а не лицензия).
+    addressee: "Юридический советник"
+
+  remuneration_required:
+    text: >
+      Просим уточнить по {doc_names}: размер вознаграждения, порядок оплаты,
+      валюту, включение НДС, реквизиты.
+    addressee: "Обе стороны"
+
+  transfer_moment_specified:
+    text: >
+      Просим уточнить момент перехода исключительного права по {doc_names}.
+    addressee: "Юридический советник"
+
+  registration_obligation_clause:
+    text: >
+      Объект по {doc_names} подлежит регистрации. Просим подтвердить план
+      регистрации, ответственную сторону, сроки.
+    addressee: "Обе стороны / Патентный поверенный"
+
+  registration_costs_allocation:
+    text: >
+      Просим уточнить, кто несёт расходы на регистрацию по {doc_names}.
+    addressee: "Юридический советник"
+
+  rightsholder_warranties:
+    text: >
+      Просим предоставить по {doc_names}: подтверждение действительности права,
+      заверения об отсутствии обременений, перечень лицензий.
+    addressee: "Правообладатель"
+
+  patent_validity_check:
+    text: >
+      Просим предоставить по {doc_names}: выписку из реестра Роспатента,
+      подтверждение уплаты пошлин, справку об отсутствии оспаривания.
+    addressee: "Правообладатель / Патентный поверенный"
+
+  encumbrances_licenses_check:
+    text: >
+      Просим раскрыть все обременения по {doc_names}: лицензии, залог, споры.
+    addressee: "Правообладатель"
+
+  third_party_claims_indemnity:
+    text: >
+      Просим включить в {doc_names} indemnity-оговорку для защиты приобретателя
+      от претензий третьих лиц.
+    addressee: "Юридический советник правообладателя"
+
+  license_disclosure:
+    text: >
+      Просим предоставить перечень действующих лицензий по {doc_names}.
+      Лицензии сохраняют силу при переходе права (ст. 1235 п. 7 ГК РФ).
+    addressee: "Правообладатель"
+
+  service_invention_rights_check:
+    text: >
+      По {doc_names} — служебный РИД. Просим предоставить подтверждение
+      урегулирования прав автора-работника и выплаты вознаграждения.
+    addressee: "Правообладатель (работодатель)"
+
+  know_how_confidentiality_check:
+    text: >
+      По {doc_names} (ноу-хау) просим уточнить порядок передачи информации
+      и обязанности по сохранению конфиденциальности.
+    addressee: "Обе стороны"
+
+  cross_border_ip_check:
+    text: >
+      По {doc_names} — международный элемент. Просим уточнить территорию,
+      применимое право, валюту, налоговые последствия.
+    addressee: "Юридический советник / Налоговый консультант"
+
+  reverse_license_check:
+    text: >
+      Если по {doc_names} правообладателю нужно продолжить использование,
+      просим согласовать обратную лицензию.
+    addressee: "Обе стороны"
+
+  payment_security:
+    text: >
+      Просим согласовать по {doc_names} механизм обеспечения оплаты.
+    addressee: "Обе стороны"
+
+  retention_until_payment:
+    text: >
+      Просим подтвердить: переход права по {doc_names} — только после полной оплаты.
+    addressee: "Юридический советник"
+
+  liability_for_warranty_breach:
+    text: >
+      Просим уточнить по {doc_names} последствия нарушения гарантий.
+    addressee: "Юридический советник"
+
+  payment_default_consequences:
+    text: >
+      Просим уточнить по {doc_names} санкции за просрочку/неоплату.
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать по {doc_names} порядок разрешения споров.
+    addressee: "Юридический советник"
+
+  confidentiality_clause:
+    text: >
+      Просим добавить в {doc_names} раздел о конфиденциальности.
+    addressee: "Юридический советник"
+
+  vat_tax_clause:
+    text: >
+      Просим уточнить по {doc_names} налоговые аспекты (НДС, льгота по пп. 26
+      п. 2 ст. 149 НК РФ).
+    addressee: "Налоговый консультант"
+
+  governing_law:
+    text: >
+      Просим указать применимое право по {doc_names}.
+    addressee: "Юридический советник"
+
+  gratuitous_between_commercial_prohibited:
+    text: >
+      ВНИМАНИЕ: по {doc_names} выявлены признаки безвозмездного отчуждения
+      между коммерческими организациями (запрещено по п. 3 ст. 1234, ст. 575 ГК РФ).
+    addressee: "Юридический советник правообладателя"
+
+  unregistered_transfer_void:
+    text: >
+      ВНИМАНИЕ: объект по {doc_names} подлежит регистрации. Без регистрации
+      переход права не состоится.
+    addressee: "Обе стороны / Патентный поверенный"
+
+  trademark_assignment_goodwill_risk:
+    text: >
+      По {doc_names} — уступка товарного знака. Просим проверить:
+      (а) не введёт ли передача потребителей в заблуждение (ст. 1488 п. 2 ГК РФ);
+      (б) перечень товаров/услуг (классы МКТУ);
+      (в) позицию Роспатента по допустимости передачи.
+    addressee: "Патентный поверенный"
+
+  partial_trademark_assignment_confusion:
+    text: >
+      По {doc_names} — частичная уступка ТЗ. Просим предоставить:
+      (а) перечень передаваемых классов МКТУ;
+      (б) подтверждение отсутствия вероятности смешения;
+      (в) заключение патентного поверенного.
+    addressee: "Патентный поверенный"
+
+  currency_control_cross_border_ip:
+    text: >
+      По {doc_names} — оплата иностранному правообладателю. Просим обеспечить:
+      (а) валютный контроль (ФЗ-173); (б) удержание налога у источника;
+      (в) сертификат резидентства (для СОИДН).
+    addressee: "Финансовый отдел / Налоговый консультант"
+
+  author_moral_rights_inalienable:
+    text: >
+      По {doc_names} — просим проверить, не содержит ли договор условий
+      о передаче неотчуждаемых прав автора (право авторства, право на имя).
+      Такие условия НИЧТОЖНЫ (ст. 1265 ГК РФ).
+    addressee: "Юридический советник"
+
+  author_moral_rights_preserved:
+    text: >
+      По {doc_names} — просим включить явное подтверждение сохранения
+      за автором личных неимущественных прав (авторство, имя, неприкосновенность).
+    addressee: "Юридический советник"
+
+  ip_due_diligence_completeness:
+    text: >
+      По {doc_names} — просим предоставить полную историю переходов права:
+      (а) первоначальный правообладатель; (б) основание приобретения;
+      (в) все промежуточные передачи с документами; (г) отсутствие разрывов.
+    addressee: "Правообладатель / Патентный поверенный"
+
+  non_compete_seller:
+    text: >
+      Рекомендуем включить в {doc_names} оговорку о неконкуренции продавца:
+      запрет создания/использования аналогичных объектов ИС на определённой
+      территории и в течение определённого срока.
+    addressee: "Юридический советник приобретателя"
+
+  escrow_registration_mechanism:
+    text: >
+      По {doc_names} — просим согласовать escrow/аккредитив механизм
+      для синхронизации оплаты и регистрации перехода права:
+      (а) банк/агент; (б) условия раскрытия; (в) порядок при отказе в регистрации.
+    addressee: "Обе стороны / Банк"
+
+  representations_and_warranties_scope:
+    text: >
+      По {doc_names} — просим расширить заверения правообладателя:
+      (а) принадлежность права; (б) действительность; (в) отсутствие обременений;
+      (г) отсутствие споров; (д) ненарушение прав третьих лиц;
+      (е) полномочия на отчуждение; (ж) отсутствие предыдущих передач.
+    addressee: "Юридический советник правообладателя"
+
+  tax_exemption_nds_check:
+    text: >
+      По {doc_names} — просим уточнить применимость льготы по НДС
+      (пп. 26 п. 2 ст. 149 НК РФ) и правильно оформить документацию
+      для подтверждения освобождения.
+    addressee: "Налоговый консультант"
+
+  force_majeure_ip:
+    text: >
+      Просим уточнить для {doc_names} условия о форс-мажоре.
+    addressee: "Юридический советник"
+
+  entire_agreement_clause:
+    text: >
+      Рекомендуем включить в {doc_names} оговорку о полноте договора
+      (entire agreement).
+    addressee: "Юридический советник"
+
+  successor_obligations:
+    text: >
+      Просим уточнить для {doc_names} обязательность для правопреемников.
+    addressee: "Юридический советник"
+
+  transition_support:
+    text: >
+      По {doc_names} — просим согласовать обязательства продавца по передаче
+      документации, знаний, обучению персонала приобретателя.
+    addressee: "Правообладатель"
+
+  assignment_prohibition:
+    text: >
+      Просим уточнить для {doc_names} ограничения на уступку прав по договору.
+    addressee: "Юридический советник"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

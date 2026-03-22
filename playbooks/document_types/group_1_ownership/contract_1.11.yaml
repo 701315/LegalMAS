@@ -1,0 +1,2369 @@
+type: contract_1.11
+name: "Договор купли-продажи корпоративных прав (долей/акций)"
+
+description: |
+  Специализированный договор отчуждения корпоративных прав участия в коммерческих организациях.
+  Включает продажу долей в уставном капитале ООО и продажу акций акционерных обществ.
+  Характеризуется строгими формальными требованиями, особыми правилами перехода права,
+  корпоративными ограничениями и высокой долей M&A-рисков: Due Diligence, заверения об обстоятельствах,
+  indemnity, условия закрытия, антимонопольные и санкционные ограничения.
+  Для долей в ООО критичны нотариальная форма и соблюдение корпоративной процедуры;
+  для акций АО — корректное оформление перехода прав через регистратора/депозитарий.
+  Сделки данного типа требуют повышенного контроля титула, прав третьих лиц, одобрений,
+  расчётной механики и корпоративного комплаенса.
+
+version: 4.0
+parent: class_1_transfer_of_ownership
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: corporate_transactions
+  complexity: critical
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "ГК РФ, ФЗ-14 «Об ООО», ФЗ-208 «Об АО», ФЗ-39 «О рынке ценных бумаг», ФЗ-135 «О защите конкуренции»"
+  doc_types_supported:
+    - "договор купли-продажи доли в ООО"
+    - "договор отчуждения доли в ООО"
+    - "договор купли-продажи акций"
+    - "share purchase agreement"
+    - "SPA"
+    - "договор продажи корпоративных прав"
+    - "договор продажи пакета акций"
+    - "договор продажи контрольного пакета"
+    - "M&A SPA"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)дол[ьяи].*ооо"
+      - "(?i)акци"
+      - "(?i)share[\\s_.-]?purchase"
+      - "(?i)\\bSPA\\b"
+      - "(?i)corporate[\\s_.-]?rights"
+      - "(?i)\\bM[&]?A\\b"
+      - "(?i)ma"
+
+    folder_patterns:
+      - "(?i)corporate"
+      - "(?i)m&a"
+      - "(?i)shares"
+      - "(?i)equity"
+      - "(?i)ооо"
+      - "(?i)акци"
+
+    keywords:
+
+      high:
+        - "доля в уставном капитале"
+        - "уставный капитал ООО"
+        - "акции"
+        - "бездокументарные ценные бумаги"
+        - "эмитент"
+        - "корпоративные права"
+        - "договор купли-продажи доли"
+        - "договор купли-продажи акций"
+        - "share purchase agreement"
+        - "SPA"
+        - "M&A"
+        - "слияния и поглощения"
+
+      medium:
+        - "общество с ограниченной ответственностью"
+        - "акционерное общество"
+        - "преимущественное право покупки"
+        - "нотариальное удостоверение"
+        - "реестродержатель"
+        - "регистратор"
+        - "депозитарий"
+        - "заверения и гарантии"
+        - "due diligence"
+        - "closing"
+        - "conditions precedent"
+        - "escrow"
+        - "earn-out"
+
+      low:
+        - "выписка из ЕГРЮЛ"
+        - "дивиденды"
+        - "участник общества"
+        - "акционер"
+        - "пакет акций"
+        - "контрольный пакет"
+        - "миноритарный пакет"
+        - "номинальная стоимость"
+        - "государственный регистрационный номер выпуска"
+        - "лицевой счет"
+
+    exclusions:
+      - "продажа имущества предприятия"
+      - "продажа активов компании"
+      - "выход участника из общества"
+      - "действительная стоимость доли"
+      - "дарение доли"
+      - "уступка права требования"
+      - "договор займа"
+      - "договор залога доли"
+      - "договор залога акций"
+      - "опцион на заключение договора"
+      - "опционный договор"
+      - "конвертируемый займ"
+      - "договор доверительного управления"
+      - "увеличение уставного капитала"
+      - "эмиссия дополнительных акций"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  llc_share_sale:
+    any_keywords:
+      - "доля в уставном капитале"
+      - "доля в ООО"
+      - "участник общества"
+      - "общество с ограниченной ответственностью"
+      - "ФЗ-14"
+      - "нотариус"
+      - "уставный капитал ООО"
+      - "ЕГРЮЛ"
+
+  jsc_share_sale:
+    any_keywords:
+      - "акции"
+      - "акционерное общество"
+      - "эмитент"
+      - "реестр акционеров"
+      - "регистратор"
+      - "реестродержатель"
+      - "депозитарий"
+      - "бездокументарные ценные бумаги"
+      - "ФЗ-39"
+      - "лицевой счет"
+
+  public_jsc_sale:
+    any_keywords:
+      - "ПАО"
+      - "публичное акционерное общество"
+      - "обязательное предложение"
+      - "более 30 процентов голосующих акций"
+      - "глава XI.1"
+      - "обязательный выкуп"
+
+  non_public_jsc_sale:
+    any_keywords:
+      - "непубличное акционерное общество"
+      - "НАО"
+      - "АО"
+      - "преимущественное право акционеров"
+      - "ограничения устава"
+
+  majority_stake_sale:
+    any_keywords:
+      - "контрольный пакет"
+      - "более 50%"
+      - "более 30%"
+      - "контроль над обществом"
+      - "мажоритарный пакет"
+      - "приобретение контроля"
+
+  cross_border_party:
+    any_keywords:
+      - "иностранное лицо"
+      - "нерезидент"
+      - "иностранная компания"
+      - "sanctions"
+      - "санкции"
+      - "foreign investor"
+      - "офшор"
+      - "КИК"
+      - "иностранный покупатель"
+
+  legal_entity_party:
+    any_keywords:
+      - "ООО"
+      - "АО"
+      - "ПАО"
+      - "ИНН"
+      - "ОГРН"
+      - "КПП"
+      - "юридическое лицо"
+      - "общество"
+
+  individual_seller:
+    any_keywords:
+      - "гражданин"
+      - "физическое лицо"
+      - "паспорт"
+      - "дата рождения"
+      - "продавец - физическое лицо"
+
+  regulated_target:
+    any_keywords:
+      - "лицензия"
+      - "банковская деятельность"
+      - "страховая деятельность"
+      - "недропользование"
+      - "стратегическое общество"
+      - "гособоронзаказ"
+      - "персональные данные"
+      - "критическая информационная инфраструктура"
+
+  fas_clearance_risk:
+    any_keywords:
+      - "ФАС"
+      - "антимонопольное согласование"
+      - "экономическая концентрация"
+      - "предварительное согласие антимонопольного органа"
+      - "ходатайство в ФАС"
+
+  escrow_or_deferred_payment:
+    any_keywords:
+      - "эскроу"
+      - "escrow"
+      - "deferred payment"
+      - "отложенный платеж"
+      - "поэтапная оплата"
+      - "удержание части цены"
+      - "retention"
+      - "earn-out"
+
+  warranties_package:
+    any_keywords:
+      - "заверения об обстоятельствах"
+      - "representations and warranties"
+      - "reps and warranties"
+      - "indemnity"
+      - "компенсация потерь"
+      - "лимит ответственности"
+
+  public_jsc_mandatory_offer:
+    any_keywords:
+      - "обязательное предложение"
+      - "более 30 процентов"
+      - "более 30%"
+      - "более 50%"
+      - "более 75%"
+      - "более 95%"
+      - "глава XI.1"
+      - "принудительный выкуп"
+      - "обязательный выкуп"
+      - "ст. 84.2"
+
+  mac_clause_present:
+    any_keywords:
+      - "существенное неблагоприятное изменение"
+      - "material adverse change"
+      - "material adverse effect"
+      - "MAC"
+      - "MAE"
+      - "существенное ухудшение"
+      - "существенные негативные изменения"
+
+  interim_period_present:
+    any_keywords:
+      - "промежуточный период"
+      - "interim period"
+      - "между подписанием и закрытием"
+      - "до даты закрытия"
+      - "обычная хозяйственная деятельность"
+      - "ordinary course of business"
+      - "обязательства до closing"
+      - "ковенанты до закрытия"
+
+  change_of_control_risk:
+    any_keywords:
+      - "смена контроля"
+      - "change of control"
+      - "переход контроля"
+      - "согласие контрагентов"
+      - "уведомление контрагентов"
+      - "ключевые договоры"
+      - "кредитный договор"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur|доллар|евро)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  inn_ogrn: "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+  issue_number: "(?i)(государственн(ый|ого)\\s+регистрационн(ый|ого)\\s+номер\\s+выпуска|регистрационн(ый|ого)\\s+номер\\s+выпуска)"
+  egrul_record: "(?i)(ЕГРЮЛ|лист\\s+записи\\s+ЕГРЮЛ|номер\\s+записи\\s+в\\s+ЕГРЮЛ)"
+  share_ratio: "(?i)\\b\\d+[,.]?\\d*\\s*%\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "llc_notarization_required"
+    name: "ООО: обязательная нотариальная форма сделки с долей"
+    description: >
+      Сделка по отчуждению доли в ООО подлежит обязательному нотариальному удостоверению.
+      Несоблюдение нотариальной формы влечёт недействительность сделки.
+    legal_base: "ст. 21 ФЗ-14 «Об ООО», ст. 163 ГК РФ"
+    required_triggers: ["llc_share_sale"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "нотариальное удостоверение"
+        - "нотариус"
+        - "удостоверено нотариусом"
+        - "заявление в ЕГРЮЛ"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "нотариальное удостоверение"
+        - "доля в ООО"
+        - "ЕГРЮЛ"
+      rerank: true
+
+  - id: "jsc_transfer_record_required"
+    name: "АО: переход прав на акции требует учетной записи у регистратора/депозитария"
+    description: >
+      Для перехода прав на акции недостаточно подписания договора;
+      требуется надлежащее оформление передаточных документов и внесение записи
+      по лицевому счету / счету депо.
+    legal_base: "ГК РФ, ФЗ-39 «О рынке ценных бумаг»"
+    required_triggers: ["jsc_share_sale"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "передаточное распоряжение"
+        - "регистратор"
+        - "реестродержатель"
+        - "счет депо"
+        - "лицевой счет"
+        - "внесение записи в реестр"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "передаточное распоряжение"
+        - "реестр акционеров"
+        - "счет депо"
+      rerank: true
+
+  - id: "preemptive_rights_and_corporate_restrictions"
+    name: "Преимущественное право / корпоративные ограничения должны быть соблюдены"
+    description: >
+      Для долей в ООО и отдельных акций/непубличных АО требуется анализ
+      преимущественных прав, ограничений устава и корпоративных процедур.
+    legal_base: "ФЗ-14 «Об ООО», ФЗ-208 «Об АО», устав общества"
+    required_triggers: ["llc_share_sale"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "преимущественное право покупки"
+        - "оферта участникам"
+        - "отказ участников"
+        - "согласие общества"
+        - "ограничения устава"
+        - "корпоративные ограничения"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "преимущественное право"
+        - "оферта участникам"
+        - "устав общества"
+      rerank: true
+
+  - id: "fas_approval_required"
+    name: "Необходимость предварительного согласия ФАС на экономическую концентрацию"
+    description: >
+      Сделка по приобретению корпоративного контроля может требовать предварительного
+      согласия ФАС России. Отсутствие проверки этого вопроса создаёт высокий риск
+      regulatory breach.
+    legal_base: "ФЗ-135 «О защите конкуренции»"
+    required_triggers: ["majority_stake_sale", "fas_clearance_risk"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ФАС"
+        - "антимонопольное согласование"
+        - "экономическая концентрация"
+        - "предварительное согласие"
+        - "ходатайство"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ФАС"
+        - "антимонопольное согласование"
+        - "экономическая концентрация"
+      rerank: true
+
+  - id: "sanctions_aml_kyc_risk"
+    name: "Санкционный / AML / KYC риск по сторонам и бенефициарам"
+    description: >
+      В корпоративных сделках требуется проверка санкционных ограничений,
+      бенефициаров, источников средств и AML/KYC-требований, особенно при
+      трансграничном элементе и расчётах через финансовые институты.
+    legal_base: "ФЗ-115, применимые санкционные режимы, внутренние compliance-политики"
+    required_triggers: ["cross_border_party"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "санкции"
+        - "бенефициар"
+        - "источник средств"
+        - "AML"
+        - "KYC"
+        - "комплаенс"
+        - "иностранное лицо"
+        - "нерезидент"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "санкции"
+        - "бенефициар"
+        - "AML"
+        - "KYC"
+      rerank: true
+
+  - id: "public_jsc_mandatory_offer"
+    name: "ПАО: обязательное предложение при приобретении >30% голосующих акций"
+    description: >
+      Лицо, приобретающее более 30% голосующих акций ПАО, обязано направить
+      обязательное предложение остальным акционерам. Нарушение влечёт ограничение
+      голосования и административную ответственность.
+    legal_base: "Глава XI.1 ФЗ-208 «Об АО» (ст. 84.1–84.10)"
+    required_triggers: ["public_jsc_sale", "majority_stake_sale"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "обязательное предложение"
+        - "более 30 процентов"
+        - "более 30%"
+        - "глава XI.1"
+        - "ст. 84.2"
+        - "публичное акционерное общество"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "обязательное предложение"
+        - "более 30%"
+        - "ПАО"
+        - "голосующие акции"
+      rerank: true
+
+  - id: "strategic_enterprise_foreign_investor"
+    name: "Стратегическое общество: согласование Правительственной комиссии (ФЗ-57)"
+    description: >
+      Иностранные инвесторы и контролируемые ими лица при приобретении контроля
+      над стратегическими обществами обязаны получить предварительное согласие
+      Правительственной комиссии. Сделка без согласования ничтожна.
+    legal_base: "ФЗ-57 «О порядке осуществления иностранных инвестиций в хозяйственные общества, имеющие стратегическое значение»"
+    required_triggers: ["cross_border_party", "regulated_target"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "стратегическое общество"
+        - "ФЗ-57"
+        - "правительственная комиссия"
+        - "иностранная инвестиция"
+        - "стратегическое значение"
+        - "недропользование"
+        - "гособоронзаказ"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "стратегическое общество"
+        - "ФЗ-57"
+        - "правительственная комиссия"
+        - "иностранная инвестиция"
+      rerank: true
+
+  - id: "non_public_jsc_preemptive_right"
+    name: "Непубличное АО: преимущественное право акционеров (ст. 7 ФЗ-208)"
+    description: >
+      Устав непубличного АО может предусматривать преимущественное право
+      акционеров на приобретение акций, продаваемых третьим лицам.
+      Нарушение может привести к переводу прав покупателя.
+    legal_base: "п. 3 ст. 7 ФЗ-208 «Об АО»"
+    required_triggers: ["non_public_jsc_sale"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "преимущественное право акционеров"
+        - "преимущественное право покупки акций"
+        - "уведомление акционеров"
+        - "устав общества"
+        - "ограничения устава"
+        - "согласие акционеров"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "преимущественное право"
+        - "непубличное АО"
+        - "устав"
+        - "акционеры"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: corporate_asset_subject_extraction
+    name: "Корпоративные права: извлечение предмета сделки"
+    description: >
+      Извлекает тип актива (доля/акции), реквизиты общества, размер участия,
+      количество акций, тип акций, цену и базовые параметры сделки.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "доля в уставном капитале"
+        - "акции"
+        - "эмитент"
+        - "общество с ограниченной ответственностью"
+        - "акционерное общество"
+        - "размер доли"
+        - "номинальная стоимость"
+        - "количество акций"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d+[,.]?\\d*\\s*%\\b"
+        - "(?i)(государственн(ый|ого)\\s+регистрационн(ый|ого)\\s+номер\\s+выпуска)"
+        - "(?i)(ЕГРЮЛ|лист\\s+записи\\s+ЕГРЮЛ)"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор купли-продажи корпоративных прав.
+        Извлеки ключевые параметры предмета сделки.
+
+        Ответь строго в JSON:
+        {
+          "asset_type": "<llc_share / shares / mixed / not_found>",
+          "target_name": "<наименование общества или not_found>",
+          "target_ogrn": "<ОГРН или not_found>",
+          "target_inn": "<ИНН или not_found>",
+          "share_ratio": "<размер доли в % или not_found>",
+          "share_nominal_value": "<номинальная стоимость доли или not_found>",
+          "shares_quantity": "<количество акций или not_found>",
+          "shares_type": "<ordinary / preferred / mixed / not_found>",
+          "issue_number": "<номер выпуска или not_found>",
+          "price": "<цена сделки или not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text.
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 650
+    retrieval:
+      context_k: 7
+      max_chunks: 9
+      boost_keywords:
+        - "доля в уставном капитале"
+        - "акции"
+        - "ОГРН"
+        - "ИНН"
+        - "размер доли"
+        - "цена сделки"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "asset_type"
+          type: "string"
+          allowed_values: ["llc_share", "shares", "mixed", "not_found"]
+          description: "Тип корпоративного актива"
+        - name: "target_name"
+          type: "string"
+          keyword_hints: ["общество", "эмитент", "ООО", "АО", "ПАО"]
+          description: "Наименование target-компании"
+        - name: "share_ratio"
+          type: "string"
+          regex_patterns:
+            - "(?i)\\b\\d+[,.]?\\d*\\s*%\\b"
+          description: "Размер доли в процентах"
+        - name: "shares_quantity"
+          type: "string"
+          keyword_hints: ["количество акций", "штук", "акций"]
+          description: "Количество акций"
+        - name: "issue_number"
+          type: "string"
+          keyword_hints: ["номер выпуска", "государственный регистрационный номер выпуска"]
+          description: "Номер выпуска акций"
+        - name: "price"
+          type: "string"
+          keyword_hints: ["цена", "стоимость", "покупная цена"]
+          description: "Цена сделки"
+      store_payload: true
+
+  - id: corporate_procedure_compliance_check
+    name: "Соблюдение корпоративных процедур и ограничений"
+    description: >
+      Проверяет наличие условий о преимущественном праве, корпоративных одобрениях,
+      ограничениях устава, согласиях общества, антимонопольных и иных разрешениях.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "преимущественное право покупки"
+        - "оферта участникам"
+        - "отказ участников"
+        - "согласие общества"
+        - "крупная сделка"
+        - "сделка с заинтересованностью"
+        - "ФАС"
+        - "антимонопольное согласование"
+        - "ограничения устава"
+        - "корпоративное одобрение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)преимущест(венное|во)\\s+право"
+        - "(?i)крупн(ая|ой)\\s+сделк"
+        - "(?i)сделк(а|и)\\s+с\\s+заинтересованност"
+        - "(?i)антимонопольн(ое|ого)\\s+соглас"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор продажи доли/акций.
+        Проверь соблюдение корпоративных процедур и ограничений.
+
+        Ответь строго в JSON:
+        {
+          "preemptive_rights_status": "<complied / not_addressed / not_applicable / unclear>",
+          "corporate_approvals_status": "<obtained / not_addressed / not_required_stated / unclear>",
+          "charter_restrictions_status": "<checked / not_addressed / unclear>",
+          "fas_clearance_status": "<required_and_addressed / stated_not_required / not_addressed / unclear>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 7
+      max_chunks: 9
+      boost_keywords:
+        - "преимущественное право"
+        - "корпоративное одобрение"
+        - "ФАС"
+        - "ограничения устава"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "preemptive_rights_status"
+          type: "string"
+          allowed_values: ["complied", "not_addressed", "not_applicable", "unclear"]
+          description: "Статус соблюдения преимущественного права"
+        - name: "corporate_approvals_status"
+          type: "string"
+          allowed_values: ["obtained", "not_addressed", "not_required_stated", "unclear"]
+          description: "Статус корпоративных одобрений"
+        - name: "fas_clearance_status"
+          type: "string"
+          allowed_values: ["required_and_addressed", "stated_not_required", "not_addressed", "unclear"]
+          description: "Статус ФАС-согласования"
+      store_payload: true
+
+  - id: transfer_mechanics_check
+    name: "Порядок перехода права на долю / акции"
+    description: >
+      Проверяет механизм перехода права: нотариальная регистрация для ООО,
+      записи у регистратора/депозитария для акций, подача документов и closing steps.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ЕГРЮЛ"
+        - "нотариус подает заявление"
+        - "переход права на долю"
+        - "регистратор"
+        - "реестродержатель"
+        - "передаточное распоряжение"
+        - "счет депо"
+        - "лицевой счет"
+        - "closing"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ЕГРЮЛ"
+        - "(?i)передаточн(ое|ого)\\s+распоряжен"
+        - "(?i)счет\\s+депо|лицев(ой|ого)\\s+счет"
+        - "(?i)нотариус.*пода[её]т.*заявлен"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор продажи корпоративных прав.
+        Проверь механику перехода права на актив.
+
+        Ответь строго в JSON:
+        {
+          "asset_type": "<llc_share / shares / mixed / not_found>",
+          "transfer_mechanism_status": "<described / partial / not_found>",
+          "llc_egrul_step": "<described / not_applicable / not_found>",
+          "shares_registry_step": "<described / not_applicable / not_found>",
+          "closing_sequence": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ЕГРЮЛ"
+        - "нотариус"
+        - "регистратор"
+        - "передаточное распоряжение"
+        - "closing"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "transfer_mechanism_status"
+          type: "string"
+          allowed_values: ["described", "partial", "not_found"]
+          description: "Описан ли механизм перехода права"
+        - name: "llc_egrul_step"
+          type: "string"
+          allowed_values: ["described", "not_applicable", "not_found"]
+          description: "Описан ли этап с ЕГРЮЛ для ООО"
+        - name: "shares_registry_step"
+          type: "string"
+          allowed_values: ["described", "not_applicable", "not_found"]
+          description: "Описан ли этап у регистратора/депозитария"
+      store_payload: true
+
+  - id: warranties_and_indemnity_check
+    name: "Заверения, гарантии и indemnity"
+    description: >
+      Проверяет наличие пакета заверений продавца, специальных гарантий по target-компании
+      и механизма компенсации потерь при нарушении заверений.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "заверения об обстоятельствах"
+        - "representations and warranties"
+        - "гарантии и заверения"
+        - "отсутствуют скрытые обязательства"
+        - "налоги уплачены"
+        - "судебные споры"
+        - "indemnity"
+        - "компенсация потерь"
+        - "ответственность за нарушение заверений"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заверени(я|е)\\s+об\\s+обстоятельств"
+        - "(?i)representations\\s+and\\s+warranties"
+        - "(?i)indemnity|компенсац(ия|ии)\\s+потер"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий SPA / договор продажи доли или акций.
+        Проверь наличие заверений и механизма ответственности за их нарушение.
+
+        Ответь строго в JSON:
+        {
+          "warranties_scope": "<broad / limited / not_found>",
+          "tax_warranty": "<yes / no / not_found>",
+          "litigation_warranty": "<yes / no / not_found>",
+          "title_warranty": "<yes / no / not_found>",
+          "indemnity_mechanism": "<yes / no / partial>",
+          "liability_cap": "<yes / no / not_found>",
+          "claim_period": "<specified / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      context_k: 7
+      max_chunks: 9
+      boost_keywords:
+        - "заверения об обстоятельствах"
+        - "indemnity"
+        - "налоги уплачены"
+        - "отсутствуют судебные споры"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "warranties_scope"
+          type: "string"
+          allowed_values: ["broad", "limited", "not_found"]
+          description: "Объем заверений продавца"
+        - name: "indemnity_mechanism"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли механизм indemnity"
+        - name: "liability_cap"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли лимит ответственности"
+      store_payload: true
+
+  - id: due_diligence_and_disclosure_check
+    name: "Due Diligence и раскрытие информации"
+    description: >
+      Проверяет наличие положений о DD, data room, раскрытии информации,
+      reliance / no-reliance и последствиях выявленных фактов.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "due diligence"
+        - "проверка компании"
+        - "раскрытие информации"
+        - "предоставление документов"
+        - "data room"
+        - "виртуальная комната данных"
+        - "disclosure letter"
+        - "reliance"
+        - "no-reliance"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)due\\s+diligence"
+        - "(?i)data\\s+room|виртуальн(ая|ой)\\s+комнат"
+        - "(?i)disclosure\\s+letter"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий корпоративную M&A-сделку.
+        Проверь, урегулированы ли DD и раскрытие информации.
+
+        Ответь строго в JSON:
+        {
+          "dd_process_addressed": "<yes / no / partial>",
+          "document_access_provided": "<yes / no / not_found>",
+          "disclosure_mechanism": "<data_room / disclosure_letter / both / not_found>",
+          "buyer_reliance_position": "<reliance / no_reliance / unclear / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "due diligence"
+        - "data room"
+        - "раскрытие информации"
+        - "disclosure letter"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dd_process_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Урегулирован ли DD"
+        - name: "disclosure_mechanism"
+          type: "string"
+          allowed_values: ["data_room", "disclosure_letter", "both", "not_found"]
+          description: "Механизм раскрытия информации"
+      store_payload: true
+
+  - id: closing_conditions_and_payment_mechanics_check
+    name: "Closing conditions и расчётная механика"
+    description: >
+      Проверяет условия закрытия сделки, CP, отложенные платежи, escrow,
+      earn-out, удержания из цены и порядок release funds.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "conditions precedent"
+        - "условия закрытия"
+        - "closing"
+        - "escrow"
+        - "эскроу"
+        - "earn-out"
+        - "отложенный платеж"
+        - "удержание части цены"
+        - "release funds"
+        - "working capital adjustment"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)conditions\\s+precedent|условия\\s+закрыти"
+        - "(?i)escrow|эскроу"
+        - "(?i)earn[- ]?out"
+        - "(?i)working\\s+capital\\s+adjustment"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий корпоративную сделку.
+        Проверь условия закрытия и расчётную механику.
+
+        Ответь строго в JSON:
+        {
+          "cp_list_present": "<yes / no / partial>",
+          "payment_structure": "<upfront / deferred / escrow / earn_out / mixed / not_found>",
+          "release_conditions": "<described / not_found>",
+          "price_adjustment_mechanism": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 7
+      max_chunks: 9
+      boost_keywords:
+        - "conditions precedent"
+        - "closing"
+        - "эскроу"
+        - "earn-out"
+        - "отложенный платеж"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "cp_list_present"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли список CP"
+        - name: "payment_structure"
+          type: "string"
+          allowed_values: ["upfront", "deferred", "escrow", "earn_out", "mixed", "not_found"]
+          description: "Структура платежа"
+        - name: "price_adjustment_mechanism"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли корректировка цены"
+      store_payload: true
+
+  - id: sanctions_and_beneficial_ownership_check
+    name: "Санкции, бенефициары и AML/KYC"
+    description: >
+      Проверяет наличие заверений о санкционном статусе, бенефициарах,
+      источнике средств и праве отказаться/заморозить closing при compliance issue.
+    triggers:
+      any: ["cross_border_party"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "санкции"
+        - "бенефициарный владелец"
+        - "конечный бенефициар"
+        - "источник средств"
+        - "AML"
+        - "KYC"
+        - "комплаенс"
+        - "право отказа от closing"
+        - "санкционный риск"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)AML|KYC"
+        - "(?i)бенефициарн(ый|ого)\\s+владел"
+        - "(?i)источник\\s+средств"
+        - "(?i)санкц"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трансграничную корпоративную сделку.
+        Проверь санкционный и AML/KYC блок.
+
+        Ответь строго в JSON:
+        {
+          "sanctions_rep_present": "<yes / no / partial>",
+          "ubo_disclosure": "<yes / no / not_found>",
+          "source_of_funds_clause": "<yes / no / not_found>",
+          "compliance_termination_right": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "санкции"
+        - "AML"
+        - "KYC"
+        - "бенефициар"
+        - "источник средств"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "sanctions_rep_present"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли санкционные заверения"
+        - name: "ubo_disclosure"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Раскрыты ли бенефициары"
+      store_payload: true
+
+  - id: mac_clause_check
+    name: "MAC/MAE: существенное неблагоприятное изменение"
+    description: >
+      Проверяет наличие и параметры MAC/MAE clause — права покупателя отказаться
+      от сделки при существенном ухудшении бизнеса target между подписанием и закрытием.
+    triggers:
+      any: ["mac_clause_present"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "существенное неблагоприятное изменение"
+        - "material adverse change"
+        - "material adverse effect"
+        - "MAC"
+        - "MAE"
+        - "существенное ухудшение"
+        - "право отказаться"
+        - "существенные негативные изменения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)material\\s+adverse\\s+(change|effect)"
+        - "(?i)существенн(ое|ого)\\s+(неблагоприятн|ухудшен)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий M&A-сделку.
+        Проверь наличие и параметры MAC/MAE clause.
+
+        Ответь строго в JSON:
+        {
+          "mac_clause_present": "<yes / no / not_found>",
+          "mac_definition_scope": "<broad / narrow / standard / not_found>",
+          "mac_carve_outs": "<listed / not_found>",
+          "mac_consequence": "<termination_right / price_adjustment / other / not_found>",
+          "mac_materiality_threshold": "<specified / not_specified / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "существенное неблагоприятное изменение"
+        - "material adverse"
+        - "MAC"
+        - "право отказаться от сделки"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "mac_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие MAC clause"
+        - name: "mac_definition_scope"
+          type: "string"
+          allowed_values: ["broad", "narrow", "standard", "not_found"]
+          description: "Широта определения MAC"
+        - name: "mac_carve_outs"
+          type: "string"
+          allowed_values: ["listed", "not_found"]
+          description: "Указаны ли исключения из MAC"
+        - name: "mac_consequence"
+          type: "string"
+          allowed_values: ["termination_right", "price_adjustment", "other", "not_found"]
+          description: "Последствие MAC"
+      store_payload: true
+
+  - id: interim_period_covenants_check
+    name: "Промежуточный период: ковенанты между подписанием и закрытием"
+    description: >
+      Проверяет наличие ограничений на деятельность target-компании между signing и closing:
+      обычная хозяйственная деятельность, запреты на дивиденды, заимствования,
+      крупные сделки, изменение уставного капитала.
+    triggers:
+      any: ["interim_period_present"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "промежуточный период"
+        - "interim period"
+        - "обычная хозяйственная деятельность"
+        - "ordinary course"
+        - "запрет на дивиденды"
+        - "не допускать изменений"
+        - "без согласия покупателя"
+        - "ковенанты"
+        - "между подписанием и закрытием"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обычн(ая|ой)\\s+хозяйствен"
+        - "(?i)ordinary\\s+course"
+        - "(?i)промежуточн(ый|ого)\\s+период"
+        - "(?i)без\\s+(предварительного\\s+)?согласия\\s+покупател"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий M&A-сделку.
+        Проверь наличие и содержание ковенантов промежуточного периода
+        (от signing до closing).
+
+        Ответь строго в JSON:
+        {
+          "interim_covenants_present": "<yes / no / partial / not_found>",
+          "ordinary_course_obligation": "<yes / no / not_found>",
+          "restricted_actions_list": "<listed / not_found>",
+          "buyer_consent_required": "<yes / no / not_found>",
+          "dividend_restriction": "<yes / no / not_found>",
+          "borrowing_restriction": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 550
+    retrieval:
+      context_k: 7
+      max_chunks: 9
+      boost_keywords:
+        - "промежуточный период"
+        - "обычная хозяйственная деятельность"
+        - "без согласия покупателя"
+        - "ковенанты"
+        - "дивиденды"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "interim_covenants_present"
+          type: "string"
+          allowed_values: ["yes", "no", "partial", "not_found"]
+          description: "Есть ли ковенанты промежуточного периода"
+        - name: "restricted_actions_list"
+          type: "string"
+          allowed_values: ["listed", "not_found"]
+          description: "Перечислены ли запрещённые действия"
+      store_payload: true
+
+  - id: seller_title_and_encumbrances_check
+    name: "Титул продавца и отсутствие обременений на долю/акции"
+    description: >
+      Проверяет подтверждение титула продавца и отсутствие обременений:
+      залогов, арестов, споров, прав третьих лиц на отчуждаемую долю/акции.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "принадлежит на праве собственности"
+        - "свободна от обременений"
+        - "не заложена"
+        - "не находится под арестом"
+        - "не является предметом спора"
+        - "права третьих лиц отсутствуют"
+        - "правоустанавливающие документы"
+        - "основание приобретения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)свободн(а|ы)\\s+от\\s+обременен"
+        - "(?i)не\\s+залож(ена|ены)"
+        - "(?i)не\\s+являет(ся|ся\\s+предметом)\\s+спор"
+        - "(?i)принадлеж(ит|ат)\\s+на\\s+праве"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор продажи корпоративных прав.
+        Проверь подтверждение титула продавца и отсутствие обременений на долю/акции.
+
+        Ответь строго в JSON:
+        {
+          "title_confirmation": "<confirmed / partial / not_found>",
+          "title_basis_document": "<specified / not_found>",
+          "encumbrances_warranty": "<clean / encumbered / not_addressed / not_found>",
+          "pledge_status": "<no_pledge / pledged / not_addressed / not_found>",
+          "arrest_status": "<no_arrest / arrested / not_addressed / not_found>",
+          "third_party_rights": "<no_rights / exist / not_addressed / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "принадлежит на праве"
+        - "свободна от обременений"
+        - "залог доли"
+        - "арест"
+        - "права третьих лиц"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "title_confirmation"
+          type: "string"
+          allowed_values: ["confirmed", "partial", "not_found"]
+          description: "Подтверждён ли титул продавца"
+        - name: "encumbrances_warranty"
+          type: "string"
+          allowed_values: ["clean", "encumbered", "not_addressed", "not_found"]
+          description: "Статус обременений"
+        - name: "pledge_status"
+          type: "string"
+          allowed_values: ["no_pledge", "pledged", "not_addressed", "not_found"]
+          description: "Наличие залога"
+      store_payload: true
+
+  - id: change_of_control_contracts_check
+    name: "Change of control: влияние на ключевые договоры target"
+    description: >
+      Проверяет раскрытие и урегулирование рисков change of control — наличие
+      у target контрактов с CoC-клаузами (кредиты, лицензии, ключевые контракты),
+      которые могут сработать при смене собственника.
+    triggers:
+      any: ["change_of_control_risk", "majority_stake_sale"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "смена контроля"
+        - "change of control"
+        - "переход контроля"
+        - "согласие контрагентов"
+        - "уведомление контрагентов"
+        - "ключевые договоры"
+        - "кредитный договор"
+        - "досрочное погашение"
+        - "лицензия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)смен(а|ы|е)\\s+контрол"
+        - "(?i)change\\s+of\\s+control"
+        - "(?i)ключев(ые|ых)\\s+договор"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий M&A-сделку.
+        Проверь, раскрыты ли риски change of control для ключевых договоров
+        target-компании.
+
+        Ответь строго в JSON:
+        {
+          "coc_risk_addressed": "<yes / no / partial / not_found>",
+          "key_contracts_disclosed": "<yes / no / not_found>",
+          "lender_consent_required": "<yes / no / not_applicable / not_found>",
+          "license_coc_risk": "<yes / no / not_applicable / not_found>",
+          "counterparty_notification": "<required / not_required / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "смена контроля"
+        - "change of control"
+        - "ключевые договоры"
+        - "кредитный договор"
+        - "согласие контрагентов"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "coc_risk_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "partial", "not_found"]
+          description: "Урегулирован ли CoC-риск"
+        - name: "key_contracts_disclosed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Раскрыты ли ключевые контракты target"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны сделки: продавец, покупатель, target-компания"
+    description: "Проверяет идентификацию продавца, покупателя и реквизитов общества/эмитента"
+    legal_base: "ст. 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "продавец"
+        - "покупатель"
+        - "общество"
+        - "эмитент"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(продавец|покупатель).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "seller_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин", "физическое лицо"]
+          description: "Тип продавца"
+        - name: "buyer_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин", "физическое лицо"]
+          description: "Тип покупателя"
+      store_payload: true
+
+  - id: "corporate_asset_identification"
+    name: "Предмет: идентификация доли / акций и реквизитов общества"
+    description: "Проверяет достаточную индивидуализацию корпоративного актива"
+    legal_base: "ст. 454, 455 ГК РФ, ФЗ-14, ФЗ-39"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "доля в уставном капитале"
+        - "акции"
+        - "размер доли"
+        - "номинальная стоимость"
+        - "номер выпуска"
+        - "эмитент"
+        - "ОГРН"
+        - "ИНН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d+[,.]?\\d*\\s*%\\b"
+        - "(?i)(государственн(ый|ого)\\s+регистрационн(ый|ого)\\s+номер\\s+выпуска)"
+        - "(?i)(ЕГРЮЛ|лист\\s+записи\\s+ЕГРЮЛ)"
+
+  - id: "price_required"
+    name: "Цена корпоративного актива"
+    description: "Цена является существенным условием возмездной сделки"
+    legal_base: "ст. 424, 454 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена"
+        - "стоимость"
+        - "покупная цена"
+        - "цена доли"
+        - "цена акций"
+        - "рублей"
+        - "USD"
+        - "EUR"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цен[аеуой]\\s+.*?\\d"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "price_amount"
+          type: "string"
+          keyword_hints: ["цена", "стоимость", "покупная цена"]
+          description: "Цена сделки"
+        - name: "price_currency"
+          type: "string"
+          allowed_values: ["RUB", "USD", "EUR", "other", "not_found"]
+          keyword_hints: ["руб", "USD", "EUR", "евро", "доллар"]
+          description: "Валюта цены"
+      store_payload: true
+
+  - id: "llc_notarization_clause"
+    name: "ООО: нотариальное удостоверение сделки"
+    description: "Проверяет наличие нотариальной формы для сделки с долей ООО"
+    legal_base: "ст. 21 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["llc_share_sale"]
+    rules:
+      keywords:
+        - "нотариальное удостоверение"
+        - "удостоверено нотариусом"
+        - "нотариус"
+        - "ЕГРЮЛ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)нотариальн(ое|ой)\\s+удостоверен"
+        - "(?i)нотариус.*ЕГРЮЛ"
+
+  - id: "llc_preemptive_right_procedure"
+    name: "ООО: соблюдение преимущественного права покупки и уставных ограничений"
+    description: "Проверяет раскрытие процедуры преимущественного права и ограничений устава"
+    legal_base: "ст. 21 ФЗ-14"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["llc_share_sale"]
+    rules:
+      keywords:
+        - "преимущественное право покупки"
+        - "оферта участникам"
+        - "отказ участников"
+        - "срок для акцепта"
+        - "устав общества"
+        - "согласие общества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)преимущест(венное|во)\\s+право"
+        - "(?i)оферт[аы]\\s+участник"
+
+  - id: "jsc_transfer_procedure"
+    name: "АО: порядок перехода прав на акции"
+    description: "Проверяет наличие механизма перехода прав через регистратора/депозитарий"
+    legal_base: "ФЗ-39, ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["jsc_share_sale"]
+    rules:
+      keywords:
+        - "передаточное распоряжение"
+        - "регистратор"
+        - "реестродержатель"
+        - "депозитарий"
+        - "счет депо"
+        - "лицевой счет"
+        - "внесение записи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)передаточн(ое|ого)\\s+распоряжен"
+        - "(?i)счет\\s+депо|лицев(ой|ого)\\s+счет"
+        - "(?i)внесени[ея]\\s+запис"
+
+  - id: "corporate_approvals"
+    name: "Корпоративные одобрения: крупная сделка / заинтересованность"
+    description: "Проверяет наличие одобрений или заверений об их ненужности"
+    legal_base: "ФЗ-14, ФЗ-208"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["legal_entity_party"]
+    rules:
+      keywords:
+        - "крупная сделка"
+        - "сделка с заинтересованностью"
+        - "одобрение общего собрания"
+        - "одобрение совета директоров"
+        - "решение единственного участника"
+        - "одобрение не требуется"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)крупн(ая|ой)\\s+сделк"
+        - "(?i)заинтересованност"
+        - "(?i)одобрен(ие|а).*собрани"
+
+  - id: "fas_clearance_check"
+    name: "Антимонопольное согласование / отсутствие необходимости ФАС"
+    description: "Проверяет наличие условия о ФАС-согласовании или анализа его ненужности"
+    legal_base: "ФЗ-135 «О защите конкуренции»"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["majority_stake_sale", "fas_clearance_risk"]
+    rules:
+      keywords:
+        - "ФАС"
+        - "антимонопольное согласование"
+        - "предварительное согласие"
+        - "ходатайство"
+        - "экономическая концентрация"
+        - "не требуется согласование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)антимонопольн(ое|ого)\\s+соглас"
+        - "(?i)ФАС"
+
+  - id: "spousal_consent_check"
+    name: "Согласие супруга продавца / личный режим корпоративных прав"
+    description: "Проверяет наличие согласия супруга или подтверждения личного режима имущества"
+    legal_base: "ст. 35 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["individual_seller"]
+    rules:
+      keywords:
+        - "согласие супруга"
+        - "нотариальное согласие"
+        - "не состоит в браке"
+        - "личная собственность"
+        - "брачный договор"
+        - "режим раздельной собственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)согласи(е|я)\\s+супруг"
+        - "(?i)не\\s+состоит?\\s+в\\s+браке"
+
+  - id: "payment_mechanics"
+    name: "Порядок оплаты: upfront / escrow / deferred / earn-out"
+    description: "Проверяет структуру оплаты и условия release / holdback"
+    legal_base: "ст. 421, 454 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "эскроу"
+        - "escrow"
+        - "отложенный платеж"
+        - "поэтапная оплата"
+        - "earn-out"
+        - "удержание части цены"
+        - "банковские реквизиты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)escrow|эскроу"
+        - "(?i)earn[- ]?out"
+        - "(?i)отложенн(ый|ого)\\s+платеж"
+
+  - id: "representations_and_warranties"
+    name: "Заверения об обстоятельствах и гарантии продавца"
+    description: "Проверяет наличие заверений по титулу, налогам, спорам, лицензиям, IP и т.д."
+    legal_base: "ст. 431.2 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "заверения об обстоятельствах"
+        - "гарантии и заверения"
+        - "налоги уплачены"
+        - "отсутствуют судебные споры"
+        - "достоверная отчетность"
+        - "лицензии"
+        - "интеллектуальная собственность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заверени(я|е)\\s+об\\s+обстоятельств"
+        - "(?i)гаранти(и|я)\\s+и\\s+заверени"
+
+  - id: "indemnity_and_liability_cap"
+    name: "Indemnity, cap, de minimis, claim period"
+    description: "Проверяет механизм компенсации потерь и ограничения ответственности продавца"
+    legal_base: "ст. 15, 393, 431.2 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "компенсация потерь"
+        - "indemnity"
+        - "лимит ответственности"
+        - "cap"
+        - "de minimis"
+        - "basket"
+        - "срок предъявления требований"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)indemnity|компенсац(ия|ии)\\s+потер"
+        - "(?i)лимит\\s+ответственност"
+        - "(?i)de\\s+minimis|basket|cap"
+
+  - id: "due_diligence_clause"
+    name: "Due Diligence / disclosure / data room"
+    description: "Проверяет наличие DD-процедуры и механизма раскрытия информации"
+    legal_base: "ст. 10, 431.2 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "due diligence"
+        - "data room"
+        - "раскрытие информации"
+        - "виртуальная комната данных"
+        - "предоставление документов"
+        - "disclosure letter"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)due\\s+diligence"
+        - "(?i)data\\s+room"
+        - "(?i)disclosure\\s+letter"
+
+  - id: "closing_conditions"
+    name: "Условия закрытия сделки (Conditions Precedent)"
+    description: "Проверяет наличие CP/closing mechanics"
+    legal_base: "ст. 157, 421 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "conditions precedent"
+        - "условия закрытия"
+        - "closing"
+        - "выполнение условий до закрытия"
+        - "право отказаться от сделки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)conditions\\s+precedent"
+        - "(?i)условия\\s+закрыти"
+        - "(?i)closing"
+
+  - id: "non_compete_non_solicit"
+    name: "Неконкуренция / непереманивание"
+    description: "Проверяет наличие пост-closing ограничений на конкуренцию и solicitation"
+    legal_base: "ст. 10, 421 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неконкуренция"
+        - "non-compete"
+        - "непереманивание сотрудников"
+        - "non-solicit"
+        - "запрет на конкурирующую деятельность"
+        - "клиентская база"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)non[- ]?compete|неконкуренц"
+        - "(?i)non[- ]?solicit|непереманив"
+
+  - id: "tax_liabilities_allocation"
+    name: "Налоговые последствия и распределение налоговых рисков"
+    description: "Проверяет налоговые оговорки по продавцу, покупателю и target-компании"
+    legal_base: "НК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "налоговые обязательства"
+        - "НДФЛ"
+        - "налог на прибыль"
+        - "налоговые риски"
+        - "налоговые проверки"
+        - "уплата налогов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)налогов(ые|ых|ой)\\s+обязательств"
+        - "(?i)\\bНДФЛ\\b"
+        - "(?i)налог\\s+на\\s+прибыл"
+
+  - id: "sanctions_aml_kyc"
+    name: "Санкции, AML/KYC и бенефициары"
+    description: "Проверяет санкционные заверения, UBO disclosure и source of funds"
+    legal_base: "ФЗ-115, compliance-практика"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["cross_border_party"]
+    rules:
+      keywords:
+        - "санкции"
+        - "бенефициарный владелец"
+        - "конечный бенефициар"
+        - "источник средств"
+        - "AML"
+        - "KYC"
+        - "compliance"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)AML|KYC"
+        - "(?i)бенефициарн(ый|ого)\\s+владел"
+        - "(?i)источник\\s+средств"
+        - "(?i)санкц"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность и неразглашение"
+    description: "Проверяет наличие NDA-like положений в тексте сделки"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не раскрывать информацию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+  - id: "dispute_resolution_jurisdiction"
+    name: "Подсудность и порядок разрешения споров"
+    description: "Проверяет forum / arbitration / court / претензионный порядок"
+    legal_base: "АПК РФ, ГПК РФ, Закон об арбитраже"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арбитражный суд"
+        - "третейский суд"
+        - "международный коммерческий арбитраж"
+        - "подсудность"
+        - "претензионный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)третейск(ий|ого)\\s+суд"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+
+  - id: "seller_title_encumbrances"
+    name: "Титул продавца: подтверждение и отсутствие обременений на долю/акции"
+    description: "Проверяет документальное подтверждение права собственности продавца и чистоту актива"
+    legal_base: "ст. 209, 454, 460 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "принадлежит на праве собственности"
+        - "свободна от обременений"
+        - "не заложена"
+        - "не арестована"
+        - "не является предметом спора"
+        - "правоустанавливающие документы"
+        - "запись ЕГРЮЛ"
+        - "выписка из реестра акционеров"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)свободн(а|ы)\\s+от\\s+обременен"
+        - "(?i)принадлеж(ит|ат)\\s+на\\s+праве"
+
+  - id: "mac_clause"
+    name: "MAC/MAE clause: существенное неблагоприятное изменение"
+    description: "Проверяет наличие MAC/MAE clause — ключевого M&A-инструмента защиты покупателя"
+    legal_base: "ст. 421, 451 ГК РФ (свобода договора, существенное изменение обстоятельств)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "существенное неблагоприятное изменение"
+        - "material adverse change"
+        - "material adverse effect"
+        - "MAC"
+        - "MAE"
+        - "существенное ухудшение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)material\\s+adverse"
+        - "(?i)существенн(ое|ого)\\s+(неблагоприятн|ухудшен)"
+
+  - id: "interim_period_covenants"
+    name: "Промежуточный период: ковенанты от signing до closing"
+    description: "Проверяет наличие обязательств по ведению бизнеса target в обычном режиме и ограничений"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "промежуточный период"
+        - "interim period"
+        - "обычная хозяйственная деятельность"
+        - "ordinary course"
+        - "без согласия покупателя"
+        - "между подписанием и закрытием"
+        - "запрет на распределение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обычн(ая|ой)\\s+хозяйствен"
+        - "(?i)промежуточн(ый|ого)\\s+период"
+
+  - id: "termination_walk_away_rights"
+    name: "Расторжение / право отказа от сделки (walk-away)"
+    description: "Проверяет основания расторжения, long-stop date и последствия отказа от сделки"
+    legal_base: "ст. 450, 450.1, 453 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение"
+        - "отказ от договора"
+        - "long-stop"
+        - "long stop date"
+        - "предельный срок"
+        - "break fee"
+        - "reverse break fee"
+        - "штраф за отказ"
+        - "возврат денежных средств"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении)"
+        - "(?i)long[- ]?stop"
+        - "(?i)break\\s+fee"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "long_stop_date_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["long-stop", "предельный срок", "крайний срок"]
+          description: "Указана ли long-stop date"
+        - name: "break_fee_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          keyword_hints: ["break fee", "штраф за отказ", "неустойка за расторжение"]
+          description: "Есть ли break fee"
+      store_payload: true
+
+  - id: "governing_law"
+    name: "Применимое право"
+    description: "Проверяет указание применимого права, критично при трансграничных элементах"
+    legal_base: "ст. 1210, 1211 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "регулируется правом"
+        - "законодательство Российской Федерации"
+        - "governing law"
+        - "applicable law"
+        - "право Российской Федерации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)применим(ое|ого)\\s+прав"
+        - "(?i)governing\\s+law"
+        - "(?i)регулируется.*прав(ом|о)"
+
+  - id: "change_of_control_target_contracts"
+    name: "Change of control: ключевые договоры target с CoC-триггерами"
+    description: "Проверяет раскрытие контрактов target, которые содержат CoC-клаузулы"
+    legal_base: "ст. 421 ГК РФ (свобода договора)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["change_of_control_risk", "majority_stake_sale"]
+    rules:
+      keywords:
+        - "смена контроля"
+        - "change of control"
+        - "досрочное погашение"
+        - "согласие контрагентов"
+        - "уведомление кредиторов"
+        - "ключевые договоры"
+        - "лицензия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)смен(а|ы|е)\\s+контрол"
+        - "(?i)change\\s+of\\s+control"
+
+  - id: "assignment_restriction"
+    name: "Запрет / ограничения на уступку прав по договору"
+    description: "Проверяет наличие ограничений на уступку прав и перевод долга"
+    legal_base: "ст. 382, 388 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка прав"
+        - "переуступка"
+        - "перевод долга"
+        - "без согласия другой стороны"
+        - "запрещается уступка"
+        - "assignment"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступк(а|и).*без\\s+соглас"
+        - "(?i)assignment"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: полные реквизиты продавца, покупателя
+      и target-компании/эмитента, включая ИНН, ОГРН, адреса, бенефициаров
+      и полномочия подписантов.
+    addressee: "Обе стороны"
+
+  corporate_asset_subject_extraction:
+    text: >
+      Просим предоставить по {doc_names}: точное описание предмета сделки —
+      доля/акции, размер участия, количество акций, тип акций, номер выпуска,
+      реквизиты общества, цена и структура владения до/после сделки.
+    addressee: "Продавец / Юридический советник"
+
+  corporate_asset_identification:
+    text: >
+      Просим уточнить в {doc_names}: реквизиты target-компании, размер доли,
+      номинальную стоимость, номер записи ЕГРЮЛ или номер выпуска акций,
+      количество и категорию акций.
+    addressee: "Продавец"
+
+  price_required:
+    text: >
+      Просим подтвердить цену сделки по {doc_names}, валюту платежа,
+      порядок расчёта цены и наличие корректировок/удержаний.
+    addressee: "Обе стороны"
+
+  corporate_procedure_compliance_check:
+    text: >
+      Просим предоставить по {doc_names}: доказательства соблюдения
+      преимущественного права, корпоративных ограничений устава,
+      одобрений и анализа необходимости согласования ФАС.
+    addressee: "Юридический советник"
+
+  transfer_mechanics_check:
+    text: >
+      Просим уточнить в {doc_names}: последовательность перехода права
+      на долю/акции, действия нотариуса / регистратора / депозитария,
+      срок внесения записей и closing sequence.
+    addressee: "Юридический советник / Нотариус / Регистратор"
+
+  llc_notarization_clause:
+    text: >
+      Для {doc_names} (доля в ООО) просим подтвердить нотариальную форму сделки,
+      данные нотариуса и порядок подачи документов в ЕГРЮЛ.
+    addressee: "Нотариус / Юридический советник"
+
+  llc_preemptive_right_procedure:
+    text: >
+      Просим предоставить по {doc_names}: оферты участникам/обществу,
+      отказы от преимущественного права, положения устава об ограничениях,
+      а также подтверждение соблюдения сроков процедуры.
+    addressee: "Продавец / Корпоративный юрист"
+
+  jsc_transfer_procedure:
+    text: >
+      Для {doc_names} (акции) просим предоставить: передаточное распоряжение,
+      инструкции регистратору/депозитарию, подтверждение открытия лицевого счета /
+      счета депо покупателя и порядок внесения записи о переходе прав.
+    addressee: "Продавец / Регистратор / Депозитарий"
+
+  corporate_approvals:
+    text: >
+      Просим предоставить по {doc_names}: протоколы/решения об одобрении
+      крупной сделки или сделки с заинтересованностью либо правовое заключение
+      о том, что одобрение не требуется.
+    addressee: "Юридический советник каждой стороны"
+
+  fas_clearance_check:
+    text: >
+      Просим предоставить по {doc_names}: антимонопольный анализ, проект/копию
+      ходатайства в ФАС (если требуется) либо заключение о том, что согласование
+      не требуется.
+    addressee: "Антимонопольный консультант / Юридический советник"
+
+  spousal_consent_check:
+    text: >
+      Просим предоставить по {doc_names}: нотариальное согласие супруга продавца
+      либо подтверждение, что отчуждаемые доля/акции являются личной собственностью
+      / продавец не состоит в браке / действует брачный договор.
+    addressee: "Продавец"
+
+  warranties_and_indemnity_check:
+    text: >
+      Просим предоставить по {doc_names}: полный пакет заверений продавца
+      (title, taxes, litigation, licenses, IP, employment, compliance),
+      а также механизм indemnity, cap, basket/de minimis и claim period.
+    addressee: "Продавец / Юридический советник"
+
+  representations_and_warranties:
+    text: >
+      Просим расширить в {doc_names} раздел заверений об обстоятельствах:
+      титул на актив, отсутствие обременений, налоги, споры, лицензии,
+      достоверность отчётности, IP, трудовые и regulatory вопросы.
+    addressee: "Юридический советник продавца"
+
+  indemnity_and_liability_cap:
+    text: >
+      Просим уточнить в {doc_names}: механизм компенсации потерь,
+      лимит ответственности продавца, пороги de minimis/basket, сроки
+      предъявления требований, исключения из cap.
+    addressee: "Юридический советник"
+
+  due_diligence_and_disclosure_check:
+    text: >
+      Просим предоставить по {doc_names}: перечень раскрытых документов,
+      доступ к data room, disclosure letter, список выявленных DD-issues
+      и их влияние на цену/closing.
+    addressee: "Продавец / DD-координатор"
+
+  due_diligence_clause:
+    text: >
+      Просим включить/уточнить в {doc_names}: порядок DD, data room,
+      раскрытие информации, reliance/no-reliance и последствия undisclosed matters.
+    addressee: "Юридический советник"
+
+  closing_conditions_and_payment_mechanics_check:
+    text: >
+      Просим уточнить в {doc_names}: список CP, структуру платежей,
+      наличие escrow / deferred payment / earn-out, release conditions,
+      price adjustment mechanics и holdback.
+    addressee: "Обе стороны / Финансовый советник"
+
+  closing_conditions:
+    text: >
+      Просим согласовать в {doc_names}: conditions precedent, long-stop date,
+      право отказа при неисполнении CP, closing agenda и closing deliverables.
+    addressee: "Юридический советник"
+
+  payment_mechanics:
+    text: >
+      Просим уточнить в {doc_names}: способ расчётов, даты и этапы платежей,
+      реквизиты, escrow / retention / earn-out и условия release денежных средств.
+    addressee: "Финансовый советник / Обе стороны"
+
+  non_compete_non_solicit:
+    text: >
+      Просим уточнить в {doc_names}: post-closing ограничения на конкуренцию,
+      solicitation сотрудников/клиентов, срок, территорию, carve-outs и санкции.
+    addressee: "Юридический советник покупателя"
+
+  tax_liabilities_allocation:
+    text: >
+      Просим уточнить в {doc_names}: распределение налоговых рисков,
+      налоги продавца по сделке, pre-closing tax liabilities target-компании,
+      порядок взаимодействия при налоговых проверках и tax indemnity.
+    addressee: "Налоговый консультант"
+
+  sanctions_and_beneficial_ownership_check:
+    text: >
+      Просим предоставить по {doc_names}: сведения о конечных бенефициарах,
+      санкционном статусе сторон и связанных лиц, источнике средств,
+      AML/KYC package и последствиях compliance breach.
+    addressee: "Compliance / Юридический советник"
+
+  sanctions_aml_kyc:
+    text: >
+      Просим включить в {doc_names}: санкционные заверения, UBO disclosure,
+      source of funds, право suspend/terminate closing при AML/KYC issue.
+    addressee: "Compliance / Юридический советник"
+
+  confidentiality:
+    text: >
+      Просим уточнить в {doc_names}: режим конфиденциальности,
+      список confidential information, permitted disclosures и срок действия.
+    addressee: "Юридический советник"
+
+  dispute_resolution_jurisdiction:
+    text: >
+      Просим уточнить в {doc_names}: forum, арбитражную оговорку/подсудность,
+      претензионный порядок, применимое право и язык производства.
+    addressee: "Юридический советник"
+
+  llc_notarization_required:
+    text: >
+      Внимание: для {doc_names} (сделка с долей ООО) обязательна нотариальная форма.
+      Просим подтвердить нотариальное удостоверение и порядок внесения записи в ЕГРЮЛ.
+    addressee: "Нотариус / Юридический советник"
+
+  jsc_transfer_record_required:
+    text: >
+      Внимание: для {doc_names} переход права на акции не завершён без внесения
+      записи у регистратора/депозитария. Просим предоставить все transfer documents
+      и подтверждение учетной записи.
+    addressee: "Регистратор / Депозитарий / Юридический советник"
+
+  preemptive_rights_and_corporate_restrictions:
+    text: >
+      Внимание: по {doc_names} требуется подтверждение соблюдения
+      преимущественного права и уставных ограничений. Просим предоставить
+      оферты, отказы, положения устава и корпоративное заключение.
+    addressee: "Корпоративный юрист"
+
+  fas_approval_required:
+    text: >
+      Внимание: {doc_names} может требовать согласования с ФАС России.
+      Просим предоставить антимонопольный анализ и заключение о необходимости
+      либо ненужности предварительного согласия.
+    addressee: "Антимонопольный консультант"
+
+  sanctions_aml_kyc_risk:
+    text: >
+      Внимание: {doc_names} содержит трансграничный / compliance-элемент.
+      Просим предоставить sanctions / AML / KYC пакет, UBO chart,
+      source of funds и legal memo по санкционным ограничениям.
+    addressee: "Compliance / Юридический советник"
+
+  seller_title_encumbrances:
+    text: >
+      Просим предоставить по {doc_names}: правоустанавливающие документы на долю/акции,
+      актуальную выписку ЕГРЮЛ / выписку из реестра акционеров,
+      подтверждение отсутствия залога, ареста, запрета на распоряжение и прав третьих лиц.
+    addressee: "Продавец / Юридический советник"
+
+  mac_clause_check:
+    text: >
+      Просим уточнить в {doc_names}: определение MAC/MAE, перечень carve-outs,
+      порядок определения существенности, последствия MAC (право отказа / корректировка цены),
+      временной горизонт и burden of proof.
+    addressee: "Юридический советник покупателя"
+
+  mac_clause:
+    text: >
+      Просим включить/уточнить в {doc_names} MAC clause: определение,
+      исключения, последствия и процедуру уведомления.
+    addressee: "Юридический советник"
+
+  interim_period_covenants_check:
+    text: >
+      Просим уточнить в {doc_names}: перечень ограничений для target между signing и closing,
+      критерии «обычной хозяйственной деятельности», перечень действий, требующих
+      согласия покупателя, порядок получения такого согласия и санкции за нарушение.
+    addressee: "Юридический советник покупателя"
+
+  interim_period_covenants:
+    text: >
+      Просим включить в {doc_names}: обязательство вести бизнес target в обычном режиме,
+      запрет на распределение дивидендов, привлечение долга, крупные сделки — без согласия покупателя.
+    addressee: "Юридический советник"
+
+  seller_title_and_encumbrances_check:
+    text: >
+      Просим предоставить по {doc_names}: документы, подтверждающие основание приобретения
+      доли/акций продавцом, актуальные справки об отсутствии залога и ареста,
+      выписку ЕГРЮЛ / из реестра акционеров.
+    addressee: "Продавец"
+
+  change_of_control_contracts_check:
+    text: >
+      Просим предоставить по {doc_names}: перечень контрактов target с CoC-триггерами
+      (кредитные договоры, лицензии, ключевые коммерческие контракты),
+      статус получения согласий контрагентов и план действий по уведомлениям.
+    addressee: "Продавец / DD-координатор"
+
+  change_of_control_target_contracts:
+    text: >
+      Просим раскрыть для {doc_names}: все договоры target, содержащие change of control clause,
+      необходимые согласия/уведомления и сроки их получения.
+    addressee: "Продавец"
+
+  termination_walk_away_rights:
+    text: >
+      Просим уточнить в {doc_names}: основания расторжения для каждой стороны,
+      long-stop date, наличие и размер break fee / reverse break fee,
+      порядок возврата авансов и deposi, последствия расторжения.
+    addressee: "Юридический советник"
+
+  governing_law:
+    text: >
+      Просим подтвердить в {doc_names} применимое право, особенно при наличии
+      трансграничного элемента, и согласовать forum/арбитражную оговорку.
+    addressee: "Юридический советник"
+
+  assignment_restriction:
+    text: >
+      Просим включить в {doc_names} запрет уступки прав / перевода долга
+      без согласия другой стороны либо описать допустимые случаи.
+    addressee: "Юридический советник"
+
+  public_jsc_mandatory_offer:
+    text: >
+      Внимание: по {doc_names} при приобретении >30% голосующих акций ПАО
+      возникает обязанность направить обязательное предложение (ст. 84.2 ФЗ-208).
+      Просим предоставить: анализ применимости, проект обязательного предложения,
+      расчёт цены и порядок финансирования.
+    addressee: "Юридический советник покупателя"
+
+  strategic_enterprise_foreign_investor:
+    text: >
+      Внимание: {doc_names} может подпадать под ФЗ-57 (стратегические общества).
+      Просим предоставить: анализ применимости ФЗ-57, перечень видов деятельности target,
+      проект ходатайства в Правительственную комиссию (если требуется).
+    addressee: "Юридический советник / Антимонопольный консультант"
+
+  non_public_jsc_preemptive_right:
+    text: >
+      Просим предоставить по {doc_names}: актуальную редакцию устава непубличного АО,
+      подтверждение соблюдения преимущественного права акционеров (уведомления, отказы),
+      корпоративное заключение о допустимости продажи третьему лицу.
+    addressee: "Корпоративный юрист / Продавец"
+    
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    

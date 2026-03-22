@@ -125,8 +125,10 @@ def build_document_summaries(
         elif row.result == "unclear":
             by_doc[doc_id]["unclear_count"] += 1
 
-    return [DocumentSummaryDTO(**v) for v in by_doc.values()]
-
+    return [
+        DocumentSummaryDTO(**v)
+        for _, v in sorted(by_doc.items(), key=lambda kv: kv[1]["name"].lower())
+    ]
 
 def build_document_detail(
     agg: AggregatedResults,
@@ -142,7 +144,7 @@ def build_document_detail(
 
     # Строим индекс: (document_id, check_id) → dict полей со значениями
     # Это нужно чтобы потом быстро найти structured_data для каждого чека
-    structured_by_doc_check: Dict[tuple, Dict[str, Any]] = {}
+    structured_by_doc_check: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
     for sv in agg.structured_value_rows:
         if sv.document_id != document_id:

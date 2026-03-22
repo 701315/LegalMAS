@@ -1,0 +1,1604 @@
+type: contract_9.4_alimony_agreement
+name: "Алиментное соглашение (соглашение об уплате алиментов)"
+
+description: |
+  Соглашение между лицом, обязанным уплачивать алименты (плательщиком), и лицом, имеющим
+  право на их получение (получателем), или его законным представителем. Определяет размер,
+  условия, порядок и сроки выплаты средств на содержание. Заключается в отношении:
+  несовершеннолетних детей, нетрудоспособных совершеннолетних детей, супруга (бывшего супруга),
+  родителей, других членов семьи.
+  Требует обязательного нотариального удостоверения (ст. 100 СК РФ). Имеет силу исполнительного
+  листа — при неисполнении может быть предъявлено в службу судебных приставов для принудительного
+  взыскания без обращения в суд. Размер алиментов на несовершеннолетних детей не может быть
+  ниже минимума, установленного ст. 81 СК РФ. Для алиментов в твёрдой денежной сумме
+  обязательна индексация (ст. 105 СК РФ).
+  Регулируется Главой 16 Семейного кодекса РФ (ст. 99–105).
+
+version: 4.0
+parent: class_9_special_imperative
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: family_law
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Семейный кодекс РФ (Глава 16, ст. 99–105)"
+  doc_types_supported:
+    - "соглашение об уплате алиментов на несовершеннолетнего ребёнка"
+    - "соглашение об уплате алиментов на нетрудоспособного совершеннолетнего ребёнка"
+    - "соглашение об уплате алиментов на супруга (бывшего супруга)"
+    - "соглашение об уплате алиментов на родителей"
+    - "соглашение об уплате алиментов на иного члена семьи"
+    - "дополнительное соглашение к алиментному соглашению"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)алиментн[а-яё]*\\s*(соглашени|договор)"
+      - "(?i)соглашени[а-яё]*\\s+об\\s+уплате\\s+алимент"
+      - "(?i)child[\\s_.-]?support"
+      - "(?i)alimony[\\s_.-]?agreement"
+      - "(?i)maintenance[\\s_.-]?agreement"
+
+    folder_patterns:
+      - "(?i)алимент"
+      - "(?i)семейн"
+      - "(?i)family[\\s_]?law"
+      - "(?i)child[\\s_]?support"
+
+    keywords:
+
+      high:
+        - "алиментное соглашение"
+        - "соглашение об уплате алиментов"
+        - "плательщик алиментов"
+        - "получатель алиментов"
+        - "нотариальное удостоверение"
+        - "исполнительный лист"
+        - "силу исполнительного листа"
+        - "ст. 100 СК РФ"
+
+      medium:
+        - "размер алиментов"
+        - "твёрдая денежная сумма"
+        - "твердая денежная сумма"
+        - "доля от заработка"
+        - "индексация алиментов"
+        - "несовершеннолетний ребёнок"
+        - "содержание ребёнка"
+        - "прожиточный минимум"
+        - "ст. 81 СК РФ"
+        - "ст. 103 СК РФ"
+        - "ст. 104 СК РФ"
+        - "ст. 105 СК РФ"
+
+      low:
+        - "порядок выплаты"
+        - "срок действия"
+        - "неустойка"
+        - "судебные приставы"
+        - "принудительное взыскание"
+        - "задолженность по алиментам"
+        - "дополнительные расходы на ребёнка"
+
+    exclusions:
+      - "судебное решение о взыскании алиментов"
+      - "судебный приказ о взыскании алиментов"
+      - "решение суда"
+      - "определение суда"
+      - "брачный договор"
+      - "брачный контракт"
+      - "соглашение о разделе имущества"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+  trigger_definitions:
+
+    child_maintenance:
+
+      any_keywords:
+        - "несовершеннолетний ребёнок"
+        - "несовершеннолетний ребенок"
+        - "алименты на ребёнка"
+        - "алименты на ребенка"
+        - "содержание ребёнка"
+        - "содержание ребенка"
+        - "до достижения совершеннолетия"
+        - "до 18 лет"
+        - "до достижения 18 лет"
+        - "ст. 81 СК РФ"
+
+    adult_child_maintenance:
+      any_keywords:
+        - "нетрудоспособный совершеннолетний ребёнок"
+        - "нетрудоспособный совершеннолетний ребенок"
+        - "совершеннолетний нетрудоспособный"
+        - "ребёнок-инвалид"
+        - "ребенок-инвалид"
+        - "инвалидность ребёнка"
+        - "ст. 85 СК РФ"
+
+    spouse_maintenance:
+      any_keywords:
+        - "содержание супруга"
+        - "содержание супруги"
+        - "алименты на супруга"
+        - "бывший супруг"
+        - "бывшая супруга"
+        - "нетрудоспособный супруг"
+        - "нуждающийся супруг"
+        - "беременность"
+        - "отпуск по уходу за ребёнком"
+        - "ст. 89 СК РФ"
+        - "ст. 90 СК РФ"
+
+    parent_maintenance:
+      any_keywords:
+        - "содержание родителей"
+        - "содержание отца"
+        - "содержание матери"
+        - "алименты на родителей"
+        - "нетрудоспособные родители"
+        - "нуждающиеся родители"
+        - "ст. 87 СК РФ"
+
+    other_family_maintenance:
+      any_keywords:
+        - "иные члены семьи"
+        - "братья и сёстры"
+        - "дедушки и бабушки"
+        - "внуки"
+        - "воспитатели"
+        - "пасынки и падчерицы"
+        - "Глава 15 СК РФ"
+
+    fixed_amount_alimony:
+      any_keywords:
+        - "твёрдая денежная сумма"
+        - "твердая денежная сумма"
+        - "фиксированная сумма"
+        - "ежемесячно в размере"
+        - "в сумме"
+        - "рублей ежемесячно"
+
+    proportional_alimony:
+      any_keywords:
+        - "доля от заработка"
+        - "доля от дохода"
+        - "1/4 заработка"
+        - "одна четвертая"
+        - "1/3 заработка"
+        - "одна третья"
+        - "1/2 заработка"
+        - "половина заработка"
+        - "процент от дохода"
+
+    property_transfer_alimony:
+      any_keywords:
+        - "предоставление имущества"
+        - "передача имущества"
+        - "единовременная выплата"
+        - "иным способом"
+        - "ст. 104 СК РФ"
+
+    enforcement_context:
+      any_keywords:
+        - "исполнительный лист"
+        - "служба судебных приставов"
+        - "принудительное взыскание"
+        - "исполнительное производство"
+        - "ФЗ-229"
+
+    substantial_change_context:
+      any_keywords:
+        - "существенное изменение"
+        - "изменение материального положения"
+        - "потеря работы"
+        - "снижение доходов"
+        - "рождение другого ребёнка"
+        - "инвалидность плательщика"
+        - "ст. 101 СК РФ"
+        
+    multiple_children:
+      any_keywords:
+        - "двое детей"
+        - "трое детей"
+        - "на каждого ребёнка"
+        - "на каждого ребенка"
+        - "1/3 на двоих"
+        - "1/2 на троих"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  fraction_pattern: "(?i)\\b(1/[234]|одн[а-яё]+\\s+(четверт|трет|половин))"
+  passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+  article_sk_ref: "(?i)ст\\.?\\s*\\d+\\s*СК\\s*РФ"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "notarial_form_mandatory"
+    name: "Обязательная нотариальная форма (ст. 100 СК РФ)"
+    description: |
+      Алиментное соглашение подлежит обязательному нотариальному удостоверению.
+      Несоблюдение формы влечёт ничтожность соглашения. Нотариально удостоверенное
+      соглашение имеет силу исполнительного листа.
+    legal_base: "ст. 100 СК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "без нотариального удостоверения"
+        - "в простой письменной форме"
+        - "нотариальное удостоверение не требуется"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "нотариальное удостоверение"
+        - "нотариальная форма"
+        - "ст. 100 СК РФ"
+      rerank: true
+
+  - id: "minimum_amount_for_children"
+    name: "Минимальный размер алиментов на несовершеннолетних детей (ст. 103 СК РФ)"
+    description: |
+      Размер алиментов на несовершеннолетних детей по соглашению не может быть ниже
+      размера, который мог бы быть взыскан в судебном порядке (ст. 81 СК РФ):
+      1/4 на одного ребёнка, 1/3 на двоих, 1/2 на троих и более.
+      Соглашение с заниженным размером может быть оспорено (ст. 102 СК РФ).
+    legal_base: "ст. 81, 103 СК РФ"
+    required_triggers: ["child_maintenance"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ниже установленного законом"
+        - "менее одной четверти"
+        - "менее 1/4"
+        - "символический размер"
+        - "1 рубль"
+        - "100 рублей"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "размер алиментов"
+        - "ст. 81 СК РФ"
+        - "ст. 103 СК РФ"
+        - "минимальный размер"
+      rerank: true
+
+  - id: "prohibition_of_alimony_waiver_for_minors"
+    name: "Запрет отказа от алиментов на несовершеннолетних (ст. 102 СК РФ)"
+    description: |
+      Соглашение об уплате алиментов, условия которого существенно нарушают интересы
+      несовершеннолетнего получателя (в том числе полный отказ от алиментов),
+      может быть признано недействительным в судебном порядке.
+    legal_base: "ст. 102 СК РФ"
+    required_triggers: ["child_maintenance"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "отказывается от алиментов"
+        - "алименты не уплачиваются"
+        - "освобождается от уплаты алиментов"
+        - "не требует уплаты алиментов"
+        - "отказ от содержания ребёнка"
+        - "отказ от содержания ребенка"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "отказ от алиментов"
+        - "ст. 102 СК РФ"
+        - "интересы ребёнка"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: parties_and_beneficiary_extraction
+    name: "Извлечение сторон и выгодоприобретателя"
+    description: |
+      Извлекает плательщика, получателя (или его законного представителя),
+      лицо, на содержание которого уплачиваются алименты, основание обязанности.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "плательщик"
+        - "получатель"
+        - "законный представитель"
+        - "родитель"
+        - "опекун"
+        - "попечитель"
+        - "ребёнок"
+        - "ребенок"
+        - "супруг"
+        - "супруга"
+        - "на содержание"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(плательщик|получатель)\\s+алимент"
+        - "(?i)на\\s+содержание\\s+(несовершеннолетн|ребёнк|ребенк|супруг)"
+        - "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+        - "(?i)законн(ый|ого|ым)\\s+представител"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Найди в тексте стороны соглашения и выгодоприобретателя.
+
+        Ответь строго в JSON:
+        {
+          "payer_name": "<ФИО плательщика или not_found>",
+          "payer_role": "<parent / spouse / adult_child / other / not_found>",
+          "recipient_name": "<ФИО получателя или его представителя или not_found>",
+          "recipient_role": "<parent_representative / spouse / parent / guardian / other / not_found>",
+          "beneficiary_name": "<ФИО лица, на содержание которого уплачиваются алименты, или not_found>",
+          "beneficiary_type": "<minor_child / adult_disabled_child / spouse / ex_spouse / parent / other / not_found>",
+          "beneficiary_birth_date": "<дата рождения выгодоприобретателя или not_found>",
+          "basis_of_obligation": "<parentage / marriage / family_relationship / not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "плательщик"
+        - "получатель"
+        - "ребёнок"
+        - "содержание"
+        - "на основании"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "payer_name"
+          type: "string"
+          keyword_hints: ["плательщик", "обязуется уплачивать"]
+          description: "ФИО плательщика"
+        - name: "beneficiary_name"
+          type: "string"
+          keyword_hints: ["на содержание", "ребёнок", "ребенок"]
+          description: "ФИО выгодоприобретателя"
+        - name: "beneficiary_type"
+          type: "string"
+          allowed_values: ["minor_child", "adult_disabled_child", "spouse", "ex_spouse", "parent", "other", "not_found"]
+          description: "Категория выгодоприобретателя"
+      store_payload: true
+
+  - id: notarial_form_and_executive_force_check
+    name: "Нотариальная форма и сила исполнительного листа (ст. 100 СК РФ)"
+    description: |
+      Проверяет наличие нотариального удостоверения и указания на силу
+      исполнительного листа. Без нотариальной формы соглашение ничтожно.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "нотариальное удостоверение"
+        - "нотариус"
+        - "удостоверено нотариусом"
+        - "реестр нотариальных действий"
+        - "исполнительный лист"
+        - "силу исполнительного листа"
+        - "исполнительный документ"
+        - "служба судебных приставов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)удостоверен(о|а)\\s+нотариусом"
+        - "(?i)нотариальн(ое|ого|ым)\\s+удостоверен"
+        - "(?i)сил(у|а|ой)\\s+исполнительного\\s+листа"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Проверь нотариальную форму и указание на исполнительную силу (ст. 100 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "notarial_status": "<certified / mentioned / not_found>",
+          "notary_name": "<ФИО нотариуса или not_found>",
+          "registry_number": "<номер в реестре или not_found>",
+          "executive_force_mentioned": "<yes / no / not_found>",
+          "notarial_snippet": "<цитата или not_found>"
+        }
+
+        - "certified" — есть удостоверительная надпись нотариуса
+        - "mentioned" — упоминается необходимость удостоверения, но надписи нет
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "нотариус"
+        - "удостоверение"
+        - "исполнительный лист"
+        - "ст. 100 СК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "notarial_status"
+          type: "string"
+          allowed_values: ["certified", "mentioned", "not_found"]
+          description: "Статус нотариального удостоверения"
+        - name: "executive_force_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упоминание исполнительной силы"
+      store_payload: true
+
+  - id: amount_and_minimum_compliance_check
+    name: "Размер алиментов и соответствие минимуму (ст. 81, 103, 104 СК РФ)"
+    description: |
+      Извлекает размер алиментов, способ определения (доля/твёрдая сумма/смешанный/
+      предоставление имущества) и проверяет соответствие минимуму для детей.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "размер алиментов"
+        - "в размере"
+        - "1/4 заработка"
+        - "одна четвертая"
+        - "1/3 заработка"
+        - "одна третья"
+        - "1/2 заработка"
+        - "половина заработка"
+        - "твёрдая денежная сумма"
+        - "твердая денежная сумма"
+        - "ежемесячно"
+        - "рублей"
+        - "прожиточный минимум"
+        - "процент от дохода"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b(1/[234]|одн[а-яё]+\\s+(четверт|трет|половин))"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+        - "(?i)в\\s+размере\\s+\\d+"
+        - "(?i)прожиточн(ый|ого)\\s+минимум"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Извлеки размер алиментов и оцени соответствие минимуму (ст. 81, 103 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "amount_type": "<proportional / fixed / mixed / property_transfer / not_specified / not_found>",
+          "amount_value": "<конкретная сумма/доля или not_found>",
+          "payment_frequency": "<monthly / quarterly / annual / one_time / not_specified / not_found>",
+          "minimum_compliance_for_children": "<compliant / below_minimum / not_applicable / unclear / not_found>",
+          "number_of_children": "<число детей или not_found>",
+          "amount_snippet": "<цитата или not_found>"
+        }
+
+        - "proportional" — доля от заработка/дохода
+        - "fixed" — твёрдая денежная сумма
+        - "mixed" — комбинация доли и твёрдой суммы
+        - "property_transfer" — предоставление имущества
+        - "compliant" — размер не ниже минимума ст. 81 СК
+        - "below_minimum" — размер ниже минимума (НАРУШЕНИЕ)
+        - "not_applicable" — получатель не ребёнок
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "размер алиментов"
+        - "1/4"
+        - "1/3"
+        - "1/2"
+        - "твёрдая сумма"
+        - "ст. 81 СК"
+        - "ст. 103 СК"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "amount_type"
+          type: "string"
+          allowed_values: ["proportional", "fixed", "mixed", "property_transfer", "not_specified", "not_found"]
+          description: "Способ определения размера"
+        - name: "amount_value"
+          type: "string"
+          keyword_hints: ["в размере", "рублей", "1/4", "1/3", "1/2", "процент"]
+          description: "Конкретный размер"
+        - name: "minimum_compliance_for_children"
+          type: "string"
+          allowed_values: ["compliant", "below_minimum", "not_applicable", "unclear", "not_found"]
+          description: "Соответствие минимуму для детей"
+      store_payload: true
+
+  - id: indexation_check
+    name: "Индексация алиментов в твёрдой сумме (ст. 105 СК РФ)"
+    description: |
+      Проверяет наличие порядка индексации для алиментов, установленных в твёрдой сумме.
+      По умолчанию — пропорционально росту прожиточного минимума.
+    triggers:
+      any: ["fixed_amount_alimony"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "индексация"
+        - "индексация алиментов"
+        - "прожиточный минимум"
+        - "рост потребительских цен"
+        - "ИПЦ"
+        - "пропорционально росту"
+        - "пересчёт суммы"
+        - "ст. 105 СК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)индексаци(я|ю|и)\\s+(размера\\s+)?алимент"
+        - "(?i)пропорционально\\s+(росту\\s+)?(величин(ы|е)|размер(у|а))\\s+прожиточн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Проверь наличие механизма индексации (ст. 105 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "indexation_status": "<concrete / default_reference / not_found>",
+          "indexation_basis": "<subsistence_minimum / CPI / fixed_percentage / other / not_found>",
+          "indexation_frequency": "<annual / semi_annual / quarterly / on_change / not_found>",
+          "indexation_snippet": "<цитата или not_found>"
+        }
+
+        - "concrete" — указан конкретный порядок индексации
+        - "default_reference" — ссылка на ст. 105 СК РФ (пропорционально прожиточному минимуму)
+        - "not_found" — индексация не упомянута
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "индексация"
+        - "прожиточный минимум"
+        - "ст. 105 СК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "indexation_status"
+          type: "string"
+          allowed_values: ["concrete", "default_reference", "not_found"]
+          description: "Статус индексации"
+        - name: "indexation_basis"
+          type: "string"
+          allowed_values: ["subsistence_minimum", "CPI", "fixed_percentage", "other", "not_found"]
+          description: "Основание индексации"
+      store_payload: true
+
+  - id: adjustment_mechanism_check
+    name: "Механизм корректировки при изменении обстоятельств (ст. 101 СК РФ)"
+    description: |
+      Проверяет наличие права на пересмотр размера алиментов при существенном
+      изменении материального или семейного положения.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "существенное изменение"
+        - "изменение материального положения"
+        - "изменение семейного положения"
+        - "потеря работы"
+        - "снижение доходов"
+        - "рождение другого ребёнка"
+        - "пересмотр размера"
+        - "корректировка"
+        - "право на изменение"
+        - "досудебный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)существенн(ое|ого)\\s+изменени(е|я)\\s+(материальн|семейн)"
+        - "(?i)пересмотр\\s+размера\\s+алимент"
+        - "(?i)снижени(е|я)\\s+доход(ов|а)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Проверь наличие механизма корректировки при изменении обстоятельств (ст. 101 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "adjustment_clause_status": "<present / not_found>",
+          "adjustment_grounds": ["<перечень оснований для пересмотра>"],
+          "adjustment_procedure": "<negotiation / court / both / not_specified / not_found>",
+          "pre_trial_procedure": "<yes / no / not_found>",
+          "adjustment_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "изменение обстоятельств"
+        - "пересмотр"
+        - "снижение доходов"
+        - "ст. 101 СК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "adjustment_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие механизма корректировки"
+        - name: "adjustment_procedure"
+          type: "string"
+          allowed_values: ["negotiation", "court", "both", "not_specified", "not_found"]
+          description: "Порядок пересмотра"
+      store_payload: true
+
+  - id: penalty_for_late_payment_check
+    name: "Неустойка за просрочку уплаты алиментов (ст. 115 СК РФ)"
+    description: |
+      Проверяет наличие и размер неустойки за просрочку выплаты.
+      По закону — 0,1% за каждый день просрочки (ст. 115 СК РФ),
+      но соглашением может быть установлен иной размер.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "неустойка"
+        - "пеня"
+        - "за просрочку"
+        - "за каждый день просрочки"
+        - "0,1%"
+        - "ст. 115 СК РФ"
+        - "убытки сверх неустойки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|у|и)\\s+(за\\s+)?просрочк"
+        - "(?i)\\d[,.]\\d+\\s*%\\s*(за\\s+)?(каждый\\s+)?день"
+        - "(?i)пен(я|ю|и)\\s+в\\s+размере"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Проверь наличие и размер неустойки за просрочку (ст. 115 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "penalty_clause_status": "<present / not_found>",
+          "penalty_rate": "<размер (например, 0.1% в день) или not_found>",
+          "penalty_type": "<per_day / per_month / fixed / other / not_found>",
+          "additional_damages": "<yes / no / not_found>",
+          "penalty_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "неустойка"
+        - "пеня"
+        - "просрочка"
+        - "ст. 115 СК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "penalty_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие условия о неустойке"
+        - name: "penalty_rate"
+          type: "string"
+          keyword_hints: ["0,1%", "процент", "за каждый день"]
+          description: "Размер неустойки"
+      store_payload: true
+
+  - id: additional_expenses_offset_check
+    name: "Зачёт дополнительных расходов на ребёнка (ст. 86, 104 СК РФ)"
+    description: |
+      Проверяет наличие условий о зачёте дополнительных расходов (лечение,
+      образование, отдых) в счёт алиментных платежей.
+    triggers:
+      any: ["child_maintenance"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "дополнительные расходы"
+        - "зачёт расходов"
+        - "зачет расходов"
+        - "лечение ребёнка"
+        - "образование ребёнка"
+        - "отдых ребёнка"
+        - "оплата обучения"
+        - "в счёт алиментов"
+        - "в счет алиментов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)дополнительн(ые|ых)\\s+расход(ы|ов)\\s+(на\\s+)?ребёнк"
+        - "(?i)зач(ёт|ет)\\s+(произведённых\\s+)?расход"
+        - "(?i)в\\s+сч(ёт|ет)\\s+(уплаты\\s+)?алимент"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Проверь наличие условий о зачёте дополнительных расходов (ст. 86, 104 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "offset_clause_status": "<present / not_found>",
+          "offset_categories": ["<перечень категорий расходов, подлежащих зачёту>"],
+          "offset_procedure": "<described / not_described / not_found>",
+          "offset_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "дополнительные расходы"
+        - "зачёт"
+        - "лечение"
+        - "образование"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "offset_clause_status"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие условия о зачёте расходов"
+      store_payload: true
+
+  - id: termination_conditions_check
+    name: "Условия прекращения алиментных обязательств (ст. 120 СК РФ)"
+    description: |
+      Проверяет наличие чётких условий прекращения обязательств:
+      достижение совершеннолетия, смерть, усыновление, восстановление трудоспособности и т.д.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "прекращение обязательств"
+        - "прекращение выплаты"
+        - "достижение совершеннолетия"
+        - "достижение 18 лет"
+        - "смерть плательщика"
+        - "смерть получателя"
+        - "усыновление"
+        - "восстановление трудоспособности"
+        - "вступление в новый брак"
+        - "эмансипация"
+        - "ст. 120 СК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прекращ(ение|ается)\\s+(обязательств|выплат|действи)"
+        - "(?i)до\\s+достижени(я|е).*?(18|совершеннолети)"
+        - "(?i)в\\s+случае\\s+смерти\\s+(плательщик|получател)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий алиментное соглашение.
+        Проверь условия прекращения обязательств (ст. 120 СК РФ).
+
+        Ответь строго в JSON:
+        {
+          "termination_conditions_specified": "<yes / no>",
+          "termination_events": ["<перечень оснований прекращения>"],
+          "end_date_or_event": "<конкретная дата/событие или not_found>",
+          "death_clause": "<present / not_found>",
+          "termination_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "прекращение"
+        - "совершеннолетие"
+        - "смерть"
+        - "ст. 120 СК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "termination_conditions_specified"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Указаны ли условия прекращения"
+        - name: "end_date_or_event"
+          type: "string"
+          keyword_hints: ["до достижения", "18 лет", "совершеннолетие"]
+          description: "Конечная дата или событие"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны: идентификация плательщика и получателя"
+    description: "Проверяет наличие полных данных о плательщике и получателе/представителе"
+    legal_base: "ст. 99 СК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "плательщик"
+        - "получатель"
+        - "законный представитель"
+        - "паспорт"
+        - "дата рождения"
+        - "зарегистрирован"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(плательщик|получатель)\\s+алимент"
+        - "(?i)паспорт\\s+серия\\s+\\d{4}"
+
+  - id: "beneficiary_identification"
+    name: "Выгодоприобретатель: идентификация лица на содержание"
+    description: "Проверяет чёткое указание лица, на содержание которого уплачиваются алименты"
+    legal_base: "ст. 99 СК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "на содержание"
+        - "ребёнок"
+        - "ребенок"
+        - "несовершеннолетний"
+        - "супруг"
+        - "родитель"
+        - "дата рождения"
+        - "свидетельство о рождении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)на\\s+содержание\\s+(несовершеннолетн|ребёнк|ребенк|супруг)"
+        - "(?i)свидетельств(о|а)\\s+о\\s+рождении"
+
+  - id: "amount_specified"
+    name: "Размер алиментов: конкретная сумма, доля или иной способ (ст. 103–104 СК РФ)"
+    description: "Проверяет наличие конкретного размера алиментов"
+    legal_base: "ст. 103, 104 СК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "размер алиментов"
+        - "в размере"
+        - "в сумме"
+        - "доля от заработка"
+        - "1/4"
+        - "1/3"
+        - "1/2"
+        - "рублей"
+        - "прожиточный минимум"
+        - "твёрдая денежная сумма"
+        - "твердая денежная сумма"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+размере\\s+\\d+"
+        - "(?i)\\b(1/[234]|одн[а-яё]+\\s+(четверт|трет|половин))"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽)"
+
+  - id: "payment_procedure"
+    name: "Порядок, сроки и способ выплаты (ст. 104 СК РФ)"
+    description: "Проверяет наличие конкретного порядка выплаты"
+    legal_base: "ст. 104 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "порядок выплаты"
+        - "ежемесячно"
+        - "не позднее"
+        - "до числа"
+        - "перечисление на счёт"
+        - "перечисление на счет"
+        - "банковский счёт"
+        - "банковский счет"
+        - "наличными"
+        - "под расписку"
+        - "реквизиты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+позднее\\s+\\d+[-]?(го)?\\s+(числа|дня)"
+        - "(?i)(перечисл|на\\s+банковский\\s+сч)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "payment_method"
+          type: "string"
+          allowed_values: ["bank_transfer", "cash", "postal", "other", "not_found"]
+          keyword_hints: ["перечисление на счёт", "наличными", "почтовый перевод"]
+          description: "Способ выплаты"
+        - name: "payment_deadline"
+          type: "string"
+          keyword_hints: ["не позднее", "до числа", "ежемесячно"]
+          description: "Срок выплаты"
+      store_payload: true
+
+  - id: "term_of_agreement"
+    name: "Срок действия соглашения (ст. 99, 120 СК РФ)"
+    description: "Проверяет указание срока действия или события прекращения"
+    legal_base: "ст. 99, 120 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "действует до"
+        - "до достижения"
+        - "до совершеннолетия"
+        - "до 18 лет"
+        - "прекращается"
+        - "утрачивает силу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(действует|прекращ)\\s+(до|в\\s+момент)"
+        - "(?i)до\\s+достижени(я|е).*?\\d+\\s*(лет|года)"
+
+  - id: "notarial_form"
+    name: "Нотариальная форма (ст. 100 СК РФ)"
+    description: "Проверяет указание на нотариальное удостоверение"
+    legal_base: "ст. 100 СК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "нотариальное удостоверение"
+        - "удостоверено нотариусом"
+        - "нотариус"
+        - "реестр нотариальных действий"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)нотариальн(ое|ого|ым)\\s+удостоверен"
+
+  - id: "executive_force"
+    name: "Сила исполнительного листа (ст. 100 СК РФ)"
+    description: "Проверяет упоминание исполнительной силы соглашения"
+    legal_base: "ст. 100 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "исполнительный лист"
+        - "силу исполнительного листа"
+        - "исполнительный документ"
+        - "принудительное взыскание"
+        - "служба судебных приставов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)сил(у|а|ой)\\s+исполнительного\\s+листа"
+
+  - id: "minimum_amount_guarantee"
+    name: "Гарантия минимального размера на детей (ст. 81, 103 СК РФ)"
+    description: "Проверяет явную ссылку на соответствие минимуму ст. 81 СК РФ"
+    legal_base: "ст. 81, 103 СК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["child_maintenance"]
+    rules:
+      keywords:
+        - "не ниже размера"
+        - "не менее 1/4"
+        - "ст. 81 СК РФ"
+        - "соответствует размеру"
+        - "мог бы быть взыскан"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)не\\s+ниже\\s+(размера|суммы)"
+        - "(?i)ст\\.?\\s*81\\s*СК"
+
+  - id: "indexation_clause"
+    name: "Индексация алиментов в твёрдой сумме (ст. 105 СК РФ)"
+    description: "Проверяет наличие условия об индексации для твёрдой суммы"
+    legal_base: "ст. 105 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["fixed_amount_alimony"]
+    rules:
+      keywords:
+        - "индексация"
+        - "прожиточный минимум"
+        - "пропорционально росту"
+        - "ст. 105 СК РФ"
+        - "пересчёт суммы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)индексаци(я|ю|и)"
+
+  - id: "penalty_clause"
+    name: "Неустойка за просрочку (ст. 115 СК РФ)"
+    description: "Проверяет наличие неустойки за просрочку выплаты"
+    legal_base: "ст. 115 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка"
+        - "пеня"
+        - "за просрочку"
+        - "за каждый день просрочки"
+        - "0,1%"
+        - "ст. 115 СК РФ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|у|и)\\s+(за\\s+)?просрочк"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "penalty_rate"
+          type: "string"
+          keyword_hints: ["0,1%", "процент", "за каждый день"]
+          description: "Размер неустойки"
+      store_payload: true
+
+  - id: "payment_confirmation_requirement"
+    name: "Обязанность подтверждения оплаты"
+    description: "Проверяет наличие обязанности предоставлять подтверждение платежа"
+    legal_base: "ст. 104 СК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подтверждение оплаты"
+        - "платёжное поручение"
+        - "платежное поручение"
+        - "расписка"
+        - "копия квитанции"
+        - "банковская выписка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(платёжн|платежн)(ое|ого)\\s+(поручени|документ)"
+
+  - id: "targeted_use_reporting"
+    name: "Целевое использование и отчётность (ст. 60 СК РФ)"
+    description: "Проверяет наличие условий об отчётности по целевому использованию"
+    legal_base: "ст. 60 СК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["child_maintenance"]
+    rules:
+      keywords:
+        - "целевое использование"
+        - "отчёт об использовании"
+        - "отчет об использовании"
+        - "по требованию плательщика"
+        - "расходование средств на нужды ребёнка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)целев(ое|ого)\\s+использован"
+        - "(?i)отч(ёт|ет)\\s+(об\\s+)?использовани"
+
+  - id: "adjustment_for_changed_circumstances"
+    name: "Корректировка при изменении обстоятельств (ст. 101 СК РФ)"
+    description: "Проверяет наличие механизма пересмотра при существенном изменении положения"
+    legal_base: "ст. 101 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "существенное изменение"
+        - "изменение материального положения"
+        - "потеря работы"
+        - "снижение доходов"
+        - "пересмотр размера"
+        - "право на изменение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)существенн(ое|ого)\\s+изменени"
+        - "(?i)пересмотр\\s+размера"
+
+  - id: "additional_expenses_offset"
+    name: "Зачёт дополнительных расходов на ребёнка (ст. 86, 104 СК РФ)"
+    description: "Проверяет наличие условий о зачёте дополнительных расходов"
+    legal_base: "ст. 86, 104 СК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["child_maintenance"]
+    rules:
+      keywords:
+        - "дополнительные расходы"
+        - "зачёт расходов"
+        - "зачет расходов"
+        - "лечение"
+        - "образование"
+        - "в счёт алиментов"
+        - "в счет алиментов"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)зач(ёт|ет)\\s+(произведённых\\s+)?расход"
+
+  - id: "overpayment_credit"
+    name: "Зачёт переплаты и авансовых платежей"
+    description: "Проверяет наличие условий о зачёте переплаты"
+    legal_base: "ст. 410–412 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "зачёт переплаты"
+        - "зачет переплаты"
+        - "авансовый платёж"
+        - "авансовый платеж"
+        - "в счёт будущих платежей"
+        - "в счет будущих платежей"
+        - "переплата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)переплат(а|ы|у)\\s*(зачитывается|подлежит\\s+зачёт)"
+
+  - id: "termination_conditions"
+    name: "Чёткие условия прекращения обязательств (ст. 120 СК РФ)"
+    description: "Проверяет наличие конкретных оснований прекращения"
+    legal_base: "ст. 120 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "прекращение обязательств"
+        - "достижение совершеннолетия"
+        - "достижение 18 лет"
+        - "смерть плательщика"
+        - "смерть получателя"
+        - "усыновление"
+        - "восстановление трудоспособности"
+        - "вступление в новый брак"
+        - "эмансипация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прекращ(ение|ается)"
+        - "(?i)ст\\.?\\s*120\\s*СК"
+
+  - id: "amendment_and_termination_procedure"
+    name: "Порядок изменения и расторжения (ст. 101 СК РФ)"
+    description: "Проверяет наличие процедуры изменения и расторжения"
+    legal_base: "ст. 101 СК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "изменение соглашения"
+        - "расторжение соглашения"
+        - "по взаимному согласию"
+        - "в нотариальной форме"
+        - "односторонний отказ не допускается"
+        - "через суд"
+        - "письменное уведомление"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)изменени(е|я)\\s+(и\\s+)?расторжени"
+        - "(?i)односторонний\\s+отказ\\s+не\\s+допуска"
+
+  - id: "dispute_resolution"
+    name: "Порядок разрешения споров"
+    description: "Проверяет наличие досудебного порядка и подсудности"
+    legal_base: "ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "досудебный порядок"
+        - "путём переговоров"
+        - "путем переговоров"
+        - "подсудность"
+        - "по месту жительства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)спор(ы|ов)\\s+(разрешаются|подлежат)"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность условий соглашения"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "не подлежат разглашению"
+        - "не раскрывать третьим лицам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+подлеж(ат|ит)\\s+разглашени"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_and_beneficiary_extraction:
+    text: >
+      Просим предоставить по {doc_names}: (а) полные данные плательщика (ФИО, паспорт,
+      адрес, место работы); (б) полные данные получателя или законного представителя;
+      (в) данные лица, на содержание которого уплачиваются алименты (ФИО, дата рождения,
+      свидетельство о рождении/паспорт); (г) основание алиментной обязанности.
+    addressee: "Обе стороны / Нотариус"
+
+  parties_identification:
+    text: >
+      В {doc_names} необходимо указать полные идентификационные данные плательщика
+      и получателя алиментов.
+    addressee: "Обе стороны"
+
+  beneficiary_identification:
+    text: >
+      В {doc_names} необходимо чётко идентифицировать лицо, на содержание которого
+      уплачиваются алименты (ФИО, дата рождения, основание обязанности).
+    addressee: "Обе стороны"
+
+  notarial_form_and_executive_force_check:
+    text: >
+      Просим подтвердить по {doc_names}: (а) факт нотариального удостоверения
+      (ст. 100 СК РФ); (б) ФИО нотариуса; (в) номер в реестре; (г) упоминание
+      исполнительной силы соглашения.
+    addressee: "Нотариус"
+
+  notarial_form:
+    text: >
+      В {doc_names} отсутствует подтверждение нотариального удостоверения.
+      Без удостоверения соглашение ничтожно (ст. 100 СК РФ).
+    addressee: "Обе стороны / Нотариус"
+
+  executive_force:
+    text: >
+      Просим включить в {doc_names} указание на то, что нотариально удостоверенное
+      соглашение имеет силу исполнительного листа (ст. 100 СК РФ).
+    addressee: "Нотариус"
+
+  amount_and_minimum_compliance_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) конкретный размер алиментов (сумма/доля);
+      (б) способ определения (твёрдая сумма / доля от заработка / смешанный);
+      (в) для алиментов на детей — подтверждение соответствия минимуму ст. 81 СК РФ;
+      (г) сведения о доходах плательщика (для проверки нотариусом).
+    addressee: "Плательщик / Нотариус"
+
+  amount_specified:
+    text: >
+      В {doc_names} необходимо указать конкретный размер алиментов (ст. 103–104 СК РФ).
+    addressee: "Обе стороны"
+
+  minimum_amount_guarantee:
+    text: >
+      Просим подтвердить в {doc_names}, что размер алиментов на ребёнка не ниже
+      минимума ст. 81 СК РФ (1/4 на одного, 1/3 на двоих, 1/2 на троих и более).
+    addressee: "Нотариус"
+
+  payment_procedure:
+    text: >
+      Просим уточнить в {doc_names}: (а) конкретную дату ежемесячного платежа;
+      (б) способ перечисления (банковский перевод / наличные); (в) реквизиты счёта
+      получателя; (г) порядок подтверждения оплаты.
+    addressee: "Обе стороны"
+
+  payment_confirmation_requirement:
+    text: >
+      Просим включить в {doc_names} обязанность плательщика предоставлять
+      подтверждение оплаты (копия платёжного поручения, расписка).
+    addressee: "Юридический советник"
+
+  indexation_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок индексации алиментов в твёрдой сумме
+      (ст. 105 СК РФ); (б) привязка к прожиточному минимуму или иная формула;
+      (в) периодичность пересчёта; (г) кто производит индексацию (работодатель/приставы).
+    addressee: "Юридический советник / Нотариус"
+
+  indexation_clause:
+    text: >
+      В {doc_names} алименты установлены в твёрдой сумме, но отсутствует условие
+      об индексации. По ст. 105 СК РФ индексация обязательна.
+    addressee: "Нотариус"
+
+  penalty_for_late_payment_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) размер неустойки за просрочку (по ст. 115
+      СК РФ — 0,1% в день, но стороны могут установить иной размер); (б) порядок
+      расчёта; (в) право на взыскание убытков сверх неустойки.
+    addressee: "Юридический советник"
+
+  penalty_clause:
+    text: >
+      Просим включить в {doc_names} условие о неустойке за просрочку выплаты
+      (ст. 115 СК РФ).
+    addressee: "Юридический советник"
+
+  adjustment_mechanism_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) основания для пересмотра размера
+      (потеря работы, снижение доходов, рождение другого ребёнка); (б) досудебный
+      порядок обсуждения; (в) порядок судебного пересмотра (ст. 101 СК РФ).
+    addressee: "Юридический советник"
+
+  adjustment_for_changed_circumstances:
+    text: >
+      Просим включить в {doc_names} механизм корректировки размера алиментов
+      при существенном изменении обстоятельств (ст. 101 СК РФ).
+    addressee: "Юридический советник"
+
+  additional_expenses_offset_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) перечень дополнительных расходов,
+      подлежащих зачёту (лечение, образование, отдых); (б) порядок подтверждения
+      расходов; (в) механизм зачёта (уменьшение следующего платежа).
+    addressee: "Юридический советник"
+
+  additional_expenses_offset:
+    text: >
+      Просим рассмотреть включение в {doc_names} условий о зачёте дополнительных
+      расходов плательщика на ребёнка (ст. 86, 104 СК РФ).
+    addressee: "Юридический советник"
+
+  overpayment_credit:
+    text: >
+      Просим включить в {doc_names} условия о зачёте переплаты и авансовых
+      платежей в счёт будущих алиментных обязательств.
+    addressee: "Юридический советник"
+
+  termination_conditions_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) полный перечень оснований прекращения
+      (совершеннолетие, эмансипация, усыновление, смерть, восстановление
+      трудоспособности и т.д.); (б) конкретную дату или событие окончания;
+      (в) последствия досрочного прекращения.
+    addressee: "Юридический советник"
+
+  termination_conditions:
+    text: >
+      Просим включить в {doc_names} чёткие условия прекращения обязательств
+      (ст. 120 СК РФ).
+    addressee: "Юридический советник"
+
+  term_of_agreement:
+    text: >
+      Просим уточнить в {doc_names} срок действия соглашения.
+    addressee: "Обе стороны"
+
+  amendment_and_termination_procedure:
+    text: >
+      Просим уточнить в {doc_names}: (а) порядок внесения изменений (нотариальная
+      форма, ст. 101 СК РФ); (б) основания расторжения; (в) невозможность
+      одностороннего отказа; (г) порядок судебного изменения.
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим уточнить в {doc_names}: досудебный порядок урегулирования,
+      подсудность, порядок разрешения споров.
+    addressee: "Юридический советник"
+
+  targeted_use_reporting:
+    text: >
+      Просим рассмотреть включение в {doc_names} обязанности получателя
+      предоставлять отчёт о целевом использовании алиментов по требованию
+      плательщика (ст. 60 СК РФ).
+    addressee: "Юридический советник"
+
+  confidentiality:
+    text: >
+      Просим рассмотреть включение в {doc_names} условий о конфиденциальности
+      финансовых условий соглашения.
+    addressee: "Юридический советник"
+
+  notarial_form_mandatory:
+    text: >
+      ВНИМАНИЕ: {doc_names} содержит указание на отсутствие нотариального
+      удостоверения. Без нотариальной формы алиментное соглашение ничтожно
+      (ст. 100 СК РФ).
+    addressee: "Обе стороны"
+
+  minimum_amount_for_children:
+    text: >
+      ВНИМАНИЕ: в {doc_names} размер алиментов на ребёнка потенциально ниже
+      минимума ст. 81 СК РФ. Такое соглашение может быть оспорено (ст. 102 СК РФ).
+      Просим привести размер в соответствие с законом.
+    addressee: "Нотариус / Юридический советник"
+
+  prohibition_of_alimony_waiver_for_minors:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлен отказ от алиментов на несовершеннолетнего.
+      Такое условие существенно нарушает интересы ребёнка и может быть признано
+      недействительным (ст. 102 СК РФ).
+    addressee: "Нотариус / Орган опеки"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

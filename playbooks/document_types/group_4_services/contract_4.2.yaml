@@ -1,0 +1,2557 @@
+type: contract_4.2_cargo_transportation
+name: "Договор перевозки груза"
+
+description: |
+  Соглашение, по которому перевозчик обязуется доставить вверенный ему грузоотправителем
+  груз в пункт назначения и выдать его управомоченному лицу (грузополучателю),
+  а грузоотправитель обязуется уплатить провозную плату.
+  Регулируется Главой 40 ГК РФ (ст. 784–800) и специальными транспортными уставами/кодексами
+  (УАТ, КТМ, УЖТ, Воздушный кодекс, КВВТ). Характеризуется реальным характером
+  (договор подтверждается транспортной накладной/коносаментом), ограниченной ответственностью
+  перевозчика (независимо от вины) и обязательным претензионным порядком.
+  Срок исковой давности — 1 год (ст. 797 ГК РФ).
+
+version: 4.0
+parent: class_4_service_provision
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: logistics_transport
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 40 ГК РФ (ст. 784-800), УАТ, КТМ, УЖТ, ВК РФ, КВВТ"
+  doc_types_supported:
+    - "договор перевозки груза"
+    - "договор перевозки грузов автомобильным транспортом"
+    - "договор железнодорожной перевозки грузов"
+    - "договор воздушной перевозки грузов"
+    - "договор морской перевозки грузов"
+    - "договор перевозки грузов внутренним водным транспортом"
+    - "договор об организации перевозок грузов"
+    - "договор автомобильной перевозки грузов"
+    - "рамочный договор перевозки"
+    - "транспортный договор"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)перевозк"
+      - "(?i)transport"
+      - "(?i)carrier"
+      - "(?i)freight"
+      - "(?i)cargo"
+      - "(?i)логист"
+
+    folder_patterns:
+      - "(?i)перевозк"
+      - "(?i)transport"
+      - "(?i)логист"
+      - "(?i)freight"
+
+    keywords:
+
+      high:
+        - "перевозка"
+        - "перевозчик"
+        - "грузоотправитель"
+        - "грузополучатель"
+        - "груз"
+        - "пункт назначения"
+        - "транспортная накладная"
+        - "коносамент"
+        - "провозная плата"
+        - "доставка груза"
+
+      medium:
+        - "выдача груза"
+        - "путевой лист"
+        - "заявка на перевозку"
+        - "погрузка"
+        - "выгрузка"
+        - "срок доставки"
+        - "транспортное средство"
+        - "демередж"
+        - "простой транспорта"
+        - "претензионный порядок"
+        - "удержание груза"
+
+      low:
+        - "водитель"
+        - "маршрут"
+        - "логистика"
+        - "автоперевозка"
+        - "фрахт"
+        - "контейнер"
+        - "вагон"
+        - "рефрижератор"
+
+    exclusions:
+      - "транспортная экспедиция"
+      - "экспедитор"
+      - "аренда транспортного средства"
+      - "фрахтование"
+      - "чартер"
+      - "перевозка пассажиров"
+      - "перевозка багажа"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  road_transport:
+    any_keywords:
+      - "автомобильная перевозка"
+      - "автотранспорт"
+      - "грузовой автомобиль"
+      - "фура"
+      - "тягач"
+      - "полуприцеп"
+      - "УАТ"
+      - "устав автомобильного транспорта"
+      - "автоперевозка"
+      - "ПП РФ 2200"
+
+  rail_transport:
+    any_keywords:
+      - "железнодорожная перевозка"
+      - "вагон"
+      - "контейнер"
+      - "станция отправления"
+      - "станция назначения"
+      - "УЖТ"
+      - "устав железнодорожного транспорта"
+      - "полувагон"
+      - "цистерна"
+      - "платформа"
+      - "подъездной путь"
+
+  sea_transport:
+    any_keywords:
+      - "морская перевозка"
+      - "коносамент"
+      - "порт отправления"
+      - "порт назначения"
+      - "КТМ"
+      - "кодекс торгового мореплавания"
+      - "чартер"
+      - "фрахт"
+      - "судно"
+      - "стивидорные работы"
+      - "демередж"
+      - "диспач"
+
+  air_transport:
+    any_keywords:
+      - "воздушная перевозка"
+      - "авиаперевозка"
+      - "грузовая авианакладная"
+      - "воздушный кодекс"
+      - "аэропорт отправления"
+      - "аэропорт назначения"
+      - "авиагруз"
+      - "AWB"
+      - "air waybill"
+
+  inland_water_transport:
+    any_keywords:
+      - "внутренний водный транспорт"
+      - "речная перевозка"
+      - "баржа"
+      - "КВВТ"
+      - "кодекс внутреннего водного транспорта"
+      - "причал"
+      - "речной порт"
+
+  multimodal_transport:
+    any_keywords:
+      - "мультимодальная перевозка"
+      - "смешанная перевозка"
+      - "интермодальная перевозка"
+      - "несколько видов транспорта"
+      - "перегрузка"
+      - "перевалка"
+
+  dangerous_cargo:
+    any_keywords:
+      - "опасный груз"
+      - "ДОПОГ"
+      - "ADR"
+      - "класс опасности"
+      - "свидетельство ДОПОГ"
+      - "аварийная карточка"
+      - "специальное разрешение на перевозку опасных"
+      - "взрывчатые"
+      - "горючие"
+      - "токсичные"
+      - "радиоактивные"
+
+  perishable_cargo:
+    any_keywords:
+      - "скоропортящийся груз"
+      - "температурный режим"
+      - "рефрижератор"
+      - "термограф"
+      - "холодильная камера"
+      - "замороженный"
+      - "охлаждённый"
+      - "продовольственные товары"
+
+  oversized_cargo:
+    any_keywords:
+      - "негабаритный груз"
+      - "крупногабаритный"
+      - "тяжеловесный"
+      - "специальное разрешение"
+      - "сопровождение ГИБДД"
+      - "нестандартные габариты"
+      - "проект перевозки"
+
+  international_transport:
+    any_keywords:
+      - "международная перевозка"
+      - "экспорт"
+      - "импорт"
+      - "таможня"
+      - "таможенное оформление"
+      - "CMR"
+      - "КДПГ"
+      - "Монреальская конвенция"
+      - "инкотермс"
+      - "Incoterms"
+      - "TIR"
+      - "карнет TIR"
+      - "госграница"
+      - "пограничный контроль"
+      - "транзит"
+
+  framework_agreement:
+    any_keywords:
+      - "рамочный договор"
+      - "договор об организации перевозок"
+      - "заявка на перевозку"
+      - "систематические перевозки"
+      - "регулярные перевозки"
+      - "график перевозок"
+
+  legal_entity_party:
+    any_keywords:
+      - "ооо"
+      - "ао"
+      - "пао"
+      - "зао"
+      - "общество"
+      - "инн"
+      - "огрн"
+      - "кпп"
+
+  individual_party:
+    any_keywords:
+      - "паспорт"
+      - "гражданин"
+      - "физическое лицо"
+      - "ИП"
+      - "индивидуальный предприниматель"
+
+  cargo_insurance:
+    any_keywords:
+      - "страхование груза"
+      - "страховой полис"
+      - "страховая сумма"
+      - "выгодоприобретатель"
+      - "страховой случай"
+      - "объявленная ценность"
+
+  temperature_controlled:
+    any_keywords:
+      - "температурный режим"
+      - "рефрижератор"
+      - "термограф"
+      - "термодатчик"
+      - "от +2 до +8"
+      - "не ниже"
+      - "не выше"
+      - "холодовая цепь"
+
+  container_transport:
+    any_keywords:
+      - "контейнер"
+      - "контейнерная перевозка"
+      - "TEU"
+      - "FEU"
+      - "20-футовый"
+      - "40-футовый"
+      - "контейнерный терминал"
+
+  charter_freight:
+    any_keywords:
+      - "фрахт"
+      - "фрахтование"
+      - "чартер"
+      - "рейсовый чартер"
+      - "тайм-чартер"
+      - "фрахтователь"
+
+  customs_required:
+    any_keywords:
+      - "таможня"
+      - "таможенное оформление"
+      - "декларирование"
+      - "таможенная пошлина"
+      - "таможенный брокер"
+      - "таможенная декларация"
+      - "ТД"
+      - "ДТ"
+
+  military_cargo:
+    any_keywords:
+      - "военный груз"
+      - "двойного назначения"
+      - "экспортный контроль"
+      - "специальные правила перевозки"
+
+  subcontracting_carrier:
+    any_keywords:
+      - "привлечение третьих лиц"
+      - "субподряд"
+      - "субперевозчик"
+      - "замена перевозчика"
+      - "с привлечением"
+      - "перевозка силами третьих лиц"
+
+  cargo_escort:
+    any_keywords:
+      - "сопровождение груза"
+      - "экспедитор сопровождает"
+      - "представитель грузоотправителя"
+      - "охрана груза"
+      - "вооружённая охрана"
+
+  electronic_waybill:
+    any_keywords:
+      - "электронная транспортная накладная"
+      - "ЭТрН"
+      - "электронный документооборот"
+      - "ГИС ЭПД"
+      - "электронный коносамент"
+
+  redirection_in_transit:
+    any_keywords:
+      - "переадресовка"
+      - "изменение пункта назначения"
+      - "изменение грузополучателя"
+      - "переадресация"
+      - "изменение маршрута"
+
+  seasonal_restrictions:
+    any_keywords:
+      - "весенние ограничения"
+      - "ограничения по массе"
+      - "дорожные ограничения"
+      - "временное ограничение движения"
+      - "пропуск на движение"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|USD|EUR|долл)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage: "(?i)\\b\\d{1,3}[,.]?\\d{0,2}\\s*%"
+  weight_pattern: "(?i)\\b\\d[\\d\\s,.]*(?:кг|тонн|т\\b|kg|ton)"
+  volume_pattern: "(?i)\\b\\d[\\d\\s,.]*(?:куб\\.?\\s*м|м[³3]|cbm)"
+  time_hours: "(?i)\\b\\d+\\s*(?:час|ч\\.|hours|hrs)"
+  vehicle_reg: "(?i)\\b[А-Я]{1}\\d{3}[А-Я]{2}\\d{2,3}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "carrier_license_absent"
+    name: "Отсутствие лицензии/разрешения перевозчика"
+    description: |
+      Для отдельных видов перевозок (пассажирские автобусные, ж/д, авиа, морские)
+      требуется лицензия. Для грузовых автомобильных — допуск к международным
+      перевозкам. Отсутствие необходимых разрешений делает деятельность незаконной.
+    legal_base: "ФЗ от 04.05.2011 № 99-ФЗ, ФЗ от 08.11.2007 № 259-ФЗ (УАТ)"
+    required_triggers: ["legal_entity_party"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "лицензия"
+        - "разрешение на перевозку"
+        - "допуск"
+        - "свидетельство"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "лицензия перевозчика"
+        - "разрешение"
+        - "допуск к перевозкам"
+      rerank: true
+
+  - id: "dangerous_cargo_without_dopog"
+    name: "Опасные грузы без документов ДОПОГ (ADR)"
+    description: |
+      Перевозка опасных грузов без свидетельства ДОПОГ, аварийной карточки
+      и специального разрешения — административное правонарушение (ст. 12.21.2 КоАП)
+      и уголовно наказуемое деяние при тяжких последствиях.
+    legal_base: "ДОПОГ (ADR), ФЗ-259 (УАТ), ст. 12.21.2 КоАП РФ"
+    required_triggers: ["dangerous_cargo"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "опасный груз"
+        - "ДОПОГ"
+        - "ADR"
+        - "класс опасности"
+        - "свидетельство ДОПОГ"
+        - "аварийная карточка"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "опасный груз"
+        - "ДОПОГ"
+        - "свидетельство"
+        - "аварийная карточка"
+      rerank: true
+
+  - id: "international_transport_without_convention"
+    name: "Международная перевозка без ссылки на применимую конвенцию"
+    description: |
+      При международных перевозках автоматически применяются конвенции
+      (КДПГ/CMR для автотранспорта, Монреальская для авиа, Гаагско-Висбийские
+      правила для морских). Без ссылки на конвенцию — неопределённость
+      в применимом праве и лимитах ответственности.
+    legal_base: "КДПГ (CMR), Монреальская конвенция 1999, Гамбургские правила"
+    required_triggers: ["international_transport"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "международная перевозка"
+        - "CMR"
+        - "КДПГ"
+        - "Монреальская конвенция"
+        - "инкотермс"
+        - "применимое право"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "международная перевозка"
+        - "конвенция"
+        - "CMR"
+        - "КДПГ"
+      rerank: true
+
+  - id: "mandatory_pretension_procedure_missing"
+    name: "Обязательный претензионный порядок не предусмотрен (ст. 797 ГК РФ)"
+    description: |
+      До подачи иска к перевозчику ОБЯЗАТЕЛЬНО предъявление претензии.
+      Пропуск срока (30 дней — недостача/повреждение, 45 дней — просрочка по УАТ)
+      лишает права на иск. Без явного указания на претензионный порядок
+      стороны рискуют пропустить сроки.
+    legal_base: "ст. 797 ГК РФ, транспортные уставы"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "претензионный порядок"
+        - "претензия"
+        - "досудебный порядок"
+        - "срок предъявления претензии"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "претензионный порядок"
+        - "претензия"
+        - "ст. 797"
+      rerank: true
+
+  - id: "shipper_false_cargo_info"
+    name: "Ответственность грузоотправителя за недостоверные сведения о грузе"
+    description: |
+      Грузоотправитель обязан предоставить достоверные сведения о грузе 
+      (наименование, вес, свойства, опасность). За убытки от недостоверных 
+      сведений отвечает грузоотправитель (ст. 10 УАТ, ст. 27 УЖТ).
+      Отсутствие этого условия лишает перевозчика защиты.
+    legal_base: "ст. 10 ФЗ-259 (УАТ), ст. 27 УЖТ, ст. 25 КДПГ (CMR)"
+    required_triggers: []
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "достоверность сведений"
+        - "сведения о грузе"
+        - "информация о свойствах"
+        - "ответственность грузоотправителя"
+      keyword_mode: "any"
+      negative_keywords:
+        - "грузоотправитель несёт ответственность за достоверность"
+        - "грузоотправитель гарантирует"
+        - "ответственность за предоставление недостоверных"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "достоверность сведений"
+        - "ответственность грузоотправителя"
+        - "свойства груза"
+      rerank: true
+
+  - id: "subcontracting_without_consent"
+    name: "Привлечение субперевозчика без согласия грузоотправителя"
+    description: |
+      Если перевозчик привлекает субперевозчика без согласия или 
+      уведомления, грузоотправитель лишается контроля над качеством 
+      и безопасностью перевозки. Необходимо урегулировать право 
+      привлечения и ответственность за субперевозчика.
+    legal_base: "ст. 785, 313 ГК РФ"
+    required_triggers: ["subcontracting_carrier"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "привлечение третьих лиц"
+        - "субподряд"
+        - "субперевозчик"
+      keyword_mode: "any"
+      negative_keywords:
+        - "с согласия грузоотправителя"
+        - "с письменного согласия"
+        - "перевозчик отвечает за субперевозчика"
+        - "запрещается привлечение"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "субперевозчик"
+        - "привлечение"
+        - "согласие"
+      rerank: true
+
+  - id: "no_cargo_acceptance_procedure"
+    name: "Отсутствие порядка приёмки груза при выдаче"
+    description: |
+      Без чёткого порядка приёмки и фиксации повреждений при выдаче 
+      грузополучателю сложно доказать факт и момент повреждения. 
+      Коммерческий акт и сроки предъявления замечаний критичны.
+    legal_base: "ст. 796 ГК РФ, транспортные уставы"
+    required_triggers: []
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "приёмка груза"
+        - "осмотр при получении"
+        - "коммерческий акт"
+        - "акт о повреждении"
+      keyword_mode: "any"
+      negative_keywords:
+        - "порядок приёмки"
+        - "осмотр груза при выдаче"
+        - "коммерческий акт составляется"
+        - "акт о недостаче"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "приёмка"
+        - "осмотр"
+        - "коммерческий акт"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: cargo_transport_subject_extraction
+    name: "Перевозка: базовое извлечение предмета договора"
+    description: "Извлекает характеристики груза, маршрут, вид транспорта, тип договора"
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "груз"
+        - "перевозка"
+        - "пункт отправления"
+        - "пункт назначения"
+        - "маршрут"
+        - "наименование груза"
+        - "вес"
+        - "объём"
+        - "транспортная накладная"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(перевозчик.*обязуется.*доставить)"
+        - "(?i)(из\\s+пункта.*в\\s+пункт|из\\s+г\\..*в\\s+г\\.)"
+        - "(?i)(грузоотправител.*обязуется.*уплатить)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Найди в тексте сведения о предмете договора.
+
+        Ответь строго в JSON:
+        {
+          "cargo_description": "<описание груза или not_found>",
+          "cargo_weight": "<вес с единицей измерения или not_found>",
+          "cargo_volume": "<объём или not_found>",
+          "origin_point": "<пункт отправления или not_found>",
+          "destination_point": "<пункт назначения или not_found>",
+          "transport_mode": "<road / rail / sea / air / inland_water / multimodal / not_found>",
+          "contract_type": "<single / framework / not_found>",
+          "transport_document_type": "<waybill / bill_of_lading / air_waybill / cmr / not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text. Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 10
+      boost_keywords:
+        - "груз"
+        - "перевозка"
+        - "пункт отправления"
+        - "пункт назначения"
+        - "маршрут"
+        - "транспортная накладная"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "cargo_description"
+          type: "string"
+          keyword_hints: ["наименование груза", "характер груза", "род груза"]
+          description: "Описание груза"
+        - name: "transport_mode"
+          type: "string"
+          allowed_values: ["road", "rail", "sea", "air", "inland_water", "multimodal", "not_found"]
+          description: "Вид транспорта"
+        - name: "contract_type"
+          type: "string"
+          allowed_values: ["single", "framework", "not_found"]
+          description: "Тип договора (разовый/рамочный)"
+        - name: "transport_document_type"
+          type: "string"
+          allowed_values: ["waybill", "bill_of_lading", "air_waybill", "cmr", "not_found"]
+          description: "Вид транспортного документа"
+      store_payload: true
+
+  - id: transport_document_check
+    name: "Транспортный документ: накладная / коносамент (ст. 785 ГК РФ)"
+    description: |
+      Проверяет наличие условия об оформлении транспортного документа.
+      Заключение договора перевозки подтверждается транспортной накладной,
+      коносаментом или иным документом. Без него сложно доказать факт
+      заключения договора.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "транспортная накладная"
+        - "товарно-транспортная накладная"
+        - "ТТН"
+        - "коносамент"
+        - "грузовая авианакладная"
+        - "CMR"
+        - "AWB"
+        - "железнодорожная накладная"
+        - "путевой лист"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)транспортн(ая|ой)\\s+накладн"
+        - "(?i)коносамент"
+        - "(?i)\\bCMR\\b"
+        - "(?i)\\bТТН\\b"
+        - "(?i)\\bAWB\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь наличие условия об оформлении транспортного документа (ст. 785 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "transport_document_mentioned": "<yes / no>",
+          "document_type": "<waybill / consignment_note / bill_of_lading / air_waybill / cmr / other / not_found>",
+          "who_prepares": "<carrier / shipper / jointly / not_specified / not_found>",
+          "document_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "транспортная накладная"
+        - "коносамент"
+        - "CMR"
+        - "оформление документов"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "transport_document_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Упоминание транспортного документа"
+        - name: "document_type"
+          type: "string"
+          allowed_values: ["waybill", "consignment_note", "bill_of_lading", "air_waybill", "cmr", "other", "not_found"]
+          description: "Вид транспортного документа"
+      store_payload: true
+
+  - id: carrier_liability_for_cargo
+    name: "Ответственность перевозчика за груз (ст. 796 ГК РФ)"
+    description: |
+      Проверяет условия ответственности за утрату, недостачу и повреждение груза.
+      Перевозчик отвечает независимо от вины (ст. 796 ГК РФ). Размер ограничен
+      объявленной стоимостью или действительной стоимостью груза. Без чёткого
+      указания возможны споры о размере возмещения.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "утрата груза"
+        - "повреждение груза"
+        - "недостача"
+        - "ответственность перевозчика"
+        - "возмещение ущерба"
+        - "объявленная стоимость"
+        - "действительная стоимость"
+        - "независимо от вины"
+        - "ст. 796"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност.*перевозчик.*за.*(утрат|поврежден|недостач)"
+        - "(?i)независимо\\s+от\\s+вины"
+        - "(?i)ст\\.?\\s*796"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия ответственности перевозчика за груз (ст. 796 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "carrier_liability_present": "<yes / no / not_found>",
+          "liability_basis": "<strict / fault_based / mixed / not_specified / not_found>",
+          "liability_limit_type": "<declared_value / actual_value / statutory / contract_cap / not_specified / not_found>",
+          "liability_limit_amount": "<сумма/описание или not_found>",
+          "indirect_damages_excluded": "<yes / no / not_found>",
+          "liability_snippet": "<цитата или not_found>"
+        }
+
+        - "strict" — ответственность независимо от вины (по ст. 796 ГК РФ)
+        - "fault_based" — ответственность при наличии вины
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ответственность перевозчика"
+        - "утрата"
+        - "повреждение"
+        - "недостача"
+        - "ст. 796"
+        - "объявленная стоимость"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "liability_basis"
+          type: "string"
+          allowed_values: ["strict", "fault_based", "mixed", "not_specified", "not_found"]
+          description: "Основание ответственности"
+        - name: "liability_limit_type"
+          type: "string"
+          allowed_values: ["declared_value", "actual_value", "statutory", "contract_cap", "not_specified", "not_found"]
+          description: "Тип лимита ответственности"
+      store_payload: true
+
+  - id: claim_procedure_check
+    name: "Обязательный претензионный порядок (ст. 797 ГК РФ)"
+    description: |
+      Проверяет наличие детализированного претензионного порядка с указанием
+      сроков. Пропуск срока лишает права на иск. Срок исковой давности — 1 год.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "претензионный порядок"
+        - "претензия"
+        - "досудебный порядок"
+        - "срок предъявления претензии"
+        - "30 дней"
+        - "45 дней"
+        - "6 месяцев"
+        - "ответ на претензию"
+        - "исковая давность"
+        - "1 год"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претенз(ия|ии|ию|ионн)"
+        - "(?i)досудебн(ый|ого)\\s+порядк"
+        - "(?i)исков(ая|ой)\\s+давност"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь наличие обязательного претензионного порядка (ст. 797 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "claim_procedure_present": "<yes / no / not_found>",
+          "claim_deadline_for_loss": "<количество дней или not_found>",
+          "claim_deadline_for_delay": "<количество дней или not_found>",
+          "response_deadline": "<количество дней или not_found>",
+          "limitation_period_mentioned": "<yes / no / not_found>",
+          "claim_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "претензионный порядок"
+        - "срок претензии"
+        - "исковая давность"
+        - "ст. 797"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "claim_procedure_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие претензионного порядка"
+        - name: "claim_deadline_for_loss"
+          type: "string"
+          keyword_hints: ["срок претензии", "30 дней", "в течение"]
+          description: "Срок претензии при утрате/повреждении"
+        - name: "limitation_period_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упоминание срока исковой давности"
+      store_payload: true
+
+  - id: cargo_value_and_insurance
+    name: "Объявленная ценность груза и страхование"
+    description: |
+      Проверяет наличие объявленной ценности и/или условий страхования груза.
+      При утрате без объявленной ценности придётся доказывать стоимость в суде.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "объявленная ценность"
+        - "объявленная стоимость"
+        - "стоимость груза"
+        - "страхование груза"
+        - "страховой полис"
+        - "страховая сумма"
+        - "выгодоприобретатель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)объявленн(ая|ой)\\s+(ценност|стоимост)"
+        - "(?i)страхован(ие|ия)\\s+груз"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия объявления ценности и страхования груза.
+
+        Ответь строго в JSON:
+        {
+          "declared_value_present": "<yes / no / not_found>",
+          "declared_value_amount": "<сумма или not_found>",
+          "insurance_required": "<yes / no / not_found>",
+          "who_insures": "<shipper / carrier / not_specified / not_found>",
+          "insurance_coverage_type": "<all_risks / named_perils / not_specified / not_found>",
+          "value_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "объявленная ценность"
+        - "страхование груза"
+        - "стоимость груза"
+        - "страховой полис"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "declared_value_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие объявленной ценности"
+        - name: "insurance_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Обязательность страхования"
+      store_payload: true
+
+  - id: special_cargo_conditions
+    name: "Специальные условия: опасные, скоропортящиеся, негабаритные грузы"
+    description: |
+      Проверяет наличие специальных условий для особых категорий грузов:
+      ДОПОГ для опасных, температурный режим для скоропортящихся,
+      разрешения для негабаритных.
+    triggers:
+      any: ["dangerous_cargo", "perishable_cargo", "oversized_cargo"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "опасный груз"
+        - "ДОПОГ"
+        - "ADR"
+        - "класс опасности"
+        - "скоропортящийся"
+        - "температурный режим"
+        - "рефрижератор"
+        - "негабаритный"
+        - "крупногабаритный"
+        - "тяжеловесный"
+        - "специальное разрешение"
+        - "аварийная карточка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)опасн(ый|ого|ые)\\s+груз"
+        - "(?i)температурн(ый|ого)\\s+режим"
+        - "(?i)негабарит|крупногабарит|тяжеловес"
+        - "(?i)\\bДОПОГ\\b|\\bADR\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь наличие специальных условий для особых категорий грузов.
+
+        Ответь строго в JSON:
+        {
+          "dangerous_cargo": "<yes / no>",
+          "dangerous_class": "<класс опасности или not_found>",
+          "dopog_documents_mentioned": "<yes / no / not_found>",
+          "perishable_cargo": "<yes / no>",
+          "temperature_range": "<диапазон температур или not_found>",
+          "monitoring_device": "<yes / no / not_found>",
+          "oversized_cargo": "<yes / no>",
+          "special_permit_mentioned": "<yes / no / not_found>",
+          "special_cargo_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "опасный груз"
+        - "ДОПОГ"
+        - "скоропортящийся"
+        - "температурный режим"
+        - "негабаритный"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dangerous_cargo"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Является ли груз опасным"
+        - name: "perishable_cargo"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Является ли груз скоропортящимся"
+        - name: "oversized_cargo"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Является ли груз негабаритным"
+      store_payload: true
+
+  - id: international_transport_provisions
+    name: "Международная перевозка: конвенции, таможня, юрисдикция"
+    description: |
+      Проверяет наличие условий для международных перевозок: ссылка на конвенцию
+      (КДПГ/CMR, Монреальская), распределение таможенных обязанностей,
+      применимое право, подсудность.
+    triggers:
+      any: ["international_transport"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "международная перевозка"
+        - "CMR"
+        - "КДПГ"
+        - "Монреальская конвенция"
+        - "таможенное оформление"
+        - "инкотермс"
+        - "Incoterms"
+        - "TIR"
+        - "карнет TIR"
+        - "применимое право"
+        - "экспортные формальности"
+        - "импортные формальности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bCMR\\b|\\bКДПГ\\b"
+        - "(?i)Монреальск(ая|ой)\\s+конвенц"
+        - "(?i)инкотермс|Incoterms"
+        - "(?i)таможенн(ое|ого)\\s+оформлени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия для международной перевозки.
+
+        Ответь строго в JSON:
+        {
+          "international_transport": "<yes / no>",
+          "applicable_convention": "<CMR / Montreal / Hamburg / Hague_Visby / other / not_found>",
+          "customs_responsibility_shipper": "<yes / no / not_found>",
+          "customs_responsibility_carrier": "<yes / no / not_found>",
+          "incoterms_term": "<термин Incoterms или not_found>",
+          "governing_law": "<страна/юрисдикция или not_found>",
+          "dispute_jurisdiction": "<суд/арбитраж или not_found>",
+          "international_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 512
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "международная перевозка"
+        - "CMR"
+        - "таможня"
+        - "Incoterms"
+        - "применимое право"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "applicable_convention"
+          type: "string"
+          allowed_values: ["CMR", "Montreal", "Hamburg", "Hague_Visby", "other", "not_found"]
+          description: "Применимая международная конвенция"
+        - name: "incoterms_term"
+          type: "string"
+          keyword_hints: ["Incoterms", "инкотермс", "EXW", "FCA", "CPT", "CIP", "DAP", "DPU", "DDP"]
+          description: "Базис поставки по Incoterms"
+      store_payload: true
+
+  - id: lien_right_on_cargo
+    name: "Право удержания груза и порядок реализации (ст. 790, 359 ГК РФ)"
+    description: |
+      Проверяет наличие условия о праве перевозчика удерживать груз
+      до оплаты провозных платежей и порядка реализации удержанного груза.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право удержания"
+        - "удержание груза"
+        - "до уплаты"
+        - "до полной оплаты"
+        - "реализация удержанного"
+        - "хранение за счёт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)удержива(ть|ет).*груз.*до.*оплат"
+        - "(?i)право\\s+удержани(я|е).*груз"
+        - "(?i)реализац(ия|ии)\\s+удержанн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь наличие условия о праве удержания груза (ст. 790, 359 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "lien_right_present": "<yes / no / not_found>",
+          "lien_conditions": "<описание условий или not_found>",
+          "realization_procedure": "<yes / no / not_found>",
+          "storage_cost_allocation": "<shipper / carrier / not_specified / not_found>",
+          "lien_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "удержание груза"
+        - "право удержания"
+        - "до оплаты"
+        - "реализация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "lien_right_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие права удержания"
+        - name: "realization_procedure"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие порядка реализации удержанного груза"
+      store_payload: true
+
+  - id: demurrage_detention_check
+    name: "Демередж / простой: нормативное время и штрафы (ст. 791, 794 ГК РФ)"
+    description: |
+      Проверяет наличие нормативного времени погрузки/выгрузки
+      и штрафов за сверхнормативный простой (демередж/детеншн).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "простой"
+        - "демередж"
+        - "детеншн"
+        - "нормативное время"
+        - "время погрузки"
+        - "время выгрузки"
+        - "сверхнормативный простой"
+        - "штраф за простой"
+        - "плата за простой"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)нормативн(ое|ого)\\s+врем(я|ени)"
+        - "(?i)демередж|детеншн"
+        - "(?i)простой.*штраф|штраф.*простой"
+        - "(?i)за\\s+каждый\\s+час\\s+простоя"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия о нормативном времени погрузки/выгрузки и демередже.
+
+        Ответь строго в JSON:
+        {
+          "normative_loading_time": "<время или not_found>",
+          "normative_unloading_time": "<время или not_found>",
+          "demurrage_rate": "<ставка за час/день или not_found>",
+          "demurrage_cap": "<максимальная сумма или not_found>",
+          "who_pays_demurrage": "<shipper / consignee / not_specified / not_found>",
+          "demurrage_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "простой"
+        - "нормативное время"
+        - "демередж"
+        - "погрузка"
+        - "выгрузка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "normative_loading_time"
+          type: "string"
+          keyword_hints: ["нормативное время погрузки", "время на погрузку"]
+          description: "Нормативное время погрузки"
+        - name: "demurrage_rate"
+          type: "string"
+          keyword_hints: ["штраф за простой", "плата за простой", "за каждый час"]
+          description: "Ставка демереджа"
+      store_payload: true
+
+  - id: vehicle_supply_check
+    name: "Подача ТС: сроки, уведомление, санкции (ст. 791, 794 ГК РФ)"
+    description: |
+      Проверяет наличие условий о подаче ТС под погрузку: сроки, порядок
+      уведомления, санкции за несвоевременную подачу или непредъявление груза.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "подача транспортных средств"
+        - "срок подачи"
+        - "график подачи"
+        - "уведомление о подаче"
+        - "штраф за непредъявление"
+        - "неиспользование"
+        - "отказ от заявки"
+        - "заявка на перевозку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подач(а|и)\\s+транспортн"
+        - "(?i)заявк(а|и|у)\\s+на\\s+перевозк"
+        - "(?i)штраф.*за.*(непод|непредъявлен)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия подачи транспортных средств (ст. 791, 794 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "vehicle_supply_deadline": "<срок или not_found>",
+          "notification_procedure": "<yes / no / not_found>",
+          "penalty_for_late_supply": "<yes / no / not_found>",
+          "penalty_for_non_presentation": "<yes / no / not_found>",
+          "application_procedure": "<yes / no / not_found>",
+          "vehicle_supply_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "подача транспортных средств"
+        - "заявка на перевозку"
+        - "штраф за непредъявление"
+        - "ст. 794"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "penalty_for_late_supply"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Санкции за несвоевременную подачу ТС"
+        - name: "application_procedure"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие порядка подачи заявок"
+      store_payload: true
+
+  - id: shipper_obligations_and_warranties_check
+    name: "Обязанности и заверения грузоотправителя (ст. 791, 10 УАТ)"
+    description: "Проверяет обязанности грузоотправителя по подготовке груза и достоверности сведений"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "грузоотправитель обязан"
+        - "достоверность сведений"
+        - "подготовка груза"
+        - "предоставление документов"
+        - "сведения о грузе"
+        - "свойства груза"
+        - "вес груза"
+        - "упаковка"
+        - "маркировка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)грузоотправител.*обязан"
+        - "(?i)достоверност.*сведени"
+        - "(?i)ответственност.*грузоотправител.*за.*сведени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь обязанности грузоотправителя.
+
+        Ответь в JSON:
+        {
+          "shipper_cargo_preparation_duty": "<present / absent / not_found>",
+          "shipper_data_accuracy_warranty": "<present / absent / not_found>",
+          "shipper_document_provision_duty": "<present / absent / not_found>",
+          "shipper_packaging_duty": "<present / absent / not_found>",
+          "shipper_marking_duty": "<present / absent / not_found>",
+          "false_data_liability": "<specified / not_specified / not_found>",
+          "shipper_obligations_completeness": "<comprehensive / partial / minimal / absent>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "грузоотправитель обязан"
+        - "достоверность"
+        - "сведения о грузе"
+        - "упаковка"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "shipper_data_accuracy_warranty"
+          type: "string"
+          allowed_values: ["present", "absent", "not_found"]
+          description: "Заверение о достоверности сведений"
+        - name: "false_data_liability"
+          type: "string"
+          allowed_values: ["specified", "not_specified", "not_found"]
+          description: "Ответственность за недостоверные данные"
+        - name: "shipper_obligations_completeness"
+          type: "string"
+          allowed_values: ["comprehensive", "partial", "minimal", "absent"]
+          description: "Полнота обязанностей грузоотправителя"
+      store_payload: true
+
+  - id: subcontracting_and_substitution_check
+    name: "Привлечение субперевозчика и замена транспорта"
+    description: "Проверяет условия привлечения третьих лиц и замены транспорта"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "привлечение третьих лиц"
+        - "субперевозчик"
+        - "субподряд"
+        - "замена транспорта"
+        - "замена водителя"
+        - "с согласия грузоотправителя"
+        - "перевозчик отвечает за субперевозчика"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)привлечен(ие|ия)\\s+третьих\\s+лиц"
+        - "(?i)субперевозчик"
+        - "(?i)замен(а|ить)\\s+(транспорт|водител)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия привлечения субперевозчика.
+
+        Ответь в JSON:
+        {
+          "subcontracting_clause": "<prohibited / allowed_with_consent / allowed / not_found>",
+          "consent_form": "<written / oral / not_specified / not_applicable>",
+          "carrier_liability_for_sub": "<full / limited / not_specified / not_found>",
+          "vehicle_substitution_clause": "<present / absent / not_found>",
+          "driver_substitution_clause": "<present / absent / not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "субперевозчик"
+        - "привлечение"
+        - "замена транспорта"
+        - "согласие"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 450
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "subcontracting_clause"
+          type: "string"
+          allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_found"]
+          description: "Условия субподряда"
+        - name: "carrier_liability_for_sub"
+          type: "string"
+          allowed_values: ["full", "limited", "not_specified", "not_found"]
+          description: "Ответственность за субперевозчика"
+      store_payload: true
+
+  - id: redirection_in_transit_check
+    name: "Переадресовка груза в пути (ст. 31 УАТ)"
+    description: "Проверяет условия переадресовки и изменения грузополучателя"
+    triggers:
+      any: ["redirection_in_transit"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "переадресовка"
+        - "изменение пункта назначения"
+        - "изменение грузополучателя"
+        - "изменение маршрута"
+        - "дополнительные расходы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)переадресовк(а|и|у)"
+        - "(?i)изменен(ие|ия)\\s+(пункта|грузополучател|маршрут)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор перевозки груза.
+        Проверь условия переадресовки.
+
+        Ответь в JSON:
+        {
+          "redirection_clause": "<present / absent / not_found>",
+          "who_requests": "<shipper / consignee / not_specified / not_found>",
+          "additional_costs_allocation": "<shipper / carrier / not_specified / not_found>",
+          "redirection_deadline": "<specified / not_specified / not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 250
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "переадресовка"
+        - "изменение маршрута"
+        - "изменение грузополучателя"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "redirection_clause"
+          type: "string"
+          allowed_values: ["present", "absent", "not_found"]
+          description: "Наличие условий переадресовки"
+        - name: "additional_costs_allocation"
+          type: "string"
+          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          description: "Распределение расходов"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "freight_charge"
+    name: "Провозная плата и порядок расчётов (ст. 790 ГК РФ)"
+    description: "Проверяет наличие размера провозной платы, тарифов, порядка оплаты"
+    legal_base: "ст. 790 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "провозная плата"
+        - "стоимость перевозки"
+        - "тариф"
+        - "фрахт"
+        - "цена перевозки"
+        - "рублей"
+        - "оплата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)провозн(ая|ой)\\s+плат"
+        - "(?i)стоимост(ь|и)\\s+перевозк"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "freight_amount"
+          type: "number"
+          keyword_hints: ["провозная плата", "стоимость перевозки", "тариф", "фрахт"]
+          unit: "RUB"
+          description: "Размер провозной платы"
+        - name: "price_includes_vat"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "unclear", "not_found"]
+          keyword_hints: ["в том числе НДС", "без НДС"]
+          description: "Включает ли цена НДС"
+      store_payload: true
+
+  - id: "parties_identification"
+    name: "Стороны: перевозчик, грузоотправитель, грузополучатель"
+    description: "Проверяет идентификацию всех сторон договора перевозки"
+    legal_base: "ст. 785 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "перевозчик"
+        - "грузоотправитель"
+        - "грузополучатель"
+        - "именуем"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(перевозчик|грузоотправител|грузополучател).*именуем"
+
+  - id: "cargo_and_route"
+    name: "Предмет: груз и маршрут (ст. 785 ГК РФ)"
+    description: "Проверяет наличие характеристик груза и маршрута перевозки"
+    legal_base: "ст. 785 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "наименование груза"
+        - "характер груза"
+        - "вес груза"
+        - "объём груза"
+        - "количество мест"
+        - "пункт отправления"
+        - "пункт назначения"
+        - "маршрут"
+        - "адрес погрузки"
+        - "адрес выгрузки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(из\\s+г\\.|пункт\\s+отправлени|пункт\\s+назначени)"
+        - "(?i)\\b\\d[\\d\\s,.]*(?:кг|тонн|т\\b)"
+
+  - id: "delivery_deadline"
+    name: "Срок доставки груза (ст. 792 ГК РФ)"
+    description: "Проверяет наличие срока доставки"
+    legal_base: "ст. 792 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок доставки"
+        - "дата доставки"
+        - "доставить в течение"
+        - "не позднее"
+        - "транзитное время"
+        - "время в пути"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+доставк"
+        - "(?i)доставить.*в\\s+течение\\s+\\d+"
+        - "(?i)не\\s+позднее\\s+\\d+"
+
+  - id: "loading_unloading_obligations"
+    name: "Погрузка и выгрузка: обязанности, нормативное время"
+    description: "Проверяет распределение обязанностей по погрузке/выгрузке и нормативное время"
+    legal_base: "ст. 791 ГК РФ, УАТ ст. 11"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "погрузка"
+        - "выгрузка"
+        - "нормативное время"
+        - "погрузочно-разгрузочные работы"
+        - "крепление груза"
+        - "средства крепления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)погруз(ка|ку|ки)"
+        - "(?i)выгруз(ка|ку|ки)"
+        - "(?i)нормативн(ое|ого)\\s+врем"
+
+  - id: "delivery_delay_penalty"
+    name: "Штрафы за просрочку доставки (ст. 793 ГК РФ, УАТ ст. 34)"
+    description: "Проверяет наличие договорной неустойки за нарушение сроков доставки"
+    legal_base: "ст. 793 ГК РФ, УАТ ст. 34"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "штраф за просрочку доставки"
+        - "неустойка за задержку"
+        - "пеня за нарушение срока"
+        - "за каждый день просрочки"
+        - "возмещение убытков от задержки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|и|у).*за.*(задержк|просрочк).*доставк"
+        - "(?i)штраф.*за.*(задержк|просрочк).*доставк"
+        - "(?i)\\d+.*%.*за.*каждый.*день"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "delay_penalty_rate"
+          type: "string"
+          keyword_hints: ["неустойка", "пеня", "процент", "за каждый день"]
+          description: "Размер неустойки за просрочку доставки"
+      store_payload: true
+
+  - id: "vehicle_supply_penalty"
+    name: "Штраф за непредъявление груза / неподачу ТС (ст. 794 ГК РФ)"
+    description: "Проверяет санкции для обеих сторон за нарушение обязательств по подаче ТС/предъявлению груза"
+    legal_base: "ст. 794 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "штраф за неподачу"
+        - "штраф за непредъявление"
+        - "неиспользование"
+        - "отказ от заявки"
+        - "неподача транспортных средств"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)штраф.*за.*(неподач|непредъявлен|неиспользован)"
+
+  - id: "cargo_acceptance_procedure"
+    name: "Порядок приёмки груза в пункте назначения"
+    description: "Проверяет процедуру приёмки груза, фиксации недостачи/повреждений"
+    legal_base: "ст. 796 ГК РФ, транспортные уставы"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "приёмка груза"
+        - "выдача груза"
+        - "акт о недостаче"
+        - "акт о повреждении"
+        - "коммерческий акт"
+        - "проверка состояния груза"
+        - "осмотр при получении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)приёмк(а|и)\\s+груз"
+        - "(?i)коммерческ(ий|ого)\\s+акт"
+        - "(?i)акт.*о.*(недостач|поврежден)"
+
+  - id: "application_procedure_framework"
+    name: "Порядок подачи заявок (для рамочного договора)"
+    description: "Проверяет процедуру подачи заявок на перевозку при рамочном договоре"
+    legal_base: "ГК РФ, ст. 791"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["framework_agreement"]
+    rules:
+      keywords:
+        - "заявка на перевозку"
+        - "форма заявки"
+        - "срок подачи заявки"
+        - "подтверждение заявки"
+        - "отказ от заявки"
+        - "график перевозок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)заявк(а|и|у)\\s+на\\s+перевозк"
+        - "(?i)подтверждени(е|я)\\s+заявк"
+
+  - id: "liability_limitation_explicit"
+    name: "Лимит ответственности перевозчика (ст. 796 ГК РФ, уставы)"
+    description: "Проверяет наличие явного ограничения ответственности со ссылкой на уставы"
+    legal_base: "ст. 796 ГК РФ, транспортные уставы"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность ограничена"
+        - "лимит ответственности"
+        - "в размере объявленной стоимости"
+        - "не более реальной стоимости"
+        - "согласно уставу"
+        - "в соответствии с транспортным уставом"
+        - "специальное право заимствования"
+        - "СДР"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ответственност.*ограничен"
+        - "(?i)в\\s+соответствии\\s+с.*(УАТ|УЖТ|Воздушн|КТМ|КВВТ)"
+
+  - id: "exclusions_from_liability"
+    name: "Обстоятельства, освобождающие от ответственности (ст. 796, 401 ГК РФ)"
+    description: "Проверяет наличие перечня обстоятельств, освобождающих перевозчика от ответственности"
+    legal_base: "ст. 796, 401 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "непреодолимая сила"
+        - "форс-мажор"
+        - "вина грузоотправителя"
+        - "свойства груза"
+        - "дефекты тары"
+        - "дефекты упаковки"
+        - "действия таможенных органов"
+        - "освобождается от ответственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)освобожда(ется|ться)\\s+от\\s+ответственност"
+        - "(?i)непреодолим(ой|ая)\\s+сил"
+        - "(?i)форс[\\s\\-]?мажор"
+
+  - id: "pretension_order"
+    name: "Претензионный порядок: сроки и процедура (ст. 797 ГК РФ)"
+    description: "Проверяет наличие обязательного претензионного порядка с указанием сроков"
+    legal_base: "ст. 797 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "претензионный порядок"
+        - "претензия"
+        - "досудебный порядок"
+        - "срок претензии"
+        - "обязательный досудебный"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)претенз(ия|ии|ионн)"
+        - "(?i)досудебн(ый|ого)\\s+порядк"
+
+  - id: "limitation_period_notice"
+    name: "Срок исковой давности — 1 год (ст. 797 ГК РФ)"
+    description: "Проверяет упоминание сокращённого срока исковой давности"
+    legal_base: "ст. 797 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "исковая давность"
+        - "срок давности"
+        - "1 год"
+        - "один год"
+        - "12 месяцев"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)исков(ая|ой)\\s+давност"
+        - "(?i)(1\\s+год|один\\s+год|12\\s+месяц)"
+
+  - id: "dispute_resolution"
+    name: "Подсудность и разрешение споров"
+    description: "Проверяет подсудность, арбитражную оговорку"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "подсудность"
+        - "арбитражный суд"
+        - "претензионный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+
+  - id: "cargo_insurance_clause"
+    name: "Страхование груза"
+    description: "Проверяет условия страхования груза"
+    legal_base: "ГК РФ, глава 48"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхование груза"
+        - "страховой полис"
+        - "страховая сумма"
+        - "выгодоприобретатель"
+        - "страховой случай"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхован(ие|ия)\\s+груз"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "insurance_required"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          keyword_hints: ["обязан застраховать", "страхование обязательно"]
+          description: "Обязательность страхования груза"
+        - name: "who_insures"
+          type: "string"
+          allowed_values: ["shipper", "carrier", "not_specified", "not_found"]
+          keyword_hints: ["грузоотправитель страхует", "перевозчик страхует"]
+          description: "Кто страхует груз"
+      store_payload: true
+
+  - id: "confidentiality"
+    name: "Конфиденциальность"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+
+  - id: "vat_and_tax"
+    name: "НДС и налоговые оговорки"
+    description: "Проверяет налоговые аспекты провозной платы"
+    legal_base: "НК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "НДС"
+        - "в том числе НДС"
+        - "без НДС"
+        - "ставка 0%"
+        - "международная перевозка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+        - "(?i)ставк(а|у)\\s+0\\s*%"
+
+  - id: "auto_renewal"
+    name: "Автопролонгация (рамочный договор)"
+    description: "Проверяет наличие условия об автоматическом продлении"
+    legal_base: "ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["framework_agreement"]
+    rules:
+      keywords:
+        - "автопролонгация"
+        - "автоматическое продление"
+        - "продлевается на тот же срок"
+        - "пролонгация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)автоматическ(и|ое)\\s+продлева"
+
+  - id: "anticorruption_clause"
+    name: "Антикоррупционная оговорка"
+    description: "Проверяет наличие антикоррупционных заверений"
+    legal_base: "ФЗ № 273-ФЗ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "антикоррупционная оговорка"
+        - "противодействие коррупции"
+        - "взятка"
+        - "коммерческий подкуп"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)антикоррупц"
+
+  - id: "carrier_license_check"
+    name: "Лицензия / разрешение перевозчика"
+    description: "Проверяет наличие ссылки на лицензию/разрешение перевозчика"
+    legal_base: "ФЗ № 99-ФЗ, ФЗ № 259-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "лицензия"
+        - "разрешение на перевозку"
+        - "допуск к перевозкам"
+        - "свидетельство"
+        - "номер лицензии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лицензи(я|и|ю)\\s+№"
+
+  - id: "packaging_and_marking"
+    name: "Тара, упаковка и маркировка груза"
+    description: "Проверяет требования к таре, упаковке и маркировке"
+    legal_base: "ст. 791 ГК РФ, правила перевозок"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "тара"
+        - "упаковка"
+        - "маркировка"
+        - "пломба"
+        - "пломбирование"
+        - "целостность упаковки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(тар(а|ы|у)|упаковк(а|и|у)|маркировк(а|и|у))"
+
+  - id: "gps_tracking"
+    name: "GPS-мониторинг и отслеживание груза"
+    description: "Проверяет наличие условий о мониторинге местоположения груза"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "GPS"
+        - "ГЛОНАСС"
+        - "мониторинг"
+        - "отслеживание"
+        - "трекинг"
+        - "местоположение груза"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bGPS\\b|\\bГЛОНАСС\\b"
+        - "(?i)отслежива(ние|ть)\\s+груз"
+
+  - id: "shipper_data_accuracy"
+    name: "Достоверность сведений о грузе: ответственность грузоотправителя"
+    description: "Проверяет наличие ответственности за недостоверные данные о грузе"
+    legal_base: "ст. 10 ФЗ-259 (УАТ), ст. 27 УЖТ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "достоверность сведений"
+        - "грузоотправитель несёт ответственность"
+        - "недостоверные данные"
+        - "сведения о грузе"
+        - "вес груза"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)достоверност.*сведени"
+        - "(?i)грузоотправител.*ответственност"
+
+  - id: "subcontracting_terms"
+    name: "Привлечение субперевозчика: условия и ответственность"
+    description: "Проверяет условия привлечения третьих лиц для перевозки"
+    legal_base: "ст. 785, 313 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "субперевозчик"
+        - "привлечение третьих лиц"
+        - "субподряд"
+        - "замена перевозчика"
+        - "с согласия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субперевозчик"
+        - "(?i)привлечен(ие|ия)\\s+третьих"
+
+  - id: "redirection_clause"
+    name: "Переадресовка груза в пути"
+    description: "Проверяет наличие условий переадресовки"
+    legal_base: "ст. 31 ФЗ-259 (УАТ)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["redirection_in_transit"]
+    rules:
+      keywords:
+        - "переадресовка"
+        - "изменение пункта назначения"
+        - "изменение грузополучателя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)переадресовк"
+
+  - id: "electronic_waybill_terms"
+    name: "Электронная транспортная накладная (ЭТрН)"
+    description: "Проверяет условия использования электронной накладной"
+    legal_base: "ФЗ-259, ПП РФ № 2200"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["electronic_waybill"]
+    rules:
+      keywords:
+        - "электронная транспортная накладная"
+        - "ЭТрН"
+        - "ГИС ЭПД"
+        - "электронный документооборот"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)электронн(ая|ой)\\s+транспортн"
+        - "(?i)ЭТрН|ГИС\\s+ЭПД"
+
+  - id: "cargo_escort_terms"
+    name: "Сопровождение и охрана груза"
+    description: "Проверяет условия сопровождения груза представителем"
+    legal_base: "ГК РФ, транспортные уставы"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["cargo_escort"]
+    rules:
+      keywords:
+        - "сопровождение груза"
+        - "охрана груза"
+        - "представитель грузоотправителя"
+        - "вооружённая охрана"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)сопровожден(ие|ия)\\s+груз"
+        - "(?i)охран(а|ы)\\s+груз"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор: обстоятельства непреодолимой силы"
+    description: "Проверяет наличие оговорки о непреодолимой силе"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "непреодолимая сила"
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "стихийное бедствие"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)непреодолим(ая|ой)\\s+сил"
+        - "(?i)форс[- ]мажор"
+
+  - id: "seasonal_road_restrictions"
+    name: "Сезонные дорожные ограничения"
+    description: "Проверяет учёт сезонных ограничений по массе/габаритам"
+    legal_base: "ФЗ-257, региональные НПА"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["road_transport", "seasonal_restrictions"]
+    rules:
+      keywords:
+        - "весенние ограничения"
+        - "ограничения по массе"
+        - "дорожные ограничения"
+        - "пропуск на движение"
+        - "временное ограничение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(весенн|сезонн|временн).*ограничен"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  cargo_transport_subject_extraction:
+    text: >
+      Просим подтвердить по {doc_names}: (а) наименование и характеристики груза
+      (вес, объём, свойства); (б) пункты отправления и назначения;
+      (в) вид транспорта; (г) тип договора (разовый/рамочный);
+      (д) вид транспортного документа.
+    addressee: "Обе стороны"
+
+  transport_document_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) вид транспортного документа (накладная/коносамент/CMR);
+      (б) кто оформляет; (в) порядок передачи.
+    addressee: "Перевозчик"
+
+  carrier_liability_for_cargo:
+    text: >
+      Просим уточнить в {doc_names}: (а) основание ответственности за утрату/повреждение
+      (вне зависимости от вины / по вине); (б) лимит ответственности;
+      (в) исключены ли косвенные убытки; (г) ссылку на транспортный устав.
+    addressee: "Юридический советник"
+
+  liability_limitation_explicit:
+    text: >
+      Просим включить в {doc_names} явную ссылку на ограничения ответственности
+      по применимому транспортному уставу (УАТ/УЖТ/ВК/КТМ/КВВТ).
+    addressee: "Юридический советник перевозчика"
+
+  claim_procedure_check:
+    text: >
+      Просим детализировать в {doc_names} обязательный претензионный порядок:
+      (а) сроки предъявления претензий (для утраты, повреждения, просрочки);
+      (б) форма претензии и прилагаемые документы;
+      (в) срок ответа на претензию; (г) ссылка на ст. 797 ГК РФ;
+      (д) сокращённый срок исковой давности (1 год).
+    addressee: "Юридический советник"
+
+  pretension_order:
+    text: >
+      В {doc_names} отсутствует/недостаточно детализирован обязательный претензионный
+      порядок (ст. 797 ГК РФ). Просим включить сроки, форму, порядок рассмотрения.
+    addressee: "Юридический советник"
+
+  mandatory_pretension_procedure_missing:
+    text: >
+      ВНИМАНИЕ: в {doc_names} отсутствует обязательный претензионный порядок
+      (ст. 797 ГК РФ). Пропуск сроков лишает права на иск. Просим немедленно
+      включить порядок с указанием сроков для каждого вида претензий.
+    addressee: "Юридический советник"
+
+  cargo_value_and_insurance:
+    text: >
+      Просим уточнить в {doc_names}: (а) объявленную ценность груза;
+      (б) обязательность страхования и кто страхует;
+      (в) вид страхового покрытия (all risks / named perils);
+      (г) минимальную страховую сумму; (д) выгодоприобретателя.
+    addressee: "Грузоотправитель / Юридический советник"
+
+  cargo_insurance_clause:
+    text: >
+      Просим уточнить в {doc_names}: условия страхования груза, кто несёт расходы,
+      страховая сумма, порядок урегулирования убытков.
+    addressee: "Обе стороны"
+
+  special_cargo_conditions:
+    text: >
+      В {doc_names} перевозится груз особой категории. Просим предоставить:
+      (а) для опасных — свидетельство ДОПОГ, аварийную карточку, класс опасности;
+      (б) для скоропортящихся — температурный режим, наличие термографа;
+      (в) для негабаритных — проект перевозки, специальное разрешение.
+    addressee: "Грузоотправитель / Перевозчик"
+
+  dangerous_cargo_without_dopog:
+    text: >
+      ВНИМАНИЕ: в {doc_names} перевозится опасный груз, но документы ДОПОГ
+      не упоминаются. Просим незамедлительно предоставить: свидетельство ДОПОГ,
+      аварийную карточку, специальное разрешение.
+    addressee: "Перевозчик"
+
+  international_transport_provisions:
+    text: >
+      В {doc_names} предусмотрена международная перевозка. Просим уточнить:
+      (а) применимую конвенцию (CMR/Монреальская/иная);
+      (б) распределение таможенных обязанностей; (в) базис поставки (Incoterms);
+      (г) применимое право; (д) подсудность споров.
+    addressee: "Юридический советник"
+
+  international_transport_without_convention:
+    text: >
+      ВНИМАНИЕ: в {doc_names} — международная перевозка без ссылки на конвенцию.
+      Просим указать применимую конвенцию и согласовать применимое право.
+    addressee: "Юридический советник"
+
+  lien_right_on_cargo:
+    text: >
+      Просим уточнить в {doc_names}: (а) право удержания груза при неоплате;
+      (б) порядок реализации удержанного груза; (в) распределение расходов на хранение.
+    addressee: "Юридический советник"
+
+  demurrage_detention_check:
+    text: >
+      Просим согласовать в {doc_names}: (а) нормативное время погрузки/выгрузки;
+      (б) ставку демереджа за сверхнормативный простой;
+      (в) максимальную сумму демереджа; (г) кто оплачивает.
+    addressee: "Обе стороны"
+
+  vehicle_supply_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) срок и порядок подачи ТС;
+      (б) порядок уведомления; (в) санкции за неподачу/несвоевременную подачу;
+      (г) санкции за непредъявление груза.
+    addressee: "Обе стороны"
+
+  vehicle_supply_penalty:
+    text: >
+      Просим согласовать в {doc_names}: размер штрафов за неподачу ТС
+      и непредъявление груза (для обеих сторон), порядок уведомления.
+    addressee: "Юридический советник"
+
+  freight_charge:
+    text: >
+      Просим подтвердить по {doc_names}: (а) размер провозной платы;
+      (б) включает ли НДС; (в) тарифная основа; (г) порядок и сроки оплаты;
+      (д) реквизиты для перечисления.
+    addressee: "Обе стороны"
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование,
+      ИНН, ОГРН, адрес, лицензия перевозчика, данные грузополучателя.
+    addressee: "Обе стороны"
+
+  cargo_and_route:
+    text: >
+      Просим уточнить в {doc_names}: полные характеристики груза и маршрут
+      (пункт отправления, пункт назначения, промежуточные пункты).
+    addressee: "Грузоотправитель"
+
+  delivery_deadline:
+    text: >
+      Просим согласовать в {doc_names}: срок доставки, транзитное время,
+      последствия нарушения сроков.
+    addressee: "Обе стороны"
+
+  delivery_delay_penalty:
+    text: >
+      Просим согласовать в {doc_names}: размер неустойки за просрочку доставки,
+      предельный размер, порядок исчисления.
+    addressee: "Юридический советник"
+
+  cargo_acceptance_procedure:
+    text: >
+      Просим уточнить в {doc_names}: порядок приёмки груза, фиксации недостачи
+      и повреждений (коммерческий акт), сроки предъявления претензий.
+    addressee: "Обе стороны"
+
+  exclusions_from_liability:
+    text: >
+      Просим согласовать в {doc_names}: перечень обстоятельств, освобождающих
+      от ответственности (непреодолимая сила, вина грузоотправителя,
+      свойства груза, дефекты тары, действия госорганов).
+    addressee: "Юридический советник"
+
+  limitation_period_notice:
+    text: >
+      Просим включить в {doc_names} указание на сокращённый срок исковой давности
+      (1 год по ст. 797 ГК РФ).
+    addressee: "Юридический советник"
+
+  carrier_license_check:
+    text: >
+      Просим предоставить по {doc_names}: копию лицензии/разрешения перевозчика,
+      подтверждение допуска к перевозкам.
+    addressee: "Перевозчик"
+
+  carrier_license_absent:
+    text: >
+      Просим предоставить подтверждение лицензии/допуска перевозчика по {doc_names}.
+      Без лицензии деятельность перевозчика может быть признана незаконной.
+    addressee: "Перевозчик"
+
+  packaging_and_marking:
+    text: >
+      Просим уточнить в {doc_names}: требования к таре, упаковке и маркировке груза,
+      ответственность за дефекты упаковки.
+    addressee: "Грузоотправитель"
+
+  loading_unloading_obligations:
+    text: >
+      Просим уточнить в {doc_names}: кто осуществляет погрузку/выгрузку,
+      нормативное время, средства крепления, ответственность за сохранность.
+    addressee: "Обе стороны"
+
+  application_procedure_framework:
+    text: >
+      Просим согласовать в {doc_names}: форму заявки на перевозку, сроки подачи,
+      порядок подтверждения/отклонения, санкции за отказ.
+    addressee: "Обе стороны"
+
+  gps_tracking:
+    text: >
+      Просим уточнить в {doc_names}: наличие GPS/ГЛОНАСС-мониторинга,
+      доступ грузоотправителя к отслеживанию, порядок уведомлений.
+    addressee: "Перевозчик"
+
+  confidentiality:
+    text: >
+      Просим включить в {doc_names} условие о конфиденциальности коммерческих
+      условий перевозки.
+    addressee: "Юридический советник"
+
+  vat_and_tax:
+    text: >
+      Просим уточнить в {doc_names}: режим НДС (в т.ч. ставка 0% для международных),
+      порядок документооборота.
+    addressee: "Бухгалтерия"
+
+  auto_renewal:
+    text: >
+      Просим уточнить в {doc_names}: условия автопролонгации рамочного договора,
+      срок уведомления о непродлении.
+    addressee: "Юридический советник"
+
+  anticorruption_clause:
+    text: >
+      Просим включить в {doc_names} антикоррупционную оговорку (ФЗ-273).
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: подсудность, претензионный порядок,
+      возможность третейского разбирательства.
+    addressee: "Юридический советник"
+
+  shipper_obligations_and_warranties_check:
+    text: >
+      Просим предоставить по {doc_names}: перечень обязанностей грузоотправителя 
+      по подготовке груза, предоставлению достоверных сведений (наименование, вес, 
+      свойства), упаковке, маркировке, а также ответственность за недостоверные данные.
+    addressee: "Юридический советник"
+
+  shipper_data_accuracy:
+    text: >
+      Просим включить в {doc_names}: заверение грузоотправителя о достоверности 
+      сведений о грузе и ответственность за убытки перевозчика от недостоверных данных 
+      (ст. 10 УАТ, ст. 27 УЖТ).
+    addressee: "Юридический советник"
+
+  shipper_false_cargo_info:
+    text: >
+      В {doc_names} не выявлена ответственность грузоотправителя за недостоверные 
+      сведения о грузе. Просим включить обязанность и санкции 
+      (ст. 10 УАТ, ст. 27 УЖТ, ст. 25 CMR).
+    addressee: "Юридический советник"
+
+  subcontracting_and_substitution_check:
+    text: >
+      Просим уточнить в {doc_names}: вправе ли перевозчик привлекать субперевозчика,
+      требуется ли согласие, кто несёт ответственность за действия субперевозчика,
+      условия замены транспорта и водителя.
+    addressee: "Юридический советник"
+
+  subcontracting_terms:
+    text: >
+      Просим включить в {doc_names}: условия привлечения субперевозчика —
+      запрет или согласие, ответственность перевозчика за действия третьих лиц.
+    addressee: "Юридический советник"
+
+  subcontracting_without_consent:
+    text: >
+      В {doc_names} выявлен риск привлечения субперевозчика без согласия.
+      Просим предусмотреть порядок согласования и ответственность 
+      перевозчика за субперевозчика.
+    addressee: "Юридический советник"
+
+  redirection_in_transit_check:
+    text: >
+      Просим уточнить в {doc_names}: условия переадресовки (изменение пункта 
+      назначения/грузополучателя в пути), кто вправе запросить, 
+      распределение расходов, сроки.
+    addressee: "Обе стороны"
+
+  redirection_clause:
+    text: >
+      Просим включить в {doc_names}: условия переадресовки, порядок 
+      согласования, распределение дополнительных расходов.
+    addressee: "Юридический советник"
+
+  electronic_waybill_terms:
+    text: >
+      Просим уточнить в {doc_names}: порядок использования электронной 
+      транспортной накладной (ЭТрН), подключение к ГИС ЭПД, 
+      юридическую силу электронного документа.
+    addressee: "Обе стороны"
+
+  cargo_escort_terms:
+    text: >
+      Просим уточнить в {doc_names}: условия сопровождения груза,
+      кто обеспечивает, ответственность при повреждении во время 
+      сопровождения, требования к охране.
+    addressee: "Обе стороны"
+
+  no_cargo_acceptance_procedure:
+    text: >
+      В {doc_names} не выявлен чёткий порядок приёмки груза при выдаче.
+      Просим включить: осмотр, составление коммерческого акта,
+      сроки предъявления замечаний.
+    addressee: "Юридический советник"
+
+  force_majeure_clause:
+    text: >
+      Просим согласовать в {doc_names}: перечень обстоятельств 
+      непреодолимой силы, порядок уведомления и подтверждения.
+    addressee: "Юридический советник"
+
+  seasonal_road_restrictions:
+    text: >
+      Просим уточнить в {doc_names}: порядок учёта сезонных дорожных 
+      ограничений, распределение расходов на пропуска, 
+      последствия задержки из-за ограничений.
+    addressee: "Обе стороны"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

@@ -1,0 +1,2211 @@
+type: contract_2.4
+name: "Договор лизинга (финансовой аренды)"
+
+description: |
+  Специальный вид аренды, при котором лизингодатель обязуется приобрести в собственность
+  указанное лизингополучателем имущество у определенного продавца и предоставить это имущество
+  лизингополучателю за плату во временное владение и пользование, как правило,
+  для предпринимательских целей. Лизинговая конструкция сочетает арендный, финансовый
+  и купле-продажный элементы, включает vendor leg и lease leg, а нередко — опцию/обязанность
+  выкупа по окончании срока.
+  Существенными практическими вопросами являются: кто выбирает продавца и предмет,
+  как распределяются риски по качеству и случайной гибели, как устроен график лизинговых платежей,
+  есть ли выкупная стоимость, кто страхует предмет, кто является балансодержателем,
+  как урегулированы default remedies, регистрация, налоговый и амортизационный режим.
+  Регулируется § 6 Главы 34 ГК РФ и Федеральным законом № 164-ФЗ «О финансовой аренде (лизинге)».
+
+version: 4.0
+parent: class_2_transfer_for_use
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: use_transfer
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 6 Главы 34 ГК РФ (ст. 665-670), ФЗ № 164-ФЗ «О финансовой аренде (лизинге)»"
+  doc_types_supported:
+    - "договор лизинга"
+    - "договор финансовой аренды"
+    - "лизинговый договор"
+    - "договор лизинга оборудования"
+    - "договор автолизинга"
+    - "договор лизинга спецтехники"
+    - "договор лизинга недвижимости"
+    - "международный договор лизинга"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)лизинг"
+      - "(?i)финансов.*аренд"
+      - "(?i)leasing"
+      - "(?i)finance[\\s_.-]?lease"
+      - "(?i)лизингов"
+
+    folder_patterns:
+      - "(?i)лизинг"
+      - "(?i)leasing"
+      - "(?i)finance[\\s_]?lease"
+
+    keywords:
+
+      high:
+        - "лизинг"
+        - "финансовая аренда"
+        - "лизингодатель"
+        - "лизингополучатель"
+        - "предмет лизинга"
+        - "выкупная цена"
+        - "выбор продавца"
+        - "лизинговые платежи"
+        - "график лизинговых платежей"
+
+      medium:
+        - "продавец"
+        - "авансовый платеж"
+        - "балансодержатель"
+        - "ускоренная амортизация"
+        - "остаточная стоимость"
+        - "страхование предмета лизинга"
+        - "сублизинг"
+        - "исполнительная надпись"
+        - "бесспорное списание"
+        - "возвратный лизинг"
+        - "обратный лизинг"
+        - "sale-leaseback"
+        - "техническое обслуживание"
+        - "парк ТС"
+        - "сальдо встречных обязательств"
+
+      low:
+        - "КАСКО"
+        - "изъятие предмета"
+        - "регистрация ТС"
+        - "лизинговая компания"
+        - "счет-фактура"
+        - "амортизационная премия"
+
+    exclusions:
+      - "прокат"
+      - "лизинг для бытовых нужд"
+      - "безвозмездное пользование"
+      - "аренда без приобретения предмета"
+      - "земельный участок как предмет лизинга"
+      - "природный объект как предмет лизинга"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  lease_finance_structure:
+    any_keywords:
+      - "лизингодатель обязуется приобрести"
+      - "приобрести в собственность у продавца"
+      - "финансовая аренда"
+      - "лизингополучатель"
+      - "лизинговые платежи"
+
+  vendor_selected_by_lessee:
+    any_keywords:
+      - "продавец выбран лизингополучателем"
+      - "по выбору лизингополучателя"
+      - "лизингополучатель указал продавца"
+      - "самостоятельно выбрал продавца"
+
+  vendor_selected_by_lessor:
+    any_keywords:
+      - "продавец выбран лизингодателем"
+      - "по выбору лизингодателя"
+      - "партнер лизингодателя"
+      - "продавец рекомендован лизингодателем"
+
+  purchase_option_present:
+    any_keywords:
+      - "выкупная цена"
+      - "выкупная стоимость"
+      - "остаточная стоимость"
+      - "переход права собственности"
+      - "право выкупа"
+      - "по окончании срока переходит в собственность"
+
+  movable_high_value_asset:
+    any_keywords:
+      - "оборудование"
+      - "станок"
+      - "линия"
+      - "техника"
+      - "спецтехника"
+      - "автомобиль"
+      - "транспортное средство"
+      - "серийный номер"
+      - "VIN"
+
+  vehicle_leasing:
+    any_keywords:
+      - "автомобиль"
+      - "транспортное средство"
+      - "ТС"
+      - "VIN"
+      - "ПТС"
+      - "СТС"
+      - "регистрация в ГИБДД"
+      - "спецтехника"
+
+  real_estate_leasing:
+    any_keywords:
+      - "здание"
+      - "сооружение"
+      - "нежилое помещение"
+      - "недвижимость"
+      - "кадастровый номер"
+      - "Росреестр"
+      - "ЕГРН"
+
+  illegal_subject_land_or_nature:
+    any_keywords:
+      - "земельный участок"
+      - "земля"
+      - "участок земли"
+      - "лесной участок"
+      - "водный объект"
+      - "природный объект"
+      - "недра"
+
+  insurance_related:
+    any_keywords:
+      - "страхование"
+      - "КАСКО"
+      - "страховой полис"
+      - "выгодоприобретатель"
+      - "страховая сумма"
+      - "имущественное страхование"
+
+  balance_holder_and_tax:
+    any_keywords:
+      - "балансодержатель"
+      - "на балансе лизингополучателя"
+      - "на балансе лизингодателя"
+      - "ускоренная амортизация"
+      - "коэффициент ускорения"
+      - "НДС"
+      - "вычет НДС"
+
+  default_and_enforcement:
+    any_keywords:
+      - "бесспорное списание"
+      - "без акцепта"
+      - "исполнительная надпись нотариуса"
+      - "изъятие предмета лизинга"
+      - "одностороннее расторжение"
+      - "default"
+
+  cross_border_indicators:
+    any_keywords:
+      - "международный лизинг"
+      - "иностранная валюта"
+      - "нерезидент"
+      - "иностранный поставщик"
+      - "применимое право"
+      - "арбитражная оговорка"
+      - "санкции"
+      - "cross-border"
+
+  sale_leaseback:
+    description: "Возвратный лизинг: продавец и лизингополучатель — одно лицо"
+    any_keywords:
+      - "возвратный лизинг"
+      - "обратный лизинг"
+      - "sale-leaseback"
+      - "продавец и лизингополучатель совпадают"
+      - "продавец одновременно является лизингополучателем"
+      - "продажа и обратная аренда"
+
+  maintenance_included:
+    description: "Full-service лизинг: обслуживание включено"
+    any_keywords:
+      - "техническое обслуживание"
+      - "ТО за счёт лизингодателя"
+      - "full-service"
+      - "сервисное обслуживание включено"
+      - "ремонт за счёт лизингодателя"
+      - "гарантийное обслуживание"
+
+  fleet_leasing:
+    description: "Парковый лизинг / лизинг флота"
+    any_keywords:
+      - "парк транспортных средств"
+      - "парк ТС"
+      - "флот"
+      - "парковый лизинг"
+      - "несколько единиц"
+      - "лот"
+
+  saldo_methodology_present:
+    description: "Наличие методики расчёта сальдо при расторжении"
+    any_keywords:
+      - "сальдо встречных обязательств"
+      - "расчёт сальдо"
+      - "завершающая обязанность"
+      - "методика расчёта при расторжении"
+      - "итоговое сальдо"
+
+  asset_return_scenario:
+    description: "Возврат предмета лизинга по окончании срока (без выкупа)"
+    any_keywords:
+      - "возврат предмета лизинга"
+      - "возвратить предмет"
+      - "по окончании срока лизинга"
+      - "передать обратно"
+      - "надлежащее состояние"
+      - "нормальный износ"
+      - "акт возврата"
+      - "штраф за невозврат"
+      - "удержание за просрочку возврата"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  vin_number: "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+  inn_ogrn: "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "illegal_lizing_subject_land_or_nature"
+    name: "Недопустимый предмет лизинга: земля и природные объекты"
+    description: >
+      Земельные участки и иные природные объекты не могут быть предметом лизинга.
+      Выявление таких объектов в предмете создает критический риск недействительности
+      или неверной квалификации конструкции.
+    legal_base: "ст. 666 ГК РФ, ФЗ № 164-ФЗ"
+    required_triggers: ["illegal_subject_land_or_nature"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "земельный участок"
+        - "земля"
+        - "лесной участок"
+        - "водный объект"
+        - "природный объект"
+        - "недра"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "земельный участок"
+        - "природный объект"
+        - "ст. 666 ГК РФ"
+      rerank: true
+
+  - id: "reclassification_to_general_lease_risk"
+    name: "Риск переквалификации: отсутствует обязательство приобрести предмет у продавца"
+    description: >
+      Если договор не содержит purchase leg — обязанности лизингодателя приобрести
+      имущество у определенного продавца — конструкция может быть переквалифицирована
+      в обычную аренду с правом выкупа или иную модель.
+    legal_base: "ст. 665 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "приобрести в собственность"
+        - "у определенного продавца"
+        - "лизингодатель обязуется приобрести"
+        - "продавец"
+      keyword_mode: "any"
+      negative_keywords:
+        - "обычная аренда"
+        - "арендодатель уже является собственником предмета"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "приобрести в собственность"
+        - "определенный продавец"
+        - "ст. 665 ГК РФ"
+      rerank: true
+
+  - id: "cross_border_sanctions_and_currency_risk"
+    name: "Трансграничный лизинг: санкционные, валютные и jurisdictional риски"
+    description: >
+      Для международного лизинга требуется дополнительная проработка санкционного режима,
+      валютных платежей, применимого права, юрисдикции, tax gross-up и compliance.
+    legal_base: "Раздел VI ГК РФ, валютное и санкционное регулирование, ФЗ № 115-ФЗ"
+    required_triggers: ["cross_border_indicators"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "иностранная валюта"
+        - "нерезидент"
+        - "международный лизинг"
+        - "санкции"
+        - "арбитраж"
+        - "применимое право"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "международный лизинг"
+        - "санкции"
+        - "применимое право"
+        - "валютные риски"
+      rerank: true
+
+  - id: "sale_leaseback_requalification_risk"
+    name: "Возвратный лизинг: риск переквалификации в заём / притворную сделку"
+    description: >
+      Если продавец и лизингополучатель — одно лицо (sale-leaseback), конструкция
+      может быть переквалифицирована в притворную сделку, прикрывающую заём под залог
+      имущества. Особенно высок риск при отсутствии деловой цели, завышенной оценке
+      предмета, или при банкротстве лизингополучателя (оспаривание по ст. 61.2 ФЗ-127).
+      Практика: Определение ВС РФ от 23.03.2017 № 307-ЭС16-3765, Обзор ВС РФ от 27.11.2013.
+    legal_base: "ст. 170 ГК РФ, ст. 10 ГК РФ, ст. 61.2 ФЗ-127, практика ВС РФ"
+    required_triggers: ["sale_leaseback"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "возвратный лизинг"
+        - "обратный лизинг"
+        - "sale-leaseback"
+        - "продавец и лизингополучатель совпадают"
+        - "продавец одновременно является лизингополучателем"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "возвратный лизинг"
+        - "продавец и лизингополучатель"
+        - "деловая цель"
+        - "притворная сделка"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: leasing_structure_extraction
+    name: "Лизинг: извлечение структуры сделки и ключевых ролей"
+    description: >
+      Извлекает предмет лизинга, продавца, лизингодателя, лизингополучателя,
+      purchase leg, lease leg и наличие выкупной модели.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "лизингодатель"
+        - "лизингополучатель"
+        - "продавец"
+        - "предмет лизинга"
+        - "приобрести в собственность"
+        - "выкупная цена"
+        - "лизинговые платежи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лизингодател"
+        - "(?i)лизингополучател"
+        - "(?i)приобрести\\s+в\\s+собственность"
+        - "(?i)выкупн(ая|ой)\\s+цен"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Извлеки базовую структуру сделки.
+
+        Ответь строго в JSON:
+        {
+          "purchase_leg_present": "<yes / no / unclear>",
+          "vendor_identified": "<yes / no / partial>",
+          "who_selected_vendor": "<lessee / lessor / unclear / not_found>",
+          "asset_type": "<equipment / vehicle / real_estate / other / mixed / not_found>",
+          "purchase_option_present": "<yes / no / not_found>",
+          "parties_complete": "<yes / no / partial>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "лизингодатель"
+        - "лизингополучатель"
+        - "продавец"
+        - "приобрести в собственность"
+        - "выкупная цена"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "purchase_leg_present"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Есть ли обязательство приобрести предмет"
+        - name: "who_selected_vendor"
+          type: "string"
+          allowed_values: ["lessee", "lessor", "unclear", "not_found"]
+          description: "Кто выбрал продавца"
+        - name: "asset_type"
+          type: "string"
+          allowed_values: ["equipment", "vehicle", "real_estate", "other", "mixed", "not_found"]
+          description: "Тип предмета лизинга"
+      store_payload: true
+
+  - id: leasing_subject_and_illegal_object_check
+    name: "Предмет лизинга и допустимость объекта"
+    description: >
+      Проверяет описание предмета лизинга, индивидуализацию и отсутствие
+      запрещенных объектов (земли/природных объектов).
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "предмет лизинга"
+        - "оборудование"
+        - "автомобиль"
+        - "недвижимость"
+        - "земельный участок"
+        - "серийный номер"
+        - "VIN"
+        - "кадастровый номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)серийн(ый|ого)\\s+номер"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь предмет лизинга и наличие prohibited subject risk.
+
+        Ответь строго в JSON:
+        {
+          "subject_identified": "<yes / partial / no>",
+          "asset_type": "<equipment / vehicle / real_estate / land_or_natural / other / mixed / not_found>",
+          "illegal_subject_risk": "<yes / no / unclear>",
+          "technical_specification_level": "<detailed / general / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 430
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "предмет лизинга"
+        - "земельный участок"
+        - "серийный номер"
+        - "VIN"
+        - "кадастровый номер"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "subject_identified"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Достаточно ли индивидуализирован предмет"
+        - name: "illegal_subject_risk"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Есть ли риск недопустимого предмета"
+      store_payload: true
+
+  - id: payments_and_buyout_check
+    name: "Лизинговые платежи, аванс и выкупная модель"
+    description: >
+      Проверяет график платежей, структуру лизинговых платежей,
+      аванс, выкупную цену и прозрачность выкупной модели.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "график лизинговых платежей"
+        - "лизинговые платежи"
+        - "авансовый платеж"
+        - "выкупная цена"
+        - "остаточная стоимость"
+        - "общая сумма"
+        - "ежемесячный платеж"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)график\\s+лизинговых\\s+платеж"
+        - "(?i)авансов(ый|ого)\\s+платеж"
+        - "(?i)выкупн(ая|ой)\\s+цен"
+        - "(?i)остаточн(ая|ой)\\s+стоимост"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь платежную структуру и выкупную модель.
+
+        Ответь строго в JSON:
+        {
+          "payment_schedule_present": "<yes / no / partial>",
+          "advance_payment_present": "<yes / no / not_found>",
+          "buyout_price_defined": "<yes / no / partial>",
+          "buyout_model": "<included_in_payments / separate_price / unclear / not_found>",
+          "reclassification_tax_risk": "<high / medium / low>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 470
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "график лизинговых платежей"
+        - "авансовый платеж"
+        - "выкупная цена"
+        - "остаточная стоимость"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "payment_schedule_present"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли график платежей"
+        - name: "buyout_price_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Определена ли выкупная цена"
+        - name: "buyout_model"
+          type: "string"
+          allowed_values: ["included_in_payments", "separate_price", "unclear", "not_found"]
+          description: "Модель выкупа"
+      store_payload: true
+
+  - id: risk_transfer_and_insurance_check
+    name: "Переход риска случайной гибели и страхование"
+    description: >
+      Проверяет момент перехода риска, обязанность страхования,
+      выгодоприобретателя и последствия гибели/повреждения предмета.
+    triggers:
+      any: ["insurance_related", "movable_high_value_asset", "vehicle_leasing"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "риск случайной гибели"
+        - "несет лизингополучатель"
+        - "страхование"
+        - "КАСКО"
+        - "выгодоприобретатель"
+        - "не освобождает от платежей"
+        - "страховая сумма"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск\\s+случайн(ой|ого)\\s+гибел"
+        - "(?i)КАСКО|страхов(ание|ой\\s+полис)"
+        - "(?i)выгодоприобретател"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь распределение риска и страховой блок.
+
+        Ответь строго в JSON:
+        {
+          "risk_transfer_moment": "<upon_handover / custom / not_found>",
+          "insurance_obligation": "<lessee / lessor / both / not_found>",
+          "beneficiary": "<lessor / lessee / both / not_found>",
+          "total_loss_payment_obligation": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "риск случайной гибели"
+        - "страхование"
+        - "выгодоприобретатель"
+        - "не освобождает от платежей"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "risk_transfer_moment"
+          type: "string"
+          allowed_values: ["upon_handover", "custom", "not_found"]
+          description: "Момент перехода риска"
+        - name: "insurance_obligation"
+          type: "string"
+          allowed_values: ["lessee", "lessor", "both", "not_found"]
+          description: "Кто страхует предмет"
+        - name: "beneficiary"
+          type: "string"
+          allowed_values: ["lessor", "lessee", "both", "not_found"]
+          description: "Кто выгодоприобретатель"
+      store_payload: true
+
+  - id: default_remedies_and_recovery_check
+    name: "Default remedies: бесспорное взыскание, расторжение, изъятие"
+    description: >
+      Проверяет санкции при default: безакцептное списание,
+      исполнительная надпись, изъятие предмета, acceleration.
+    triggers:
+      any: ["default_and_enforcement"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "бесспорное списание"
+        - "без акцепта"
+        - "исполнительная надпись нотариуса"
+        - "изъятие предмета лизинга"
+        - "досрочное взыскание"
+        - "одностороннее расторжение"
+        - "просрочка более"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)бесспорн(ое|ого)\\s+списан"
+        - "(?i)исполнительн(ая|ой)\\s+надпис"
+        - "(?i)изъят(ие|ия)\\s+предмета\\s+лизинг"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь default remedies лизингодателя.
+
+        Ответь строго в JSON:
+        {
+          "uncontested_recovery": "<yes / no / partial>",
+          "notarial_enforcement": "<yes / no / not_found>",
+          "repossession_right": "<yes / no / not_found>",
+          "acceleration_clause": "<yes / no / not_found>",
+          "consumer_or_unfair_risk": "<yes / no / unclear>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "бесспорное списание"
+        - "исполнительная надпись"
+        - "изъятие предмета"
+        - "одностороннее расторжение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "uncontested_recovery"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли механизм бесспорного взыскания"
+        - name: "repossession_right"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли право изъятия предмета"
+      store_payload: true
+
+  - id: balance_tax_and_amortization_check
+    name: "Балансодержатель, амортизация и налоговые последствия"
+    description: >
+      Проверяет, на чьем балансе учитывается предмет, как урегулированы
+      амортизация, НДС и налоговый режим лизинговых платежей.
+    triggers:
+      any: ["balance_holder_and_tax"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "балансодержатель"
+        - "на балансе лизингополучателя"
+        - "на балансе лизингодателя"
+        - "ускоренная амортизация"
+        - "коэффициент ускорения"
+        - "НДС"
+        - "вычет НДС"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)балансодержател"
+        - "(?i)ускоренн(ая|ой)\\s+амортизац"
+        - "(?i)\\bНДС\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь блок учета, амортизации и налогов.
+
+        Ответь строго в JSON:
+        {
+          "balance_holder": "<lessor / lessee / unclear / not_found>",
+          "accelerated_depreciation": "<yes / no / not_found>",
+          "vat_treatment": "<described / partial / not_found>",
+          "tax_clarity_level": "<high / medium / low>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 430
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "балансодержатель"
+        - "ускоренная амортизация"
+        - "НДС"
+        - "вычет НДС"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "balance_holder"
+          type: "string"
+          allowed_values: ["lessor", "lessee", "unclear", "not_found"]
+          description: "На чьем балансе учитывается предмет"
+        - name: "accelerated_depreciation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Предусмотрена ли ускоренная амортизация"
+      store_payload: true
+
+  - id: registration_and_asset_specifics_check
+    name: "Регистрация предмета лизинга и asset-specific требования"
+    description: >
+      Проверяет регистрационные вопросы по ТС/недвижимости, расходы и
+      обязанную сторону по учету/регистрации.
+    triggers:
+      any: ["vehicle_leasing", "real_estate_leasing"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "регистрация в ГИБДД"
+        - "временный учет"
+        - "ПТС"
+        - "Росреестр"
+        - "ЕГРН"
+        - "обременение"
+        - "расходы на регистрацию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ГИБДД|ПТС|СТС"
+        - "(?i)Росреестр|ЕГРН"
+        - "(?i)обременени"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь регистрационные и asset-specific условия.
+
+        Ответь строго в JSON:
+        {
+          "registration_required": "<yes / no / not_found>",
+          "registration_authority": "<gibdd / rosreestr / other / not_found>",
+          "who_registers": "<lessor / lessee / seller / unclear / not_found>",
+          "cost_allocation": "<lessor / lessee / mixed / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "ГИБДД"
+        - "Росреестр"
+        - "регистрация"
+        - "обременение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "registration_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требуется ли регистрация"
+        - name: "who_registers"
+          type: "string"
+          allowed_values: ["lessor", "lessee", "seller", "unclear", "not_found"]
+          description: "Кто регистрирует предмет"
+      store_payload: true
+
+  - id: vendor_direct_claims_670
+    name: "Право прямого иска к продавцу (ст. 670 ГК РФ)"
+    description: >
+      Проверяет, урегулировано ли право лизингополучателя предъявлять требования
+      непосредственно продавцу (о качестве, комплектности, сроках поставки).
+      По ст. 670 ГК РФ лизингополучатель вправе предъявлять требования продавцу
+      как если бы он был стороной договора купли-продажи (за исключением оплаты).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "требования к продавцу"
+        - "претензии к продавцу"
+        - "право предъявлять требования"
+        - "солидарная ответственность"
+        - "качество предмета"
+        - "недостатки предмета лизинга"
+        - "ст. 670"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)требовани(я|й).*к.*продавц"
+        - "(?i)солидарн(ая|ой)\\s+ответственност"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь, как урегулировано право лизингополучателя на прямые требования к продавцу.
+
+        По ст. 670 ГК РФ:
+        - Лизингополучатель вправе предъявлять требования к продавцу по качеству,
+          комплектности, срокам — как если бы был стороной договора купли-продажи
+        - Если продавца выбрал лизингодатель — лизингодатель и продавец отвечают
+          СОЛИДАРНО перед лизингополучателем
+        - Лизингополучатель не может расторгнуть договор купли-продажи
+          без согласия лизингодателя
+
+        Ответь строго в JSON:
+        {
+          "direct_claim_right_mentioned": "<yes / no / not_found>",
+          "solidarity_when_lessor_selected_vendor": "<yes / no / not_applicable / not_found>",
+          "quality_claim_procedure": "<described / partial / not_found>",
+          "defect_notification_deadline": "<срок уведомления или not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "требования к продавцу"
+        - "ст. 670"
+        - "солидарная ответственность"
+        - "недостатки"
+        - "качество"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "direct_claim_right_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упомянуто ли право прямого иска к продавцу"
+        - name: "solidarity_when_lessor_selected_vendor"
+          type: "string"
+          allowed_values: ["yes", "no", "not_applicable", "not_found"]
+          description: "Солидарная ответственность при выборе продавца лизингодателем"
+      store_payload: true
+
+  - id: saldo_methodology_on_termination
+    name: "Сальдо встречных обязательств при досрочном расторжении"
+    description: >
+      Ключевая проверка: как рассчитываются взаимные обязательства при
+      досрочном расторжении. По Постановлению Пленума ВАС от 14.03.2014 №17
+      (позиция воспринята ВС РФ) при расторжении рассчитывается сальдо:
+      что получил лизингодатель vs что причитается лизингодателю.
+      Отсутствие методики = высокий риск споров.
+    triggers:
+      any: ["saldo_methodology_present", "default_and_enforcement"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "сальдо встречных обязательств"
+        - "расчёт сальдо"
+        - "завершающая обязанность"
+        - "возврат разницы"
+        - "стоимость возвращённого предмета"
+        - "рыночная стоимость"
+        - "при расторжении"
+        - "методика расчёта"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)сальдо\\s+встречн"
+        - "(?i)завершающ(ая|ей)\\s+обязанност"
+        - "(?i)стоимост.*возвращ(ённого|енного)\\s+предмет"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь, как урегулирован расчёт взаимных обязательств при досрочном расторжении.
+
+        По Постановлению Пленума ВАС РФ от 14.03.2014 №17 (принято ВС РФ):
+        - При расторжении стороны рассчитывают «сальдо встречных обязательств»
+        - Лизингодатель вправе получить: сумму лизинговых платежей + плату за финансирование
+          + убытки + неустойки — всё, что уже получил (платежи + стоимость возвращённого имущества)
+        - Разница определяет, кто кому должен
+        - Если договор не содержит методики — применяется судебная практика, но это
+          создаёт неопределённость и споры
+
+        Ответь строго в JSON:
+        {
+          "saldo_methodology_present": "<yes / partial / no>",
+          "valuation_method_for_returned_asset": "<market / book / formula / not_specified / not_found>",
+          "financing_cost_disclosed": "<yes / no / not_found>",
+          "excess_return_to_lessee": "<yes / no / unclear / not_found>",
+          "compliance_with_plenum_17": "<aligned / deviates / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "сальдо"
+        - "расторжение"
+        - "завершающая обязанность"
+        - "возврат предмета"
+        - "рыночная стоимость"
+        - "плата за финансирование"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "saldo_methodology_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Есть ли методика расчёта сальдо"
+        - name: "valuation_method_for_returned_asset"
+          type: "string"
+          allowed_values: ["market", "book", "formula", "not_specified", "not_found"]
+          description: "Метод оценки возвращённого предмета"
+        - name: "compliance_with_plenum_17"
+          type: "string"
+          allowed_values: ["aligned", "deviates", "not_found"]
+          description: "Соответствие позиции Пленума ВАС №17"
+      store_payload: true
+
+  - id: delivery_acceptance_procedure
+    name: "Приёмка предмета лизинга от продавца"
+    description: >
+      Проверяет порядок приёмки: кто принимает (лизингополучатель, как правило),
+      как оформляется, что делать при обнаружении недостатков, сроки рекламации.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "приёмка"
+        - "акт приема-передачи"
+        - "передача предмета лизинга"
+        - "протокол недостатков"
+        - "рекламация"
+        - "осмотр"
+        - "проверка комплектности"
+        - "дата передачи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт.*прием.*передач.*предмет.*лизинг"
+        - "(?i)протокол\\s+недостатк"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь порядок приёмки предмета лизинга от продавца.
+
+        Ответь строго в JSON:
+        {
+          "acceptance_procedure_present": "<yes / partial / no>",
+          "who_accepts": "<lessee / lessor / both / not_specified>",
+          "defect_protocol_required": "<yes / no / not_found>",
+          "claim_deadline_days": "<срок рекламации в днях или not_found>",
+          "delivery_location": "<описание или not_found>",
+          "delivery_deadline": "<срок поставки или not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "приёмка"
+        - "передача предмета лизинга"
+        - "акт"
+        - "недостатки"
+        - "рекламация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "acceptance_procedure_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Урегулирован ли порядок приёмки"
+        - name: "who_accepts"
+          type: "string"
+          allowed_values: ["lessee", "lessor", "both", "not_specified"]
+          description: "Кто принимает предмет лизинга"
+      store_payload: true
+
+  - id: maintenance_repair_allocation
+    name: "Содержание, текущий ремонт и техобслуживание предмета лизинга"
+    description: >
+      Проверяет распределение обязанностей по содержанию и ремонту предмета лизинга.
+      По ФЗ-164 и общим нормам аренды расходы по содержанию несёт лизингополучатель,
+      но в full-service лизинге обязанности могут перераспределяться.
+    triggers:
+      any: ["maintenance_included", "movable_high_value_asset", "vehicle_leasing"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "техническое обслуживание"
+        - "текущий ремонт"
+        - "капитальный ремонт"
+        - "содержание предмета лизинга"
+        - "расходы на эксплуатацию"
+        - "ТО"
+        - "сервисное обслуживание"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)техническ(ое|ого)\\s+обслуживан"
+        - "(?i)текущ(ий|его)\\s+ремонт"
+        - "(?i)содержан.*предмет.*лизинг"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь распределение обязанностей по содержанию и ремонту.
+
+        По общему правилу:
+        - Текущий ремонт и содержание — обязанность лизингополучателя
+        - Капитальный ремонт — зависит от условий договора
+        - В full-service лизинге — часть обслуживания берёт лизингодатель
+
+        Ответь строго в JSON:
+        {
+          "current_maintenance_party": "<lessee / lessor / shared / not_specified / not_found>",
+          "capital_repair_party": "<lessee / lessor / shared / not_specified / not_found>",
+          "technical_service_included": "<yes / no / partial / not_found>",
+          "cost_allocation_described": "<yes / no / partial>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "техническое обслуживание"
+        - "текущий ремонт"
+        - "содержание"
+        - "эксплуатация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "current_maintenance_party"
+          type: "string"
+          allowed_values: ["lessee", "lessor", "shared", "not_specified", "not_found"]
+          description: "На ком текущее содержание"
+        - name: "technical_service_included"
+          type: "string"
+          allowed_values: ["yes", "no", "partial", "not_found"]
+          description: "Включено ли техобслуживание"
+      store_payload: true
+
+  - id: asset_return_procedure
+    name: "Возврат предмета лизинга по окончании срока"
+    description: >
+      Проверяет порядок и условия возврата предмета лизинга при отсутствии выкупа
+      или при расторжении. Топовый источник споров: какое состояние считается
+      допустимым, кто оплачивает транспортировку, сроки и штрафы за невозврат,
+      определение нормального износа vs повреждений.
+    triggers:
+      any: ["asset_return_scenario", "default_and_enforcement"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "возврат предмета лизинга"
+        - "возвратить предмет"
+        - "акт возврата"
+        - "состояние предмета"
+        - "нормальный износ"
+        - "естественный износ"
+        - "транспортировка"
+        - "демонтаж"
+        - "штраф за невозврат"
+        - "удержание за просрочку"
+        - "место возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возвра(т|тить)\\s+предмет.*лизинг"
+        - "(?i)акт\\s+возврат"
+        - "(?i)нормальн(ый|ого)\\s+износ"
+        - "(?i)штраф.*невозврат"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор лизинга.
+        Проверь условия возврата предмета лизинга по окончании срока (или при расторжении).
+
+        Это один из главных источников споров в лизинговых сделках.
+        Ключевые вопросы:
+        - В каком состоянии должен быть возвращён предмет
+        - Как определяется «нормальный износ» vs «повреждения»
+        - Кто оплачивает транспортировку/демонтаж
+        - Сроки возврата и санкции за просрочку
+        - Место и порядок передачи (акт, осмотр, оценщик)
+
+        Ответь строго в JSON:
+        {
+          "return_procedure_present": "<yes / partial / no>",
+          "condition_standard": "<normal_wear / original / specific_criteria / not_specified / not_found>",
+          "wear_assessment_method": "<independent_appraiser / joint_inspection / lessor_discretion / not_specified / not_found>",
+          "return_deadline_days": "<срок возврата в днях или not_found>",
+          "return_location": "<описание места возврата или not_found>",
+          "transport_cost_party": "<lessee / lessor / shared / not_specified / not_found>",
+          "penalty_for_late_return": "<yes / no / not_found>",
+          "penalty_amount_or_formula": "<формула/сумма или not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "возврат предмета"
+        - "акт возврата"
+        - "состояние"
+        - "нормальный износ"
+        - "штраф за невозврат"
+        - "транспортировка"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "return_procedure_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Урегулирован ли порядок возврата"
+        - name: "condition_standard"
+          type: "string"
+          allowed_values: ["normal_wear", "original", "specific_criteria", "not_specified", "not_found"]
+          description: "Стандарт состояния при возврате"
+        - name: "transport_cost_party"
+          type: "string"
+          allowed_values: ["lessee", "lessor", "shared", "not_specified", "not_found"]
+          description: "Кто несёт расходы на транспортировку"
+        - name: "penalty_for_late_return"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли штраф за невозврат/просрочку"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_and_vendor_specification"
+    name: "Стороны сделки и конкретизация продавца"
+    description: "Проверяет идентификацию лизингодателя, лизингополучателя и продавца"
+    legal_base: "ст. 665 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "лизингодатель"
+        - "лизингополучатель"
+        - "продавец"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(лизингодатель|лизингополучатель|продавец).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+
+  - id: "vendor_selection_allocation"
+    name: "Кто выбирает продавца и предмет лизинга"
+    description: "Проверяет распределение ответственности за выбор продавца и предмета"
+    legal_base: "ст. 665, 670 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "выбор продавца"
+        - "по выбору лизингополучателя"
+        - "по выбору лизингодателя"
+        - "самостоятельно выбрал продавца"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)выбор\\s+продавц"
+        - "(?i)по\\s+выбору\\s+лизингополучател"
+        - "(?i)по\\s+выбору\\s+лизингодател"
+
+  - id: "leasing_subject_detailed"
+    name: "Предмет лизинга: индивидуализация и технические характеристики"
+    description: "Проверяет детальное описание и техническую спецификацию предмета лизинга"
+    legal_base: "ст. 666 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "предмет лизинга"
+        - "марка"
+        - "модель"
+        - "серийный номер"
+        - "VIN"
+        - "кадастровый номер"
+        - "стоимость предмета"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)серийн(ый|ого)\\s+номер"
+        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+
+  - id: "illegal_subject_check"
+    name: "Проверка на недопустимый предмет лизинга"
+    description: "Проверяет отсутствие земли и природных объектов в предмете лизинга"
+    legal_base: "ст. 666 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["illegal_subject_land_or_nature"]
+    rules:
+      keywords:
+        - "земельный участок"
+        - "земля"
+        - "природный объект"
+        - "лесной участок"
+        - "водный объект"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)земельн(ый|ого)\\s+участ"
+        - "(?i)природн(ый|ого)\\s+объект"
+
+  - id: "leasing_payments_structure"
+    name: "Лизинговые платежи, график и аванс"
+    description: "Проверяет график платежей, общую сумму и авансовый платеж"
+    legal_base: "ст. 28 ФЗ № 164-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "лизинговые платежи"
+        - "график платежей"
+        - "авансовый платеж"
+        - "ежемесячный платеж"
+        - "общая сумма"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)график\\s+лизинговых\\s+платеж"
+        - "(?i)авансов(ый|ого)\\s+платеж"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
+
+  - id: "purchase_option_clear_terms"
+    name: "Выкупная стоимость и переход права собственности"
+    description: "Проверяет ясность выкупной модели и цены"
+    legal_base: "ст. 19 ФЗ № 164-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["purchase_option_present"]
+    rules:
+      keywords:
+        - "выкупная цена"
+        - "выкупная стоимость"
+        - "остаточная стоимость"
+        - "право выкупа"
+        - "переход права собственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)выкупн(ая|ой)\\s+цен"
+        - "(?i)остаточн(ая|ой)\\s+стоимост"
+        - "(?i)переход\\s+права\\s+собственности"
+
+  - id: "risk_transfer_moment"
+    name: "Переход риска случайной гибели"
+    description: "Проверяет момент перехода риска на лизингополучателя"
+    legal_base: "ст. 669 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "риск случайной гибели"
+        - "несет лизингополучатель"
+        - "с момента передачи"
+        - "с момента подписания акта"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)риск\\s+случайн(ой|ого)\\s+гибел"
+        - "(?i)с\\s+момента\\s+подписания\\s+акта"
+
+  - id: "insurance_requirement_detailed"
+    name: "Страхование предмета лизинга"
+    description: "Проверяет обязанность страхования, страховую сумму и выгодоприобретателя"
+    legal_base: "ст. 21 ФЗ № 164-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["insurance_related"]
+    rules:
+      keywords:
+        - "страхование"
+        - "КАСКО"
+        - "выгодоприобретатель"
+        - "страховая сумма"
+        - "страховой полис"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)КАСКО|страхов(ание|ой\\s+полис)"
+        - "(?i)выгодоприобретател"
+
+  - id: "balance_holder_specification"
+    name: "Балансодержатель и бухгалтерский учет"
+    description: "Проверяет, на чьем балансе учитывается предмет лизинга"
+    legal_base: "ФЗ № 164-ФЗ, учетная практика"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["balance_holder_and_tax"]
+    rules:
+      keywords:
+        - "балансодержатель"
+        - "на балансе лизингополучателя"
+        - "на балансе лизингодателя"
+        - "передача на баланс"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)балансодержател"
+        - "(?i)на\\s+балансе\\s+лизингополучател"
+        - "(?i)на\\s+балансе\\s+лизингодател"
+
+  - id: "tax_and_depreciation_clarity"
+    name: "НДС, налоговые последствия и амортизация"
+    description: "Проверяет налоговые оговорки, НДС и ускоренную амортизацию"
+    legal_base: "НК РФ, ФЗ № 164-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["balance_holder_and_tax"]
+    rules:
+      keywords:
+        - "НДС"
+        - "вычет НДС"
+        - "ускоренная амортизация"
+        - "коэффициент ускорения"
+        - "лизинговые платежи относятся на расходы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\bНДС\\b"
+        - "(?i)ускоренн(ая|ой)\\s+амортизац"
+        - "(?i)коэффициент\\s+ускорен"
+
+  - id: "uncontested_recovery_right"
+    name: "Бесспорное взыскание, нотариальная надпись и изъятие"
+    description: "Проверяет наличие enforcement mechanisms при default"
+    legal_base: "ст. 13 ФЗ № 164-ФЗ, основы законодательства о нотариате"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["default_and_enforcement"]
+    rules:
+      keywords:
+        - "бесспорное списание"
+        - "без акцепта"
+        - "исполнительная надпись нотариуса"
+        - "изъятие предмета лизинга"
+        - "одностороннее расторжение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)бесспорн(ое|ого)\\s+списан"
+        - "(?i)исполнительн(ая|ой)\\s+надпис"
+        - "(?i)изъят(ие|ия)\\s+предмета\\s+лизинг"
+
+  - id: "registration_procedure"
+    name: "Регистрация предмета лизинга (ГИБДД / Росреестр)"
+    description: "Проверяет порядок регистрации ТС/недвижимости и распределение расходов"
+    legal_base: "ФЗ-218, регистрационные акты МВД"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["vehicle_leasing", "real_estate_leasing"]
+    rules:
+      keywords:
+        - "регистрация в ГИБДД"
+        - "ПТС"
+        - "СТС"
+        - "Росреестр"
+        - "ЕГРН"
+        - "расходы на регистрацию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ГИБДД|ПТС|СТС"
+        - "(?i)Росреестр|ЕГРН"
+
+  - id: "subleasing_clause"
+    name: "Сублизинг: допускается ли и на каких условиях"
+    description: "Проверяет условия сублизинга и необходимость согласия лизингодателя"
+    legal_base: "ФЗ № 164-ФЗ, общие положения об аренде"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "сублизинг"
+        - "с письменного согласия лизингодателя"
+        - "запрет сублизинга"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)сублизинг"
+        - "(?i)с\\s+письменн(ого|ым)\\s+согласия\\s+лизингодател"
+
+  - id: "bankruptcy_protection_mechanisms"
+    name: "Блок последствий банкротства сторон"
+    description: "Проверяет специальные положения на случай банкротства лизингополучателя/лизингодателя"
+    legal_base: "ФЗ-127"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "банкротство"
+        - "конкурсная масса"
+        - "конкурсный управляющий"
+        - "изъятие предмета при банкротстве"
+        - "последствия банкротства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)банкротств"
+        - "(?i)конкурсн(ая|ой)\\s+масс"
+        - "(?i)конкурсн(ый|ого)\\s+управляющ"
+
+  - id: "cross_border_leasing_protection"
+    name: "Международный лизинг: применимое право, валюта, арбитраж"
+    description: "Проверяет cross-border clauses при иностранном элементе"
+    legal_base: "Раздел VI ГК РФ, ФЗ № 164-ФЗ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["cross_border_indicators"]
+    rules:
+      keywords:
+        - "применимое право"
+        - "арбитражная оговорка"
+        - "иностранная валюта"
+        - "международный лизинг"
+        - "юрисдикция"
+        - "нерезидент"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)применим(ое|ого)\\s+прав"
+        - "(?i)арбитражн(ая|ой)\\s+оговорк"
+        - "(?i)нерезидент|иностранн(ая|ого)"
+
+  - id: "dispute_resolution_jurisdiction"
+    name: "Подсудность и порядок разрешения споров"
+    description: "Проверяет court/arbitration/forum и претензионный порядок"
+    legal_base: "АПК РФ, Закон об арбитраже"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арбитражный суд"
+        - "третейский суд"
+        - "подсудность"
+        - "претензионный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)третейск(ий|ого)\\s+суд"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+
+  - id: "leasing_term_required"
+    name: "Срок договора лизинга"
+    description: "Срок — существенное условие договора лизинга. Без него договор незаключён."
+    legal_base: "ст. 15 ФЗ № 164-ФЗ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок лизинга"
+        - "срок действия"
+        - "заключен на срок"
+        - "период лизинга"
+        - "с даты"
+        - "по дату"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+(лизинга|действия|договора)\\s+составляет"
+        - "(?i)с\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}.*по\\s+\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+
+  - id: "lessee_direct_claim_right"
+    name: "Право лизингополучателя на прямые требования к продавцу (ст. 670 ГК РФ)"
+    description: "Проверяет наличие/ограничение права прямого иска к продавцу"
+    legal_base: "ст. 670 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "требования к продавцу"
+        - "претензии к продавцу"
+        - "солидарная ответственность"
+        - "качество предмета"
+        - "недостатки"
+        - "рекламация"
+        - "ст. 670"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)требовани(я|й).*к.*продавц"
+        - "(?i)солидарн(ая|ой)\\s+ответственност"
+
+  - id: "delivery_timeline_and_delay"
+    name: "Срок поставки предмета лизинга и последствия просрочки"
+    description: "Проверяет наличие сроков поставки и санкций за просрочку"
+    legal_base: "ст. 668 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок поставки"
+        - "дата передачи"
+        - "просрочка поставки"
+        - "задержка поставки"
+        - "неустойка за просрочку"
+        - "расторжение при непоставке"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+поставк"
+        - "(?i)просрочк.*поставк"
+        - "(?i)передач.*не\\s+позднее"
+
+  - id: "improvements_and_modifications"
+    name: "Улучшения и модификации предмета лизинга"
+    description: "Проверяет порядок внесения улучшений и их судьбу по окончании лизинга"
+    legal_base: "ст. 623 ГК РФ (субсидиарно), ФЗ № 164-ФЗ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "улучшения"
+        - "модификация"
+        - "дооснащение"
+        - "модернизация"
+        - "неотделимые улучшения"
+        - "отделимые улучшения"
+        - "без согласия лизингодателя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(неотделим|отделим)(ые|ых)\\s+улучшен"
+        - "(?i)модификац|модернизац|дооснащен"
+
+  - id: "liability_and_indemnification"
+    name: "Ответственность сторон и возмещение убытков"
+    description: "Проверяет наличие условий об ответственности, неустойках и индемнити"
+    legal_base: "ГК РФ (общие положения)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ответственность сторон"
+        - "неустойка"
+        - "штраф"
+        - "пеня"
+        - "возмещение убытков"
+        - "ограничение ответственности"
+        - "индемнити"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк.*\\d+.*%"
+        - "(?i)ответственност.*сторон"
+        - "(?i)возмещен.*убытк"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор и обстоятельства непреодолимой силы"
+    description: "Проверяет наличие оговорки о форс-мажоре"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "чрезвычайные обстоятельства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+        - "(?i)непреодолим(ая|ой)\\s+сил"
+
+  - id: "confidentiality_clause"
+    name: "Конфиденциальность и неразглашение условий сделки"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не раскрывать третьим лицам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+  - id: "asset_return_conditions"
+    name: "Условия и порядок возврата предмета лизинга"
+    description: "Проверяет наличие условий возврата, допустимого состояния и санкций за невозврат"
+    legal_base: "ФЗ № 164-ФЗ, общие положения об аренде (ст. 622 ГК РФ)"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["asset_return_scenario"]
+    rules:
+      keywords:
+        - "возврат предмета"
+        - "акт возврата"
+        - "надлежащее состояние"
+        - "нормальный износ"
+        - "транспортировка"
+        - "демонтаж"
+        - "место возврата"
+        - "штраф за невозврат"
+        - "удержание за просрочку возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возвра(т|тить)\\s+предмет"
+        - "(?i)нормальн(ый|ого)\\s+износ"
+        - "(?i)штраф.*невозврат"
+
+  - id: "lessor_title_warranty"
+    name: "Гарантия чистоты титула лизингодателя"
+    description: "Проверяет наличие заверений лизингодателя об отсутствии обременений и прав третьих лиц на предмет лизинга"
+    legal_base: "ст. 665, 667 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "гарантирует отсутствие обременений"
+        - "свободен от прав третьих лиц"
+        - "не заложен"
+        - "не находится под арестом"
+        - "титул"
+        - "право собственности лизингодателя"
+        - "чистота права"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)лизингодател.*гарантирует.*отсутствие"
+        - "(?i)(не\\s+обременен|свободен\\s+от.*прав)"
+
+  - id: "use_and_location_restrictions"
+    name: "Ограничения по использованию и перемещению предмета лизинга"
+    description: "Проверяет наличие ковенантов по эксплуатации, перемещению и целевому использованию предмета"
+    legal_base: "ФЗ № 164-ФЗ, свобода договора (ст. 421 ГК РФ)"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "место нахождения"
+        - "место эксплуатации"
+        - "запрет перемещения"
+        - "без согласия лизингодателя"
+        - "целевое использование"
+        - "только для"
+        - "запрещается использовать"
+        - "территория эксплуатации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)без.*согласия.*лизингодател.*(перемещ|перевоз|вывоз)"
+        - "(?i)(место|территория)\\s+эксплуатац"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_and_vendor_specification:
+    text: >
+      Просим подтвердить по {doc_names}: реквизиты лизингодателя,
+      лизингополучателя и продавца, а также кто именно выбирает продавца
+      и предмет лизинга.
+    addressee: "Обе стороны / Юридический советник"
+
+  leasing_structure_extraction:
+    text: >
+      Просим предоставить по {doc_names}: структуру сделки, описание purchase leg,
+      lease leg, выбор продавца, предмета лизинга и наличие выкупной модели.
+    addressee: "Лизингодатель / Юридический советник"
+
+  vendor_selection_allocation:
+    text: >
+      Просим уточнить в {doc_names}: кем выбран продавец и кто несет риск
+      его выбора, включая последствия по качеству и поставке предмета лизинга.
+    addressee: "Юридический советник"
+
+  leasing_subject_and_illegal_object_check:
+    text: >
+      Просим предоставить по {doc_names}: детальное описание предмета лизинга,
+      его технические характеристики, идентификаторы, а также подтверждение,
+      что предмет не относится к недопустимым объектам лизинга.
+    addressee: "Продавец / Лизингодатель"
+
+  leasing_subject_detailed:
+    text: >
+      Просим уточнить в {doc_names}: марку, модель, серийный номер/VIN,
+      кадастровые данные (если применимо), стоимость и комплектность предмета лизинга.
+    addressee: "Продавец / Лизингодатель"
+
+  illegal_subject_check:
+    text: >
+      Внимание: по {doc_names} требуется подтвердить, что предмет лизинга
+      не является земельным участком или иным природным объектом.
+    addressee: "Юридический советник"
+
+  payments_and_buyout_check:
+    text: >
+      Просим уточнить в {doc_names}: график лизинговых платежей, общую сумму,
+      авансовый платеж, выкупную цену, остаточную стоимость и tax logic выкупной модели.
+    addressee: "Финансовый советник / Юридический советник"
+
+  leasing_payments_structure:
+    text: >
+      Просим предоставить по {doc_names}: график платежей, формулу расчета
+      лизинговых платежей, размер аванса, валюту и порядок уплаты просроченной задолженности.
+    addressee: "Лизингодатель"
+
+  purchase_option_clear_terms:
+    text: >
+      Просим уточнить в {doc_names}: есть ли выкуп, какова выкупная цена,
+      включена ли она в платежи, как реализуется переход права собственности.
+    addressee: "Юридический советник"
+
+  risk_transfer_and_insurance_check:
+    text: >
+      Просим уточнить в {doc_names}: момент перехода риска случайной гибели,
+      обязанность страхования, страховую сумму, выгодоприобретателя и последствия total loss.
+    addressee: "Лизингодатель / Страховой консультант"
+
+  risk_transfer_moment:
+    text: >
+      Просим включить/уточнить в {doc_names}: момент перехода риска
+      случайной гибели на лизингополучателя и влияние гибели предмета
+      на обязательство по уплате лизинговых платежей.
+    addressee: "Юридический советник"
+
+  insurance_requirement_detailed:
+    text: >
+      Просим предоставить по {doc_names}: условия страхования предмета лизинга,
+      форму полиса, страховую сумму, франшизу, выгодоприобретателя и сроки страхования.
+    addressee: "Страховой консультант / Лизингодатель"
+
+  default_remedies_and_recovery_check:
+    text: >
+      Просим уточнить в {doc_names}: default triggers, бесспорное списание,
+      исполнительную надпись, repossession, acceleration и порядок одностороннего расторжения.
+    addressee: "Юридический советник"
+
+  uncontested_recovery_right:
+    text: >
+      Просим уточнить в {doc_names}: условия безакцептного списания,
+      нотариальной исполнительной надписи, изъятия предмета лизинга и документирования default.
+    addressee: "Юридический советник лизингодателя"
+
+  balance_tax_and_amortization_check:
+    text: >
+      Просим уточнить в {doc_names}: кто является балансодержателем,
+      применяется ли ускоренная амортизация, как урегулированы НДС,
+      расходы и бухгалтерский учет предмета лизинга.
+    addressee: "Налоговый консультант / Бухгалтер"
+
+  balance_holder_specification:
+    text: >
+      Просим уточнить в {doc_names}: на чьем балансе учитывается предмет лизинга
+      и какие последствия это имеет для амортизации и налога на имущество.
+    addressee: "Бухгалтер / Налоговый консультант"
+
+  tax_and_depreciation_clarity:
+    text: >
+      Просим предоставить по {doc_names}: налоговый memo по НДС, амортизации,
+      расходам по лизинговым платежам, выкупной модели и риску переквалификации.
+    addressee: "Налоговый консультант"
+
+  registration_and_asset_specifics_check:
+    text: >
+      Просим уточнить в {doc_names}: кто регистрирует предмет лизинга,
+      на кого оформляется учет в ГИБДД/Росреестре и кто несет регистрационные расходы.
+    addressee: "Юридический советник / Лизингодатель"
+
+  registration_procedure:
+    text: >
+      Просим уточнить в {doc_names}: порядок регистрации ТС/недвижимости,
+      распределение расходов, комплект регистрационных документов и ответственность
+      за несвоевременную регистрацию.
+    addressee: "Юридический советник"
+
+  subleasing_clause:
+    text: >
+      Просим уточнить в {doc_names}: допускается ли сублизинг,
+      требуется ли согласие лизингодателя и в каком порядке оно оформляется.
+    addressee: "Юридический советник"
+
+  bankruptcy_protection_mechanisms:
+    text: >
+      Просим предоставить по {doc_names}: последствия банкротства сторон,
+      режим конкурсной массы, право на изъятие предмета и защиту выкупных прав.
+    addressee: "Юридический советник / Insolvency counsel"
+
+  cross_border_leasing_protection:
+    text: >
+      Просим предоставить по {doc_names}: применимое право, forum/arbitration clause,
+      валютные условия, sanctions/AML memo и risk allocation по трансграничной структуре.
+    addressee: "Cross-border counsel / Compliance"
+
+  dispute_resolution_jurisdiction:
+    text: >
+      Просим уточнить в {doc_names}: подсудность, арбитражную оговорку,
+      претензионный порядок и язык/место разрешения споров.
+    addressee: "Юридический советник"
+
+  illegal_lizing_subject_land_or_nature:
+    text: >
+      Внимание: {doc_names} содержит признаки недопустимого предмета лизинга
+      (земля/природные объекты). Просим пересмотреть структуру сделки
+      и дать правовое заключение по допустимости предмета.
+    addressee: "Юридический советник"
+
+  reclassification_to_general_lease_risk:
+    text: >
+      Внимание: по {doc_names} необходимо проверить наличие purchase leg.
+      При его отсутствии сделка может быть переквалифицирована в обычную аренду
+      или иную конструкцию.
+    addressee: "Юридический советник"
+
+  cross_border_sanctions_and_currency_risk:
+    text: >
+      Внимание: {doc_names} содержит трансграничный элемент.
+      Просим предоставить sanctions / currency / AML analysis,
+      UBO information и conflict-of-laws memo.
+    addressee: "Compliance / Cross-border counsel"
+
+  vendor_direct_claims_670:
+    text: >
+      Просим уточнить в {doc_names}: как урегулировано право лизингополучателя
+      на прямые требования к продавцу (ст. 670 ГК РФ); предусмотрена ли
+      солидарная ответственность при выборе продавца лизингодателем;
+      порядок рекламации и срок уведомления о недостатках.
+    addressee: "Юридический советник"
+
+  saldo_methodology_on_termination:
+    text: >
+      Просим предоставить по {doc_names}: методику расчёта сальдо встречных
+      обязательств при досрочном расторжении (Постановление Пленума ВАС №17
+      от 14.03.2014). В частности: как определяется стоимость возвращённого
+      предмета (рыночная / балансовая / формула), раскрыта ли плата за
+      финансирование, предусмотрен ли возврат разницы лизингополучателю.
+    addressee: "Юридический советник / Финансовый советник"
+
+  delivery_acceptance_procedure:
+    text: >
+      Просим уточнить в {doc_names}: порядок приёмки предмета лизинга
+      от продавца, кто участвует в приёмке, форма акта, порядок фиксации
+      недостатков (протокол), сроки рекламации, место передачи.
+    addressee: "Лизингодатель / Продавец"
+
+  maintenance_repair_allocation:
+    text: >
+      Просим уточнить в {doc_names}: кто несёт расходы на текущее содержание
+      и ремонт предмета лизинга, предусмотрено ли техобслуживание за счёт
+      лизингодателя (full-service), порядок согласования капитального ремонта.
+    addressee: "Обе стороны"
+
+  leasing_term_required:
+    text: >
+      В {doc_names} не указан или нечётко указан срок лизинга. Это существенное
+      условие (ст. 15 ФЗ-164). Просим указать: дату начала, дату окончания
+      или способ их определения.
+    addressee: "Обе стороны"
+
+  lessee_direct_claim_right:
+    text: >
+      Просим включить в {doc_names}: порядок предъявления лизингополучателем
+      требований к продавцу по качеству и комплектности (ст. 670 ГК РФ),
+      условия солидарной ответственности, порядок рекламации.
+    addressee: "Юридический советник"
+
+  delivery_timeline_and_delay:
+    text: >
+      Просим уточнить в {doc_names}: срок поставки предмета лизинга,
+      санкции за просрочку, право лизингополучателя на расторжение
+      при непоставке (ст. 668 ГК РФ).
+    addressee: "Продавец / Лизингодатель"
+
+  improvements_and_modifications:
+    text: >
+      Просим уточнить в {doc_names}: порядок внесения улучшений и модификаций
+      предмета лизинга, требуется ли согласие лизингодателя, судьба
+      неотделимых улучшений при возврате предмета.
+    addressee: "Юридический советник"
+
+  liability_and_indemnification:
+    text: >
+      Просим уточнить в {doc_names}: размер неустоек, ограничение
+      ответственности сторон, порядок возмещения убытков,
+      наличие индемнити и его scope.
+    addressee: "Юридический советник"
+
+  force_majeure_clause:
+    text: >
+      Просим включить в {doc_names}: перечень форс-мажорных обстоятельств,
+      порядок и сроки уведомления, последствия для обязательств сторон
+      (приостановка платежей, продление срока лизинга).
+    addressee: "Юридический советник"
+
+  confidentiality_clause:
+    text: >
+      Просим добавить в {doc_names}: раздел о конфиденциальности —
+      перечень конфиденциальных сведений, срок неразглашения,
+      исключения, ответственность за нарушение.
+    addressee: "Юридический советник"
+
+  sale_leaseback_requalification_risk:
+    text: >
+      Внимание: {doc_names} содержит признаки возвратного лизинга.
+      Просим предоставить: обоснование деловой цели конструкции,
+      независимую оценку предмета лизинга, правовое заключение
+      по рискам переквалификации в заём / притворную сделку
+      (ст. 170 ГК РФ), особенно в контексте банкротства.
+    addressee: "Юридический советник / Оценщик"
+
+  asset_return_procedure:
+    text: >
+      Просим уточнить в {doc_names}: порядок возврата предмета лизинга
+      по окончании срока (при отсутствии выкупа): допустимое состояние,
+      метод оценки износа (совместный осмотр / независимый оценщик),
+      место и сроки возврата, кто несёт расходы на транспортировку/демонтаж,
+      штрафные санкции за невозврат или просрочку.
+    addressee: "Обе стороны / Юридический советник"
+
+  asset_return_conditions:
+    text: >
+      В {doc_names} не урегулированы или нечётко описаны условия возврата
+      предмета лизинга. Просим включить: стандарт допустимого состояния
+      (нормальный износ vs повреждения), порядок фиксации состояния,
+      сроки, место и расходы по возврату, санкции за просрочку.
+    addressee: "Юридический советник"
+
+  lessor_title_warranty:
+    text: >
+      Просим включить в {doc_names} заверения лизингодателя: (а) предмет
+      лизинга будет свободен от прав третьих лиц и обременений на момент
+      передачи; (б) отсутствуют аресты, залоги и запреты; (в) лизингодатель
+      обладает необходимыми полномочиями для заключения договора.
+    addressee: "Юридический советник лизингодателя"
+
+  use_and_location_restrictions:
+    text: >
+      Просим уточнить в {doc_names}: территорию и условия эксплуатации
+      предмета лизинга, требуется ли согласие лизингодателя на перемещение,
+      целевое назначение использования, запрет на определённые виды
+      эксплуатации (если применимо).
+    addressee: "Обе стороны"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    

@@ -49,7 +49,9 @@ class HybridDetector:
     На вход получает:
     - text: текст для rules‑детектора (обычно склеенный контекст чанков);
     - chunks: список RetrievedChunk для LLM‑контекста;
-    - check: CheckDefinition из playbook.
+    - check: CheckDefinition из playbook;
+    - doc_type: строковый тип документа (для подсказки LLM);
+    - classification_confidence: уверенность классификатора по doc_type.
 
     На выход отдаёт единый DetectionResult‑подобный словарь:
     {
@@ -77,6 +79,8 @@ class HybridDetector:
         text: str,
         chunks: list[RetrievedChunk],
         check: CheckDefinition,
+        doc_type: str = "",
+        classification_confidence: float = 1.0,
     ) -> dict[str, Any]:
         """
         Запустить гибридную детекцию для одного check.
@@ -114,6 +118,16 @@ class HybridDetector:
             return rules_result
 
         # --- 3. Попытка вызвать LLM-детектор ---
+        # Если уверенность классификации низкая — не подсказываем тип документа LLM'у,
+        # чтобы не усиливать возможную ошибку классификатора.
+        try:
+            cls_conf = float(classification_confidence or 0.0)
+        except (TypeError, ValueError):
+            cls_conf = 0.0
+
+        doc_type_for_llm = doc_type if cls_conf >= 0.70 else ""
+        cls_conf_percent = f"{cls_conf:.0%}"
+
         extra_variables = {
             "condition_name": check.name,
             "check_id": check.id,
@@ -123,6 +137,8 @@ class HybridDetector:
             "severity_if_pass": check.severity_if_pass or "",
             "severity_if_unclear": check.severity_if_unclear or "",
             "doc_types": ", ".join(check.doc_types or []),
+            "current_doc_type": doc_type_for_llm,
+            "classification_confidence": cls_conf_percent,
         }
 
         try:
@@ -136,8 +152,10 @@ class HybridDetector:
             # мы не роняем весь check, а логируем и остаёмся на rules.
             logger.exception(
                 "HybridDetector: unexpected error in LLMDetector.detect_with_variables",
-                check_id=getattr(check, "id", None),
-                error=str(e),
+                extra={
+                    "check_id": getattr(check, "id", None),
+                    "error": str(e),
+                },
             )
             rules_result["raw"]["source"] = "rules_llm_exception"
             rules_result["raw"]["llm_error_type"] = "unexpected_exception"
@@ -170,7 +188,6 @@ class HybridDetector:
             rules_result["raw"]["llm_error_type"] = error_type
             rules_result["raw"]["llm_error_message"] = llm_details.get("error_message")
             rules_result["raw"]["llm_attempts"] = llm_details.get("llm_attempts")
-            # В этом сценарии возвращаем именно rules-результат.
             return rules_result
 
         # --- 5. Объединение сигналов rules и LLM ---

@@ -5,7 +5,6 @@
 # Classifier L1 (RuleBasedClassifier) читает rules каждого типа при классификации.
 # Это единственный источник правды для типов документов на Этапах 2.5–8.
 version: "1.0"
-version: "1.0"
 
 document_types:
 # Договоры
@@ -262,53 +261,4 @@ document_types:
     name: "Договор об учреждении общества (Учредительный договор)"
     category: "contract"
     group: "group_9_special"
-
-# Счета
-  - type: "invoice_standard"
-    name: "Счёт на оплату"
-    category: "invoice"
-    subcategory: "standard"
-
-  - type: "invoice_proforma"
-    name: "Проформа-счёт"
-    category: "invoice"
-    subcategory: "proforma"
-
-# Акты
-  - type: "act_acceptance_services"
-    name: "Акт приёма-передачи услуг"
-    category: "acceptance_act"
-    subcategory: "services"
-
-  - type: "act_acceptance_goods"
-    name: "Акт приёма-передачи товара"
-    category: "acceptance_act"
-    subcategory: "goods"
-
-# Счета-фактуры
-  - type: "vat_invoice"
-    name: "Счёт-фактура"
-    category: "vat_invoice"
-    subcategory: "standard"
-
-# Соглашения
-  - type: "agreement_settlement"
-    name: "Соглашение о взаимозачёте"
-    category: "agreement"
-    subcategory: "settlement"
-
-  - type: "agreement_additional"
-    name: "Дополнительное соглашение к договору"
-    category: "agreement"
-    subcategory: "addendum"
-
-# Справки
-  - type: "certificate_tax_debt"
-    name: "Справка об отсутствии задолженности по налогам"
-    category: "certificate"
-    subcategory: "tax_debt"
-
-  - type: "certificate_bank"
-    name: "Банковская справка"
-    category: "certificate"
-    subcategory: "bank"
+    

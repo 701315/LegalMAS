@@ -1,0 +1,1480 @@
+type: contract_1.5_energy_supply
+name: "Договор энергоснабжения"
+
+description: |
+  Специализированный вид купли-продажи, регулируемый § 6 Главы 30 ГК РФ, для поставки энергии
+  (электрической, тепловой, газа, воды) через присоединенную сеть. Является публичным договором,
+  характеризуется особым способом передачи товара и специальными правилами учета потребления.
+  Для граждан дополнительно применяются Правила предоставления коммунальных услуг
+  (ПП РФ № 354) и Закон о защите прав потребителей.
+
+version: 4.0
+parent: class_1_transfer_of_ownership
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: ownership_transfer
+  complexity: medium
+  risk_level: medium
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 6 Главы 30 ГК РФ (ст. 539-548)"
+  doc_types_supported:
+    - "договор энергоснабжения"
+    - "договор на поставку электроэнергии"
+    - "договор теплоснабжения"
+    - "договор водоснабжения"
+    - "договор газоснабжения"
+    - "договор снабжения энергией"
+    - "договор с гарантирующим поставщиком"
+    - "договор купли-продажи электрической энергии (мощности)"
+    - "договор холодного водоснабжения"
+    - "договор горячего водоснабжения"
+    - "договор водоотведения"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)энергоснабжен"
+      - "(?i)энергосбыт"
+      - "(?i)электроснабжен"
+      - "(?i)теплоснабжен"
+      - "(?i)водоснабжен"
+      - "(?i)газоснабжен"
+      - "(?i)energy.*supply"
+
+    folder_patterns:
+      - "(?i)энергоснабжен"
+      - "(?i)коммунальные.*услуги"
+      - "(?i)utilities"
+
+    keywords:
+
+      high:
+        - "энергоснабжен"
+        - "энергоснабжающ организаци"
+        - "энергосбытовая организация"
+        - "сбытовая компания"
+        - "сетевая организация"
+        - "абонент"
+        - "энергия"
+        - "через присоединенную сеть"
+        - "подача энергии"
+        - "прибор учета"
+        - "счетчик"
+
+      medium:
+        - "электроэнергия"
+        - "тепловая энергия"
+        - "тепло"
+        - "вода"
+        - "газ"
+        - "потребитель"
+        - "потребление энергии"
+        - "тариф"
+        - "одноставочный тариф"
+        - "двухставочный тариф"
+        - "мощность"
+        - "киловатт"
+        - "кВт"
+        - "гигакалория"
+        - "Гкал"
+        - "кубометр"
+        - "ОДН"
+        - "общедомовые нужды"
+        - "граница балансовой принадлежности"
+        - "точка поставки"
+
+      low:
+        - "снабжение"
+        - "ресурсоснабжающая организация"
+        - "РСО"
+        - "плата за технологическое присоединение"
+        - "аккредитация"
+        - "гарантирующий поставщик"
+
+    exclusions:
+      - "продажа в емкостях"
+      - "разовая передача"
+      - "договор подряда"
+      - "договор купли-продажи товаров"
+      - "договор купли-продажи недвижимости"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  energy_supply_contract:
+    any_keywords:
+      - "энергоснабжение"
+      - "энергоснабжающая организация"
+      - "сбытовая компания"
+      - "абонент"
+      - "подача энергии"
+
+  electricity_supply:
+    any_keywords:
+      - "электроэнергия"
+      - "электрическая энергия"
+      - "электроснабжение"
+      - "киловатт"
+      - "кВт"
+      - "мощность"
+      - "напряжение"
+      - "частота"
+
+  heat_supply:
+    any_keywords:
+      - "тепловая энергия"
+      - "теплоснабжение"
+      - "отопление"
+      - "горячая вода"
+      - "ГВС"
+      - "температура"
+      - "давление"
+      - "гигакалория"
+      - "Гкал"
+
+  water_supply:
+    any_keywords:
+      - "водоснабжение"
+      - "холодная вода"
+      - "питьевая вода"
+      - "водоотведение"
+      - "канализация"
+      - "кубометр воды"
+
+  gas_supply:
+    any_keywords:
+      - "газоснабжение"
+      - "природный газ"
+      - "газораспределительная сеть"
+      - "давление газа"
+      - "кубометр газа"
+
+  industrial_consumer:
+    any_keywords:
+      - "промышленный потребитель"
+      - "юридическое лицо"
+      - "производство"
+      - "предприятие"
+      - "завод"
+      - "цех"
+      - "непрерывный технологический цикл"
+      - "первая категория надежности"
+
+  mcd_subscriber:
+    any_keywords:
+      - "многоквартирный дом"
+      - "МКД"
+      - "квартира"
+      - "жилое помещение"
+      - "ТСЖ"
+      - "ЖСК"
+      - "УК"
+      - "управляющая компания"
+      - "общедомовые нужды"
+      - "ОДН"
+
+  critical_infrastructure:
+    any_keywords:
+      - "больница"
+      - "поликлиника"
+      - "родильный дом"
+      - "скорая помощь"
+      - "диспетчерская"
+      - "объект связи"
+      - "транспортная инфраструктура"
+      - "объект первой категории надежности"
+      - "особый режим потребления"
+
+  public_contract:
+    any_keywords:
+      - "публичный договор"
+      - "публичная оферта"
+      - "присоединение к договору"
+      - "типовой договор"
+      - "обязан заключить договор"
+      - "обязанность заключить"
+
+  sub_subscriber:
+    any_keywords:
+      - "субабонент"
+      - "суб-абонент"
+      - "передача энергии третьим лицам"
+      - "присоединение третьего лица"
+      - "подключение к сетям абонента"
+      - "транзит энергии"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage: "(?i)\\d{1,3}(?:[.,]\\d{1,2})?\\s*%"
+  tariff_value: "(?i)\\d+[.,]?\\d*\\s*(?:руб|₽)?\\s*(?:/кВт|/кВт·ч|/Гкал|/м³|/куб\\.м)"
+  meter_reading: "(?i)\\d{1,6}(?:[.,]\\d{1,2})?\\s*(?:кВт·ч|Гкал|м³|куб\\.м)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "social_facility_disconnection_prohibition"
+    name: "Запрет отключения социально значимых объектов (Постановление № 354)"
+    description: "Запрещается ограничивать или прекращать подачу коммунальных услуг социально значимым объектам (больницы, школы, детсады) в отопительный период"
+    legal_base: "Постановление Правительства РФ № 354 от 06.05.2011 (Правила предоставления коммунальных услуг), п. 119"
+    required_triggers: ["critical_infrastructure", "heat_supply"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "социально значимый объект"
+        - "больница"
+        - "школа"
+        - "детский сад"
+        - "отключение запрещено"
+        - "не допускается ограничение"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "социально значимый"
+        - "отключение"
+        - "запрещено"
+      rerank: true
+
+  - id: "sales_surcharge_requirement"
+    name: "Обязательность энергосбытовой надбавки (ПП РФ № 1179)"
+    description: "Для юридических лиц тариф должен включать энергосбытовую надбавку в соответствии с Постановлением Правительства РФ № 1179"
+    legal_base: "Постановление Правительства РФ № 1179 от 29.12.2001 (о ценах и тарифах в области электроэнергетики)"
+    required_triggers: ["electricity_supply", "industrial_consumer"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "энергосбытовая надбавка"
+        - "тариф на электроэнергию"
+        - "одноставочный тариф"
+        - "двухставочный тариф"
+        - "плата за мощность"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "энергосбытовая надбавка"
+        - "тариф"
+        - "мощность"
+      rerank: true
+
+  - id: "two_rate_meter_requirement"
+    name: "Обязательность двухтарифных счетчиков для юрлиц (ФЗ-261)"
+    description: "Юридические лица обязаны устанавливать приборы учета с функцией учета по зонам суток"
+    legal_base: "ФЗ-261 «Об энергосбережении и о повышении энергетической эффективности», ст. 13"
+    required_triggers: ["electricity_supply", "industrial_consumer"]
+    severity: "medium"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "двухтарифный счетчик"
+        - "учет по зонам суток"
+        - "дневной тариф"
+        - "ночной тариф"
+        - "пиковые часы"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "двухтарифный"
+        - "зоны суток"
+        - "учет"
+      rerank: true
+
+  - id: "residential_heat_disconnection_prohibition"
+    name: "Запрет полного отключения теплоснабжения жилых зданий в отопительный период"
+    description: "Полное прекращение подачи тепловой энергии в жилые помещения в отопительный период запрещено, допускается только частичное ограничение при задолженности"
+    legal_base: "ПП РФ № 354 от 06.05.2011, п. 119 (е); ФЗ-190 «О теплоснабжении», ст. 22"
+    required_triggers: ["mcd_subscriber", "heat_supply"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "полное прекращение подачи"
+        - "отключение отопления"
+        - "прекращение теплоснабжения"
+        - "прекращение подачи тепловой энергии"
+      keyword_mode: "any"
+      negative_keywords:
+        - "частичное ограничение"
+        - "снижение температуры"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "отключение отопления"
+        - "отопительный период"
+        - "жилой дом"
+        - "многоквартирный дом"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: energy_quality_requirements_check
+    name: "Требования к качеству подаваемой энергии (ст. 542 ГК РФ)"
+    description: "Проверяет наличие требований к качеству энергии (напряжение, частота, температура, давление). Без них абонент не сможет доказать нарушение условий."
+    triggers:
+      any: ["energy_supply_contract"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "качество энергии"
+        - "параметры качества"
+        - "соответствие ГОСТ"
+        - "напряжение"
+        - "частота"
+        - "температура"
+        - "давление"
+        - "технические условия"
+        - "ГОСТ 32144"
+        - "ГОСТ 30491"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)энергия.*должна.*соответствовать.*требованиям.*качества"
+        - "(?i)параметры.*качества.*электроэнергии"
+        - "(?i)температура.*теплоносителя"
+        - "(?i)давление.*газа"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор энергоснабжения.
+        Проверь наличие требований к качеству подаваемой энергии (ст. 542 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "quality_requirements": "<detailed / basic / not_found>",
+          "voltage_specified": "<yes / no / not_found>",
+          "frequency_specified": "<yes / no / not_found>",
+          "temperature_specified": "<yes / no / not_found>",
+          "pressure_specified": "<yes / no / not_found>",
+          "gost_reference": "<ГОСТ или not_found>",
+          "quality_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "detailed" — конкретные числовые параметры качества
+        - "basic" — общая ссылка на качество без деталей
+        - "not_found" — требования не раскрыты
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "качество энергии"
+        - "параметры качества"
+        - "ГОСТ"
+        - "напряжение"
+        - "температура"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "quality_requirements"
+          type: "string"
+          allowed_values: ["detailed", "basic", "not_found"]
+          description: "Уровень детализации требований к качеству"
+        - name: "voltage_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указано ли напряжение"
+        - name: "frequency_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указана ли частота"
+        - name: "temperature_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указана ли температура"
+        - name: "pressure_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указано ли давление"
+        - name: "gost_reference"
+          type: "string"
+          description: "Ссылка на ГОСТ"
+      store_payload: true
+
+  - id: limitation_procedure_check
+    name: "Порядок ограничения и прекращения подачи энергии (ст. 546 ГК РФ)"
+    description: "Проверяет наличие четкой процедуры ограничения или отключения подачи энергии. Без нее абонент может быть лишен доступа к ресурсу без предупреждения."
+    triggers:
+      any: ["energy_supply_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ограничение подачи"
+        - "прекращение подачи"
+        - "отключение энергии"
+        - "предварительное уведомление"
+        - "срок для устранения нарушений"
+        - "при неоплате"
+        - "порядок отключения"
+        - "возобновление подачи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)ограничение.*подачи.*энергии.*допускается.*при.*неоплате"
+        - "(?i)предварительное.*уведомление.*об.*отключении"
+        - "(?i)отключение.*возможно.*при.*условии"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор энергоснабжения.
+        Проверь наличие порядка ограничения и прекращения подачи энергии (ст. 546 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "limitation_procedure": "<detailed / basic / not_found>",
+          "notice_period_days": "<число дней или not_found>",
+          "grounds_for_limitation": "<неоплата / нарушение условий / иное / not_found>",
+          "restoration_procedure": "<yes / no / not_found>",
+          "limitation_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "detailed" — подробная процедура с сроками уведомления и основаниями
+        - "basic" — общая ссылка на возможность отключения
+        - "not_found" — процедура не раскрыта
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ограничение подачи"
+        - "отключение энергии"
+        - "предварительное уведомление"
+        - "ст. 546 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "limitation_procedure"
+          type: "string"
+          allowed_values: ["detailed", "basic", "not_found"]
+          description: "Уровень детализации процедуры ограничения"
+        - name: "notice_period_days"
+          type: "string"
+          description: "Срок предварительного уведомления в днях"
+        - name: "grounds_for_limitation"
+          type: "string"
+          allowed_values: ["неоплата", "нарушение условий", "иное", "not_found"]
+          description: "Основания для ограничения подачи"
+        - name: "restoration_procedure"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указана ли процедура возобновления подачи"
+      store_payload: true
+
+  - id: liability_for_interruptions_check
+    name: "Ответственность за перерывы в подаче энергии (ст. 547 ГК РФ)"
+    description: "Проверяет наличие условий об ответственности за несанкционированные перерывы в подаче энергии."
+    triggers:
+      any: ["energy_supply_contract"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ответственность за перерывы"
+        - "возмещение ущерба"
+        - "простой оборудования"
+        - "несанкционированное отключение"
+        - "компенсация убытков"
+        - "прерывание подачи"
+        - "неподача энергии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)энергоснабжающая.*организация.*несет.*ответственность.*за.*перерывы"
+        - "(?i)возмещение.*убытков.*при.*перерыве"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор энергоснабжения.
+        Проверь наличие условий об ответственности за перерывы в подаче энергии (ст. 547 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "liability_exists": "<yes / no / not_found>",
+          "liability_type": "<penalty / damages / both / not_found>",
+          "exclusions_exist": "<yes / no / not_found>",
+          "force_majeure_exclusion": "<yes / no / not_found>",
+          "liability_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "penalty" — неустойка за перерывы
+        - "damages" — возмещение убытков
+        - "both" — и то, и другое
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "ответственность за перерывы"
+        - "возмещение ущерба"
+        - "компенсация убытков"
+        - "ст. 547 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "liability_exists"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие ответственности за перерывы"
+        - name: "liability_type"
+          type: "string"
+          allowed_values: ["penalty", "damages", "both", "not_found"]
+          description: "Вид ответственности"
+        - name: "exclusions_exist"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие исключений из ответственности"
+        - name: "force_majeure_exclusion"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Исключение форс-мажора"
+      store_payload: true
+
+  - id: unauthorized_consumption_check
+    name: "Ответственность за бездоговорное и безучетное потребление (ст. 7.19 КоАП РФ, ст. 165 УК РФ)"
+    description: "Проверяет наличие условий о последствиях бездоговорного или безучетного потребления энергии."
+    triggers:
+      any: ["energy_supply_contract"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "бездоговорное потребление"
+        - "безучетное потребление"
+        - "несанкционированное подключение"
+        - "хищение энергии"
+        - "взыскание ущерба"
+        - "расчет объема потребления"
+        - "неучтенное потребление"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)при.*обнаружении.*бездоговорного.*потребления.*абонент.*обязан"
+        - "(?i)безучетное.*потребление.*влечет.*ответственность"
+        - "(?i)несанкционированное.*подключение"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор энергоснабжения.
+        Проверь наличие условий о бездоговорном и безучетном потреблении энергии.
+
+        Ответь строго в JSON:
+        {
+          "unauthorized_consumption_clause": "<detailed / basic / not_found>",
+          "calculation_method_specified": "<yes / no / not_found>",
+          "penalty_for_unauthorized": "<yes / no / not_found>",
+          "disconnection_right": "<yes / no / not_found>",
+          "unauthorized_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "detailed" — подробная процедура расчета и ответственности
+        - "basic" — общая ссылка на запрет
+        - "not_found" — условие отсутствует
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "бездоговорное потребление"
+        - "безучетное потребление"
+        - "несанкционированное подключение"
+        - "хищение энергии"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "unauthorized_consumption_clause"
+          type: "string"
+          allowed_values: ["detailed", "basic", "not_found"]
+          description: "Уровень детализации условия"
+        - name: "calculation_method_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указан ли метод расчета объема"
+        - name: "penalty_for_unauthorized"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Предусмотрены ли санкции"
+        - name: "disconnection_right"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Право на отключение при бездоговорном потреблении"
+      store_payload: true
+
+  - id: industrial_consumer_protection_check
+    name: "Особые условия для промышленных потребителей"
+    description: "Проверяет наличие особых условий о гарантиях надежности снабжения для промышленных предприятий."
+    triggers:
+      any: ["industrial_consumer"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "промышленный потребитель"
+        - "надежность энергоснабжения"
+        - "бесперебойная подача"
+        - "технологическое присоединение"
+        - "резервные источники питания"
+        - "убытки от простоя"
+        - "первая категория надежности"
+        - "вторая категория надежности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)для.*промышленных.*потребителей.*гарантируется.*бесперебойная"
+        - "(?i)категория.*надежности.*энергоснабжения"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор энергоснабжения.
+        Проверь наличие особых условий для промышленного потребителя.
+
+        Ответь строго в JSON:
+        {
+          "industrial_protection_exists": "<yes / no / not_found>",
+          "reliability_category": "<первая / вторая / третья / not_found>",
+          "backup_power_required": "<yes / no / not_found>",
+          "downtime_compensation": "<yes / no / not_found>",
+          "industrial_snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "промышленный потребитель"
+        - "категория надежности"
+        - "резервное питание"
+        - "убытки от простоя"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "industrial_protection_exists"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие особых условий"
+        - name: "reliability_category"
+          type: "string"
+          allowed_values: ["первая", "вторая", "третья", "not_found"]
+          description: "Категория надежности"
+        - name: "backup_power_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требование резервного питания"
+        - name: "downtime_compensation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Компенсация убытков от простоя"
+      store_payload: true
+
+  - id: mcd_obligations_check
+    name: "Обязанности по обслуживанию внутридомовых сетей в МКД (ст. 36, 161 ЖК РФ)"
+    description: "Проверяет наличие четкого разграничения ответственности за внутридомовые сети в многоквартирных домах."
+    triggers:
+      any: ["mcd_subscriber"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "многоквартирный дом"
+        - "внутридомовые сети"
+        - "общедомовые нужды"
+        - "ОДН"
+        - "обслуживание общедомового имущества"
+        - "граница балансовой принадлежности"
+        - "граница эксплуатационной ответственности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в.*многоквартирных.*домах.*обслуживание.*внутридомовых.*сетей"
+        - "(?i)граница.*балансовой.*принадлежности"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор энергоснабжения.
+        Проверь наличие разграничения ответственности за внутридомовые сети в МКД.
+
+        Ответь строго в JSON:
+        {
+          "mcd_clause_exists": "<yes / no / not_found>",
+          "boundary_defined": "<yes / no / not_found>",
+          "odn_procedure": "<yes / no / not_found>",
+          "maintenance_responsibility": "<энергоснабжающая организация / ТСЖ/УК / не определено / not_found>",
+          "mcd_snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "многоквартирный дом"
+        - "внутридомовые сети"
+        - "ОДН"
+        - "граница балансовой принадлежности"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "mcd_clause_exists"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие условий по МКД"
+        - name: "boundary_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определена ли граница ответственности"
+        - name: "odn_procedure"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Порядок расчета ОДН"
+        - name: "maintenance_responsibility"
+          type: "string"
+          allowed_values: ["энергоснабжающая организация", "ТСЖ/УК", "не определено", "not_found"]
+          description: "Ответственный за обслуживание"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: энергоснабжающая организация и абонент"
+    description: "Проверяет наличие и достаточность идентификации сторон"
+    legal_base: "ст. 432, 539 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "энергоснабжающая организация"
+        - "сбытовая компания"
+        - "сетевая организация"
+        - "гарантирующий поставщик"
+        - "абонент"
+        - "потребитель"
+        - "ООО"
+        - "ПАО"
+        - "АО"
+        - "ИНН"
+        - "ОГРН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(энергоснабжающая|сбытовая).*организация.*именуем"
+        - "(?i)абонент.*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "supplier_type"
+          type: "string"
+          allowed_values: ["гарантирующий поставщик", "сбытовая компания", "сетевая организация", "unclear"]
+          keyword_hints: ["гарантирующий поставщик", "сбытовая", "сетевая"]
+          description: "Тип энергоснабжающей организации"
+        - name: "subscriber_type"
+          type: "string"
+          allowed_values: ["юридическое лицо", "физическое лицо", "ИП", "ТСЖ", "УК", "unclear"]
+          keyword_hints: ["юридическое лицо", "физическое лицо", "ТСЖ", "УК"]
+          description: "Тип абонента"
+      store_payload: true
+
+  - id: "subject_energy_type"
+    name: "Вид энергии (ст. 539, 541 ГК РФ)"
+    description: "Проверяет указание вида энергии (электрическая, тепловая, газ, вода)"
+    legal_base: "ст. 539, 541 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "электрическая энергия"
+        - "электроэнергия"
+        - "тепловая энергия"
+        - "тепло"
+        - "природный газ"
+        - "газ"
+        - "вода"
+        - "водоснабжение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вид.*энергии"
+        - "(?i)подача.*энергии"
+
+  - id: "delivery_point_specification"
+    name: "Точка поставки и граница балансовой принадлежности"
+    description: "Проверяет наличие точки поставки и разграничения имущества"
+    legal_base: "ст. 539, 541 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "точка поставки"
+        - "граница балансовой принадлежности"
+        - "граница эксплуатационной ответственности"
+        - "граница раздела"
+        - "вводное устройство"
+        - "граница сетей"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)точка.*поставки"
+        - "(?i)граница.*балансовой.*принадлежности"
+
+  - id: "tariff_specification"
+    name: "Тариф на энергию (ст. 424, 544 ГК РФ)"
+    description: "Проверяет наличие тарифа или порядка его определения"
+    legal_base: "ст. 424, 544 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "тариф"
+        - "цена"
+        - "стоимость"
+        - "рублей за"
+        - "киловатт"
+        - "кВт"
+        - "гигакалория"
+        - "Гкал"
+        - "кубометр"
+        - "одноставочный тариф"
+        - "двухставочный тариф"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)тариф.*в.*размере.*\\d"
+        - "(?i)цена.*\\d+.*(?:руб|₽).*за"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "tariff_amount"
+          type: "string"
+          keyword_hints: ["тариф", "рублей", "копеек"]
+          description: "Размер тарифа"
+        - name: "tariff_type"
+          type: "string"
+          allowed_values: ["одноставочный", "двухставочный", "трехставочный", "не определен", "not_found"]
+          keyword_hints: ["одноставочный", "двухставочный", "плата за мощность"]
+          description: "Тип тарифа"
+      store_payload: true
+
+  - id: "metering_procedure"
+    name: "Порядок учета потребления (ст. 544 ГК РФ)"
+    description: "Проверяет наличие порядка учета с использованием приборов учета"
+    legal_base: "ст. 544 ГК РФ, ст. 13 ФЗ-261 «Об энергосбережении»"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "прибор учета"
+        - "счетчик"
+        - "учет потребления"
+        - "показания прибора"
+        - "поверка"
+        - "пломба"
+        - "расчет по нормативу"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)прибор.*учета"
+        - "(?i)расчеты.*производятся.*на.*основании.*показаний"
+
+  - id: "payment_obligations"
+    name: "Обязанность абонента своевременно оплачивать потребленную энергию (ст. 544 ГК РФ)"
+    description: "Проверяет наличие условий о сроках и порядке оплаты"
+    legal_base: "ст. 544 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "обязанность оплачивать"
+        - "срок оплаты"
+        - "ежемесячная оплата"
+        - "на основании показаний счетчиков"
+        - "расчетный период"
+        - "пени за просрочку"
+        - "неустойка за неоплату"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)абонент.*обязан.*оплачивать.*потребленную.*энергию.*в.*срок"
+        - "(?i)срок.*оплаты.*\\d+.*число"
+
+  - id: "meter_maintenance"
+    name: "Обязанность абонента содержать приборы учета (ст. 544, 13 ФЗ-35)"
+    description: "Проверяет наличие условия об обязанности абонента обеспечивать сохранность и исправность приборов учета"
+    legal_base: "ст. 543, 544 ГК РФ, ст. 13 ФЗ-261 «Об энергосбережении»"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "содержание приборов учета"
+        - "поверка счетчиков"
+        - "исправность приборов учета"
+        - "обеспечение доступа к счетчикам"
+        - "замена приборов учета"
+        - "расчет по нормативу"
+        - "пломба"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)абонент.*обязан.*обеспечивать.*исправность.*приборов.*учета"
+        - "(?i)поверка.*приборов.*учета"
+
+  - id: "special_consumption_regime"
+    name: "Условия для объектов с особым режимом потребления"
+    description: "Проверяет наличие особых условий для объектов с непрерывным технологическим циклом"
+    legal_base: "ст. 546, 547 ГК РФ, ФЗ-35 «Об электроэнергетике»"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["critical_infrastructure"]
+    rules:
+      keywords:
+        - "особый режим потребления"
+        - "объекты первой категории надежности"
+        - "медицинское учреждение"
+        - "непрерывный технологический цикл"
+        - "приоритетное восстановление"
+        - "резервное энергоснабжение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)для.*объектов.*первой.*категории.*надежности.*гарантируется"
+        - "(?i)приоритетное.*восстановление.*энергоснабжения"
+
+  - id: "force_majeure_energy"
+    name: "Форс-мажор в энергоснабжении"
+    description: "Проверяет наличие оговорки о форс-мажоре с учетом специфики энергоснабжения"
+    legal_base: "ст. 401, 416 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "авария в сетях"
+        - "внеплановый ремонт"
+        - "форс-мажорные обстоятельства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс.*мажор.*энергоснабжен"
+        - "(?i)освобождение.*от.*ответственности.*при.*аварии"
+
+  - id: "dispute_resolution"
+    name: "Порядок разрешения споров"
+    description: "Проверяет наличие арбитражной или судебной оговорки"
+    legal_base: "ст. 5 АПК РФ, ст. 32 ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арбитражный суд"
+        - "подведомственность"
+        - "подсудность"
+        - "досудебный порядок"
+        - "претензионный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн.*суд"
+        - "(?i)претензионн.*порядок"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность коммерческой информации"
+    description: "Проверяет наличие условий о конфиденциальности данных абонента"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "коммерческая тайна"
+        - "персональные данные"
+        - "защита информации"
+        - "неразглашение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)персональные.*данные"
+
+  - id: "contract_term_and_renewal"
+    name: "Срок действия и автоматическая пролонгация (ст. 540 ГК РФ)"
+    description: "Проверяет наличие срока действия, условий автоматической пролонгации и порядка уведомления о непродлении. Для граждан договор считается заключённым на неопределённый срок, для юрлиц — существенно знать дату пролонгации."
+    legal_base: "ст. 540 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок действия"
+        - "срок договора"
+        - "пролонгация"
+        - "автоматически продлевается"
+        - "возобновляется на тот же срок"
+        - "уведомление о расторжении"
+        - "уведомление о непродлении"
+        - "на неопределенный срок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)договор.*действует.*до"
+        - "(?i)автоматическ.*продл(евается|ение)"
+        - "(?i)на\\s+неопределенн(ый|ого)\\s+срок"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "contract_term"
+          type: "string"
+          keyword_hints: ["срок действия", "до", "по"]
+          description: "Срок действия договора"
+        - name: "auto_renewal"
+          type: "string"
+          allowed_values: ["yes", "no", "indefinite", "not_found"]
+          keyword_hints: ["пролонгация", "продлевается", "возобновляется"]
+          description: "Предусмотрена ли автоматическая пролонгация"
+        - name: "non_renewal_notice_days"
+          type: "string"
+          keyword_hints: ["за", "дней", "до окончания"]
+          description: "Срок уведомления о непродлении (в днях)"
+      store_payload: true
+
+  - id: "energy_volume_and_capacity"
+    name: "Количество энергии и максимальная мощность (ст. 541 ГК РФ)"
+    description: "Проверяет наличие согласованного объёма потребления и/или максимальной мощности, а также последствий превышения лимита"
+    legal_base: "ст. 541 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "количество энергии"
+        - "объем потребления"
+        - "плановое потребление"
+        - "лимит потребления"
+        - "максимальная мощность"
+        - "присоединенная мощность"
+        - "договорной объем"
+        - "сверхдоговорное потребление"
+        - "превышение лимита"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)количество.*энергии.*составляет"
+        - "(?i)максимальн(ая|ой)\\s+мощност"
+        - "(?i)присоединенн(ая|ой)\\s+мощност"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "agreed_volume"
+          type: "string"
+          keyword_hints: ["объем", "количество", "кВт·ч", "Гкал", "м³"]
+          description: "Согласованный объём потребления"
+        - name: "max_capacity"
+          type: "string"
+          keyword_hints: ["максимальная мощность", "присоединенная мощность", "кВт", "МВт"]
+          description: "Максимальная мощность"
+        - name: "excess_consumption_consequence"
+          type: "string"
+          allowed_values: ["penalty", "higher_tariff", "disconnection", "not_found"]
+          keyword_hints: ["превышение", "сверхдоговорное", "штраф", "повышенный тариф"]
+          description: "Последствия превышения лимита"
+      store_payload: true
+
+  - id: "subscriber_network_maintenance"
+    name: "Обязанность абонента содержать сети и энергопринимающее оборудование (ст. 543 ГК РФ)"
+    description: "Проверяет наличие обязанности абонента обеспечивать надлежащее техническое состояние энергопринимающих устройств, соблюдать режим потребления и немедленно сообщать об авариях"
+    legal_base: "ст. 543 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "надлежащее техническое состояние"
+        - "энергопринимающее оборудование"
+        - "энергопринимающие устройства"
+        - "соблюдение режима потребления"
+        - "немедленно сообщить"
+        - "уведомить об аварии"
+        - "неисправность оборудования"
+        - "пожар"
+        - "авария"
+        - "содержание внутренних сетей"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)абонент.*обязан.*обеспечивать.*техническ.*состояние"
+        - "(?i)немедленно.*сообщ(ить|ать).*авари"
+        - "(?i)надлежащ.*состояние.*оборудован"
+
+  - id: "sub_subscriber_restriction"
+    name: "Запрет субабонентского подключения без согласия ЭСО (ст. 545 ГК РФ)"
+    description: "Абонент вправе передавать энергию субабоненту только с согласия энергоснабжающей организации. Несогласованное подключение третьих лиц — частая причина споров и отключений."
+    legal_base: "ст. 545 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "субабонент"
+        - "суб-абонент"
+        - "передача энергии третьим лицам"
+        - "подключение третьих лиц"
+        - "присоединение к сетям абонента"
+        - "с согласия энергоснабжающей"
+        - "транзит энергии"
+        - "запрещается передача энергии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субабонент"
+        - "(?i)передач(а|и)\\s+энерги.*третьим"
+        - "(?i)подключение.*к\\s+сет(ям|и)\\s+абонент"
+
+  - id: "termination_rights_asymmetry"
+    name: "Расторжение: асимметрия прав гражданина и юрлица (ст. 546 ГК РФ)"
+    description: "Гражданин-абонент вправе расторгнуть договор в одностороннем порядке (при условии полной оплаты). Юрлицо-абонент — только с согласия ЭСО или по суду. Проверяет корректность отражения этих правил."
+    legal_base: "ст. 546 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение договора"
+        - "односторонний отказ"
+        - "право на отказ"
+        - "прекращение договора"
+        - "расторгнуть в одностороннем порядке"
+        - "досрочное расторжение"
+        - "по соглашению сторон"
+        - "по решению суда"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении|ения)\\s+договор"
+        - "(?i)одностороннем\\s+порядке"
+        - "(?i)досрочн(ое|ого)\\s+расторжен"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "subscriber_termination_right"
+          type: "string"
+          allowed_values: ["unilateral", "mutual_consent", "court_only", "not_found"]
+          keyword_hints: ["в одностороннем порядке", "по соглашению", "по решению суда"]
+          description: "Право абонента на расторжение"
+        - name: "supplier_termination_right"
+          type: "string"
+          allowed_values: ["with_notice", "court_only", "upon_non_payment", "not_found"]
+          keyword_hints: ["энергоснабжающая организация вправе", "при неоплате", "по решению суда"]
+          description: "Право ЭСО на расторжение"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование, ИНН, ОГРН,
+      статус (гарантирующий поставщик / сбытовая / сетевая организация), лицензия на деятельность,
+      реквизиты для абонента (юрлицо / физлицо / ТСЖ / УК).
+    addressee: "Энергоснабжающая организация / Абонент"
+
+  subject_energy_type:
+    text: >
+      Просим уточнить в {doc_names}: конкретный вид энергии (электрическая / тепловая / газ / вода),
+      технические параметры, соответствие лицензии поставщика.
+    addressee: "Энергоснабжающая организация"
+
+  delivery_point_specification:
+    text: >
+      Просим предоставить по {doc_names}: схему точки поставки, акт разграничения балансовой
+      принадлежности, границу эксплуатационной ответственности, технические условия присоединения.
+    addressee: "Сетевая организация / Энергоснабжающая организация"
+
+  tariff_specification:
+    text: >
+      Просим предоставить по {doc_names}: действующий тариф с указанием регулирующего органа,
+      типа тарифа (одно/двухставочный), размера платы за мощность (если применимо), порядок пересмотра.
+    addressee: "Энергоснабжающая организация"
+
+  metering_procedure:
+    text: >
+      Просим предоставить по {doc_names}: сведения о приборах учета (модель, номер, дата поверки),
+      порядок снятия показаний, порядок расчета при неисправности/отсутствии прибора,
+      ответственность за сохранность приборов.
+    addressee: "Энергоснабжающая организация"
+
+  energy_quality_requirements_check:
+    text: >
+      В {doc_names} не раскрыты или неполно раскрыты требования к качеству энергии.
+      Просим согласовать: (а) конкретные параметры качества (напряжение, частота, температура, давление);
+      (б) ссылку на действующие ГОСТ; (в) порядок проверки качества; (г) ответственность за нарушение качества.
+    addressee: "Юридический советник абонента"
+
+  limitation_procedure_check:
+    text: >
+      В {doc_names} не раскрыт порядок ограничения/отключения энергии.
+      Просим согласовать: (а) исчерпывающий перечень оснований; (б) срок предварительного уведомления (не менее 20 дней);
+      (в) порядок досудебного обжалования; (г) порядок возобновления подачи.
+    addressee: "Юридический советник абонента"
+
+  liability_for_interruptions_check:
+    text: >
+      Просим согласовать в {doc_names}: размер неустойки за перерывы в подаче энергии,
+      порядок возмещения убытков от простоя, доказывание причинно-следственной связи,
+      исключения из ответственности (форс-мажор, аварии в сетях).
+    addressee: "Юридический советник"
+
+  payment_obligations:
+    text: >
+      Просим уточнить в {doc_names}: конкретные сроки оплаты (число месяца), размер пени за просрочку,
+      право ограничения подачи при неоплате, порядок начисления пени.
+    addressee: "Юридический советник энергоснабжающей организации"
+
+  meter_maintenance:
+    text: >
+      Просим добавить в {doc_names}: обязанность абонента обеспечивать сохранность приборов учета,
+      допуск для поверки и замены, последствия повреждения пломбы, расчет по нормативу при отказе от поверки.
+    addressee: "Юридический советник энергоснабжающей организации"
+
+  unauthorized_consumption_check:
+    text: >
+      Просим согласовать в {doc_names}: определение бездоговорного/безучетного потребления,
+      методику расчета объема (исходя из мощности и времени), размер штрафа/неустойки,
+      право отключения без предупреждения, порядок оформления акта.
+    addressee: "Юридический советник энергоснабжающей организации"
+
+  industrial_consumer_protection_check:
+    text: >
+      Для {doc_names} (промышленный потребитель) просим согласовать: категорию надежности энергоснабжения,
+      требования к резервному питанию, размер компенсации убытков от простоя, приоритетное восстановление подачи.
+    addressee: "Технический директор / Юридический советник"
+
+  mcd_obligations_check:
+    text: >
+      Для {doc_names} (МКД) просим согласовать: границу балансовой принадлежности сетей,
+      порядок расчета ОДН, ответственность за внутридомовые сети (ТСЖ/УК vs энергоснабжающая организация),
+      порядок согласования перерасхода.
+    addressee: "Управляющая компания / ТСЖ"
+
+  special_consumption_regime:
+    text: >
+      Для {doc_names} (объект с особым режимом) просим согласовать: статус объекта (первая категория надежности),
+      гарантии бесперебойного снабжения, сроки восстановления подачи, резервные источники питания.
+    addressee: "Технический директор / Юридический советник"
+
+  force_majeure_energy:
+    text: >
+      Просим уточнить в {doc_names} оговорку о форс-мажоре с учетом специфики энергоснабжения:
+      аварии в сетях как форс-мажор, порядок уведомления, временные рамки освобождения от ответственности.
+    addressee: "Юридический советник"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: подведомственность (арбитражные суды для юрлиц),
+      подсудность (место нахождения объекта), досудебный претензионный порядок (срок 30 дней).
+    addressee: "Юридический советник"
+
+  confidentiality:
+    text: >
+      Просим добавить в {doc_names} раздел о конфиденциальности: защита данных абонента,
+      коммерческая тайна объемов потребления, порядок передачи данных третьим лицам (судебным приставам и т.д.).
+    addressee: "Юридический советник"
+
+  social_facility_disconnection_prohibition:
+    text: >
+      Внимание: для {doc_names} (социально значимый объект) применяется запрет отключения
+      в отопительный период (Постановление № 354, п. 119). Просим предоставить подтверждение статуса объекта
+      и согласовать гарантии неотключения.
+    addressee: "Юридический советник абонента"
+
+  sales_surcharge_requirement:
+    text: >
+      Для {doc_names} (юридическое лицо) просим подтвердить включение энергосбытовой надбавки в тариф
+      в соответствии с ПП РФ № 1179, наличие расчета по двухставочному тарифу (если применимо).
+    addressee: "Финансовый директор / Энергоснабжающая организация"
+
+  two_rate_meter_requirement:
+    text: >
+      Для {doc_names} (юридическое лицо) просим подтвердить установку прибора учета с функцией
+      учета по зонам суток (ФЗ-261) или предоставить график замены прибора.
+    addressee: "Технический директор"
+
+  contract_term_and_renewal:
+    text: >
+      Просим уточнить в {doc_names}: срок действия договора, условия автоматической пролонгации,
+      срок направления уведомления о непродлении (не менее чем за ___ дней),
+      порядок изменения условий при пролонгации.
+    addressee: "Юридический советник"
+
+  energy_volume_and_capacity:
+    text: >
+      Просим предоставить по {doc_names}: согласованный объём потребления / максимальную мощность,
+      порядок расчёта при превышении или недоборе, возможность корректировки плановых объёмов,
+      период (месяц / квартал / год), на который согласовывается объём.
+    addressee: "Технический директор / Энергоснабжающая организация"
+
+  subscriber_network_maintenance:
+    text: >
+      Просим согласовать в {doc_names}: перечень обязанностей абонента по содержанию
+      энергопринимающего оборудования и внутренних сетей, порядок и срок уведомления ЭСО
+      об авариях и неисправностях, распределение ответственности при поломке на стороне абонента.
+    addressee: "Технический директор / Юридический советник"
+
+  sub_subscriber_restriction:
+    text: >
+      Просим уточнить в {doc_names}: наличие запрета или порядка согласования субабонентских
+      подключений (ст. 545 ГК РФ), последствия несанкционированного подключения третьих лиц
+      к сетям абонента, ответственность за транзит энергии.
+    addressee: "Юридический советник"
+
+  termination_rights_asymmetry:
+    text: >
+      Просим согласовать в {doc_names}: право абонента на односторонний отказ (для граждан —
+      ст. 546 п. 1 ГК РФ), условия и порядок расторжения для юрлиц, срок предупреждения,
+      обязательства сторон при расторжении (оплата, снятие показаний, демонтаж).
+    addressee: "Юридический советник"
+
+  residential_heat_disconnection_prohibition:
+    text: >
+      Внимание: для {doc_names} (теплоснабжение жилого МКД) действует запрет полного
+      отключения в отопительный период (ПП РФ № 354, ФЗ-190). Просим подтвердить, что
+      договор не содержит условий, противоречащих данному ограничению, и согласовать
+      порядок частичного ограничения (при необходимости).
+    addressee: "Юридический советник абонента"
+    
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

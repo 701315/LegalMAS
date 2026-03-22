@@ -21,6 +21,7 @@ CheckExecutor: запуск одной проверки (check) для одно�
 3) Если structured extraction (извлечение полей) падает, это НЕ ломает проверку:
    - просто оставляем structured_data=None и пишем диагноз в лог.
 """
+
 import time
 
 from core.config import settings
@@ -64,7 +65,10 @@ class CheckExecutor:
         # Расширяем query: к названию проверки добавляем boost_keywords из playbook.
         # Например: "Смена контроля" → "Смена контроля change of control смена собственника"
         boost_keywords = getattr(check.retrieval, "boost_keywords", []) or []
-        query = f"{check.name} {' '.join(boost_keywords[:3])}".strip()
+        if boost_keywords:
+            query = f"{check.name} {' '.join(boost_keywords[:3])}".strip()
+        else:
+            query = check.name
 
         # retrieval уже знает про context_k, но мы продублируем из playbook
         context_k = getattr(check.retrieval, "context_k", 5)
@@ -73,14 +77,14 @@ class CheckExecutor:
 
         # Строим структурированный контекст для детектора и LLM.
         # Каждый чанк получает заголовок с номером пункта, названием раздела и страницей.
-        context_parts = []
+        context_parts: list[str] = []
         for c in contexts:
             meta = c.get("metadata", {}) or {}
             clause = meta.get("clause_uid", "")
             page = meta.get("page", "")
             section = meta.get("section_title", "")
 
-            header_parts = []
+            header_parts: list[str] = []
             if clause:
                 header_parts.append(f"Пункт {clause}")
             if section:
@@ -94,12 +98,23 @@ class CheckExecutor:
         joined_text = "\n\n---\n\n".join(context_parts)
 
         # 2. Hybrid detection (rules + LLM)
-        # Здесь мы любыми средствами избегаем выбрасывания исключений наружу.
+        # Стараемся никогда не выбрасывать исключения наружу.
+        # Передаём doc_type и classification_confidence для более умной работы LLM.
+        doc_type = getattr(doc, "doc_type", "") or ""
+        try:
+            classification_confidence = float(
+                getattr(doc, "classification_confidence", 1.0) or 0.0
+            )
+        except (TypeError, ValueError):
+            classification_confidence = 0.0
+
         try:
             detection = self.detector.run(
                 text=joined_text,
                 chunks=contexts,
                 check=check,
+                doc_type=doc_type,
+                classification_confidence=classification_confidence,
             )
         except Exception as e:
             # Это спасательная сетка: сюда мы попадём только если внутри
@@ -115,6 +130,7 @@ class CheckExecutor:
             # чтобы не ломать весь Run.
             detection = {
                 "found": False,
+                "evidence": "",
                 "confidence": 0.0,
                 "method": "rules",  # по факту rules-only
                 "reason": "hybrid_detector_error",
@@ -162,7 +178,6 @@ class CheckExecutor:
                 },
             )
             # не роняем весь check, просто оставляем structured_data = None
-            # при желании можно добавить в raw_details флаг про ошибку извлечения
             if isinstance(raw_details, dict):
                 raw_details.setdefault("extraction_error", str(e))
 
@@ -210,7 +225,6 @@ class CheckExecutor:
                     clause_uid = first_src.get("clause_uid")
                 if element_id is None:
                     element_id = first_src.get("element_id")
-
 
         # Метрики: длительность и счётчик checks
         detector_label = detector_method or "unknown"

@@ -1,9 +1,12 @@
+# src/engine/detectors/rules_detector.py
+
 """
 Rules-based detector: ищет риски по keywords и regex.
 
 Назначение:
 - Быстрый, интерпретируемый детектор без LLM.
-- Работает поверх RulesConfig из playbook (keywords, keyword_mode, regex_patterns).
+- Работает поверх RulesConfig из playbook (keywords, keyword_mode, regex_patterns,
+  clause_patterns, negative_keywords).
 - Используется как первый этап в HybridDetector перед LLM-детектором.
 
 Возвращает DetectionResult-подобный словарь:
@@ -55,8 +58,11 @@ class RulesDetector:
                 "sources": None,
                 "raw": {
                     "hits": [],
+                    "negative_hits": [],
+                    "clause_hits": [],
                     "keyword_mode": getattr(rules, "keyword_mode", None),
                     "regex_patterns": list(getattr(rules, "regex_patterns", [])),
+                    "clause_patterns": list(getattr(rules, "clause_patterns", [])),
                 },
             }
 
@@ -66,26 +72,32 @@ class RulesDetector:
 
         # 1. Positive keywords с учётом keyword_mode
         pos_hits: list[str] = []
+        pos_spans: list[dict] = []
         for kw in rules.keywords:
             kw_lower = kw.lower()
             idx = text_lower.find(kw_lower)
             if idx != -1:
                 pos_hits.append(kw)
-                spans.append({"start": idx, "end": idx + len(kw)})
+                pos_spans.append({"start": idx, "end": idx + len(kw)})
 
         if rules.keyword_mode == KeywordMode.ALL:
             # Требуем, чтобы все keywords встретились
-            if len(pos_hits) != len(rules.keywords):
+            if len(rules.keywords) > 0 and len(pos_hits) != len(rules.keywords):
                 pos_hits = []
-                spans = []
+                pos_spans = []
 
         hits.extend(pos_hits)
+        spans.extend(pos_spans)
 
         # 2. Regex patterns
         regex_hits: list[str] = []
         regex_spans: list[dict] = []
         for pattern in rules.regex_patterns:
-            m = re.search(pattern, text, flags=re.IGNORECASE)
+            try:
+                m = re.search(pattern, text, flags=re.IGNORECASE)
+            except re.error:
+                # Некорректный паттерн не должен ломать детектор
+                continue
             if m:
                 regex_hits.append(m.group(0))
                 regex_spans.append({"start": m.start(), "end": m.end()})
@@ -93,30 +105,53 @@ class RulesDetector:
         hits.extend(regex_hits)
         spans.extend(regex_spans)
 
-        # 3. (опционально) Negative keywords — пока закомментировано
-        # В будущем можно добавить rules.negative_keywords и включить эту логику.
-        # neg_hits = [kw for kw in rules.negative_keywords if kw.lower() in text_lower]
-        # if neg_hits:
-        #     return {
-        #         "found": False,
-        #         "evidence": "",
-        #         "confidence": 0.0,
-        #         "method": "rules",
-        #         "reason": "negative_keywords_matched",
-        #         "rule_name": getattr(rules, "name", None),
-        #         "check_id": None,
-        #         "severity": None,
-        #         "span": None,
-        #         "location": None,
-        #         "sources": None,
-        #         "raw": {
-        #             "hits": hits,
-        #             "negative_hits": neg_hits,
-        #             "keyword_mode": getattr(rules, "keyword_mode", None),
-        #             "regex_patterns": list(rules.regex_patterns),
-        #         },
-        #     }
+        # 3. Clause patterns (для doc-type-инструкций)
+        clause_hits: list[str] = []
+        clause_spans: list[dict] = []
+        for pattern in getattr(rules, "clause_patterns", []) or []:
+            try:
+                m = re.search(pattern, text, flags=re.IGNORECASE)
+            except re.error:
+                continue
+            if m:
+                clause_hits.append(m.group(0))
+                clause_spans.append({"start": m.start(), "end": m.end()})
 
+        hits.extend(clause_hits)
+        spans.extend(clause_spans)
+
+        # 4. Negative keywords: если нашли негативы, глушим сигнал
+        negative_hits: list[str] = []
+        for kw in getattr(rules, "negative_keywords", []) or []:
+            kw_lower = kw.lower()
+            if kw_lower in text_lower:
+                negative_hits.append(kw)
+
+        if negative_hits:
+            # Негативные маркеры присутствуют — считаем, что риск по этому rules не сработал.
+            return {
+                "found": False,
+                "evidence": "",
+                "confidence": 0.0,
+                "method": "rules",
+                "reason": "negative_keywords_matched",
+                "rule_name": getattr(rules, "name", None),
+                "check_id": None,
+                "severity": None,
+                "span": None,
+                "location": None,
+                "sources": None,
+                "raw": {
+                    "hits": hits,
+                    "negative_hits": negative_hits,
+                    "clause_hits": clause_hits,
+                    "keyword_mode": getattr(rules, "keyword_mode", None),
+                    "regex_patterns": list(getattr(rules, "regex_patterns", [])),
+                    "clause_patterns": list(getattr(rules, "clause_patterns", [])),
+                },
+            }
+
+        # 5. Если после всего положительных совпадений нет — found=False
         if not hits:
             return {
                 "found": False,
@@ -132,12 +167,15 @@ class RulesDetector:
                 "sources": None,
                 "raw": {
                     "hits": [],
+                    "negative_hits": negative_hits,
+                    "clause_hits": clause_hits,
                     "keyword_mode": getattr(rules, "keyword_mode", None),
-                    "regex_patterns": list(rules.regex_patterns),
+                    "regex_patterns": list(getattr(rules, "regex_patterns", [])),
+                    "clause_patterns": list(getattr(rules, "clause_patterns", [])),
                 },
             }
 
-        # Простая эвристика confidence: базовый порог + бонус за количество совпадений
+        # 6. Простая эвристика confidence: базовый порог + бонус за количество совпадений
         confidence = min(1.0, 0.4 + 0.1 * len(hits))
 
         # Берём первый hit как evidence и его span, если он есть
@@ -149,17 +187,20 @@ class RulesDetector:
             "evidence": evidence,
             "confidence": confidence,
             "method": "rules",
-            "reason": f"matched rules: keywords/regex, total_hits={len(hits)}",
+            "reason": f"matched rules: keywords/regex/clause_patterns, total_hits={len(hits)}",
             "rule_name": getattr(rules, "name", None),
             "check_id": None,  # заполнит HybridDetector
             "severity": None,  # заполнит CheckExecutor/playbook
             "span": span,
             "location": None,  # можно будет заполнить chunk_id/page/clause_uid выше по стеку
-            "sources": None,  # список чанков/источников — тоже выше
+            "sources": None,   # список чанков/источников — тоже выше
             "raw": {
                 "hits": hits,
                 "spans": spans,
+                "negative_hits": negative_hits,
+                "clause_hits": clause_hits,
                 "keyword_mode": getattr(rules, "keyword_mode", None),
-                "regex_patterns": list(rules.regex_patterns),
+                "regex_patterns": list(getattr(rules, "regex_patterns", [])),
+                "clause_patterns": list(getattr(rules, "clause_patterns", [])),
             },
         }

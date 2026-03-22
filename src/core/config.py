@@ -181,6 +181,12 @@ class Settings(BaseSettings):
     RUNNER_SPARSE_WEIGHT: float = 0.3  # BM25
     RUNNER_METADATA_WEIGHT: float = 0.1  # doc_type / meta
 
+    # Runner: режим выбора проверок
+    #   "global_and_doc_type" — глобальный плейбук + doc-type YAML
+    #   "global_only"         — только глобальный плейбук
+    #   "doc_type_only"       — только doc-type YAML
+    CHECK_RUNNER_MODE: str = "global_and_doc_type"
+
     # Runner: классификационные пороги (для HybridClassifier Stage 8)
     CLASSIFICATION_L1_ACCEPT: float = 0.90
     CLASSIFICATION_L2_ACCEPT: float = 0.85

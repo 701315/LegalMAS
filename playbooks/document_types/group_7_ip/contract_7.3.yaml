@@ -1,0 +1,2814 @@
+type: contract_7.3_franchise
+name: "Договор коммерческой концессии (франчайзинг)"
+
+description: |
+  Комплексное соглашение, по которому правообладатель (франчайзер) предоставляет
+  пользователю (франчайзи) за вознаграждение КОМПЛЕКС исключительных прав
+  (обязательно: товарный знак/коммерческое обозначение + ноу-хау) для использования
+  в предпринимательской деятельности с соблюдением правил и стандартов франчайзера.
+  Модель "клонирования бизнеса" под единым брендом с системой обучения и поддержки.
+  Подлежит ОБЯЗАТЕЛЬНОЙ государственной регистрации в Роспатенте.
+  Франчайзер несёт субсидиарную ответственность за качество товаров/услуг франчайзи.
+
+version: 4.1
+parent: class_7_intellectual_property
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: intellectual_property
+  complexity: very_high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "ГК РФ Глава 54 (ст. 1027-1040)"
+  doc_types_supported:
+    - "договор коммерческой концессии"
+    - "франчайзинг"
+    - "франшиза"
+    - "договор франчайзинга"
+    - "сетевой лицензионный договор"
+    - "мастер-франчайзинг"
+    - "субконцессия"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)франчайз"
+      - "(?i)франшиз"
+      - "(?i)концесси"
+      - "(?i)franchise"
+
+    folder_patterns:
+      - "(?i)franchise"
+      - "(?i)франчайз"
+      - "(?i)IP"
+
+    keywords:
+
+      high:
+        - "коммерческая концессия"
+        - "франчайзинг"
+        - "франшиза"
+        - "франчайзер"
+        - "франчайзи"
+        - "комплекс исключительных прав"
+        - "система ведения бизнеса"
+        - "ноу-хау"
+        - "товарный знак"
+        - "коммерческое обозначение"
+
+      medium:
+        - "паушальный взнос"
+        - "роялти"
+        - "рекламные отчисления"
+        - "стандарты качества"
+        - "руководство по эксплуатации"
+        - "технологические карты"
+        - "обучение персонала"
+        - "территориальная исключительность"
+        - "субконцессия"
+        - "солидарная ответственность"
+
+      low:
+        - "минимальный объём закупок"
+        - "сетевые стандарты"
+        - "контроль качества"
+        - "Роспатент"
+        - "антимонопольные ограничения"
+        - "ребрендинг"
+        - "инспекции"
+
+    exclusions:
+      - "лицензионный договор"
+      - "только право использования"
+      - "договор об отчуждении исключительного права"
+      - "агентский договор"
+      - "договор возмездного оказания услуг"
+      - "дистрибьюторский договор"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  registered_trademark:
+    any_keywords:
+      - "товарный знак"
+      - "торговая марка"
+      - "бренд"
+      - "знак обслуживания"
+      - "коммерческое обозначение"
+      - "фирменный стиль"
+      - "логотип"
+      - "регистрационный номер знака"
+
+  knowhow_transfer:
+    any_keywords:
+      - "ноу-хау"
+      - "секрет производства"
+      - "коммерческая тайна"
+      - "технология"
+      - "методика"
+      - "рецептура"
+      - "технологические карты"
+      - "руководство по эксплуатации"
+
+  business_system_complete:
+    any_keywords:
+      - "комплекс исключительных прав"
+      - "система ведения бизнеса"
+      - "бизнес-модель"
+      - "стандарты ведения деятельности"
+      - "методы организации бизнеса"
+      - "операционное руководство"
+
+  royalty_based:
+    any_keywords:
+      - "роялти"
+      - "процент от выручки"
+      - "периодические платежи"
+      - "ежемесячные отчисления"
+      - "процент от оборота"
+      - "переменное вознаграждение"
+
+  lump_sum_payment:
+    any_keywords:
+      - "паушальный взнос"
+      - "вступительный взнос"
+      - "первоначальный платёж"
+      - "единовременный платёж"
+      - "franchise fee"
+
+  territory_exclusive:
+    any_keywords:
+      - "эксклюзивная территория"
+      - "защита территории"
+      - "территориальная эксклюзивность"
+      - "радиус защиты"
+      - "запрет открытия точек на территории"
+      - "монопольное право на территории"
+
+  quality_control_clause:
+    any_keywords:
+      - "контроль качества"
+      - "инспекции"
+      - "проверки точек"
+      - "соблюдение стандартов"
+      - "аудит качества"
+      - "тайный покупатель"
+      - "мониторинг качества"
+
+  training_support_clause:
+    any_keywords:
+      - "обучение"
+      - "первоначальное обучение"
+      - "тренинг"
+      - "консультационная поддержка"
+      - "техническое содействие"
+      - "помощь в открытии"
+      - "маркетинговая поддержка"
+
+  subfranchising_allowed:
+    any_keywords:
+      - "субконцессия"
+      - "субфранчайзинг"
+      - "мастер-франчайзи"
+      - "право предоставлять субконцессию"
+      - "субфраншиза"
+
+  liability_for_quality:
+    any_keywords:
+      - "субсидиарная ответственность"
+      - "ответственность за качество"
+      - "ответственность франчайзера"
+      - "претензии потребителей"
+      - "требования к качеству"
+
+  post_termination_obligations:
+    any_keywords:
+      - "после прекращения договора"
+      - "ребрендинг"
+      - "демонтаж вывесок"
+      - "прекращение использования"
+      - "возврат материалов"
+      - "неконкуренция"
+      - "запрет использования после расторжения"
+
+  related_parties:
+    any_keywords:
+      - "взаимозависимые лица"
+      - "аффилированные лица"
+      - "связанные стороны"
+      - "группа компаний"
+      - "холдинг"
+
+  cross_border:
+    any_keywords:
+      - "иностранный франчайзер"
+      - "международный франчайзинг"
+      - "нерезидент"
+      - "валютный контроль"
+      - "паспорт сделки"
+      - "налог у источника"
+
+  antitrust_risks:
+    any_keywords:
+      - "антимонопольное законодательство"
+      - "защита конкуренции"
+      - "ФАС"
+      - "ограничительные условия"
+      - "монополия"
+      - "вертикальные соглашения"
+
+  commercial_parties:
+    any_keywords:
+      - "ООО"
+      - "АО"
+      - "ПАО"
+      - "ИП"
+      - "индивидуальный предприниматель"
+      - "коммерческая организация"
+      - "юридическое лицо"
+
+  digital_systems:
+    any_keywords:
+      - "CRM"
+      - "POS"
+      - "программное обеспечение"
+      - "личный кабинет"
+      - "IT-система"
+      - "информационная система"
+      - "мобильное приложение"
+      - "сайт франчайзи"
+      - "интернет-магазин"
+      - "база данных клиентов"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|USD|EUR|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percent_pattern: "(?i)\\b\\d+[.,]?\\d*\\s*%"
+  territory_pattern: "(?i)(территори[ия]|РФ|Российск[ая]\\s+Федераци[ия]|регион|город|область)"
+  trademark_number: "(?i)товарн\\w+\\s+знак\\s+№?\\s*\\d+"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "registration_mandatory_franchise"
+    name: "Обязательная регистрация в Роспатенте (ст. 1028 ГК РФ)"
+    description: |
+      Договор коммерческой концессии подлежит ОБЯЗАТЕЛЬНОЙ государственной регистрации в Роспатенте.
+      Без регистрации договор считается НЕДЕЙСТВИТЕЛЬНЫМ (п. 2 ст. 1028 ГК РФ).
+    legal_base: "п. 2 ст. 1028 ГК РФ, Приказ Минэкономразвития № 707"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "Роспатент"
+        - "подлежит регистрации"
+        - "регистрация договора"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии (франчайзинга).
+        Проверь наличие условия об обязательной государственной регистрации.
+
+        Ответь строго в JSON:
+        {
+          "registration_clause_present": "<yes / no / not_found>",
+          "responsible_party": "<franchisor / franchisee / joint / not_specified>",
+          "deadline": "<срок регистрации или not_found>",
+          "cost_allocation": "<кто несёт расходы или not_found>"
+        }
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "регистрация"
+        - "Роспатент"
+        - "государственная пошлина"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+
+  - id: "trademark_mandatory_in_complex"
+    name: "Товарный знак/коммерческое обозначение обязательны в комплексе прав (ст. 1027 ГК РФ)"
+    description: |
+      Комплекс исключительных прав ОБЯЗАТЕЛЬНО должен включать право на использование
+      товарного знака или коммерческого обозначения.
+      Без этого договор НЕ является коммерческой концессией.
+    legal_base: "п. 1 ст. 1027 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "товарный знак"
+        - "торговая марка"
+        - "коммерческое обозначение"
+        - "бренд"
+        - "знак обслуживания"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "товарный знак"
+        - "комплекс прав"
+        - "средства индивидуализации"
+      rerank: true
+
+  - id: "commercial_parties_mandatory"
+    name: "Обе стороны должны быть коммерческими организациями/ИП (ст. 1027 ГК РФ)"
+    description: |
+      Сторонами договора коммерческой концессии могут быть только коммерческие организации
+      и индивидуальные предприниматели.
+      Некоммерческие организации и физические лица (не ИП) не могут быть сторонами.
+    legal_base: "п. 3 ст. 1027 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "ООО"
+        - "АО"
+        - "ПАО"
+        - "ИП"
+        - "индивидуальный предприниматель"
+        - "коммерческая организация"
+      keyword_mode: "any"
+      negative_keywords:
+        - "физическое лицо"
+        - "гражданин"
+        - "некоммерческая организация"
+        - "НКО"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "франчайзер"
+        - "франчайзи"
+        - "коммерческая организация"
+      rerank: true
+
+  - id: "antitrust_restrictive_conditions"
+    name: "Антимонопольные ограничения (ФЗ-135 'О защите конкуренции')"
+    description: |
+      Ограничительные условия (территориальная эксклюзивность, non-compete,
+      обязательные закупки у франчайзера) могут быть признаны недействительными
+      по антимонопольному законодательству, если ограничивают конкуренцию.
+      Особенно критично для крупных сетей с долей рынка > 35%.
+    legal_base: "ФЗ-135 'О защите конкуренции', ст. 10, 11, 16"
+    required_triggers: ["antitrust_risks", "territory_exclusive"]
+    severity: "high"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "территориальная эксклюзивность"
+        - "запрет конкуренции"
+        - "обязательные закупки"
+        - "рекомендованные поставщики"
+        - "минимальный объём закупок"
+        - "запрет работы с конкурентами"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "эксклюзивность"
+        - "конкуренция"
+        - "закупки"
+      rerank: true
+
+  - id: "transfer_pricing_franchise_royalty"
+    name: "Трансфертное ценообразование при роялти между взаимозависимыми (НК РФ ст. 105.3)"
+    description: |
+      Роялти между взаимозависимыми лицами (франчайзер и франчайзи в одной группе)
+      подлежат контролю ФНС на соответствие рыночным условиям.
+      Завышенные ставки роялти могут быть переквалифицированы налоговым органом.
+    legal_base: "НК РФ ст. 105.3, 105.14, 105.15"
+    required_triggers: ["related_parties", "royalty_based"]
+    severity: "high"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "трансфертное ценообразование"
+        - "контролируемая сделка"
+        - "рыночный уровень"
+        - "уведомление ФНС"
+        - "взаимозависимые лица"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "роялти"
+        - "взаимозависимые"
+        - "трансфертное ценообразование"
+      rerank: true
+
+  - id: "franchise_without_registered_trademark"
+    name: "Франшиза без зарегистрированного товарного знака (мошенническая схема)"
+    description: |
+      Распространённая мошенническая схема: «франчайзер» продаёт франшизу на бренд,
+      товарный знак которого НЕ зарегистрирован или зарегистрирован на другое лицо.
+      В этом случае договор не может быть зарегистрирован в Роспатенте,
+      франчайзи не получает правовой защиты, а паушальный взнос фактически потерян.
+      Обзор судебной практики ВС РФ 2023 г. — п. 3.1.
+    legal_base: "ст. 1027, 1028 ГК РФ, Обзор ВС РФ 2023"
+    required_triggers: ["registered_trademark"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "товарный знак"
+        - "свидетельство на товарный знак"
+        - "регистрационный номер"
+        - "дата приоритета"
+        - "срок действия регистрации"
+        - "заявка на регистрацию"
+      keyword_mode: "any"
+      negative_keywords:
+        - "заявка на регистрацию товарного знака"
+        - "ожидается регистрация"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь, зарегистрирован ли товарный знак франчайзера.
+
+        Ответь строго в JSON:
+        {
+          "trademark_registration_status": "<registered / pending / not_specified / not_found>",
+          "trademark_registration_number": "<номер свидетельства или not_found>",
+          "trademark_owner_matches_franchisor": "<yes / no / unclear / not_found>",
+          "trademark_validity_date": "<дата окончания действия или not_found>"
+        }
+
+        КРИТИЧНО: Если товарный знак не зарегистрирован или зарегистрирован на третье лицо,
+        договор не может быть зарегистрирован в Роспатенте и фактически ничтожен.
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      boost_keywords:
+        - "товарный знак"
+        - "свидетельство"
+        - "регистрационный номер"
+        - "Роспатент"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+
+  - id: "withholding_tax_cross_border_royalty"
+    name: "Налог у источника при трансграничном роялти (НК РФ ст. 309, 310)"
+    description: |
+      При выплате роялти иностранному франчайзеру российский франчайзи обязан
+      удержать налог у источника (по умолчанию 20%, может быть снижен по СОИДН).
+      Без правильного структурирования — двойное налогообложение.
+    legal_base: "НК РФ ст. 309, 310; СОИДН"
+    required_triggers: ["cross_border", "royalty_based"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "налог у источника"
+        - "withholding tax"
+        - "удержание налога"
+        - "СОИДН"
+        - "соглашение об избежании двойного налогообложения"
+        - "нерезидент"
+        - "валютный контроль"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "налог у источника"
+        - "нерезидент"
+        - "роялти"
+        - "СОИДН"
+      rerank: true
+
+  - id: "consumer_rights_subsidiary_liability_extended"
+    name: "Расширенная субсидиарная ответственность (ст. 1034 ГК + ФЗ-2300-1)"
+    description: |
+      Помимо субсидиарной ответственности по ст. 1034 ГК РФ, франчайзер может нести
+      солидарную ответственность по ФЗ «О защите прав потребителей» за ненадлежащее
+      качество товаров/услуг, особенно если потребитель воспринимает франчайзи как
+      филиал франчайзера (единый бренд, единые стандарты).
+    legal_base: "ст. 1034 ГК РФ, ФЗ-2300-1, п. 32 ПП ВС РФ от 28.06.2012 № 17"
+    required_triggers: ["liability_for_quality"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "субсидиарная ответственность"
+        - "солидарная ответственность"
+        - "защита прав потребителей"
+        - "ненадлежащее качество"
+        - "претензии потребителей"
+        - "товары ненадлежащего качества"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "субсидиарная ответственность"
+        - "потребитель"
+        - "качество"
+      rerank: true
+      
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: rights_complex_extraction
+    name: "Комплекс исключительных прав: состав и полнота"
+    description: |
+      Извлекает состав комплекса: товарный знак/коммерческое обозначение (обязательно!),
+      ноу-хау, коммерческая тайна, патенты, произведения, программы для ЭВМ.
+      Проверяет наличие обязательных элементов.
+    triggers:
+      any: ["business_system_complete", "registered_trademark"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "комплекс исключительных прав"
+        - "товарный знак"
+        - "коммерческое обозначение"
+        - "ноу-хау"
+        - "секрет производства"
+        - "коммерческая тайна"
+        - "патент"
+        - "произведение"
+        - "программа для ЭВМ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)товарн\\w+\\s+знак\\s+№?\\s*\\d+"
+        - "(?i)комплекс.*включает"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии (франчайзинга).
+        Определи состав комплекса исключительных прав.
+
+        Ответь строго в JSON:
+        {
+          "trademark_present": "<yes / no>",
+          "trademark_registration_number": "<номер или not_found>",
+          "commercial_designation_present": "<yes / no>",
+          "knowhow_present": "<yes / no>",
+          "knowhow_description": "<описание ноу-хау или not_found>",
+          "other_rights": "<список других прав или not_found>",
+          "complex_complete": "<yes / incomplete / unclear>"
+        }
+
+        КРИТИЧНО: Комплекс ОБЯЗАТЕЛЬНО должен включать товарный знак/коммерческое обозначение (ст. 1027 ГК РФ).
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 8
+      max_chunks: 10
+      boost_keywords:
+        - "комплекс прав"
+        - "товарный знак"
+        - "ноу-хау"
+        - "состав прав"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 60
+      max_snippet_length: 800
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "trademark_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие товарного знака"
+        - name: "knowhow_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие ноу-хау"
+        - name: "complex_complete"
+          type: "string"
+          allowed_values: ["yes", "incomplete", "unclear"]
+          description: "Полнота комплекса прав"
+      store_payload: true
+
+  - id: business_activity_sphere
+    name: "Сфера предпринимательской деятельности"
+    description: |
+      Конкретные виды товаров/работ/услуг, в отношении которых используется комплекс прав.
+      Существенное условие договора.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "сфера деятельности"
+        - "предпринимательская деятельность"
+        - "виды товаров"
+        - "виды услуг"
+        - "ассортимент"
+        - "предмет договора"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Определи сферу предпринимательской деятельности франчайзи.
+
+        Ответь строго в JSON:
+        {
+          "business_sphere": "<сфера деятельности или not_found>",
+          "goods_services_specified": "<yes / vague / no>",
+          "assortment_restrictions": "<ограничения ассортимента или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "сфера деятельности"
+        - "виды товаров"
+        - "ассортимент"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "business_sphere"
+          type: "string"
+          description: "Сфера предпринимательской деятельности"
+        - name: "goods_services_specified"
+          type: "string"
+          allowed_values: ["yes", "vague", "no"]
+          description: "Чёткость определения товаров/услуг"
+      store_payload: true
+
+  - id: remuneration_structure
+    name: "Структура вознаграждения (паушальный взнос + роялти + рекламные отчисления)"
+    description: |
+      Извлекает все компоненты вознаграждения франчайзера:
+      паушальный взнос (lump sum), роялти (royalty), рекламные отчисления, прочие платежи.
+    triggers:
+      any: ["lump_sum_payment", "royalty_based"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "вознаграждение"
+        - "паушальный взнос"
+        - "роялти"
+        - "рекламные отчисления"
+        - "процент от выручки"
+        - "franchise fee"
+        - "единовременный платёж"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)паушальн\\w+.*?\\d[\\d\\s]*(?:руб|USD|EUR)"
+        - "(?i)роялти.*?\\d+[.,]?\\d*\\s*%"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Определи структуру вознаграждения франчайзера.
+
+        Ответь строго в JSON:
+        {
+          "lump_sum_present": "<yes / no>",
+          "lump_sum_amount": "<сумма или not_found>",
+          "royalty_present": "<yes / no>",
+          "royalty_rate": "<ставка роялти или not_found>",
+          "royalty_base": "<база расчёта (выручка/прибыль/продажи) или not_found>",
+          "advertising_fee_present": "<yes / no>",
+          "advertising_fee_rate": "<ставка или not_found>",
+          "other_payments": "<прочие платежи или not_found>"
+        }
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 8
+      max_chunks: 10
+      boost_keywords:
+        - "вознаграждение"
+        - "паушальный"
+        - "роялти"
+        - "рекламные отчисления"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "lump_sum_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие паушального взноса"
+        - name: "lump_sum_amount"
+          type: "number"
+          keyword_hints: ["паушальный взнос", "вступительный взнос"]
+          unit: "RUB"
+          description: "Размер паушального взноса"
+        - name: "royalty_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие роялти"
+        - name: "royalty_rate"
+          type: "string"
+          regex_patterns:
+            - "(?i)\\b\\d+[.,]?\\d*\\s*%"
+          description: "Ставка роялти"
+      store_payload: true
+
+  - id: territory_and_term
+    name: "Территория и срок действия договора"
+    description: "Территориальные рамки и срок действия концессии"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "территория"
+        - "срок действия"
+        - "эксклюзивная территория"
+        - "радиус защиты"
+        - "действует до"
+      keyword_mode: "any"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Определи территорию и срок действия.
+
+        Ответь строго в JSON:
+        {
+          "territory": "<территория или not_found>",
+          "territory_exclusive": "<yes / no / unclear>",
+          "term": "<срок или not_found>",
+          "renewal_option": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "территория"
+        - "срок"
+        - "эксклюзивность"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "territory"
+          type: "string"
+          description: "Территория"
+        - name: "territory_exclusive"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Эксклюзивность территории"
+        - name: "term"
+          type: "string"
+          description: "Срок действия"
+      store_payload: true
+
+  - id: pre_contractual_disclosure
+    name: "Преддоговорное раскрытие информации (Disclosure Document / FDD)"
+    description: |
+      Франчайзер должен раскрыть франчайзи информацию о себе, финансовом положении,
+      количестве действующих/закрытых точек, судебных спорах, реальных показателях бизнеса.
+      Критично для защиты франчайзи от мошеннических схем.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "преддоговорное раскрытие"
+        - "disclosure document"
+        - "FDD"
+        - "информация о франчайзере"
+        - "история франшизы"
+        - "количество точек"
+        - "финансовые показатели"
+        - "судебные споры"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+предоставил.*информаци"
+        - "(?i)до\\s+заключения.*ознакомлен"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь наличие условий о преддоговорном раскрытии информации (Disclosure Document).
+
+        Ответь строго в JSON:
+        {
+          "disclosure_present": "<yes / partial / no>",
+          "disclosed_info_types": "<список раскрытой информации или not_found>",
+          "financial_statements": "<yes / no / not_found>",
+          "litigation_history": "<yes / no / not_found>",
+          "franchisee_count": "<количество точек или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "преддоговорное раскрытие"
+        - "информация о франчайзере"
+        - "disclosure"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "disclosure_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Наличие преддоговорного раскрытия"
+      store_payload: true
+
+  - id: territory_protection
+    name: "Защита территории (эксклюзивность)"
+    description: |
+      Без территориальной защиты франчайзер может открыть собственные точки
+      или выдать франшизу другим на той же территории → каннибализация рынка.
+    triggers:
+      any: ["territory_exclusive"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "эксклюзивная территория"
+        - "защита территории"
+        - "запрет открытия точек"
+        - "радиус защиты"
+        - "монопольное право на территории"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+обязуется\\s+не\\s+предоставлять.*на\\s+территории"
+        - "(?i)территори\\w+.*эксклюзивн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь наличие защиты территории для франчайзи.
+
+        Ответь строго в JSON:
+        {
+          "territory_exclusive": "<yes / no / unclear>",
+          "franchisor_prohibited_from_opening": "<yes / no / unclear>",
+          "franchisor_prohibited_from_granting_others": "<yes / no / unclear>",
+          "radius_km": "<радиус защиты в км или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "эксклюзивная территория"
+        - "защита территории"
+        - "запрет открытия"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "territory_exclusive"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Эксклюзивность территории"
+      store_payload: true
+
+  - id: renewal_preferential_right
+    name: "Право на продление и преимущественное право (ст. 1035 ГК РФ)"
+    description: |
+      По окончании срока франчайзи может потерять все инвестиции.
+      Статья 1035 ГК РФ даёт преимущественное право, но условия могут быть изменены.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "продление договора"
+        - "преимущественное право"
+        - "возобновление"
+        - "новый срок"
+        - "условия продления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзи\\s+имеет\\s+преимущественное\\s+право"
+        - "(?i)продление.*на\\s+условиях"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о продлении договора.
+
+        Ответь строго в JSON:
+        {
+          "renewal_clause_present": "<yes / no>",
+          "preferential_right": "<yes / no / unclear>",
+          "renewal_conditions": "<условия продления или not_found>",
+          "notice_period": "<срок уведомления или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "продление"
+        - "преимущественное право"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "renewal_clause_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие условия о продлении"
+      store_payload: true
+
+  - id: standards_change_limitation
+    name: "Ограничение на односторонние изменения стандартов"
+    description: |
+      Франчайзер может в одностороннем порядке менять стандарты, требуя дорогостоящего ремонта.
+      Без ограничений или компенсации — риск непредвиденных затрат для франчайзи.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "изменение стандартов"
+        - "уведомление об изменениях"
+        - "срок на внедрение"
+        - "компенсация затрат"
+        - "существенные изменения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+вправе\\s+изменять.*с\\s+уведомлением"
+        - "(?i)при\\s+существенных\\s+изменениях.*вправе"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия об изменении стандартов.
+
+        Ответь строго в JSON:
+        {
+          "standards_change_allowed": "<yes / no / unclear>",
+          "notice_period": "<срок уведомления или not_found>",
+          "implementation_period": "<срок на внедрение или not_found>",
+          "cost_compensation": "<компенсация затрат или not_found>",
+          "termination_right_on_major_changes": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "изменение стандартов"
+        - "уведомление"
+        - "компенсация"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "standards_change_allowed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Право франчайзера изменять стандарты"
+      store_payload: true
+
+  - id: quality_control_rights
+    name: "Право контроля качества и инспекций (ст. 1031, 1034 ГК РФ)"
+    description: |
+      Франчайзер несёт субсидиарную ответственность за качество товаров/услуг франчайзи.
+      Без права контроля и инспекций — риск ущерба репутации бренда.
+    triggers:
+      any: ["quality_control_clause", "liability_for_quality"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "контроль качества"
+        - "инспекции"
+        - "проверки точек"
+        - "соблюдение стандартов"
+        - "аудит качества"
+        - "тайный покупатель"
+        - "право доступа"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+вправе\\s+проводить\\s+проверки"
+        - "(?i)франчайзи\\s+обязан\\s+допускать.*для\\s+инспекции"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о контроле качества.
+
+        Ответь строго в JSON:
+        {
+          "quality_control_right": "<yes / no / unclear>",
+          "inspection_frequency": "<периодичность или not_found>",
+          "access_right": "<право доступа или not_found>",
+          "mystery_shopper": "<yes / no / unclear>",
+          "sanctions_for_breach": "<санкции за нарушения или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "контроль качества"
+        - "инспекции"
+        - "проверки"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "quality_control_right"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Право франчайзера контролировать качество"
+      store_payload: true
+
+  - id: knowhow_confidentiality
+    name: "Защита ноу-хау и конфиденциальности (ст. 1032, 1469 ГК РФ)"
+    description: |
+      Ноу-хау — ключевой актив франчайзера.
+      После прекращения договора франчайзи может использовать знания для конкурирующего бизнеса.
+    triggers:
+      any: ["knowhow_transfer"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ноу-хау"
+        - "секрет производства"
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "запрет раскрытия"
+        - "ответственность за разглашение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзи\\s+обязуется\\s+не\\s+разглашать"
+        - "(?i)конфиденциальность.*после\\s+прекращения"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о защите ноу-хау.
+
+        Ответь строго в JSON:
+        {
+          "confidentiality_clause": "<yes / no>",
+          "knowhow_protection_period": "<срок защиты или not_found>",
+          "post_termination_restriction": "<yes / no / unclear>",
+          "sanctions_for_disclosure": "<санкции или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "ноу-хау"
+        - "конфиденциальность"
+        - "неразглашение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "confidentiality_clause"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие условия о конфиденциальности"
+      store_payload: true
+
+  - id: rebranding_post_termination
+    name: "Ребрендинг и демонтаж вывесок после прекращения (ст. 1037, 1040 ГК РФ)"
+    description: |
+      После прекращения договора франчайзи должен прекратить использование бренда.
+      Без чётких сроков и штрафов — риск продолжения использования.
+    triggers:
+      any: ["post_termination_obligations"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ребрендинг"
+        - "демонтаж вывесок"
+        - "прекращение использования бренда"
+        - "удаление из интернета"
+        - "срок на ребрендинг"
+        - "штраф за продолжение использования"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+течение\\s+\\d+\\s+дней.*демонтировать"
+        - "(?i)прекратить\\s+использование.*товарного\\s+знака"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о ребрендинге после прекращения договора.
+
+        Ответь строго в JSON:
+        {
+          "rebranding_required": "<yes / no / unclear>",
+          "rebranding_deadline_days": "<срок в днях или not_found>",
+          "signage_removal": "<yes / no / unclear>",
+          "penalty_for_continued_use": "<штраф или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "ребрендинг"
+        - "демонтаж"
+        - "прекращение использования"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "rebranding_required"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Обязательность ребрендинга"
+      store_payload: true
+
+  - id: subfranchising_control
+    name: "Контроль субконцессии (субфранчайзинга) — ст. 1029 ГК РФ"
+    description: |
+      Субконцессия допускается с согласия франчайзера.
+      Без контроля — риск выдачи субфраншиз ненадлежащим лицам.
+    triggers:
+      any: ["subfranchising_allowed"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "субконцессия"
+        - "субфранчайзинг"
+        - "согласие на субконцессию"
+        - "мастер-франчайзи"
+        - "контроль субфранчайзи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субконцессия.*только\\s+с\\s+согласия"
+        - "(?i)франчайзер\\s+вправе\\s+одобрять"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о субконцессии.
+
+        Ответь строго в JSON:
+        {
+          "subfranchising_allowed": "<yes / no / unclear>",
+          "consent_required": "<yes / no / unclear>",
+          "approval_criteria": "<критерии одобрения или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "субконцессия"
+        - "субфранчайзинг"
+        - "согласие"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "subfranchising_allowed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Разрешена ли субконцессия"
+      store_payload: true
+
+  - id: training_and_support
+    name: "Обучение и постоянная поддержка (ст. 1031 ГК РФ)"
+    description: |
+      Франчайзер обязан оказывать постоянное консультационное и техническое содействие,
+      включая обучение персонала (ст. 1031 ГК РФ).
+    triggers:
+      any: ["training_support_clause"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обучение"
+        - "первоначальное обучение"
+        - "тренинг"
+        - "консультационная поддержка"
+        - "техническое содействие"
+        - "помощь в открытии"
+        - "маркетинговая поддержка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+обязуется\\s+оказывать.*поддержк"
+        - "(?i)обучение.*персонал"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия об обучении и поддержке.
+
+        Ответь строго в JSON:
+        {
+          "initial_training": "<yes / no / unclear>",
+          "ongoing_support": "<yes / no / unclear>",
+          "marketing_support": "<yes / no / unclear>",
+          "opening_assistance": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "обучение"
+        - "поддержка"
+        - "содействие"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "initial_training"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Первоначальное обучение"
+        - name: "ongoing_support"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Постоянная поддержка"
+      store_payload: true
+
+  - id: liability_for_quality_consumers
+    name: "Субсидиарная ответственность франчайзера за качество (ст. 1034 ГК РФ)"
+    description: |
+      Франчайзер несёт субсидиарную ответственность по требованиям к франчайзи
+      о несоответствии качества товаров/услуг.
+      Критично: порядок уведомления, возмещения между сторонами.
+    triggers:
+      any: ["liability_for_quality"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "субсидиарная ответственность"
+        - "ответственность за качество"
+        - "претензии потребителей"
+        - "уведомление о претензиях"
+        - "возмещение между сторонами"
+        - "регресс"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзер\\s+несёт\\s+субсидиарную"
+        - "(?i)франчайзи\\s+обязан.*уведомить.*о\\s+претензиях"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о субсидиарной ответственности франчайзера (ст. 1034 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "subsidiary_liability_acknowledged": "<yes / no / unclear>",
+          "notification_procedure": "<порядок уведомления или not_found>",
+          "reimbursement_between_parties": "<порядок возмещения или not_found>",
+          "indemnification": "<франчайзи обязан возместить франчайзеру или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "субсидиарная ответственность"
+        - "претензии потребителей"
+        - "уведомление"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "subsidiary_liability_acknowledged"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Признание субсидиарной ответственности"
+      store_payload: true
+
+  - id: termination_conditions_franchise
+    name: "Основания и порядок досрочного расторжения"
+    description: "Критично для обеих сторон: когда и как можно расторгнуть, последствия"
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "расторжение"
+        - "досрочное прекращение"
+        - "отказ от договора"
+        - "основания расторжения"
+        - "последствия расторжения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторжение.*в\\s+случае"
+        - "(?i)франчайзер\\s+вправе\\s+отказаться"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Найди условия о досрочном расторжении.
+
+        Ответь строго в JSON:
+        {
+          "termination_grounds": "<перечень оснований или not_found>",
+          "termination_procedure": "<порядок расторжения или not_found>",
+          "consequences": "<последствия расторжения или not_found>",
+          "cure_period": "<срок на устранение нарушений или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "расторжение"
+        - "досрочное прекращение"
+        - "отказ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "termination_grounds"
+          type: "string"
+          description: "Основания досрочного расторжения"
+      store_payload: true
+
+  - id: post_termination_obligations
+    name: "Пост-контрактные обязательства (неконкуренция, возврат материалов)"
+    description: |
+      После прекращения договора: обязательства о неконкуренции, возврате материалов,
+      прекращении использования бренда, конфиденциальности.
+    triggers:
+      any: ["post_termination_obligations"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "после прекращения договора"
+        - "неконкуренция"
+        - "non-compete"
+        - "возврат материалов"
+        - "прекращение использования"
+        - "запрет конкурирующей деятельности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)после\\s+прекращения.*франчайзи\\s+обязан"
+        - "(?i)неконкуренция.*в\\s+течение"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь пост-контрактные обязательства.
+
+        Ответь строго в JSON:
+        {
+          "non_compete_clause": "<yes / no / unclear>",
+          "non_compete_period_months": "<срок в месяцах или not_found>",
+          "materials_return": "<yes / no / unclear>",
+          "confidentiality_continues": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "после прекращения"
+        - "неконкуренция"
+        - "возврат материалов"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "non_compete_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Наличие условия о неконкуренции"
+      store_payload: true
+
+  - id: minimum_purchase_obligations
+    name: "Обязательный минимум закупок у франчайзера/одобренных поставщиков"
+    description: |
+      Франчайзеры часто обязывают закупать сырьё/товары только у себя или одобренных поставщиков
+      по завышенным ценам. Это скрытый доход франчайзера и антимонопольный риск.
+      ФАС может признать такие условия ограничивающими конкуренцию.
+    triggers:
+      any: ["antitrust_risks"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "обязательные закупки"
+        - "минимальный объём закупок"
+        - "одобренные поставщики"
+        - "рекомендованные поставщики"
+        - "закупка у франчайзера"
+        - "эксклюзивные поставщики"
+        - "запрет закупок у третьих лиц"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзи\\s+обязан\\s+закупать"
+        - "(?i)минимальн\\w+\\s+объём\\s+закупок"
+        - "(?i)только\\s+у\\s+одобренн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия об обязательных закупках у франчайзера или одобренных поставщиков.
+
+        Ответь строго в JSON:
+        {
+          "mandatory_purchases_present": "<yes / no / unclear>",
+          "purchase_from_franchisor_only": "<yes / no / unclear>",
+          "approved_suppliers_list": "<yes / no / not_found>",
+          "minimum_purchase_volume": "<минимальный объём или not_found>",
+          "price_control_mechanism": "<how prices are set or not_found>",
+          "right_to_source_alternatives": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Обязательные закупки исключительно у франчайзера по завышенным ценам —
+        антимонопольный риск (ФЗ-135) и скрытый доход франчайзера.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "обязательные закупки"
+        - "одобренные поставщики"
+        - "минимальный объём"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "mandatory_purchases_present"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Наличие обязательных закупок"
+        - name: "purchase_from_franchisor_only"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Закупки исключительно у франчайзера"
+      store_payload: true
+
+  - id: advertising_fund_transparency
+    name: "Рекламный фонд: прозрачность и отчётность"
+    description: |
+      Франчайзи платят рекламные отчисления (1-5% от выручки), но нередко
+      франчайзер не отчитывается о расходовании, направляет средства на свои цели
+      или рекламирует только корпоративные точки. Типичная жалоба франчайзи.
+    triggers:
+      any: ["royalty_based"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "рекламный фонд"
+        - "рекламные отчисления"
+        - "маркетинговый фонд"
+        - "рекламный бюджет"
+        - "отчёт о расходовании"
+        - "целевое использование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)рекламн\\w+\\s+(фонд|отчислен|бюджет)"
+        - "(?i)маркетинг\\w+\\s+фонд"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о рекламном фонде и отчётности.
+
+        Ответь строго в JSON:
+        {
+          "advertising_fund_present": "<yes / no>",
+          "contribution_rate": "<ставка отчислений или not_found>",
+          "reporting_to_franchisees": "<yes / no / unclear>",
+          "reporting_frequency": "<периодичность или not_found>",
+          "franchisee_local_advertising_right": "<yes / no / unclear>",
+          "fund_audit_right": "<yes / no / unclear>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "рекламный фонд"
+        - "рекламные отчисления"
+        - "отчёт о расходовании"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "advertising_fund_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие рекламного фонда"
+        - name: "reporting_to_franchisees"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Отчётность перед франчайзи"
+      store_payload: true
+
+  - id: ip_validity_and_maintenance
+    name: "Действительность и продление регистрации ТЗ"
+    description: |
+      Товарный знак может истечь в период действия франшизы (регистрация ТЗ — 10 лет).
+      Если франчайзер не продлит регистрацию, франчайзи теряет право на бренд.
+      Кроме того, ТЗ может быть оспорен третьими лицами.
+    triggers:
+      any: ["registered_trademark"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "срок действия товарного знака"
+        - "продление регистрации"
+        - "действительность товарного знака"
+        - "оспаривание товарного знака"
+        - "аннулирование регистрации"
+        - "обязанность поддерживать регистрацию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)товарн\\w+\\s+знак.*действ(ует|ителен)\\s+до"
+        - "(?i)обязуется\\s+продл(ить|евать)\\s+регистрацию"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия о действительности и поддержании регистрации товарного знака.
+
+        Ответь строго в JSON:
+        {
+          "trademark_validity_date": "<дата окончания или not_found>",
+          "franchisor_obliged_to_renew": "<yes / no / unclear>",
+          "franchisee_notification_on_challenge": "<yes / no / unclear>",
+          "consequences_if_tm_lost": "<последствия утраты ТЗ или not_found>",
+          "franchisor_indemnity_if_tm_lost": "<yes / no / unclear>"
+        }
+
+        КРИТИЧНО: Если ТЗ истечёт или будет аннулирован, франчайзи теряет бренд
+        и не может продолжать деятельность.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "товарный знак"
+        - "срок действия"
+        - "продление регистрации"
+        - "оспаривание"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "franchisor_obliged_to_renew"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Обязанность франчайзера продлевать ТЗ"
+        - name: "consequences_if_tm_lost"
+          type: "string"
+          description: "Последствия утраты ТЗ"
+      store_payload: true
+
+  - id: investment_forecast_and_payback
+    name: "Инвестиционный прогноз и оценка окупаемости"
+    description: |
+      Мошеннические франшизы обещают нереалистичную окупаемость (3-6 мес.).
+      Если франчайзер предоставил финансовый прогноз, он должен быть обоснованным.
+      Завышенный прогноз может быть основанием для расторжения по ст. 178 ГК РФ (заблуждение)
+      или взыскания убытков по ст. 434.1 ГК РФ (недобросовестное ведение переговоров).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "окупаемость"
+        - "срок окупаемости"
+        - "финансовый прогноз"
+        - "бизнес-план"
+        - "прогнозируемая выручка"
+        - "гарантированный доход"
+        - "плановые показатели"
+      keyword_mode: "any"
+      negative_keywords:
+        - "франчайзер не гарантирует"
+        - "не является обязательством"
+      regex_patterns:
+        - "(?i)окупаемость.*\\d+\\s*(мес|лет|год)"
+        - "(?i)прогнозир\\w+.*выручк"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь наличие финансовых прогнозов и оговорок.
+
+        Ответь строго в JSON:
+        {
+          "financial_forecast_present": "<yes / no>",
+          "payback_period_claimed": "<заявленный срок окупаемости или not_found>",
+          "revenue_guarantee": "<yes / no / not_found>",
+          "disclaimer_present": "<yes / no>",
+          "franchisor_liability_for_forecast": "<yes / no / unclear>"
+        }
+
+        ВНИМАНИЕ: Гарантия дохода / нереалистичный прогноз — красный флаг мошеннической франшизы.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "окупаемость"
+        - "финансовый прогноз"
+        - "бизнес-план"
+        - "гарантированный доход"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "financial_forecast_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие финансового прогноза"
+        - name: "revenue_guarantee"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия дохода"
+      store_payload: true
+
+  - id: insurance_requirements_franchise
+    name: "Страхование ответственности франчайзи"
+    description: |
+      Франчайзер несёт субсидиарную ответственность за качество (ст. 1034 ГК РФ).
+      Обязательное страхование ответственности франчайзи снижает риски для обеих сторон.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "страхование ответственности"
+        - "страховой полис"
+        - "страхование гражданской ответственности"
+        - "страховая сумма"
+        - "обязан застраховать"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзи\\s+обязан\\s+застрахов"
+        - "(?i)страхов(ание|ой\\s+полис).*ответственност"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь требования к страхованию.
+
+        Ответь строго в JSON:
+        {
+          "insurance_required": "<yes / no / unclear>",
+          "insurance_type": "<тип страхования или not_found>",
+          "minimum_coverage": "<минимальная страховая сумма или not_found>",
+          "beneficiary": "<выгодоприобретатель или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "страхование"
+        - "ответственность"
+        - "полис"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "insurance_required"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Обязательность страхования"
+      store_payload: true
+
+  - id: dispute_resolution_franchise
+    name: "Порядок разрешения споров (арбитраж, медиация, суд)"
+    description: |
+      Франчайзинговые споры часто сложны и дороги.
+      Выбор юрисдикции, арбитраж vs суд общей юрисдикции, медиация, претензионный порядок —
+      всё влияет на шансы сторон.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "третейский суд"
+        - "медиация"
+        - "претензионный порядок"
+        - "досудебное урегулирование"
+        - "подсудность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)спор(ы|ов).*рассматривают"
+        - "(?i)претензионн\\w+\\s+порядок"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь порядок разрешения споров.
+
+        Ответь строго в JSON:
+        {
+          "dispute_resolution_method": "<court / arbitration / mediation / mixed / not_found>",
+          "court_or_arbitration_name": "<наименование суда или not_found>",
+          "pretrial_procedure_required": "<yes / no / unclear>",
+          "pretrial_period_days": "<срок в днях или not_found>",
+          "governing_law": "<применимое право или not_found>"
+        }
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "разрешение споров"
+        - "арбитражный суд"
+        - "медиация"
+        - "претензионный порядок"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dispute_resolution_method"
+          type: "string"
+          allowed_values: ["court", "arbitration", "mediation", "mixed", "not_found"]
+          description: "Способ разрешения споров"
+        - name: "governing_law"
+          type: "string"
+          description: "Применимое право"
+      store_payload: true
+
+  - id: digital_assets_and_it_systems
+    name: "Цифровые активы и IT-системы (CRM, POS, сайт, приложение)"
+    description: |
+      Современные франшизы включают IT-системы: CRM, POS-терминалы, мобильные приложения,
+      сайты, базы данных клиентов. Критично определить:
+      - кому принадлежит база клиентов;
+      - кто контролирует домен/аккаунты в соцсетях;
+      - что происходит с данными после расторжения.
+    triggers:
+      any: ["digital_systems"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "CRM"
+        - "POS"
+        - "программное обеспечение"
+        - "личный кабинет"
+        - "IT-система"
+        - "база данных клиентов"
+        - "домен"
+        - "сайт франчайзи"
+        - "мобильное приложение"
+        - "аккаунт в социальных сетях"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(CRM|POS|ERP)\\s*(систем|терминал)"
+        - "(?i)баз(а|у|ы)\\s+данных\\s+клиент"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор коммерческой концессии.
+        Проверь условия об IT-системах и цифровых активах.
+
+        Ответь строго в JSON:
+        {
+          "it_systems_provided": "<yes / no / unclear>",
+          "customer_database_ownership": "<franchisor / franchisee / joint / not_specified>",
+          "domain_ownership": "<franchisor / franchisee / not_specified>",
+          "social_media_accounts_ownership": "<franchisor / franchisee / not_specified>",
+          "data_portability_on_termination": "<yes / no / unclear>",
+          "it_access_termination_procedure": "<описание или not_found>"
+        }
+
+        КРИТИЧНО: Если база клиентов и домен принадлежат франчайзеру,
+        после расторжения франчайзи теряет всю клиентскую базу.
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "CRM"
+        - "база данных"
+        - "программное обеспечение"
+        - "домен"
+        - "сайт"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "customer_database_ownership"
+          type: "string"
+          allowed_values: ["franchisor", "franchisee", "joint", "not_specified"]
+          description: "Принадлежность базы клиентов"
+        - name: "data_portability_on_termination"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Переносимость данных при расторжении"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification_franchise"
+    name: "Стороны: франчайзер и франчайзи (обе коммерческие)"
+    description: "Проверка наличия и коммерческого статуса сторон"
+    legal_base: "ст. 432, 1027 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "франчайзер"
+        - "франчайзи"
+        - "ООО"
+        - "АО"
+        - "ИП"
+        - "коммерческая организация"
+      keyword_mode: "any"
+      negative_keywords:
+        - "физическое лицо"
+        - "гражданин"
+        - "некоммерческая"
+
+  - id: "rights_complex_mandatory"
+    name: "Комплекс исключительных прав (обязателен)"
+    description: "Проверка наличия комплекса прав"
+    legal_base: "ст. 1027 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "комплекс исключительных прав"
+        - "комплекс прав"
+        - "система ведения бизнеса"
+      keyword_mode: "any"
+
+  - id: "trademark_mandatory"
+    name: "Товарный знак/коммерческое обозначение (обязательны в комплексе)"
+    description: "Без товарного знака/коммерческого обозначения это не коммерческая концессия"
+    legal_base: "п. 1 ст. 1027 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "товарный знак"
+        - "торговая марка"
+        - "коммерческое обозначение"
+        - "бренд"
+      keyword_mode: "any"
+
+  - id: "business_sphere_mandatory"
+    name: "Сфера предпринимательской деятельности (обязательна)"
+    description: "Проверка наличия указания на сферу деятельности"
+    legal_base: "ст. 1027 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "сфера деятельности"
+        - "предпринимательская деятельность"
+        - "виды товаров"
+        - "виды услуг"
+      keyword_mode: "any"
+
+  - id: "remuneration_mandatory_franchise"
+    name: "Вознаграждение (паушальный взнос и/или роялти)"
+    description: "Проверка наличия условий о вознаграждении"
+    legal_base: "ст. 1030 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "вознаграждение"
+        - "паушальный взнос"
+        - "роялти"
+        - "рекламные отчисления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)паушальн\\w+.*?\\d"
+        - "(?i)роялти.*?\\d+[.,]?\\d*\\s*%"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "lump_sum_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          keyword_hints: ["паушальный взнос", "вступительный взнос"]
+          description: "Наличие паушального взноса"
+        - name: "royalty_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          keyword_hints: ["роялти", "процент от выручки"]
+          description: "Наличие роялти"
+      store_payload: true
+
+  - id: "registration_clause_franchise"
+    name: "Условие о государственной регистрации (обязательно)"
+    description: "Обязательная регистрация в Роспатенте"
+    legal_base: "ст. 1028 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "Роспатент"
+        - "подлежит регистрации"
+        - "регистрация договора"
+      keyword_mode: "any"
+
+  - id: "quality_control_clause_franchise"
+    name: "Контроль качества (обязательное право франчайзера)"
+    description: "Проверка наличия условий о контроле качества"
+    legal_base: "ст. 1031, 1034 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "контроль качества"
+        - "инспекции"
+        - "проверки точек"
+        - "соблюдение стандартов"
+      keyword_mode: "any"
+
+  - id: "training_support_clause_franchise"
+    name: "Обучение и поддержка (обязанность франчайзера)"
+    description: "Проверка наличия условий об обучении и поддержке"
+    legal_base: "ст. 1031 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "обучение"
+        - "тренинг"
+        - "консультационная поддержка"
+        - "техническое содействие"
+      keyword_mode: "any"
+
+  - id: "confidentiality_clause_franchise"
+    name: "Конфиденциальность и защита ноу-хау"
+    description: "Проверка наличия условий о конфиденциальности"
+    legal_base: "ст. 1032, 1469 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ноу-хау"
+        - "секрет производства"
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+      keyword_mode: "any"
+
+  - id: "subfranchising_clause"
+    name: "Субконцессия (условия и ограничения)"
+    description: "Проверка наличия условий о субконцессии"
+    legal_base: "ст. 1029 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "субконцессия"
+        - "субфранчайзинг"
+        - "мастер-франчайзи"
+      keyword_mode: "any"
+
+  - id: "termination_clause_franchise"
+    name: "Основания и порядок расторжения"
+    description: "Критично для защиты прав обеих сторон"
+    legal_base: "ст. 450-453, 1037 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение"
+        - "досрочное прекращение"
+        - "отказ от договора"
+        - "основания расторжения"
+      keyword_mode: "any"
+
+  - id: "reporting_obligations_franchise"
+    name: "Отчётность франчайзи перед франчайзером"
+    description: "Форма, периодичность и объём отчётности франчайзи"
+    legal_base: "ГК РФ (общие положения), ст. 1032 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отчётность"
+        - "отчёт"
+        - "предоставлять данные"
+        - "финансовая отчётность"
+        - "ежемесячный отчёт"
+        - "доступ к бухгалтерии"
+        - "право аудита"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)франчайзи\\s+обязан\\s+предоставлять.*отчёт"
+        - "(?i)ежемесячн\\w+\\s+отчёт"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "reporting_frequency"
+          type: "string"
+          allowed_values: ["monthly", "quarterly", "annual", "other", "not_found"]
+          keyword_hints: ["ежемесячно", "ежеквартально", "ежегодно"]
+          description: "Периодичность отчётности"
+      store_payload: true
+
+  - id: "supply_chain_obligations"
+    name: "Обязательства по поставкам и одобренным поставщикам"
+    description: "Ограничения на выбор поставщиков и обязательные закупки"
+    legal_base: "ГК РФ, ФЗ-135"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "одобренные поставщики"
+        - "рекомендованные поставщики"
+        - "обязательные закупки"
+        - "сырьё"
+        - "расходные материалы"
+        - "минимальный объём закупок"
+        - "запрет закупок у третьих лиц"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)закупать\\s+только\\s+у"
+        - "(?i)одобренн\\w+\\s+поставщик"
+
+  - id: "force_majeure_franchise"
+    name: "Форс-мажор (обстоятельства непреодолимой силы)"
+    description: "Проверка наличия и полноты условий о форс-мажоре"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "обстоятельства непреодолимой силы"
+        - "непредвиденные обстоятельства"
+        - "стихийное бедствие"
+        - "пандемия"
+        - "эпидемия"
+        - "военные действия"
+        - "санкции"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+        - "(?i)непреодолим\\w+\\s+сил"
+
+  - id: "governing_law_and_jurisdiction"
+    name: "Применимое право и подсудность"
+    description: "Проверка выбора применимого права и юрисдикции (особенно для кросс-бордер)"
+    legal_base: "АПК РФ, ГПК РФ, ФЗ-382"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "подсудность"
+        - "арбитражный суд"
+        - "третейский суд"
+        - "законодательство Российской Федерации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)применим\\w+\\s+прав"
+        - "(?i)подсуднос"
+
+  - id: "assignment_franchise"
+    name: "Уступка прав / смена контроля (ст. 1038 ГК РФ)"
+    description: "Ограничения на уступку прав по договору и смену контроля над франчайзи"
+    legal_base: "ст. 1038 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "уступка прав"
+        - "переуступка"
+        - "перевод долга"
+        - "смена контроля"
+        - "продажа бизнеса"
+        - "смена участников"
+        - "согласие франчайзера"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступ(ка|ить).*без\\s+согласия"
+        - "(?i)смен(а|у)\\s+контрол"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "assignment_restriction"
+          type: "string"
+          allowed_values: ["prohibited", "with_consent", "allowed", "unclear", "not_found"]
+          keyword_hints: ["запрещается уступка", "с согласия франчайзера", "без ограничений"]
+          description: "Ограничения на уступку прав"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  rights_complex_extraction:
+    text: >
+      Просим предоставить полный перечень объектов интеллектуальной собственности,
+      входящих в комплекс исключительных прав по {doc_names}:
+      (а) товарный знак (регистрационный номер, дата регистрации, срок действия);
+      (б) ноу-хау и коммерческая тайна (описание);
+      (в) другие объекты (патенты, произведения, программы для ЭВМ).
+      Просим подтвердить, что комплекс включает ОБЯЗАТЕЛЬНЫЕ элементы (товарный знак/коммерческое обозначение).
+    addressee: "Франчайзер / Юридический отдел франчайзера"
+
+  business_activity_sphere:
+    text: >
+      Просим чётко определить сферу предпринимательской деятельности по {doc_names}:
+      конкретные виды товаров/работ/услуг, ассортимент, ограничения.
+    addressee: "Обе стороны"
+
+  remuneration_structure:
+    text: >
+      Просим предоставить полную структуру вознаграждения по {doc_names}:
+      (а) паушальный взнос (размер, порядок уплаты);
+      (б) роялти (ставка, база расчёта, периодичность);
+      (в) рекламные отчисления (ставка, целевое использование);
+      (г) прочие платежи (если есть).
+    addressee: "Финансовый отдел"
+
+  territory_and_term:
+    text: >
+      Просим уточнить территорию и срок действия концессии по {doc_names}:
+      (а) территория использования (эксклюзивность, радиус защиты);
+      (б) срок действия договора;
+      (в) условия продления.
+    addressee: "Обе стороны"
+
+  pre_contractual_disclosure:
+    text: >
+      КРИТИЧЕСКИЙ ЗАПРОС: Просим предоставить Disclosure Document (FDD) по {doc_names}:
+      (а) информацию о франчайзере (финансовое положение, судебные споры, история компании);
+      (б) количество действующих и закрытых точек (по годам);
+      (в) реальные финансовые показатели существующих франчайзи;
+      (г) списки существующих франчайзи (для контакта и проверки);
+      (д) все раскрытия, требуемые законодательством.
+      Без полного раскрытия франчайзи принимает решение вслепую.
+    addressee: "Франчайзер / Юридический отдел франчайзера"
+
+  territory_protection:
+    text: >
+      Просим включить в {doc_names} чёткую защиту территории франчайзи:
+      (а) эксклюзивность территории (франчайзер не вправе открывать собственные точки и выдавать франшизы другим);
+      (б) радиус защиты (в км);
+      (в) санкции за нарушение;
+      (г) право франчайзи требовать закрытия нарушающих точек.
+    addressee: "Юридический отдел франчайзера"
+
+  renewal_preferential_right:
+    text: >
+      Просим согласовать для {doc_names} условия продления договора:
+      (а) преимущественное право франчайзи на заключение договора на новый срок (ст. 1035 ГК РФ);
+      (б) условия продления (изменения вознаграждения, стандартов);
+      (в) срок уведомления о намерении продлить;
+      (г) последствия отказа франчайзера от продления (компенсация инвестиций франчайзи?).
+    addressee: "Юридический отдел"
+
+  standards_change_limitation:
+    text: >
+      Просим ограничить право франчайзера на односторонние изменения стандартов в {doc_names}:
+      (а) срок уведомления об изменениях (не менее 6-12 месяцев);
+      (б) срок на внедрение изменений;
+      (в) компенсация затрат франчайзи на внедрение существенных изменений;
+      (г) право франчайзи расторгнуть договор при существенных изменениях без штрафов.
+    addressee: "Юридический отдел франчайзера"
+
+  quality_control_rights:
+    text: >
+      Просим согласовать для {doc_names} право франчайзера на контроль качества:
+      (а) регулярные инспекции (периодичность);
+      (б) право доступа к точкам франчайзи без предупреждения;
+      (в) программы "тайный покупатель";
+      (г) аудит качества продукции/услуг;
+      (д) санкции за несоблюдение стандартов (штрафы, приостановка деятельности, расторжение).
+    addressee: "Обе стороны"
+
+  knowhow_confidentiality:
+    text: >
+      Просим включить в {doc_names} строгие условия о защите ноу-хау:
+      (а) обязательство неразглашения ноу-хау и коммерческой тайны;
+      (б) срок конфиденциальности (включая период после прекращения договора);
+      (в) запрет использования ноу-хау для собственного конкурирующего бизнеса;
+      (г) санкции за разглашение (неустойка, возмещение убытков);
+      (д) обязательство франчайзи подписать отдельное соглашение о неразглашении (NDA).
+    addressee: "Юридический отдел франчайзера"
+
+  rebranding_post_termination:
+    text: >
+      Просим согласовать для {doc_names} обязательства франчайзи по ребрендингу после прекращения:
+      (а) срок на демонтаж вывесок и прекращение использования бренда (обычно 30-60 дней);
+      (б) удаление упоминаний из интернета (сайт, соцсети, рекламные площадки);
+      (в) возврат материалов франчайзера (руководства, программное обеспечение);
+      (г) штраф за продолжение использования бренда.
+    addressee: "Юридический отдел"
+
+  subfranchising_control:
+    text: >
+      Если в {doc_names} предусмотрена субконцессия (мастер-франчайзинг), просим согласовать:
+      (а) обязательность письменного согласия франчайзера на каждого субфранчайзи;
+      (б) критерии одобрения субфранчайзи;
+      (в) право франчайзера контролировать субфранчайзи напрямую;
+      (г) ответственность франчайзи (мастер-франчайзи) за действия субфранчайзи;
+      (д) порядок распределения вознаграждения.
+    addressee: "Обе стороны"
+
+  training_and_support:
+    text: >
+      Просим согласовать для {doc_names} обязанности франчайзера по обучению и поддержке:
+      (а) первоначальное обучение (длительность, место проведения, кто оплачивает расходы);
+      (б) обучение персонала франчайзи;
+      (в) постоянная консультационная поддержка (форма, доступность);
+      (г) помощь в открытии точки (подбор помещения, дизайн, поставка оборудования);
+      (д) маркетинговая поддержка (реклама, продвижение).
+      Это ОБЯЗАННОСТЬ франчайзера по ст. 1031 ГК РФ.
+    addressee: "Франчайзер"
+
+  liability_for_quality_consumers:
+    text: >
+      ВНИМАНИЕ: По ст. 1034 ГК РФ франчайзер несёт СУБСИДИАРНУЮ ответственность
+      за качество товаров/услуг франчайзи перед потребителями.
+      Просим согласовать для {doc_names}:
+      (а) обязательность немедленного уведомления франчайзера о претензиях потребителей;
+      (б) порядок совместного рассмотрения претензий;
+      (в) обязательство франчайзи возместить франчайзеру расходы, понесённые в связи с ответственностью;
+      (г) право франчайзера самостоятельно рассматривать претензии и взыскивать с франчайзи.
+    addressee: "Юридический отдел"
+
+  termination_conditions_franchise:
+    text: >
+      Просим согласовать для {doc_names}:
+      (а) исчерпывающий перечень оснований досрочного расторжения для каждой стороны;
+      (б) cure period (срок на устранение нарушений);
+      (в) последствия расторжения (возврат вознаграждения, штрафы, компенсация инвестиций);
+      (г) порядок уведомления и односторонний отказ.
+    addressee: "Юридический отдел"
+
+  post_termination_obligations:
+    text: >
+      Просим согласовать для {doc_names} пост-контрактные обязательства:
+      (а) неконкуренция (срок, территория, виды деятельности);
+      (б) возврат материалов франчайзера;
+      (в) прекращение использования всех элементов комплекса прав;
+      (г) продолжение конфиденциальности ноу-хау (бессрочно);
+      (д) штрафы за нарушение пост-контрактных обязательств.
+    addressee: "Юридический отдел"
+
+  parties_identification_franchise:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}:
+      франчайзера и франчайзи (обе стороны должны быть коммерческими организациями/ИП).
+    addressee: "Обе стороны"
+
+  rights_complex_mandatory:
+    text: >
+      Просим предоставить детальное описание комплекса исключительных прав по {doc_names}.
+    addressee: "Франчайзер"
+
+  trademark_mandatory:
+    text: >
+      КРИТИЧЕСКОЕ ЗАМЕЧАНИЕ: В {doc_names} должен быть указан товарный знак или коммерческое обозначение.
+      Без этого договор НЕ является коммерческой концессией (п. 1 ст. 1027 ГК РФ).
+      Просим незамедлительно дополнить договор.
+    addressee: "Юридический отдел франчайзера"
+
+  business_sphere_mandatory:
+    text: >
+      Просим указать сферу предпринимательской деятельности в {doc_names}.
+    addressee: "Обе стороны"
+
+  remuneration_mandatory_franchise:
+    text: >
+      Просим указать размер и порядок выплаты вознаграждения в {doc_names}.
+    addressee: "Финансовый отдел"
+
+  registration_clause_franchise:
+    text: >
+      ВНИМАНИЕ: {doc_names} подлежит ОБЯЗАТЕЛЬНОЙ государственной регистрации в Роспатенте.
+      Без регистрации договор НЕДЕЙСТВИТЕЛЕН (п. 2 ст. 1028 ГК РФ).
+      Просим согласовать: (а) ответственную сторону; (б) срок подачи заявления;
+      (в) распределение расходов на государственную пошлину.
+    addressee: "Обе стороны / Роспатент"
+
+  quality_control_clause_franchise:
+    text: >
+      Просим согласовать условия контроля качества для {doc_names}.
+    addressee: "Обе стороны"
+
+  training_support_clause_franchise:
+    text: >
+      Просим согласовать условия обучения и поддержки для {doc_names} (обязанность франчайзера по ст. 1031 ГК РФ).
+    addressee: "Франчайзер"
+
+  confidentiality_clause_franchise:
+    text: >
+      Просим согласовать условия конфиденциальности и защиты ноу-хау для {doc_names}.
+    addressee: "Обе стороны"
+
+  subfranchising_clause:
+    text: >
+      Просим уточнить условия субконцессии (субфранчайзинга) для {doc_names}.
+    addressee: "Обе стороны"
+
+  termination_clause_franchise:
+    text: >
+      Просим согласовать основания и порядок досрочного расторжения для {doc_names}.
+    addressee: "Юридический отдел"
+
+  registration_mandatory_franchise:
+    text: >
+      ВНИМАНИЕ: {doc_names} — договор коммерческой концессии.
+      Подлежит ОБЯЗАТЕЛЬНОЙ регистрации в Роспатенте (ст. 1028 ГК РФ).
+      Без регистрации договор НЕДЕЙСТВИТЕЛЕН.
+      Просим незамедлительно организовать подачу заявления.
+    addressee: "Обе стороны / Роспатент"
+
+  trademark_mandatory_in_complex:
+    text: >
+      КРИТИЧЕСКОЕ ЗАМЕЧАНИЕ: Комплекс прав по {doc_names} ОБЯЗАТЕЛЬНО должен включать товарный знак
+      или коммерческое обозначение (п. 1 ст. 1027 ГК РФ).
+      Без этого договор НЕ является коммерческой концессией.
+      Просим дополнить договор.
+    addressee: "Юридический отдел франчайзера"
+
+  commercial_parties_mandatory:
+    text: >
+      ВНИМАНИЕ: Сторонами договора коммерческой концессии могут быть только коммерческие организации
+      и индивидуальные предприниматели (п. 3 ст. 1027 ГК РФ).
+      Просим подтвердить коммерческий статус обеих сторон по {doc_names}.
+    addressee: "Обе стороны"
+
+  antitrust_restrictive_conditions:
+    text: >
+      ВНИМАНИЕ: В {doc_names} содержатся ограничительные условия (территориальная эксклюзивность,
+      обязательные закупки, non-compete).
+      Просим получить правовое заключение о соответствии антимонопольному законодательству (ФЗ-135).
+      Особенно критично для крупных сетей с долей рынка > 35%.
+    addressee: "Юридический отдел / Антимонопольный консультант"
+
+  transfer_pricing_franchise_royalty:
+    text: >
+      ВНИМАНИЕ: {doc_names} — роялти между взаимозависимыми лицами.
+      Просим обеспечить соблюдение требований трансфертного ценообразования (НК РФ ст. 105.3):
+      (а) обоснование рыночного уровня роялти;
+      (б) подготовка документации по ТЦО;
+      (в) уведомление ФНС о контролируемой сделке.
+    addressee: "Финансовый отдел / Налоговый консультант"
+
+  franchise_without_registered_trademark:
+    text: >
+      КРИТИЧЕСКИЙ ЗАПРОС: Просим предоставить по {doc_names}:
+      (а) свидетельство о регистрации товарного знака в Роспатенте;
+      (б) подтверждение того, что правообладатель ТЗ = франчайзер;
+      (в) дату окончания действия регистрации ТЗ;
+      (г) информацию обо всех поданных третьими лицами возражениях против ТЗ.
+      Без зарегистрированного ТЗ договор не может быть зарегистрирован в Роспатенте,
+      а франчайзи не получает правовой защиты бренда.
+    addressee: "Франчайзер / Патентный поверенный"
+
+  withholding_tax_cross_border_royalty:
+    text: >
+      ВНИМАНИЕ: {doc_names} предусматривает выплату роялти нерезиденту.
+      Просим предоставить:
+      (а) правовое заключение о применимой ставке налога у источника (НК РФ ст. 309, 310);
+      (б) подтверждение применимости СОИДН (сертификат резидентства франчайзера);
+      (в) механизм валютного контроля;
+      (г) gross-up оговорку или распределение налогового бремени.
+    addressee: "Налоговый консультант / Финансовый отдел"
+
+  consumer_rights_subsidiary_liability_extended:
+    text: >
+      По {doc_names}: франчайзер несёт субсидиарную (а возможно, и солидарную)
+      ответственность перед потребителями. Просим согласовать:
+      (а) порядок страхования ответственности франчайзи;
+      (б) порядок уведомления о претензиях;
+      (в) механизм регресса между сторонами;
+      (г) создание резервного фонда для покрытия потребительских претензий.
+    addressee: "Юридический отдел"
+
+  minimum_purchase_obligations:
+    text: >
+      Просим уточнить для {doc_names} условия обязательных закупок:
+      (а) перечень товаров/услуг, подлежащих закупке у франчайзера/одобренных поставщиков;
+      (б) механизм ценообразования (рыночные цены или диктуемые франчайзером?);
+      (в) минимальный объём закупок и санкции за невыполнение;
+      (г) право франчайзи предлагать альтернативных поставщиков;
+      (д) антимонопольное заключение (при необходимости).
+    addressee: "Юридический отдел / Антимонопольный консультант"
+
+  advertising_fund_transparency:
+    text: >
+      Просим согласовать для {doc_names} прозрачность рекламного фонда:
+      (а) порядок формирования и управления фондом;
+      (б) право франчайзи на отчёт о расходовании (ежеквартально);
+      (в) право аудита рекламного фонда;
+      (г) гарантия, что средства расходуются на продвижение бренда в целом, а не только корпоративных точек;
+      (д) право франчайзи на локальную рекламу за свой счёт.
+    addressee: "Финансовый отдел / Юридический отдел"
+
+  ip_validity_and_maintenance:
+    text: >
+      Просим предоставить по {doc_names}:
+      (а) актуальное свидетельство о регистрации ТЗ с датой окончания действия;
+      (б) обязательство франчайзера продлевать регистрацию ТЗ в течение всего срока договора;
+      (в) порядок уведомления франчайзи в случае оспаривания ТЗ третьими лицами;
+      (г) последствия для сторон в случае утраты ТЗ (возврат паушального взноса, расторжение без штрафов);
+      (д) обязательство франчайзера защищать ТЗ от нарушений третьими лицами.
+    addressee: "Франчайзер / Патентный поверенный"
+
+  investment_forecast_and_payback:
+    text: >
+      Просим предоставить по {doc_names}:
+      (а) финансовый прогноз/бизнес-план с обоснованием (методология, источники данных);
+      (б) реальные финансовые показатели существующих франчайзи (выручка, прибыль, окупаемость);
+      (в) оговорку об ответственности франчайзера за достоверность прогноза;
+      (г) если прогноз не предоставляется — причины.
+      ВНИМАНИЕ: Гарантии дохода без обоснования — признак мошеннической франшизы.
+    addressee: "Франчайзер / Финансовый консультант"
+
+  insurance_requirements_franchise:
+    text: >
+      Просим согласовать для {doc_names} требования к страхованию:
+      (а) виды обязательного страхования (ответственность, имущество, перерыв в деятельности);
+      (б) минимальные страховые суммы;
+      (в) выгодоприобретатель;
+      (г) кто несёт расходы на страхование.
+    addressee: "Обе стороны / Страховой брокер"
+
+  dispute_resolution_franchise:
+    text: >
+      Просим согласовать для {doc_names} порядок разрешения споров:
+      (а) претензионный порядок (сроки, форма);
+      (б) медиация как обязательный этап;
+      (в) арбитраж vs государственный суд;
+      (г) место рассмотрения споров;
+      (д) применимое право (для кросс-бордер франшиз).
+    addressee: "Юридический отдел"
+
+  digital_assets_and_it_systems:
+    text: >
+      Просим согласовать для {doc_names} условия использования IT-систем:
+      (а) перечень предоставляемых IT-систем (CRM, POS, мобильное приложение, сайт);
+      (б) принадлежность базы данных клиентов (критично!);
+      (в) принадлежность домена и аккаунтов в соцсетях;
+      (г) порядок доступа к данным после расторжения;
+      (д) обязанность франчайзера по техподдержке IT-систем;
+      (е) SLA (время реакции на сбои).
+    addressee: "IT-отдел / Юридический отдел"
+
+  reporting_obligations_franchise:
+    text: >
+      Просим согласовать для {doc_names} порядок отчётности франчайзи:
+      (а) периодичность (ежемесячно/ежеквартально);
+      (б) состав отчётов (выручка, количество клиентов, жалобы);
+      (в) формат и сроки предоставления;
+      (г) право франчайзера на аудит бухгалтерии франчайзи.
+    addressee: "Финансовый отдел"
+
+  supply_chain_obligations:
+    text: >
+      Просим уточнить для {doc_names}:
+      (а) перечень одобренных поставщиков и порядок их утверждения;
+      (б) порядок пересмотра цен на обязательные закупки;
+      (в) право франчайзи предлагать альтернативных поставщиков.
+    addressee: "Юридический отдел"
+
+  force_majeure_franchise:
+    text: >
+      Просим уточнить для {doc_names} условия о форс-мажоре:
+      (а) определение форс-мажора (включает ли пандемию, санкции?);
+      (б) порядок уведомления;
+      (в) последствия (приостановка обязательств, снижение роялти);
+      (г) право расторжения при длительном форс-мажоре.
+    addressee: "Юридический отдел"
+
+  governing_law_and_jurisdiction:
+    text: >
+      Просим согласовать для {doc_names} применимое право и подсудность.
+      Для кросс-бордер франшиз — обосновать выбор юрисдикции.
+    addressee: "Юридический отдел"
+
+  assignment_franchise:
+    text: >
+      Просим уточнить для {doc_names}: (а) допускается ли уступка прав/перевод долга;
+      (б) требуется ли согласие франчайзера; (в) порядок смены контроля над франчайзи
+      (продажа доли, вхождение нового участника); (г) право франчайзера на преимущественную покупку бизнеса франчайзи.
+    addressee: "Юридический отдел"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический консультант"

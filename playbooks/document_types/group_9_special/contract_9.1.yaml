@@ -1,0 +1,2192 @@
+type: contract_9.1_employment
+name: "Трудовой договор"
+
+description: |
+  Соглашение между работодателем (юридическим/физическим лицом, ИП) и работником (физическим лицом),
+  по которому работник обязуется ЛИЧНО ВЫПОЛНЯТЬ трудовую функцию (работу по должности/профессии/специальности)
+  С ПОДЧИНЕНИЕМ ПРАВИЛАМ ВНУТРЕННЕГО ТРУДОВОГО РАСПОРЯДКА,
+  а работодатель обязуется предоставлять работу, обеспечивать условия труда,
+  СВОЕВРЕМЕННО И В ПОЛНОМ РАЗМЕРЕ ВЫПЛАЧИВАТЬ ЗАРАБОТНУЮ ПЛАТУ
+  и соблюдать права работника, предусмотренные трудовым законодательством.
+  
+  Регулируется ИМПЕРАТИВНЫМИ НОРМАМИ ТК РФ — условия договора не могут ухудшать
+  положение работника по сравнению с установленным трудовым законодательством (ст. 9 ТК РФ).
+  Широкий спектр социальных гарантий: оплачиваемый отпуск, больничный, МРОТ,
+  защита от необоснованного увольнения.
+  
+  РИСК ПЕРЕКВАЛИФИКАЦИИ: ГПХ-договоры (подряда, услуг) могут быть переквалифицированы
+  в трудовые при наличии признаков трудовых отношений (ст. 15, 19.1 ТК РФ) →
+  доначисление налогов, взносов, штрафы.
+
+version: 4.0
+parent: class_9_special_imperative
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: employment
+  complexity: high
+  risk_level: critical
+  jurisdiction: RU
+  language: ru
+  legal_base: "ТК РФ Раздел III (ст. 56–90)"
+  doc_types_supported:
+    - "трудовой договор"
+    - "срочный трудовой договор"
+    - "договор о дистанционной работе"
+    - "трудовой договор по совместительству"
+    - "трудовой договор с руководителем организации"
+    - "трудовой контракт"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)трудов[а-яё]*\\s*(договор|контракт)"
+      - "(?i)employment[\\s_.-]?(contract|agreement)"
+      - "(?i)work[\\s_.-]?contract"
+
+    folder_patterns:
+      - "(?i)employment"
+      - "(?i)трудов"
+      - "(?i)кадр"
+      - "(?i)hr"
+
+    keywords:
+
+      high:
+        - "трудовой договор"
+        - "работник"
+        - "работодатель"
+        - "трудовая функция"
+        - "должность"
+        - "профессия"
+        - "заработная плата"
+        - "оплата труда"
+        - "правила внутреннего трудового распорядка"
+        - "подчинение"
+        - "личное выполнение"
+        - "ст. 56 ТК РФ"
+        - "ст. 57 ТК РФ"
+
+      medium:
+        - "должностная инструкция"
+        - "рабочее место"
+        - "график работы"
+        - "оклад"
+        - "тарифная ставка"
+        - "отпуск"
+        - "больничный лист"
+        - "испытательный срок"
+        - "срочный трудовой договор"
+        - "обязательное социальное страхование"
+        - "СОУТ"
+
+      low:
+        - "коллективный договор"
+        - "трудовая книжка"
+        - "приказ о приёме"
+        - "материальная ответственность"
+        - "совместительство"
+        - "дистанционная работа"
+        - "вахтовый метод"
+
+    exclusions:
+      - "договор подряда"
+      - "договор возмездного оказания услуг"
+      - "гражданско-правовой договор"
+      - "агентский договор"
+      - "договор о прохождении практики"
+      - "волонтёрство"
+      - "ученический договор"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+  trigger_definitions:
+
+    indefinite_term:
+      any_keywords:
+        - "бессрочный"
+        - "на неопределённый срок"
+        - "на неопределенный срок"
+        - "без указания срока"
+
+    fixed_term:
+      any_keywords:
+        - "срочный трудовой договор"
+        - "заключён на срок"
+        - "заключен на срок"
+        - "на период"
+        - "временная работа"
+        - "сезонная работа"
+        - "ст. 59 ТК РФ"
+
+    probation_period:
+      any_keywords:
+        - "испытательный срок"
+        - "испытание"
+        - "срок испытания"
+
+    remote_work:
+      any_keywords:
+        - "дистанционная работа"
+        - "удалённая работа"
+        - "удаленная работа"
+        - "вне места нахождения работодателя"
+        - "ст. 312.1 ТК РФ"
+
+    harmful_conditions:
+      any_keywords:
+        - "вредные условия"
+        - "опасные условия"
+        - "спецоценка условий труда"
+        - "СОУТ"
+        - "класс условий труда 3"
+        - "класс условий труда 4"
+
+    part_time:
+      any_keywords:
+        - "неполное рабочее время"
+        - "неполный рабочий день"
+        - "неполная рабочая неделя"
+
+    shift_work:
+      any_keywords:
+        - "сменный график"
+        - "сменная работа"
+        - "суммированный учёт рабочего времени"
+        
+    irregular_hours:
+      any_keywords:
+        - "ненормированный рабочий день"
+        - "вызов вне рабочего времени"
+
+    minors:
+      any_keywords:
+        - "несовершеннолетний"
+        - "возраст до 18 лет"
+        - "лицо, не достигшее 18 лет"
+
+    pregnant_women:
+      any_keywords:
+        - "беременная"
+        - "женщина, имеющая детей"
+        - "отпуск по беременности"
+        - "отпуск по уходу за ребёнком"
+
+    trade_secret_access:
+      any_keywords:
+        - "коммерческая тайна"
+        - "конфиденциальная информация"
+        - "неразглашение"
+        - "служебная тайна"
+
+    full_liability:
+      any_keywords:
+        - "полная материальная ответственность"
+        - "договор о полной материальной ответственности"
+        - "индивидуальная материальная ответственность"
+
+    collective_agreement:
+      any_keywords:
+        - "коллективный договор"
+        - "положения коллективного договора"
+
+    requalification_risk:
+      any_keywords:
+        - "гражданско-правовой договор"
+        - "договор подряда"
+        - "договор оказания услуг"
+        - "самозанятый"
+        - "признаки трудовых отношений"
+
+    discrimination_risk:
+      any_keywords:
+        - "дискриминация"
+        - "запрет дискриминации"
+        - "равная оплата за равный труд"
+
+    illegal_dismissal_risk:
+      any_keywords:
+        - "увольнение"
+        - "расторжение по инициативе работодателя"
+        - "основания увольнения"
+        - "ст. 81 ТК РФ"
+
+    secondary_employment:
+      any_keywords:
+        - "совместительство"
+        - "по совместительству"
+        - "внутреннее совместительство"
+        - "внешнее совместительство"
+        - "ст. 282 ТК РФ"
+
+    seasonal_work:
+      any_keywords:
+        - "сезонная работа"
+        - "на сезон"
+        - "ст. 293 ТК РФ"
+
+    rotation_work:
+      any_keywords:
+        - "вахтовый метод"
+        - "вахта"
+        - "вахтовая работа"
+        - "ст. 297 ТК РФ"
+
+    executive_employee:
+      any_keywords:
+        - "руководитель организации"
+        - "генеральный директор"
+        - "единоличный исполнительный орган"
+        - "Глава 43 ТК РФ"
+
+    foreign_worker:
+      any_keywords:
+        - "иностранный работник"
+        - "иностранный гражданин"
+        - "разрешение на работу"
+        - "патент на работу"
+        - "ВНЖ"
+        - "РВП"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  snils_pattern: "(?i)\\bСНИЛС\\s*\\d{3}[-]?\\d{3}[-]?\\d{3}\\s*\\d{2}\\b"
+  inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
+  passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
+  article_tk_ref: "(?i)ст\\.?\\s*\\d+\\s*ТК\\s*РФ"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "written_form_mandatory"
+    name: "Письменная форма обязательна (ст. 67 ТК РФ)"
+    description: |
+      Трудовой договор заключается в письменной форме, в двух экземплярах,
+      каждый подписывается сторонами. Один экземпляр — работнику.
+    legal_base: "ст. 67 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "в двух экземплярах"
+        - "экземпляр для работника"
+        - "получение экземпляра подтверждается"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "два экземпляра"
+        - "письменная форма"
+      rerank: true
+
+  - id: "labor_function_mandatory"
+    name: "Трудовая функция обязательна (ст. 57 ТК РФ)"
+    description: |
+      Трудовая функция — обязательное условие. Должна быть указана: работа по должности/
+      профессии/специальности с указанием квалификации ИЛИ конкретный вид поручаемой работы.
+    legal_base: "ст. 57 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "трудовая функция"
+        - "работа по должности"
+        - "профессия"
+        - "специальность"
+        - "должностная инструкция"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "трудовая функция"
+        - "должность"
+      rerank: true
+
+  - id: "place_of_work_mandatory"
+    name: "Место работы обязательно (ст. 57 ТК РФ)"
+    description: |
+      Место работы — обязательное условие. С указанием обособленного подразделения
+      и его адреса (если работа в филиале/представительстве).
+    legal_base: "ст. 57 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "место работы"
+        - "адрес"
+        - "структурное подразделение"
+        - "филиал"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "место работы"
+        - "адрес"
+      rerank: true
+
+  - id: "fixed_term_basis_required"
+    name: "Срочный договор требует основания (ст. 58, 59 ТК РФ)"
+    description: |
+      Срочный трудовой договор — только при наличии оснований из ст. 59 ТК РФ.
+      Без основания → бессрочный.
+    legal_base: "ст. 58, 59 ТК РФ"
+    required_triggers: ["fixed_term"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "срочный"
+        - "на срок"
+        - "основание"
+        - "ст. 59"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "срочный"
+        - "основание"
+      rerank: true
+
+  - id: "salary_not_below_mrot"
+    name: "Зарплата не ниже МРОТ (ст. 133 ТК РФ)"
+    description: |
+      Заработная плата не может быть ниже МРОТ при полной норме рабочего времени.
+    legal_base: "ст. 133 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "МРОТ"
+        - "минимальный размер оплаты труда"
+        - "не ниже"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 3
+      boost_keywords:
+        - "МРОТ"
+        - "зарплата"
+      rerank: true
+
+  - id: "requalification_gpkh_to_labor_warning"
+    name: "Риск переквалификации ГПХ в трудовой (ст. 15, 19.1 ТК РФ)"
+    description: |
+      ГИТ и суды переквалифицируют ГПХ в трудовые при наличии признаков:
+      подчинение ПВТР, рабочее место, регулярная оплата за процесс, личное выполнение.
+      Последствия: доначисление налогов, взносов, штрафы.
+    legal_base: "ст. 15, 19.1 ТК РФ, ст. 5.27 КоАП РФ"
+    required_triggers: ["requalification_risk"]
+    severity: "critical"
+    result_if_triggered: "warn"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "признаки трудовых отношений"
+        - "подчинение"
+        - "рабочее место"
+        - "регулярная оплата"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "переквалификация"
+        - "трудовые отношения"
+      rerank: true
+
+  - id: "employee_rights_cannot_be_reduced"
+    name: "Условия не могут ухудшать положение работника (ст. 9 ТК РФ)"
+    description: |
+      Условия трудового договора, ограничивающие права или снижающие уровень гарантий
+      по сравнению с ТК РФ, не подлежат применению.
+    legal_base: "ст. 9 ТК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "отказ от права"
+        - "снижение гарантий"
+        - "ухудшение положения"
+        - "ниже установленных ТК"
+        - "работник отказывается от отпуска"
+        - "работник не вправе"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "ухудшение положения"
+        - "ст. 9 ТК РФ"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: labor_function_extraction
+    name: "Трудовая функция (должность/профессия/специальность)"
+    description: |
+      Извлекает трудовую функцию: должность, профессию, специальность, квалификацию,
+      конкретный вид поручаемой работы, ссылку на должностную инструкцию.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "трудовая функция"
+        - "работа по должности"
+        - "профессия"
+        - "специальность"
+        - "должностная инструкция"
+        - "квалификация"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Определи трудовую функцию работника.
+
+        Ответь строго в JSON:
+        {
+          "position": "<должность или not_found>",
+          "profession": "<профессия или not_found>",
+          "specialization": "<специальность или not_found>",
+          "qualification": "<квалификация или not_found>",
+          "job_description_reference": "<ссылка на должностную инструкцию или not_found>"
+        }
+
+        ВАЖНО: Без трудовой функции договор незаключён (ст. 57 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "трудовая функция"
+        - "должность"
+        - "профессия"
+        - "специальность"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "position"
+          type: "string"
+          keyword_hints: ["должность", "работа по должности"]
+          description: "Должность"
+        - name: "profession"
+          type: "string"
+          keyword_hints: ["профессия", "по профессии"]
+          description: "Профессия"
+        - name: "job_description_reference"
+          type: "string"
+          keyword_hints: ["должностная инструкция", "приложение"]
+          description: "Ссылка на должностную инструкцию"
+      store_payload: true
+
+  - id: place_of_work_extraction
+    name: "Место работы (адрес, структурное подразделение)"
+    description: |
+      Извлекает место работы: адрес, структурное подразделение, филиал.
+      Для дистанционной работы — указание на характер работы.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "место работы"
+        - "адрес"
+        - "структурное подразделение"
+        - "филиал"
+        - "представительство"
+        - "дистанционная работа"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Определи место работы.
+
+        Ответь строго в JSON:
+        {
+          "address": "<адрес или not_found>",
+          "structural_unit": "<структурное подразделение или not_found>",
+          "remote_work": "<yes / no>",
+          "remote_work_description": "<описание дистанционной работы или not_found>"
+        }
+
+        ВАЖНО: Место работы — обязательное условие (ст. 57 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "место работы"
+        - "адрес"
+        - "структурное подразделение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "address"
+          type: "string"
+          keyword_hints: ["адрес", "расположен по адресу", "место работы"]
+          description: "Адрес места работы"
+        - name: "remote_work"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          keyword_hints: ["дистанционная", "удалённая"]
+          description: "Дистанционная работа"
+      store_payload: true
+
+  - id: start_date_and_term
+    name: "Дата начала работы и срок договора"
+    description: |
+      Извлекает дату начала работы. Для срочного — срок и основание по ст. 59 ТК РФ.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "дата начала работы"
+        - "приступить к работе"
+        - "срочный"
+        - "на срок"
+        - "основание"
+        - "ст. 59"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Определи дату начала работы и срок договора.
+
+        Ответь строго в JSON:
+        {
+          "start_date": "<дата или not_found>",
+          "contract_type": "<indefinite / fixed_term / unclear>",
+          "term": "<срок для срочного или not_found>",
+          "fixed_term_basis": "<основание по ст. 59 ТК РФ или not_found>"
+        }
+
+        ВАЖНО: Срочный без основания → бессрочный (ст. 58 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "дата начала"
+        - "срок"
+        - "срочный"
+        - "основание"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "start_date"
+          type: "string"
+          keyword_hints: ["дата начала", "приступить", "с"]
+          description: "Дата начала работы"
+        - name: "contract_type"
+          type: "string"
+          allowed_values: ["indefinite", "fixed_term", "unclear"]
+          description: "Тип договора"
+        - name: "fixed_term_basis"
+          type: "string"
+          keyword_hints: ["основание", "ст. 59", "в связи с"]
+          description: "Основание срочности"
+      store_payload: true
+
+  - id: payment_structure
+    name: "Структура оплаты труда (оклад, надбавки, премии, сроки)"
+    description: |
+      Извлекает: оклад/тарифная ставка, доплаты, надбавки, премии, сроки выплаты.
+      Проверяет соответствие МРОТ и выплату не реже 2 раз в месяц.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "оклад"
+        - "тарифная ставка"
+        - "заработная плата"
+        - "премия"
+        - "надбавка"
+        - "доплата"
+        - "два раза в месяц"
+        - "не реже чем каждые полмесяца"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Определи структуру оплаты труда.
+
+        Ответь строго в JSON:
+        {
+          "base_salary": "<оклад/тарифная ставка или not_found>",
+          "bonuses": "<премии или not_found>",
+          "allowances": "<надбавки/доплаты или not_found>",
+          "payment_frequency": "<периодичность выплаты или not_found>",
+          "payment_dates": "<конкретные даты или not_found>",
+          "below_mrot_risk": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Не ниже МРОТ (ст. 133 ТК РФ), не реже 2 раз в месяц (ст. 136 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 600
+    retrieval:
+      context_k: 8
+      max_chunks: 12
+      boost_keywords:
+        - "оклад"
+        - "заработная плата"
+        - "выплата"
+        - "МРОТ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 700
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "base_salary"
+          type: "number"
+          keyword_hints: ["оклад", "тарифная ставка", "в размере"]
+          unit: "RUB"
+          description: "Базовый оклад"
+        - name: "payment_frequency"
+          type: "string"
+          keyword_hints: ["два раза в месяц", "каждые полмесяца", "ежемесячно"]
+          description: "Периодичность выплаты"
+        - name: "below_mrot_risk"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Риск зарплаты ниже МРОТ"
+      store_payload: true
+
+  - id: working_hours_and_rest
+    name: "Режим рабочего времени и времени отдыха"
+    description: |
+      Извлекает: продолжительность рабочего времени, график, перерывы, выходные.
+      Проверяет соответствие норме 40 часов в неделю.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "режим рабочего времени"
+        - "продолжительность рабочего времени"
+        - "график работы"
+        - "40 часов в неделю"
+        - "сменный график"
+        - "ненормированный рабочий день"
+        - "перерыв"
+        - "выходные дни"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Определи режим рабочего времени.
+
+        Ответь строго в JSON:
+        {
+          "working_hours_per_week": "<часов в неделю или not_found>",
+          "schedule": "<график или not_found>",
+          "shift_work": "<yes / no / unclear>",
+          "irregular_hours": "<yes / no / not_found>",
+          "breaks": "<перерывы или not_found>",
+          "weekends": "<выходные или not_found>"
+        }
+
+        ВАЖНО: Норма — не более 40 часов в неделю (ст. 91 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "режим"
+        - "рабочее время"
+        - "график"
+        - "40 часов"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "working_hours_per_week"
+          type: "string"
+          keyword_hints: ["часов в неделю", "продолжительность"]
+          description: "Часов в неделю"
+        - name: "shift_work"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Сменная работа"
+      store_payload: true
+
+  - id: annual_leave
+    name: "Ежегодный оплачиваемый отпуск"
+    description: |
+      Проверяет наличие условий об отпуске: не менее 28 календарных дней,
+      дополнительные отпуска (за вредные условия, ненормированный день).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "ежегодный оплачиваемый отпуск"
+        - "отпуск продолжительностью"
+        - "28 календарных дней"
+        - "дополнительный отпуск"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия об отпуске.
+
+        Ответь строго в JSON:
+        {
+          "annual_leave_days": "<количество дней или not_found>",
+          "additional_leave": "<дополнительный отпуск или not_found>",
+          "leave_procedure": "<порядок предоставления или not_found>"
+        }
+
+        ВАЖНО: Не менее 28 календарных дней (ст. 115 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "отпуск"
+        - "ежегодный"
+        - "28 дней"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "annual_leave_days"
+          type: "string"
+          keyword_hints: ["отпуск продолжительностью", "28 календарных дней"]
+          description: "Продолжительность отпуска"
+      store_payload: true
+
+  - id: harmful_conditions_guarantees
+    name: "Гарантии за вредные/опасные условия труда"
+    description: |
+      Проверяет гарантии: сокращённый рабочий день, дополнительный отпуск,
+      доплата, молоко, СИЗ (при вредных/опасных условиях).
+    triggers:
+      any: ["harmful_conditions"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "вредные условия"
+        - "опасные условия"
+        - "сокращённый рабочий день"
+        - "дополнительный отпуск"
+        - "доплата за вредные"
+        - "молоко"
+        - "СИЗ"
+        - "СОУТ"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь гарантии за вредные условия.
+
+        Ответь строго в JSON:
+        {
+          "harmful_conditions_class": "<класс условий труда или not_found>",
+          "shortened_working_hours": "<yes / no / unclear>",
+          "additional_leave": "<yes / no / unclear>",
+          "hazard_pay": "<доплата или not_found>",
+          "guarantees_listed": "<перечень гарантий или not_found>"
+        }
+
+        ВАЖНО: При вредных условиях гарантии обязательны (ст. 92, 117, 147 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "вредные условия"
+        - "гарантии"
+        - "компенсации"
+        - "СОУТ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "harmful_conditions_class"
+          type: "string"
+          keyword_hints: ["класс условий", "СОУТ", "класс 3", "класс 4"]
+          description: "Класс условий труда"
+      store_payload: true
+
+  - id: written_form_two_copies
+    name: "Письменная форма в двух экземплярах"
+    description: |
+      Проверяет: два экземпляра, передачу экземпляра работнику, подтверждение получения.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "в двух экземплярах"
+        - "экземпляр для работника"
+        - "получение экземпляра подтверждается"
+        - "подпись работника на экземпляре работодателя"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия о письменной форме.
+
+        Ответь строго в JSON:
+        {
+          "two_copies": "<yes / no / unclear>",
+          "copy_for_employee": "<yes / no / unclear>",
+          "receipt_confirmation": "<yes / no / unclear>"
+        }
+
+        ВАЖНО: Два экземпляра, один — работнику (ст. 67 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 200
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "два экземпляра"
+        - "письменная форма"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "two_copies"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Два экземпляра"
+      store_payload: true
+
+  - id: probation_period_check
+    name: "Испытательный срок (не более 3 месяцев, запреты)"
+    description: |
+      Проверяет: наличие испытания, срок (≤ 3 мес., 6 мес. для руководителей),
+      запреты для категорий (беременные, несовершеннолетние).
+    triggers:
+      any: ["probation_period"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "испытательный срок"
+        - "испытание"
+        - "не более 3 месяцев"
+        - "без испытания"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия об испытательном сроке.
+
+        Ответь строго в JSON:
+        {
+          "probation_present": "<yes / no>",
+          "probation_duration_months": "<срок в месяцах или not_found>",
+          "criteria": "<критерии оценки или not_found>",
+          "prohibited_categories_check": "<проверено ли отсутствие запретов или not_found>"
+        }
+
+        ВАЖНО: Не более 3 мес. (6 для руководителей), запрещён для беременных,
+        несовершеннолетних, выпускников (ст. 70 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "испытательный срок"
+        - "испытание"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "probation_present"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие испытательного срока"
+        - name: "probation_duration_months"
+          type: "number"
+          keyword_hints: ["испытательный срок", "месяцев", "месяца"]
+          description: "Длительность испытания в месяцах"
+      store_payload: true
+
+  - id: material_liability
+    name: "Материальная ответственность (полная/ограниченная)"
+    description: |
+      Проверяет условия о материальной ответственности: ограниченная (средний месячный
+      заработок) или полная (отдельный договор о полной МО).
+    triggers:
+      any: ["full_liability"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "материальная ответственность"
+        - "полная материальная ответственность"
+        - "порядок возмещения ущерба"
+        - "договор о полной материальной ответственности"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия о материальной ответственности.
+
+        Ответь строго в JSON:
+        {
+          "liability_type": "<full / limited / not_specified / unclear>",
+          "separate_agreement": "<yes / no / not_found>",
+          "damage_compensation_procedure": "<порядок возмещения или not_found>"
+        }
+
+        ВАЖНО: Полная МО — только для должностей из перечня (ст. 244 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "материальная ответственность"
+        - "ущерб"
+        - "возмещение"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "liability_type"
+          type: "string"
+          allowed_values: ["full", "limited", "not_specified", "unclear"]
+          description: "Тип материальной ответственности"
+      store_payload: true
+
+  - id: confidentiality_trade_secrets
+    name: "Защита конфиденциальной информации и коммерческой тайны"
+    description: |
+      Проверяет наличие условия о неразглашении коммерческой тайны,
+      конфиденциальной информации, персональных данных.
+    triggers:
+      any: ["trade_secret_access"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "конфиденциальная информация"
+        - "служебная тайна"
+        - "персональные данные"
+        - "ответственность за разглашение"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия о конфиденциальности.
+
+        Ответь строго в JSON:
+        {
+          "confidentiality_clause": "<yes / no>",
+          "trade_secret_access": "<yes / no / unclear>",
+          "liability_for_disclosure": "<ответственность или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "конфиденциальность"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "confidentiality_clause"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Наличие условия о конфиденциальности"
+      store_payload: true
+
+  - id: dismissal_protection
+    name: "Защита от произвольного увольнения (основания и процедура)"
+    description: |
+      Проверяет соблюдение оснований (ст. 81 ТК РФ), процедуры (предупреждение,
+      учёт мнения профсоюза), гарантий (выходное пособие).
+    triggers:
+      any: ["illegal_dismissal_risk"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "увольнение по инициативе работодателя"
+        - "основания увольнения"
+        - "ст. 81 ТК РФ"
+        - "выходное пособие"
+        - "соблюдение процедуры"
+        - "запрет увольнения"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия о защите от увольнения.
+
+        Ответь строго в JSON:
+        {
+          "dismissal_grounds_specified": "<yes / no / unclear>",
+          "procedure_compliance": "<упоминание процедуры или not_found>",
+          "severance_pay": "<выходное пособие или not_found>"
+        }
+
+        ВАЖНО: Увольнение только по основаниям ст. 81 ТК РФ с соблюдением процедуры.
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "увольнение"
+        - "основания"
+        - "процедура"
+        - "ст. 81"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dismissal_grounds_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Указаны ли основания увольнения"
+      store_payload: true
+
+  - id: contract_modification_procedure
+    name: "Процедура изменения условий трудового договора"
+    description: |
+      Порядок изменения: по соглашению сторон (ст. 72 ТК РФ) или по инициативе
+      работодателя с уведомлением за 2 месяца (ст. 74 ТК РФ).
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "изменение условий трудового договора"
+        - "по соглашению сторон"
+        - "уведомление за 2 месяца"
+        - "предложение вакантных должностей"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь процедуру изменения условий.
+
+        Ответь строго в JSON:
+        {
+          "modification_by_agreement": "<yes / no / unclear>",
+          "unilateral_modification_procedure": "<процедура одностороннего изменения или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "изменение условий"
+        - "соглашение сторон"
+        - "ст. 72"
+        - "ст. 74"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "modification_by_agreement"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Изменение по соглашению"
+      store_payload: true
+
+  - id: workplace_safety
+    name: "Гарантии охраны труда и безопасных условий"
+    description: |
+      Обязательства работодателя: безопасные условия, СОУТ, СИЗ, инструктаж.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "охрана труда"
+        - "безопасные условия"
+        - "СОУТ"
+        - "СИЗ"
+        - "инструктаж"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия об охране труда.
+
+        Ответь строго в JSON:
+        {
+          "safety_obligations": "<обязательства работодателя или not_found>",
+          "sout_mentioned": "<yes / no>",
+          "siz_provided": "<yes / no / unclear>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 300
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "охрана труда"
+        - "безопасность"
+        - "СОУТ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "sout_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no"]
+          description: "Упоминание СОУТ"
+      store_payload: true
+
+  - id: overtime_compensation
+    name: "Компенсация сверхурочной работы и работы в выходные"
+    description: |
+      Сверхурочная работа: согласие работника, повышенная оплата (≥ 1.5x),
+      работа в выходные — двойная оплата.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "сверхурочная работа"
+        - "работа в выходные"
+        - "повышенная оплата"
+        - "согласие работника"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь условия о сверхурочной работе.
+
+        Ответь строго в JSON:
+        {
+          "overtime_allowed": "<yes / no / unclear>",
+          "overtime_compensation": "<повышенная оплата или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 200
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "сверхурочная"
+        - "переработка"
+        - "повышенная оплата"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "overtime_allowed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Допускается ли сверхурочная работа"
+      store_payload: true
+
+  - id: discrimination_check
+    name: "Проверка на дискриминационные условия (ст. 3 ТК РФ)"
+    description: |
+      Выявляет условия, содержащие прямую или косвенную дискриминацию
+      по полу, возрасту, национальности, вероисповеданию и иным основаниям.
+    triggers:
+      any: ["discrimination_risk"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "дискриминация"
+        - "запрет дискриминации"
+        - "равная оплата"
+        - "не допускается ограничение"
+      keyword_mode: "any"
+      negative_keywords:
+        - "только мужчины"
+        - "только женщины"
+        - "возраст не старше"
+        - "возраст не моложе"
+        - "без инвалидности"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь наличие дискриминационных условий (ст. 3 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "discrimination_detected": "<yes / no / unclear>",
+          "discrimination_details": "<описание или not_found>",
+          "equal_pay_mentioned": "<yes / no / not_found>"
+        }
+
+        ВАЖНО: Любые ограничения прав по полу, возрасту, национальности — дискриминация (ст. 3 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "дискриминация"
+        - "равная оплата"
+        - "ограничение прав"
+        - "ст. 3 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "discrimination_detected"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Выявлены ли дискриминационные условия"
+      store_payload: true
+
+  - id: employee_rights_restriction_check
+    name: "Ограничение прав работника (ст. 9 ТК РФ)"
+    description: |
+      Выявляет условия, ухудшающие положение работника по сравнению с ТК РФ:
+      отказ от отпуска, снижение зарплаты ниже МРОТ, отказ от обращения в суд.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "отказ от отпуска"
+        - "отказ от больничного"
+        - "работник не вправе обращаться в суд"
+        - "снижение гарантий"
+        - "ухудшение положения"
+        - "запрет на обращение в ГИТ"
+      keyword_mode: "any"
+      negative_keywords:
+        - "работник отказывается от права на отпуск"
+        - "работник обязуется не обращаться"
+        - "компенсация отпуска деньгами"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь, нет ли условий, ухудшающих положение работника (ст. 9 ТК РФ).
+
+        Ответь строго в JSON:
+        {
+          "rights_restriction_detected": "<yes / no / unclear>",
+          "restriction_details": "<описание или not_found>"
+        }
+
+        ВАЖНО: Условия, ограничивающие права работника, — ничтожны (ст. 9 ТК РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 8
+      max_chunks: 10
+      boost_keywords:
+        - "ухудшение положения"
+        - "отказ от права"
+        - "ст. 9 ТК РФ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "rights_restriction_detected"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Выявлено ли ограничение прав"
+      store_payload: true
+
+  - id: non_compete_clause_check
+    name: "Запрет конкуренции после увольнения (non-compete)"
+    description: |
+      Проверяет наличие условий о запрете конкуренции или переманивания
+      клиентов/сотрудников после увольнения. В российском трудовом праве такие
+      условия НЕ ИМЕЮТ ЮРИДИЧЕСКОЙ СИЛЫ (не предусмотрены ТК РФ),
+      но часто включаются в договоры.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "запрет конкуренции"
+        - "non-compete"
+        - "не конкурировать"
+        - "запрет переманивания"
+        - "non-solicitation"
+        - "не трудоустраиваться в конкурирующую"
+        - "не работать у конкурентов"
+        - "ограничение трудоустройства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)запрет.*конкуренц"
+        - "(?i)non[\\s-]?compete"
+        - "(?i)не\\s+(трудоустраиваться|работать).*конкурент"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь наличие условий о запрете конкуренции (non-compete) после увольнения.
+
+        Ответь строго в JSON:
+        {
+          "non_compete_clause": "<present / not_found>",
+          "non_solicitation_clause": "<present / not_found>",
+          "enforceability_risk": "<unenforceable_under_russian_law / enforceable / unclear / not_applicable>",
+          "non_compete_snippet": "<цитата или not_found>"
+        }
+
+        ВАЖНО: В России условия о запрете конкуренции после увольнения
+        НЕ ИМЕЮТ юридической силы — они не предусмотрены ТК РФ и ограничивают
+        конституционное право на труд (ст. 37 Конституции РФ).
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 8
+      boost_keywords:
+        - "запрет конкуренции"
+        - "non-compete"
+        - "не трудоустраиваться"
+        - "конкурент"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "non_compete_clause"
+          type: "string"
+          allowed_values: ["present", "not_found"]
+          description: "Наличие условия о запрете конкуренции"
+        - name: "enforceability_risk"
+          type: "string"
+          allowed_values: ["unenforceable_under_russian_law", "enforceable", "unclear", "not_applicable"]
+          description: "Юридическая сила условия"
+      store_payload: true
+
+  - id: dispute_resolution
+    name: "Процедура разрешения трудовых споров"
+    description: |
+      Досудебное урегулирование: переговоры, КТС, медиация.
+    triggers: {}
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "досудебный порядок"
+        - "переговоры"
+        - "комиссия по трудовым спорам"
+        - "КТС"
+        - "медиация"
+      keyword_mode: "any"
+      regex_patterns: []
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий трудовой договор.
+        Проверь процедуру разрешения споров.
+
+        Ответь строго в JSON:
+        {
+          "dispute_resolution": "<процедура или not_found>"
+        }
+
+        Если значение явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 4
+      temperature: 0.0
+      max_tokens: 200
+    retrieval:
+      context_k: 4
+      max_chunks: 6
+      boost_keywords:
+        - "споры"
+        - "разрешение"
+        - "КТС"
+      rerank: true
+      filters: {}
+    evidence:
+      required: false
+      min_snippet_length: 30
+      max_snippet_length: 400
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "dispute_resolution"
+          type: "string"
+          description: "Процедура разрешения споров"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_employer_employee"
+    name: "Стороны: работодатель и работник"
+    description: "Проверка наличия сторон"
+    legal_base: "ст. 56 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "работодатель"
+        - "работник"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "labor_function_mandatory_rule"
+    name: "Трудовая функция (обязательна)"
+    description: "Без трудовой функции договор незаключён"
+    legal_base: "ст. 57 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "трудовая функция"
+        - "работа по должности"
+        - "профессия"
+        - "специальность"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "place_of_work_mandatory_rule"
+    name: "Место работы (обязательно)"
+    description: "С указанием адреса и подразделения"
+    legal_base: "ст. 57 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "место работы"
+        - "адрес"
+        - "структурное подразделение"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "start_date_mandatory"
+    name: "Дата начала работы (обязательна)"
+    description: "Проверка наличия даты начала"
+    legal_base: "ст. 57, 61 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "дата начала работы"
+        - "приступить к работе"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+
+  - id: "fixed_term_basis"
+    name: "Срочный договор: основание по ст. 59 ТК РФ"
+    description: "Без основания → бессрочный"
+    legal_base: "ст. 58, 59 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["fixed_term"]
+    rules:
+      keywords:
+        - "основание"
+        - "ст. 59"
+        - "срочный"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "payment_terms_mandatory"
+    name: "Условия оплаты труда (обязательны)"
+    description: "Оклад, надбавки, сроки"
+    legal_base: "ст. 57, 136 ТК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "оклад"
+        - "тарифная ставка"
+        - "заработная плата"
+        - "выплата"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "working_hours_clause"
+    name: "Режим рабочего времени"
+    description: "Продолжительность, график"
+    legal_base: "ст. 57, 91 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "режим рабочего времени"
+        - "продолжительность"
+        - "график"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "annual_leave_clause"
+    name: "Ежегодный оплачиваемый отпуск"
+    description: "Не менее 28 дней"
+    legal_base: "ст. 114, 115 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "ежегодный оплачиваемый отпуск"
+        - "отпуск продолжительностью"
+        - "28 календарных дней"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "harmful_conditions_clause"
+    name: "Гарантии за вредные условия (если применимо)"
+    description: "Обязательны при вредных условиях"
+    legal_base: "ст. 57, 92, 117, 147 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["harmful_conditions"]
+    rules:
+      keywords:
+        - "вредные условия"
+        - "гарантии"
+        - "компенсации"
+        - "доплата"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "social_insurance_clause"
+    name: "Обязательное социальное страхование"
+    description: "Обязательное условие"
+    legal_base: "ст. 57 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "социальное страхование"
+        - "обязательное страхование"
+        - "пенсионное страхование"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "work_nature_clause"
+    name: "Характер работы (разъездной, в пути, подвижной)"
+    description: "Обязательно указать, если характер работы особый"
+    legal_base: "ст. 57 ТК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "характер работы"
+        - "разъездной"
+        - "в пути"
+        - "подвижной"
+        - "в полевых условиях"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "workplace_conditions_sout"
+    name: "Условия труда на рабочем месте по результатам СОУТ"
+    description: "Обязательное условие с 2014 года (ФЗ-426)"
+    legal_base: "ст. 57 ТК РФ, ФЗ-426"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "условия труда на рабочем месте"
+        - "результаты СОУТ"
+        - "класс условий труда"
+        - "допустимые условия"
+        - "оптимальные условия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)класс\\s+условий\\s+труда\\s+\\d"
+
+  - id: "pension_insurance_clause"
+    name: "Обязательное пенсионное страхование"
+    description: "Проверка наличия условия об ОПС"
+    legal_base: "ст. 57 ТК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "пенсионное страхование"
+        - "обязательное пенсионное"
+        - "ОПС"
+        - "СНИЛС"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "personal_data_clause"
+    name: "Согласие на обработку персональных данных"
+    description: "Проверка наличия условия об обработке персональных данных"
+    legal_base: "ФЗ-152, ст. 86–90 ТК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "персональные данные"
+        - "обработка персональных данных"
+        - "согласие на обработку"
+        - "ФЗ-152"
+      keyword_mode: "any"
+      regex_patterns: []
+
+  - id: "termination_procedure"
+    name: "Порядок расторжения трудового договора"
+    description: "Основания и процедура расторжения"
+    legal_base: "ст. 77–84.1 ТК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение трудового договора"
+        - "прекращение"
+        - "увольнение"
+        - "основания расторжения"
+        - "по инициативе работника"
+        - "по инициативе работодателя"
+        - "по соглашению сторон"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторжени(е|я)\\s+трудов(ого|ого)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  labor_function_extraction:
+    text: >
+      Просим чётко указать в {doc_names} трудовую функцию:
+      должность/профессию/специальность с квалификацией ИЛИ конкретный вид работы.
+      Приложить должностную инструкцию. Без трудовой функции договор незаключён (ст. 57 ТК РФ).
+    addressee: "Отдел кадров / Работодатель"
+
+  place_of_work_extraction:
+    text: >
+      Просим указать в {doc_names} место работы: адрес, подразделение, филиал.
+      Для дистанционной — указание на характер работы (ст. 312.1 ТК РФ).
+    addressee: "Отдел кадров"
+
+  start_date_and_term:
+    text: >
+      Просим указать в {doc_names}: (а) дату начала работы;
+      (б) для срочного — срок и основание по ст. 59 ТК РФ.
+      Без основания → бессрочный (ст. 58 ТК РФ).
+    addressee: "Отдел кадров"
+
+  payment_structure:
+    text: >
+      Просим согласовать для {doc_names}: (а) оклад (не ниже МРОТ, ст. 133 ТК РФ);
+      (б) доплаты, надбавки, премии; (в) конкретные даты выплаты
+      (не реже 2 раз в месяц, ст. 136 ТК РФ).
+    addressee: "Финансовый отдел / Отдел кадров"
+
+  working_hours_and_rest:
+    text: >
+      Просим согласовать для {doc_names}: (а) продолжительность (≤ 40 ч/нед, ст. 91 ТК РФ);
+      (б) график, перерывы, выходные; (в) ненормированный день (если применимо).
+    addressee: "Отдел кадров"
+
+  annual_leave:
+    text: >
+      Просим указать в {doc_names} отпуск: ≥ 28 календарных дней (ст. 115 ТК РФ).
+      Дополнительные отпуска (за вредные условия, ненормированный день).
+    addressee: "Отдел кадров"
+
+  harmful_conditions_guarantees:
+    text: >
+      Для {doc_names} (вредные/опасные условия): (а) класс по СОУТ;
+      (б) гарантии: сокращённый день, допотпуск, доплата, молоко, СИЗ (ст. 92, 117, 147 ТК РФ).
+    addressee: "Отдел охраны труда"
+
+  written_form_two_copies:
+    text: >
+      {doc_names}: два экземпляра (ст. 67 ТК РФ). Один — работнику.
+      Получение подтверждается подписью на экземпляре работодателя.
+    addressee: "Отдел кадров"
+
+  probation_period_check:
+    text: >
+      Если в {doc_names} есть испытание: (а) ≤ 3 мес. (6 для руководителей);
+      (б) критерии оценки; (в) проверить запреты (ст. 70 ТК РФ).
+    addressee: "Отдел кадров"
+
+  material_liability:
+    text: >
+      Если для {doc_names} нужна полная МО: (а) должность в перечне (ст. 244 ТК РФ);
+      (б) отдельный договор; (в) порядок возмещения.
+    addressee: "Юридический отдел"
+
+  confidentiality_trade_secrets:
+    text: >
+      При доступе к коммерческой тайне: включить в {doc_names} условие о неразглашении
+      (ст. 57 ТК РФ, ФЗ-98), ответственность за разглашение.
+    addressee: "Юридический отдел"
+
+  dismissal_protection:
+    text: >
+      Просим в {doc_names}: (а) увольнение только по ст. 81 ТК РФ;
+      (б) процедура; (в) выходное пособие; (г) запрет увольнения беременных.
+    addressee: "Юридический отдел"
+
+  contract_modification_procedure:
+    text: >
+      Просим в {doc_names}: (а) изменение по соглашению (ст. 72 ТК РФ);
+      (б) по инициативе работодателя — уведомление за 2 мес. (ст. 74 ТК РФ).
+    addressee: "Юридический отдел"
+
+  workplace_safety:
+    text: >
+      Просим в {doc_names}: (а) безопасные условия (ст. 214 ТК РФ);
+      (б) СОУТ (ФЗ-426); (в) СИЗ; (г) инструктаж.
+    addressee: "Отдел охраны труда"
+
+  overtime_compensation:
+    text: >
+      Просим в {doc_names}: (а) согласие работника (ст. 99 ТК РФ);
+      (б) оплата ≥ 1.5x (ст. 152 ТК РФ); (в) выходные — 2x (ст. 153 ТК РФ).
+    addressee: "Отдел кадров"
+
+  dispute_resolution:
+    text: >
+      Рекомендуем в {doc_names}: переговоры, КТС, медиация.
+    addressee: "Юридический отдел"
+
+  discrimination_check:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены дискриминационные условия (ст. 3 ТК РФ).
+      Просим исключить ограничения по полу, возрасту, национальности.
+    addressee: "Юридический отдел"
+
+  employee_rights_restriction_check:
+    text: >
+      ВНИМАНИЕ: в {doc_names} выявлены условия, ограничивающие права работника
+      (ст. 9 ТК РФ). Такие условия ничтожны. Просим исключить.
+    addressee: "Юридический отдел"
+
+  non_compete_clause_check:
+    text: >
+      В {doc_names} выявлено условие о запрете конкуренции (non-compete).
+      В российском трудовом праве такие условия не имеют юридической силы
+      (не предусмотрены ТК РФ, ограничивают право на труд — ст. 37 Конституции РФ).
+      Просим получить правовое заключение и рассмотреть альтернативы
+      (условие о конфиденциальности, NDA).
+    addressee: "Юридический отдел"
+
+  parties_employer_employee:
+    text: >
+      Просим подтвердить реквизиты сторон по {doc_names}.
+    addressee: "Отдел кадров"
+
+  labor_function_mandatory_rule:
+    text: >
+      КРИТИЧНО: В {doc_names} не указана трудовая функция. Незамедлительно дополнить (ст. 57 ТК РФ).
+    addressee: "Отдел кадров"
+
+  place_of_work_mandatory_rule:
+    text: >
+      Просим указать место работы для {doc_names} (ст. 57 ТК РФ).
+    addressee: "Отдел кадров"
+
+  start_date_mandatory:
+    text: >
+      Просим указать дату начала работы для {doc_names}.
+    addressee: "Отдел кадров"
+
+  fixed_term_basis:
+    text: >
+      {doc_names} — срочный. Указать основание по ст. 59 ТК РФ.
+      Без основания → бессрочный (ст. 58 ТК РФ).
+    addressee: "Юридический отдел"
+
+  payment_terms_mandatory:
+    text: >
+      Просим указать условия оплаты для {doc_names}.
+    addressee: "Финансовый отдел"
+
+  working_hours_clause:
+    text: >
+      Просим указать режим рабочего времени для {doc_names}.
+    addressee: "Отдел кадров"
+
+  annual_leave_clause:
+    text: >
+      Просим указать отпуск для {doc_names}.
+    addressee: "Отдел кадров"
+
+  harmful_conditions_clause:
+    text: >
+      Для {doc_names} (вредные условия) указать гарантии.
+    addressee: "Отдел охраны труда"
+
+  social_insurance_clause:
+    text: >
+      Просим указать условие об обязательном соцстраховании для {doc_names}.
+    addressee: "Отдел кадров"
+
+  work_nature_clause:
+    text: >
+      Если работа разъездная/в пути/подвижная — указать в {doc_names} (ст. 57 ТК РФ).
+    addressee: "Отдел кадров"
+
+  workplace_conditions_sout:
+    text: >
+      Просим указать в {doc_names} условия труда на рабочем месте
+      по результатам СОУТ (класс условий труда).
+    addressee: "Отдел охраны труда"
+
+  pension_insurance_clause:
+    text: >
+      Просим указать условие об ОПС для {doc_names}.
+    addressee: "Отдел кадров"
+
+  personal_data_clause:
+    text: >
+      Просим включить в {doc_names} согласие на обработку персональных данных (ФЗ-152).
+    addressee: "Юридический отдел"
+
+  termination_procedure:
+    text: >
+      Просим указать в {doc_names} порядок расторжения: основания,
+      процедура, сроки предупреждения.
+    addressee: "Юридический отдел"
+
+  written_form_mandatory:
+    text: >
+      {doc_names}: письменная форма, два экземпляра (ст. 67 ТК РФ).
+    addressee: "Отдел кадров"
+
+  labor_function_mandatory:
+    text: >
+      КРИТИЧНО: Трудовая функция — обязательное условие (ст. 57 ТК РФ).
+      Проверьте наличие в {doc_names}.
+    addressee: "Отдел кадров"
+
+  place_of_work_mandatory:
+    text: >
+      Место работы — обязательное условие (ст. 57 ТК РФ).
+      Проверьте наличие в {doc_names}.
+    addressee: "Отдел кадров"
+
+  fixed_term_basis_required:
+    text: >
+      Срочный договор {doc_names} требует основания по ст. 59 ТК РФ.
+    addressee: "Юридический отдел"
+
+  salary_not_below_mrot:
+    text: >
+      Зарплата в {doc_names} НЕ МОЖЕТ быть ниже МРОТ (ст. 133 ТК РФ).
+    addressee: "Финансовый отдел"
+
+  requalification_gpkh_to_labor_warning:
+    text: >
+      РИСК: При признаках трудовых отношений ГПХ → трудовой (ст. 15, 19.1 ТК РФ).
+      Последствия: доначисления, штрафы. Правовое заключение для {doc_names}.
+    addressee: "Юридический отдел"
+
+  employee_rights_cannot_be_reduced:
+    text: >
+      ВНИМАНИЕ: условия {doc_names} не могут ухудшать положение работника
+      по сравнению с ТК РФ (ст. 9 ТК РФ). Ничтожные условия подлежат исключению.
+    addressee: "Юридический отдел"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический консультант"

@@ -1,0 +1,1936 @@
+type: contract_1.10_assignment
+name: "Договор цессии (уступки права требования)"
+
+description: |
+  Договор, по которому первоначальный кредитор (Цедент) передает новому кредитору (Цессионарию) 
+  право требовать исполнения обязательства от Должника. Один из самых "судебных" договоров 
+  с колоссальными рисками: от продажи "воздуха" (несуществующего долга) до двойной продажи 
+  одного и того же права. Ключевые особенности: необходимость точной индивидуализации требования, 
+  обязательное уведомление должника, различие между действительностью и исполнимостью требования. 
+  Регулируется Главой 24 ГК РФ.
+
+version: 4.0
+parent: class_2_modification_of_obligations
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: obligation_modification
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "Глава 24 ГК РФ (ст. 382-390)"
+  doc_types_supported:
+    - "договор цессии"
+    - "договор уступки права требования"
+    - "соглашение об уступке права требования"
+    - "договор продажи долга"
+    - "цессионный договор"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)цесс"
+      - "(?i)уступк"
+      - "(?i)assignment"
+      - "(?i)цедент"
+      - "(?i)цессионари"
+
+    folder_patterns:
+      - "(?i)цесс"
+      - "(?i)уступк"
+      - "(?i)assignment"
+      - "(?i)debt.*sale"
+
+    keywords:
+
+      high:
+        - "цессия"
+        - "уступка права требования"
+        - "передача права требования"
+        - "цедент"
+        - "цессионарий"
+        - "право требования"
+        - "переход прав кредитора"
+        - "уведомление должника"
+        - "делькредере"
+
+      medium:
+        - "договор-основание"
+        - "дебиторская задолженность"
+        - "объем передаваемых прав"
+        - "гарантии цедента"
+        - "действительность требования"
+        - "продажа долга"
+        - "переуступка"
+        - "новый кредитор"
+        - "первоначальный кредитор"
+        - "ст. 382 ГК"
+        - "ст. 384 ГК"
+        - "ст. 385 ГК"
+        - "ст. 388 ГК"
+        - "ст. 389 ГК"
+        - "ст. 390 ГК"
+        - "объем уступаемых прав"
+        - "частичная уступка"
+        - "зачет требований
+
+      low:
+        - "должник"
+        - "акт сверки"
+        - "решение суда"
+        - "исполнительный лист"
+        - "регрессное требование"
+        - "обеспечительные права"
+        - "будущее требование"
+        - "залог"
+        - "поручительство"
+
+    exclusions:
+      - "факторинг"
+      - "финансирование под уступку"
+      - "перевод долга"
+      - "смена должника"
+      - "инкассо-цессия"
+      - "новация"
+      - "прекращение обязательства"
+      - "договор залога права требования"
+      - "залог дебиторской задолженности"
+      - "суброгация"
+      - "переход прав в силу закона"
+      - "универсальное правопреемство"
+      - "реорганизация"
+      - "наследование"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  assignment_contract:
+    any_keywords:
+      - "цессия"
+      - "уступка права требования"
+      - "передача права требования"
+      - "цедент"
+      - "цессионарий"
+
+  monetary_claim:
+    any_keywords:
+      - "денежное требование"
+      - "сумма долга"
+      - "рублей"
+      - "основной долг"
+      - "проценты"
+      - "неустойка"
+
+  non_monetary_claim:
+    any_keywords:
+      - "неденежное требование"
+      - "передача имущества"
+      - "выполнение работ"
+      - "оказание услуг"
+
+  future_claim:
+    any_keywords:
+      - "будущее требование"
+      - "возникнет в будущем"
+      - "права, которые возникнут"
+      - "ожидаемые требования"
+      - "будут заключены"
+
+  existing_claim:
+    any_keywords:
+      - "существующее требование"
+      - "возникло из договора"
+      - "текущая задолженность"
+      - "непогашенный долг"
+
+  enforcement_proceeding:
+    any_keywords:
+      - "исполнительный лист"
+      - "исполнительное производство"
+      - "судебный пристав"
+      - "взыскание"
+      - "исполнительный документ"
+
+  del_credere:
+    any_keywords:
+      - "делькредере"
+      - "цедент отвечает за исполнение"
+      - "гарантия платежеспособности"
+      - "риск неплатежа"
+      - "поручительство цедента"
+
+  discounted_assignment:
+    any_keywords:
+      - "дисконт"
+      - "уступка ниже номинала"
+      - "цена ниже долга"
+      - "продажа со скидкой"
+      - "уцененный долг"
+
+  multiple_debtors:
+    any_keywords:
+      - "несколько должников"
+      - "множественность должников"
+      - "солидарные должники"
+      - "несколько дебиторов"
+
+  partial_assignment:
+    any_keywords:
+      - "частичная уступка"
+      - "часть требования"
+      - "в части"
+      - "частично передает"
+      - "часть долга"
+      - "из общей суммы"
+
+  bankruptcy_context:
+    any_keywords:
+      - "банкротство"
+      - "несостоятельность"
+      - "конкурсное производство"
+      - "конкурсный управляющий"
+      - "наблюдение"
+      - "внешнее управление"
+      - "реестр кредиторов"
+      - "арбитражный управляющий"
+      - "ФЗ-127"
+
+  legal_entity_parties:
+    any_keywords:
+      - "ООО"
+      - "АО"
+      - "ПАО"
+      - "ИНН"
+      - "ОГРН"
+      - "юридическое лицо"
+      - "общество"
+      - "коммерческая организация"
+
+  registered_main_contract:
+    any_keywords:
+      - "нотариально удостоверенный"
+      - "нотариальная форма"
+      - "государственная регистрация"
+      - "зарегистрирован в Росреестре"
+      - "подлежит регистрации"
+      - "нотариальный договор"
+
+  consumer_debtor:
+    any_keywords:
+      - "потребительский кредит"
+      - "потребительский займ"
+      - "физическое лицо-заемщик"
+      - "кредитный договор с физическим лицом"
+      - "потребитель"
+      - "микрозайм"
+      - "МФО"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage: "(?i)\\d{1,3}(?:[.,]\\d{1,2})?\\s*%"
+  contract_number: "(?i)(?:договор|соглашение|расписка).*?№?\\s*\\d+[\\w\\-/]*\\s*от\\s*\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+  debt_amount: "(?i)(?:сумма|размер).*?долга.*?\\d[\\d\\s]*(?:руб|₽)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "assignment_prohibition_check"
+    name: "Запрет уступки в основном договоре (ст. 388 ГК РФ)"
+    description: "Если основной договор с Должником содержит запрет на уступку права требования, уступка является недействительной"
+    legal_base: "ст. 388 ГК РФ"
+    required_triggers: ["assignment_contract"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "запрещена уступка"
+        - "уступка не допускается"
+        - "требуется согласие должника"
+        - "передача права требования запрещена"
+        - "цессия не разрешена"
+      keyword_mode: "any"
+      negative_keywords:
+        - "отсутствие запрета"
+        - "уступка разрешена"
+        - "запрет на уступку отсутствует"
+        - "цедент гарантирует отсутствие ограничений"
+        - "основной договор не содержит запрета"
+        - "не содержит ограничений на уступку"
+        - "допускается без согласия"
+        - "уступка не ограничена"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "запрет уступки"
+        - "согласие должника"
+        - "ограничение уступки"
+      rerank: true
+
+  - id: "double_assignment_risk"
+    name: "Риск двойной уступки одного требования (ст. 388.1 ГК РФ)"
+    description: "Цедент может уступить одно и то же требование нескольким Цессионариям. Приоритет определяется моментом уведомления Должника"
+    legal_base: "ст. 388.1 ГК РФ"
+    required_triggers: ["assignment_contract"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "требование не уступалось ранее"
+        - "отсутствие предыдущих уступок"
+        - "первичность уступки"
+        - "не обременено правами третьих лиц"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "двойная уступка"
+        - "предыдущая уступка"
+        - "конкурирующие права"
+      rerank: true
+
+  - id: "enforcement_assignment_compliance"
+    name: "Особенности уступки в исполнительном производстве (ФЗ-229)"
+    description: "Уступка взыскателем исполнительного документа требует уведомления судебного пристава и изменения взыскателя в производстве"
+    legal_base: "ФЗ-229 «Об исполнительном производстве» ст. 52"
+    required_triggers: ["enforcement_proceeding", "assignment_contract"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "исполнительный документ"
+        - "исполнительное производство"
+        - "судебный пристав"
+        - "изменение взыскателя"
+        - "уведомление пристава"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "исполнительный лист"
+        - "пристав"
+        - "взыскатель"
+      rerank: true
+
+  - id: "taxation_assignment_risk"
+    name: "Налоговые риски при уступке права требования (НК РФ ст. 279)"
+    description: "При уступке права требования по дисконтированной цене возникают налоговые последствия по НДС и налогу на прибыль"
+    legal_base: "НК РФ ст. 279, ст. 146, ст. 154"
+    required_triggers: ["assignment_contract", "discounted_assignment"]
+    severity: "medium"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "налоговые последствия"
+        - "НДС при уступке"
+        - "обложение уступки"
+        - "налоговый учет"
+        - "доходы от уступки"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "НДС"
+        - "налог на прибыль"
+        - "ст. 279 НК РФ"
+      rerank: true
+        - "цедент гарантирует отсутствие ограничений"
+        - "основной договор не содержит запрета"
+        - "не содержит ограничений на уступку"
+        - "допускается без согласия"
+        - "уступка не ограничена"
+
+  - id: "non_monetary_claim_consent_required"
+    name: "Согласие должника при уступке неденежного требования (ст. 388 п. 4 ГК РФ)"
+    description: >
+      Уступка неденежного требования допускается только при условии, что она не делает
+      исполнение значительно более обременительным для должника. Если уступка существенно
+      затрагивает интересы должника, требуется его согласие. Нарушение может повлечь
+      недействительность уступки.
+    legal_base: "ст. 388 п. 2, п. 4 ГК РФ"
+    required_triggers: ["non_monetary_claim"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "согласие должника"
+        - "уведомление должника о неденежной уступке"
+        - "неденежное требование"
+        - "исполнение не становится обременительным"
+        - "личность кредитора имеет значение"
+      keyword_mode: "any"
+      negative_keywords:
+        - "денежное требование"
+        - "денежный долг"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "согласие должника"
+        - "неденежное требование"
+        - "ст. 388 ГК"
+        - "обременительность исполнения"
+      rerank: true
+
+  - id: "bankruptcy_avoidance_risk"
+    name: "Риск оспаривания уступки в банкротстве цедента (ст. 61.2–61.3 ФЗ-127)"
+    description: >
+      Уступка, совершённая в период подозрительности (до 3 лет до принятия заявления
+      о банкротстве цедента), может быть оспорена как подозрительная сделка или
+      как сделка с предпочтением. Уступка ниже номинала — повышенный риск.
+    legal_base: "ст. 61.2, 61.3 ФЗ-127 «О несостоятельности (банкротстве)»"
+    required_triggers: ["bankruptcy_context"]
+    severity: "critical"
+    result_if_triggered: "fail"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "банкротство"
+        - "несостоятельность"
+        - "период подозрительности"
+        - "конкурсный управляющий"
+        - "оспаривание сделки"
+        - "подозрительная сделка"
+        - "предпочтение"
+        - "арбитражный управляющий"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "банкротство цедента"
+        - "оспаривание уступки"
+        - "период подозрительности"
+        - "ст. 61.2 ФЗ-127"
+      rerank: true
+
+  - id: "assignment_form_legal_requirement"
+    name: "Форма уступки должна соответствовать форме основного договора (ст. 389 ГК РФ)"
+    description: >
+      Если основной договор совершён в нотариальной форме, уступка также подлежит
+      нотариальному удостоверению. Если основной договор подлежал государственной
+      регистрации, уступка также подлежит регистрации. Несоблюдение формы может
+      повлечь недействительность или незаключённость уступки.
+    legal_base: "ст. 389 ГК РФ"
+    required_triggers: ["registered_main_contract"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "нотариальная форма"
+        - "нотариальное удостоверение"
+        - "государственная регистрация уступки"
+        - "регистрация перехода права"
+        - "удостоверено нотариусом"
+        - "форма уступки"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "форма уступки"
+        - "нотариальное удостоверение"
+        - "государственная регистрация"
+        - "ст. 389 ГК"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: claim_identification_check
+    name: "Идентификация уступаемого права требования (ст. 382, 432 ГК РФ)"
+    description: "Проверяет точную индивидуализацию требования. Без нее договор незаключен."
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "право требования к"
+        - "должник"
+        - "основание возникновения"
+        - "договор №"
+        - "расписка от"
+        - "сумма долга"
+        - "размер требования"
+        - "период"
+        - "непогашенная задолженность"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)право.*требования.*к.*[А-Я][а-я]+"
+        - "(?i)договор.*№.*\\d+.*от.*\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+        - "(?i)расписка.*от.*\\d{1,2}[.]\\d{1,2}[.]\\d{4}"
+        - "(?i)сумма.*\\d[\\d\\s]*(?:руб|₽)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь наличие точной идентификации уступаемого права требования (ст. 382, 432 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "identification_level": "<complete / partial / insufficient / not_found>",
+          "debtor_identified": "<yes / no / not_found>",
+          "debtor_name": "<ФИО/наименование или not_found>",
+          "claim_basis": "<договор/расписка/судебный акт или not_found>",
+          "claim_basis_details": "<реквизиты основания или not_found>",
+          "claim_amount": "<сумма или not_found>",
+          "claim_currency": "<валюта или not_found>",
+          "identification_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "complete" — полная формула: Должник + Основание + Сумма + Срок
+        - "partial" — указаны не все элементы, но требование определено
+        - "insufficient" — неопределенность ("долг Иванова")
+        - "not_found" — требование не идентифицировано
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "право требования"
+        - "должник"
+        - "основание возникновения"
+        - "сумма долга"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "identification_level"
+          type: "string"
+          allowed_values: ["complete", "partial", "insufficient", "not_found"]
+          description: "Уровень идентификации требования"
+        - name: "debtor_identified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Идентифицирован ли должник"
+        - name: "debtor_name"
+          type: "string"
+          description: "Наименование/ФИО должника"
+        - name: "claim_basis"
+          type: "string"
+          allowed_values: ["договор", "расписка", "судебный акт", "иное", "not_found"]
+          description: "Основание требования"
+        - name: "claim_basis_details"
+          type: "string"
+          description: "Реквизиты основания"
+        - name: "claim_amount"
+          type: "string"
+          description: "Сумма требования"
+        - name: "claim_currency"
+          type: "string"
+          description: "Валюта требования"
+      store_payload: true
+
+  - id: cedent_warranties_check
+    name: "Гарантии Цедента о действительности и существовании требования (ст. 390 ГК РФ)"
+    description: "Проверяет наличие гарантий отсутствия пороков права. Без них — риск покупки 'воздуха'."
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "цедент гарантирует действительность"
+        - "право требования существует"
+        - "долг не погашен"
+        - "требование не прекращено"
+        - "цедент отвечает за недействительность"
+        - "право требования принадлежит цеденту"
+        - "отсутствуют основания для оспаривания"
+        - "цедент подтверждает существование долга"
+        - "требование не было уступлено ранее"
+        - "цедент несет ответственность за пороки права"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*гарантирует.*что.*передаваемое.*право.*требования.*является.*действительным.*и.*существующим"
+        - "(?i)цедент.*несет.*ответственность.*за.*недействительность.*или.*отсутствие.*переданного.*требования"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь наличие гарантий Цедента о действительности требования (ст. 390 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "warranties_exist": "<yes / no / not_found>",
+          "validity_warranty": "<yes / no / not_found>",
+          "existence_warranty": "<yes / no / not_found>",
+          "no_prior_assignment_warranty": "<yes / no / not_found>",
+          "no_encumbrances_warranty": "<yes / no / not_found>",
+          "warranty_scope": "<full / limited / not_found>",
+          "warranty_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "validity_warranty" — гарантия действительности требования
+        - "existence_warranty" — гарантия существования долга
+        - "no_prior_assignment_warranty" — гарантия отсутствия предыдущих уступок
+        - "no_encumbrances_warranty" — гарантия отсутствия обременений
+        - "warranty_scope": "full" — полная ответственность, "limited" — ограниченная
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "цедент гарантирует"
+        - "действительность требования"
+        - "существование долга"
+        - "ст. 390 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 50
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "warranties_exist"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие гарантий цедента"
+        - name: "validity_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия действительности"
+        - name: "existence_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия существования"
+        - name: "no_prior_assignment_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия отсутствия предыдущих уступок"
+        - name: "no_encumbrances_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия отсутствия обременений"
+        - name: "warranty_scope"
+          type: "string"
+          allowed_values: ["full", "limited", "not_found"]
+          description: "Объем гарантий"
+      store_payload: true
+
+  - id: debtor_notification_check
+    name: "Порядок уведомления Должника об уступке (ст. 385 ГК РФ)"
+    description: "Проверяет наличие процедуры уведомления Должника. Без уведомления исполнение Цеденту считается надлежащим."
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "уведомление должника"
+        - "письменное уведомление"
+        - "уведомить должника"
+        - "в течение"
+        - "заказное письмо"
+        - "курьерская доставка"
+        - "цедент обязуется уведомить"
+        - "цессионарий уведомляет"
+        - "момент уведомления"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уведомлени[ея].*должника.*в.*течение.*\\d+.*дн"
+        - "(?i)должник.*должен.*быть.*уведомлен"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь наличие порядка уведомления Должника об уступке (ст. 385 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "notification_procedure": "<detailed / basic / not_found>",
+          "notification_responsibility": "<cedent / assignee / joint / not_found>",
+          "notification_deadline_days": "<число дней или not_found>",
+          "notification_method": "<registered_mail / courier / other / not_found>",
+          "notification_form_required": "<yes / no / not_found>",
+          "notification_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "detailed" — конкретный срок, способ, форма уведомления
+        - "basic" — общая ссылка на необходимость уведомления
+        - "not_found" — процедура не раскрыта
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "уведомление должника"
+        - "письменное уведомление"
+        - "ст. 385 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "notification_procedure"
+          type: "string"
+          allowed_values: ["detailed", "basic", "not_found"]
+          description: "Уровень детализации процедуры уведомления"
+        - name: "notification_responsibility"
+          type: "string"
+          allowed_values: ["cedent", "assignee", "joint", "not_found"]
+          description: "Кто уведомляет должника"
+        - name: "notification_deadline_days"
+          type: "string"
+          description: "Срок уведомления в днях"
+        - name: "notification_method"
+          type: "string"
+          allowed_values: ["registered_mail", "courier", "other", "not_found"]
+          description: "Способ уведомления"
+        - name: "notification_form_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Требуется ли определенная форма уведомления"
+      store_payload: true
+
+  - id: accessory_rights_transfer_check
+    name: "Переход обеспечительных и дополнительных прав (ст. 384 ГК РФ)"
+    description: "Проверяет наличие условий о переходе залога, поручительства, неустойки, процентов."
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "переход обеспечительных прав"
+        - "права из договора залога"
+        - "передача прав по поручительству"
+        - "право на неустойку"
+        - "проценты за пользование"
+        - "право требования переходит в полном объеме"
+        - "все дополнительные права"
+        - "цедент передает права обеспечения"
+        - "документы по залогу"
+        - "права из обеспечительных сделок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вместе.*с.*правом.*требования.*переходят.*все.*права.*обеспечивающие.*его.*исполнение"
+        - "(?i)цедент.*обязуется.*передать.*цессионарию.*права.*из.*договоров.*залога.*и.*поручительства"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь наличие условий о переходе обеспечительных прав (ст. 384 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "accessory_rights_clause": "<detailed / basic / not_found>",
+          "pledge_transfer": "<yes / no / not_found>",
+          "surety_transfer": "<yes / no / not_found>",
+          "penalty_transfer": "<yes / no / not_found>",
+          "interest_transfer": "<yes / no / not_found>",
+          "documents_transfer": "<yes / no / not_found>",
+          "accessory_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "accessory_rights_clause": "detailed" — подробно перечислены все переходящие права
+        - "basic" — общая ссылка на переход прав
+        - "not_found" — условие отсутствует
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "обеспечительные права"
+        - "залог"
+        - "поручительство"
+        - "неустойка"
+        - "ст. 384 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "accessory_rights_clause"
+          type: "string"
+          allowed_values: ["detailed", "basic", "not_found"]
+          description: "Уровень детализации условия"
+        - name: "pledge_transfer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Переход прав из залога"
+        - name: "surety_transfer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Переход прав по поручительству"
+        - name: "penalty_transfer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Переход права на неустойку"
+        - name: "interest_transfer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Переход права на проценты"
+        - name: "documents_transfer"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Передача документов по обеспечению"
+      store_payload: true
+
+  - id: del_credere_check
+    name: "Ответственность Цедента за исполнение Должником (делькредере) (ст. 390 ГК РФ)"
+    description: "Проверяет наличие условия о принятии Цедентом ответственности за неисполнение Должником."
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "делькредере"
+        - "цедент отвечает за исполнение должником"
+        - "гарантия платежеспособности должника"
+        - "цедент принимает на себя риск неплатежа"
+        - "ответственность за неисполнение требования"
+        - "обязанность возмещения при неплатеже"
+        - "цедент выступает поручителем"
+        - "гарантия возврата уплаченного"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*несет.*ответственность.*за.*исполнение.*должником.*переданного.*требования"
+        - "(?i)в.*случае.*неисполнения.*должником.*цедент.*обязан.*возместить.*цессионарию.*уплаченную.*сумму"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь наличие условия о делькредере — ответственности Цедента за исполнение Должником (ст. 390 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "del_credere_exists": "<yes / no / not_found>",
+          "del_credere_type": "<full / partial / conditional / not_found>",
+          "del_credere_conditions": "<условия или not_found>",
+          "del_credere_amount": "<размер ответственности или not_found>",
+          "del_credere_snippet": "<цитата из договора или not_found>"
+        }
+
+        - "full" — полная ответственность за любое неисполнение
+        - "partial" — ответственность в определенных случаях
+        - "conditional" — ответственность при соблюдении условий
+        - "not_found" — делькредере отсутствует
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "делькредере"
+        - "ответственность за исполнение"
+        - "гарантия платежеспособности"
+        - "ст. 390 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "del_credere_exists"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Наличие делькредере"
+        - name: "del_credere_type"
+          type: "string"
+          allowed_values: ["full", "partial", "conditional", "not_found"]
+          description: "Тип делькредере"
+        - name: "del_credere_conditions"
+          type: "string"
+          description: "Условия ответственности"
+        - name: "del_credere_amount"
+          type: "string"
+          description: "Размер ответственности"
+      store_payload: true
+
+  - id: future_claims_check
+    name: "Условия уступки будущих требований (ст. 388.2 ГК РФ)"
+    description: "Проверяет наличие специальных условий для уступки будущих требований."
+    triggers:
+      any: ["future_claim"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "будущие требования"
+        - "права, которые возникнут"
+        - "критерии определения будущих требований"
+        - "период возникновения будущих требований"
+        - "определение будущего должника"
+        - "основание будущих требований"
+        - "уступка требований, которые будут заключены"
+        - "описание будущих правоотношений"
+        - "будущие денежные требования"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступаются.*права.*требования.*которые.*возникнут.*из.*договоров.*заключенных.*в.*период"
+        - "(?i)будущие.*требования.*определяются.*по.*следующим.*критериям"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь наличие условий для уступки будущих требований (ст. 388.2 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "future_claims_specified": "<yes / no / not_found>",
+          "identification_criteria": "<критерии или not_found>",
+          "future_debtor_defined": "<yes / no / not_found>",
+          "future_basis_defined": "<yes / no / not_found>",
+          "time_period_defined": "<yes / no / not_found>",
+          "future_claims_snippet": "<цитата из договора или not_found>"
+        }
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "будущие требования"
+        - "критерии определения"
+        - "возникнут в будущем"
+        - "ст. 388.2 ГК РФ"
+      rerank: true
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "future_claims_specified"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Указаны ли будущие требования"
+        - name: "identification_criteria"
+          type: "string"
+          description: "Критерии идентификации"
+        - name: "future_debtor_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определен ли будущий должник"
+        - name: "future_basis_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определено ли будущее основание"
+        - name: "time_period_defined"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Определен ли период возникновения"
+      store_payload: true
+
+  - id: debtor_setoff_counterclaim_check
+    name: "Возражения и зачёт должника против нового кредитора (ст. 386, 412 ГК РФ)"
+    description: >
+      Проверяет, урегулирован ли риск того, что должник может заявить новому кредитору
+      все возражения и встречные требования, которые он имел к первоначальному кредитору
+      на момент получения уведомления об уступке, включая право на зачёт.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "возражения должника"
+        - "зачет встречных требований"
+        - "зачет"
+        - "встречное требование"
+        - "возражение против требования"
+        - "право должника на зачёт"
+        - "ст. 386"
+        - "ст. 412"
+        - "контртребование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возражени(я|й).*должник"
+        - "(?i)зачет.*встречн"
+        - "(?i)должник.*вправе.*заяв(ить|лять)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь, урегулирован ли риск возражений и зачёта со стороны Должника
+        против нового кредитора (ст. 386, 412 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "debtor_objections_addressed": "<yes / no / partial / not_found>",
+          "setoff_risk_addressed": "<yes / no / not_found>",
+          "cedent_warranty_no_counterclaims": "<yes / no / not_found>",
+          "known_debtor_objections_disclosed": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        - "debtor_objections_addressed" — упомянуты ли возражения должника
+        - "setoff_risk_addressed" — урегулирован ли риск зачёта
+        - "cedent_warranty_no_counterclaims" — есть ли гарантия отсутствия встречных требований
+        - "known_debtor_objections_disclosed" — раскрыты ли известные возражения
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "возражения должника"
+        - "зачет"
+        - "встречное требование"
+        - "ст. 386 ГК"
+        - "ст. 412 ГК"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "debtor_objections_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "partial", "not_found"]
+          description: "Урегулированы ли возражения должника"
+        - name: "setoff_risk_addressed"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Урегулирован ли риск зачёта"
+        - name: "cedent_warranty_no_counterclaims"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Гарантия отсутствия встречных требований"
+      store_payload: true
+
+  - id: partial_assignment_scope_check
+    name: "Объём и границы частичной уступки (ст. 384 ГК РФ)"
+    description: >
+      При частичной уступке проверяет чёткость разграничения: какая часть требования
+      передаётся, какая остаётся у цедента; взаимодействие двух кредиторов
+      с одним должником; делимость требования; порядок распределения поступлений.
+    triggers:
+      any: ["partial_assignment"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "частичная уступка"
+        - "часть требования"
+        - "в части"
+        - "частично"
+        - "из общей суммы"
+        - "в размере"
+        - "остаток требования"
+        - "делимость"
+        - "разделение требования"
+        - "распределение поступлений"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уступа(ет|ется)\\s+част(ь|ично)"
+        - "(?i)в\\s+части\\s+(?:основного\\s+долга|процентов|неустойки)"
+        - "(?i)из\\s+общей\\s+суммы\\s+\\d"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор частичной цессии.
+        Проверь чёткость определения объёма частичной уступки (ст. 384 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "partial_assignment_type": "<amount_based / component_based / mixed / not_found>",
+          "transferred_amount": "<сумма/описание или not_found>",
+          "retained_by_cedent": "<сумма/описание или not_found>",
+          "divisibility_confirmed": "<yes / no / unclear / not_found>",
+          "proceeds_distribution": "<described / not_found>",
+          "interaction_of_creditors": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        - "amount_based" — разделение по сумме
+        - "component_based" — разделение по компонентам (основной долг / проценты / неустойка)
+        - "mixed" — комбинированное
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 500
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "частичная уступка"
+        - "часть требования"
+        - "остаток требования"
+        - "распределение"
+        - "ст. 384 ГК"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "partial_assignment_type"
+          type: "string"
+          allowed_values: ["amount_based", "component_based", "mixed", "not_found"]
+          description: "Тип частичной уступки"
+        - name: "divisibility_confirmed"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear", "not_found"]
+          description: "Подтверждена ли делимость требования"
+        - name: "proceeds_distribution"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Описан ли порядок распределения поступлений"
+      store_payload: true
+
+  - id: assignment_form_compliance_check
+    name: "Форма договора уступки: соответствие форме основного договора (ст. 389 ГК РФ)"
+    description: >
+      Проверяет, соответствует ли форма договора уступки форме основного договора.
+      Нотариальный основной договор → нотариальная уступка.
+      Регистрируемый основной договор → регистрация уступки.
+    triggers:
+      any: ["registered_main_contract"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "нотариальная форма"
+        - "нотариальное удостоверение"
+        - "государственная регистрация"
+        - "регистрация уступки"
+        - "Росреестр"
+        - "форма основного договора"
+        - "форма уступки"
+        - "удостоверена нотариусом"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)нотариальн(ое|ой|ая)\\s+(удостоверен|форм)"
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)подлежит.*регистрац"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор цессии.
+        Проверь соответствие формы уступки форме основного договора (ст. 389 ГК РФ).
+
+        Ответь строго в JSON:
+        {
+          "main_contract_form": "<simple_written / notarized / registered / unclear / not_found>",
+          "assignment_form": "<simple_written / notarized / registered / unclear / not_found>",
+          "form_match_status": "<matched / mismatched / unclear / not_found>",
+          "registration_required": "<yes / no / unclear / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+
+        - "simple_written" — простая письменная форма
+        - "notarized" — нотариальная форма
+        - "registered" — подлежит государственной регистрации
+        - "matched" — формы совпадают
+        - "mismatched" — формы не совпадают (критический риск)
+
+        ВАЖНО: Если условие явно не указано — пиши "not_found".
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "нотариальная форма"
+        - "государственная регистрация"
+        - "форма основного договора"
+        - "ст. 389 ГК"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "main_contract_form"
+          type: "string"
+          allowed_values: ["simple_written", "notarized", "registered", "unclear", "not_found"]
+          description: "Форма основного договора"
+        - name: "assignment_form"
+          type: "string"
+          allowed_values: ["simple_written", "notarized", "registered", "unclear", "not_found"]
+          description: "Форма договора уступки"
+        - name: "form_match_status"
+          type: "string"
+          allowed_values: ["matched", "mismatched", "unclear", "not_found"]
+          description: "Соответствие форм"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: Цедент и Цессионарий"
+    description: "Проверяет наличие и достаточность идентификации сторон"
+    legal_base: "ст. 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цедент"
+        - "цессионарий"
+        - "новый кредитор"
+        - "первоначальный кредитор"
+        - "ООО"
+        - "АО"
+        - "ИНН"
+        - "ОГРН"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*именуем"
+        - "(?i)цессионарий.*именуем"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "cedent_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин"]
+          description: "Тип цедента"
+        - name: "assignee_type"
+          type: "string"
+          allowed_values: ["legal_entity", "individual", "unclear"]
+          keyword_hints: ["ООО", "АО", "ИП", "гражданин"]
+          description: "Тип цессионария"
+      store_payload: true
+
+  - id: "debtor_identification"
+    name: "Идентификация Должника"
+    description: "Проверяет наличие идентификации Должника как третьего лица"
+    legal_base: "ст. 382, 432 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "должник"
+        - "обязанный"
+        - "долг которого"
+        - "третье лицо"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)должник.*[А-Я][а-я]+"
+        - "(?i)право.*требования.*к"
+
+  - id: "assignment_price"
+    name: "Цена уступки для возмездной цессии (ст. 424, 575 ГК РФ)"
+    description: "Проверяет наличие цены уступки. Для коммерческих организаций безвозмездная уступка ограничена."
+    legal_base: "ст. 424, 575 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цена уступки"
+        - "стоимость уступки"
+        - "сумма уступки"
+        - "уплачивает цеденту"
+        - "возмездная уступка"
+        - "безвозмездная уступка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цена.*уступки.*составляет.*\\d"
+        - "(?i)возмездно.*за.*\\d+.*рублей"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "assignment_price"
+          type: "number"
+          keyword_hints: ["цена уступки", "рублей"]
+          unit: "RUB"
+          description: "Цена уступки"
+        - name: "price_vs_nominal"
+          type: "string"
+          allowed_values: ["equal", "below", "above", "not_specified"]
+          keyword_hints: ["ниже номинала", "дисконт", "равна долгу"]
+          description: "Соотношение цены и номинала"
+      store_payload: true
+
+  - id: "assignment_consideration_check"
+    name: "Проверка компенсации для коммерческих организаций (ст. 575 ГК РФ)"
+    description: "Безвозмездная уступка между коммерческими организациями ограничена 3000 рублями"
+    legal_base: "ст. 575 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["legal_entity_parties"]
+    rules:
+      keywords:
+        - "безвозмездная уступка"
+        - "безвозмездно"
+        - "дарение права"
+        - "коммерческая организация"
+      keyword_mode: "any"
+      negative_keywords:
+        - "возмездная уступка"
+        - "цена уступки"
+
+  - id: "documents_transfer"
+    name: "Передача документов, подтверждающих право требования (ст. 385 ГК РФ)"
+    description: "Проверяет наличие условий о передаче оригиналов документов"
+    legal_base: "ст. 385 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "передать документы"
+        - "оригиналы договоров"
+        - "акты приема-передачи"
+        - "расписки"
+        - "решения суда"
+        - "исполнительные листы"
+        - "перечень передаваемых документов"
+        - "в течение ___ рабочих дней"
+        - "подлинники документов"
+        - "акт сверки с должником"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*обязуется.*передать.*цессионарию.*следующие.*документы"
+        - "(?i)передача.*документов.*оформляется.*актом.*приема.*передачи"
+
+  - id: "limitation_of_liability_for_solvency"
+    name: "Ограничение ответственности за платежеспособность Должника (ст. 390 ГК РФ)"
+    description: "Проверяет наличие ограничения ответственности Цедента за исполнимость требования"
+    legal_base: "ст. 390 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "цедент не отвечает за платежеспособность"
+        - "не несет ответственности за неисполнение Должником"
+        - "кроме случая принятия поручительства"
+        - "цедент не гарантирует исполнение требования"
+        - "цессионарий принимает на себя кредитный риск"
+        - "ответственность только за действительность"
+        - "отказ от гарантий исполнимости"
+        - "риск неплатежа лежит на цессионарии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*не.*несет.*ответственности.*за.*неисполнение.*требования.*должником"
+        - "(?i)цессионарий.*принимает.*на.*себя.*риск.*неплатежеспособности.*должника"
+
+  - id: "final_settlement_no_recourse"
+    name: "Окончательность расчета и отсутствие регресса"
+    description: "Проверяет наличие условия об окончательности расчетов"
+    legal_base: "ст. 390 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расчеты являются окончательными"
+        - "отсутствие регрессных требований"
+        - "без права обратного требования"
+        - "уплаченная сумма не подлежит возврату"
+        - "прекращение обязательств цедента"
+        - "цедент не имеет дополнительных обязательств"
+        - "после передачи права обязательства цедента прекращаются"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расчеты.*по.*договору.*являются.*окончательными.*и.*не.*подлежат.*пересмотру"
+        - "(?i)после.*исполнения.*обязательств.*по.*передаче.*права.*обязательства.*цедента.*прекращаются"
+
+  - id: "prohibition_of_assignment_verification"
+    name: "Проверка отсутствия запрета уступки в основном обязательстве (ст. 388 ГК РФ)"
+    description: "Проверяет наличие подтверждения отсутствия запрета уступки"
+    legal_base: "ст. 388 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "отсутствие запрета на уступку"
+        - "цедент подтверждает допустимость уступки"
+        - "основной договор разрешает уступку"
+        - "получено согласие Должника на уступку"
+        - "уступка не противоречит условиям основного договора"
+        - "цедент гарантирует отсутствие ограничений"
+        - "основное обязательство не содержит запрета"
+      keyword_mode: "any"
+      negative_keywords:
+        - "запрещена уступка"
+        - "требуется согласие Должника"
+        - "уступка не допускается"
+
+  - id: "protection_against_double_assignment"
+    name: "Защита от двойной уступки одного требования (ст. 388.1 ГК РФ)"
+    description: "Проверяет наличие гарантий отсутствия предыдущих уступок"
+    legal_base: "ст. 388.1 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "требование не уступалось ранее"
+        - "цедент гарантирует отсутствие предыдущих уступок"
+        - "первичность уступки по данному договору"
+        - "отсутствие прав третьих лиц на требование"
+        - "цедент подтверждает исключительность передачи"
+        - "право требования не обременено"
+        - "цедент обязуется не уступать требование другим лицам"
+        - "отсутствие конкурирующих прав"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)цедент.*гарантирует.*что.*право.*требования.*не.*было.*уступлено.*ранее"
+        - "(?i)на.*момент.*заключения.*договора.*требование.*не.*обременено.*правами.*третьих.*лиц"
+
+  - id: "dispute_resolution"
+    name: "Порядок разрешения споров"
+    description: "Проверяет наличие арбитражной или судебной оговорки"
+    legal_base: "ст. 5 АПК РФ, ст. 32 ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арбитражный суд"
+        - "подведомственность"
+        - "подсудность"
+        - "досудебный порядок"
+        - "претензионный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн.*суд"
+        - "(?i)претензионн.*порядок"
+
+  - id: "confidentiality"
+    name: "Конфиденциальность условий уступки"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "коммерческая тайна"
+        - "неразглашение"
+        - "не раскрывать третьим лицам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+  - id: "assignment_scope_volume"
+    name: "Объём уступаемого права: полная или частичная уступка (ст. 384 ГК РФ)"
+    description: "Проверяет явное указание на объём уступки — полная передача или часть требования"
+    legal_base: "ст. 384 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "в полном объеме"
+        - "полностью"
+        - "частично"
+        - "в части"
+        - "часть требования"
+        - "объем передаваемых прав"
+        - "все права"
+        - "включая проценты"
+        - "включая неустойку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+полном\\s+объем"
+        - "(?i)частичн(ая|о|ой)\\s+уступк"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "assignment_scope"
+          type: "string"
+          allowed_values: ["full", "partial", "unclear", "not_found"]
+          keyword_hints: ["в полном объёме", "частично", "в части"]
+          description: "Объём уступки"
+      store_payload: true
+
+  - id: "payment_terms_for_assignment"
+    name: "Порядок и сроки оплаты цены уступки"
+    description: "Проверяет наличие конкретных сроков, способа и последствий неоплаты цены уступки"
+    legal_base: "ст. 424, 454 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок оплаты"
+        - "в течение"
+        - "не позднее"
+        - "банковский перевод"
+        - "безналичный расчет"
+        - "реквизиты"
+        - "после подписания"
+        - "аванс"
+        - "рассрочка"
+        - "последствия неоплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(в\\s+течение|не\\s+позднее)\\s+\\d+\\s*(календарн|рабоч|банковск)"
+        - "(?i)оплат(а|ы|ить).*цен(у|ы)\\s+уступки"
+    extraction:
+      enabled: true
+      mode: "rules"
+      fields:
+        - name: "payment_deadline"
+          type: "string"
+          keyword_hints: ["в течение", "не позднее", "срок оплаты"]
+          description: "Срок оплаты цены уступки"
+        - name: "payment_method"
+          type: "string"
+          allowed_values: ["bank_transfer", "cash", "setoff", "other", "not_found"]
+          keyword_hints: ["банковский перевод", "безналичный", "наличными", "путём зачёта"]
+          description: "Способ оплаты"
+      store_payload: true
+
+  - id: "debtor_setoff_warning"
+    name: "Риск зачёта и возражений должника (ст. 386, 412 ГК РФ)"
+    description: "Проверяет наличие заверений цедента об отсутствии встречных требований должника"
+    legal_base: "ст. 386, 412 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возражения должника"
+        - "зачет"
+        - "встречное требование"
+        - "отсутствие встречных требований"
+        - "должник не имеет возражений"
+        - "контртребование"
+        - "право должника на зачёт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возражени(я|й).*должник"
+        - "(?i)зачет.*встречн"
+        - "(?i)отсутств(ие|уют).*встречн"
+
+  - id: "termination_rights"
+    name: "Расторжение договора цессии: основания и последствия"
+    description: "Проверяет наличие оснований для расторжения и последствий (возврат права, возврат денег)"
+    legal_base: "ст. 450, 450.1, 453 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "расторжение"
+        - "отказ от договора"
+        - "возврат права требования"
+        - "обратная уступка"
+        - "возврат цены уступки"
+        - "возврат денежных средств"
+        - "неустойка за расторжение"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)расторж(ение|ении|ить)"
+        - "(?i)возврат.*прав(а|о)\\s+требован"
+        - "(?i)обратн(ая|ой)\\s+уступк"
+
+  - id: "penalty_and_liability"
+    name: "Неустойка и ответственность сторон за нарушение"
+    description: "Проверяет наличие штрафных санкций за нарушение обязательств по договору цессии"
+    legal_base: "ст. 330, 393 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка"
+        - "штраф"
+        - "пеня"
+        - "ответственность"
+        - "убытки"
+        - "возмещение ущерба"
+        - "компенсация"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк(а|у|и)\\s+в\\s+размере"
+        - "(?i)штраф.*\\d+.*%"
+        - "(?i)пен(я|и|ю).*\\d"
+
+  - id: "governing_law"
+    name: "Применимое право"
+    description: "Проверяет указание применимого права"
+    legal_base: "ст. 1210, 1211 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "применимое право"
+        - "законодательство Российской Федерации"
+        - "регулируется правом"
+        - "governing law"
+        - "право Российской Федерации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)применим(ое|ого)\\s+прав"
+        - "(?i)регулируется.*прав(ом|о)"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить полные реквизиты сторон по {doc_names}: наименование/ФИО, ИНН, ОГРН/ОГРНИП,
+      адрес, документы уполномоченных лиц. Убедиться в полномочиях на заключение договора цессии.
+    addressee: "Обе стороны"
+
+  debtor_identification:
+    text: >
+      Просим предоставить по {doc_names}: полные реквизиты Должника (наименование/ФИО, ИНН, адрес),
+      подтверждение существования Должника (выписка ЕГРН/ЕГРЮЛ), актуальность данных.
+    addressee: "Цедент"
+
+  claim_identification_check:
+    text: >
+      В {doc_names} требуется точная идентификация уступаемого права. Просим предоставить:
+      (а) реквизиты договора-основания (№, дата, предмет); (б) акт сверки с Должником; 
+      (в) подтверждение суммы и срока задолженности; (г) историю возникновения долга.
+    addressee: "Цедент"
+
+  assignment_price:
+    text: >
+      Просим подтвердить по {doc_names}: цену уступки, соотношение с номиналом долга (дисконт/премия),
+      порядок и сроки оплаты, налоговые последствия (НДС, налог на прибыль).
+    addressee: "Финансовый директор / Цедент"
+
+  cedent_warranties_check:
+    text: >
+      В {doc_names} недостаточны гарантии Цедента. Просим согласовать: (а) гарантию действительности 
+      и существования требования; (б) гарантию отсутствия предыдущих уступок; (в) гарантию отсутствия 
+      обременений; (г) ответственность Цедента за пороки права (регресс).
+    addressee: "Юридический советник цессионария"
+
+  documents_transfer:
+    text: >
+      Просим предоставить по {doc_names}: (а) оригиналы договора-основания; (б) акты сверки с Должником; 
+      (в) первичные документы (накладные, акты, счета); (г) исполнительные документы (если есть); 
+      (д) переписку с Должником; (е) акт приема-передачи документов.
+    addressee: "Цедент"
+
+  accessory_rights_transfer_check:
+    text: >
+      Просим согласовать в {doc_names}: (а) переход прав из договоров залога/поручительства; 
+      (б) переход права на неустойку и проценты; (в) передачу документов по обеспечению; 
+      (г) порядок уведомления залогодержателей/поручителей.
+    addressee: "Юридический советник"
+
+  debtor_notification_check:
+    text: >
+      В {doc_names} не раскрыт порядок уведомления Должника. Просим согласовать: (а) срок уведомления 
+      (рекомендуется до 10 дней); (б) способ уведомления (заказное письмо с уведомлением + курьер); 
+      (в) ответственность за уведомление; (г) форму уведомления (приложение к договору).
+    addressee: "Юридический советник"
+
+  prohibition_of_assignment_verification:
+    text: >
+      Просим предоставить по {doc_names}: (а) основной договор с Должником для проверки запрета уступки; 
+      (б) согласие Должника на уступку (если требуется); (в) правовое заключение о допустимости уступки.
+    addressee: "Цедент / Юридический советник"
+
+  protection_against_double_assignment:
+    text: >
+      Просим предоставить по {doc_names}: (а) заверение Цедента об отсутствии предыдущих уступок; 
+      (б) выписку ЕГРН/ЕГРЮЛ Должника для проверки судебных споров; (в) информацию о банкротстве Должника; 
+      (г) обязательство Цедента не уступать требование третьим лицам.
+    addressee: "Цедент"
+
+  limitation_of_liability_for_solvency:
+    text: >
+      Просим добавить в {doc_names}: (а) оговорку об отсутствии ответственности за платежеспособность Должника; 
+      (б) разграничение ответственности (действительность vs исполнимость); (в) отказ от гарантий исполнимости; 
+      (г) принятие цессионарием кредитного риска.
+    addressee: "Юридический советник цедента"
+
+  final_settlement_no_recourse:
+    text: >
+      Просим добавить в {doc_names}: (а) окончательность расчетов; (б) отказ цессионария от регресса к цеденту; 
+      (в) неприменимость ст. 406 ГК РФ (освобождение должника); (г) сохранение ответственности цедента только за пороки права.
+    addressee: "Юридический советник цедента"
+
+  del_credere_check:
+    text: >
+      Просим согласовать в {doc_names} условие делькредере: (а) полная/частичная ответственность цедента 
+      за исполнение должником; (б) размер ответственности (до суммы уступки или номинала долга); 
+      (в) условия возникновения ответственности; (г) срок предъявления требований.
+    addressee: "Юридический советник"
+
+  future_claims_check:
+    text: >
+      Для {doc_names} (будущие требования) просим согласовать: (а) критерии определения будущих требований 
+      (контрагенты, суммы, период); (б) механизм фиксации возникших требований; (в) порядок уведомления 
+      будущих должников; (г) ограничения по срокам/суммам.
+    addressee: "Юридический советник"
+
+  enforcement_assignment_compliance:
+    text: >
+      Для {doc_names} (уступка в исполнительном производстве) просим предоставить: (а) исполнительный документ; 
+      (б) постановление о возбуждении ИП; (в) сведения о статусе взыскания; (д) согласование с приставом-исполнителем.
+    addressee: "Цедент / Судебный пристав"
+
+  taxation_assignment_risk:
+    text: >
+      Просим предоставить по {doc_names}: (а) налоговое заключение об НДС при уступке; (б) расчет налоговой базы 
+      по налогу на прибыль (ст. 279 НК РФ); (в) порядок выставления счета-фактуры (если применимо).
+    addressee: "Налоговый консультант"
+
+  dispute_resolution:
+    text: >
+      Просим согласовать в {doc_names}: (а) подведомственность (арбитражные суды); (б) подсудность (место нахождения цессионария); 
+      (в) досудебный претензионный порядок (срок 30 дней); (г) применимое право.
+    addressee: "Юридический советник"
+
+  confidentiality:
+    text: >
+      Просим добавить в {doc_names} раздел о конфиденциальности: (а) неразглашение суммы уступки; 
+      (б) неразглашение условий сделки; (в) исключения (по требованию суда/пристава); (г) ответственность.
+    addressee: "Юридический советник"
+
+  debtor_setoff_counterclaim_check:
+    text: >
+      Просим предоставить по {doc_names}: (а) информацию о наличии встречных требований
+      Должника к Цеденту (акт сверки, переписка, претензии); (б) заверение Цедента
+      об отсутствии оснований для зачёта; (в) информацию об обязательствах Цедента
+      перед Должником по смежным договорам.
+    addressee: "Цедент / Юридический советник цессионария"
+
+  debtor_setoff_warning:
+    text: >
+      Просим включить в {doc_names}: гарантию Цедента об отсутствии встречных
+      требований Должника, обязанность раскрытия любых известных возражений
+      и компенсацию потерь при наличии скрытых встречных требований.
+    addressee: "Юридический советник цессионария"
+
+  partial_assignment_scope_check:
+    text: >
+      Просим уточнить в {doc_names}: (а) точный объём передаваемой части требования
+      (сумма, компоненты: основной долг/проценты/неустойка); (б) судьбу остатка
+      требования у Цедента; (в) порядок распределения поступлений от Должника
+      между двумя кредиторами; (г) подтверждение делимости требования.
+    addressee: "Юридический советник"
+
+  assignment_scope_volume:
+    text: >
+      Просим явно указать в {doc_names}: уступается ли право требования
+      в полном объёме или частично, включая перечень компонентов (основной долг,
+      проценты, неустойка, судебные расходы).
+    addressee: "Юридический советник"
+
+  assignment_form_compliance_check:
+    text: >
+      Просим подтвердить по {doc_names}: (а) в какой форме заключён основной договор
+      с Должником (простая письменная / нотариальная / зарегистрированная);
+      (б) соблюдена ли аналогичная форма для договора уступки (ст. 389 ГК РФ);
+      (в) при необходимости — порядок нотариального удостоверения или регистрации уступки.
+    addressee: "Юридический советник / Нотариус"
+
+  payment_terms_for_assignment:
+    text: >
+      Просим уточнить в {doc_names}: конкретный срок оплаты цены уступки,
+      способ расчёта (банковский перевод / иной), реквизиты, последствия
+      просрочки оплаты (неустойка, право на расторжение, удержание документов).
+    addressee: "Финансовый директор / Юридический советник"
+
+  termination_rights:
+    text: >
+      Просим согласовать в {doc_names}: основания расторжения для каждой стороны,
+      последствия расторжения (обратная уступка, возврат цены, компенсация),
+      порядок уведомления, применимость ст. 450.1 ГК РФ (отказ от договора).
+    addressee: "Юридический советник"
+
+  penalty_and_liability:
+    text: >
+      Просим включить в {doc_names}: неустойку за просрочку оплаты,
+      штраф за непередачу документов, ответственность за предоставление
+      недостоверных гарантий и общий лимит ответственности сторон.
+    addressee: "Юридический советник"
+
+  governing_law:
+    text: >
+      Просим подтвердить в {doc_names} применимое право,
+      особенно если стороны или должник находятся в разных юрисдикциях.
+    addressee: "Юридический советник"
+
+  non_monetary_claim_consent_required:
+    text: >
+      Внимание: {doc_names} содержит уступку неденежного требования.
+      По ст. 388 п. 4 ГК РФ необходимо убедиться, что уступка не делает
+      исполнение значительно более обременительным для Должника.
+      Просим предоставить: (а) согласие Должника (если требуется);
+      (б) правовое заключение о допустимости уступки без согласия.
+    addressee: "Юридический советник цессионария"
+
+  bankruptcy_avoidance_risk:
+    text: >
+      Внимание: по {doc_names} выявлен банкротный контекст.
+      Просим предоставить: (а) информацию о финансовом состоянии Цедента;
+      (б) данные о наличии/отсутствии дел о банкротстве (Картотека арбитражных дел);
+      (в) правовое заключение о рисках оспаривания уступки по ст. 61.2–61.3 ФЗ-127;
+      (г) обоснование рыночности цены уступки.
+    addressee: "Юридический советник цессионария"
+
+  assignment_form_legal_requirement:
+    text: >
+      Внимание: основной договор по {doc_names} может требовать нотариальной
+      формы или государственной регистрации. Просим подтвердить: (а) форму
+      основного договора; (б) соблюдение аналогичной формы для уступки (ст. 389 ГК РФ);
+      (в) порядок регистрации (если применимо).
+    addressee: "Юридический советник / Нотариус"
+
+  assignment_prohibition_check:
+    text: >
+      КРИТИЧНО: по {doc_names} выявлен возможный запрет уступки в основном договоре.
+      Просим немедленно предоставить: (а) полный текст основного договора для проверки
+      раздела об уступке; (б) при наличии запрета — согласие Должника на уступку;
+      (в) правовое заключение о последствиях нарушения запрета.
+    addressee: "Цедент / Юридический советник"
+
+  double_assignment_risk:
+    text: >
+      Просим предоставить по {doc_names}: (а) письменное заверение Цедента
+      об отсутствии предыдущих уступок данного требования; (б) проверку судебных
+      дел в отношении Должника (Картотека); (в) подтверждение отсутствия
+      обременений на требование; (г) обязательство не уступать требование повторно.
+    addressee: "Цедент / Юридический советник цессионария"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    

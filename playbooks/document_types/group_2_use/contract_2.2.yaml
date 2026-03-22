@@ -1,0 +1,1618 @@
+type: contract_2.2
+name: "Договор проката"
+
+description: |
+  Специальный вид аренды движимого имущества, предоставляемого во временное владение
+  и пользование за плату для потребительских (личных, семейных, бытовых) нужд.
+  Характеризуется публичным характером договора, профессиональным арендодателем,
+  краткосрочностью, обязательной consumer-ориентацией арендатора и особыми правилами:
+  срок до одного года, фиксированная плата, обязанность арендодателя по ремонту,
+  обязанность проверить исправность имущества и ознакомить арендатора с правилами эксплуатации,
+  а также запрет субаренды и передачи прав третьим лицам.
+  Регулируется § 2 Главы 34 ГК РФ и, в соответствующих случаях, законодательством
+  о защите прав потребителей.
+
+version: 4.0
+parent: class_2_transfer_for_use
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: use_transfer
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 2 Главы 34 ГК РФ (ст. 626-631)"
+  hierarchy_position: "child_specialized_consumer"
+  doc_types_supported:
+    - "договор проката"
+    - "договор бытового проката"
+    - "публичный договор проката"
+    - "прокат инвентаря"
+    - "прокат инструмента"
+    - "прокат оборудования для бытовых нужд"
+    - "краткосрочный договор проката"
+    - "оферта сервиса проката"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)прокат"
+      - "(?i)rental[\\s_.-]?consumer"
+      - "(?i)consumer[\\s_.-]?rental"
+      - "(?i)пункт[\\s_.-]?проката"
+
+    folder_patterns:
+      - "(?i)прокат"
+      - "(?i)consumer"
+      - "(?i)retail[\\s_]?rental"
+
+    keywords:
+
+      high:
+        - "прокат"
+        - "бытовые нужды"
+        - "потребительские цели"
+        - "публичный договор"
+        - "пункт проката"
+        - "гражданин"
+        - "проверка исправности"
+        - "инструкция по эксплуатации"
+
+      medium:
+        - "почасовая аренда"
+        - "посуточная аренда"
+        - "краткосрочная аренда"
+        - "аренда инвентаря"
+        - "движимое имущество"
+        - "страховой депозит"
+        - "обеспечительный платеж"
+        - "нормальный износ"
+        - "возврат залога"
+
+      low:
+        - "квитанция проката"
+        - "чек"
+        - "каршеринг"
+        - "кикшеринг"
+        - "самокат"
+        - "велосипед"
+        - "инструмент"
+        - "спортинвентарь"
+
+    exclusions:
+      - "аренда недвижимости"
+      - "лизинг"
+      - "финансовая аренда"
+      - "безвозмездное пользование"
+      - "ссуда"
+      - "договор найма жилого помещения"
+      - "аренда для предпринимательской деятельности арендатора"
+      - "транспортное средство с экипажем"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  consumer_purpose:
+    any_keywords:
+      - "для бытовых нужд"
+      - "для личных нужд"
+      - "потребительские цели"
+      - "семейные нужды"
+      - "личное использование"
+      - "гражданин-арендатор"
+
+  movable_item_rental:
+    any_keywords:
+      - "движимое имущество"
+      - "инструмент"
+      - "оборудование"
+      - "техника"
+      - "самокат"
+      - "велосипед"
+      - "спортинвентарь"
+      - "костюм"
+      - "серийный номер"
+      - "марка"
+      - "модель"
+
+  short_term_rental:
+    any_keywords:
+      - "почасовая аренда"
+      - "посуточная аренда"
+      - "на сутки"
+      - "на часы"
+      - "на несколько дней"
+      - "до одного года"
+      - "краткосрочная аренда"
+
+  public_contract_features:
+    any_keywords:
+      - "публичный договор"
+      - "публичная оферта"
+      - "единые условия для всех"
+      - "заключается с каждым обратившимся"
+      - "пункт проката"
+
+  repair_obligations:
+    any_keywords:
+      - "капитальный и текущий ремонт"
+      - "ремонт за счет арендодателя"
+      - "устранение недостатков"
+      - "замена неисправного имущества"
+
+  deposit_related:
+    any_keywords:
+      - "залог"
+      - "страховой депозит"
+      - "обеспечительный платеж"
+      - "гарантийная сумма"
+      - "возврат залога"
+      - "удержание депозита"
+
+  safety_and_instruction:
+    any_keywords:
+      - "проверка исправности"
+      - "правила эксплуатации"
+      - "инструктаж"
+      - "техника безопасности"
+      - "ознакомление с правилами использования"
+
+  commercial_use_risk:
+    any_keywords:
+      - "для предпринимательской деятельности"
+      - "для бизнеса"
+      - "в коммерческих целях"
+      - "для извлечения прибыли"
+      - "ИП"
+      - "юрлицо"
+
+  transport_like_service:
+    any_keywords:
+      - "каршеринг"
+      - "кикшеринг"
+      - "самокат"
+      - "велосипед"
+      - "мобильное приложение"
+      - "оферта сервиса"
+
+  return_and_handover:
+    description: "Возврат и приёмка/выдача имущества"
+    any_keywords:
+      - "возврат имущества"
+      - "акт возврата"
+      - "квитанция"
+      - "акт выдачи"
+      - "при возврате"
+      - "просрочка возврата"
+      - "штраф за невозврат"
+      - "комплектность при возврате"
+
+  personal_data_processing:
+    description: "Обработка персональных данных арендатора"
+    any_keywords:
+      - "персональные данные"
+      - "согласие на обработку"
+      - "паспортные данные"
+      - "ФЗ-152"
+      - "оператор персональных данных"
+      - "фотографирование документов"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  duration_pattern: "(?i)(\\b\\d+\\s*(?:час|часов|часа|суток|сутки|дней|день|месяц|месяцев|месяца|год|года|лет)\\b)"
+  serial_number: "(?i)(серийный\\s+номер|инвентарный\\s+номер|imei|vin|s/n)"
+  vin_number: "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "commercial_use_reclassification_risk"
+    name: "Риск переквалификации: прокат используется для предпринимательских целей"
+    description: >
+      Если имущество передается не для бытовых/потребительских нужд, а для бизнеса,
+      договор не должен квалифицироваться как прокат и, как правило, должен анализироваться
+      как общая аренда или иной специальный арендный режим.
+    legal_base: "ст. 626 ГК РФ"
+    required_triggers: ["commercial_use_risk"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "для предпринимательской деятельности"
+        - "для бизнеса"
+        - "в коммерческих целях"
+        - "для извлечения прибыли"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "предпринимательская деятельность"
+        - "коммерческие цели"
+        - "ст. 626 ГК РФ"
+      rerank: true
+
+  - id: "term_over_one_year_risk"
+    name: "Срок проката свыше одного года противоречит специальной модели проката"
+    description: >
+      Прокат является краткосрочным специальным договором; срок свыше одного года
+      несовместим с его стандартной моделью и создает риск переквалификации.
+      При обнаружении сроков свыше 12 месяцев или пролонгации, потенциально
+      увеличивающей суммарный срок за пределы года, — выдается предупреждение.
+    legal_base: "ст. 627 ГК РФ"
+    required_triggers: []  
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "2 года"
+        - "два года"
+        - "3 года"
+        - "три года"
+        - "18 месяцев"
+        - "24 месяца"
+        - "на неопределённый срок"
+        - "бессрочный"
+        - "автоматическое продление"
+        - "пролонгация"
+        - "возобновление на тот же срок"
+      keyword_mode: "any"
+      negative_keywords:
+        - "до одного года"
+        - "не более 12 месяцев"
+        - "не более 1 года"
+    retrieval:
+      context_k: 4
+      boost_keywords:
+        - "срок"
+        - "свыше одного года"
+        - "пролонгация"
+        - "ст. 627 ГК РФ"
+      rerank: true
+
+  - id: "consumer_law_mandatory_context"
+    name: "Необходим учет consumer-law контекста в договоре проката"
+    description: >
+      Если прокат оформляется для гражданина-потребителя, необходимо учитывать
+      императивные нормы законодательства о защите прав потребителей, включая запрет
+      на ущемляющие условия и навязывание дополнительных услуг.
+    legal_base: "Закон РФ № 2300-1, ст. 16 ЗоЗПП, ст. 426 ГК РФ"
+    required_triggers: ["consumer_purpose"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "закон о защите прав потребителей"
+        - "публичный договор"
+        - "дополнительные услуги"
+        - "страховка"
+        - "без возврата"
+        - "навязывание услуг"
+        - "обязательная страховка"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ЗоЗПП"
+        - "публичный договор"
+        - "ущемление прав потребителя"
+        - "навязывание"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: rental_subject_and_consumer_purpose_extraction
+    name: "Прокат: извлечение предмета, срока и потребительской цели"
+    description: >
+      Извлекает объект проката, срок, цену, признаки бытового использования,
+      модель выдачи и базовые условия consumer-rental.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "прокат"
+        - "бытовые нужды"
+        - "потребительские цели"
+        - "гражданин"
+        - "арендная плата"
+        - "срок проката"
+        - "марка"
+        - "модель"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(\\b\\d+\\s*(?:час|часов|часа|суток|сутки|дней|день|месяц|месяцев|месяца|год|года|лет)\\b)"
+        - "(?i)(серийный\\s+номер|инвентарный\\s+номер|imei|vin|s/n)"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Извлеки ключевые условия договора.
+
+        Ответь строго в JSON:
+        {
+          "rental_item": "<описание вещи или not_found>",
+          "item_type": "<equipment / tool / scooter / bicycle / costume / consumer_item / other / not_found>",
+          "consumer_purpose_status": "<explicit / implied / contradicted / not_found>",
+          "rental_term": "<срок проката или not_found>",
+          "fixed_fee": "<размер платы или not_found>",
+          "deposit_present": "<yes / no / not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "прокат"
+        - "бытовые нужды"
+        - "срок"
+        - "арендная плата"
+        - "залог"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "rental_item"
+          type: "string"
+          description: "Предмет проката"
+        - name: "consumer_purpose_status"
+          type: "string"
+          allowed_values: ["explicit", "implied", "contradicted", "not_found"]
+          description: "Статус бытовой/потребительской цели"
+        - name: "rental_term"
+          type: "string"
+          description: "Срок проката"
+        - name: "fixed_fee"
+          type: "string"
+          description: "Размер платы"
+      store_payload: true
+
+  - id: public_contract_status_check
+    name: "Публичный характер договора проката"
+    description: >
+      Проверяет, отражен ли публичный характер договора, единые условия
+      для потребителей и отсутствие дискриминационного отказа.
+    triggers:
+      any: ["public_contract_features"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "публичный договор"
+        - "публичная оферта"
+        - "единые условия для всех"
+        - "каждый обратившийся"
+        - "пункт проката"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)публичн(ый|ого)\\s+договор"
+        - "(?i)публичн(ая|ой)\\s+оферт"
+        - "(?i)кажд(ый|ому)\\s+обративш"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь, раскрыт ли публичный характер договора.
+
+        Ответь строго в JSON:
+        {
+          "public_contract_status": "<explicit / implied / not_found>",
+          "uniform_terms_reference": "<yes / no / not_found>",
+          "consumer_access_model": "<open_to_all / unclear / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "публичный договор"
+        - "публичная оферта"
+        - "единые условия"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "public_contract_status"
+          type: "string"
+          allowed_values: ["explicit", "implied", "not_found"]
+          description: "Статус публичного договора"
+      store_payload: true
+
+  - id: unilateral_termination_consumer_check
+    name: "Право арендатора на отказ от договора проката"
+    description: >
+      Проверяет, отражено ли право арендатора отказаться от договора,
+      вернуть имущество досрочно и получить перерасчет.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "вправе отказаться в любое время"
+        - "односторонний отказ"
+        - "досрочный возврат имущества"
+        - "перерасчет"
+        - "возврат части платы"
+        - "уведомление за"
+      keyword_mode: "any"
+      negative_keywords:
+        - "деньги не возвращаются"
+        - "минимальный срок аренды обязателен"
+        - "оплата не подлежит возврату"
+      regex_patterns:
+        - "(?i)арендатор.*вправе.*отказаться"
+        - "(?i)досрочн(ый|ого)\\s+возврат"
+        - "(?i)перерасчет"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь право арендатора на отказ и перерасчет платы.
+
+        Ответь строго в JSON:
+        {
+          "termination_right_status": "<granted / limited / contradicted / not_found>",
+          "refund_recalculation": "<yes / no / not_found>",
+          "unfair_non_refund_language": "<yes / no / unclear>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "вправе отказаться"
+        - "досрочный возврат"
+        - "перерасчет"
+        - "деньги не возвращаются"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "termination_right_status"
+          type: "string"
+          allowed_values: ["granted", "limited", "contradicted", "not_found"]
+          description: "Статус права на отказ"
+        - name: "refund_recalculation"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли перерасчет/возврат платы"
+      store_payload: true
+
+  - id: fitness_and_instruction_check
+    name: "Исправность имущества, инструктаж и техника безопасности"
+    description: >
+      Проверяет проверку исправности, ознакомление с правилами эксплуатации
+      и safety briefing.
+    triggers:
+      any: ["safety_and_instruction"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "исправное состояние"
+        - "проверка исправности"
+        - "правила эксплуатации"
+        - "инструктаж"
+        - "техника безопасности"
+        - "ознакомление с правилами"
+        - "подпись об ознакомлении"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)проверк(а|и)\\s+исправност"
+        - "(?i)правил(а|ами)\\s+эксплуатац"
+        - "(?i)техник(а|е)\\s+безопасност"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь, урегулированы ли исправность имущества и инструктаж арендатора.
+
+        Ответь строго в JSON:
+        {
+          "fitness_check": "<yes / no / not_found>",
+          "instruction_provided": "<yes / no / not_found>",
+          "safety_rules_disclosed": "<yes / no / not_found>",
+          "consumer_protection_level": "<adequate / weak / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 380
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "проверка исправности"
+        - "инструктаж"
+        - "правила эксплуатации"
+        - "техника безопасности"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "fitness_check"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли проверка исправности"
+        - name: "instruction_provided"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли инструктаж"
+      store_payload: true
+
+  - id: repairs_obligation_check
+    name: "Все виды ремонта за счет арендодателя"
+    description: >
+      Проверяет, не переложены ли капитальный и текущий ремонт на арендатора
+      вопреки специальным правилам проката.
+    triggers:
+      any: ["repair_obligations"]
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "капитальный и текущий ремонт"
+        - "ремонт за счет арендодателя"
+        - "устранение недостатков"
+        - "замена неисправного имущества"
+        - "текущий ремонт за счет арендатора"
+      keyword_mode: "any"
+      negative_keywords:
+        - "текущий ремонт за счет арендатора"
+        - "арендатор обязан ремонтировать"
+      regex_patterns:
+        - "(?i)капитальн(ый|ого)\\s+и\\s+текущ(ий|его)\\s+ремонт"
+        - "(?i)ремонт.*за\\s+счет\\s+арендодател"
+        - "(?i)арендатор.*обязан.*ремонт"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь распределение обязанностей по ремонту.
+
+        Ответь строго в JSON:
+        {
+          "repair_regime": "<lessor_all_repairs / mixed / shifted_to_consumer / not_found>",
+          "replacement_for_broken_item": "<yes / no / not_found>",
+          "consumer_unfair_repair_shift": "<yes / no / unclear>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "ремонт за счет арендодателя"
+        - "капитальный и текущий ремонт"
+        - "арендатор обязан ремонтировать"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "repair_regime"
+          type: "string"
+          allowed_values: ["lessor_all_repairs", "mixed", "shifted_to_consumer", "not_found"]
+          description: "Режим ремонта"
+        - name: "consumer_unfair_repair_shift"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Есть ли unfair shift ремонта на потребителя"
+      store_payload: true
+
+  - id: sublease_and_personal_use_check
+    name: "Запрет субаренды и личный характер пользования"
+    description: >
+      Проверяет запрет передачи вещи третьим лицам и субаренды,
+      а также личный потребительский характер использования.
+    triggers:
+      any: ["consumer_purpose", "movable_item_rental"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "субаренда запрещена"
+        - "передача третьим лицам не допускается"
+        - "без права передачи"
+        - "только для личного использования"
+        - "использование только арендатором"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субаренд.*запрещ"
+        - "(?i)передач.*третьим\\s+лицам.*не\\s+допуска"
+        - "(?i)личн(ое|ого)\\s+использован"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь запрет субаренды и модель личного использования.
+
+        Ответь строго в JSON:
+        {
+          "sublease_prohibited": "<yes / no / not_found>",
+          "third_party_transfer_prohibited": "<yes / no / not_found>",
+          "personal_use_model": "<clear / weak / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "субаренда запрещена"
+        - "передача третьим лицам"
+        - "личное использование"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "sublease_prohibited"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Запрещена ли субаренда"
+        - name: "personal_use_model"
+          type: "string"
+          allowed_values: ["clear", "weak", "not_found"]
+          description: "Насколько ясно зафиксировано личное использование"
+      store_payload: true
+
+  - id: deposit_and_damage_liability_check
+    name: "Залог/депозит, возврат и ответственность за повреждение"
+    description: >
+      Проверяет режим обеспечительного платежа, критерии удержания,
+      ответственность за утрату/повреждение и distinction between normal wear and tear.
+    triggers:
+      any: ["deposit_related"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "залог"
+        - "страховой депозит"
+        - "обеспечительный платеж"
+        - "возврат залога"
+        - "удержание залога"
+        - "утрата имущества"
+        - "повреждение имущества"
+        - "нормальный износ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ой|ого)\\s+депозит|обеспечительн(ый|ого)\\s+плат|залог"
+        - "(?i)утрат(а|ы)\\s+имуществ|поврежден(ие|ия)"
+        - "(?i)нормальн(ый|ого)\\s+износ"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь режим депозита и ответственности за повреждение.
+
+        Ответь строго в JSON:
+        {
+          "deposit_mechanics": "<clear / weak / not_found>",
+          "damage_liability": "<clear / weak / not_found>",
+          "normal_wear_excluded": "<yes / no / not_found>",
+          "deposit_refund_rules": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "обеспечительный платеж"
+        - "возврат залога"
+        - "повреждение имущества"
+        - "нормальный износ"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "deposit_mechanics"
+          type: "string"
+          allowed_values: ["clear", "weak", "not_found"]
+          description: "Проработанность режима депозита"
+        - name: "normal_wear_excluded"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Исключен ли нормальный износ из ответственности"
+      store_payload: true
+
+  - id: breakdown_emergency_procedure_check
+    name: "Порядок действий при поломке или аварийной ситуации"
+    description: >
+      Проверяет наличие регламента действий арендатора при поломке,
+      запрет на самостоятельный ремонт и порядок экстренной связи.
+    triggers:
+      any: ["safety_and_instruction", "movable_item_rental"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "в случае поломки"
+        - "немедленно уведомить арендодателя"
+        - "не ремонтировать самостоятельно"
+        - "экстренная связь"
+        - "аварийная ситуация"
+        - "замена неисправного имущества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+случае\\s+поломк"
+        - "(?i)немедленно\\s+уведом"
+        - "(?i)не\\s+ремонтироват.*самостоятельн"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь наличие emergency procedure при поломке имущества.
+
+        Ответь строго в JSON:
+        {
+          "breakdown_procedure": "<described / not_found>",
+          "self_repair_prohibited": "<yes / no / not_found>",
+          "emergency_contact_present": "<yes / no / not_found>",
+          "replacement_option": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 360
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "в случае поломки"
+        - "немедленно уведомить"
+        - "не ремонтировать самостоятельно"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "breakdown_procedure"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Описан ли порядок действий при поломке"
+        - name: "self_repair_prohibited"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Запрещен ли самостоятельный ремонт"
+      store_payload: true
+
+  - id: return_procedure_and_condition_check
+    name: "Возврат имущества: состояние, сроки, штрафы"
+    description: >
+      Проверяет порядок возврата предмета проката по окончании срока или
+      при досрочном отказе. Главный источник споров: что считается нормальным
+      износом, кто и как оценивает повреждения, штрафы за просрочку возврата,
+      комплектность при возврате.
+    triggers:
+      any: ["return_and_handover", "deposit_related"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "возврат имущества"
+        - "акт возврата"
+        - "состояние при возврате"
+        - "нормальный износ"
+        - "повреждения при возврате"
+        - "просрочка возврата"
+        - "штраф за невозврат"
+        - "комплектность"
+        - "удержание из депозита"
+        - "место возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возвра(т|тить)\\s+имуществ"
+        - "(?i)акт\\s+возврат"
+        - "(?i)просрочк(а|и)\\s+возврат"
+        - "(?i)штраф.*невозврат"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор проката.
+        Проверь условия возврата имущества.
+
+        Это главный источник споров в прокате. Ключевые вопросы:
+        - Допустимое состояние при возврате (нормальный износ vs повреждения)
+        - Как фиксируется состояние (акт возврата, фото, сравнение с актом выдачи)
+        - Комплектность при возврате (все аксессуары, зарядки, ключи)
+        - Сроки возврата и штрафы за просрочку
+        - Место возврата (тот же пункт или иное)
+        - Порядок удержания из депозита при повреждениях
+
+        Ответь строго в JSON:
+        {
+          "return_procedure_present": "<yes / partial / no>",
+          "condition_assessment_method": "<comparison_with_issuance_act / visual_inspection / not_specified / not_found>",
+          "normal_wear_excluded": "<yes / no / not_found>",
+          "late_return_penalty": "<yes / no / not_found>",
+          "late_return_formula": "<формула/сумма или not_found>",
+          "completeness_check": "<yes / no / not_found>",
+          "return_location_specified": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "возврат"
+        - "акт возврата"
+        - "состояние"
+        - "нормальный износ"
+        - "просрочка"
+        - "штраф"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "return_procedure_present"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Урегулирован ли порядок возврата"
+        - name: "normal_wear_excluded"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Исключён ли нормальный износ из ответственности"
+        - name: "late_return_penalty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли штраф за просрочку возврата"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора: профессиональный арендодатель и арендатор"
+    description: "Проверяет идентификацию сторон и признаки профессионального арендодателя"
+    legal_base: "ст. 426, 626 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арендодатель"
+        - "арендатор"
+        - "гражданин"
+        - "ИП"
+        - "коммерческая организация"
+        - "пункт проката"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(арендодатель|арендатор).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+
+  - id: "consumer_purpose_declaration"
+    name: "Потребительская (бытовая) цель использования"
+    description: "Проверяет фиксацию бытового/потребительского назначения проката"
+    legal_base: "ст. 626 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_purpose"]
+    rules:
+      keywords:
+        - "для бытовых нужд"
+        - "для личных нужд"
+        - "потребительские цели"
+        - "для семейных нужд"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)бытов(ых|ые)\\s+нужд"
+        - "(?i)потребительск(ие|их)\\s+цел"
+
+  - id: "movable_property_identification"
+    name: "Индивидуализация движимого имущества"
+    description: "Проверяет описание вещи, марки, модели, серийного номера, комплектности и состояния"
+    legal_base: "ст. 607, 626 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["movable_item_rental"]
+    rules:
+      keywords:
+        - "марка"
+        - "модель"
+        - "серийный номер"
+        - "инвентарный номер"
+        - "комплектность"
+        - "состояние"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(серийный\\s+номер|инвентарный\\s+номер|imei|vin|s/n)"
+        - "(?i)марк(а|и)|модел(ь|и)"
+
+  - id: "fixed_rent_payment"
+    name: "Плата в твердой сумме"
+    description: "Проверяет, что плата по прокату определена в фиксированной сумме"
+    legal_base: "ст. 630 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "плата"
+        - "стоимость проката"
+        - "твердая сумма"
+        - "за сутки"
+        - "за час"
+        - "за день"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс)"
+        - "(?i)за\\s+(?:час|сутки|день|месяц)"
+
+  - id: "term_limitation_one_year"
+    name: "Срок проката не более одного года"
+    description: "Проверяет, что срок договора не выходит за пределы специального режима проката"
+    legal_base: "ст. 627 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["short_term_rental"]
+    rules:
+      keywords:
+        - "до одного года"
+        - "12 месяцев"
+        - "срок проката"
+        - "на сутки"
+        - "на часы"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(\\b\\d+\\s*(?:час|часов|часа|суток|сутки|дней|день|месяц|месяцев|месяца|год|года|лет)\\b)"
+
+  - id: "public_contract_declaration"
+    name: "Явное указание на публичный характер"
+    description: "Проверяет публичный статус договора и единые условия для потребителей"
+    legal_base: "ст. 426 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["public_contract_features"]
+    rules:
+      keywords:
+        - "публичный договор"
+        - "публичная оферта"
+        - "единые условия"
+        - "каждый обратившийся"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)публичн(ый|ого)\\s+договор"
+        - "(?i)публичн(ая|ой)\\s+оферт"
+
+  - id: "all_repairs_by_lessor"
+    name: "Все виды ремонта за счет арендодателя"
+    description: "Проверяет соблюдение специального правила о ремонте"
+    legal_base: "ст. 631 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["repair_obligations"]
+    rules:
+      keywords:
+        - "капитальный и текущий ремонт"
+        - "ремонт за счет арендодателя"
+        - "замена неисправного имущества"
+        - "устранение недостатков"
+      keyword_mode: "any"
+      negative_keywords:
+        - "текущий ремонт за счет арендатора"
+        - "арендатор обязан ремонтировать"
+      regex_patterns:
+        - "(?i)капитальн(ый|ого)\\s+и\\s+текущ(ий|его)\\s+ремонт"
+        - "(?i)ремонт.*за\\s+счет\\s+арендодател"
+
+  - id: "fitness_warranty_and_safety_briefing"
+    name: "Исправность имущества и обязательный инструктаж"
+    description: "Проверяет проверку исправности, инструктаж и safety disclosure"
+    legal_base: "ст. 628 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["safety_and_instruction"]
+    rules:
+      keywords:
+        - "проверка исправности"
+        - "исправное состояние"
+        - "правила эксплуатации"
+        - "инструктаж"
+        - "техника безопасности"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)проверк(а|и)\\s+исправност"
+        - "(?i)правил(а|ами)\\s+эксплуатац"
+        - "(?i)инструктаж"
+
+  - id: "absolute_prohibition_of_sublease"
+    name: "Запрет субаренды и передачи третьим лицам"
+    description: "Проверяет, что субаренда и передача вещи третьим лицам запрещены"
+    legal_base: "ст. 631 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "субаренда запрещена"
+        - "передача третьим лицам не допускается"
+        - "без права передачи"
+        - "использование только лично"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субаренд.*запрещ"
+        - "(?i)передач.*третьим\\s+лицам.*не\\s+допуска"
+
+  - id: "security_deposit_mechanism"
+    name: "Залог / обеспечительный платеж"
+    description: "Проверяет механизм внесения, удержания и возврата депозита"
+    legal_base: "ст. 329, 334, 381.1 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["deposit_related"]
+    rules:
+      keywords:
+        - "залог"
+        - "обеспечительный платеж"
+        - "страховой депозит"
+        - "возврат залога"
+        - "удержание депозита"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обеспечительн(ый|ого)\\s+плат|страхов(ой|ого)\\s+депозит|залог"
+
+  - id: "clear_liability_for_damage"
+    name: "Ответственность за утрату и повреждение имущества"
+    description: "Проверяет ясные правила ответственности за порчу/утрату"
+    legal_base: "ст. 629 ГК РФ, ст. 1064 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "утрата имущества"
+        - "повреждение имущества"
+        - "стоимость ремонта"
+        - "полная стоимость"
+        - "акт о повреждении"
+        - "возмещение ущерба"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)утрат(а|ы)\\s+имуществ"
+        - "(?i)поврежден(ие|ия)\\s+имуществ"
+        - "(?i)стоимост(ь|и)\\s+ремонт"
+
+  - id: "normal_wear_and_tear_exclusion"
+    name: "Исключение ответственности за нормальный износ"
+    description: "Проверяет исключение нормального износа из ответственности арендатора"
+    legal_base: "ст. 629 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "нормальный износ"
+        - "естественный износ"
+        - "не несет ответственности за износ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)нормальн(ый|ого)\\s+износ"
+        - "(?i)естественн(ый|ого)\\s+износ"
+
+  - id: "consumer_law_application"
+    name: "Учет Закона о защите прав потребителей"
+    description: "Проверяет наличие consumer-law disclosure и отсутствие заведомо unfair terms"
+    legal_base: "Закон РФ № 2300-1, ст. 16 ЗоЗПП"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["consumer_purpose", "public_contract_features"]
+    rules:
+      keywords:
+        - "закон о защите прав потребителей"
+        - "права потребителя"
+        - "дополнительные услуги"
+        - "страховка"
+        - "моральный вред"
+      keyword_mode: "any"
+      negative_keywords:
+        - "деньги не возвращаются"
+        - "отказ невозможен"
+      regex_patterns:
+        - "(?i)защит[аы]\\s+прав\\s+потребител"
+        - "(?i)моральн(ый|ого)\\s+вред"
+
+  - id: "breakdown_emergency_procedure"
+    name: "Порядок действий при поломке"
+    description: "Проверяет регламент уведомления, replacement flow и запрет self-repair"
+    legal_base: "ст. 628 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "в случае поломки"
+        - "немедленно уведомить"
+        - "не ремонтировать самостоятельно"
+        - "экстренная связь"
+        - "замена неисправного имущества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)в\\s+случае\\s+поломк"
+        - "(?i)немедленно\\s+уведом"
+        - "(?i)не\\s+ремонтироват.*самостоятельн"
+
+  - id: "dispute_resolution_jurisdiction"
+    name: "Подсудность и порядок разрешения споров"
+    description: "Проверяет суд/претензионный порядок/форум"
+    legal_base: "ГПК РФ, Закон о защите прав потребителей"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подсудность"
+        - "суд"
+        - "претензионный порядок"
+        - "досудебный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)подсудност"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+
+  - id: "return_conditions_and_penalties"
+    name: "Условия возврата и штраф за просрочку"
+    description: "Проверяет наличие условий возврата, сроков и санкций за невозврат/просрочку"
+    legal_base: "ст. 622, 629 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возврат имущества"
+        - "акт возврата"
+        - "при возврате"
+        - "просрочка возврата"
+        - "штраф за невозврат"
+        - "неустойка за просрочку"
+        - "за каждый день просрочки"
+        - "место возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возвра(т|тить)\\s+имуществ"
+        - "(?i)просрочк(а|и)\\s+возврат"
+        - "(?i)штраф.*невозврат"
+
+  - id: "issuance_act_receipt"
+    name: "Акт выдачи / квитанция проката при передаче имущества"
+    description: "Проверяет наличие документа, фиксирующего состояние и комплектность при выдаче"
+    legal_base: "ст. 628 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт выдачи"
+        - "квитанция"
+        - "акт приема-передачи"
+        - "состояние при выдаче"
+        - "фотофиксация"
+        - "комплектность при выдаче"
+        - "пробег при выдаче"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(выдач|приема|приёма|передач)"
+        - "(?i)квитанц"
+        - "(?i)фотофиксац"
+
+  - id: "personal_data_consent"
+    name: "Обработка персональных данных арендатора (ФЗ-152)"
+    description: "Проверяет наличие согласия на обработку персональных данных — обязательно для consumer-контрактов"
+    legal_base: "ФЗ-152 «О персональных данных»"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["personal_data_processing", "consumer_purpose"]
+    rules:
+      keywords:
+        - "персональные данные"
+        - "согласие на обработку"
+        - "обработка персональных данных"
+        - "оператор персональных данных"
+        - "ФЗ-152"
+        - "конфиденциальность данных"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)персональн(ых|ые)\\s+данн"
+        - "(?i)согласи(е|я)\\s+на\\s+обработк"
+
+  - id: "age_restrictions"
+    name: "Возрастные ограничения арендатора"
+    description: "Проверяет наличие возрастных ограничений — актуально для электросамокатов, инструмента, спортинвентаря"
+    legal_base: "ГК РФ (дееспособность), отраслевые акты"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возраст"
+        - "совершеннолетие"
+        - "18 лет"
+        - "16 лет"
+        - "14 лет"
+        - "несовершеннолетний"
+        - "дееспособность"
+        - "согласие законного представителя"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(старше|не\\s+моложе)\\s+\\d{2}\\s+лет"
+        - "(?i)несовершеннолетн"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: кто выступает профессиональным арендодателем,
+      на каком основании он осуществляет деятельность по прокату, а также реквизиты арендатора.
+    addressee: "Арендодатель / Юридический советник"
+
+  rental_subject_and_consumer_purpose_extraction:
+    text: >
+      Просим предоставить по {doc_names}: описание предмета проката, срок,
+      твердую стоимость проката, наличие залога/депозита и подтверждение,
+      что использование имеет бытовой/потребительский характер.
+    addressee: "Арендодатель"
+
+  consumer_purpose_declaration:
+    text: >
+      Просим уточнить в {doc_names}, что имущество предоставляется именно
+      для личных, семейных, бытовых нужд, а не для предпринимательской деятельности.
+    addressee: "Юридический советник"
+
+  movable_property_identification:
+    text: >
+      Просим уточнить в {doc_names}: марку, модель, серийный/инвентарный номер,
+      комплектность и состояние имущества на момент выдачи.
+    addressee: "Арендодатель"
+
+  fixed_rent_payment:
+    text: >
+      Просим подтвердить в {doc_names}: размер платы в твердой сумме,
+      единицу тарификации (час/сутки/день), порядок оплаты и возврата части платы
+      при досрочном возврате.
+    addressee: "Арендодатель / Финансовый консультант"
+
+  term_limitation_one_year:
+    text: >
+      Просим уточнить в {doc_names}: срок проката и подтвердить,
+      что он не выходит за пределы специального режима договора проката.
+    addressee: "Юридический советник"
+
+  public_contract_status_check:
+    text: >
+      Просим уточнить в {doc_names}: является ли договор публичным,
+      применяются ли единые условия для всех потребителей и в какой форме
+      опубликована оферта/типовые условия.
+    addressee: "Юридический советник"
+
+  public_contract_declaration:
+    text: >
+      Просим включить в {doc_names} прямое указание на публичный характер договора
+      и единые условия для всех обратившихся потребителей.
+    addressee: "Юридический советник арендодателя"
+
+  unilateral_termination_consumer_check:
+    text: >
+      Просим уточнить в {doc_names}: право арендатора на отказ в любое время,
+      порядок уведомления, перерасчет платы и возврат денежных средств
+      за неиспользованный период.
+    addressee: "Юридический советник"
+
+  fitness_and_instruction_check:
+    text: >
+      Просим предоставить по {doc_names}: порядок проверки исправности имущества,
+      форму подтверждения инструктажа, правила эксплуатации и safety rules.
+    addressee: "Арендодатель"
+
+  fitness_warranty_and_safety_briefing:
+    text: >
+      Просим включить/уточнить в {doc_names}: обязанность арендодателя
+      проверить исправность имущества, провести инструктаж и ознакомить
+      арендатора с правилами эксплуатации и техники безопасности.
+    addressee: "Юридический советник арендодателя"
+
+  repairs_obligation_check:
+    text: >
+      Просим уточнить в {doc_names}: что капитальный и текущий ремонт,
+      а также устранение недостатков и замена неисправного имущества
+      осуществляются за счет арендодателя.
+    addressee: "Юридический советник"
+
+  all_repairs_by_lessor:
+    text: >
+      Просим привести в {doc_names} блок ремонта в соответствие со ст. 631 ГК РФ
+      и исключить возложение ремонтных обязанностей на арендатора.
+    addressee: "Юридический советник арендодателя"
+
+  sublease_and_personal_use_check:
+    text: >
+      Просим уточнить в {doc_names}: запрет субаренды, передачи вещи третьим лицам
+      и подтверждение личного характера использования имущества.
+    addressee: "Юридический советник"
+
+  absolute_prohibition_of_sublease:
+    text: >
+      Просим включить в {doc_names} прямой запрет субаренды, перенаема
+      и передачи имущества третьим лицам.
+    addressee: "Юридический советник арендодателя"
+
+  deposit_and_damage_liability_check:
+    text: >
+      Просим уточнить в {doc_names}: режим депозита/залога, основания удержания,
+      порядок возврата, ответственность за утрату/повреждение и исключение
+      нормального износа из зоны ответственности арендатора.
+    addressee: "Арендодатель / Юридический советник"
+
+  security_deposit_mechanism:
+    text: >
+      Просим уточнить в {doc_names}: размер депозита, основание его удержания,
+      сроки возврата и порядок документального подтверждения повреждений.
+    addressee: "Юридический советник"
+
+  clear_liability_for_damage:
+    text: >
+      Просим уточнить в {doc_names}: как определяется размер ответственности
+      арендатора за повреждение или утрату имущества (ремонт / полная стоимость / market value).
+    addressee: "Юридический советник"
+
+  normal_wear_and_tear_exclusion:
+    text: >
+      Просим включить в {doc_names} прямое указание, что арендатор не отвечает
+      за нормальный (естественный) износ имущества при надлежащем использовании.
+    addressee: "Юридический советник"
+
+  consumer_law_application:
+    text: >
+      Просим уточнить в {doc_names}: применение Закона о защите прав потребителей,
+      исключить unfair terms и раскрыть все дополнительные платные услуги
+      (страховка, допоборудование, комиссии).
+    addressee: "Юридический советник / Compliance"
+
+  breakdown_emergency_procedure_check:
+    text: >
+      Просим уточнить в {doc_names}: порядок действий при поломке,
+      экстренный контакт, запрет на самостоятельный ремонт и порядок замены вещи.
+    addressee: "Арендодатель / Юридический советник"
+
+  breakdown_emergency_procedure:
+    text: >
+      Просим включить в {doc_names}: emergency procedure на случай поломки
+      или аварийной ситуации, включая обязанность немедленного уведомления арендодателя.
+    addressee: "Юридический советник арендодателя"
+
+  dispute_resolution_jurisdiction:
+    text: >
+      Просим уточнить в {doc_names}: подсудность, претензионный порядок,
+      а также consumer-specific forum aspects, если применимо.
+    addressee: "Юридический советник"
+
+  commercial_use_reclassification_risk:
+    text: >
+      Внимание: {doc_names} содержит признаки использования имущества
+      для предпринимательских целей. Просим проверить корректность квалификации
+      договора и, при необходимости, перевести документ в режим общей аренды.
+    addressee: "Юридический советник"
+
+  term_over_one_year_risk:
+    text: >
+      Внимание: по {doc_names} необходимо проверить, не превышает ли срок проката
+      пределы специального режима договора проката. Просим дать квалификационное заключение.
+    addressee: "Юридический советник"
+
+  consumer_law_mandatory_context:
+    text: >
+      Внимание: {doc_names} подпадает под consumer-law контекст.
+      Просим проверить текст на unfair terms, навязывание дополнительных услуг,
+      ограничения права на отказ и возврат денежных средств.
+    addressee: "Юридический советник / Compliance"
+
+  return_procedure_and_condition_check:
+    text: >
+      Просим уточнить в {doc_names}: порядок возврата предмета проката —
+      допустимое состояние (нормальный износ vs повреждения), метод оценки
+      (сравнение с актом выдачи, фото), комплектность, место и время возврата,
+      штрафы за просрочку, порядок удержания из депозита.
+    addressee: "Арендодатель / Юридический советник"
+
+  return_conditions_and_penalties:
+    text: >
+      В {doc_names} не урегулированы условия возврата имущества. Просим включить:
+      порядок приёмки при возврате, стандарт допустимого состояния, санкции
+      за просрочку (неустойка за каждый день/час), место возврата, порядок
+      фиксации повреждений.
+    addressee: "Юридический советник арендодателя"
+
+  issuance_act_receipt:
+    text: >
+      Просим включить в {doc_names}: акт выдачи / квитанцию с фиксацией
+      состояния имущества, комплектности и внешнего вида при передаче арендатору.
+      Это необходимо для объективного сравнения при возврате.
+    addressee: "Юридический советник арендодателя"
+
+  personal_data_consent:
+    text: >
+      Просим включить в {doc_names}: согласие арендатора на обработку
+      персональных данных (ФЗ-152), цели обработки, перечень данных,
+      сроки хранения и порядок отзыва согласия.
+    addressee: "Юридический советник / Compliance"
+
+  age_restrictions:
+    text: >
+      Просим уточнить в {doc_names}: возрастные ограничения для арендатора,
+      порядок проверки возраста, необходимость согласия законных представителей
+      для несовершеннолетних (если допускается).
+    addressee: "Юридический советник арендодателя"
+
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"

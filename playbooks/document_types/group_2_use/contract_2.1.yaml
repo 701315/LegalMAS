@@ -1,0 +1,1718 @@
+type: contract_2.1
+name: "Договор аренды (общая коммерческая)"
+
+description: |
+  Базовая конструкция аренды для возмездного предоставления имущества
+  во временное владение и (или) пользование в коммерческом B2B-контексте.
+  Применяется к аренде нежилых помещений, зданий, складов, оборудования,
+  техники, земельных участков и иного имущества, если документ не подпадает
+  под более специальный арендный режим (лизинг, прокат, наем жилого помещения,
+  безвозмездное пользование и т.п.).
+  Ключевыми рисками являются индивидуализация объекта аренды, титул арендодателя,
+  срок аренды и регистрационные последствия, размер и структура арендной платы,
+  эксплуатационные расходы, судьба улучшений, досрочное расторжение и возврат имущества.
+
+version: 4.0
+parent: class_2_transfer_for_use
+
+# Структура
+#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
+#   trigger_definitions        → TriggerDetector
+#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
+#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
+#   dd_request_templates       → DDRequestTemplateLoader
+#   compliance_rules           → exclusion_logic → compliance-проверки
+
+metadata:
+  category: contract
+  subcategory: use_transfer
+  complexity: high
+  risk_level: high
+  jurisdiction: RU
+  language: ru
+  legal_base: "§ 1 Главы 34 ГК РФ (ст. 606-625)"
+  doc_types_supported:
+    - "договор аренды"
+    - "договор аренды нежилого помещения"
+    - "договор аренды офиса"
+    - "договор аренды склада"
+    - "договор аренды здания"
+    - "договор аренды сооружения"
+    - "договор аренды оборудования"
+    - "договор аренды техники"
+    - "договор аренды земельного участка"
+    - "договор коммерческой аренды"
+
+engine_expectations:
+  evidence_required: true
+  evidence_style: "pinpoint"
+  allow_not_found: true
+  output_style: "dd_grid"
+  prefer_structured_outputs: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
+#  Читается: YAMLRegistry → L1FilenameClassifier, L2HeaderClassifier
+# ════════════════════════════════════════════════════════════════════════════
+
+classification_runtime_v1:
+
+  rules:
+
+    filename_patterns:
+      - "(?i)аренд"
+      - "(?i)lease"
+      - "(?i)rent[\\s_.-]?agreement"
+      - "(?i)нежил"
+      - "(?i)office"
+      - "(?i)warehouse"
+
+    folder_patterns:
+      - "(?i)lease"
+      - "(?i)rent"
+      - "(?i)аренд"
+      - "(?i)real[\\s_]?estate"
+
+    keywords:
+
+      high:
+        - "аренд"
+        - "арендодатель"
+        - "арендатор"
+        - "временное пользование"
+        - "временное владение"
+        - "арендная плата"
+        - "передается во временное владение и пользование"
+
+      medium:
+        - "помещение"
+        - "здание"
+        - "оборудование"
+        - "нежилое помещение"
+        - "акт приема-передачи"
+        - "ежемесячная плата"
+        - "коммунальные услуги"
+        - "обеспечительный платеж"
+        - "субаренда"
+        - "капитальный ремонт"
+        - "текущий ремонт"
+
+      low:
+        - "эксплуатационные расходы"
+        - "индексация"
+        - "депозит"
+        - "возврат имущества"
+        - "право доступа"
+        - "страхование"
+        - "ВРИ"
+
+    exclusions:
+      - "жилой наем"
+      - "договор найма жилого помещения"
+      - "лизинг"
+      - "финансовая аренда"
+      - "прокат"
+      - "безвозмездное пользование"
+      - "ссуда"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 2: ТРИГГЕРЫ
+#  Читается: TriggerDetector → doc.applicable_triggers
+# ════════════════════════════════════════════════════════════════════════════
+
+trigger_definitions:
+
+  real_estate_lease:
+    any_keywords:
+      - "нежилое помещение"
+      - "помещение"
+      - "здание"
+      - "сооружение"
+      - "офис"
+      - "склад"
+      - "объект недвижимости"
+      - "кадастровый номер"
+      - "ЕГРН"
+      - "Росреестр"
+      - "этаж"
+      - "площадь"
+
+  land_lease:
+    any_keywords:
+      - "земельный участок"
+      - "кадастровый номер"
+      - "ВРИ"
+      - "вид разрешенного использования"
+      - "категория земель"
+      - "границы участка"
+      - "земли населенных пунктов"
+
+  equipment_lease:
+    any_keywords:
+      - "оборудование"
+      - "техника"
+      - "станок"
+      - "линия"
+      - "машина"
+      - "серийный номер"
+      - "технический паспорт"
+      - "гарантийное обслуживание"
+      - "сервисное обслуживание"
+
+  long_term_lease:
+    any_keywords:
+      - "11 месяцев"
+      - "12 месяцев"
+      - "1 год"
+      - "один год"
+      - "два года"
+      - "три года"
+      - "пять лет"
+      - "долгосрочная аренда"
+      - "срок аренды"
+
+  sublease_related:
+    any_keywords:
+      - "субаренда"
+      - "перенаем"
+      - "передача прав и обязанностей по договору"
+      - "передача имущества третьим лицам"
+
+  security_deposit_related:
+    any_keywords:
+      - "обеспечительный платеж"
+      - "депозит"
+      - "гарантийный платеж"
+      - "страховой депозит"
+      - "удержание обеспечительного платежа"
+
+  indexed_rent:
+    any_keywords:
+      - "индексация"
+      - "индекс потребительских цен"
+      - "переменная часть"
+      - "эксплуатационные расходы"
+      - "процент от"
+      - "корректировка арендной платы"
+
+  utility_charges_related:
+    any_keywords:
+      - "коммунальные услуги"
+      - "эксплуатационные расходы"
+      - "OPEX"
+      - "электроэнергия"
+      - "водоснабжение"
+      - "отопление"
+      - "услуги УК"
+
+  individual_party:
+    any_keywords:
+      - "гражданин"
+      - "физическое лицо"
+      - "паспорт"
+      - "дата рождения"
+      - "место рождения"
+
+  legal_entity_party:
+    any_keywords:
+      - "ООО"
+      - "АО"
+      - "ПАО"
+      - "ИНН"
+      - "ОГРН"
+      - "КПП"
+      - "юридическое лицо"
+
+  renewal_and_preemptive_right:
+    description: "Преимущественное право на заключение нового договора / продление"
+    any_keywords:
+      - "преимущественное право"
+      - "продление договора"
+      - "возобновление"
+      - "пролонгация"
+      - "автоматическое продление"
+      - "на тех же условиях"
+      - "на новый срок"
+      - "ст. 621"
+
+  access_to_premises:
+    description: "Доступ арендодателя в арендуемое помещение"
+    any_keywords:
+      - "доступ в помещение"
+      - "осмотр помещения"
+      - "посещение арендодателем"
+      - "предварительное уведомление"
+      - "ключи"
+      - "право доступа"
+      - "проверка состояния"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 3: SHARED PATTERNS
+#  Читается: DocTypeCheckLoader через _resolve_yaml_templates()
+# ════════════════════════════════════════════════════════════════════════════
+
+shared_patterns:
+
+  cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  area_pattern: "(?i)\\b\\d[\\d\\s,.]*\\s*(?:кв\\.?м|м2|м²)\\b"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+  vin_number: "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 4: COMPLIANCE RULES
+#  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+compliance_rules:
+
+  - id: "long_term_real_estate_lease_registration"
+    name: "Долгосрочная аренда недвижимости: государственная регистрация"
+    description: >
+      Договор аренды здания, сооружения, помещения или иного объекта недвижимости,
+      заключенный на срок, подлежащий государственной регистрации по закону,
+      требует надлежащего урегулирования регистрационной процедуры.
+    legal_base: "ст. 609, 651 ГК РФ, ФЗ-218"
+    required_triggers: ["real_estate_lease", "long_term_lease"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "Росреестр"
+        - "ЕГРН"
+        - "регистрация договора аренды"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "государственная регистрация"
+        - "Росреестр"
+        - "ЕГРН"
+        - "долгосрочная аренда"
+      rerank: true
+
+  - id: "lessor_title_risk"
+    name: "Риск отсутствия титула или полномочий у арендодателя"
+    description: >
+      Арендодатель должен быть собственником имущества либо иным лицом,
+      управомоченным законом или собственником сдавать имущество в аренду.
+    legal_base: "ст. 608 ГК РФ"
+    required_triggers: []
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "право собственности"
+        - "выписка из ЕГРН"
+        - "действует на основании"
+        - "право сдачи в аренду"
+        - "собственник"
+        - "арендодатель"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "право собственности"
+        - "право сдачи в аренду"
+        - "ст. 608 ГК РФ"
+      rerank: true
+
+  - id: "land_use_vri_compliance"
+    name: "Земля: соответствие использования ВРИ и категории земель"
+    description: >
+      Использование земельного участка не по ВРИ или не по целевому назначению
+      создает административные и договорные риски.
+    legal_base: "ст. 42 ЗК РФ, ст. 8.8 КоАП РФ"
+    required_triggers: ["land_lease"]
+    severity: "critical"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "вид разрешенного использования"
+        - "ВРИ"
+        - "категория земель"
+        - "целевое использование"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "ВРИ"
+        - "вид разрешенного использования"
+        - "категория земель"
+      rerank: true
+
+  - id: "eleven_month_auto_renewal_registration_risk"
+    name: "«11-месячный трюк»: обход регистрации через автопродление"
+    description: >
+      Массовая практика: стороны заключают договор аренды недвижимости на 11 месяцев
+      с автоматическим продлением на тот же срок, чтобы избежать государственной
+      регистрации. Суды неоднозначно оценивают такую конструкцию: при многократном
+      продлении суд может квалифицировать отношения как долгосрочную аренду,
+      требующую регистрации (п. 10 Информационного письма Президиума ВАС РФ № 59).
+      Незарегистрированный долгосрочный договор не имеет силы для третьих лиц.
+    legal_base: "ст. 609, 651 ГК РФ, п. 10 ИП ВАС РФ № 59 от 16.02.2001"
+    required_triggers: ["real_estate_lease"]
+    severity: "high"
+    result_if_triggered: "warning"
+    detector_type: "rules"
+    rules:
+      keywords:
+        - "11 месяцев"
+        - "одиннадцать месяцев"
+        - "менее одного года"
+        - "менее года"
+        - "автоматическое продление"
+        - "пролонгация на тот же срок"
+        - "возобновляется на тех же условиях"
+        - "продлевается автоматически"
+      keyword_mode: "any"
+    retrieval:
+      context_k: 5
+      boost_keywords:
+        - "11 месяцев"
+        - "автоматическое продление"
+        - "пролонгация"
+        - "государственная регистрация"
+      rerank: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 5: CHECKS_V8 — LLM/hybrid проверки
+#  Читается: DocTypeCheckLoader._load_doc_type_checks()
+# ════════════════════════════════════════════════════════════════════════════
+
+checks_v8:
+
+  - id: lease_subject_extraction
+    name: "Аренда: извлечение предмета, срока и базовых условий"
+    description: >
+      Извлекает описание объекта аренды, срок, арендную плату,
+      назначение использования и ключевые параметры передачи.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "арендодатель"
+        - "арендатор"
+        - "предмет аренды"
+        - "арендная плата"
+        - "срок аренды"
+        - "акт приема-передачи"
+        - "помещение"
+        - "оборудование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)\\b\\d[\\d\\s,.]*\\s*(?:кв\\.?м|м2|м²)\\b"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Извлеки ключевые условия аренды.
+
+        Ответь строго в JSON:
+        {
+          "asset_type": "<real_estate / land / equipment / other / mixed / not_found>",
+          "asset_description": "<описание объекта или not_found>",
+          "lease_term": "<срок аренды или not_found>",
+          "rent_amount": "<размер арендной платы или not_found>",
+          "use_purpose": "<целевое использование или not_found>",
+          "handover_document": "<act / invoice / other / not_found>"
+        }
+
+        ВАЖНО: Возвращай only_found_in_text.
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "предмет аренды"
+        - "срок аренды"
+        - "арендная плата"
+        - "акт приема-передачи"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "asset_type"
+          type: "string"
+          allowed_values: ["real_estate", "land", "equipment", "other", "mixed", "not_found"]
+          description: "Тип объекта аренды"
+        - name: "lease_term"
+          type: "string"
+          description: "Срок аренды"
+        - name: "rent_amount"
+          type: "string"
+          description: "Размер арендной платы"
+        - name: "use_purpose"
+          type: "string"
+          description: "Цель использования объекта"
+      store_payload: true
+
+  - id: lease_subject_identification_check
+    name: "Индивидуализация предмета аренды"
+    description: >
+      Проверяет достаточную определенность объекта аренды, особенно для недвижимости,
+      земли и оборудования.
+    triggers: {}
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "кадастровый номер"
+        - "адрес"
+        - "площадь"
+        - "этаж"
+        - "номер помещения"
+        - "серийный номер"
+        - "VIN"
+        - "технический паспорт"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)\\b\\d[\\d\\s,.]*\\s*(?:кв\\.?м|м2|м²)\\b"
+        - "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь, достаточно ли индивидуализирован предмет аренды.
+
+        Ответь строго в JSON:
+        {
+          "subject_identified": "<yes / partial / no>",
+          "real_estate_identifiers": "<present / partial / not_applicable / not_found>",
+          "equipment_identifiers": "<present / partial / not_applicable / not_found>",
+          "risk_of_unenforceability": "<high / medium / low>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "кадастровый номер"
+        - "адрес"
+        - "площадь"
+        - "серийный номер"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "subject_identified"
+          type: "string"
+          allowed_values: ["yes", "partial", "no"]
+          description: "Достаточно ли индивидуализирован объект"
+        - name: "risk_of_unenforceability"
+          type: "string"
+          allowed_values: ["high", "medium", "low"]
+          description: "Риск незаключенности/спора"
+      store_payload: true
+
+  - id: rent_payment_and_indexation_check
+    name: "Арендная плата, структура платежей и индексация"
+    description: >
+      Проверяет размер арендной платы, периодичность, переменную часть,
+      индексацию и структуру дополнительных платежей.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "арендная плата"
+        - "ежемесячно"
+        - "индексация"
+        - "переменная часть"
+        - "эксплуатационные расходы"
+        - "коммунальные услуги"
+        - "обеспечительный платеж"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)индексаци"
+        - "(?i)переменн(ая|ой)\\s+част"
+        - "(?i)обеспечительн(ый|ого)\\s+плат"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь блок арендной платы и платежей.
+
+        Ответь строго в JSON:
+        {
+          "fixed_rent_present": "<yes / no / partial>",
+          "variable_rent_present": "<yes / no / not_found>",
+          "indexation_mechanism": "<yes / no / not_found>",
+          "utilities_allocation": "<landlord / tenant / mixed / not_found>",
+          "security_deposit": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "арендная плата"
+        - "индексация"
+        - "коммунальные услуги"
+        - "обеспечительный платеж"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "fixed_rent_present"
+          type: "string"
+          allowed_values: ["yes", "no", "partial"]
+          description: "Есть ли фиксированная арендная плата"
+        - name: "variable_rent_present"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли переменная часть"
+        - name: "security_deposit"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли обеспечительный платеж"
+      store_payload: true
+
+  - id: handover_condition_and_fitness_check
+    name: "Передача объекта, его состояние и пригодность к использованию"
+    description: >
+      Проверяет наличие акта передачи, описания состояния объекта,
+      недостатков и пригодности для согласованного использования.
+    triggers: {}
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "акт приема-передачи"
+        - "техническое состояние"
+        - "исправное состояние"
+        - "пригодно для использования"
+        - "недостатки"
+        - "дефекты"
+        - "соответствие назначению"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(приема|приёма|передач)"
+        - "(?i)исправн(ое|ом)\\s+состояни"
+        - "(?i)пригодн(о|ость)\\s+для\\s+использован"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь, как урегулирована передача объекта и его состояние.
+
+        Ответь строго в JSON:
+        {
+          "handover_act_required": "<yes / no / not_found>",
+          "condition_description": "<detailed / general / not_found>",
+          "fitness_warranty": "<yes / no / not_found>",
+          "defect_disclosure": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 420
+    retrieval:
+      context_k: 5
+      max_chunks: 7
+      boost_keywords:
+        - "акт приема-передачи"
+        - "исправное состояние"
+        - "пригодность для использования"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "handover_act_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Предусмотрен ли акт передачи"
+        - name: "fitness_warranty"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли гарантия пригодности"
+      store_payload: true
+
+  - id: repairs_and_operational_costs_check
+    name: "Ремонт, содержание имущества и эксплуатационные расходы"
+    description: >
+      Проверяет распределение капитального и текущего ремонта,
+      OPEX, коммунальных расходов и maintenance duties.
+    triggers:
+      any: ["utility_charges_related", "equipment_lease", "real_estate_lease"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "капитальный ремонт"
+        - "текущий ремонт"
+        - "эксплуатационные расходы"
+        - "коммунальные услуги"
+        - "техническое обслуживание"
+        - "обязанность по содержанию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)капитальн(ый|ого)\\s+ремонт"
+        - "(?i)текущ(ий|его)\\s+ремонт"
+        - "(?i)эксплуатационн(ые|ых)\\s+расход"
+        - "(?i)коммунальн(ые|ых)\\s+услуг"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь распределение ремонтных и эксплуатационных обязанностей.
+
+        Ответь строго в JSON:
+        {
+          "capital_repairs": "<landlord / tenant / mixed / not_found>",
+          "current_repairs": "<landlord / tenant / mixed / not_found>",
+          "operational_costs": "<landlord / tenant / mixed / not_found>",
+          "maintenance_detailed": "<yes / no / partial>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "капитальный ремонт"
+        - "текущий ремонт"
+        - "эксплуатационные расходы"
+        - "коммунальные услуги"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "capital_repairs"
+          type: "string"
+          allowed_values: ["landlord", "tenant", "mixed", "not_found"]
+          description: "Кто делает капремонт"
+        - name: "current_repairs"
+          type: "string"
+          allowed_values: ["landlord", "tenant", "mixed", "not_found"]
+          description: "Кто делает текущий ремонт"
+        - name: "operational_costs"
+          type: "string"
+          allowed_values: ["landlord", "tenant", "mixed", "not_found"]
+          description: "Кто несет OPEX/коммуналку"
+      store_payload: true
+
+  - id: improvements_and_sublease_check
+    name: "Улучшения, перепланировка и субаренда"
+    description: >
+      Проверяет порядок согласования улучшений, судьбу отделимых/неотделимых улучшений,
+      субаренду и передачу прав третьим лицам.
+    triggers:
+      any: ["sublease_related", "real_estate_lease", "equipment_lease"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "улучшения"
+        - "неотделимые улучшения"
+        - "отделимые улучшения"
+        - "перепланировка"
+        - "переоборудование"
+        - "субаренда"
+        - "перенаем"
+        - "с письменного согласия"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неотделим(ые|ых)\\s+улучшени"
+        - "(?i)отделим(ые|ых)\\s+улучшени"
+        - "(?i)субаренд|перенаем|перепланировк"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь регулирование улучшений и субаренды.
+
+        Ответь строго в JSON:
+        {
+          "improvements_regime": "<detailed / general / not_found>",
+          "compensation_for_improvements": "<yes / no / conditional / not_found>",
+          "sublease_status": "<prohibited / allowed_with_consent / allowed / not_found>",
+          "alterations_control": "<yes / no / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "неотделимые улучшения"
+        - "субаренда"
+        - "перепланировка"
+        - "с письменного согласия"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "improvements_regime"
+          type: "string"
+          allowed_values: ["detailed", "general", "not_found"]
+          description: "Проработанность режима улучшений"
+        - name: "sublease_status"
+          type: "string"
+          allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_found"]
+          description: "Статус субаренды"
+      store_payload: true
+
+  - id: termination_and_return_check
+    name: "Досрочное прекращение, возврат имущества и обеспечительный платеж"
+    description: >
+      Проверяет основания одностороннего отказа/расторжения,
+      возврат имущества, порядок возврата/удержания обеспечительного платежа.
+    triggers:
+      any: ["security_deposit_related", "long_term_lease"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "односторонний отказ"
+        - "досрочное расторжение"
+        - "уведомление за"
+        - "возврат имущества"
+        - "обеспечительный платеж"
+        - "удержание депозита"
+        - "возврат депозита"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)односторонн(ий|его)\\s+отказ"
+        - "(?i)досрочн(ое|ого)\\s+расторж"
+        - "(?i)обеспечительн(ый|ого)\\s+плат"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь блок прекращения аренды и возврата имущества.
+
+        Ответь строго в JSON:
+        {
+          "early_termination_right_tenant": "<yes / no / limited / not_found>",
+          "early_termination_right_landlord": "<yes / no / limited / not_found>",
+          "return_procedure": "<described / not_found>",
+          "security_deposit_refund_mechanics": "<described / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "односторонний отказ"
+        - "досрочное расторжение"
+        - "обеспечительный платеж"
+        - "возврат имущества"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "early_termination_right_tenant"
+          type: "string"
+          allowed_values: ["yes", "no", "limited", "not_found"]
+          description: "Есть ли право арендатора на досрочное прекращение"
+        - name: "security_deposit_refund_mechanics"
+          type: "string"
+          allowed_values: ["described", "not_found"]
+          description: "Описан ли возврат депозита"
+      store_payload: true
+
+  - id: preemptive_right_and_renewal_check
+    name: "Преимущественное право на новый договор и продление (ст. 621 ГК РФ)"
+    description: >
+      Проверяет, как урегулировано преимущественное право арендатора на заключение
+      нового договора, условия продления/пролонгации и их соответствие ст. 621 ГК РФ.
+      При долгосрочной аренде — одна из ключевых защитных оговорок арендатора.
+    triggers:
+      any: ["renewal_and_preemptive_right", "long_term_lease"]
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "преимущественное право"
+        - "продление договора"
+        - "возобновление"
+        - "пролонгация"
+        - "автоматическое продление"
+        - "на тех же условиях"
+        - "уведомление о продлении"
+        - "отказ от продления"
+        - "на новый срок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)преимущест(венное|во)\\s+право"
+        - "(?i)автоматическ(ое|ого|ая|ой)\\s+продлен"
+        - "(?i)пролонгац"
+        - "(?i)уведомлени(е|я).*за\\s+\\d+\\s*(дней|месяц)"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь условия продления/возобновления договора и преимущественное право арендатора.
+
+        По ст. 621 ГК РФ:
+        - Арендатор, надлежащим образом исполнявший обязанности, имеет ПРЕИМУЩЕСТВЕННОЕ
+          право на заключение нового договора на новый срок
+        - Стороны могут изменить условия нового договора, но арендодатель не вправе
+          отказать и заключить договор с другим лицом
+        - Если после истечения срока арендатор продолжает пользоваться — договор считается
+          возобновлённым на тех же условиях на неопределённый срок
+
+        Ответь строго в JSON:
+        {
+          "preemptive_right_mentioned": "<yes / no / not_found>",
+          "auto_renewal_clause": "<yes / no / not_found>",
+          "renewal_notice_period": "<срок уведомления или not_found>",
+          "renewal_terms": "<same_terms / negotiable / not_specified / not_found>",
+          "waiver_of_preemptive_right": "<yes / no / not_found>",
+          "eleven_month_trick_detected": "<yes / no / unclear>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 450
+    retrieval:
+      context_k: 6
+      max_chunks: 8
+      boost_keywords:
+        - "преимущественное право"
+        - "продление"
+        - "пролонгация"
+        - "возобновление"
+        - "ст. 621"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 600
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "preemptive_right_mentioned"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Упомянуто ли преимущественное право"
+        - name: "auto_renewal_clause"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Есть ли автопродление"
+        - name: "eleven_month_trick_detected"
+          type: "string"
+          allowed_values: ["yes", "no", "unclear"]
+          description: "Обнаружен ли 11-месячный трюк"
+      store_payload: true
+
+  - id: landlord_access_and_inspection_check
+    name: "Доступ арендодателя в помещение и порядок осмотра"
+    description: >
+      Проверяет условия доступа арендодателя в арендуемое помещение —
+      частый источник споров в коммерческой аренде. Баланс между правом
+      собственника контролировать состояние имущества и правом арендатора
+      на спокойное пользование.
+    triggers:
+      any: ["access_to_premises", "real_estate_lease"]
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    rules:
+      keywords:
+        - "доступ в помещение"
+        - "осмотр помещения"
+        - "посещение арендодателем"
+        - "предварительное уведомление"
+        - "право проверки"
+        - "ключи"
+        - "в присутствии арендатора"
+        - "право доступа"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)доступ.*в.*помещени"
+        - "(?i)осмотр.*помещени"
+        - "(?i)предварительн(ое|ого)\\s+уведомлен"
+        - "(?i)в\\s+присутствии\\s+арендатор"
+    llm:
+      prompt_template: |
+        Ты — юридический ассистент, анализирующий договор аренды.
+        Проверь условия доступа арендодателя в помещение.
+
+        Ответь строго в JSON:
+        {
+          "access_regulated": "<yes / no / not_found>",
+          "prior_notice_required": "<yes / no / not_specified / not_found>",
+          "notice_period": "<срок уведомления или not_found>",
+          "tenant_presence_required": "<yes / no / not_specified / not_found>",
+          "access_frequency_limit": "<ограничение частоты или not_found>",
+          "emergency_access": "<yes / no / not_found>",
+          "access_hours": "<рабочее время / any / not_specified / not_found>",
+          "snippet": "<цитата из договора или not_found>"
+        }
+      prompt_file: null
+      context_k: 5
+      temperature: 0.0
+      max_tokens: 400
+    retrieval:
+      context_k: 5
+      max_chunks: 6
+      boost_keywords:
+        - "доступ"
+        - "осмотр"
+        - "посещение"
+        - "уведомление"
+        - "ключи"
+      rerank: true
+      filters: {}
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 500
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      fields:
+        - name: "access_regulated"
+          type: "string"
+          allowed_values: ["yes", "no", "not_found"]
+          description: "Регламентирован ли доступ арендодателя"
+        - name: "prior_notice_required"
+          type: "string"
+          allowed_values: ["yes", "no", "not_specified", "not_found"]
+          description: "Требуется ли предварительное уведомление"
+      store_payload: true
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 6: DOC_TYPE_CHECKS — авто-конвертируемые проверки (rules)
+#  Читается: DocTypeCheckConverter
+# ════════════════════════════════════════════════════════════════════════════
+
+doc_type_checks:
+
+  - id: "parties_identification"
+    name: "Стороны договора и полномочия подписантов"
+    description: "Проверяет идентификацию арендодателя, арендатора и полномочия подписантов"
+    legal_base: "ст. 432, 608 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арендодатель"
+        - "арендатор"
+        - "в лице"
+        - "действующего на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(арендодатель|арендатор).*именуем"
+        - "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"
+
+  - id: "lessor_title_and_authority"
+    name: "Титул арендодателя и право сдачи имущества в аренду"
+    description: "Проверяет титул арендодателя либо наличие полномочий на сдачу имущества"
+    legal_base: "ст. 608 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "право собственности"
+        - "собственник"
+        - "право сдачи в аренду"
+        - "выписка из ЕГРН"
+        - "действует на основании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)право\\s+собственности"
+        - "(?i)право\\s+сдачи\\s+в\\s+аренду"
+        - "(?i)выписк(а|у)\\s+из\\s+ЕГРН"
+
+  - id: "subject_definition"
+    name: "Предмет аренды: индивидуализация объекта"
+    description: "Проверяет достаточную определенность объекта аренды"
+    legal_base: "ст. 607 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "предмет договора"
+        - "помещение"
+        - "здание"
+        - "оборудование"
+        - "площадь"
+        - "адрес"
+        - "кадастровый номер"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)предмет\\s+договор"
+        - "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
+        - "(?i)\\b\\d[\\d\\s,.]*\\s*(?:кв\\.?м|м2|м²)\\b"
+
+  - id: "rent_payment_required"
+    name: "Арендная плата: размер и порядок внесения"
+    description: "Проверяет размер арендной платы, периодичность и порядок оплаты"
+    legal_base: "ст. 614, 654 ГК РФ"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "арендная плата"
+        - "ежемесячно"
+        - "ежеквартально"
+        - "размер арендной платы"
+        - "срок оплаты"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арендн(ая|ой)\\s+плат"
+        - "(?i)ежемесячно|ежеквартально"
+        - "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+
+  - id: "lease_term_clause"
+    name: "Срок аренды"
+    description: "Проверяет наличие срока аренды или корректную модель неопределенного срока"
+    legal_base: "ст. 610 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "срок аренды"
+        - "срок действия договора"
+        - "до"
+        - "на неопределенный срок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+аренд"
+        - "(?i)на\\s+неопределенн(ый|ого)\\s+срок"
+        - "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+
+  - id: "registration_clause_for_long_term_real_estate"
+    name: "Долгосрочная аренда недвижимости: регистрационный блок"
+    description: "Проверяет урегулирование регистрации при долгосрочной аренде недвижимости"
+    legal_base: "ст. 609, 651 ГК РФ, ФЗ-218"
+    severity: "critical"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      all: ["real_estate_lease", "long_term_lease"]
+    rules:
+      keywords:
+        - "государственная регистрация"
+        - "Росреестр"
+        - "ЕГРН"
+        - "расходы на регистрацию"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)государственн(ая|ой)\\s+регистрац"
+        - "(?i)Росреестр|ЕГРН"
+
+  - id: "handover_act"
+    name: "Акт приема-передачи объекта аренды"
+    description: "Проверяет наличие условия об акте передачи"
+    legal_base: "ст. 611 ГК РФ, судебная практика"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "акт приема-передачи"
+        - "акт передачи"
+        - "подписывается акт"
+        - "передача имущества"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)акт\\s+(приема|приёма|передач)"
+
+  - id: "maintenance_duties"
+    name: "Капитальный и текущий ремонт"
+    description: "Проверяет распределение обязанностей по ремонту"
+    legal_base: "ст. 616 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "капитальный ремонт"
+        - "текущий ремонт"
+        - "обязанность ремонта"
+        - "техническое обслуживание"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)капитальн(ый|ого)\\s+ремонт"
+        - "(?i)текущ(ий|его)\\s+ремонт"
+
+  - id: "utilities_and_operating_expenses"
+    name: "Коммунальные и эксплуатационные расходы"
+    description: "Проверяет распределение коммунальных услуг и OPEX"
+    legal_base: "ст. 614, 616 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["utility_charges_related"]
+    rules:
+      keywords:
+        - "коммунальные услуги"
+        - "эксплуатационные расходы"
+        - "электроэнергия"
+        - "отопление"
+        - "водоснабжение"
+        - "услуги управляющей компании"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)коммунальн(ые|ых)\\s+услуг"
+        - "(?i)эксплуатационн(ые|ых)\\s+расход"
+
+  - id: "security_deposit"
+    name: "Обеспечительный платеж / депозит"
+    description: "Проверяет размер, назначение и возврат обеспечительного платежа"
+    legal_base: "ст. 381.1-381.2 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["security_deposit_related"]
+    rules:
+      keywords:
+        - "обеспечительный платеж"
+        - "депозит"
+        - "гарантийный платеж"
+        - "возврат депозита"
+        - "удержание депозита"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обеспечительн(ый|ого)\\s+плат"
+        - "(?i)депозит|гарантийн(ый|ого)\\s+плат"
+
+  - id: "sublease_control"
+    name: "Субаренда и передача прав третьим лицам"
+    description: "Проверяет запрет или порядок согласования субаренды"
+    legal_base: "ст. 615 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["sublease_related"]
+    rules:
+      keywords:
+        - "субаренда"
+        - "перенаем"
+        - "с письменного согласия"
+        - "без права субаренды"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)субаренд|перенаем"
+        - "(?i)без\\s+права\\s+субаренд"
+
+  - id: "improvements_ownership"
+    name: "Улучшения: отделимые и неотделимые"
+    description: "Проверяет судьбу улучшений и право на компенсацию/изъятие"
+    legal_base: "ст. 623 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "улучшения"
+        - "неотделимые улучшения"
+        - "отделимые улучшения"
+        - "компенсация улучшений"
+        - "перепланировка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неотделим(ые|ых)\\s+улучшени"
+        - "(?i)отделим(ые|ых)\\s+улучшени"
+        - "(?i)компенсаци.*улучшени"
+
+  - id: "use_purpose_and_land_vri"
+    name: "Назначение использования объекта / ВРИ для земли"
+    description: "Проверяет согласованное использование и соблюдение ВРИ"
+    legal_base: "ст. 615 ГК РФ, ЗК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["land_lease", "real_estate_lease"]
+    rules:
+      keywords:
+        - "использовать по назначению"
+        - "целевое использование"
+        - "вид разрешенного использования"
+        - "ВРИ"
+        - "назначение помещения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)использоват.*по\\s+назначени"
+        - "(?i)вид\\s+разрешенн(ого|ый)\\s+использован|ВРИ"
+
+  - id: "penalty_late_payment"
+    name: "Неустойка за просрочку арендной платы"
+    description: "Проверяет наличие неустойки/пени за просрочку"
+    legal_base: "ст. 330 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "неустойка"
+        - "пени"
+        - "штраф"
+        - "за каждый день просрочки"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)неустойк|пен[яи]"
+        - "(?i)за\\s+кажд(ый|ого)\\s+день\\s+просрочк"
+
+  - id: "return_condition_of_asset"
+    name: "Возврат имущества и состояние при возврате"
+    description: "Проверяет порядок возврата объекта и требования к его состоянию"
+    legal_base: "ст. 622 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "возврат имущества"
+        - "возвратить в исправном состоянии"
+        - "с учетом нормального износа"
+        - "акт возврата"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)возврат\\s+имуществ"
+        - "(?i)нормальн(ого|ый)\\s+износ"
+        - "(?i)акт\\s+возврат"
+
+  - id: "insurance_clause"
+    name: "Страхование имущества / ответственности"
+    description: "Проверяет наличие страхового блока, если он предусмотрен"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "страхование"
+        - "страховой полис"
+        - "страховая сумма"
+        - "застраховать"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)страхов(ание|ой\\s+полис)"
+
+  - id: "dispute_resolution_jurisdiction"
+    name: "Подсудность и порядок разрешения споров"
+    description: "Проверяет наличие подсудности, forum и претензионного порядка"
+    legal_base: "АПК РФ, ГПК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "подсудность"
+        - "арбитражный суд"
+        - "претензионный порядок"
+        - "досудебный порядок"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)арбитражн(ый|ого)\\s+суд"
+        - "(?i)претензионн(ый|ого)\\s+поряд"
+
+  - id: "preemptive_right_renewal"
+    name: "Преимущественное право арендатора на новый срок (ст. 621 ГК РФ)"
+    description: "Проверяет наличие/ограничение преимущественного права и условий продления"
+    legal_base: "ст. 621 ГК РФ"
+    severity: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["renewal_and_preemptive_right", "long_term_lease"]
+    rules:
+      keywords:
+        - "преимущественное право"
+        - "на новый срок"
+        - "продление"
+        - "пролонгация"
+        - "автоматическое продление"
+        - "возобновление"
+        - "ст. 621"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)преимущест(венное|во)\\s+право"
+        - "(?i)автоматическ(ое|ого)\\s+продлен"
+        - "(?i)пролонгац"
+
+  - id: "landlord_access_rights"
+    name: "Порядок доступа арендодателя в помещение"
+    description: "Проверяет ограничения на доступ арендодателя — баланс между контролем и спокойным пользованием"
+    legal_base: "ст. 606, 615 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers:
+      any: ["access_to_premises", "real_estate_lease"]
+    rules:
+      keywords:
+        - "доступ в помещение"
+        - "осмотр помещения"
+        - "посещение"
+        - "предварительное уведомление"
+        - "в присутствии арендатора"
+        - "право проверки"
+        - "ключи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)доступ.*в.*помещени"
+        - "(?i)осмотр.*помещени"
+        - "(?i)в\\s+присутствии\\s+арендатор"
+
+  - id: "force_majeure_clause"
+    name: "Форс-мажор и обстоятельства непреодолимой силы"
+    description: "Проверяет наличие оговорки о форс-мажоре"
+    legal_base: "ст. 401 ГК РФ"
+    severity: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "форс-мажор"
+        - "непреодолимая сила"
+        - "обстоятельства непреодолимой силы"
+        - "освобождение от ответственности"
+        - "чрезвычайные обстоятельства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)форс[- ]?мажор"
+        - "(?i)непреодолим(ая|ой)\\s+сил"
+
+  - id: "confidentiality_clause"
+    name: "Конфиденциальность условий аренды"
+    description: "Проверяет наличие условий о конфиденциальности"
+    legal_base: "ст. 421 ГК РФ"
+    severity: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "rules"
+    triggers: {}
+    rules:
+      keywords:
+        - "конфиденциальность"
+        - "неразглашение"
+        - "коммерческая тайна"
+        - "не раскрывать третьим лицам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)конфиденциал"
+        - "(?i)не\\s+разглаш"
+
+# ════════════════════════════════════════════════════════════════════════════
+#  БЛОК 7: DD_REQUEST_TEMPLATES
+#  Читается: DDRequestTemplateLoader
+#  Ключи = check_id из checks_v8 и doc_type_checks выше.
+#  DDRequestTemplateLoader.render() матчит по exact или prefix.
+# ════════════════════════════════════════════════════════════════════════════
+
+dd_request_templates:
+
+  parties_identification:
+    text: >
+      Просим подтвердить по {doc_names}: реквизиты арендодателя и арендатора,
+      полномочия подписантов, а также правовое основание, по которому арендодатель
+      вправе сдавать имущество в аренду.
+    addressee: "Обе стороны"
+
+  lease_subject_extraction:
+    text: >
+      Просим предоставить по {doc_names}: точное описание объекта аренды,
+      срок аренды, размер арендной платы, цель использования, а также комплект
+      документов для передачи объекта.
+    addressee: "Арендодатель"
+
+  lease_subject_identification_check:
+    text: >
+      Просим уточнить в {doc_names}: индивидуализирующие признаки объекта аренды
+      (адрес, площадь, кадастровый номер, номер помещения, серийный номер, VIN и т.п.),
+      достаточные для его однозначного определения.
+    addressee: "Арендодатель / Юридический советник"
+
+  lessor_title_and_authority:
+    text: >
+      Просим предоставить по {doc_names}: выписку ЕГРН / документы на титул,
+      а также подтверждение права арендодателя сдавать объект в аренду.
+    addressee: "Арендодатель"
+
+  rent_payment_and_indexation_check:
+    text: >
+      Просим уточнить в {doc_names}: фиксированную и переменную часть арендной платы,
+      индексацию, структуру коммунальных и эксплуатационных платежей,
+      а также размер и режим обеспечительного платежа.
+    addressee: "Обе стороны / Финансовый советник"
+
+  rent_payment_required:
+    text: >
+      Просим уточнить в {doc_names}: размер арендной платы, сроки оплаты,
+      валюту, реквизиты и порядок расчёта переменной части (если применимо).
+    addressee: "Обе стороны"
+
+  lease_term_clause:
+    text: >
+      Просим уточнить в {doc_names}: срок аренды, дату начала и окончания,
+      а также модель договора при неопределенном сроке (если она используется).
+    addressee: "Юридический советник"
+
+  long_term_real_estate_lease_registration:
+    text: >
+      Внимание: для {doc_names} может требоваться государственная регистрация.
+      Просим подтвердить регистрационную позицию, порядок подачи документов,
+      распределение расходов и последствия отказа/приостановки регистрации.
+    addressee: "Юридический советник / Росреестр"
+
+  handover_condition_and_fitness_check:
+    text: >
+      Просим предоставить по {doc_names}: форму акта приема-передачи,
+      описание состояния объекта, перечень недостатков (если есть),
+      подтверждение пригодности для согласованного использования.
+    addressee: "Арендодатель"
+
+  handover_act:
+    text: >
+      Просим согласовать в {doc_names}: форму и содержание акта приема-передачи,
+      дату передачи, перечень передаваемых ключей, документов и аксессуаров.
+    addressee: "Обе стороны"
+
+  repairs_and_operational_costs_check:
+    text: >
+      Просим уточнить в {doc_names}: кто несет капитальный и текущий ремонт,
+      эксплуатационные расходы, коммунальные платежи, техническое обслуживание
+      и иные обязательные расходы по объекту.
+    addressee: "Обе стороны"
+
+  maintenance_duties:
+    text: >
+      Просим четко разграничить в {doc_names}: капитальный ремонт, текущий ремонт,
+      maintenance duties и последствия нарушения ремонтных обязанностей.
+    addressee: "Юридический советник"
+
+  utilities_and_operating_expenses:
+    text: >
+      Просим уточнить в {doc_names}: состав коммунальных и эксплуатационных расходов,
+      механизм их расчета, документы-основания и сроки возмещения/оплаты.
+    addressee: "Обе стороны / Финансовый советник"
+
+  security_deposit:
+    text: >
+      Просим уточнить в {doc_names}: размер обеспечительного платежа,
+      основания для удержания, условия возврата и возможность зачета.
+    addressee: "Юридический советник"
+
+  improvements_and_sublease_check:
+    text: >
+      Просим уточнить в {doc_names}: режим улучшений, порядок согласования перепланировки,
+      компенсацию неотделимых улучшений и правила субаренды/перенаема.
+    addressee: "Обе стороны / Юридический советник"
+
+  improvements_ownership:
+    text: >
+      Просим уточнить в {doc_names}: судьбу отделимых и неотделимых улучшений,
+      необходимость согласия арендодателя и порядок компенсации.
+    addressee: "Юридический советник"
+
+  sublease_control:
+    text: >
+      Просим уточнить в {doc_names}: допускается ли субаренда/перенаем,
+      требуется ли согласие арендодателя и в какой форме оно дается.
+    addressee: "Юридический советник"
+
+  termination_and_return_check:
+    text: >
+      Просим уточнить в {doc_names}: основания досрочного расторжения,
+      одностороннего отказа, порядок возврата имущества, акт возврата,
+      а также механику возврата/удержания обеспечительного платежа.
+    addressee: "Юридический советник"
+
+  return_condition_of_asset:
+    text: >
+      Просим уточнить в {doc_names}: в каком состоянии объект должен быть возвращён,
+      допускается ли нормальный износ, как фиксируется состояние при возврате.
+    addressee: "Обе стороны"
+
+  use_purpose_and_land_vri:
+    text: >
+      Просим уточнить в {doc_names}: назначение использования объекта,
+      а для земли — ВРИ, категорию земель и допустимость использования
+      под цели арендатора.
+    addressee: "Арендодатель / Юридический советник"
+
+  insurance_clause:
+    text: >
+      Просим уточнить в {doc_names}: требуется ли страхование имущества
+      или ответственности, кто несет расходы и кто является выгодоприобретателем.
+    addressee: "Юридический советник / Страховой консультант"
+
+  penalty_late_payment:
+    text: >
+      Просим уточнить в {doc_names}: размер неустойки/пени за просрочку
+      арендной платы, порядок начисления и соотношение с убытками.
+    addressee: "Юридический советник"
+
+  dispute_resolution_jurisdiction:
+    text: >
+      Просим уточнить в {doc_names}: подсудность, претензионный порядок
+      и механизм разрешения споров.
+    addressee: "Юридический советник"
+
+  lessor_title_risk:
+    text: >
+      Внимание: по {doc_names} необходимо подтвердить титул арендодателя
+      и его право на сдачу имущества в аренду. Просим предоставить title pack
+      и правовое заключение по полномочиям арендодателя.
+    addressee: "Арендодатель / Юридический советник"
+
+  land_use_vri_compliance:
+    text: >
+      Внимание: по {doc_names} (земельный участок) необходимо подтвердить
+      соответствие использования участков ВРИ и категории земель.
+      Просим предоставить выписку ЕГРН и сведения о допустимом использовании.
+    addressee: "Арендодатель / Земельный консультант"
+
+  preemptive_right_and_renewal_check:
+    text: >
+      Просим уточнить в {doc_names}: преимущественное право арендатора
+      на заключение нового договора (ст. 621 ГК РФ), порядок и сроки
+      уведомления о продлении/отказе, условия пролонгации, последствия
+      продолжения пользования после истечения срока.
+    addressee: "Обе стороны / Юридический советник"
+
+  preemptive_right_renewal:
+    text: >
+      Просим включить в {doc_names}: условие о преимущественном праве
+      арендатора на заключение нового договора (ст. 621 ГК РФ),
+      срок уведомления о продлении и порядок согласования новых условий.
+    addressee: "Юридический советник"
+
+  landlord_access_and_inspection_check:
+    text: >
+      Просим уточнить в {doc_names}: порядок доступа арендодателя в помещение —
+      предварительное уведомление (за сколько дней), присутствие арендатора,
+      допустимое время осмотра, ограничение частоты, экстренные ситуации.
+    addressee: "Обе стороны"
+
+  landlord_access_rights:
+    text: >
+      Просим включить в {doc_names}: регламент доступа арендодателя —
+      предварительное уведомление, согласование времени, присутствие
+      представителя арендатора, исключения для аварийных ситуаций.
+    addressee: "Юридический советник"
+
+  eleven_month_auto_renewal_registration_risk:
+    text: >
+      Внимание: {doc_names} содержит признаки «11-месячного трюка» — краткосрочный
+      договор аренды недвижимости с автопродлением для обхода регистрации.
+      При многократном продлении суд может квалифицировать отношения как
+      долгосрочную аренду (п. 10 ИП ВАС РФ № 59). Просим дать правовое
+      заключение по рискам и, при необходимости, зарегистрировать договор.
+    addressee: "Юридический советник"
+
+  force_majeure_clause:
+    text: >
+      Просим включить в {doc_names}: перечень форс-мажорных обстоятельств,
+      порядок и сроки уведомления, последствия для арендной платы
+      и обязательств сторон, срок приостановки обязательств.
+    addressee: "Юридический советник"
+
+  confidentiality_clause:
+    text: >
+      Просим добавить в {doc_names}: раздел о конфиденциальности условий аренды —
+      перечень конфиденциальных сведений, срок неразглашения, исключения,
+      ответственность за нарушение.
+    addressee: "Юридический советник"
+    
+  # Generic fallback
+  _default:
+    text: >
+      Просим предоставить дополнительную информацию по вопросу «{check_name}»
+      применительно к {doc_names}.
+    addressee: "Юридический советник"
+    
