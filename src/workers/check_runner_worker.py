@@ -101,6 +101,9 @@ def run_deal_checks(
                 if run_obj is None:
                     raise ValueError(f"Run not found: {run_uuid}")
 
+                # Определяем режим проверок для этого Run.
+                checks_mode = getattr(run_obj, "checks_mode", "global_and_doc_type")
+
                 # 2. Достаём PlaybookVersion по этому ID
                 pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
                 if pb_version is None:
@@ -117,6 +120,7 @@ def run_deal_checks(
                         "run_id": run_id,
                         "deal_id": deal_id,
                         "playbook_version_id": str(run_obj.playbook_version_id),
+                        "checks_mode": checks_mode,
                     },
                 )
 
@@ -124,6 +128,7 @@ def run_deal_checks(
                 runner = CheckRunner(
                     llm_client=llm_client,
                     playbook_version_id=run_obj.playbook_version_id,
+                    checks_mode=checks_mode,
                 )
 
                 logger.info(
@@ -131,6 +136,7 @@ def run_deal_checks(
                     extra={
                         "run_id": run_id,
                         "deal_id": deal_id,
+                        "checks_mode": checks_mode,
                     },
                 )
 
@@ -139,6 +145,7 @@ def run_deal_checks(
                     deal_id=deal_uuid,
                     run_id=run_uuid,
                     playbook=playbook,
+                    checks_mode=checks_mode,
                 )
 
                 # Обновляем total_checks / completed_checks по фактическим данным

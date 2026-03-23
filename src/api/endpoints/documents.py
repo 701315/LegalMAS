@@ -56,6 +56,7 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.relation_repo import RelationRepository
 from db.repositories.audit_repo import AuditRepository
+from db.repositories.deal_repo import DealRepository
 
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
@@ -365,6 +366,14 @@ async def reclassify_document(
             "rerun_checks_flag_requested": rerun_checks_requested,
             "rerun_checks_behavior": "deprecated_no_action",
         },
+    )
+
+    # НОВОЕ: помечаем сделку как требующую перезапуска анализа
+    # после ручной переклассификации документов.
+    deal_repo = DealRepository(db)
+    await deal_repo.set_has_pending_manual_reclassifications(
+        deal_id=doc.deal_id,
+        value=True,
     )
 
     return ReclassifyResponse(

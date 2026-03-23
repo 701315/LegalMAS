@@ -23,20 +23,24 @@ interface GridFiltersProps {
   totalCount: number;
   filteredCount: number;
 
-  // новый: фильтр по типу документа
+  // фильтр по типу документа
   availableDocTypes: string[];
   selectedDocType: string | null;
   onDocTypeChange: (value: string | null) => void;
+
+  // новый: фильтр "есть структурированные данные"
+  hasStructuredDataOnly: boolean;
+  onHasStructuredDataChange: (value: boolean) => void;
 }
 
 const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
-  { key: "all",            label: "Все" },
-  { key: "critical",       label: "Критические" },
-  { key: "high",           label: "Высокие" },
-  { key: "unclear",        label: "Неясные" },
-  { key: "no_qc",          label: "Без QC" },
-  { key: "important",      label: "Важные без QC" },
-  { key: "conditional",    label: "Conditional" },
+  { key: "all", label: "Все" },
+  { key: "critical", label: "Критические" },
+  { key: "high", label: "Высокие" },
+  { key: "unclear", label: "Неясные" },
+  { key: "no_qc", label: "Без QC" },
+  { key: "important", label: "Важные без QC" },
+  { key: "conditional", label: "Conditional" },
   { key: "low_confidence", label: "Low confidence" },
 ];
 
@@ -55,10 +59,18 @@ const GridFilters: React.FC<GridFiltersProps> = ({
   availableDocTypes,
   selectedDocType,
   onDocTypeChange,
+  hasStructuredDataOnly,
+  onHasStructuredDataChange,
 }) => {
   const handleDocTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
     onDocTypeChange(v === "" ? null : v);
+  };
+
+  const handleHasStructuredChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    onHasStructuredDataChange(e.target.checked);
   };
 
   return (
@@ -77,21 +89,35 @@ const GridFilters: React.FC<GridFiltersProps> = ({
         </span>
       </div>
 
-      {/* Тип документа */}
-      <div className="flex items-center gap-1 text-xs">
-        <span className="text-gray-500">Тип документа:</span>
-        <select
-          className="border rounded px-2 py-1 text-xs"
-          value={selectedDocType ?? ""}
-          onChange={handleDocTypeChange}
-        >
-          <option value="">Все</option>
-          {availableDocTypes.map((dt) => (
-            <option key={dt} value={dt}>
-              {dt}
-            </option>
-          ))}
-        </select>
+      {/* Тип документа + чекбокс структурированных данных */}
+      <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-1">
+          <span className="text-gray-500">Тип документа:</span>
+          <select
+            className="border rounded px-2 py-1 text-xs"
+            value={selectedDocType ?? ""}
+            onChange={handleDocTypeChange}
+          >
+            <option value="">Все</option>
+            {availableDocTypes.map((dt) => (
+              <option key={dt} value={dt}>
+                {dt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <label className="inline-flex items-center gap-1 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={hasStructuredDataOnly}
+            onChange={handleHasStructuredChange}
+          />
+          <span className="text-gray-500">
+            Только со структурированными данными
+          </span>
+        </label>
       </div>
 
       {/* Quick filters */}

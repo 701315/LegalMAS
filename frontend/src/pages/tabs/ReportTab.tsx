@@ -71,6 +71,17 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
     );
   }
 
+  // Человекочитаемое название режима проверок
+  const renderChecksModeLabel = () => {
+    const mode = latestRun.checks_mode;
+    if (!mode) return null;
+
+    if (mode === "global_and_doc_type") return "Плейбук + типы документов";
+    if (mode === "global_only") return "Только плейбук";
+    if (mode === "doc_type_only") return "Только типы документов";
+    return mode;
+  };
+
   return (
     <div className="space-y-6">
       {/* Заголовок */}
@@ -79,6 +90,61 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
         <p className="text-sm text-gray-500 mt-1">
           Выберите формат и нажмите «Генерировать».
         </p>
+
+        {/* Информация о Run, по которому будет строиться отчёт */}
+        <div className="mt-3 text-xs text-gray-500 space-y-0.5">
+          <p>
+            Анализ: run {latestRun.id} · статус: {latestRun.status}
+          </p>
+          {latestRun.profile && (
+            <p>
+              Профиль анализа:{" "}
+              <span className="font-medium text-gray-700">
+                {latestRun.profile}
+              </span>
+            </p>
+          )}
+          {renderChecksModeLabel() && (
+            <p>
+              Режим проверок:{" "}
+              <span className="font-medium text-gray-700">
+                {renderChecksModeLabel()}
+              </span>
+            </p>
+          )}
+          {latestRun.pipeline_strategy && (
+            <p>
+              Стратегия пайплайна:{" "}
+              <span className="font-medium text-gray-700">
+                {latestRun.pipeline_strategy}
+              </span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Краткое пояснение, к какому Run относятся экспортируемые отчёты */}
+      <div className="text-xs text-gray-500">
+        Отчёты ниже будут сгенерированы по последнему завершённому анализу
+        {renderChecksModeLabel() || latestRun.pipeline_strategy ? ": " : "."}
+        {renderChecksModeLabel() && (
+          <>
+            {" "}
+            режим проверок{" "}
+            <span className="font-medium text-gray-700">
+              {renderChecksModeLabel()}
+            </span>
+          </>
+        )}
+        {latestRun.pipeline_strategy && (
+          <>
+            {renderChecksModeLabel() && " · "}
+            стратегия пайплайна{" "}
+            <span className="font-medium text-gray-700">
+              {latestRun.pipeline_strategy}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Карточки экспорта */}
@@ -128,7 +194,9 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
               <div className="flex items-center gap-3 text-green-600">
                 <CheckCircle size={20} />
                 <span className="font-medium">
-                {EXPORT_TYPE_LABEL[exportData.export_type] || exportData.export_type} готов
+                  {EXPORT_TYPE_LABEL[exportData.export_type] ||
+                    exportData.export_type}{" "}
+                  готов
                 </span>
                 <span className="text-xs text-gray-400">
                   ({Math.round(exportData.file_size_bytes / 1024)} КБ)
@@ -182,7 +250,7 @@ function ExportCard({
       <button
         onClick={onGenerate}
         disabled={isGenerating}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text:white rounded text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
       >
         {isGenerating ? (
           <>

@@ -58,6 +58,21 @@ class Run(Base):
         comment="core, full, max",
     )
 
+    # Новый атрибут: режим, в котором выполняются проверки в этом Run
+    # Значения:
+    #   - global_only          — только глобальный плейбук;
+    #   - doc_type_only        — только риски по типам документов;
+    #   - global_and_doc_type  — оба слоя вместе (режим по умолчанию).
+    checks_mode: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="global_and_doc_type",
+        comment=(
+            "Режим проверок для этого Run: "
+            "global_only / doc_type_only / global_and_doc_type"
+        ),
+    )
+
     pipeline_strategy: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -145,7 +160,10 @@ class Job(Base):
     task_type: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
-        comment="import, extract, sanitize, structure, classify, run_deal_checks, aggregate, export",
+        comment=(
+            "import, extract, sanitize, structure, classify, "
+            "run_deal_checks, aggregate, export"
+        ),
     )
 
     status: Mapped[str] = mapped_column(

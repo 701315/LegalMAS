@@ -15,6 +15,11 @@ export const runApi = {
   /**
    * Старт нового анализа по сделке.
    * POST /api/v1/deals/{deal_id}/run
+   *
+   * В body передаём RunCreateInput:
+   *  - profile?: "core" | "full" | "max"
+   *  - checks_mode?: "global_only" | "doc_type_only" | "global_and_doc_type"
+   *  - force_reclassify?: boolean
    */
   start: (dealId: string, data: RunCreateInput) =>
     client
@@ -56,11 +61,6 @@ export const runApi = {
 
 /**
  * Хук для старта нового run.
- * Playbook и model_config берутся из настроек сделки на бэкенде.
- *
- * Пример:
- *   const startRun = useStartRun(dealId);
- *   startRun.mutate({ profile: "core", force_reclassify: true });
  */
 export function useStartRun(dealId: string) {
   return useMutation({
@@ -70,25 +70,33 @@ export function useStartRun(dealId: string) {
 
 /**
  * Хук для получения информации о run.
- * Пример:
- *   const { data, isLoading } = useRun(runId, true);
- * where `true` = includeClassificationStats.
  */
-export function useRun(runId: string | null, includeClassificationStats = false) {
-  return useQuery({
+export function useRun(
+  runId: string | null,
+  includeClassificationStats = false,
+) {
+  return useQuery<Run | null, Error>({
     queryKey: ["run", runId, includeClassificationStats],
-    queryFn: () => runApi.get(runId!, includeClassificationStats),
+    queryFn: async () => {
+      if (!runId) return null;
+      return runApi.get(runId, includeClassificationStats);
+    },
     enabled: !!runId,
+    // Здесь query — это Query<Run | null, Error, ...>
+    refetchInterval: (query) => {
+      const data = query.state.data as Run | null;
+      if (!data) return false;
+      if (data.status === "running" || data.status === "pending") return 2000;
+      return false;
+    },
   });
 }
 
 /**
  * Хук для получения отчёта по классификации.
- * Пример:
- *   const { data } = useClassificationReport(latestRunId);
  */
 export function useClassificationReport(runId: string | null) {
-  return useQuery({
+  return useQuery<ClassificationReport, Error>({
     queryKey: ["classification-report", runId],
     queryFn: () => runApi.getClassificationReport(runId!),
     enabled: !!runId,

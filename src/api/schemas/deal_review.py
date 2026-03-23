@@ -76,6 +76,108 @@ class CheckItemDTO(BaseModel):
     structured_data: dict[str, Any]
     origin: str | None = None
 
+class CheckMetaDTO(BaseModel):
+    """
+    Метаинформация о проверке для DD Matrix.
+
+    Используется в списке checks внутри DDMatrixResponseDTO:
+    - идентификатор и имя проверки;
+    - источник (origin): GLOBAL_PLAYBOOK / DOCUMENT_TYPE / CONDITIONAL;
+    - базовый уровень серьёзности;
+    - порядок отображения (order_index);
+    - список типов документов, к которым относится
+      (для DOCUMENT_TYPE / CONDITIONAL).
+    """
+    check_id: str
+    check_name: str
+    origin: str            # "GLOBAL_PLAYBOOK", "DOCUMENT_TYPE" или "CONDITIONAL"
+    severity: str          # "critical" / "high" / "medium"
+    order_index: int
+    applicable_doc_types: list[str] | None = None
+
+class ExtractedFieldDTO(BaseModel):
+    """
+    Одно извлечённое поле внутри ячейки DD Matrix.
+
+    Пример:
+    - field_name: "amount", field_value: "5 000 000", field_format: "money"
+    - field_name: "end_date", field_value: "01.01.2025", field_format: "date"
+    """
+    field_name: str
+    field_value: str
+    field_format: str  # "money", "date", "entity_name", "text"
+
+
+class MatrixCellDTO(BaseModel):
+    """
+    Ячейка DD Matrix для одной проверки по одному документу.
+
+    Содержит:
+    - результат и уровень серьёзности;
+    - короткий сниппет evidence, страницу, clause_uid;
+    - список извлечённых полей;
+    - статус QC и флаги условной проверки.
+    """
+    result: str                  # "fail" / "pass" / "unclear"
+    severity: str                # "critical" / "high" / "medium" / "pass" / "unclear"
+    snippet: str
+    page: int | None
+    clause_uid: str
+    extracted: list[ExtractedFieldDTO]
+    confidence: float
+    qc_status: str               # "pending" / "approved" / "rejected" / "needs_review"
+    conditional_check_triggered: bool
+    trigger_name: str
+
+
+class DocumentMatrixRowDTO(BaseModel):
+    """
+    Строка DD Matrix для одного документа.
+
+    Содержит:
+    - идентификатор и имя документа, тип, путь к папке, статус;
+    - уровень и уверенность классификации;
+    - словарь ячеек по check_id.
+    """
+    document_id: str
+    document_name: str
+    doc_type: str
+    folder_path: str
+    status: str
+    classification_level: str
+    classification_confidence: float
+    results: dict[str, MatrixCellDTO]
+
+
+class DDMatrixResponseDTO(BaseModel):
+    """
+    Ответ DD Matrix для эндпоинта
+    GET /deals/{deal_id}/runs/{run_id}/dd-matrix.
+
+    Включает:
+    - общие данные по сделке/рану;
+    - список метаинформации по чекам (столбцы матрицы);
+    - вспомогательные списки global_check_ids и doc_type_check_ids;
+    - список строк матрицы по документам;
+    - агрегированные счётчики по серьёзности и качеству доказательств.
+    """
+    deal_id: str
+    run_id: str
+    deal_name: str
+
+    checks: list["CheckMetaDTO"]
+    global_check_ids: list[str]
+    doc_type_check_ids: dict[str, list[str]]
+
+    documents: list[DocumentMatrixRowDTO]
+
+    total_documents: int
+    total_checks: int
+    severity_counts: dict[str, int]
+    quarantine_count: int
+    degraded_count: int
+    evidence_validity_rate: float
+
 
 class DocumentDetailDTO(BaseModel):
     """

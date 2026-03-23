@@ -211,6 +211,8 @@ async def _start_run_pipeline_async(
                 "run_id": run_id,
                 "document_id": doc_id_str,
                 "status": status,
+                "doc_type": getattr(doc, "doctype", None),
+                "classification_level": getattr(doc, "classification_level", None),
             },
         )
 

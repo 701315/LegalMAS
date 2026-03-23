@@ -22,10 +22,9 @@ ORM-модель Deal описывает сделку (проект due diligenc
   результаты проверок, экспортируемые отчёты и аудит-логи.
 """
 
-
 import uuid
 
-from sqlalchemy import Index, String, ForeignKey
+from sqlalchemy import Index, String, ForeignKey, Enum  # <— добавили Enum
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -96,8 +95,10 @@ class Deal(Base):
         UUID(as_uuid=True),
         ForeignKey("model_configs.id", ondelete="SET NULL"),
         nullable=True,
-        comment="Explicit ModelConfig selected for this deal; "
-                "if NULL, profile from PlaybookVersion is used",
+        comment=(
+            "Explicit ModelConfig selected for this deal; "
+            "if NULL, profile from PlaybookVersion is used"
+        ),
     )
 
     last_run_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -105,6 +106,39 @@ class Deal(Base):
         ForeignKey("runs.id", ondelete="SET NULL"),
         nullable=True,
         comment="ID of the latest analysis run for this deal",
+    )
+
+
+    last_run_checks_mode: Mapped[str | None] = mapped_column(
+        Enum(
+            "global_only",
+            "doc_type_only",
+            "global_and_doc_type",
+            name="run_checks_mode",
+        ),
+        nullable=True,
+        comment=(
+            "Checks mode of the latest run: "
+            "global_only / doc_type_only / global_and_doc_type"
+        ),
+    )
+
+    last_run_pipeline_strategy: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Pipeline strategy of the latest run (e.g. REUSE_STRUCTURE, FULL_RERUN)",
+    )
+
+    # Флаг: есть ли незакрытые ручные переклассификации документов по сделке,
+    # требующие запуска нового анализа.
+    has_pending_manual_reclassifications: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment=(
+            "True — есть документы, переклассифицированные вручную, "
+            "и анализ по сделке ещё не был перезапущен после этого"
+        ),
     )
 
     metadata_: Mapped[dict | None] = mapped_column(
@@ -118,3 +152,4 @@ class Deal(Base):
     __table_args__ = (
         Index("idx_deals_tenant_status", "tenant_id", "status"),
     )
+

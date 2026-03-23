@@ -1,6 +1,13 @@
+# src/db/repositories/deal_repo.py
+
+
 """
-Repository for Deal CRUD operations.
-Thin wrapper over SQLAlchemy ORM — no business logic here.
+Репозиторий для CRUD‑операций со сделками (Deal).
+
+Это тонкая обёртка над SQLAlchemy ORM:
+- никакой бизнес‑логики;
+- только чтение/запись/поиск сделок в БД;
+- все операции выполняются через переданную AsyncSession.
 """
 
 import uuid
@@ -12,7 +19,20 @@ from ..models.deal import Deal
 
 
 class DealRepository:
+    """
+    Класс-репозиторий для работы со сделками.
+
+    Экземпляр живёт внутри одного запроса / юнита работы и использует
+    уже созданную AsyncSession — сам сессию не открывает и не закрывает.
+    """
+
     def __init__(self, session: AsyncSession):
+        """
+        Инициализировать репозиторий.
+
+        Параметры:
+        - session: активная AsyncSession, через которую будут выполняться запросы.
+        """
         self.session = session
 
     async def create(
@@ -27,7 +47,23 @@ class DealRepository:
         playbook_version_id: uuid.UUID | None = None,
         metadata_: dict | None = None,
     ) -> Deal:
-        """Create a new deal."""
+        """
+        Создать новую сделку и сохранить её в БД.
+
+        Параметры:
+        - tenant_id: идентификатор арендатора, к которому относится сделка;
+        - name: человекочитаемое название сделки;
+        - deal_type: тип сделки (опционально, для фильтрации и плейбуков);
+        - jurisdiction: юрисдикция сделки;
+        - languages: список языков документов по сделке;
+        - pii_mode: режим работы с PII (по умолчанию 'local_only');
+        - profile: профиль анализа (например, 'full'/'light');
+        - playbook_version_id: ID версии плейбука, к которой привязана сделка;
+        - metadata_: произвольный JSON с дополнительными метаданными.
+
+        Возвращает:
+        - созданный объект Deal (уже с заполненным id).
+        """
         deal = Deal(
             tenant_id=tenant_id,
             name=name,
@@ -44,7 +80,16 @@ class DealRepository:
         return deal
 
     async def get_by_id(self, deal_id: uuid.UUID) -> Deal | None:
-        """Get deal by ID. Returns None if not found."""
+        """
+        Найти сделку по её ID.
+
+        Параметры:
+        - deal_id: идентификатор сделки.
+
+        Возвращает:
+        - объект Deal, если найден;
+        - None, если сделки с таким ID нет.
+        """
         result = await self.session.execute(select(Deal).where(Deal.id == deal_id))
         return result.scalar_one_or_none()
 
@@ -53,7 +98,16 @@ class DealRepository:
         tenant_id: uuid.UUID,
         status: str | None = None,
     ) -> list[Deal]:
-        """Get all deals for a tenant, optionally filtered by status."""
+        """
+        Вернуть список сделок для указанного арендатора.
+
+        Параметры:
+        - tenant_id: идентификатор арендатора;
+        - status: опциональный фильтр по статусу сделки.
+
+        Возвращает:
+        - список объектов Deal, отсортированный по дате создания (новые сверху).
+        """
         stmt = select(Deal).where(Deal.tenant_id == tenant_id)
         if status is not None:
             stmt = stmt.where(Deal.status == status)
@@ -62,14 +116,34 @@ class DealRepository:
         return list(result.scalars().all())
 
     async def get_all(self) -> list[Deal]:
-        """Вернуть все сделки (для dev / админских сценариев)."""
+        """
+        Вернуть все сделки в системе.
+
+        Используется в dev‑режиме и админских сценариях, где нужно увидеть
+        полный список сделок без фильтров.
+        """
         stmt = select(Deal).order_by(Deal.created_at.desc())
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def update_status(self, deal_id: uuid.UUID, status: str) -> Deal | None:
-        """Update deal status. Returns updated deal or None if not found."""
-        stmt = update(Deal).where(Deal.id == deal_id).values(status=status).returning(Deal)
+        """
+        Обновить статус сделки.
+
+        Параметры:
+        - deal_id: идентификатор сделки;
+        - status: новый статус (строковое значение, например 'active', 'archived').
+
+        Возвращает:
+        - обновлённый объект Deal;
+        - None, если сделки с таким ID не найдено.
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(status=status)
+            .returning(Deal)
+        )
         result = await self.session.execute(stmt)
         deal = result.scalar_one_or_none()
         if deal:
@@ -84,7 +158,17 @@ class DealRepository:
         tenant_id: uuid.UUID | None = None,
     ) -> tuple[list[Deal], int]:
         """
-        Вернуть одну страницу сделок + общее количество, опционально фильтруя по статусу.
+        Вернуть одну страницу сделок с учётом фильтров и общее количество записей.
+
+        Параметры:
+        - page: номер страницы (начиная с 1);
+        - per_page: размер страницы (количество сделок на странице);
+        - status: опциональный фильтр по статусу сделки;
+        - tenant_id: опциональный фильтр по арендатору.
+
+        Возвращает кортеж:
+        - список сделок на запрошенной странице;
+        - общее количество сделок, подходящих под фильтры (для расчёта пагинации).
         """
         offset = (page - 1) * per_page
 
@@ -117,19 +201,54 @@ class DealRepository:
         items = list(result.scalars().all())
 
         return items, total
-    
+
     async def set_last_run_id(
         self,
         deal_id: uuid.UUID,
-        run_id: uuid.UUID,
+        run_id: uuid.UUID | None,
+        checks_mode: str | None = None,
+        pipeline_strategy: str | None = None,
     ) -> None:
-        """Set latest run id for a deal."""
+        """
+        Обновить у сделки ссылку на последний Run и его параметры.
+
+        Обновляет в таблице Deal:
+        - last_run_id                 — идентификатор последнего Run;
+        - last_run_checks_mode        — режим проверок последнего Run (если передан);
+        - last_run_pipeline_strategy  — стратегию пайплайна последнего Run (если передана).
+
+        Эти поля используются в UI и отчётах, чтобы быстро показать,
+        в каком режиме и с какой стратегией был выполнен последний анализ сделки.
+        """
+        values: dict[str, object] = {"last_run_id": run_id}
+        if checks_mode is not None:
+            values["last_run_checks_mode"] = checks_mode
+        if pipeline_strategy is not None:
+            values["last_run_pipeline_strategy"] = pipeline_strategy
+
         stmt = (
             update(Deal)
             .where(Deal.id == deal_id)
-            .values(last_run_id=run_id)
+            .values(**values)
         )
         await self.session.execute(stmt)
         await self.session.flush()
 
+    async def set_has_pending_manual_reclassifications(
+        self,
+        deal_id: uuid.UUID,
+        value: bool,
+    ) -> None:
+        """
+        Обновить флаг has_pending_manual_reclassifications у сделки.
 
+        Этот флаг показывает, есть ли незакрытые ручные переклассификации
+        документов по сделке, которые ещё не были учтены в новом анализе.
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(has_pending_manual_reclassifications=value)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()

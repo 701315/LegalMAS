@@ -278,6 +278,7 @@ export interface StructuredDataResult {
 // RUNS (ЗАПУСКИ АНАЛИЗА)
 // -------------------------------------------------------------
 
+
 // Статусы синхронизированы с backend Run.status:
 // - pending  — Run создан, но пайплайн не запускался;
 // - running  — оркестратор поставил задачи, анализ идёт;
@@ -287,7 +288,6 @@ export interface StructuredDataResult {
 // cancelled — зарезервирован для сценариев отмены Run из UI.
 // В текущей реализации backend может хранить его как failed/pending,
 // но фронт уже умеет отображать отдельный статус "Отменён".
-
 export type RunStatus =
   | "pending"
   | "running"
@@ -296,35 +296,108 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
+
 /**
  * Входные данные для старта нового анализа.
  *
  * Playbook и model_config берутся из настроек сделки (Deal.playbook_version_id),
  * поэтому их не нужно передавать в запросе.
+ *
+ * profile:
+ *  - "core"  — минимальный набор проверок;
+ *  - "full"  — полный набор;
+ *  - "max"   — максимум, что умеет система (может быть медленнее/дороже).
+ *
+ * checks_mode:
+ *  - "global_only"         — запускать только проверки из глобального плейбука;
+ *  - "doc_type_only"       — запускать только проверки из инструкций по типам;
+ *  - "global_and_doc_type" — запускать оба слоя (текущая логика по умолчанию).
+ *
+ * force_reclassify:
+ *  - false (по умолчанию) — переиспользовать уже готовую классификацию,
+ *    запускать только checks;
+ *  - true — перед запуском checks ещё раз прогнать классификацию по всем
+ *    документам (hybrid/LLM), чтобы учесть новые модели/правила.
  */
 export interface RunCreateInput {
+  /** Профиль запуска: core / full / max */
   profile?: string;
+  /** Режим проверок: global_only / doc_type_only / global_and_doc_type */
+  checks_mode?: "global_only" | "doc_type_only" | "global_and_doc_type";
   /** Если true — HybridClassifier перезапустится для всех документов */
   force_reclassify?: boolean;
 }
 
-/** Информация о запуске анализа */
+
+/**
+ * Информация о запуске анализа.
+ *
+ * Используется для:
+ *  - статус-бэджей в Overview;
+ *  - прогрессбара по checks;
+ *  - сводки по последнему Run в карточке сделки;
+ *  - DD Grid (фильтрация по режиму и стратегии).
+ */
 export interface Run {
   id: string;
   deal_id: string;
   status: RunStatus;
+
+  /** Профиль запуска: core / full / max */
   profile: string;
+
+  /**
+   * Режим проверок, в котором выполнялся Run:
+   *  - "global_only"
+   *  - "doc_type_only"
+   *  - "global_and_doc_type"
+   */
+  checks_mode: "global_only" | "doc_type_only" | "global_and_doc_type";
+
+  /**
+   * Стратегия пайплайна:
+   *  - REUSE_STRUCTURE — переиспользовать уже рассчитанное дерево/структуру;
+   *  - FULL_RERUN      — пересчитать всё с нуля;
+   *  - другие значения по договорённости с backend.
+   *
+   * Тип string оставлен более широким, чтобы не ломать фронт при
+   * добавлении новых стратегий.
+   */
+  pipeline_strategy: string;
+
+  /** Сколько документов должны пройти checks */
   total_checks: number;
+  /** Сколько документов уже прошли checks */
   completed_checks: number;
+
+  /** Есть ли FAILED/QUARANTINE документы */
   has_errors?: boolean;
+  /** Сколько документов в статусе FAILED */
   failed_docs_count?: number;
+  /** Сколько документов в статусе QUARANTINE */
   quarantine_docs_count?: number;
+
+  /** Время начала/окончания Run (ISO8601-строки) */
   started_at?: string;
   completed_at?: string;
+
+  /**
+   * Ошибка уровня Run (не отдельного документа).
+   * Формат согласован с backend Run.error_details:
+   * {
+   *   type: "infrastructure_error" | "config_error" | "...",
+   *   stage: "orchestrator" | "checks" | "...",
+   *   reason: "<краткий код причины>",
+   *   message: "<человекочитаемое описание>",
+   *   timestamp: "<ISO8601 UTC>"
+   * }
+   */
   error_details?: Record<string, unknown>;
+
   /** Опциональная статистика — заполняется при include_classification_stats=true */
   classification_stats?: ClassificationStats;
 }
+
 
 // -------------------------------------------------------------
 // РЕЗУЛЬТАТЫ ПРОВЕРОК (CHECK RESULTS)
@@ -477,11 +550,45 @@ export interface Deal {
   status: DealStatus;
   deal_type?: string;
   bundle_id?: string;
+
+  /** ID последнего запуска анализа по сделке (если был) */
   last_run_id?: string;
+
+  /**
+   * Режим проверок последнего запуска анализа:
+   *  - "global_only"         — только глобальный плейбук;
+   *  - "doc_type_only"       — только проверки по типам документов;
+   *  - "global_and_doc_type" — оба слоя.
+   *
+   * Поле агрегированное, заполняется на бэкенде на основе последнего Run.
+   * Может быть null/undefined, если анализ ещё не запускался
+   * или бэкенд пока не отдаёт эту информацию.
+   */
+  last_run_checks_mode?:
+    | "global_only"
+    | "doc_type_only"
+    | "global_and_doc_type"
+    | null;
+
+  /**
+   * Стратегия пайплайна для последнего запуска:
+   *  - "REUSE_STRUCTURE" / "FULL_RERUN" / другие значения по договорённости.
+   *
+   * Тип string оставлен более широким, чтобы новые стратегии
+   * не требовали немедленных правок на фронте.
+   */
+  last_run_pipeline_strategy?: string | null;
+
+  /** ID выбранной версии плейбука для сделки */
   playbook_version_id?: string;
+
   created_at: string;
   updated_at: string;
+
+  /** Имя/код конфигурации модели, используемой для анализа сделки */
   model_config_name?: string | null;
+
+  /** Есть ли незавершённые ручные переклассификации, требующие перезапуска анализа */
   has_pending_manual_reclassifications: boolean;
 
   metadata_?: {
@@ -496,6 +603,7 @@ export interface DealDetail extends Deal {
   counterparty?: string;
   runs?: Run[];
 }
+
 
 // -------------------------------------------------------------
 // ИМПОРТ ДОКУМЕНТОВ

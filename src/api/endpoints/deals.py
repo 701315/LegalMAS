@@ -188,8 +188,6 @@ async def create_deal(
     return DealResponse.model_validate(deal)
 
 
-
-
 @router.get(
     "/{deal_id}",
     response_model=DealResponse,
@@ -218,13 +216,9 @@ async def get_deal(
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    # Новый код: проверяем, есть ли документы с ручной переклассификацией
-    doc_repo = DocumentRepository(db)
-    has_manual = await doc_repo.exists_manual_classified_docs(deal_id=deal_id)
-
-    # Создаём DealResponse с учётом флага
-    deal_resp = DealResponse.from_orm(deal)
-    deal_resp.has_pending_manual_reclassifications = has_manual
+    # Создаём DealResponse напрямую из ORM-объекта.
+    # Флаг has_pending_manual_reclassifications берётся из поля модели Deal.
+    deal_resp = DealResponse.model_validate(deal)
 
     model_config_name: str | None = None
     pb_repo = PlaybookRepository(db)

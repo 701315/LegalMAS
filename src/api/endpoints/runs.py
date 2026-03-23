@@ -12,12 +12,15 @@ from __future__ import annotations  # сильно упрощает жизнь �
 
 import uuid
 from uuid import UUID
+import json
 
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.constants import RunStatus
+from fastapi.responses import StreamingResponse
+from services.run_progress_service import subscribe_run_progress
 
 from api.schemas.runs import DealRunSummaryResponse
 from api.deps.auth import CurrentUser, get_current_user
@@ -145,6 +148,7 @@ async def _start_run_core(
         bundle_id=None,
         profile=data.profile,
         pipeline_strategy=pipeline_strategy,
+        checks_mode=data.checks_mode,
     )
 
     logger.info(
@@ -159,8 +163,21 @@ async def _start_run_core(
         },
     )
 
-    # 5. Обновляем last_run_id у сделки
-    await deal_repo.set_last_run_id(deal_id=deal_uuid, run_id=run.id)
+    # 5. Обновляем last_run_id и агрегированные поля по последнему Run у сделки
+    await deal_repo.set_last_run_id(
+        deal_id=deal_uuid,
+        run_id=run.id,
+        checks_mode=getattr(run, "checks_mode", None),
+        pipeline_strategy=getattr(run, "pipeline_strategy", None),
+    )
+
+    # 5.1. Сбрасываем флаг незакрытых ручных переклассификаций:
+    # юрист только что запустил новый анализ, значит все текущие
+    # переклассификации считаем «учтёнными» этим run.
+    await deal_repo.set_has_pending_manual_reclassifications(
+        deal_id=deal_uuid,
+        value=False,
+    )
 
     # 6. Фиксируем изменения в БД перед постановкой задач
     await db.commit()
@@ -390,6 +407,50 @@ async def get_run(
         run_out.error_user_message = render_error_message(run.error_details)
 
     return run_out
+
+
+@router.get(
+    "/{run_id}/events",
+    summary="SSE-стрим прогресса Run (status + completed/total)",
+)
+async def stream_run_events(
+    run_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    SSE-эндпоинт для прогресса Run.
+
+    URL: GET /api/v1/runs/{run_id}/events
+    Формат событий:
+      data: {"run_id": "...", "status": "...", "completed_checks": 10, "total_checks": 100, ...}
+
+    Доступ:
+    - только участники проекта (viewer/editor/admin) для сделки этого run.
+    """
+    run_repo = RunRepository(db)
+    run = await run_repo.get_by_id(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Проверка доступа по проектной роли (любой участник)
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=run.deal_id,
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    async def event_generator():
+        async for event in subscribe_run_progress(db, run_id):
+            # by_alias=True и mode="json" -> UUID и datetime станут строками
+            payload = event.model_dump(mode="json")
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+    )
 
 
 def get_run_analytics_service(
@@ -682,6 +743,7 @@ async def get_deal_run_summary(
         run_id=run.id,
         status=run.status,
         profile=run.profile,
+        checks_mode=getattr(run, "checks_mode", "global_and_doc_type"),
         pipeline_strategy=getattr(run, "pipeline_strategy", "REUSE_STRUCTURE"),
         total_checks=run.total_checks,
         completed_checks=run.completed_checks,
@@ -691,3 +753,5 @@ async def get_deal_run_summary(
         error_user_message=error_user_message,
         classification_stats=classification_stats,
     )
+
+

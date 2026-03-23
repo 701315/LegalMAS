@@ -73,6 +73,7 @@ class CheckRunner:
         self,
         llm_client,
         playbook_version_id: uuid.UUID | None = None,
+        checks_mode: str = "global_and_doc_type",
     ) -> None:
         """
         llm_client — клиент для LLM.
@@ -80,25 +81,25 @@ class CheckRunner:
         playbook_version_id:
             Идентификатор версии плейбука, под которой выполняются проверки.
             Сохраняется в CheckResult.playbook_version_id для аудита.
+
+        checks_mode:
+            Режим набора проверок для этого запуска:
+            - "global_only"
+            - "doc_type_only"
+            - "global_and_doc_type" (по умолчанию).
         """
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
         self.playbook_version_id = playbook_version_id
-        # Новый лоадер проверок из YAML-инструкций типов документов
         self.doc_type_loader = DocTypeCheckLoader()
-        # Режим: какие проверки запускать.
-        # "global_and_doc_type" (по умолчанию), "global_only", "doc_type_only".
-        self.checks_mode = getattr(
-            settings,
-            "CHECK_RUNNER_MODE",
-            "global_and_doc_type",
-        )
+        self.checks_mode = checks_mode
 
     async def run_deal_checks(
         self,
         deal_id: uuid.UUID,
         run_id: uuid.UUID,
         playbook,
+        checks_mode: str | None = None,
     ) -> dict:
         """
         Выполнить checks по всем non-duplicate документам сделки.
@@ -118,6 +119,9 @@ class CheckRunner:
         """
         start_time = time.time()
 
+        if checks_mode:
+            self.checks_mode = checks_mode
+            
         logger.info(
             "CheckRunner started",
             extra={

@@ -48,7 +48,6 @@ Pydantic‑схемы для запусков анализа (Run) и их ст�
   для отображения в карточке сделки.
 """
 
-
 from uuid import UUID
 from datetime import datetime
 
@@ -64,14 +63,29 @@ class RunCreate(BaseModel):
       - "full"  — полный набор;
       - "max"   — максимум, что умеет система (может быть медленнее/дороже).
 
+    checks_mode:
+      - "global_only"          — запускать только проверки из глобального плейбука;
+      - "doc_type_only"        — запускать только проверки из инструкций по типам;
+      - "global_and_doc_type"  — запускать оба слоя (текущая логика по умолчанию).
+
     force_reclassify:
       - False (по умолчанию) — переиспользовать уже готовую классификацию,
         запускать только checks;
       - True — перед запуском checks ещё раз прогнать классификацию по всем
         документам (hybrid/LLM), чтобы учесть новые модели/правила.
     """
+
     playbook_version_id: UUID | None = None
     profile: str = Field(default="core", description="core / full / max")
+
+    # Новый режим: какие проверки включать в Run
+    checks_mode: str = Field(
+        default="global_and_doc_type",
+        description=(
+            "Режим проверок: "
+            "global_only / doc_type_only / global_and_doc_type"
+        ),
+    )
 
     # Новый флаг: перед запуском проверок заново классифицировать документы
     force_reclassify: bool = Field(
@@ -87,6 +101,7 @@ class ClassificationStats(BaseModel):
     Показывает, сколько документов попало на каждый уровень L0-L4,
     сколько низкоуверенных и сколько с неизвестным типом.
     """
+
     total_documents: int = 0
     l0_no_match: int = 0
     l1_filename: int = 0
@@ -119,10 +134,15 @@ class RunResponse(BaseModel):
         как запуск использует уже существующие артефакты:
         REUSE_STRUCTURE, FULL_RERUN и т.п.
     """
+
     id: UUID
     deal_id: UUID
     status: str
     profile: str
+
+    # Новый атрибут: режим, в котором выполнялись проверки
+    checks_mode: str
+
     pipeline_strategy: str
     total_checks: int
     completed_checks: int
@@ -145,6 +165,7 @@ class RunProgressResponse(BaseModel):
     - completed_checks / total_checks — счётчики по документам;
     - percent — заранее посчитанный процент выполнения (0–100).
     """
+
     status: str
     completed_checks: int
     total_checks: int
@@ -163,6 +184,7 @@ class ClassificationReportResponse(BaseModel):
     - найти документы с неизвестным типом;
     - посмотреть покрытие триггеров (trigger_coverage).
     """
+
     run_id: UUID
     deal_id: UUID
     total_documents: int
@@ -198,6 +220,10 @@ class DealRunSummaryResponse(BaseModel):
     run_id: UUID
     status: str
     profile: str
+
+    # Новый атрибут: режим проверок последнего Run по сделке
+    checks_mode: str
+
     pipeline_strategy: str
     total_checks: int
     completed_checks: int
@@ -207,5 +233,22 @@ class DealRunSummaryResponse(BaseModel):
     error_user_message: str | None = None
     classification_stats: ClassificationStats | None = None
 
+class RunProgressEvent(BaseModel):
+    """
+    Событие прогресса Run для SSE-подписки.
 
-    
+    Формат выровнен с фронтовым типом ProgressEvent:
+    - run_id: UUID run'а;
+    - status: текущий статус ("pending", "running", "completed"...);
+    - completed_checks / total_checks: счётчики проверок;
+    - current_document: опциональное имя текущего документа;
+    - error: краткое текстовое описание ошибки, если есть.
+    """
+
+    run_id: UUID
+    status: str
+    completed_checks: int
+    total_checks: int
+    current_document: str | None = None
+    error: str | None = None
+

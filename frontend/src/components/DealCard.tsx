@@ -3,8 +3,6 @@
 // Карточка сделки для списка (DealListPage).
 // =============================================================
 
-// src/components/DealCard.tsx
-
 import React from "react";
 import type { Deal } from "../types";
 import { timeAgo } from "../utils";
@@ -21,6 +19,17 @@ const DealCard: React.FC<Props> = ({ deal, onClick, isActive = false }) => {
   const stateClasses = isActive
     ? "border-blue-500 ring-1 ring-blue-200 shadow-sm"
     : "border-gray-200 hover:shadow-sm hover:border-blue-400";
+
+  // Человекочитаемое название режима проверок
+  const renderChecksModeLabel = () => {
+    const mode = deal.last_run_checks_mode;
+    if (!mode) return null;
+
+    if (mode === "global_and_doc_type") return "Плейбук + типы документов";
+    if (mode === "global_only") return "Только плейбук";
+    if (mode === "doc_type_only") return "Только типы документов";
+    return mode;
+  };
 
   return (
     <div
@@ -40,9 +49,31 @@ const DealCard: React.FC<Props> = ({ deal, onClick, isActive = false }) => {
         Статус: {deal.status}
       </p>
 
-      {deal.last_run_id && (
-        <p className="text-xs text-gray-500">
-          Последний анализ: run {deal.last_run_id}
+      {deal.last_run_id ? (
+        <div className="text-xs text-gray-500 space-y-0.5">
+          <p>
+            Последний анализ: run {deal.last_run_id}
+          </p>
+          {renderChecksModeLabel() && (
+            <p>
+              Режим проверок:{" "}
+              <span className="font-medium text-gray-700">
+                {renderChecksModeLabel()}
+              </span>
+            </p>
+          )}
+          {deal.last_run_pipeline_strategy && (
+            <p>
+              Стратегия пайплайна:{" "}
+              <span className="font-medium text-gray-700">
+                {deal.last_run_pipeline_strategy}
+              </span>
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400">
+          Анализ по этой сделке ещё не запускался
         </p>
       )}
 

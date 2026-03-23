@@ -1,17 +1,31 @@
 # src/services/export/report_builder.py
 
-"""
-Report Builder — DD Report as Word document.
 
-Sections:
-  Title page
-  1. Executive Summary        — severity counts + assessment
-  2. Critical Findings        — details per critical/high finding
-  3. Analysis Quality         — quarantine, degraded, evidence validity
-  4. Conditional Checks       — triggered conditional check results (NEW)
-  5. Extracted Values         — structured data table (NEW)
-  Appendix A: Request List    — with addressee column (NEW)
-  Reproducibility footer
+"""
+Построитель Word‑отчёта по результатам юридического DD‑анализа (DD Report).
+
+Что делает:
+- формирует многостраничный .docx‑отчёт по одному Run;
+- добавляет титульную страницу с данными сделки и контекстом анализа;
+- собирает ключевые метрики и риски в удобные для юриста разделы.
+
+Структура отчёта:
+- Титульная страница:
+  - название отчёта и сделки;
+  - профиль плейбука, версия, Run ID;
+  - режим проверок (checks_mode) и стратегия пайплайна (pipeline_strategy).
+- 1. Executive Summary — краткая сводка по severity и общему объёму анализа.
+- 2. Критические находки — детализированный список critical/high рисков.
+- 3. Качество анализа — карантин, degraded‑документы, валидность evidence.
+- 4. Условные проверки — сработавшие conditional checks (если есть).
+- 5. Извлечённые значения — таблица структурированных данных (если есть).
+- Приложение A: Список запросов — DD‑запросы с адресатом и привязкой к документам.
+- Футер воспроизводимости — краткий отпечаток контекста анализа (профиль, плейбук, Run, окружение).
+
+Особенности:
+- отчёт ориентирован на юриста: минимум технических деталей, максимум читабельности;
+- все ключевые параметры Run (плейбук, режим, стратегия, окружение) явно зашиты
+  в титульную страницу и футер для последующего аудита и воспроизводимости.
 """
 
 import io
@@ -40,15 +54,38 @@ def build_report_docx(
     playbook_version: str = "1.0.0",
     playbook_profile: str = "M&A Russia DD",
     environment_hash: str = "",
+    checks_mode: str = "",
+    pipeline_strategy: str = "",
 ) -> bytes:
+    """
+    Сформировать Word‑отчёт DD Report по результатам одного Run.
+
+    Параметры:
+    - aggregated: агрегированные результаты анализа по сделке и Run;
+    - playbook_version: версия плейбука (semver), отображается на титуле и в футере;
+    - playbook_profile: человекочитаемое имя/профиль плейбука;
+    - environment_hash: хэш окружения выполнения анализа (docker/libs/weights);
+    - checks_mode: режим проверок для текущего Run (например, global_only / global_and_doc_type);
+    - pipeline_strategy: стратегия пайплайна для Run (например, REUSE_STRUCTURE / FULL_RERUN).
+
+    Возвращает:
+    - байтовое содержимое .docx‑файла отчёта, готовое к сохранению или отдаче клиенту.
+    """
     doc = Document()
 
-    _add_title_page(doc, aggregated, playbook_version, playbook_profile)
+    _add_title_page(
+        doc,
+        aggregated,
+        playbook_version,
+        playbook_profile,
+        checks_mode=checks_mode,
+        pipeline_strategy=pipeline_strategy,
+    )
     _add_executive_summary(doc, aggregated)
     _add_critical_findings(doc, aggregated)
     _add_quality_section(doc, aggregated)
 
-    # NEW sections
+    # Дополнительные разделы
     if aggregated.conditional_rows:
         _add_conditional_checks_section(doc, aggregated)
     if aggregated.structured_value_rows:
@@ -69,6 +106,9 @@ def _add_title_page(
     agg: AggregatedResults,
     pb_version: str,
     pb_profile: str,
+    *,
+    checks_mode: str = "",
+    pipeline_strategy: str = "",
 ) -> None:
     doc.add_paragraph("")
     doc.add_paragraph("")
@@ -77,17 +117,26 @@ def _add_title_page(
     run = title.add_run("ОТЧЁТ О ЮРИДИЧЕСКОМ DUE DILIGENCE")
     run.bold = True
     run.font.size = Pt(18)
+
     doc.add_paragraph("")
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle.add_run(agg.deal_name).font.size = Pt(14)
+
     doc.add_paragraph("")
     info = doc.add_paragraph()
     info.alignment = WD_ALIGN_PARAGRAPH.CENTER
     info.add_run(f"Профиль анализа: {pb_profile}\n").font.size = Pt(11)
     info.add_run(f"Дата: {datetime.now().strftime('%d.%m.%Y')}\n").font.size = Pt(11)
     info.add_run(f"Playbook: v{pb_version}\n").font.size = Pt(11)
-    info.add_run(f"Run ID: {agg.run_id[:8]}...").font.size = Pt(9)
+    info.add_run(f"Run ID: {agg.run_id[:8]}...\n").font.size = Pt(9)
+
+    # Режим и стратегия Run, чтобы юрист видел контекст именно этого отчёта
+    if checks_mode:
+        info.add_run(f"Режим проверок: {checks_mode}\n").font.size = Pt(10)
+    if pipeline_strategy:
+        info.add_run(f"Стратегия пайплайна: {pipeline_strategy}\n").font.size = Pt(10)
+
     doc.add_page_break()
 
 
@@ -98,7 +147,7 @@ def _add_executive_summary(doc: Document, agg: AggregatedResults) -> None:
         f"В рамках анализа проверено {agg.total_documents} документов, "
         f"выполнено {agg.total_checks} проверок."
     )
-    # NEW: mention conditional checks
+    # Упоминание условных проверок, если они были
     if agg.conditional_checks_triggered > 0:
         doc.add_paragraph(
             f"Выявлены и проверены {agg.conditional_checks_total} условных "
@@ -159,11 +208,11 @@ def _add_critical_findings(doc: Document, agg: AggregatedResults) -> None:
             quote = doc.add_paragraph()
             run = quote.add_run(f"«{risk.evidence_snippet[:300]}»")
             run.italic = True
-        # NEW: structured data
+        # Извлечённые структурированные данные по риску
         if risk.structured_data:
             sd_text = "; ".join(f"{k}: {v}" for k, v in risk.structured_data.items())
             doc.add_paragraph(f"Извлечённые данные: {sd_text}")
-        # NEW: conditional trigger note
+        # Пометка, что риск появился из условной проверки
         if risk.conditional_check_triggered and risk.trigger_name:
             doc.add_paragraph(f"ℹ️ Проверка активирована триггером: «{risk.trigger_name}»")
         doc.add_paragraph("")
@@ -186,11 +235,11 @@ def _add_quality_section(doc: Document, agg: AggregatedResults) -> None:
 
 
 def _add_conditional_checks_section(doc: Document, agg: AggregatedResults) -> None:
-    """NEW: Section for conditional (triggered) check results."""
+    """Раздел по сработавшим условным (triggered) проверкам."""
     doc.add_heading("4. Условные проверки", level=1)
     doc.add_paragraph(
         "Следующие проверки были активированы автоматически на основании "
-        "триггеров, определённых в YAML-инструкциях типов документов "
+        "триггеров, определённых в YAML‑инструкциях типов документов "
         "(conditional_checks)."
     )
 
@@ -218,7 +267,7 @@ def _add_conditional_checks_section(doc: Document, agg: AggregatedResults) -> No
 
 
 def _add_extracted_values_section(doc: Document, agg: AggregatedResults) -> None:
-    """NEW: Section for structured extracted values (amounts, dates, etc.)."""
+    """Раздел по структурированным извлечённым значениям (суммы, даты и т.п.)."""
     doc.add_heading("5. Извлечённые значения", level=1)
     doc.add_paragraph(
         "В ходе анализа из документов были извлечены следующие "
@@ -254,13 +303,16 @@ def _add_request_list(doc: Document, agg: AggregatedResults) -> None:
             f"A.{i}. [{req.priority.upper()}] {req.check_name}",
             level=2,
         )
-        # NEW: addressee
         doc.add_paragraph(f"Адресат: {req.addressee}")
         doc.add_paragraph(req.text)
-        doc.add_paragraph(f"Документы ({req.document_count}): " + ", ".join(req.document_names[:5]))
-        # NEW: structured values referenced
+        doc.add_paragraph(
+            f"Документы ({req.document_count}): "
+            + ", ".join(req.document_names[:5])
+        )
         if req.structured_values:
-            sv_text = "; ".join(f"{sv['field']}={sv['value']}" for sv in req.structured_values[:5])
+            sv_text = "; ".join(
+                f"{sv['field']}={sv['value']}" for sv in req.structured_values[:5]
+            )
             doc.add_paragraph(f"Связанные значения: {sv_text}")
         doc.add_paragraph("")
 

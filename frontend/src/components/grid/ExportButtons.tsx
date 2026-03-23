@@ -18,6 +18,20 @@ interface ExportButtonsProps {
   selectedResults: CheckResult[];
   dealName?: string;
   runId?: string;
+
+  /**
+   * Дополнительный контекст запуска анализа для экспорта:
+   *  - режим проверок (global_only / doc_type_only / global_and_doc_type)
+   *  - стратегия пайплайна (REUSE_STRUCTURE / FULL_RERUN / ...)
+   *
+   * Эти поля не обязательны: если их нет, экспорт просто не будет
+   * добавлять эту информацию в имя файла/шапку.
+   */
+  runChecksMode?:
+    | "global_only"
+    | "doc_type_only"
+    | "global_and_doc_type";
+  runPipelineStrategy?: string;
 }
 
 export const ExportButtons: React.FC<ExportButtonsProps> = ({
@@ -25,23 +39,32 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   selectedResults,
   dealName,
   runId,
+  runChecksMode,
+  runPipelineStrategy,
 }) => {
   const hasSelection = selectedResults.length > 0;
   const baseResults = hasSelection ? selectedResults : allResults;
 
+  const commonMeta = {
+    dealName,
+    runId,
+    runChecksMode,
+    runPipelineStrategy,
+  };
+
   const handleExcel = () => {
     if (!baseResults.length) return;
-    exportResultsToExcel(baseResults, { dealName, runId });
+    exportResultsToExcel(baseResults, commonMeta);
   };
 
   const handlePdf = () => {
     if (!baseResults.length) return;
-    exportResultsToPdf(baseResults, { dealName, runId });
+    exportResultsToPdf(baseResults, commonMeta);
   };
 
   const handleWord = async () => {
     if (!baseResults.length) return;
-    await exportResultsToWord(baseResults, { dealName, runId });
+    await exportResultsToWord(baseResults, commonMeta);
   };
 
   const labelSuffix = hasSelection

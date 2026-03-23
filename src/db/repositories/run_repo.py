@@ -51,6 +51,7 @@ class RunRepository:
         environment_hash: str | None = None,
         profile: str = "full",
         pipeline_strategy: str = "REUSE_STRUCTURE",
+        checks_mode: str = "global_and_doc_type",
     ) -> Run:
         """
         Создать новый запуск анализа (Run) для сделки.
@@ -61,7 +62,9 @@ class RunRepository:
 
         Важно:
         - pipeline_strategy описывает, как этот запуск будет использовать уже
-          существующие артефакты (layout, clause_tree, classification).
+          существующие артефакты (layout, clause_tree, classification);
+        - checks_mode определяет, по какому набору проверок будет идти анализ
+          (например, полный прогон или укороченный).
         """
         run = Run(
             deal_id=deal_id,
@@ -71,6 +74,7 @@ class RunRepository:
             environment_hash=environment_hash,
             profile=profile,
             pipeline_strategy=pipeline_strategy,
+            checks_mode=checks_mode,
         )
         self.session.add(run)
         await self.session.flush()

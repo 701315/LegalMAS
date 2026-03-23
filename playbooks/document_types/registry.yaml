@@ -34,7 +34,7 @@ document_types:
     category: "contract"
     group: "group_1_ownership"
 
-  - type: "contract_1.6_real_estate"
+  - type: "contract_1.6"
     name: "Договор купли-продажи недвижимости"
     category: "contract"
     group: "group_1_ownership"
@@ -59,7 +59,7 @@ document_types:
     category: "contract"
     group: "group_1_ownership"
 
-  - type: "contract_1.11_shares"
+  - type: "contract_1.11"
     name: "Договор купли-продажи корпоративных прав (долей/акций)"
     category: "contract"
     group: "group_1_ownership"
@@ -215,7 +215,7 @@ document_types:
     category: "contract"
     group: "group_7_ip"
 
-  - type: "contract_7.2_license"
+  - type: "contract_7.2"
     name: "Лицензионный договор"
     category: "contract"
     group: "group_7_ip"
@@ -225,7 +225,7 @@ document_types:
     category: "contract"
     group: "group_7_ip"
 
-  - type: "contract_7.4_nda"
+  - type: "contract_7.4"
     name: "Соглашение о неразглашении конфиденциальной информации (NDA)"
     category: "contract"
     group: "group_7_ip"
@@ -237,7 +237,7 @@ document_types:
     group: "group_8_partnership"
 
   # group_9_special
-  - type: "contract_9.1_employment"
+  - type: "contract_9.1"
     name: "Трудовой договор"
     category: "contract"
     group: "group_9_special"

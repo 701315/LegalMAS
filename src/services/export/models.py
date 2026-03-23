@@ -1,17 +1,37 @@
 # src/services/export/models.py
 
 """
-Aggregator & Exporter Data Models.
+Модели данных агрегатора и экспортёра LegalMAS.
 
-Defines:
-- SeverityCounts: how many results per severity level
-- TopRisk: a single high-priority finding for summary
-- DDRequest: a generated request for additional information (with addressee)
-- AggregatedResults: complete deal-level summary
-- ExportRow: a single row in the DD Grid Excel
-- ConditionalCheckRow: row for conditional checks sheet
-- StructuredValueRow: extracted structured values (amounts, dates, etc.)
-- DocTypeSummary: per-doc-type aggregation with classification metadata
+Содержит датаклассы для:
+
+── Базовые модели (используются агрегатором и Excel-экспортом) ──────────────
+  SeverityCounts      — счётчики результатов по уровню риска
+  TopRisk             — одна критическая/высокая находка для сводки
+  DDRequest           — запрос доп. информации, генерируется по fail-результатам
+  ExportRow           — одна строка плоского DD Grid Excel (документ × чек)
+  ConditionalCheckRow — строка для листа «Условные проверки» в Excel
+  StructuredValueRow  — извлечённое структурированное значение (сумма, дата и т.п.)
+  DocTypeSummary      — сводка по типу документа с метриками классификации
+  AggregatedResults   — полная агрегация результатов одного рана сделки
+
+── Модели DD Matrix (используются эндпоинтом /dd-matrix и матричным Excel) ──
+  CheckMeta           — метаданные одного чека = описание столбца матрицы
+  MatrixCell          — содержимое одной ячейки матрицы (документ × чек)
+  DocumentMatrixRow   — одна строка матрицы = один документ со всеми результатами
+  DDMatrixResponse    — полный ответ эндпоинта GET /dd-matrix
+
+Архитектурный принцип:
+  Бэкенд строит ОДНУ полную таблицу (AggregatedResults.rows) содержащую
+  все результаты всех чеков по всем документам. DDMatrixResponse перепаковывает
+  эти данные в матричную структуру {document → {check_id → результат}}.
+  Фронтенд получает готовую структуру и только рендерит её — никаких
+  вычислений на клиенте не требуется.
+
+Источник origin у чеков:
+  "GLOBAL_PLAYBOOK"  — глобальный плейбук, применим ко ВСЕМ документам сделки
+  "DOCUMENT_TYPE"    — YAML-инструкция конкретного типа документа
+  "CONDITIONAL"      — условный чек, активирован триггером из applicabletriggers
 """
 
 from dataclasses import dataclass, field
@@ -20,7 +40,14 @@ from typing import Any
 
 @dataclass
 class SeverityCounts:
-    """Count of check results by severity level."""
+    """
+    Счётчики результатов проверок по уровню критичности.
+
+    Используется в:
+    - AggregatedResults.severity_counts (итого по сделке)
+    - DDMatrixResponse.severity_counts (итого по матрице)
+    - DocTypeSummary (итого по типу документа)
+    """
 
     critical: int = 0
     high: int = 0
@@ -50,7 +77,12 @@ class SeverityCounts:
 
 @dataclass
 class TopRisk:
-    """A single high-priority finding for the summary."""
+    """
+    Одна критическая или высокая находка для раздела Executive Summary.
+
+    Заполняется агрегатором из fail-результатов отсортированных по severity.
+    Используется в Word-отчёте (report_builder.py) и Summary Excel.
+    """
 
     check_id: str
     check_name: str
@@ -62,9 +94,7 @@ class TopRisk:
     page: int | None = None
     clause_uid: str = ""
     confidence: float = 0.0
-    # NEW: structured data extracted by check
     structured_data: dict[str, Any] = field(default_factory=dict)
-    # NEW: was this triggered by a conditional trigger?
     conditional_check_triggered: bool = False
     trigger_name: str = ""
 
@@ -89,10 +119,15 @@ class TopRisk:
 @dataclass
 class DDRequest:
     """
-    A generated DD request for additional information.
+    Запрос дополнительных документов/сведений по результатам DD.
 
-    Created from FAIL/HIGH check results. Deduplicated by check_id.
-    Text loaded from YAML dd_request_templates section.
+    Создаётся агрегатором для каждого уникального fail-чека уровня critical/high.
+    Текст запроса загружается из секции dd_request_templates YAML-инструкции.
+    Дедуплицируется по check_id — один запрос на чек, даже если fail в нескольких
+    документах.
+
+    addressee — адресат запроса из YAML (например: «Продавец», «Юридический советник»).
+    structured_values — извлечённые значения (суммы, даты) для подстановки в текст.
     """
 
     request_id: str
@@ -100,13 +135,11 @@ class DDRequest:
     check_name: str
     priority: str
     text: str
-    # NEW: addressee from YAML dd_request_templates
     addressee: str = "Юридический советник"
     document_ids: list[str] = field(default_factory=list)
     document_names: list[str] = field(default_factory=list)
     doc_types: list[str] = field(default_factory=list)
     evidence_refs: list[str] = field(default_factory=list)
-    # NEW: structured data values (amounts, dates) referenced in request
     structured_values: list[dict] = field(default_factory=list)
     dedup_key: str = ""
 
@@ -132,7 +165,18 @@ class DDRequest:
 
 @dataclass
 class ExportRow:
-    """A single row in the DD Grid Excel."""
+    """
+    Одна строка плоского DD Grid Excel.
+
+    Плоский формат: каждая строка = одна проверка одного документа.
+    Используется в листе «DD Grid» (плоский список для фильтрации/сортировки).
+    Для матричного представления используется DDMatrixResponse.
+
+    origin:
+        "GLOBAL_PLAYBOOK"  — чек из глобального плейбука
+        "DOCUMENT_TYPE"    — чек из YAML-инструкции типа документа
+        "CONDITIONAL"      — условный чек по триггеру
+    """
 
     document_name: str
     folder_path: str
@@ -150,23 +194,22 @@ class ExportRow:
     qc_status: str = "pending"
     document_id: str = ""
     run_id: str = ""
-    # NEW: structured extraction result (e.g. amount=5_000_000)
     structured_data_preview: str = ""
-    # NEW: conditional check metadata
     conditional_check_triggered: bool = False
     trigger_name: str = ""
-    # NEW: classification metadata
-    classification_level: str = ""  # L0-L4
+    classification_level: str = ""
     classification_confidence: float = 0.0
     origin: str | None = None
+
 
 @dataclass
 class ConditionalCheckRow:
     """
-    A row representing a triggered conditional check result.
+    Строка для листа «Условные проверки» в Excel.
 
-    Used in the separate 'Conditional Checks' sheet in Excel.
-    Provides visibility into which triggers fired and why.
+    Содержит только те чеки которые были активированы триггерами
+    (conditional_check_triggered=True). Выносится на отдельный лист
+    чтобы не засорять основной DD Grid.
     """
 
     document_name: str
@@ -185,29 +228,38 @@ class ConditionalCheckRow:
 @dataclass
 class StructuredValueRow:
     """
-    A structured value extracted from a document.
+    Одно структурированное значение извлечённое из документа.
 
-    Used in the 'Extracted Values' sheet — amounts, dates,
-    parties, key terms extracted by structured_extraction checks.
+    Используется в листе «Extracted Values» в Excel и в MatrixCell.extracted.
+    Примеры: сумма договора, дата подписания, наименование стороны,
+    кадастровый номер, ставка НДС и т.п.
+
+    field_format определяет способ отображения на фронте:
+        "money"       — денежная сумма (форматировать с разделителями)
+        "date"        — дата (форматировать по локали)
+        "entity_name" — наименование юридического лица
+        "text"        — произвольный текст
     """
 
     document_name: str
     doc_type: str
     check_name: str
-    field_name: str  # e.g. "amount", "effective_date", "parties"
-    field_value: str  # e.g. "5 000 000 руб.", "01.01.2025", "ООО Альфа"
-    field_format: str  # e.g. "money_or_not_found", "date", "entity_name"
+    field_name: str    # например: "amount", "effective_date", "cadastral_number"
+    field_value: str   # например: "5 000 000 руб.", "01.01.2025", "77:01:0001001:123"
+    field_format: str  # "money" | "date" | "entity_name" | "text"
     page: int | None = None
     clause_uid: str = ""
     document_id: str = ""
-    check_id: str = ""  # NEW: link to specific check
+    check_id: str = ""
 
 
 @dataclass
 class DocTypeSummary:
     """
-    Per-document-type aggregation row for the By Doc Type sheet.
-    Extended with classification quality metadata.
+    Сводная строка по одному типу документа для листа «Summary» в Excel.
+
+    Включает счётчики результатов проверок и метрики качества классификации.
+    low_confidence_count — документы с confidence < 0.6, требуют ручной проверки.
     """
 
     doc_type: str
@@ -218,15 +270,27 @@ class DocTypeSummary:
     medium: int = 0
     pass_count: int = 0
     unclear: int = 0
-    # NEW: classification quality
     avg_classification_confidence: float = 0.0
-    low_confidence_count: int = 0  # docs with confidence < 0.6
+    low_confidence_count: int = 0
     conditional_checks_triggered: int = 0
 
 
 @dataclass
 class AggregatedResults:
-    """Complete deal-level aggregation."""
+    """
+    Полная агрегация результатов одного рана (Run) по сделке.
+
+    Строится функцией aggregate_results() в services/export/aggregator.py.
+    Является единственным источником данных для всех форматов экспорта:
+    - Excel DD Grid (grid_builder.py)
+    - Excel Summary (summary_builder.py)
+    - Word Report (report_builder.py)
+    - API эндпоинты deal review (dealreviewservice.py)
+    - API эндпоинт DD Matrix (dealreviewservice.py → build_dd_matrix)
+
+    rows — плоский список всех результатов, каждая запись = (документ, чек).
+    Из этого плоского списка строится матрица в build_dd_matrix().
+    """
 
     deal_id: str
     deal_name: str
@@ -235,18 +299,14 @@ class AggregatedResults:
     top_risks: list[TopRisk] = field(default_factory=list)
     dd_requests: list[DDRequest] = field(default_factory=list)
     rows: list[ExportRow] = field(default_factory=list)
-    # NEW: conditional check rows (only triggered ones)
     conditional_rows: list[ConditionalCheckRow] = field(default_factory=list)
-    # NEW: structured value rows
     structured_value_rows: list[StructuredValueRow] = field(default_factory=list)
-    # NEW: per-doc-type summaries
     doc_type_summaries: list[DocTypeSummary] = field(default_factory=list)
     total_documents: int = 0
     total_checks: int = 0
     quarantine_count: int = 0
     degraded_count: int = 0
     evidence_validity_rate: float = 1.0
-    # NEW: conditional checks stats
     conditional_checks_total: int = 0
     conditional_checks_triggered: int = 0
 
@@ -266,3 +326,197 @@ class AggregatedResults:
             "conditional_checks_total": self.conditional_checks_total,
             "conditional_checks_triggered": self.conditional_checks_triggered,
         }
+
+
+# ---------------------------------------------------------------------------
+# DD Matrix models
+# Используются эндпоинтом GET /deals/{deal_id}/runs/{run_id}/dd-matrix
+# и матричными листами в grid_builder.py
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ExtractedField:
+    """
+    Одно извлечённое поле внутри ячейки матрицы.
+
+    Отдельный класс (а не dict[str, str]) нужен чтобы фронтенд знал
+    как форматировать значение — сумму иначе чем дату иначе чем имя.
+
+    Примеры:
+        field_name="сумма",         field_value="5 000 000", field_format="money"
+        field_name="дата",          field_value="01.01.2025", field_format="date"
+        field_name="кадастровый №", field_value="77:01:0001001:123", field_format="text"
+    """
+
+    field_name: str    # человекочитаемое имя поля из YAML extraction config
+    field_value: str   # строковое представление значения
+    field_format: str  # "money" | "date" | "entity_name" | "text"
+
+
+@dataclass
+class MatrixCell:
+    """
+    Содержимое одной ячейки DD Matrix — пересечение строки (документ) и столбца (чек).
+
+    Отсутствие ячейки в словаре DocumentMatrixRow.results означает что чек
+    НЕ ПРИМЕНЯЛСЯ к документу (n/a) — это не то же самое что result="unclear".
+
+    Поля:
+        result     — итог проверки: "fail" | "pass" | "unclear"
+        severity   — уровень риска: "critical" | "high" | "medium"
+                     (для pass/unclear берётся из определения чека, не из результата)
+        snippet    — цитата из текста документа (pinpoint evidence, до 300 символов)
+        page       — номер страницы где найдено доказательство
+        clause_uid — UID параграфа/пункта договора (например "§4.1", "п.3.2.1")
+        extracted  — список структурированных значений извлечённых этим чеком
+        confidence — уверенность модели (0.0–1.0)
+        qc_status  — статус ручной проверки: "pending" | "approved" | "rejected"
+        conditional_check_triggered — True если чек сработал по триггеру
+        trigger_name — имя триггера который активировал чек
+    """
+
+    result: str                                            # "fail" | "pass" | "unclear"
+    severity: str                                          # "critical" | "high" | "medium"
+    snippet: str = ""                                      # цитата из документа
+    page: int | None = None                                # страница
+    clause_uid: str = ""                                   # UID параграфа
+    extracted: list[ExtractedField] = field(default_factory=list)  # извлечённые значения
+    confidence: float = 0.0
+    qc_status: str = "pending"
+    conditional_check_triggered: bool = False
+    trigger_name: str = ""
+
+
+@dataclass
+class CheckMeta:
+    """
+    Метаданные одного чека — описание столбца DD Matrix.
+
+    Используется фронтендом для:
+    - построения заголовков столбцов матрицы
+    - фильтрации столбцов по вкладкам (глобальные / по типу документа)
+    - отображения severity-цвета в заголовке столбца
+
+    origin:
+        "GLOBAL_PLAYBOOK"  — глобальный плейбук, столбец присутствует
+                             на вкладке «Глобальные» и во всех вкладках по типам
+        "DOCUMENT_TYPE"    — YAML-инструкция, столбец только на вкладке
+                             своего типа документа
+        "CONDITIONAL"      — условный чек, показывается только если сработал
+                             хотя бы для одного документа
+
+    applicable_doc_types:
+        None   — применим ко всем типам (только GLOBAL_PLAYBOOK)
+        [...]  — список типов документов (только DOCUMENT_TYPE / CONDITIONAL)
+
+    order_index:
+        Порядок отображения столбца. Глобальные чеки идут первыми (меньший индекс),
+        затем doc-type чеки в порядке их объявления в YAML.
+        Без этого поля порядок столбцов будет недетерминированным между запусками.
+    """
+
+    check_id: str
+    check_name: str
+    origin: str                                     # "GLOBAL_PLAYBOOK" | "DOCUMENT_TYPE" | "CONDITIONAL"
+    severity: str                                   # "critical" | "high" | "medium"
+    order_index: int = 0                            # порядок столбца в матрице
+    applicable_doc_types: list[str] | None = None  # None = все типы документов
+
+
+@dataclass
+class DocumentMatrixRow:
+    """
+    Одна строка DD Matrix — один документ со всеми результатами проверок.
+
+    results — словарь check_id → MatrixCell.
+    Отсутствие ключа означает что чек не применялся к документу (n/a).
+    Фронтенд отображает пустую/серую ячейку без статуса.
+
+    status — текущий статус обработки документа из Document.status:
+        "completed"  — обработан полностью
+        "quarantine" — изолирован (повреждённый файл, превышение порога OCR и т.п.)
+        "failed"     — ошибка обработки
+
+    Строки в DDMatrixResponse.documents отсортированы по убыванию critical_count,
+    затем fail_count — наиболее рискованные документы идут первыми.
+    """
+
+    document_id: str
+    document_name: str
+    doc_type: str
+    folder_path: str
+    status: str = "completed"              # статус обработки документа
+    classification_level: str = ""         # L1 | L2 | L3 | L4 | HYBRID
+    classification_confidence: float = 0.0
+    results: dict[str, MatrixCell] = field(default_factory=dict)
+
+    @property
+    def fail_count(self) -> int:
+        """Количество чеков с результатом fail — для сортировки строк по риску."""
+        return sum(1 for c in self.results.values() if c.result == "fail")
+
+    @property
+    def critical_count(self) -> int:
+        """Количество критических провалов — для сортировки и цветовой индикации строки."""
+        return sum(
+            1 for c in self.results.values()
+            if c.result == "fail" and c.severity == "critical"
+        )
+
+
+@dataclass
+class DDMatrixResponse:
+    """
+    Полный ответ эндпоинта GET /deals/{deal_id}/runs/{run_id}/dd-matrix.
+
+    Структура разделена на три части для удобства фронтенда:
+
+    1. checks — полный реестр всех чеков этого рана (описания столбцов).
+       Фронтенд строит заголовки матрицы из этого списка.
+
+    2. global_check_ids — check_id с origin=GLOBAL_PLAYBOOK.
+       Фронтенд использует для вкладки «Глобальные проверки»
+       (показывает только эти столбцы, строки = все документы).
+
+    3. doc_type_check_ids — {doc_type: [check_id, ...]} с origin=DOCUMENT_TYPE.
+       Фронтенд использует для вкладок по типам документов
+       (показывает только эти столбцы, строки = только документы этого типа).
+       Глобальные чеки на вкладках типов НЕ повторяются — только специфичные.
+
+    4. documents — строки матрицы, отсортированы по убыванию рисков
+       (сначала документы с наибольшим количеством critical fail).
+
+    Метрики качества:
+        quarantine_count  — документы в карантине (не проверялись)
+        degraded_count    — документы с деградированным OCR (низкое качество)
+        evidence_validity_rate — доля критических/высоких находок с цитатой (0–1)
+
+    Фронтенд получает этот объект один раз и рендерит любое представление
+    без повторных запросов к серверу.
+    """
+
+    deal_id: str
+    run_id: str
+    deal_name: str
+
+    # Полный реестр чеков = описания всех столбцов матрицы
+    checks: list[CheckMeta] = field(default_factory=list)
+
+    # check_id глобальных чеков (для вкладки «Глобальные проверки»)
+    global_check_ids: list[str] = field(default_factory=list)
+
+    # {doc_type: [check_id, ...]} только DOCUMENT_TYPE чеки (для вкладок по типам)
+    doc_type_check_ids: dict[str, list[str]] = field(default_factory=dict)
+
+    # Строки матрицы, отсортированы: critical_count DESC, fail_count DESC
+    documents: list[DocumentMatrixRow] = field(default_factory=list)
+
+    # Общая статистика для заголовка страницы
+    total_documents: int = 0
+    total_checks: int = 0
+    severity_counts: SeverityCounts = field(default_factory=SeverityCounts)
+
+    # Метрики качества анализа
+    quarantine_count: int = 0       # документов в карантине
+    degraded_count: int = 0         # документов с деградированной структурой
+    evidence_validity_rate: float = 1.0  # доля находок с цитатой (0.0–1.0)

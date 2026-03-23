@@ -122,10 +122,24 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     } else {
       params.set("tab", tab);
     }
-    navigate({
-      pathname: location.pathname,
-      search: params.toString(),
-    }, { replace: true });
+    navigate(
+      {
+        pathname: location.pathname,
+        search: params.toString(),
+      },
+      { replace: true },
+    );
+  };
+
+  // Человекочитаемый текст для режима последнего анализа (если есть)
+  const renderLastRunMode = () => {
+    const mode = deal.last_run_checks_mode;
+    if (!mode) return null;
+
+    if (mode === "global_and_doc_type") return "Плейбук + типы документов";
+    if (mode === "global_only") return "Только плейбук";
+    if (mode === "doc_type_only") return "Только типы документов";
+    return mode;
   };
 
   return (
@@ -140,8 +154,33 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             Сделка #{deal.id} · статус: {deal.status}
           </p>
 
+          {/* Блок с информацией о последнем анализе, если он был */}
+          {deal.last_run_id && (
+            <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+              <p>
+                Последний анализ: run {deal.last_run_id}
+              </p>
+              {renderLastRunMode() && (
+                <p>
+                  Режим проверок:{" "}
+                  <span className="font-medium text-gray-700">
+                    {renderLastRunMode()}
+                  </span>
+                </p>
+              )}
+              {deal.last_run_pipeline_strategy && (
+                <p>
+                  Стратегия пайплайна:{" "}
+                  <span className="font-medium text-gray-700">
+                    {deal.last_run_pipeline_strategy}
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+
           {deal.metadata_?.contact_person && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mt-2">
               Контактное лицо: {deal.metadata_.contact_person}
             </p>
           )}

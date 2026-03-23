@@ -26,6 +26,7 @@ import BulkQCBar from "../../components/qc/BulkQCBar";
 import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
 import ExportButtons from "../../components/grid/ExportButtons";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import { useRun } from "../../api/runs";
 
 interface GridTabProps {
   dealId: string;
@@ -37,21 +38,17 @@ type GridScope = "all" | "global" | "doctype";
 type GridMode = "matrix" | "list";
 
 // Нормализованный тип источника проверки.
-// Мы не хотим везде по коду сравнивать "GLOBAL_PLAYBOOK", "project_playbook" и т.п.
 type NormalizedOrigin = "global" | "doctype" | "other";
 
 // Функция нормализации значений origin/origin_type из бэкенда
 // в стабильный enum NormalizedOrigin.
-// В одном месте описываем все возможные варианты.
 function normalizeOrigin(
   rawOrigin: unknown,
   originType?: "global" | "doctype" | "custom",
 ): NormalizedOrigin {
-  // 1) Если бэкенд уже прислал нормализованный origin_type — доверяем ему.
   if (originType === "global") return "global";
   if (originType === "doctype") return "doctype";
 
-  // 2) Fallback для старых данных — смотрим на сырое origin.
   if (!rawOrigin) {
     return "other";
   }
@@ -59,7 +56,6 @@ function normalizeOrigin(
   const raw = rawOrigin.toString();
   const upper = raw.toUpperCase();
 
-  // Глобальный плейбук (старые и новые варианты)
   if (
     upper === "GLOBAL_PLAYBOOK" ||
     raw === "global_playbook" ||
@@ -68,12 +64,10 @@ function normalizeOrigin(
     return "global";
   }
 
-  // Проверки по типу документа
   if (upper === "DOCUMENT_TYPE") {
     return "doctype";
   }
 
-  // Всё остальное (на будущее)
   return "other";
 }
 
@@ -88,6 +82,11 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [selectedDocType, setSelectedDocType] = React.useState<string | null>(
     null,
   );
+
+  // Флаг "только со структурированными данными"
+  const [hasStructuredDataOnly, setHasStructuredDataOnly] =
+    React.useState(false);
+
   const [gridScope, setGridScope] = React.useState<GridScope>("all");
   const [selectedScopeDocTypes, setSelectedScopeDocTypes] = React.useState<
     string[]
@@ -102,6 +101,26 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     isLoading,
     error,
   } = useAllResults(runId);
+
+  // Загружаем информацию о Run, чтобы знать checks_mode / pipeline_strategy
+  const {
+    data: run,
+    isLoading: isRunLoading,
+    error: runError,
+  } = useRun(runId, false);
+
+  // Инициализация gridScope на основе checks_mode Run
+  React.useEffect(() => {
+    if (!run) return;
+    const mode = run.checks_mode;
+    if (mode === "global_only") {
+      setGridScope("global");
+    } else if (mode === "doc_type_only") {
+      setGridScope("doctype");
+    } else {
+      setGridScope("all");
+    }
+  }, [run]);
 
   const confirmMutation = useConfirmResults();
   const rejectMutation = useRejectResults();
@@ -133,6 +152,11 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
     if (selectedDocType) {
       results = results.filter((r) => r.doc_type === selectedDocType);
+    }
+
+    // Новый фильтр: только те результаты, у которых есть structured_data
+    if (hasStructuredDataOnly) {
+      results = results.filter((r) => r.structured_data != null);
     }
 
     switch (quickFilter) {
@@ -180,9 +204,14 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     );
 
     return results;
-  }, [allResults, searchText, quickFilter, selectedDocType]);
+  }, [
+    allResults,
+    searchText,
+    quickFilter,
+    selectedDocType,
+    hasStructuredDataOnly,
+  ]);
 
-  // Глобальные риски (через нормализованный origin)
   const globalResults = React.useMemo(
     () =>
       filteredResults.filter(
@@ -198,7 +227,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     globalResults.length,
   );
 
-  // Риски по типу документа (через нормализованный origin)
   const doctypeResults = React.useMemo(
     () =>
       filteredResults.filter(
@@ -367,6 +395,22 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     );
   }
 
+  if (isRunLoading) {
+    return (
+      <div className="text-sm text-gray-500 py-4">
+        Загружаем информацию о запуске анализа…
+      </div>
+    );
+  }
+
+  if (runError) {
+    return (
+      <div className="text-sm text-red-600 py-4">
+        Не удалось загрузить информацию о запуске анализа.
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="text-sm text-gray-500 py-4">
@@ -387,6 +431,33 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     <div className="space-y-3 pb-10">
       <div className="text-[11px] text-gray-400">Сделка: {dealId}</div>
 
+      {/* Краткий контекст последнего Run для грида */}
+      {run && (
+        <div className="text-[11px] text-gray-500">
+          Анализ: run {run.id} · статус: {run.status}
+          {run.checks_mode && (
+            <>
+              {" · "}режим проверок{" "}
+              <span className="font-medium text-gray-700">
+                {run.checks_mode === "global_and_doc_type"
+                  ? "Плейбук + типы документов"
+                  : run.checks_mode === "global_only"
+                  ? "Только плейбук"
+                  : "Только типы документов"}
+              </span>
+            </>
+          )}
+          {run.pipeline_strategy && (
+            <>
+              {" · "}стратегия пайплайна{" "}
+              <span className="font-medium text-gray-700">
+                {run.pipeline_strategy}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
       <GridFilters
         searchText={searchText}
         onSearchChange={setSearchText}
@@ -397,6 +468,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         availableDocTypes={availableDocTypes}
         selectedDocType={selectedDocType}
         onDocTypeChange={setSelectedDocType}
+        hasStructuredDataOnly={hasStructuredDataOnly}
+        onHasStructuredDataChange={setHasStructuredDataOnly}
       />
 
       <div className="flex items-center justify-between text-[11px] text-gray-400">
@@ -516,6 +589,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         selectedResults={selectedResults}
         dealName={dealId}
         runId={runId ?? undefined}
+        runChecksMode={run?.checks_mode}
+        runPipelineStrategy={run?.pipeline_strategy}
       />
 
       <DDGrid

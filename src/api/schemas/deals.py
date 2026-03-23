@@ -18,9 +18,9 @@ Pydantic‑схемы для работы со сделками в REST API.
   для сделки, построенная на основе записей аудита.
 """
 
-
 from uuid import UUID
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -67,7 +67,25 @@ class DealResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime | None = None
+
+    # ID последнего запуска анализа по сделке (если был)
     last_run_id: UUID | None = None
+
+    # НОВОЕ: агрегированная информация о последнем Run
+
+    # Режим проверок последнего запуска:
+    # - "global_only"         — только глобальный плейбук;
+    # - "doc_type_only"       — только проверки по типам документов;
+    # - "global_and_doc_type" — оба слоя.
+    last_run_checks_mode: Literal[
+        "global_only", "doc_type_only", "global_and_doc_type"
+    ] | None = None
+
+    # Стратегия пайплайна последнего запуска:
+    # - "REUSE_STRUCTURE" / "FULL_RERUN" / другие значения.
+    # Тип str оставлен более широким, чтобы новые стратегии
+    # не требовали немедленных правок на фронте.
+    last_run_pipeline_strategy: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -110,4 +128,3 @@ class DealPlaybookHistoryItem(BaseModel):
     playbook_id: UUID | None = None
     playbook_name: str | None = None
     semver: str | None = None
-

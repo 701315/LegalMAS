@@ -17,6 +17,8 @@ export interface ResultsFilter {
   doc_type?: string;
   severity?: string;
   conditional_only?: boolean;
+  /** Если true — только результаты, где есть structured_data */
+  has_structured_data?: boolean;
 }
 
 /**
@@ -40,6 +42,9 @@ export const resultApi = {
             ...(params?.conditional_only && {
               conditional_only: true,
             }),
+            ...(params?.has_structured_data !== undefined && {
+              has_structured_data: params.has_structured_data,
+            }),
           },
         },
       )
@@ -54,7 +59,6 @@ export const resultApi = {
       .get<CheckResult>(`/api/v1/results/${resultId}`)
       .then((r) => r.data),
 
-      
   /**
    * Список запусков для сделки.
    * GET /api/v1/runs/deal/{deal_id}
@@ -67,7 +71,6 @@ export const resultApi = {
           : {},
       })
       .then((r) => r.data),
-
 };
 
 /**

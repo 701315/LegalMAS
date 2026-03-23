@@ -1,29 +1,36 @@
 # src/services/export/summary_builder.py
 
-"""
-Deal Summary Builder.
 
-Sheets:
-  1. "Overview"               — KPI, severity counts, conditional stats
-  2. "Top Risks"              — top critical/high findings with evidence + structured data
-  3. "By Doc Type"            — breakdown with classification quality metrics (NEW)
-  4. "Request List"           — DD requests with addressee column (NEW)
-  5. "Classification Quality" — per-document classification metadata (NEW)
 """
+Построитель Excel-отчёта Deal Summary по результатам одного Run.
+
+Листы:
+  1. "Overview"                — KPI, разбор по severity, условные проверки
+  2. "Top Risks"               — топ критических/существенных рисков с evidence и структурными данными
+  3. "By Doc Type"             — сводка по типам документов с качеством классификации
+  4. "Request List"            — DD-запросы с адресатом и типами документов
+  5. "Classification Quality"  — качество классификации по документам (включается опционально)
+"""
+
 
 import io
 
+
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
 
 from core.config import settings
 from core.logging import get_logger
 from services.export.models import AggregatedResults
 
+
 logger = get_logger(__name__)
+
 
 _FONT_HEADER = Font(bold=True, size=11)
 _FONT_TITLE = Font(bold=True, size=14)
+_FONT_SMALL = Font(size=9, color="555555")
 _THIN_BORDER = Border(
     left=Side(style="thin"),
     right=Side(style="thin"),
@@ -31,6 +38,7 @@ _THIN_BORDER = Border(
     bottom=Side(style="thin"),
 )
 _WRAP = Alignment(wrap_text=True, vertical="top")
+
 
 _PRIORITY_FILLS = {
     "critical": PatternFill(start_color="FF4444", end_color="FF4444", fill_type="solid"),
@@ -40,10 +48,25 @@ _PRIORITY_FILLS = {
 _FONT_WHITE = Font(color="FFFFFF", bold=True)
 
 
-def build_summary_excel(aggregated: AggregatedResults) -> bytes:
+def build_summary_excel(
+    aggregated: AggregatedResults,
+    checks_mode: str = "",
+    pipeline_strategy: str = "",
+) -> bytes:
+    """
+    Построить Excel-файл Deal Summary по результатам одного Run.
+
+    checks_mode и pipeline_strategy отображаются в шапке листа "Overview",
+    чтобы юрист всегда видел, в каком режиме и с какой стратегией сделан отчёт.
+    """
     wb = Workbook()
 
-    _build_overview_sheet(wb, aggregated)
+    _build_overview_sheet(
+        wb,
+        aggregated,
+        checks_mode=checks_mode,
+        pipeline_strategy=pipeline_strategy,
+    )
     _build_top_risks_sheet(wb, aggregated)
     _build_by_type_sheet(wb, aggregated)
     _build_requests_sheet(wb, aggregated)
@@ -61,13 +84,32 @@ def build_summary_excel(aggregated: AggregatedResults) -> bytes:
     return output.read()
 
 
-def _build_overview_sheet(wb: Workbook, agg: AggregatedResults) -> None:
+def _build_overview_sheet(
+    wb: Workbook,
+    agg: AggregatedResults,
+    *,
+    checks_mode: str = "",
+    pipeline_strategy: str = "",
+) -> None:
     ws = wb.active
     ws.title = "Overview"
-    ws.column_dimensions["A"].width = 38
-    ws.column_dimensions["B"].width = 20
+    ws.column_dimensions["A"].width = 42
+    ws.column_dimensions["B"].width = 22
 
     ws.cell(row=1, column=1, value=f"Deal Summary: {agg.deal_name}").font = _FONT_TITLE
+
+    # Строка с режимом и стратегией Run
+    meta_parts: list[str] = []
+    if checks_mode:
+        meta_parts.append(f"Режим проверок: {checks_mode}")
+    if pipeline_strategy:
+        meta_parts.append(f"Стратегия пайплайна: {pipeline_strategy}")
+
+    if meta_parts:
+        meta_text = " | ".join(meta_parts)
+        meta_cell = ws.cell(row=2, column=1, value=meta_text)
+        meta_cell.font = _FONT_SMALL
+        meta_cell.alignment = _WRAP
 
     data = [
         ("Документов", agg.total_documents),
@@ -80,12 +122,12 @@ def _build_overview_sheet(wb: Workbook, agg: AggregatedResults) -> None:
         ("В карантине", agg.quarantine_count),
         ("DD Requests", len(agg.dd_requests)),
         ("Evidence validity", f"{agg.evidence_validity_rate:.0%}"),
-        # NEW:
         ("Условных проверок (FAIL)", agg.conditional_checks_triggered),
         ("Извлечённых значений", len(agg.structured_value_rows)),
     ]
 
-    for i, (label, value) in enumerate(data, 3):
+    start_row = 4
+    for i, (label, value) in enumerate(data, start_row):
         ws.cell(row=i, column=1, value=label).font = Font(bold=True)
         ws.cell(row=i, column=2, value=value)
 
@@ -124,21 +166,18 @@ def _build_top_risks_sheet(wb: Workbook, agg: AggregatedResults) -> None:
         ws.cell(row=i, column=6, value=risk.evidence_snippet[:200]).alignment = _WRAP
         ws.cell(row=i, column=7, value=risk.page or "")
         ws.cell(row=i, column=8, value=risk.clause_uid)
-        # NEW: structured data preview
         sd_preview = (
             "; ".join(f"{k}={v}" for k, v in list(risk.structured_data.items())[:3])
             if risk.structured_data
             else ""
         )
         ws.cell(row=i, column=9, value=sd_preview)
-        # NEW: trigger name
         ws.cell(row=i, column=10, value=risk.trigger_name or "")
 
 
 def _build_by_type_sheet(wb: Workbook, agg: AggregatedResults) -> None:
     ws = wb.create_sheet("By Doc Type")
 
-    # NEW: Added classification quality columns
     headers = [
         "Тип документа",
         "Документов",
@@ -170,9 +209,11 @@ def _build_by_type_sheet(wb: Workbook, agg: AggregatedResults) -> None:
         ws.cell(
             row=row_num,
             column=9,
-            value=f"{summary.avg_classification_confidence:.0%}"
-            if summary.avg_classification_confidence
-            else "",
+            value=(
+                f"{summary.avg_classification_confidence:.0%}"
+                if summary.avg_classification_confidence
+                else ""
+            ),
         )
         ws.cell(row=row_num, column=10, value=summary.low_confidence_count)
         ws.cell(row=row_num, column=11, value=summary.conditional_checks_triggered)
@@ -181,7 +222,6 @@ def _build_by_type_sheet(wb: Workbook, agg: AggregatedResults) -> None:
 def _build_requests_sheet(wb: Workbook, agg: AggregatedResults) -> None:
     ws = wb.create_sheet("Request List")
 
-    # NEW: Added "Адресат" and "Типы документов" columns
     headers = [
         "#",
         "Priority",
@@ -205,9 +245,9 @@ def _build_requests_sheet(wb: Workbook, agg: AggregatedResults) -> None:
         if req.priority == "critical":
             prio_cell.font = _FONT_WHITE
         ws.cell(row=i, column=3, value=req.check_name)
-        ws.cell(row=i, column=4, value=req.addressee)  # NEW
+        ws.cell(row=i, column=4, value=req.addressee)
         ws.cell(row=i, column=5, value=req.text).alignment = _WRAP
-        ws.cell(row=i, column=6, value=", ".join(req.doc_types)).alignment = _WRAP  # NEW
+        ws.cell(row=i, column=6, value=", ".join(req.doc_types)).alignment = _WRAP
         ws.cell(row=i, column=7, value=", ".join(req.document_names[:5])).alignment = _WRAP
         ws.cell(row=i, column=8, value=req.document_count)
 
@@ -244,12 +284,14 @@ def _build_classification_quality_sheet(wb: Workbook, agg: AggregatedResults) ->
         conf_cell = ws.cell(
             row=row_num,
             column=4,
-            value=f"{row.classification_confidence:.0%}" if row.classification_confidence else "",
+            value=(
+                f"{row.classification_confidence:.0%}"
+                if row.classification_confidence
+                else ""
+            ),
         )
-        # Highlight low-confidence classifications
         if row.classification_confidence and row.classification_confidence < 0.6:
             conf_cell.fill = low_conf_fill
-        # Trigger names from conditional rows for this doc
         triggers = sorted(
             set(
                 cr.trigger_name

@@ -1,5 +1,22 @@
 # src/services/export/core.py
 
+"""
+Ядро экспорта результатов анализа по сделке/Run.
+
+Отвечает за:
+- загрузку данных из БД (результаты проверок, документы, метаданные сделки, Run/Playbook);
+- агрегацию результатов (services.export.aggregator);
+- генерацию файлов экспорта (DD Grid, Summary, Word‑отчёт, JSON‑дамп);
+- сохранение файлов в ArtifactStore и возврат ссылок (refs).
+
+Важно:
+- не знает ничего про Celery/FastAPI, работает поверх AsyncSession;
+- сам не создаёт/не обновляет записи Export и не меняет статус Run;
+- старается быть максимально детерминированным и воспроизводимым:
+  в отчёты явно передаются playbook_version, playbook_profile, checks_mode,
+  pipeline_strategy и environment_hash для трассировки контекста Run.
+"""
+
 from __future__ import annotations
 
 import json
@@ -16,7 +33,12 @@ from services.export.grid_builder import build_grid_excel
 from services.export.report_builder import build_report_docx
 from services.export.summary_builder import build_summary_excel
 from storage.artifact_store import ArtifactPath, ArtifactStore
-from db.repositories import DealRepository, ResultRepository, RunnerRepository, RunRepository
+from db.repositories import (
+    DealRepository,
+    ResultRepository,
+    RunnerRepository,
+    RunRepository,
+)
 from db.models.playbook import PlaybookVersion
 
 logger = get_logger(__name__)
@@ -25,6 +47,7 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Загрузка данных из БД
 # ---------------------------------------------------------------------------
+
 
 async def _load_check_results(run_id: str, db: AsyncSession) -> List[Dict[str, Any]]:
     """
@@ -122,6 +145,7 @@ async def _load_deal_name(deal_id: str, db: AsyncSession) -> str:
 # Сохранение артефактов
 # ---------------------------------------------------------------------------
 
+
 def _save_artifact(
     store: ArtifactStore,
     tenant_id: str,
@@ -154,6 +178,7 @@ def _save_artifact(
 # Публичный core-API: export_core
 # ---------------------------------------------------------------------------
 
+
 async def export_core(
     *,
     run_id: str,
@@ -184,7 +209,7 @@ async def export_core(
         "top_risks": <int>,
         "dd_requests": <int>,
         "severity": {...},
-        "export_ref": <str | None>,        # основной файл (для обратной совместимости)
+        "export_ref": <str | None>,         # основной файл (для обратной совместимости)
         "refs": {                           # ключ -> ref (только не-None)
             "dd_grid": <str>,
             "summary": <str>,
@@ -222,9 +247,18 @@ async def export_core(
     playbook_profile_str = "M&A Russia DD"
     env_hash_str = ""
 
+    # НОВОЕ: режим проверок и стратегия пайплайна текущего Run.
+    checks_mode_str = ""
+    pipeline_strategy_str = ""
+
     if run_obj is not None:
         # Берём хэш окружения из Run, если он есть.
         env_hash_str = run_obj.environment_hash or ""
+
+        # Режим проверок и стратегия пайплайна — передадим в экспорт,
+        # чтобы добавить их в шапку файлов.
+        checks_mode_str = getattr(run_obj, "checks_mode", "") or ""
+        pipeline_strategy_str = getattr(run_obj, "pipeline_strategy", "") or ""
 
         # Пытаемся подтянуть PlaybookVersion, чтобы взять реальную версию.
         try:
@@ -271,7 +305,12 @@ async def export_core(
 
     # 3. DD Grid Excel
     try:
-        grid_bytes = build_grid_excel(aggregated)
+        # НОВОЕ: передаём метаданные Run в билдера таблицы.
+        grid_bytes = build_grid_excel(
+            aggregated,
+            checks_mode=checks_mode_str,
+            pipeline_strategy=pipeline_strategy_str,
+        )
         refs["dd_grid"] = _save_artifact(
             store,
             tenant_id,
@@ -279,7 +318,10 @@ async def export_core(
             run_id,
             suffix="_dd_grid.xlsx",
             data=grid_bytes,
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            content_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
         )
         METRICS.export_duration.labels(export_type="grid_xlsx").observe(0.0)
         logger.info("DD Grid Excel сохранён", ref=refs["dd_grid"])
@@ -289,7 +331,11 @@ async def export_core(
 
     # 4. Summary Excel
     try:
-        summary_bytes = build_summary_excel(aggregated)
+        summary_bytes = build_summary_excel(
+            aggregated,
+            checks_mode=checks_mode_str,
+            pipeline_strategy=pipeline_strategy_str,
+        )
         refs["summary"] = _save_artifact(
             store,
             tenant_id,
@@ -297,7 +343,10 @@ async def export_core(
             run_id,
             suffix="_summary.xlsx",
             data=summary_bytes,
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            content_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
         )
         METRICS.export_duration.labels(export_type="summary_xlsx").observe(0.0)
         logger.info("Summary Excel сохранён", ref=refs["summary"])
@@ -312,6 +361,9 @@ async def export_core(
             playbook_version=playbook_version_str,
             playbook_profile=playbook_profile_str,
             environment_hash=env_hash_str,
+            # НОВОЕ: режим и стратегия текущего Run в шапке отчёта.
+            checks_mode=checks_mode_str,
+            pipeline_strategy=pipeline_strategy_str,
         )
         refs["report"] = _save_artifact(
             store,
@@ -320,7 +372,10 @@ async def export_core(
             run_id,
             suffix="_report.docx",
             data=report_bytes,
-            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            content_type=(
+                "application/"
+                "vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
         )
         METRICS.export_duration.labels(export_type="report_docx").observe(0.0)
         logger.info("Word Report сохранён", ref=refs["report"])

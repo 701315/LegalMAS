@@ -183,6 +183,16 @@ async def rebuild_playbook_and_rerun(
     playbook_repo = PlaybookRepository(db)
     run_repo = RunRepository(db)
 
+    # Определяем checks_mode для нового Run:
+    # - если у сделки уже были запуски, берём режим из последнего Run,
+    # - иначе используем дефолтный режим.
+    last_run = await run_repo.get_latest_for_deal(deal_id)
+    if last_run and getattr(last_run, "checks_mode", None):
+        checks_mode = last_run.checks_mode
+    else:
+        checks_mode = "global_and_doc_type"
+
+
     deal = await deal_repo.get_by_id(deal_id)
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
@@ -283,6 +293,7 @@ async def rebuild_playbook_and_rerun(
         bundle_id=None,
         environment_hash=None,
         profile=deal.profile,
+        checks_mode=checks_mode,
     )
 
     # 9. Запускаем оркестратор пайплайна для этого Run
@@ -295,6 +306,7 @@ async def rebuild_playbook_and_rerun(
             "deal_id": str(deal_id),
             "tenant_id": str(deal.tenant_id),
             "force_reclassify": False,
+            "checks_mode": checks_mode,
         },
     )
 
