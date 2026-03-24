@@ -29,6 +29,7 @@ from core.logging import get_logger
 
 from .extraction import ExtractionExecutor
 from ..detectors.hybrid_detector import HybridDetector
+from ..detectors.models import RetrievedChunk
 from ..playbook.models import CheckDefinition
 from ..retrieval.engine import RetrievalEngine
 from src.ops.metrics import METRICS
@@ -73,27 +74,76 @@ class CheckExecutor:
         # retrieval уже знает про context_k, но мы продублируем из playbook
         context_k = getattr(check.retrieval, "context_k", 5)
 
+        # contexts: list[dict] из RetrievalEngine
         contexts = retriever.search(query, top_k=context_k)
 
-        # Строим структурированный контекст для детектора и LLM.
-        # Каждый чанк получает заголовок с номером пункта, названием раздела и страницей.
-        context_parts: list[str] = []
+        # Преобразуем dict-чанки в RetrievedChunk, чтобы дальше весь пайплайн
+        # работал с типизированной моделью и не терял структурный контекст.
+        retrieved_chunks: list[RetrievedChunk] = []
         for c in contexts:
             meta = c.get("metadata", {}) or {}
-            clause = meta.get("clause_uid", "")
-            page = meta.get("page", "")
-            section = meta.get("section_title", "")
+
+            element_ids = meta.get("element_ids") or []
+            # Если element_ids нет, используем id чанка как fallback.
+            first_element_id = element_ids[0] if element_ids else (c.get("id") or "")
+
+            # Страница: предпочтительно start_page (диапазон клаузы),
+            # иначе page из метаданных, иначе 0.
+            page = meta.get("start_page")
+            if page is None:
+                page = meta.get("page") or 0
+
+            retrieved_chunks.append(
+                RetrievedChunk(
+                    element_id=first_element_id,
+                    text=c.get("text") or "",
+                    page=int(page) if isinstance(page, int) or str(page).isdigit() else 0,
+                    clause_uid=meta.get("clause_uid") or "",
+                    bbox=[],  # bbox можно подтягивать позже из layout по element_id
+                    dense_score=0.0,       # при желании можно проставить из отдельных скорингов
+                    sparse_score=0.0,
+                    metadata_score=0.0,
+                    combined_score=float(c.get("score") or 0.0),
+                    path_titles=meta.get("path_titles") or [],
+                    start_page=meta.get("start_page"),
+                    end_page=meta.get("end_page"),
+                    element_ids=element_ids,
+                )
+            )
+
+        # Строим структурированный текстовый контекст для rules/LLM,
+        # используя метаданные (clause_uid, path_titles, страницы).
+        context_parts: list[str] = []
+        for c, rc in zip(contexts, retrieved_chunks):
+            meta = c.get("metadata", {}) or {}
+            clause = meta.get("clause_uid", "") or rc.clause_uid
+            # section_title оставляем как fallback, основной путь — path_titles
+            section_title = meta.get("section_title", "")
+            path_titles = meta.get("path_titles") or rc.path_titles or []
+            start_page = meta.get("start_page") or rc.start_page
+            end_page = meta.get("end_page") or rc.end_page
 
             header_parts: list[str] = []
             if clause:
                 header_parts.append(f"Пункт {clause}")
-            if section:
-                header_parts.append(section)
-            if page:
-                header_parts.append(f"стр. {page}")
+            if path_titles:
+                header_parts.append(" > ".join(path_titles))
+            elif section_title:
+                header_parts.append(section_title)
+
+            if isinstance(start_page, int) and isinstance(end_page, int):
+                if start_page == end_page:
+                    header_parts.append(f"стр. {start_page}")
+                else:
+                    header_parts.append(f"стр. {start_page}–{end_page}")
+            else:
+                page = meta.get("page")
+                if page:
+                    header_parts.append(f"стр. {page}")
 
             header = f"[{', '.join(header_parts)}]" if header_parts else ""
-            context_parts.append(f"{header}\n{c['text']}".strip() if header else c["text"])
+            text = c.get("text") or ""
+            context_parts.append(f"{header}\n{text}".strip() if header else text)
 
         joined_text = "\n\n---\n\n".join(context_parts)
 
@@ -111,7 +161,7 @@ class CheckExecutor:
         try:
             detection = self.detector.run(
                 text=joined_text,
-                chunks=contexts,
+                chunks=retrieved_chunks,
                 check=check,
                 doc_type=doc_type,
                 classification_confidence=classification_confidence,
@@ -163,12 +213,31 @@ class CheckExecutor:
         # 2.2. Structured extraction (rules + LLM)
         structured_data = None
         try:
+            # Приводим RetrievedChunk к каноническому формату dict, который
+            # ожидает ExtractionExecutor: {"id", "text", "metadata"}.
+            extraction_contexts = [
+                {
+                    "id": rc.element_id,
+                    "text": rc.text or "",
+                    "metadata": {
+                        "clause_uid": rc.clause_uid,
+                        "page": rc.page,
+                        "start_page": rc.start_page,
+                        "end_page": rc.end_page,
+                        "path_titles": rc.path_titles,
+                        "element_ids": rc.element_ids,
+                    },
+                }
+                for rc in retrieved_chunks
+            ]
+
             structured_data = self.extractor.run(
                 doc=doc,
                 check=check,
-                contexts=contexts,
+                contexts=extraction_contexts,
                 detection=detection,
             )
+
         except Exception as e:
             logger.exception(
                 "CheckExecutor: ExtractionExecutor failed",

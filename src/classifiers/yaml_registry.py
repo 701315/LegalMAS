@@ -13,6 +13,7 @@ import os
 import re
 import threading
 from typing import Optional
+import glob
 
 import yaml
 
@@ -31,25 +32,60 @@ class DocumentTypeConfig:
         self.raw = raw
         self.type_code = str(raw.get("type", ""))
         self.name = str(raw.get("name", ""))
+
         runtime = raw.get("classification_runtime_v1") or {}
+        # Правила классификации: в приоритете блок classification_runtime_v1.rules
         rules = runtime.get("rules") or raw.get("rules", {})
         validation = raw.get("validation_engine_v3_2") or raw.get("validation_metadata") or {}
         self.triggerdefinitions = dict(
             runtime.get("trigger_definitions") or validation.get("trigger_definitions") or {}
         )
 
+        # --- filename_patterns / folder_patterns: для L1 ---
         self.filename_patterns: list = [
             re.compile(p.lstrip("r").strip('"').strip("'"))
             for p in rules.get("filename_patterns", [])
+            if isinstance(p, str)
         ]
         self.folder_patterns: list = [
             re.compile(p.lstrip("r").strip('"').strip("'"))
             for p in rules.get("folder_patterns", [])
+            if isinstance(p, str)
         ]
-        self.keywords_high: list = rules.get("keywords", {}).get("high", [])
-        self.keywords_medium: list = rules.get("keywords", {}).get("medium", [])
-        self.keywords_low: list = rules.get("keywords", {}).get("low", [])
-        self.exclusions: list = rules.get("exclusions", [])
+
+        # --- header_patterns: для L2 ---
+        # 1) пытаемся взять явные header_patterns из YAML (runtime или корень)
+        explicit_header = (
+            runtime.get("header_patterns")
+            or raw.get("header_patterns")
+            or rules.get("header_patterns")
+            or []
+        )
+        if explicit_header:
+            header_source = explicit_header
+        else:
+            # 2) если явных нет — используем keywords.high как паттерны заголовка
+            header_source = rules.get("keywords", {}).get("high", []) or []
+
+        self.header_patterns: list = []
+        for p in header_source:
+            if not isinstance(p, str):
+                continue
+            try:
+                compiled = re.compile(p.lstrip("r").strip('"').strip("'"), re.IGNORECASE)
+                self.header_patterns.append(compiled)
+            except re.error:
+                logger.warning(
+                    "Invalid header pattern in YAML",
+                    extra={"type_code": self.type_code, "pattern": p},
+                )
+
+        # --- keywords.* и exclusions: для L2/L3 и TriggerDetector ---
+        kw = rules.get("keywords", {}) or {}
+        self.keywords_high = self._compile_regex_list(kw.get("high", []))
+        self.keywords_medium = self._compile_regex_list(kw.get("medium", []))
+        self.keywords_low = self._compile_regex_list(kw.get("low", []))
+        self.exclusions = self._compile_regex_list(rules.get("exclusions", []))
 
         # trigger_definitions → applicable_triggers list
         # Keys of trigger_definitions become trigger IDs
@@ -68,6 +104,35 @@ class DocumentTypeConfig:
 
         # NEW: party role keywords from essential_elements.parties
         self.party_role_keywords: dict[str, str] = self._build_party_role_keywords(raw)
+
+    @staticmethod
+    def _compile_regex_list(items: list) -> list[re.Pattern]:
+        """
+        Компилирует список строковых regex-паттернов в объекты re.Pattern.
+
+        Для продакшн-уровня:
+        - игнорируем нестроковые элементы;
+        - обрезаем обрамляющие кавычки и префикс r;
+        - логируем, но НЕ падаем при ошибке компиляции, чтобы
+          один кривой паттерн не клал весь сервис.
+        """
+        compiled: list[re.Pattern] = []
+        for raw in items or []:
+            if not isinstance(raw, str):
+                continue
+            # убираем возможный префикс r и внешние кавычки из YAML
+            pattern_str = raw.lstrip("r").strip('"').strip("'")
+            if not pattern_str:
+                continue
+            try:
+                # Внутренний (?i) и другие флаги останутся рабочими.
+                compiled.append(re.compile(pattern_str))
+            except re.error as e:
+                logger.warning(
+                    "Invalid regex in YAML keywords/exclusions",
+                    extra={"pattern": raw, "error": str(e)},
+                )
+        return compiled
 
     @staticmethod
     def _build_party_role_keywords(raw: dict) -> dict[str, str]:
@@ -116,16 +181,41 @@ class YAMLRegistry:
 
         for entry in registry.get("document_types", []):
             type_code = entry.get("type", "")
-            yaml_file = os.path.join(self.registry_path, f"{type_code}.yaml")
-            if not os.path.exists(yaml_file):
+            if not type_code:
+                continue
+
+            # 1) Прямой путь в корне (на случай, если часть файлов лежит без подпапок)
+            direct = os.path.join(self.registry_path, f"{type_code}.yaml")
+
+            yaml_path: str | None = None
+            if os.path.exists(direct):
+                yaml_path = direct
+            else:
+                # 2) Рекурсивный поиск по подпапкам, как в DocTypeCheckLoader
+                pattern = os.path.join(self.registry_path, "**", f"{type_code}.yaml")
+                candidates = sorted(glob.glob(pattern, recursive=True))
+                if candidates:
+                    yaml_path = candidates[0]
+
+            if yaml_path is None:
                 logger.warning(
                     "Type YAML not found — using minimal config from registry",
                     type_code=type_code,
                 )
                 self._configs[type_code] = DocumentTypeConfig(entry)
                 continue
-            with open(yaml_file, encoding="utf-8") as f:
-                type_raw = yaml.safe_load(f)
+
+            try:
+                with open(yaml_path, encoding="utf-8") as f:
+                    type_raw = yaml.safe_load(f) or {}
+            except Exception as e:
+                logger.warning(
+                    "Type YAML cannot be read — using minimal config from registry",
+                    extra={"type_code": type_code, "path": yaml_path, "error": str(e)},
+                )
+                self._configs[type_code] = DocumentTypeConfig(entry)
+                continue
+
             self._configs[type_code] = DocumentTypeConfig(type_raw)
 
         logger.info(

@@ -45,7 +45,6 @@ from ..prompts.loader import get_promptloader
 
 logger = get_logger(__name__)
 
-
 DEFAULT_PROMPT_FILE = "detection/genericclause"
 
 # Количество повторных попыток при временных ошибках LLM.
@@ -268,14 +267,6 @@ class LLMDetector:
         Возвращает кортеж:
         - LLMResponse или None (если все попытки неудачны);
         - словарь error_details, который можно положить в details DetectionResult.
-
-        Логика:
-        - Если получили TransientError (timeout, сеть, 5xx и т.п.) —
-          пробуем ещё несколько раз.
-        - При PermanentError (неправильный ключ, неверный запрос) —
-          сразу выходим без ретраев.
-        - Любая другая неожиданная ошибка логируется и возвращается как
-          error_type="unexpected_error".
         """
         attempts = 0
         last_error_type = None
@@ -414,7 +405,6 @@ class LLMDetector:
 
         return "\n".join(parts)
 
-
     def _build_result(
         self,
         response: LLMResponse,
@@ -431,6 +421,7 @@ class LLMDetector:
         if response.found and response.evidence:
             best_chunk = self._find_evidence_chunk(response.evidence, context_chunks)
             if best_chunk:
+                # Берём структурный контекст из RetrievedChunk
                 evidence_chunks.append(
                     EvidenceChunk(
                         element_id=best_chunk.element_id,
@@ -439,6 +430,10 @@ class LLMDetector:
                         clause_uid=response.clause or best_chunk.clause_uid,
                         bbox=best_chunk.bbox,
                         score=best_chunk.combined_score,
+                        path_titles=list(best_chunk.path_titles or []),
+                        start_page=best_chunk.start_page,
+                        end_page=best_chunk.end_page,
+                        element_ids=list(best_chunk.element_ids or []),
                     )
                 )
             else:
@@ -450,6 +445,10 @@ class LLMDetector:
                         clause_uid=response.clause,
                         bbox=[],
                         score=0.0,
+                        path_titles=[],
+                        start_page=None,
+                        end_page=None,
+                        element_ids=[],
                     )
                 )
 

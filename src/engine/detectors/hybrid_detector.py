@@ -30,7 +30,7 @@ from typing import Any
 from core.config import settings
 from core.logging import get_logger
 from .llm_detector import LLMDetector
-from .models import RetrievedChunk
+from .models import RetrievedChunk, EvidenceChunk
 from .rules_detector import RulesDetector
 from ..playbook.models import CheckDefinition
 
@@ -97,7 +97,7 @@ class HybridDetector:
         rules_result["method"] = "rules"
 
         # Ветка: rules уверенный, LLM не нужен
-        if rules_result["found"] and rules_result["confidence"] >= RULES_CONFIDENCE_THRESHOLD:
+        if rules_result.get("found") and rules_result.get("confidence", 0.0) >= RULES_CONFIDENCE_THRESHOLD:
             rules_result["raw"]["source"] = "rules_confident"
             return rules_result
 
@@ -229,34 +229,40 @@ class HybridDetector:
         """
         Привести результат LLMDetector (с evidence_chunks и details)
         к "плоскому" DetectionResult‑подобному словарю, совместимому с rules‑результатом.
+
+        Использует поля EvidenceChunk, включая структурный контекст
+        (path_titles, start_page, end_page, element_ids), если они есть.
         """
         found = bool(getattr(llm_result, "found", False))
 
         evidence_text = ""
         span = None
-        location = None
-        sources = None
+        location: dict[str, Any] | None = None
+        sources: list[dict[str, Any]] | None = None
 
         evidence_chunks = getattr(llm_result, "evidence_chunks", []) or []
         if evidence_chunks:
-            ec = evidence_chunks[0]
-            evidence_text = ec.text
-            location = {
+            ec: EvidenceChunk = evidence_chunks[0]
+            evidence_text = ec.text or ""
+
+            base = {
                 "element_id": ec.element_id,
                 "page": ec.page,
                 "clause_uid": ec.clause_uid,
                 "score": ec.score,
+                "bbox": ec.bbox or None,
             }
-            sources = [
-                {
-                    "element_id": ec.element_id,
-                    "page": ec.page,
-                    "clause_uid": ec.clause_uid,
-                    "score": ec.score,
-                }
-            ]
 
-        confidence = float(getattr(llm_result, "confidence", 0.0))
+            # Структурный контекст для навигации / breadcrumbs
+            base["section_path"] = ec.path_titles or None
+            base["start_page"] = ec.start_page
+            base["end_page"] = ec.end_page
+            base["element_ids"] = ec.element_ids or None
+
+            location = dict(base)
+            sources = [dict(base)]
+
+        confidence = float(getattr(llm_result, "confidence", 0.0) or 0.0)
         details = getattr(llm_result, "details", {}) or {}
         reason = details.get("reason") or details.get("parse_success")
 

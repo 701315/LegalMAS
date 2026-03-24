@@ -1,6 +1,5 @@
 # src/classifiers/stage8/hybrid_classifier.py
 
-
 """
 HybridClassifier (L1 → L2 → L3 → L4) с интеграцией контент‑сервиса и LLM‑fallback.
 
@@ -8,36 +7,16 @@ HybridClassifier (L1 → L2 → L3 → L4) с интеграцией конте�
 - Единая точка классификации документов в Runner.
 - Учитывает dedup/families и четыре уровня сигналов:
   L1: имя файла / путь (быстрый, дешёвый)
-  L2: заголовок (header) по YAML-паттернам
+  L2: заголовок (header) + keywords/regex по YAML-паттернам
   L3: семантика (эмбеддинги) по обогащённым прототипам типов
   L4: LLM-fallback, если предыдущие уровни не дали уверенный результат.
 
-Формат результата:
-{
-    "levels_tried": ["L1", "L2", "L3", "L4"],
-    "candidates": [
-        {"type_code": "...", "confidence": 0.9, "level": "L1", "method": "filename"},
-        ...
-    ],
-    "final_type": "contract_1.6_real_estate" | "UNKNOWN" | None,
-    "final_confidence": 0.0–1.0,
-    "level": "L1" | "L2" | "L3" | "L4" | "HYBRID" | "COPIED" | None,
-    "copied_from_master": "<uuid>" (опционально),
-    "language": "ru" | "en" | None,
-    "jurisdiction": "RU" | "US" | None,
-    "applicable_triggers": [...],
-    "details": {
-        "levels_tried": ["L1", "L2", "L3", "L4"],
-        "L1": {...},
-        "L2": {...},
-        "L3": {...},
-        "L4": {...},
-        "voting": {...} (если применялось),
-        "candidates": [...],
-    },
-}
+Ключевые принципы:
+- L2 и сильный L1 имеют приоритет над L3 при конфликте.
+- Exclusions из L2 могут полностью подавлять тип.
+- L4 никогда не переезжает сильно уверенный L1/L2/L3.
+- Есть явный UNKNOWN‑коридор по confidence.
 """
-
 
 from __future__ import annotations
 
@@ -56,7 +35,6 @@ from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
 from engine.content.document_content_service import DocumentContentService
 from engine.llm.client import LLMClient, LLMResponse
-
 
 logger = get_logger(__name__)
 
@@ -94,12 +72,20 @@ class HybridClassifier:
         # Клиент для работы с LLM (L4-fallback)
         self.llm_client = LLMClient()
 
-        # Веса уровней для взвешенного голосования (L4 в голосовании пока не участвует)
+        # Веса уровней для взвешенного голосования (L4 в голосовании не участвует)
         self.level_weights: dict[str, float] = {
-            "L1": getattr(settings, "CLASSIFIER_L1_WEIGHT", 0.20),
+            "L1": float(getattr(settings, "CLASSIFIER_L1_WEIGHT", 0.20)),
             "L2": 0.40,
             "L3": 0.40,
         }
+
+        # Порог для уверенного HYBRID‑решения и UNKNOWN‑коридор
+        self.hybrid_accept: float = float(
+            getattr(settings, "CLASSIFICATION_HYBRID_ACCEPT", 0.65)
+        )
+        self.unknown_max: float = float(
+            getattr(settings, "CLASSIFICATION_UNKNOWN_MAX", 0.40)
+        )
 
     async def classify_document(self, doc_id: str) -> dict:
         """
@@ -122,6 +108,19 @@ class HybridClassifier:
                 "details": {"levels_tried": [], "candidates": []},
             }
 
+        filename = getattr(doc, "filename", "") or ""
+        folder = getattr(doc, "folder_path", None) or getattr(doc, "folder", "") or ""
+
+        logger.info(
+            "Hybrid classify_document start",
+            extra={
+                "doc_id": doc_id,
+                "filename": filename,
+                "folder_path": folder,
+                "is_duplicate": bool(getattr(doc, "is_duplicate", False)),
+            },
+        )
+
         details: dict = {"levels_tried": [], "candidates": []}
         candidates: list[dict] = []
 
@@ -135,9 +134,15 @@ class HybridClassifier:
             master = self.repo.get_master_document(doc_id)
             if master and getattr(master, "classification_confidence", None):
                 logger.info(
-                    "Copy classification from master",
-                    doc_id=doc_id,
-                    master_id=str(master.id),
+                    "Hybrid master copy used",
+                    extra={
+                        "doc_id": doc_id,
+                        "master_id": str(master.id),
+                        "master_type": master.doc_type,
+                        "master_confidence": float(
+                            master.classification_confidence or 0.0
+                        ),
+                    },
                 )
                 details["levels_tried"].append("MASTERCOPY")
                 details["MASTERCOPY"] = {
@@ -154,7 +159,9 @@ class HybridClassifier:
                     "levels_tried": details["levels_tried"],
                     "candidates": [],
                     "final_type": master.doc_type,
-                    "final_confidence": float(master.classification_confidence or 0.0),
+                    "final_confidence": float(
+                        master.classification_confidence or 0.0
+                    ),
                     "level": "COPIED",
                     "copied_from_master": str(master.id),
                     "language": getattr(master, "language", None),
@@ -165,20 +172,18 @@ class HybridClassifier:
                     "details": details,
                 }
 
-        # Нормализуем filename / folder
-        filename = getattr(doc, "filename", "") or ""
-        folder = getattr(doc, "folder_path", None) or getattr(doc, "folder", "") or ""
-
         # --- L1: filename/folder ---
         l1_results = self.l1.classify(filename, folder)
         details["levels_tried"].append("L1")
 
+        top_l1: dict | None = None
         if l1_results:
             top_l1 = l1_results[0]
             details["L1"] = {
                 "type": top_l1["type_code"],
                 "confidence": top_l1["confidence"],
                 "method": top_l1["method"],
+                "details": top_l1.get("details"),
                 "note": "filename_hint",
             }
             candidates.extend(l1_results)
@@ -190,21 +195,54 @@ class HybridClassifier:
                 "note": "no_patterns_matched",
             }
 
+        logger.info(
+            "Hybrid L1 result",
+            extra={
+                "doc_id": doc_id,
+                "filename": filename,
+                "folder_path": folder,
+                "top_type": top_l1["type_code"] if top_l1 else "UNKNOWN",
+                "top_conf": top_l1["confidence"] if top_l1 else 0.0,
+                "candidates_count": len(l1_results),
+            },
+        )
+
         # --- Получаем header и snippet из контент‑сервиса ---
         header_text: str | None = None
         snippet_text: str | None = None
 
         if self.content_service is not None:
-            header_text, snippet_text = await self.content_service.get_header_and_snippet(
-                doc.id
-            )
+            # 1) Берём нормализованную шапку (title + преамбула) из layout.
+            # Это основной источник для L2.
+            try:
+                header_text = await self.content_service.get_title_and_preamble(doc.id)
+            except AttributeError:
+                # На случай, если метод ещё не внедрён в рантайме — просто пропускаем.
+                header_text = None
+
+            # 2) Сниппет оставляем как раньше — первые несколько листовых клауз.
+            _, snippet_text = await self.content_service.get_header_and_snippet(doc.id)
         else:
             logger.warning(
                 "HybridClassifier: content_service is not configured, L2/L3/L4 will be limited",
                 doc_id=str(doc.id),
             )
 
-        # --- L2: header ---
+        logger.info(
+            "Hybrid content fetched",
+            extra={
+                "doc_id": doc_id,
+                "has_header": bool(header_text),
+                "has_snippet": bool(snippet_text),
+                "header_preview": repr((header_text or "")[:200]),
+                "snippet_preview": repr((snippet_text or "")[:200]),
+            },
+        )
+
+        # --- L2: header / keywords ---
+        l2_result = None
+        top_l2: Any | None = None
+
         if header_text:
             l2_result = await self.l2.classify(
                 text=header_text,
@@ -215,22 +253,52 @@ class HybridClassifier:
             )
             details["levels_tried"].append("L2")
 
-            details["L2"] = {
-                "type": l2_result.doctype,
-                "confidence": l2_result.confidence,
-                "method": l2_result.method,
-                "evidence": l2_result.evidence,
-            }
+            l2_extra = getattr(l2_result, "extra", {}) or {}
+            has_exclusion_hit = bool(l2_extra.get("has_exclusion_hit"))
+            exclusion_hits = int(l2_extra.get("exclusion_hits", 0))
 
-            if l2_result.doctype != "UNKNOWN":
-                candidates.append(
-                    {
-                        "type_code": l2_result.doctype,
-                        "confidence": l2_result.confidence,
-                        "level": "L2",
-                        "method": l2_result.method,
-                    }
-                )
+            if has_exclusion_hit and exclusion_hits >= int(
+                getattr(settings, "CLASSIFICATION_L2_EXCL_HARD", 2)
+            ):
+                details["L2"] = {
+                    "type": "UNKNOWN",
+                    "confidence": 0.0,
+                    "method": l2_result.method,
+                    "evidence": l2_result.evidence,
+                    "extra": l2_extra,
+                    "note": "l2_exclusion_hard_hit",
+                }
+            else:
+                details["L2"] = {
+                    "type": l2_result.doctype,
+                    "confidence": l2_result.confidence,
+                    "method": l2_result.method,
+                    "evidence": l2_result.evidence,
+                    "extra": l2_extra or None,
+                }
+                if l2_result.doctype != "UNKNOWN":
+                    top_l2 = l2_result
+                    candidates.append(
+                        {
+                            "type_code": l2_result.doctype,
+                            "confidence": l2_result.confidence,
+                            "level": "L2",
+                            "method": l2_result.method,
+                        }
+                    )
+
+            logger.info(
+                "Hybrid L2 result",
+                extra={
+                    "doc_id": doc_id,
+                    "type": l2_result.doctype,
+                    "confidence": l2_result.confidence,
+                    "method": l2_result.method,
+                    "evidence": l2_result.evidence,
+                    "has_exclusion_hit": has_exclusion_hit,
+                    "exclusion_hits": exclusion_hits,
+                },
+            )
         else:
             details["L2"] = {
                 "type": "UNKNOWN",
@@ -239,8 +307,15 @@ class HybridClassifier:
                 "evidence": None,
                 "note": "no_header_text",
             }
+            logger.info(
+                "Hybrid L2 skipped",
+                extra={"doc_id": doc_id, "reason": "no_header_text"},
+            )
 
         # --- L3: semantic embeddings ---
+        l3_result = None
+        top_l3: Any | None = None
+
         if snippet_text and settings.RUNNER_EMBEDDINGS_ENABLED:
             l3_result = await self.l3.classify(
                 text=snippet_text,
@@ -259,6 +334,9 @@ class HybridClassifier:
                     getattr(l3_result, "applicable_triggers") or []
                 )
 
+            l3_extra = getattr(l3_result, "extra", {}) or {}
+            raw_sim = float(l3_extra.get("raw_similarity", 0.0))
+
             details["L3"] = {
                 "type": l3_result.doctype,
                 "confidence": l3_result.confidence,
@@ -267,9 +345,11 @@ class HybridClassifier:
                 "language": language,
                 "jurisdiction": jurisdiction,
                 "alternative_types": getattr(l3_result, "alternative_types", []),
+                "extra": l3_extra or None,
             }
 
             if l3_result.doctype != "UNKNOWN":
+                top_l3 = l3_result
                 candidates.append(
                     {
                         "type_code": l3_result.doctype,
@@ -278,20 +358,119 @@ class HybridClassifier:
                         "method": l3_result.method,
                         "language": language,
                         "jurisdiction": jurisdiction,
+                        "raw_similarity": raw_sim,
                     }
                 )
+
+            logger.info(
+                "Hybrid L3 result",
+                extra={
+                    "doc_id": doc_id,
+                    "type": l3_result.doctype,
+                    "confidence": l3_result.confidence,
+                    "method": l3_result.method,
+                    "evidence": l3_result.evidence,
+                    "language": language,
+                    "jurisdiction": jurisdiction,
+                    "raw_similarity": raw_sim,
+                    "alt_types": getattr(l3_result, "alternative_types", []),
+                },
+            )
         else:
+            note = (
+                "empty_text"
+                if not snippet_text
+                else "embeddings_disabled_or_no_snippet"
+            )
             details["L3"] = {
                 "type": "UNKNOWN",
                 "confidence": 0.0,
                 "method": "embedding_similarity",
                 "evidence": None,
-                "note": (
-                    "empty_text"
-                    if not snippet_text
-                    else "embeddings_disabled_or_no_snippet"
-                ),
+                "note": note,
             }
+            logger.info(
+                "Hybrid L3 skipped",
+                extra={"doc_id": doc_id, "reason": note},
+            )
+
+        # --- Специальные правила приоритета до голосования ---
+
+        # 1) Если L2 очень сильный — доверяем ему (даже если L3 говорит чуть другое).
+        strong_l2_threshold = float(
+            getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85)
+        )
+        if top_l2 and top_l2.confidence >= strong_l2_threshold:
+            final_type = top_l2.doctype
+            final_conf = float(top_l2.confidence)
+            details["voting"] = {
+                "strategy": "L2_STRONG_WINS",
+                "reason": f"L2 confidence >= {strong_l2_threshold}",
+            }
+
+            logger.info(
+                "Hybrid decision L2_STRONG_WINS",
+                extra={
+                    "doc_id": doc_id,
+                    "final_type": final_type,
+                    "final_confidence": final_conf,
+                },
+            )
+
+            self.metrics.classification_duration.labels(...).observe(
+                time.time() - started_at
+            )
+            return {
+                "levels_tried": details["levels_tried"],
+                "candidates": candidates,
+                "final_type": final_type,
+                "final_confidence": final_conf,
+                "level": "L2",
+                "language": language,
+                "jurisdiction": jurisdiction,
+                "applicable_triggers": applicable_triggers,
+                "details": details,
+            }
+
+        # 2) Если L1 и L2 совпали по типу и оба достаточно уверены — фиксируем это как HYBRID.
+        if top_l1 and top_l2:
+            if (
+                top_l1["type_code"] == top_l2.doctype
+                and top_l1["confidence"] >= 0.7
+                and top_l2.confidence >= 0.7
+            ):
+                final_type = top_l2.doctype
+                final_conf = float(
+                    (top_l1["confidence"] + top_l2.confidence) / 2.0
+                )
+                details["voting"] = {
+                    "strategy": "L1_L2_AGREE",
+                    "reason": "L1 and L2 agree with >= 0.7",
+                }
+
+                logger.info(
+                    "Hybrid decision L1_L2_AGREE",
+                    extra={
+                        "doc_id": doc_id,
+                        "final_type": final_type,
+                        "final_confidence": final_conf,
+                    },
+                )
+
+                self.metrics.classification_duration.labels(...).observe(
+                    time.time() - started_at
+                )
+                return {
+                    "levels_tried": details["levels_tried"],
+                    "candidates": candidates,
+                    "final_type": final_type,
+                    "final_confidence": final_conf,
+                    "level": "HYBRID",
+                    "language": language,
+                    "jurisdiction": jurisdiction,
+                    "applicable_triggers": applicable_triggers,
+                    "details": details,
+                }
 
         # --- Взвешенное голосование L1–L3 ---
         details["candidates"] = candidates
@@ -304,10 +483,55 @@ class HybridClassifier:
             language = voted.get("language", language)
             jurisdiction = voted.get("jurisdiction", jurisdiction)
 
+            logger.info(
+                "Hybrid voting result",
+                extra={
+                    "doc_id": doc_id,
+                    "voted": voted,
+                    "candidates": candidates,
+                },
+            )
+
+            # Защитный кейс: если сильный L1 конфликтует с L3, но проиграл голосование — даём L1 право перебить.
+            strong_l1_conf = float(
+                getattr(settings, "CLASSIFICATION_L1_STRONG", 0.9)
+            )
+            if top_l1 and top_l3:
+                if (
+                    top_l1["type_code"] != top_l3.doctype
+                    and top_l1["confidence"] >= strong_l1_conf
+                    and top_l3.confidence <= top_l1["confidence"] + 0.1
+                ):
+                    final_type = top_l1["type_code"]
+                    final_conf = float(top_l1["confidence"])
+                    details["voting_override"] = {
+                        "strategy": "L1_OVERRIDE_L3",
+                        "reason": "strong L1 (>=L1_STRONG) conflicting with close L3",
+                        "original_voted": voted,
+                    }
+
+                    logger.info(
+                        "Hybrid voting override by L1",
+                        extra={
+                            "doc_id": doc_id,
+                            "final_type": final_type,
+                            "final_confidence": final_conf,
+                            "original_voted": voted,
+                        },
+                    )
+
             # Если голосование дало уверенный результат — сразу возвращаем HYBRID
-            if final_conf >= settings.CLASSIFICATION_L4_ACCEPT:
+            if final_conf >= self.hybrid_accept:
                 self.metrics.classification_duration.labels(...).observe(
                     time.time() - started_at
+                )
+                logger.info(
+                    "Hybrid final result (HYBRID, after voting)",
+                    extra={
+                        "doc_id": doc_id,
+                        "final_type": final_type,
+                        "final_confidence": final_conf,
+                    },
                 )
                 return {
                     "levels_tried": details["levels_tried"],
@@ -338,13 +562,31 @@ class HybridClassifier:
         # Список допустимых типов из YAMLRegistry
         allowed_types = self.registry.list_types()
 
+        # Не вызываем L4, если есть сильный сигнал любого уровня
+        strong_single_level = False
+        if top_l1 and top_l1.get("confidence", 0.0) >= 0.9:
+            strong_single_level = True
+        if top_l2 and top_l2.confidence >= 0.9:
+            strong_single_level = True
+        if top_l3 and top_l3.confidence >= 0.9:
+            strong_single_level = True
+
         if (
             llm_enabled
             and llm_source_text
-            and final_conf_after_voting < settings.CLASSIFICATION_L4_ACCEPT
+            and final_conf_after_voting < self.hybrid_accept
             and allowed_types
+            and not strong_single_level
         ):
             details["levels_tried"].append("L4")
+
+            logger.info(
+                "Hybrid L4 call",
+                extra={
+                    "doc_id": doc_id,
+                    "final_conf_after_voting": final_conf_after_voting,
+                },
+            )
 
             try:
                 llm_response = self._call_llm_for_classification(
@@ -376,10 +618,27 @@ class HybridClassifier:
                     "parsed": parsed,
                 }
 
+                logger.info(
+                    "Hybrid L4 result",
+                    extra={
+                        "doc_id": doc_id,
+                        "doctype": llm_result_doctype,
+                        "confidence": llm_result_confidence,
+                    },
+                )
+
         # --- Если L4 дал допустимый тип — используем его как финальный fallback ---
         if llm_used and llm_result_doctype and llm_result_doctype != "UNKNOWN":
             self.metrics.classification_duration.labels(...).observe(
                 time.time() - started_at
+            )
+            logger.info(
+                "Hybrid final result (L4)",
+                extra={
+                    "doc_id": doc_id,
+                    "final_type": llm_result_doctype,
+                    "final_confidence": llm_result_confidence,
+                },
             )
             return {
                 "levels_tried": details["levels_tried"],
@@ -398,14 +657,29 @@ class HybridClassifier:
             time.time() - started_at
         )
 
+        final_type_out = final_type_after_voting
+        final_conf_out = final_conf_after_voting
+
+        # UNKNOWN‑коридор
+        if final_conf_out <= self.unknown_max:
+            final_type_out = "UNKNOWN"
+
+        logger.info(
+            "Hybrid final result",
+            extra={
+                "doc_id": doc_id,
+                "final_type": final_type_out,
+                "final_confidence": final_conf_out,
+                "levels_tried": details["levels_tried"],
+            },
+        )
+
         return {
             "levels_tried": details["levels_tried"],
             "candidates": candidates,
-            "final_type": (
-                final_type_after_voting if final_type_after_voting != "UNKNOWN" else "UNKNOWN"
-            ),
-            "final_confidence": final_conf_after_voting,
-            "level": "HYBRID" if voted is not None else None,
+            "final_type": final_type_out,
+            "final_confidence": final_conf_out,
+            "level": "HYBRID" if voted is not None and final_type_out != "UNKNOWN" else None,
             "language": language,
             "jurisdiction": jurisdiction,
             "applicable_triggers": applicable_triggers,
@@ -430,7 +704,7 @@ class HybridClassifier:
             level = c.get("level", "L1")
             w = self.level_weights.get(level, 0.20)
             type_code = c["type_code"]
-            score = c["confidence"] * w
+            score = float(c["confidence"]) * w
 
             type_scores[type_code] = type_scores.get(type_code, 0.0) + score
             total_weight += w
@@ -522,8 +796,6 @@ class HybridClassifier:
             temperature=0.0,
             max_tokens=settings.LLM_MAX_TOKENS,
         )
-
-
 
     @staticmethod
     def _parse_llm_classification(

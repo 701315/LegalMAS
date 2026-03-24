@@ -1,3 +1,5 @@
+# src/services/structure/builder.py
+
 """
 Structure Builder: parses textlayoutraw elements into a clause tree.
 

@@ -191,6 +191,79 @@ class DocumentContentService:
             return None
         return await self.layout_storage.load_json(layout_ref)
 
+    async def get_title_and_preamble(
+        self,
+        doc_id: uuid.UUID,
+        max_pages: int = 2,
+        max_length: int = 1500,
+    ) -> Optional[str]:
+        """
+        Извлечь шапку документа (title + преамбула) напрямую из layout.
+
+        Простыми словами:
+        - Берём layout последней версии документа.
+        - Сканируем первые несколько страниц (обычно 1–2).
+        - Собираем текст сверху вниз, пока не встретим первое крупное
+          структурное разделение (оглавление или раздел уровня "1. DEFINITIONS").
+        - Возвращаем один текстовый блок для L2/L4 и фронта.
+        """
+        version = await self._get_latest_version(doc_id)
+        if not version:
+            return None
+
+        layout = await self._load_layout(version)
+        if not layout:
+            return None
+
+        elements = layout.get("elements") or []
+        if not elements:
+            return None
+
+        # Фильтруем только первые max_pages страниц
+        header_elements: List[Dict[str, Any]] = []
+        for el in elements:
+            page = el.get("page")
+            if not isinstance(page, int) or page > max_pages:
+                continue
+
+            text = (el.get("text") or "").strip()
+            if not text:
+                continue
+
+            upper = text.upper()
+
+            # Стоп‑сигналы: оглавление или явный крупный раздел
+            if "TABLE OF CONTENTS" in upper or "СОДЕРЖАНИЕ" in upper:
+                break
+
+            # Примитивная эвристика: если строка похожа на раздел 1./1.1 и т.п.,
+            # считаем, что шапка закончилась.
+            import re
+            if re.match(r"^\d{1,2}(\.\d{1,2})*\.\s+.+", text):
+                break
+
+            header_elements.append(el)
+
+        if not header_elements:
+            return None
+
+        # Просто склеиваем тексты по порядку. При желании здесь можно добавить
+        # более умное склеивание EN/RU, но сейчас layout уже RU‑only.
+        parts: List[str] = []
+        for el in header_elements:
+            t = (el.get("text") or "").strip()
+            if t:
+                parts.append(t)
+
+        full = "\n".join(parts).strip()
+        if not full:
+            return None
+
+        if len(full) > max_length:
+            full = full[:max_length]
+
+        return full or None
+
     @staticmethod
     def _extract_root_children(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -298,7 +371,8 @@ class DocumentContentService:
 
         chunks: List[Dict[str, Any]] = []
         for child in root_children:
-            self._collect_leaf_chunks(doc_id, child, element_index, chunks)
+            # Пятый аргумент [] — стартовый пустой путь заголовков от корня.
+            self._collect_leaf_chunks(doc_id, child, element_index, chunks, [])
         return chunks
 
     async def get_header_and_snippet(
@@ -335,18 +409,14 @@ class DocumentContentService:
 
         element_index = self._build_element_index(layout)
 
-        # Header: заголовки верхнего уровня.
-        header_titles: List[str] = []
-        for child in root_children:
-            title = child.get("title")
-            if title:
-                header_titles.append(title)
-        header_text = "\n".join(header_titles) if header_titles else None
+        # Header: нормализованная шапка (title + преамбула) из layout.
+        # Для единообразия используем тот же метод, что и HybridClassifier.
+        header_text = await self.get_title_and_preamble(doc_id)
 
         # Snippet: первые несколько листовых клауз.
         leaf_chunks: List[Dict[str, Any]] = []
         for child in root_children:
-            self._collect_leaf_chunks(doc_id, child, element_index, leaf_chunks)
+            self._collect_leaf_chunks(doc_id, child, element_index, leaf_chunks, [])
             if len(leaf_chunks) >= max_leaf_clauses:
                 break
 
@@ -369,7 +439,13 @@ class DocumentContentService:
             # Соберём дополнительные клаузы (если есть в дереве)
             extra_leaf_chunks: List[Dict[str, Any]] = []
             for child in root_children:
-                self._collect_leaf_chunks(doc_id, child, element_index, extra_leaf_chunks)
+                self._collect_leaf_chunks(
+                    doc_id,
+                    child,
+                    element_index,
+                    extra_leaf_chunks,
+                    [],
+                )
                 if len(extra_leaf_chunks) >= EXTRA_CLAUSES:
                     break
             leaf_chunks = extra_leaf_chunks or leaf_chunks
@@ -399,6 +475,7 @@ class DocumentContentService:
         node: Dict[str, Any],
         element_index: Dict[str, Dict[str, Any]],
         out: List[Dict[str, Any]],
+        path_titles: List[str] | None = None,
     ) -> None:
         """
         Рекурсивно обойти дерево и добавить чанки для всех листовых клауз
@@ -409,6 +486,13 @@ class DocumentContentService:
         - находим соответствующие элементы в layout,
         - склеиваем их текст в одном чанке.
         """
+
+        # path_titles — это "хлебные крошки" из заголовков от корня до текущего узла.
+        current_path: List[str] = list(path_titles or [])
+        node_title = node.get("title")
+        if node_title:
+            current_path.append(node_title)
+
         children = node.get("children") or []
 
         if not children:
@@ -418,7 +502,6 @@ class DocumentContentService:
             # Собираем текст клаузы из элементов layout.
             texts: List[str] = []
             pages: List[int] = []
-
             last_page: int | None = None
 
             for el_id in element_ids:
@@ -435,16 +518,18 @@ class DocumentContentService:
                 if isinstance(page, int):
                     pages.append(page)
 
-                # Если элемент на новой странице — добавляем пустую строку,
-                # чтобы L3/L4 видели разрыв.
+                # Если элемент на новой странице — добавляем пустую строку
+                # как явный разделитель, чтобы модели видели разрыв страниц.
                 if last_page is not None and page is not None and page != last_page:
-                    texts.append("")  # это превратится в лишний \n\n при склейке
+                    texts.append("")
 
                 texts.append(text)
                 last_page = page
 
-            # Склеиваем блоки через двойной перевод строки, чтобы сохранить структуру
-            full_text = "\n\n".join(t for t in texts if t).strip()
+            # Склеиваем блоки через двойной перевод строки, чтобы сохранить структуру.
+            # Пустые строки, добавленные при смене страницы, превратятся в лишние
+            # пустые абзацы, что удобно для LLM.
+            full_text = "\n\n".join(texts).strip()
 
             start_page = min(pages) if pages else node.get("start_page")
             end_page = max(pages) if pages else node.get("end_page")
@@ -454,6 +539,7 @@ class DocumentContentService:
                 "clause_uid": clause_uid,
                 "title": node.get("title"),
                 "level": node.get("level"),
+                "path_titles": current_path,
                 "start_page": start_page,
                 "end_page": end_page,
                 "element_ids": element_ids,
@@ -470,4 +556,10 @@ class DocumentContentService:
 
         # Если у узла есть дети — спускаемся ниже по дереву.
         for child in children:
-            self._collect_leaf_chunks(doc_id, child, element_index, out)
+            self._collect_leaf_chunks(
+                doc_id,
+                child,
+                element_index,
+                out,
+                current_path,
+            )

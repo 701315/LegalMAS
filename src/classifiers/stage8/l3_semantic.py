@@ -3,10 +3,12 @@
 """
 L3 SemanticClassifier — семантическая классификация на эмбеддингах (Stage 8).
 
+
 Назначение:
 - Третий уровень каскада после L1 (filename) и L2 (header).
 - Работает по смыслу текста, а не по ключевым словам.
 - Позволяет различать типы документов даже при нестандартных названиях/шапках.
+
 
 Источники знаний:
 - YAMLRegistry.get_all_configs() даёт полный YAML-конфиг для каждого типа.
@@ -15,6 +17,7 @@ L3 SemanticClassifier — семантическая классификация 
   - rules.keywords / rules.phrases (high/medium/low),
   - metadata (aliases, section_markers),
   - essential_elements (ключевые элементы договора).
+
 
 Как работает:
 - На старте L3 загружает все типы из YAMLRegistry и:
@@ -27,6 +30,7 @@ L3 SemanticClassifier — семантическая классификация 
   - считаем косинусное сходство со всеми прототипами,
   - выбираем лучший тип и несколько альтернатив.
 
+
 Возвращаемое значение:
 - ClassificationResult с полями:
   - doctype: лучший тип по косинусному сходству,
@@ -35,7 +39,12 @@ L3 SemanticClassifier — семантическая классификация 
   - method: "embedding_similarity",
   - evidence: строка вида "cosine_sim=0.923",
   - language, jurisdiction: из YAML-метаданных типа,
-  - alternative_types: топ-несколько альтернатив с их similarity.
+  - alternative_types: топ-несколько альтернатив с их similarity,
+  - extra: {
+      "raw_similarity": float,
+      "top_n": [{ "type": str, "similarity": float }, ...],
+    }
+
 
 Роль в каскаде:
 - L3 — самый «тяжёлый» и умный этап перед LLM.
@@ -44,6 +53,8 @@ L3 SemanticClassifier — семантическая классификация 
 """
 
 from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -65,7 +76,10 @@ class L3SemanticClassifier(BaseClassifier):
         self._registry = registry or YAMLRegistry.get_instance()
         self._prototypes: dict[str, np.ndarray] = {}
         self._meta: dict[str, dict] = {}  # метаданные типа (язык, юрисдикция и др.)
-        self._threshold: float = settings.CLASSIFICATION_L3_ACCEPT
+        # Порог используется в HybridClassifier, здесь храним для совместимости
+        self._threshold: float = float(
+            getattr(settings, "CLASSIFICATION_L3_ACCEPT", 0.75)
+        )
 
         self._load_prototypes()
 
@@ -75,14 +89,14 @@ class L3SemanticClassifier(BaseClassifier):
 
     def _load_prototypes(self) -> None:
         """Строим embedding-прототипы для каждого типа из YAMLRegistry."""
-        configs: list[DocumentTypeConfig] = self._registry.get_all_configs()
+        configs: List[DocumentTypeConfig] = self._registry.get_all_configs()
         if not configs:
             logger.warning("L3SemanticClassifier: no configs in YAMLRegistry")
             return
 
-        texts: list[str] = []
-        type_codes: list[str] = []
-        meta_list: list[dict] = []
+        texts: List[str] = []
+        type_codes: List[str] = []
+        meta_list: List[dict] = []
 
         for cfg in configs:
             # cfg.raw — оригинальный YAML-конфиг
@@ -104,10 +118,20 @@ class L3SemanticClassifier(BaseClassifier):
             logger.warning("L3SemanticClassifier: no prototype texts built")
             return
 
+        logger.info(
+            "L3 prototypes building",
+            extra={
+                "types_count": len(type_codes),
+            },
+        )
+
         try:
             vecs = embedding_service.encode(texts)
         except Exception as e:
-            logger.warning("L3SemanticClassifier: failed to encode prototypes", error=str(e))
+            logger.warning(
+                "L3SemanticClassifier: failed to encode prototypes",
+                error=str(e),
+            )
             return
 
         vecs = np.asarray(vecs, dtype=np.float32)
@@ -118,11 +142,14 @@ class L3SemanticClassifier(BaseClassifier):
             self._prototypes[tc] = v
             self._meta[tc] = m
 
-        logger.info("L3 prototypes loaded", count=len(self._prototypes))
+        logger.info(
+            "L3 prototypes loaded",
+            extra={"count": len(self._prototypes)},
+        )
 
     def _create_enriched_prototype(self, cfg: dict) -> str:
         """
-        Обогащённый прототип, аналогичный твоему SemanticMatcher:
+        Обогащённый прототип, аналогичный SemanticMatcher:
 
         - name, description
         - rules.keywords/phrases (по уровням high/medium/low)
@@ -135,7 +162,10 @@ class L3SemanticClassifier(BaseClassifier):
         parts.append(str(cfg.get("description", "") or ""))
 
         # 2. Ключевые слова и фразы
-        rules: dict = cfg.get("rules", {}) or {}
+        # В новых YAML они находятся внутри classification_runtime_v1.rules
+        runtime = cfg.get("classification_runtime_v1") or {}
+        rules: dict = runtime.get("rules") or cfg.get("rules", {}) or {}
+
         for impact in ("high", "medium", "low"):
             parts.extend(rules.get("keywords", {}).get(impact, []) or [])
             parts.extend(rules.get("phrases", {}).get(impact, []) or [])
@@ -151,8 +181,19 @@ class L3SemanticClassifier(BaseClassifier):
             parts.extend(elem.get("keywords", []) or [])
             parts.extend(elem.get("phrases", []) or [])
 
-        clean_parts = [str(p) for p in parts if p and isinstance(p, str | int | float)]
-        return " ".join(clean_parts)[:4000]
+        clean_parts = [str(p) for p in parts if p and isinstance(p, (str, int, float))]
+        proto = " ".join(clean_parts)[:4000]
+
+        # DEBUG-лог для сложных кейсов (можно включать по уровню)
+        logger.debug(
+            "L3 prototype built",
+            extra={
+                "name": cfg.get("name", ""),
+                "length": len(proto),
+            },
+        )
+
+        return proto
 
     async def classify(
         self,
@@ -163,6 +204,10 @@ class L3SemanticClassifier(BaseClassifier):
         metadata: dict | None = None,
     ) -> ClassificationResult:
         if not self._prototypes:
+            logger.warning(
+                "L3 classify skipped: no prototypes",
+                extra={"filename": filename, "folder_path": folder_path},
+            )
             return ClassificationResult(
                 doctype="UNKNOWN",
                 confidence=0.0,
@@ -171,6 +216,15 @@ class L3SemanticClassifier(BaseClassifier):
             )
 
         if not text or not text.strip() or not settings.RUNNER_EMBEDDINGS_ENABLED:
+            logger.info(
+                "L3 classify skipped: empty text or embeddings disabled",
+                extra={
+                    "filename": filename,
+                    "folder_path": folder_path,
+                    "text_present": bool(text and text.strip()),
+                    "embeddings_enabled": bool(settings.RUNNER_EMBEDDINGS_ENABLED),
+                },
+            )
             return ClassificationResult(
                 doctype="UNKNOWN",
                 confidence=0.0,
@@ -181,12 +235,26 @@ class L3SemanticClassifier(BaseClassifier):
         # Берём первые ~1000 символов как репрезентативный фрагмент
         doc_text = text[:1000]
 
+        logger.info(
+            "L3 classify start",
+            extra={
+                "filename": filename,
+                "folder_path": folder_path,
+                "doc_text_len": len(text),
+                "doc_text_excerpt": repr(doc_text[:400]),
+            },
+        )
+
         try:
             doc_vec = embedding_service.encode([doc_text])[0]
         except Exception as e:
             logger.warning(
                 "L3SemanticClassifier: failed to encode document",
                 error=str(e),
+                extra={
+                    "filename": filename,
+                    "folder_path": folder_path,
+                },
             )
             return ClassificationResult(
                 doctype="UNKNOWN",
@@ -199,11 +267,15 @@ class L3SemanticClassifier(BaseClassifier):
         doc_vec = doc_vec / (np.linalg.norm(doc_vec) + 1e-9)
 
         # Косинусная близость со всеми прототипами
-        sims: dict[str, float] = {
+        sims: Dict[str, float] = {
             tc: float(np.dot(doc_vec, proto)) for tc, proto in self._prototypes.items()
         }
 
         if not sims:
+            logger.warning(
+                "L3 classify: no similarities computed",
+                extra={"filename": filename},
+            )
             return ClassificationResult(
                 doctype="UNKNOWN",
                 confidence=0.0,
@@ -214,20 +286,54 @@ class L3SemanticClassifier(BaseClassifier):
         sorted_types = sorted(sims.items(), key=lambda x: x[1], reverse=True)
         best_type, best_sim = sorted_types[0]
 
-        # Сырый score можно чуть нормализовать к [0, 1]
-        confidence_raw = max(0.0, (best_sim - 0.5) * 2.0)
+        # Топ-альтернатив для логов
+        top_alt_for_log = [
+            {"type": t, "similarity": float(s)} for t, s in sorted_types[1:4]
+        ]
 
-        # Порог L3 применяем на уровне HybridClassifier, здесь отдаём сырую оценку
+        logger.info(
+            "L3 similarities",
+            extra={
+                "filename": filename,
+                "best_type": best_type,
+                "best_sim": float(best_sim),
+                "top_alt": top_alt_for_log,
+            },
+        )
+
+        # Нормализация similarity → confidence в [0, 1].
+        # Линейная шкала вокруг 0.5: 0.5 → 0.0, 1.0 → 1.0
+        confidence_raw = max(0.0, (best_sim - 0.5) * 2.0)
+        confidence = round(confidence_raw, 4)
+
         meta = self._meta.get(best_type, {})
-        alternatives = [{"type": t, "confidence": round(s, 3)} for t, s in sorted_types[1:4]]
+        alternatives = [
+            {"type": t, "similarity": round(s, 4)} for t, s in sorted_types[1:4]
+        ]
+
+        extra: Dict[str, Any] = {
+            "raw_similarity": float(best_sim),
+            "top_n": alternatives,
+        }
+
+        logger.info(
+            "L3 final result",
+            extra={
+                "filename": filename,
+                "best_type": best_type,
+                "confidence": confidence,
+                "raw_similarity": float(best_sim),
+            },
+        )
 
         return ClassificationResult(
             doctype=best_type,
-            confidence=round(confidence_raw, 4),
+            confidence=confidence,
             level=self.level,
             method="embedding_similarity",
             evidence=f"cosine_sim={best_sim:.3f}",
             language=meta.get("language", "ru"),
             jurisdiction=meta.get("jurisdiction", "RU"),
             alternative_types=alternatives,
+            extra=extra,
         )

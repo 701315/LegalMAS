@@ -229,6 +229,11 @@ extraction:
   fields:
     - name: "governing_law"
       type: "string"
+      regex_patterns:
+        - "(?i)governed by\\s+([^\\.;\\n]+)"
+        - "(?i)настоящий договор регулируется\\s+([^\\.;\\n]+)"
+        - "(?i)применим(?:ым|ое) прав(?:о|ом)\\s+([^\\.;\\n]+)"
+
     - name: "dispute_resolution_forum"
       type: "string"
       allowed_values:
@@ -236,14 +241,38 @@ extraction:
         - "arbitration"
         - "mixed"
         - "unclear"
+      keyword_hints:
+        - "arbitration"
+        - "arbitral tribunal"
+        - "арбитраж"
+        - "арбитражный суд"
+        - "государственный суд"
+        - "courts"
+        - "competent courts"
+
     - name: "forum_description"
       type: "string"
+      regex_patterns:
+        # EN: "submitted to the exclusive jurisdiction of the courts of London, England"
+        - "(?i)(courts? of [^\\.;\\n]+)"
+        # RU: "судами города Москвы", "арбитражным судом г. Москвы"
+        - "(?i)(судами? [^\\.;\\n]+)"
+        - "(?i)(арбитражн(?:ым|ого) суд(?:а|ом) [^\\.;\\n]+)"
+
     - name: "jurisdiction_clause_type"
       type: "string"
       allowed_values:
         - "exclusive"
         - "non-exclusive"
         - "unclear"
+      keyword_hints:
+        - "exclusive jurisdiction"
+        - "исключительная подсудность"
+        - "non-exclusive jurisdiction"
+        - "неисключительная подсудность"
+        - "may be brought"
+        - "also have the right to"
+
     - name: "forum_convenience_for_target"
       type: "string"
       allowed_values:
@@ -251,15 +280,18 @@ extraction:
         - "medium"
         - "high"
         - "unclear"
+
     - name: "overall_risk_level"
       type: "string"
       allowed_values:
         - "low"
         - "medium"
         - "high"
+
     - name: "reason"
       type: "string"
   store_payload: true
+
 
 red_flags:
   items:

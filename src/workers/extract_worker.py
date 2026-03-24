@@ -44,6 +44,7 @@ from services.pdf_extractor import (
     build_text_layout_raw,
     extract_pdf,
 )
+from services.layout_language_filter import filter_layout_to_ru
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
@@ -230,9 +231,17 @@ async def _extract_document_async(
         document_version_id=document_version_id,
     )
 
-    # 5. Upload to MinIO
+    # 4.1. Фильтруем layout до русскоязычных элементов.
+    # Для непрофессионального программиста:
+    # - text_layout_raw может содержать и английский, и русский текст (EN/RU договоры).
+    # - filter_layout_to_ru удаляет строки, где явно доминирует латинский текст.
+    # - В итоге у нас остаётся layout, пригодный для анализа только по русской части.
+    text_layout_ru = filter_layout_to_ru(text_layout_raw)
+
+    # 5. Upload to MinIO (сохраняем уже русскую версию layout)
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
-    raw_ref = store.put_json(raw_path, text_layout_raw)
+    raw_ref = store.put_json(raw_path, text_layout_ru)
+
 
     # 6. Update DB (используем ту же сессию db)
     await update_extraction_result(

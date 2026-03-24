@@ -149,8 +149,8 @@ class ExtractionLLMDetector:
                 elif field.type == ExtractionFieldType.BOOLEAN:
                     example_value = True
                 else:
-                    example_value = "Пример значения, извлечённого из текста"
-
+                    # Пустая строка как маркер "сюда подставь текст из договора"
+                    example_value = "" 
             example_fields[field.name] = {
                 "value": example_value,
                 "confidence": 0.9,

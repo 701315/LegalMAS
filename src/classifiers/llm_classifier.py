@@ -1,13 +1,28 @@
-"""
-L4 LLM Classifier — provider-agnostic interface and factory.
+# src/classifiers/llm_classifier.py
 
-Provider selection:
-  - "none": L4 is skipped (default for MVP)
-  - "local": Local GGUF model via llama-cpp-python (no PII leak risk,
-             file at LLM_LOCAL_MODEL_PATH)
-  - "openai": OpenAI API (MUST use sanitized text)
-  - "anthropic": Anthropic API (MUST use sanitized text)
 """
+L4: классификация документов через LLM (обёртка и фабрика).
+
+Назначение:
+- Предоставить единый интерфейс для L4‑классификаторов на базе LLM
+  (локальная GGUF‑модель, OpenAI, Anthropic и т.п.).
+- Дать фабрику create_llm_classifier, которая по настройкам выбирает,
+  какой провайдер LLM использовать или отключить L4 полностью.
+
+Варианты провайдера (settings.LLM_PROVIDER):
+- "none"     — L4 отключён, каскад работает только на L1–L3.
+- "local"    — локальная GGUF‑модель через llama‑cpp‑python
+               (без риска утечки ПДн, модель работает на своём сервере).
+- "openai"   — облачный OpenAI API (обязательно использовать очищенный текст).
+- "anthropic"— облачный Anthropic API (обязательно использовать очищенный текст).
+
+Текущий статус:
+- В Stage 8 основным L4 является логика внутри HybridClassifier.
+- Этот модуль полезен как отдельный «чистый» LLM‑классификатор
+  или как заготовка для будущего расширения.
+"""
+
+from __future__ import annotations
 
 import json
 import os
@@ -20,23 +35,34 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# ── System prompt template ───────────────────────────────────────────────────
+# ── Шаблон системного промпта для LLM‑классификации ──────────────────────────
 
-_CLASSIFY_PROMPT = """You are a legal document classifier.
-Given a document text, classify it into one of these types:
-{types_list}
-
-Previous classification attempts suggested these candidates:
-{candidates}
-
-Respond ONLY with a JSON object:
-{{"doctype": "type_id", "confidence": 0.0-1.0, "reasoning": "brief explanation"}}"""
+_CLASSIFY_PROMPT = (
+    "Ты — классификатор юридических документов.\n"
+    "Твоя задача — отнести документ РОВНО к одному типу из разрешённого списка.\n\n"
+    "Разрешённые типы документов (type_code: человекочитаемое название):\n"
+    "{types_list}\n\n"
+    "Предыдущие уровни классификации (L1–L3) предложили такие кандидаты (может быть пусто):\n"
+    "{candidates}\n\n"
+    "Инструкция:\n"
+    "1) Внимательно прочитай имя файла, путь к папке (если есть) и начало текста документа.\n"
+    "2) Выбери РОВНО ОДИН type_code из списка выше, который лучше всего описывает документ.\n"
+    "3) Если ни один тип явно не подходит, верни значение \"UNKNOWN\" в поле doctype.\n"
+    "4) Ответь СТРОГО одним JSON-объектом следующего вида:\n"
+    "{"
+    "\"doctype\": \"<один type_code из списка или UNKNOWN>\", "
+    "\"confidence\": <число от 0 до 1>, "
+    "\"reasoning\": \"краткое объяснение в 1–2 предложениях\""
+    "}\n\n"
+    "Не добавляй никакого текста до или после JSON. "
+    "Не объясняй рассуждения вне поля reasoning внутри JSON.\n"
+)
 
 
 def _build_types_list(registry_path: str) -> str:
-    """Build a formatted list of known types for the LLM prompt."""
+    """Собрать список известных типов для подстановки в промпт LLM."""
     registry = load_registry(registry_path)
-    lines = []
+    lines: list[str] = []
     for cfg in registry.get("document_types", []):
         doc_type = cfg.get("type", "")
         name = cfg.get("name", "")
@@ -47,8 +73,12 @@ def _build_types_list(registry_path: str) -> str:
 
 class LocalLLMClassifier(BaseLLMClassifier):
     """
-    L4 via local GGUF model using llama-cpp-python.
-    Safe for raw text — model runs locally, no PII leak.
+    L4‑классификатор на базе локальной GGUF‑модели (llama‑cpp‑python).
+
+    Особенности:
+    - Модель загружается из файла LLM_LOCAL_MODEL_PATH.
+    - Работает локально, поэтому безопасна для сырого текста (без анонимизации).
+    - Использует общий промпт _CLASSIFY_PROMPT и список типов из YAML‑реестра.
     """
 
     def __init__(
@@ -66,7 +96,12 @@ class LocalLLMClassifier(BaseLLMClassifier):
 
     @property
     def llm(self):
-        """Lazy-load the GGUF model."""
+        """
+        Ленивая загрузка GGUF‑модели.
+
+        Если модель уже загружена, возвращается существующий объект.
+        Если загрузка не удалась, в лог пишется ошибка, а свойство остаётся None.
+        """
         if self._llm is None:
             try:
                 from llama_cpp import Llama
@@ -98,6 +133,24 @@ class LocalLLMClassifier(BaseLLMClassifier):
         text_sanitized: str | None = None,
         metadata: dict | None = None,
     ) -> ClassificationResult:
+        """
+        Классификация документа через локальную GGUF‑модель.
+
+        Параметры:
+        - text         : полный текст документа (можно сырой, без маскировки).
+        - filename     : имя файла (используется только в промптах, при необходимости).
+        - folder_path  : путь к папке (резерв на будущее).
+        - text_sanitized: зарезервировано для облачных провайдеров (здесь не используется).
+        - metadata     : дополнительная информация (например, кандидаты предыдущих уровней).
+
+        Возвращает ClassificationResult с полями:
+        - doctype      : выбранный type_code или "UNKNOWN".
+        - confidence   : уверенность LLM в диапазоне 0–1.
+        - level        : ClassificationLevel.L4_LLM.
+        - method       : строка "local_gguf" или описание ошибки.
+        - evidence     : краткое текстовое объяснение из поля reasoning.
+        - language/jurisdiction: берутся из YAML‑конфига типа, если есть.
+        """
         if self.llm is None:
             return ClassificationResult(
                 doctype="UNKNOWN",
@@ -116,8 +169,8 @@ class LocalLLMClassifier(BaseLLMClassifier):
             candidates=candidates_str,
         )
 
-        # GGUF может принимать сырой текст (безопасно)
-        doc_text = text[:2000]
+        # GGUF‑модель можно кормить сырым текстом (безопасно с точки зрения ПДн).
+        doc_text = (text or "")[:2000]
         full_prompt = f"{prompt}\n\nDocument text:\n{doc_text}"
 
         try:
@@ -128,7 +181,7 @@ class LocalLLMClassifier(BaseLLMClassifier):
                 stop=["\n\n"],
             )
             response_text = response["choices"][0]["text"].strip()
-            # Пытаемся найти JSON в ответе (иногда LLM пишет лишний текст)
+            # Пытаемся найти JSON в ответе (иногда LLM добавляет лишний текст).
             start_idx = response_text.find("{")
             end_idx = response_text.rfind("}") + 1
             if start_idx != -1 and end_idx != 0:
@@ -162,10 +215,8 @@ class LocalLLMClassifier(BaseLLMClassifier):
             )
 
 
-# Классы OpenAIClassifier и AnthropicClassifier остаются без изменений (заглушки для Stage 8)
-# Но в методе classify они также должны возвращать поля language/jurisdiction (по дефолту "ru"/"RU")
-
-
+# Классы OpenAIClassifier и AnthropicClassifier остаются заглушками для Stage 8.
+# В будущем сюда можно перенести реальную интеграцию с облачными провайдерами.
 class OpenAIClassifier(BaseLLMClassifier):
     async def classify(
         self, text: str, filename: str, folder_path: str, **kwargs
@@ -197,6 +248,24 @@ def create_llm_classifier(
     pii_mode: str | None = None,
     registry_path: str | None = None,
 ) -> BaseLLMClassifier | None:
+    """
+    Создать L4 LLM‑классификатор в зависимости от настроек.
+
+    Параметры:
+    - provider     : строка с кодом провайдера ("none", "local", "openai", "anthropic").
+                     Если не задан, берётся из settings.LLM_PROVIDER.
+    - pii_mode     : режим работы с персональными данными
+                     (зарезервирован, текущая реализация не использует).
+    - registry_path: путь к YAML‑реестру типов документов.
+                     Если не задан, берётся из settings.CLASSIFIER_REGISTRY_PATH.
+
+    Поведение:
+    - "none"      → возвращает None, L4 отключён.
+    - "local"     → создаёт LocalLLMClassifier для локальной GGUF‑модели.
+    - "openai"    → возвращает заглушку OpenAIClassifier.
+    - "anthropic" → возвращает заглушку AnthropicClassifier.
+    - Если модель/ключи не найдены, логирует предупреждение и возвращает None.
+    """
     provider = provider or settings.LLM_PROVIDER
     reg_path = registry_path or settings.CLASSIFIER_REGISTRY_PATH
 

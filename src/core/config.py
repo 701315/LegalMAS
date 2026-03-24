@@ -194,6 +194,13 @@ class Settings(BaseSettings):
     CLASSIFICATION_L4_ACCEPT: float = 0.70
     CLASSIFICATION_VOTING_THRESHOLD: float = 0.75
 
+    # Дополнительные пороги для HybridClassifier (Stage 8)
+    CLASSIFICATION_HYBRID_ACCEPT: float = 0.65
+    CLASSIFICATION_UNKNOWN_MAX: float = 0.40
+    CLASSIFICATION_L2_EXCL_HARD: int = 2
+    CLASSIFICATION_L2_STRONG: float = 0.85
+    CLASSIFICATION_L1_STRONG: float = 0.90
+
     # Embeddings для Runner/Stage 8 (shared с L3-классификатором)
     RUNNER_EMBEDDINGS_ENABLED: bool = True
     RUNNER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"
