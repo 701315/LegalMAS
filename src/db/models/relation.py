@@ -1,3 +1,5 @@
+# src/db/models/relation.py
+
 """
 DocumentRelation and family models.
 

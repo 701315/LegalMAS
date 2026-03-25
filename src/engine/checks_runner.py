@@ -25,12 +25,13 @@ CheckRunner: playbook-based checks executor.
 
 import time
 import uuid
-from typing import Tuple
+from typing import Tuple, Optional
 
 from core.config import settings
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.run_repo import RunRepository
 from db.uow import db_uow
 from engine.checks.executor import CheckExecutor
 from engine.content.document_content_service import DocumentContentService
@@ -74,6 +75,7 @@ class CheckRunner:
         llm_client,
         playbook_version_id: uuid.UUID | None = None,
         checks_mode: str = "global_and_doc_type",
+        run_repo: Optional[RunRepository] = None,
     ) -> None:
         """
         llm_client — клиент для LLM.
@@ -87,12 +89,19 @@ class CheckRunner:
             - "global_only"
             - "doc_type_only"
             - "global_and_doc_type" (по умолчанию).
+
+        run_repo:
+            Репозиторий для сущности Run.
+            Нужен, чтобы после каждого успешно обработанного документа
+            увеличивать счётчик completed_checks и показывать живой прогресс.
+            Если не передан, прогресс Run трогать не будем.
         """
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
         self.playbook_version_id = playbook_version_id
         self.doc_type_loader = DocTypeCheckLoader()
         self.checks_mode = checks_mode
+        self.run_repo = run_repo
 
     async def run_deal_checks(
         self,
@@ -121,7 +130,7 @@ class CheckRunner:
 
         if checks_mode:
             self.checks_mode = checks_mode
-            
+
         logger.info(
             "CheckRunner started",
             extra={
@@ -192,6 +201,23 @@ class CheckRunner:
                 summary["processed_docs"] += 1
                 summary["total_checks"] += checks_count
                 summary["failed_checks"] += failed_count
+
+                # ВАЖНО: после успешной обработки документа увеличиваем прогресс Run.
+                # Это даёт живой прогресс: "N из M документов проверено".
+                if self.run_repo is not None:
+                    try:
+                        await self.run_repo.increment_completed_checks(run_id)
+                    except Exception as e:
+                        # Ошибка прогресса не должна ломать сами проверки.
+                        logger.warning(
+                            "CheckRunner: failed to increment completed_checks",
+                            extra={
+                                "run_id": str(run_id),
+                                "doc_id": str(getattr(doc, "id", None)),
+                                "error": str(e),
+                            },
+                        )
+
             except Exception as e:
                 summary["errors"] += 1
 
@@ -316,11 +342,9 @@ class CheckRunner:
                 )
                 return 0, 0
 
-            # Диагностика: какие conditional-checks из плейбука были пропущены
-            # из-за отсутствия нужного триггера у документа.
+            # Диагностика пропущенных conditional-checks
             try:
                 for check in getattr(playbook, "checks", []):
-                    # Фильтруем по doc_type, если он задан в CheckDefinition
                     if getattr(check, "doc_types", None) and doc_type not in check.doc_types:
                         continue
 
@@ -328,7 +352,6 @@ class CheckRunner:
                     if not conditional:
                         continue
 
-                    # Поддержка старого/нового формата ConditionalConfig
                     trigger = None
                     if isinstance(conditional, dict):
                         trigger = conditional.get("trigger")
@@ -350,7 +373,6 @@ class CheckRunner:
                             },
                         )
             except Exception as e:
-                # Любые ошибки диагностики не должны ломать основной прогон checks
                 logger.warning(
                     "CheckRunner: failed to log skipped conditional checks",
                     extra={
@@ -365,10 +387,8 @@ class CheckRunner:
                 session=uow.session,
             )
 
-            # doc.id — UUID документа из ORM
             chunks = await content_service.get_chunks(doc.id)
 
-            # Защита от "взрыва" числа чанков, если что-то пошло не так в структуре.
             if len(chunks) > MAX_CHUNKS_PER_DOC:
                 logger.warning(
                     "CheckRunner: too many chunks for document, truncating",
@@ -381,7 +401,7 @@ class CheckRunner:
                 )
                 chunks = chunks[:MAX_CHUNKS_PER_DOC]
 
-            # Дополнительная защита: ограничиваем длину текста в каждом чанке.
+            # Ограничиваем длину текста в чанках
             safe_chunks: list[dict] = []
             for ch in chunks:
                 text = ch.get("text") or ""
@@ -406,7 +426,6 @@ class CheckRunner:
                     }
                 )
 
-            # Если по какой-то причине чанков нет, fallback — один пустой.
             if not safe_chunks:
                 safe_chunks = [
                     {
@@ -424,22 +443,14 @@ class CheckRunner:
                 if exec_result.get("result") == "fail":
                     failed_checks += 1
 
-                # --- Маппинг exec_result -> данные для CheckResult ---
-
-                # Краткое объяснение для человека
                 reason = exec_result.get("reason")
                 evidence = exec_result.get("evidence") or ""
                 detector_method = exec_result.get("detector_method")
                 raw = exec_result.get("raw") or {}
 
                 value_text = reason or (evidence[:500] if evidence else None)
-
-                # evidence_ref:
-                # Пока это текстовый сниппет. Позже можно заменить на S3 URI,
-                # не ломая фронт (он просто покажет другой источник).
                 evidence_ref = evidence or None
 
-                # Качество/диагностика детекции (rules vs LLM, confidence и т.п.)
                 quality_flags: dict = {}
 
                 if isinstance(raw, dict):
@@ -455,12 +466,10 @@ class CheckRunner:
                     if llm_conf is not None:
                         quality_flags["llm_confidence"] = llm_conf
 
-                    # по желанию сохраняем весь raw для дебага
                     quality_flags["raw"] = raw
 
                 structured_data = exec_result.get("structured_data")
 
-                # conditional: поддерживаем и старый dict, и новую модель ConditionalConfig
                 conditional = getattr(check, "conditional", None)
                 if isinstance(conditional, dict):
                     is_conditional = bool(conditional)
@@ -473,27 +482,19 @@ class CheckRunner:
                         else None
                     )
 
-                # Источник определения проверки:
-                # берём из CheckDefinition.origin, если есть.
                 check_origin = getattr(check, "origin", None)
 
-                # Координаты и место в документе для evidence (для подсветки во viewer)
                 page = exec_result.get("page")
                 clause_uid = exec_result.get("clause_uid")
                 element_id = exec_result.get("element_id")
                 bbox = exec_result.get("bbox")
 
-                # Сохраняем результат через репозиторий.
-                # Здесь мы ПОЛНОСТЬЮ наполняем CheckResult, включая:
-                # - playbook_version_id (для аудита),
-                # - page / clause_uid / element_id / bbox (для подсветки),
-                # - origin / conditional / structured_data / quality_flags.
                 await repo.create(
                     run_id=run_id,
                     document_id=doc.id,
                     check_id=exec_result["check_id"],
                     check_name=exec_result["check_name"],
-                    result=exec_result["result"],  # "fail" / "pass" / "unclear"
+                    result=exec_result["result"],
                     severity=exec_result["severity"],
                     value_text=value_text,
                     evidence_ref=evidence_ref,
@@ -504,9 +505,7 @@ class CheckRunner:
                     conditional_check_triggered=is_conditional,
                     trigger_name=trigger_name,
                     origin=check_origin,
-                    # НОВОЕ: жёстко привязываем результат к версии плейбука
                     playbook_version_id=self.playbook_version_id,
-                    # НОВОЕ: координаты для навигации/подсветки в документе
                     page=page,
                     clause_uid=clause_uid,
                     element_id=element_id,
@@ -519,5 +518,3 @@ class CheckRunner:
             # Коммит делает db_uow() при выходе из контекста
 
         return total_checks, failed_checks
-    
-    

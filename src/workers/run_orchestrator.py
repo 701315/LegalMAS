@@ -127,6 +127,23 @@ async def _start_run_pipeline_async(
             "tasks_scheduled": 0,
         }
 
+    # Пытаемся атомарно стартовать Run.
+    # Если Run уже кто‑то запустил (или он уже завершён),
+    # мы не должны повторно ставить задачи по документам.
+    started = await run_repo.try_start_run(run_uuid)
+    if not started:
+        logger.info(
+            "Run pipeline already started or finished, skipping orchestration",
+            extra={"run_id": run_id},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": str(run_obj.deal_id) if run_obj and run_obj.deal_id else None,
+            "tenant_id": tenant_id,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+        }
+
     # Определяем стратегию пайплайна для этого Run.
     pipeline_strategy = getattr(run_obj, "pipeline_strategy", "REUSE_STRUCTURE")
     is_full_rerun = pipeline_strategy == "FULL_RERUN"
@@ -355,12 +372,6 @@ async def _start_run_pipeline_async(
         },
     )
 
-    # Переводим Run в RUNNING.
-    await run_repo.update_status(
-        run_uuid,
-        RunStatus.RUNNING.value,
-    )
-
     logger.info(
         "Run marked as RUNNING, calling maybe_start_run_checks",
         extra={
@@ -369,7 +380,8 @@ async def _start_run_pipeline_async(
         },
     )
 
-    # После того как Run стал RUNNING, даём сигнал авто-стартеру checks.
+    # После того как Run стал RUNNING (в начале функции через try_start_run),
+    # даём сигнал авто-стартеру checks.
     # Для непрофессионального программиста:
     # - maybe_start_run_checks сам посмотрит все документы сделки;
     # - если все "живые" документы уже CLASSIFIED/COMPLETED и

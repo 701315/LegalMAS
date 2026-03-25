@@ -6,7 +6,7 @@ Application configuration.
 Loads settings from environment variables / .env file.
 """
 
-
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,9 +36,11 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
 
     # --- Application ---
+    BASE_DIR: str = str(Path(__file__).resolve().parent.parent.parent)
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"  # "console" for dev, "json" for production
+
 
     # --- Classification & Embeddings (общие) ---
     EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"

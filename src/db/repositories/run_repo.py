@@ -313,6 +313,38 @@ class RunRepository:
         return stats
 
 
+    async def try_start_run(self, run_id: uuid.UUID) -> bool:
+        """
+        Атомарно перевести Run из PENDING в RUNNING.
+
+        Для непрофессионального программиста:
+        - Этот метод делает один запрос к базе:
+          "если Run ещё в статусе 'pending', поставь ему статус 'running'".
+        - Если Run уже кто‑то запустил (он не в pending),
+          метод вернёт False, и мы поймём, что повторно запускать пайплайн не нужно.
+        """
+        stmt = (
+            update(Run)
+            .where(Run.id == run_id, Run.status == RunStatus.PENDING.value)
+            .values(status=RunStatus.RUNNING.value)
+            .returning(Run.id)
+        )
+        result = await self.session.execute(stmt)
+        row = result.scalar_one_or_none()
+        if not row:
+            # Ничего не поменяли — Run уже не в PENDING.
+            return False
+
+        # Дополнительно, по аналогии с update_status, можем проставить started_at.
+        await self.session.execute(
+            update(Run)
+            .where(Run.id == run_id)
+            .values(started_at=datetime.now(UTC).replace(tzinfo=None))
+        )
+        await self.session.flush()
+        return True
+
+
 class JobRepository:
     def __init__(self, session: AsyncSession):
         self.session = session

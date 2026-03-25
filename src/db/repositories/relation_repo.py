@@ -129,4 +129,40 @@ class RelationRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def delete_all_for_deal(self, deal_id: uuid.UUID) -> None:
+        """
+        Удалить все связи и семейства документов для указанной сделки.
+
+        Для непрофессионального программиста:
+        - этот метод чистит всё, что построил Relations Worker
+          (relations, families, family_members) по одной сделке;
+        - так мы можем безопасно пересчитать связи с нуля,
+          не оставляя «старого мусора» в базе.
+        """
+        # Удаляем всех членов семей, чьи семьи относятся к этой сделке.
+        family_ids_stmt = select(DocumentFamily.id).where(DocumentFamily.deal_id == deal_id)
+        family_ids_result = await self.session.execute(family_ids_stmt)
+        family_ids = [row[0] for row in family_ids_result.all()]
+
+        if family_ids:
+            await self.session.execute(
+                DocumentFamilyMember.__table__.delete().where(
+                    DocumentFamilyMember.family_id.in_(family_ids)
+                )
+            )
+            await self.session.execute(
+                DocumentFamily.__table__.delete().where(
+                    DocumentFamily.id.in_(family_ids)
+                )
+            )
+
+        # Удаляем все связи документов по сделке.
+        await self.session.execute(
+            DocumentRelation.__table__.delete().where(
+                DocumentRelation.deal_id == deal_id
+            )
+        )
+
+        # flush не обязателен, но пусть будет для единообразия.
+        await self.session.flush()
 

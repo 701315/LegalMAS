@@ -30,11 +30,12 @@ import uuid
 import tempfile
 from typing import Optional
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.constants import DocumentStatus
-from core.exceptions import PermanentError
+from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from db.repositories import DocumentRepository, DocumentVersionRepository
 from db.uow import db_uow, UnitOfWork
@@ -206,9 +207,6 @@ async def convert_to_pdf_async(
     }
 
 
-import httpx  # добавь импорт вверху файла
-
-
 async def _convert_office_bytes_to_pdf_bytes(src_bytes: bytes) -> bytes:
     """
     Конвертация офисного файла (DOCX/DOC/...) в PDF через внешний HTTP‑сервис.
@@ -246,17 +244,15 @@ async def _convert_office_bytes_to_pdf_bytes(src_bytes: bytes) -> bytes:
             "converter service behind HTTP."
         )
 
-    # Ниже — реальный вызов сервиса. Если сервиса пока нет, этот код временно
-    # можно не вызывать, но лучше сразу оставить рабочую реализацию,
-    # чтобы при появлении сервиса ничего не менять в воркере.
+    # Ниже — реальный вызов сервиса.
     try:
         async with httpx.AsyncClient(timeout=timeout_seconds) as client:
             files = {"file": ("input.docx", src_bytes, "application/octet-stream")}
             resp = await client.post(converter_url, files=files)
 
         if resp.status_code != 200:
-            # Сервис ответил ошибкой — это фатальная ошибка для конкретного документа,
-            # но не для всего пайплайна.
+            # Сервис ответил ошибкой — фатально для конкретного документа,
+            # но не транзиентная сетевуха.
             raise PermanentError(
                 f"Conversion service error: {resp.status_code} {resp.text}"
             )
@@ -264,11 +260,15 @@ async def _convert_office_bytes_to_pdf_bytes(src_bytes: bytes) -> bytes:
         # Успешная конвертация: возвращаем байты PDF.
         return resp.content
 
+    except httpx.TimeoutException as e:
+        # Таймаут — временная ошибка, можно повторить.
+        raise TransientError(f"Conversion service timeout: {e}")
+    except httpx.ConnectError as e:
+        # Нет соединения — временная ошибка.
+        raise TransientError(f"Conversion service connection failed: {e}")
     except httpx.RequestError as e:
-        # Ошибки сети/таймаута — тоже PermanentError для данного документа.
-        # Можно в будущем решить, что часть из них транзиентные и добавить ретраи,
-        # но базовый контракт лучше сделать фатальным, чтобы не зависать.
-        raise PermanentError(f"Conversion service request failed: {e}")
+        # Другие сетевые ошибки — тоже временные.
+        raise TransientError(f"Conversion service request error: {e}")
 
 
 async def _mark_convert_failed(
@@ -290,7 +290,6 @@ async def _mark_convert_failed(
         reason="conversion_error",
         run_id=run_id,
     )
-
 
 
 # ─────────────────────────────────────────────────────────────────────────────

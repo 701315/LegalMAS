@@ -54,141 +54,78 @@ llm:
     </context>
 
     <instructions>
-    Определи:
+    Проведи анализ по шагам. Каждый шаг логически соответствует одному или
+    нескольким полям итоговой оценки риска.
 
-    1) На какие приложения, допсоглашения, протоколы разногласий, side letters
-       и disclosure schedules ссылается основной договор:
-       - перечисли это кратко в referenced_ancillary_documents_summary.
+    Шаг 1 — УПОМИНАЕМЫЕ ДОПОЛНИТЕЛЬНЫЕ ДОКУМЕНТЫ
+    (используется для заполнения поля "referenced_ancillary_documents_summary"):
+    - Определи, на какие приложения, допсоглашения, протоколы разногласий,
+      side letters и disclosure schedules ссылается основной договор.
+    - Сформулируй краткое текстовое резюме этих ссылок.
 
-    2) Есть ли признаки того, что часть таких документов отсутствует
-       в предоставленном пакете:
-       - упоминания документов без текста в доступных фрагментах;
-       - пропущенные или «дырявые» номера приложений/раскрытий;
-       - ссылки вида "as set out in Schedule X", при этом сам Schedule X нигде не виден.
-       Отрази это в suspected_missing_documents_or_schedules: yes / no / unclear.
+    Шаг 2 — ПОДОЗРЕНИЯ НА ОТСУТСТВУЮЩИЕ ДОКУМЕНТЫ / SCHEDULES
+    (используется для заполнения поля "suspected_missing_documents_or_schedules"):
+    - Оцени, есть ли признаки того, что часть таких документов отсутствует
+      в предоставленном пакете (упоминания без текста, пропуски в нумерации,
+      ссылки вида "as set out in Schedule X" без самого Schedule X в доступных
+      материалах).
+    - Сформируй вывод по сути: есть ли обоснованное подозрение на неполный
+      пакет документов или нет, либо данных недостаточно.
 
-    3) Упоминаются ли disclosure schedules и насколько они выглядят полными:
-       - adequate — если по тексту видно, что раскрытия детализированы и нет явных дыр;
-       - weak — если формулировки общие, есть ссылки на «будущее предоставление»,
-         явные лакуны или сильно усечённый перечень;
-       - none — если disclosure schedules либо не упоминаются, либо явно не используются;
-       - unclear — если по фрагментам нельзя оценить полноту.
-       Укажи это в disclosure_schedules_completeness_assessment.
+    Шаг 3 — ПОЛНОТА DISCLOSURE SCHEDULES
+    (используется для заполнения поля "disclosure_schedules_completeness_assessment"):
+    - Определи, упоминаются ли disclosure schedules.
+    - По содержанию фрагментов оцени, выглядят ли раскрытия:
+      * достаточно детализированными и полными,
+      * слабыми/формальными,
+      * отсутствующими,
+      * либо оценка невозможна по доступным данным.
 
-    4) Есть ли ссылки на внутренние реестры (contract register, litigation register)
-       и признаки расхождений между ними и фактическим пакетом документов:
-       - упоминаются договоры/споры в реестре, которых нет в предоставленном пакете;
-       - есть ссылки, что «см. реестр», но сам реестр в контексте отсутствует.
-       Оцени registers_vs_actual_docs_gap_risk_level: low / medium / high / unclear.
+    Шаг 4 — РАЗРЫВ МЕЖДУ РЕЕСТРАМИ И ФАКТИЧЕСКИМИ ДОКУМЕНТАМИ
+    (используется для заполнения поля "registers_vs_actual_docs_gap_risk_level"):
+    - Проверь, упоминаются ли внутренние реестры (contract register,
+      litigation register и аналогичные).
+    - Оцени, есть ли признаки расхождений между указанными в реестрах
+      договорами/спорами и фактически представленным пакетом документов.
 
-    5) Оцени общий риск для Target (overall_risk_level: low / medium / high):
-       - учитывай отсутствие приложений/side letters, явные дыры в disclosure schedules
-         и возможные расхождения с реестрами.
+    Шаг 5 — ОБЩИЙ РИСК ДЛЯ TARGET
+    (используется для формирования "overall_risk_level" и "reason"):
+    - На основе выводов по шагам 1–4 оцени общий риск неполноты пакета
+      и возможных скрытых условий (приложения, side letters, раскрытия,
+      несоответствие реестрам).
+    - В объяснении опирайся на конкретные формулировки из текста, а не
+      на абстрактные фразы. Явно укажи, какие именно документы или
+      ссылки вызывают риск.
     </instructions>
 
     <edge_cases>
-    ВАЖНО — пограничные случаи:
+    Обрабатывай пограничные ситуации так:
 
-    — Если договор упоминает множество приложений/раскрытий, но в доступных
+    - Если договор упоминает множество приложений/раскрытий, но в доступных
       фрагментах нет их текста:
-      suspected_missing_documents_or_schedules = "yes",
-      disclosure_schedules_completeness_assessment обычно "unclear" или "none".
+      считай, что есть риск отсутствующих документов, а полноту раскрытий
+      оценить сложно.
 
-    — Если side letter упоминается фразами «сторонами также заключено отдельное
-      соглашение», но самого текста нет:
-      считаем, что есть риск отсутствующего side letter (отрази в reason),
-      suspected_missing_documents_or_schedules = "yes".
+    - Если side letter упоминается фразами вроде
+      «сторонами также заключено отдельное соглашение», но текста нет:
+      учитывай это как существенный риск скрытых условий и фиксируй
+      этот факт в своём анализе.
 
-    — Если вообще нет ссылок ни на приложения, ни на schedules, ни на реестры:
-      referenced_ancillary_documents_summary может быть пустым/минимальным,
-      suspected_missing_documents_or_schedules = "no",
-      disclosure_schedules_completeness_assessment = "none".
+    - Если вообще нет ссылок ни на приложения, ни на schedules, ни на реестры:
+      это само по себе не признак риска, но отметь, что дополнительных
+      документов и реестров по тексту не видно.
 
-    — Пустые или нерелевантные фрагменты:
-      большинство полей = "unclear" или пустые строки,
-      overall_risk_level = "medium",
-      reason = "Недостаточно данных для оценки полноты документации и наличия side letters."
+    - Если фрагменты пустые или явно нерелевантные:
+      большинство оценок будет "unclear", но в объяснении укажи, что
+      данных недостаточно для уверенного вывода о полноте документации.
     </edge_cases>
 
-    <examples>
-    ПРИМЕР 1 — ЯВНО ОТСУТСТВУЮЩИЕ ПРИЛОЖЕНИЯ/РАСКРЫТИЯ (HIGH):
-
-    Фрагмент: "Настоящий Договор заключается с учётом раскрытий,
-    приведённых в Disclosure Schedule 1–5, которые составляют его
-    неотъемлемую часть. Приложения и Disclosure Schedules в материалы
-    проверки не включены."
-
-    {{
-      "referenced_ancillary_documents_summary": "Упоминаются Disclosure Schedules 1–5 как неотъемлемая часть договора.",
-      "suspected_missing_documents_or_schedules": "yes",
-      "disclosure_schedules_completeness_assessment": "unclear",
-      "registers_vs_actual_docs_gap_risk_level": "unclear",
-      "overall_risk_level": "high",
-      "reason": "Основной договор прямо ссылается на Disclosure Schedules 1–5, но они отсутствуют в пакете проверки, что создаёт высокий риск скрытых условий и раскрытий."
-    }}
-
-    ПРИМЕР 2 — УПОМИНАНИЕ SIDE LETTER БЕЗ ТЕКСТА (MEDIUM/HIGH):
-
-    Фрагмент: "Сторонами также заключено отдельное соглашение
-    (Side Letter), устанавливающее дополнительные условия оплаты
-    для Покупателя X."
-
-    {{
-      "referenced_ancillary_documents_summary": "Упоминается отдельный Side Letter с дополнительными условиями оплаты.",
-      "suspected_missing_documents_or_schedules": "yes",
-      "disclosure_schedules_completeness_assessment": "none",
-      "registers_vs_actual_docs_gap_risk_level": "medium",
-      "overall_risk_level": "high",
-      "reason": "Есть прямая ссылка на side letter с дополнительными экономическими условиями, но его текст отсутствует, что создаёт риск скрытых обязательств для Target."
-    }}
-
-    ПРИМЕР 3 — ПОЛНЫЙ ПАКЕТ, НИЗКИЙ РИСК:
-
-    Фрагмент: "Договор имеет Приложения №1–3 (Спецификация, График
-    поставки, Порядок расчётов), являющиеся его неотъемлемой частью.
-    Все указанные приложения представлены и подписаны Сторонами."
-
-    {{
-      "referenced_ancillary_documents_summary": "Приложения №1–3 (Спецификация, График поставки, Порядок расчётов), все представлены и подписаны.",
-      "suspected_missing_documents_or_schedules": "no",
-      "disclosure_schedules_completeness_assessment": "none",
-      "registers_vs_actual_docs_gap_risk_level": "low",
-      "overall_risk_level": "low",
-      "reason": "Все упомянутые приложения доступны и подписаны, признаков скрытых side letters или отсутствующих документов не видно."
-    }}
-    </examples>
-
-    <output_format>
-    Твой ответ ДОЛЖЕН быть строго валидным JSON-объектом со следующими
-    полями:
-
-    {{
-      "referenced_ancillary_documents_summary": "string — краткое описание упоминаемых приложений, допсоглашений, side letters и disclosure schedules",
-      "suspected_missing_documents_or_schedules": "one of: yes | no | unclear",
-      "disclosure_schedules_completeness_assessment": "one of: adequate | weak | unclear | none",
-      "registers_vs_actual_docs_gap_risk_level": "one of: low | medium | high | unclear",
-      "overall_risk_level": "one of: low | medium | high",
-      "reason": "string — краткое объяснение на русском с указанием ключевых формулировок и рисков неполноты пакета"
-    }}
-
-    Все перечисленные поля ДОЛЖНЫ присутствовать в JSON, даже если их значение равно null.
-    </output_format>
-
-    <constraints>
-    ЖЁСТКИЕ ПРАВИЛА:
-    1. Выведи ТОЛЬКО один JSON-объект. Никакого текста до или после.
-    2. Не пиши "Вот JSON", "Here is the JSON" и т.п.
-    3. Не используй Markdown, бэктики ``` или любые обёртки.
-    4. Все строки — в двойных кавычках.
-    5. Значения перечислимых полей — СТРОГО из указанных вариантов.
-    6. Ключи — точно как указано, без добавления новых.
-    7. Поле "reason" ДОЛЖНО содержать конкретные факты и формулировки
-       из фрагментов, а не общие фразы вроде "есть риски".
-    8. Начни ответ сразу с символа {{
-    9. Если по какому‑то полю нет достаточно информации в тексте —
-       верни для него 'unclear' или null (для reason пустое значение
-       недопустимо — нужно объяснение). НЕ придумывай значения, не интерполируй.
-    </constraints>
+    <output_expectations>
+    На основе твоего анализа отдельный механизм извлечения сформирует
+    структурированные поля по заранее заданной схеме. Твоя задача —
+    давать чёткие юридические выводы и указывать конкретные формулировки
+    из текста, на которых они основаны.
+    </output_expectations>
   prompt_file: null
   context_k: 6
   temperature: 0.0
@@ -221,12 +158,14 @@ extraction:
   fields:
     - name: "referenced_ancillary_documents_summary"
       type: "string"
+
     - name: "suspected_missing_documents_or_schedules"
       type: "string"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
+
     - name: "disclosure_schedules_completeness_assessment"
       type: "string"
       allowed_values:
@@ -234,6 +173,7 @@ extraction:
         - "weak"
         - "unclear"
         - "none"
+
     - name: "registers_vs_actual_docs_gap_risk_level"
       type: "string"
       allowed_values:
@@ -241,14 +181,17 @@ extraction:
         - "medium"
         - "high"
         - "unclear"
+
     - name: "overall_risk_level"
       type: "string"
       allowed_values:
         - "low"
         - "medium"
         - "high"
+
     - name: "reason"
       type: "string"
+
   store_payload: true
 
 red_flags:

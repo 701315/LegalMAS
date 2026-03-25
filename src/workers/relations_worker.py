@@ -23,6 +23,7 @@ import time
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from ops.metrics import get_metrics
 
 from core.config import settings
@@ -93,6 +94,19 @@ async def _build_relations_async(
 
     start = time.time()
     logger.info("Build relations started", deal_id=deal_id)
+
+    # ВАЖНО: приводим deal_id к UUID один раз и используем далее.
+    deal_uuid = uuid.UUID(deal_id)
+
+    # Шаг 0: очистка старых связей и семей по сделке.
+    #
+    # Для непрофессионального программиста:
+    # - перед тем как строить новые связи, мы честно удаляем все старые
+    #   связи и «семьи» документов по этой сделке;
+    # - это делает задачу идемпотентной: если её запустить повторно,
+    #   результат будет таким же, а старых «остатков» не останется.
+    relation_repo = RelationRepository(db)
+    await relation_repo.delete_all_for_deal(deal_uuid)
 
     # Step 1: load deal documents
     docs = await _load_deal_documents(deal_id, db)
@@ -219,7 +233,9 @@ async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
             # Classification fields from HybridClassifier (Stage 6)
             "classification_level": d.classification_level or "L0",
             "classification_confidence": float(d.classification_confidence or 0.0),
-            "yaml_instruction_available": bool(getattr(d, "yaml_instruction_available", False)),
+            "yaml_instruction_available": bool(
+                getattr(d, "yaml_instruction_available", False)
+            ),
             "applicable_triggers": d.applicable_triggers or [],
         }
         for d in docs
@@ -260,7 +276,6 @@ async def _load_text_snippets(
             doc["text_first_2000"] = ""
 
     return documents
-
 
 
 async def _mark_duplicates(doc_ids: list[str], db: AsyncSession) -> None:

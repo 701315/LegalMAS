@@ -12,7 +12,7 @@ CheckRunner Worker — запуск playbook-checks по уже классифи
   - прогоняет их через CheckRunner (playbook + CheckExecutor);
   - пишет CheckResult'ы в БД;
   - агрегирует статистику (processed_docs, total_checks, failed_checks, errors);
-  - обновляет Run.total_checks / Run.completed_checks и финальный статус Run.
+  - обновляет Run.total_checks и финальный статус Run.
 
 Архитектура:
 - Снаружи — синхронная Celery-таска run_deal_checks (def), чтобы Celery мог её вызывать.
@@ -60,7 +60,7 @@ def run_deal_checks(
       - создаёт LLMClient;
       - переходит в async‑ядро через run_async;
       - внутри async‑ядра открывает db_uow(), запускает CheckRunner.run_deal_checks;
-      - по результату обновляет Run (total_checks, completed_checks, статус);
+      - по результату обновляет Run (total_checks, статус);
       - возвращает summary от CheckRunner + финальный статус Run.
 
     Для непрофессионального программиста:
@@ -125,10 +125,12 @@ def run_deal_checks(
                 )
 
                 # 4. Создаём CheckRunner.
+                # ВАЖНО: передаём run_repo, чтобы CheckRunner мог обновлять прогресс Run.
                 runner = CheckRunner(
                     llm_client=llm_client,
                     playbook_version_id=run_obj.playbook_version_id,
                     checks_mode=checks_mode,
+                    run_repo=run_repo,
                 )
 
                 logger.info(
@@ -148,13 +150,11 @@ def run_deal_checks(
                     checks_mode=checks_mode,
                 )
 
-                # Обновляем total_checks / completed_checks по фактическим данным
+                # Обновляем total_checks по фактическим данным.
+                # completed_checks к этому моменту уже инкрементировался по документам.
                 total_checks = int(summary.get("total_checks", 0) or 0)
                 failed_checks = int(summary.get("failed_checks", 0) or 0)
                 errors = int(summary.get("errors", 0) or 0)
-
-                # Прогресс: считаем, что completed_checks == total_checks
-                completed_checks = total_checks
 
                 # Определяем финальный статус Run:
                 # - если были ошибки на уровне документов/чеков → COMPLETED_WITH_ERRORS;
@@ -168,7 +168,7 @@ def run_deal_checks(
                     run_uuid,
                     final_status,
                     total_checks=total_checks,
-                    completed_checks=completed_checks,
+                    # completed_checks не передаём: оно уже было увеличено CheckRunner'ом.
                 )
 
                 duration = time.time() - started_at

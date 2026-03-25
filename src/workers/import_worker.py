@@ -112,7 +112,28 @@ def import_bundle(
             )
 
     # Запускаем асинхронную часть через общий мост run_async
-    return run_async(_wrapper())
+    result = run_async(_wrapper())
+
+    # ВАЖНО: на этом месте транзакция уже закоммичена.
+    # То есть все документы по сделке уже созданы в БД.
+    # Если в этом импорте появились новые документы, имеет смысл
+    # заново перестроить связи и «семьи» документов по сделке.
+    #
+    # Для непрофессионального программиста:
+    # - мы смотрим, сколько документов реально импортировано;
+    # - если число > 0, ставим отдельную фоновую задачу
+    #   workers.build_relations, которая в фоне пересчитает связи.
+    imported_count = result.get("imported_count", 0)
+    if imported_count > 0:
+        celery_app.send_task(
+            "workers.build_relations",
+            kwargs={
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
+        )
+
+    return result
 
 
 async def _import_bundle_async(
@@ -289,7 +310,7 @@ async def _async_import(
         idempotency_key=idempotency_key,
         file_count=0,
     )
-    db.add(bundle)
+    db.add(bundle    )
     await db.flush()
 
     for folder_path, filepath in file_list:
