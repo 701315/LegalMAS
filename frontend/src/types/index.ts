@@ -273,6 +273,17 @@ export interface StructuredDataResult {
   total_extracted: number;
 }
 
+// Единый payload для viewer'a
+export type OpenViewerAtPayload = {
+  documentId: string;
+  page?: number | null;
+  clauseUid?: string | null;
+  elementId?: string | null;
+};
+
+// Единая сигнатура коллбэка
+export type OpenViewerAtFn = (payload: OpenViewerAtPayload) => void;
+
 
 // -------------------------------------------------------------
 // RUNS (ЗАПУСКИ АНАЛИЗА)
@@ -446,7 +457,7 @@ export interface CheckResult {
   qc_comment?: string;
   qc_at?: string;
   created_at: string;
-  structured_data?: Record<string, unknown>;
+  structured_data?: Record<string, StructuredField>;
   conditional_check_triggered?: boolean;
   trigger_name?: string;
   doc_classification_level?: ClassificationLevel;
@@ -454,6 +465,31 @@ export interface CheckResult {
   origin?: CheckResultOrigin; // "global_playbook" | "doctype_playbook" | ...
   origin_type?: CheckResultOriginType;
 }
+
+
+export interface StructuredField {
+  value: any;
+  unit?: string | null;
+  source?: string | null;
+  confidence?: number | null;
+  found?: boolean;
+  location?: {
+    page?: number | null;
+    clause_uid?: string | null;
+    element_id?: string | null;
+    start_page?: number | null;
+    end_page?: number | null;
+    path_titles?: string[] | null;
+  } | null;
+    // "pending" | "accepted" | "rejected" | "auto_accepted"
+  qc?: {
+    status?: string | null;
+    by?: string | null;
+    comment?: string | null;
+    at?: string | null;
+  } | null;
+}
+
 
 // -------------------------------------------------------------
 // EVIDENCE (ДОКАЗАТЕЛЬСТВА ДЛЯ РЕЗУЛЬТАТОВ ПРОВЕРОК)
@@ -476,6 +512,12 @@ export interface Evidence {
   // Дополнительные произвольные поля (для расширений backend-а)
   [key: string]: unknown;
 }
+
+
+
+
+
+
 
 // -------------------------------------------------------------
 // DD ЗАПРОСЫ (DUE DILIGENCE REQUESTS)

@@ -11,9 +11,16 @@ import type {
   ColDef,
   ICellRendererParams,
   ValueGetterParams,
+  SelectionChangedEvent,
+  ITooltipParams,
 } from "ag-grid-community";
 
-import type { CheckResult } from "../../types";
+
+import type {
+  CheckResult,
+  OpenViewerAtFn,
+  StructuredField,
+} from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import QCCellRenderer from "../qc/QCCellRenderer";
@@ -37,6 +44,9 @@ interface DDGridProps {
 
   // Режим отображения: матрица или список
   mode?: "matrix" | "list";
+
+  // Открыть viewer на конкретном фрагменте
+  onOpenAtLocation?: OpenViewerAtFn;
 }
 
 interface GridContext {
@@ -44,6 +54,7 @@ interface GridContext {
   onDocumentClick?: (result: CheckResult) => void;
   onCheckClick?: (result: CheckResult) => void;
   onQcChange?: (result: CheckResult, newStatus: "approved" | "rejected") => void;
+  onOpenAtLocation?: OpenViewerAtFn;
 }
 
 // -------------------------------------------------------------
@@ -94,6 +105,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
   onDocumentClick,
   onCheckClick,
   onSelectionChange,
+  onOpenAtLocation, // пока не используем в матрице, но оставляем в пропсах
 }) => {
   const { rowData, riskColumns } = useMemo(() => {
     const docMap = new Map<string, MatrixRow>();
@@ -149,6 +161,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
     onDocumentClick,
     onCheckClick,
     onQcChange: undefined,
+    onOpenAtLocation,
   };
 
   const baseColumns = useMemo<ColDef<MatrixRow>[]>(
@@ -167,7 +180,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
         flex: 2,
         pinned: "left",
         cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
-          const handleClick = (e: React.MouseEvent) => {
+          const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation();
             if (!onDocumentClick) return;
             const docId = p.data?.documentId;
@@ -203,6 +216,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           }
           return (
             <ClassificationBadge
+              // если в типах уровни совпадают, any не нужен
               level={level as any}
               confidence={conf ?? undefined}
               showConfidence={false}
@@ -243,7 +257,6 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           field,
           minWidth: 180,
           flex: 1,
-          // добавляем простой форматтер для object-значения
           valueFormatter: (params) => {
             const res = params.data?.[field] as CheckResult | undefined;
             if (!res) return "";
@@ -252,14 +265,18 @@ const MatrixGrid: React.FC<DDGridProps> = ({
             }
             return res.result;
           },
-          tooltipValueGetter: (p: any) => {
-            const res: CheckResult | undefined = p.data?.[field];
+          tooltipValueGetter: (
+            params: ITooltipParams<MatrixRow>,
+          ): string => {
+            const res = params.data?.[field] as CheckResult | undefined;
             return res?.value_text || "";
           },
           cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
             const res: CheckResult | undefined = p.data?.[field];
             if (!res) {
-              return <span className="text-[11px] text-gray-300">—</span>;
+              return (
+                <span className="text-[11px] text-gray-300">—</span>
+              );
             }
 
             const { result, severity } = res;
@@ -277,7 +294,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               textStatus = "Не найден";
             }
 
-            const handleClick = (e: React.MouseEvent) => {
+            const handleClick = (
+              e: React.MouseEvent<HTMLButtonElement>,
+            ) => {
               e.stopPropagation();
               onEyeClick?.(res);
             };
@@ -298,10 +317,11 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               </button>
             );
           },
-        } as ColDef<MatrixRow>;
+        } satisfies ColDef<MatrixRow>;
       }),
     [riskColumns, onEyeClick],
   );
+
 
   const columnDefs = useMemo<ColDef<MatrixRow>[]>(
     () => [...baseColumns, ...riskCols],
@@ -317,11 +337,13 @@ const MatrixGrid: React.FC<DDGridProps> = ({
     [],
   );
 
-  const handleSelectionChanged = (event: any) => {
+  const handleSelectionChanged = (
+    event: SelectionChangedEvent<MatrixRow>,
+  ) => {
     if (!onSelectionChange) return;
     const ids: string[] = event.api
       .getSelectedNodes()
-      .map((n: any) => (n.data as MatrixRow).documentId);
+      .map((n) => (n.data as MatrixRow).documentId);
     onSelectionChange(ids);
   };
 
@@ -366,12 +388,14 @@ const ListGrid: React.FC<DDGridProps> = ({
   onCheckClick,
   onQcChange,
   onSelectionChange,
+  onOpenAtLocation,
 }) => {
   const context: GridContext = {
     onEyeClick,
     onDocumentClick,
     onCheckClick,
     onQcChange,
+    onOpenAtLocation,
   };
 
   const columnDefs = useMemo<ColDef<CheckResult>[]>(
@@ -500,6 +524,14 @@ const ListGrid: React.FC<DDGridProps> = ({
         flex: 0.8,
         minWidth: 110,
       },
+      // Новая колонка: извлечённые данные по чеку (structured_data)
+      {
+        headerName: "Extracted",
+        field: "structured_data",
+        flex: 1.4,
+        minWidth: 220,
+        cellRenderer: StructuredDataCellRenderer,
+      },
       // ВРЕМЕННАЯ колонка для отладки origin
       {
         headerName: "Origin",
@@ -531,11 +563,13 @@ const ListGrid: React.FC<DDGridProps> = ({
     [],
   );
 
-  const handleSelectionChanged = (event: any) => {
+  const handleSelectionChanged = (
+    event: SelectionChangedEvent<CheckResult>,
+  ) => {
     if (!onSelectionChange) return;
     const ids: string[] = event.api
       .getSelectedNodes()
-      .map((n: any) => (n.data as CheckResult).id);
+      .map((n) => (n.data as CheckResult).id);
     onSelectionChange(ids);
   };
 
@@ -573,7 +607,7 @@ interface BaseCellParams extends ICellRendererParams<CheckResult, any> {
 const SeverityCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { value, data, context } = props;
 
-  const handleEyeClick = (e: React.MouseEvent) => {
+  const handleEyeClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     context.onEyeClick?.(data);
   };
@@ -608,7 +642,7 @@ const SeverityCellRenderer: React.FC<BaseCellParams> = (props) => {
 const DocumentCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { value, data, context } = props;
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     context.onDocumentClick?.(data);
   };
@@ -630,7 +664,7 @@ const DocumentCellRenderer: React.FC<BaseCellParams> = (props) => {
 const CheckNameCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { value, data, context } = props;
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     context.onCheckClick?.(data);
   };
@@ -665,5 +699,86 @@ const ConditionalCellRenderer: React.FC<BaseCellParams> = (props) => {
     >
       ⚡
     </span>
+  );
+};
+
+// Краткий renderer извлечённых данных для list‑таблицы.
+// Показываем до 2 полей и даём клик "Фрагмент" при наличии location.
+const StructuredDataCellRenderer: React.FC<BaseCellParams> = (props) => {
+  const { data, context } = props;
+  const sd = data.structured_data as
+    | Record<string, StructuredField>
+    | null
+    | undefined;
+
+  if (!sd || typeof sd !== "object") {
+    return <span className="text-[11px] text-gray-300">—</span>;
+  }
+
+  const entries = Object.entries(sd);
+  if (!entries.length) {
+    return <span className="text-[11px] text-gray-300">—</span>;
+  }
+
+  const maxShown = 2;
+  const shown = entries.slice(0, maxShown);
+  const rest = entries.length - shown.length;
+
+  const handleOpen = (field: StructuredField) => {
+    if (!field.location || !context.onOpenAtLocation) return;
+    context.onOpenAtLocation({
+      documentId: data.document_id,
+      page: field.location.page ?? field.location.start_page ?? null,
+      clauseUid: field.location.clause_uid ?? null,
+      elementId: field.location.element_id ?? null,
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5 text-[11px]">
+      {shown.map(([name, field]) => {
+        const f = (field || {}) as StructuredField;
+        const value = f.value != null ? String(f.value) : "—";
+        const conf =
+          typeof f.confidence === "number"
+            ? `${Math.round(f.confidence * 100)}%`
+            : "";
+        const source = f.source || "";
+        const hasLocation = !!f.location;
+
+        return (
+          <div key={name} className="flex items-center gap-1">
+            <span className="text-gray-500 truncate max-w-[35%]">
+              {name}
+            </span>
+            <span className="text-gray-800 truncate flex-1 text-right">
+              {value}
+              {conf && (
+                <span className="text-gray-400 ml-1">({conf})</span>
+              )}
+              {source && (
+                <span className="text-gray-400 ml-1">[{source}]</span>
+              )}
+            </span>
+            {hasLocation && (
+              <button
+                type="button"
+                className="ml-1 text-blue-600 hover:underline whitespace-nowrap"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpen(f);
+                }}
+                title="Открыть фрагмент документа"
+              >
+                Фрагмент
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {rest > 0 && (
+        <span className="text-gray-400">… ещё {rest}</span>
+      )}
+    </div>
   );
 };

@@ -7,7 +7,12 @@
 
 import React from "react";
 
-import type { CheckResult, QCStatus } from "../../types";
+import type {
+  CheckResult,
+  QCStatus,
+  OpenViewerAtFn,
+  StructuredField,
+} from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { useEvidence } from "../../api/evidence";
@@ -19,24 +24,41 @@ interface EvidencePanelProps {
     result: CheckResult,
     newStatus: Exclude<QCStatus, "pending">,
   ) => void;
+  onOpenAtLocation?: OpenViewerAtFn;
 }
 
 export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   result,
   onClose,
   onQcChange,
+  onOpenAtLocation,
 }) => {
   const { data: evidence, isLoading, error } = useEvidence(result.id);
 
+  const evidenceObj = evidence as
+    | {
+        quote?: string;
+        snippet?: string;
+        page?: number;
+        clause_uid?: string;
+        structured_data?: unknown;
+      }
+    | undefined;
+
   const snippet =
-    (evidence as any)?.quote ||
-    (evidence as any)?.snippet ||
+    evidenceObj?.quote ||
+    evidenceObj?.snippet ||
     result.value_text ||
     "(нет фрагмента текста)";
 
-  const page = (evidence as any)?.page as number | undefined;
-  const clauseUid = (evidence as any)?.clause_uid as string | undefined;
-  const evidenceDetails = (evidence as any)?.structured_data;
+  const page = evidenceObj?.page;
+  const clauseUid = evidenceObj?.clause_uid;
+
+  // structured_data из evidence: типизуем как обычный объект для JSON.stringify
+  const evidenceDetails =
+    (evidenceObj?.structured_data as Record<string, unknown> | undefined) ??
+    undefined;
+  const hasEvidenceDetails = !!evidenceDetails;
 
   const qcStatus = result.qc_status;
   const isPendingQc = qcStatus === "pending";
@@ -55,8 +77,9 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   };
 
   const qualitySummary = React.useMemo(() => {
-    const flags = result.quality_flags || {};
+    const flags = (result.quality_flags ?? {}) as Record<string, unknown>;
     const active: string[] = [];
+
     if ((flags as any).structure_degraded) {
       active.push("Структура документа нарушена");
     }
@@ -72,11 +95,62 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     return active.join(" · ");
   }, [result.quality_flags]);
 
-  // Секция "Извлечённые данные": из structured_data CheckResult
-  const structuredEntries = result.structured_data
-    ? Object.entries(result.structured_data)
-    : [];
+  // Секция "Извлечённые данные": из structured_data CheckResult.
+  const structuredEntries: [string, StructuredField][] = React.useMemo(() => {
+    if (!result.structured_data || typeof result.structured_data !== "object") {
+      return [];
+    }
+    return Object.entries(result.structured_data) as [string, StructuredField][];
+  }, [result.structured_data]);
+
   const hasStructuredData = structuredEntries.length > 0;
+
+  // Простейшая логика статуса по полю: found + confidence.
+  const getFieldStatus = (field: StructuredField): "yes" | "no" | "unclear" => {
+    const found = field.found ?? true;
+    const conf = typeof field.confidence === "number" ? field.confidence : 0;
+    if (!found) return "no";
+    if (conf >= 0.6) return "yes";
+    return "unclear";
+  };
+
+  const renderStatusLabel = (field: StructuredField) => {
+    const status = getFieldStatus(field);
+    if (status === "yes") return "Есть";
+    if (status === "no") return "Нет";
+    return "Требует уточнения";
+  };
+
+  // Человекочитаемый текст для location.
+  const renderLocationLabel = (field: StructuredField) => {
+    if (!field.location) return "—";
+    const { page, clause_uid } = field.location;
+    if (!page && !clause_uid) return "Фрагмент";
+    if (page && clause_uid) return `Стр. ${page}, п. ${clause_uid}`;
+    if (page) return `Стр. ${page}`;
+    return clause_uid || "Фрагмент";
+  };
+
+  // Краткий QC-статус по полю. Пока только текст, без кнопок.
+  const renderQcLabel = (field: StructuredField) => {
+    const status = field.qc?.status || "pending";
+    if (status === "pending") return "pending";
+    if (status === "accepted") return "accepted";
+    if (status === "rejected") return "rejected";
+    if (status === "auto_accepted") return "auto_accepted";
+    return status;
+  };
+
+  // Открытие viewer на конкретном поле.
+  const handleOpenFieldLocation = (field: StructuredField) => {
+    if (!field.location || !onOpenAtLocation) return;
+    onOpenAtLocation({
+      documentId: result.document_id,
+      page: field.location.page ?? field.location.start_page ?? null,
+      clauseUid: field.location.clause_uid ?? null,
+      elementId: field.location.element_id ?? null,
+    });
+  };
 
   // Низкая уверенность классификации
   const isLowConfidence =
@@ -176,8 +250,6 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                   Низкая уверенность
                 </span>
               )}
-              {/* TODO: добавить чип "YAML-инструкция есть"
-                  когда yaml_instruction_available появится в CheckResult */}
             </div>
           </div>
 
@@ -220,7 +292,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             <div className="text-[11px] text-gray-500 space-y-0.5">
               {result.confidence != null && (
                 <div>
-                  Уверенность детектора: {Math.round(result.confidence * 100)}%
+                  Уверенность детектора:{" "}
+                  {Math.round(result.confidence * 100)}%
                 </div>
               )}
               <div>
@@ -273,19 +346,78 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               </div>
               <div className="border rounded overflow-auto max-h-48">
                 <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        Поле
+                      </th>
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        Значение
+                      </th>
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        Статус
+                      </th>
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        Источник
+                      </th>
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        Увер.
+                      </th>
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        Фрагмент
+                      </th>
+                      <th className="px-2 py-1 text-left text-gray-500">
+                        QC
+                      </th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {structuredEntries.map(([key, value]) => (
-                      <tr key={key} className="border-b last:border-b-0">
-                        <td className="px-2 py-1 align-top text-gray-500 w-1/3 bg-gray-50">
-                          {key}
-                        </td>
-                        <td className="px-2 py-1 align-top text-gray-800">
-                          {typeof value === "object"
-                            ? JSON.stringify(value)
-                            : String(value ?? "—")}
-                        </td>
-                      </tr>
-                    ))}
+                    {structuredEntries.map(([key, field]) => {
+                      const value =
+                        field.value != null ? String(field.value) : "—";
+                      const source = field.source || "—";
+                      const conf =
+                        typeof field.confidence === "number"
+                          ? `${Math.round(field.confidence * 100)}%`
+                          : "—";
+                      const hasLocation = !!field.location;
+
+                      return (
+                        <tr key={key} className="border-b last:border-b-0">
+                          <td className="px-2 py-1 align-top text-gray-600 bg-gray-50 whitespace-nowrap">
+                            {key}
+                          </td>
+                          <td className="px-2 py-1 align-top text-gray-800">
+                            {value}
+                          </td>
+                          <td className="px-2 py-1 align-top text-gray-700 whitespace-nowrap">
+                            {renderStatusLabel(field)}
+                          </td>
+                          <td className="px-2 py-1 align-top text-gray-700 whitespace-nowrap">
+                            {source}
+                          </td>
+                          <td className="px-2 py-1 align-top text-gray-700 whitespace-nowrap">
+                            {conf}
+                          </td>
+                          <td className="px-2 py-1 align-top whitespace-nowrap">
+                            {hasLocation ? (
+                              <button
+                                type="button"
+                                className="text-blue-600 hover:underline"
+                                onClick={() => handleOpenFieldLocation(field)}
+                              >
+                                {renderLocationLabel(field)}
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 align-top text-gray-700 whitespace-nowrap">
+                            {renderQcLabel(field)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -293,7 +425,7 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
           )}
 
           {/* Детали из evidence.structured_data (технические) */}
-          {evidenceDetails && (
+          {hasEvidenceDetails && (
             <div>
               <div className="text-[11px] uppercase text-gray-400 mb-1">
                 Детали проверки

@@ -15,28 +15,111 @@ severity_if_unclear: "medium"
 detector_type: "hybrid"
 
 rules:
+  keyword_mode: any
+
   keywords:
-    - "governed by"
-    - "governing law"
-    - "настоящий договор регулируется"
-    - "применимое право"
-    - "подлежит регулированию"
-    - "jurisdiction"
-    - "exclusive jurisdiction"
-    - "non-exclusive jurisdiction"
-    - "место рассмотрения споров"
-    - "подсудность"
-    - "forum"
-    - "арбитраж"
-    - "arbitration"
-    - "arbitral tribunal"
-    - "seat of arbitration"
-  keyword_mode: "any"
+    high:
+      # Английские формулы применимого права
+      - "(?i)governed\\s+by\\s+the\\s+laws?\\s+of"
+      - "(?i)governing\\s+law"
+      - "(?i)this\\s+agreement[\\s\\S]{0,40}shall\\s+be\\s+governed"
+      - "(?i)law\\s+of\\s+[A-Z][A-Za-z\\s]+"
+
+      # Русские формулы применимого права
+      - "(?i)настоящий[\\s\\S]{0,40}договор[\\s\\S]{0,40}(регулирует|регулируется)"
+      - "(?i)применим[оа]\\s+право"
+      - "(?i)подлежит\\s+регулировани[юя]"
+      - "(?i)к\\s+данн(ому|ому\\s+договору)[\\s\\S]{0,40]применя[ею]тся\\s+законы"
+
+      # Юрисдикция / подсудность
+      - "(?i)exclusive\\s+jurisdiction"
+      - "(?i)non[-\\s]?exclusive\\s+jurisdiction"
+      - "(?i)мест[оа]\\s+рассмотрен[ияи]\\s+спор[аы]"
+      - "(?i)подсудност[ьи]"
+      - "(?i)споры[\\s\\S]{0,40}рассматрива[ею]тся[\\s\\S]{0,40}(суд|арбитраж)"
+
+      # Арбитраж
+      - "(?i)arbitration\\s+clause"
+      - "(?i)arbitral\\s+tribunal"
+      - "(?i)seat\\s+of\\s+arbitration"
+      - "(?i)мест[оа]\\s+арбитраж[ауы]"
+      - "(?i)арбитражн[а-я\\s]+суд"
+
+    medium:
+      # Общие ссылки на право/закон
+      - "(?i)применим[оа]\\s+закон[ы]?"
+      - "(?i)материал[ьн][оеая]\\s+право"
+      - "(?i)substantive\\s+law"
+      - "(?i)laws?\\s+of\\s+the\\s+Russian\\s+Federation"
+      - "(?i)право\\s+Российской\\s+Федерац[ии]"
+      - "(?i)право\\s+РФ"
+
+      # Общие маркеры споров/юр. органов
+      - "(?i)jurisdiction"
+      - "(?i)forum"
+      - "(?i)dispute\\s+resolution"
+      - "(?i)settlement\\s+of\\s+disputes"
+      - "(?i)разрешен[иеи]\\s+спор[аы]"
+      - "(?i)разрешен[иеи]\\s+разноглас[ийия]"
+      - "(?i)подведомственност[ьи]"
+
+      # Арбитраж/суды без конкретики
+      - "(?i)arbitration"
+      - "(?i)arbitral"
+      - "(?i)arbitration\\s+court"
+      - "(?i)арбитраж"
+      - "(?i)третейск[ийое]\\s+суд"
+      - "(?i)коммерческ[ийое]\\s+арбитраж"
+
+    low:
+      # Общие ссылки на суды / инстанции
+      - "(?i)суд[аеы]"
+      - "(?i)court"
+      - "(?i)tribunal"
+      - "(?i)instance"
+      - "(?i)competent\\s+court"
+      - "(?i)компетентн[а-я\\s]+суд[ае]"
+
+      # Общие ссылки на территорию / город (для форумов)
+      - "(?i)city\\s+of\\s+[A-Z][A-Za-z\\s]+"
+      - "(?i)город\\s+[А-ЯЁ][А-Яа-яЁё\\s]+"
+      - "(?i)место\\s+нахождени[яия]\\s+суд[ае]"
+
   regex_patterns: []
   clause_patterns: []
 
 llm:
-  prompt_template: |
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "governing law"
+    - "governed by the laws of"
+    - "настоящий договор регулируется"
+    - "применимое право"
+    - "exclusive jurisdiction"
+    - "место рассмотрения споров"
+    - "подсудность"
+    - "arbitration"
+    - "seat of arbitration"
+  rerank: true
+  filters: {}
+
+
+conditional: null
+
+extraction:
+  llm_prompt_extraction: |
     <role>
     Ты — юрист по международным контрактам и разрешению споров.
     Твоя специализация — анализ оговорок о применимом праве и юрисдикции
@@ -136,31 +219,7 @@ llm:
     давать чёткие юридические выводы и указывать конкретные формулировки
     из текста, на которых они основаны.
     </output_expectations>
-  prompt_file: null
-  context_k: 5
-  temperature: 0.0
-  max_tokens: 640
 
-evidence:
-  required: true
-  min_snippet_length: 20
-  max_snippet_length: 600
-
-retrieval:
-  context_k: 5
-  max_chunks: 10
-  boost_keywords:
-    - "governing law"
-    - "настоящий договор регулируется"
-    - "exclusive jurisdiction"
-    - "место рассмотрения споров"
-    - "arbitration"
-  rerank: true
-  filters: {}
-
-conditional: null
-
-extraction:
   enabled: true
   mode: "hybrid"
   fields:

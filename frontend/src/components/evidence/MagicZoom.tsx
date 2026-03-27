@@ -21,6 +21,13 @@ interface MagicZoomProps {
   ) => void;
 }
 
+type EvidenceDto = {
+  snippet?: string;
+  quote?: string;
+  page?: number;
+  clause_uid?: string;
+};
+
 export const MagicZoom: React.FC<MagicZoomProps> = ({
   result,
   onClose,
@@ -29,14 +36,16 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
 }) => {
   const { data: evidence, isLoading, error } = useEvidence(result.id);
 
-  const modalRoot = document.body;
+  // SSR‑safe модальный корень
+  const modalRoot =
+    typeof document !== "undefined" ? document.body : null;
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     onClose();
   };
 
-  const handleContentClick = (e: React.MouseEvent) => {
+  const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
   };
 
@@ -52,21 +61,26 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
     onQcChange?.(result, "rejected");
   };
 
+  const evidenceObj = (evidence ?? {}) as EvidenceDto;
+
   const snippet =
-    (evidence as any)?.snippet ||
-    (evidence as any)?.quote ||
+    evidenceObj.snippet ||
+    evidenceObj.quote ||
     result.value_text ||
     "(нет фрагмента текста)";
 
-  const page = (evidence as any)?.page as number | undefined;
-  const clauseUid = (evidence as any)?.clause_uid as string | undefined;
+  const page = evidenceObj.page;
+  const clauseUid = evidenceObj.clause_uid;
 
   const triggered = result.conditional_check_triggered;
   const triggerName = result.trigger_name;
-
   const detector = result.detector_used;
-
   const qcStatus = result.qc_status;
+
+  if (!modalRoot) {
+    // На случай SSR — просто ничего не рендерим
+    return null;
+  }
 
   return createPortal(
     <div
@@ -82,7 +96,9 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
         {/* Шапка: документ + риск + QC */}
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="space-y-1">
-            <div className="text-[11px] uppercase text-gray-400">Документ</div>
+            <div className="text-[11px] uppercase text-gray-400">
+              Документ
+            </div>
             <div className="text-xs font-medium text-gray-900">
               {result.document_name || "Без имени"}
             </div>

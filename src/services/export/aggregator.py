@@ -16,8 +16,7 @@ Collects all check results for a deal run and produces:
 import hashlib
 import uuid as uuid_module
 from collections import defaultdict
-from typing import Any
-
+from typing import Dict, List, Tuple, Any
 from core.config import settings
 from core.logging import get_logger
 from services.export.dd_request_loader import get_dd_request_loader
@@ -214,6 +213,16 @@ def aggregate_results(
     agg.rows = rows
     agg.conditional_rows = conditional_rows
     agg.structured_value_rows = structured_value_rows
+
+    Key = Tuple[str, str]  # (document_id, check_id)
+
+    def build_structured_values_index(rows: list[StructuredValueRow]) -> Dict[Key, List[StructuredValueRow]]:
+        index: Dict[Key, List[StructuredValueRow]] = defaultdict(list)
+        for sv in rows:
+            key = (sv.document_id, sv.check_id)
+            index[key].append(sv)
+        return index
+
 
     # --- Step 2: Top Risks ---
     fail_rows = [r for r in rows if r.result == "fail"]

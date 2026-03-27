@@ -15,6 +15,8 @@ import type {
   QCStatus,
   SeverityLevel,
   CheckResultValue,
+  OpenViewerAtFn,
+  OpenViewerAtPayload,
 } from "../../types";
 import DDGrid from "../../components/grid/DDGrid";
 import GridFilters, {
@@ -27,6 +29,7 @@ import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
 import ExportButtons from "../../components/grid/ExportButtons";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useRun } from "../../api/runs";
+import DocumentViewerModal from "../../components/viewer/DocumentViewerModal";
 
 interface GridTabProps {
   dealId: string;
@@ -34,7 +37,6 @@ interface GridTabProps {
 }
 
 type GridScope = "all" | "global" | "doctype";
-
 type GridMode = "matrix" | "list";
 
 // Нормализованный тип источника проверки.
@@ -43,7 +45,7 @@ type NormalizedOrigin = "global" | "doctype" | "other";
 // Функция нормализации значений origin/origin_type из бэкенда
 // в стабильный enum NormalizedOrigin.
 function normalizeOrigin(
-  rawOrigin: unknown,
+  rawOrigin: string | null | undefined,
   originType?: "global" | "doctype" | "custom",
 ): NormalizedOrigin {
   if (originType === "global") return "global";
@@ -71,6 +73,11 @@ function normalizeOrigin(
   return "other";
 }
 
+type ViewerState = {
+  location: OpenViewerAtPayload;
+  pdfUrl: string;
+} | null;
+
 const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [searchText, setSearchText] = React.useState("");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
@@ -92,6 +99,11 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     string[]
   >([]);
   const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
+
+  // Стейт цели для viewer'a + реальный PDF URL
+  const [viewerState, setViewerState] = React.useState<ViewerState>(null);
+  const [isViewerLoading, setIsViewerLoading] = React.useState(false);
+  const [viewerError, setViewerError] = React.useState<string | null>(null);
 
   const { canReclassifyDocuments } = useDealPermissions(dealId);
   const canDoQc = canReclassifyDocuments;
@@ -186,10 +198,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         break;
       case "low_confidence":
         results = results.filter((r) => {
-          const v = (r as any).classification_confidence as
-            | number
-            | null
-            | undefined;
+          const v = r.doc_classification_confidence;
           return v != null && v < 0.6;
         });
         break;
@@ -200,7 +209,9 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
     console.log(
       "DEBUG origins in filteredResults",
-      Array.from(new Set(results.map((r) => r.origin ?? "(null)"))),
+      Array.from(
+        new Set(results.map((r) => String(r.origin ?? "(null)"))),
+      ),
     );
 
     return results;
@@ -222,7 +233,9 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   console.log(
     "DEBUG globalResults origins",
-    Array.from(new Set(globalResults.map((r) => r.origin ?? "(null)"))),
+    Array.from(
+      new Set(globalResults.map((r) => String(r.origin ?? "(null)"))),
+    ),
     "len=",
     globalResults.length,
   );
@@ -384,6 +397,42 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   const resetScopeDocTypes = () => {
     setSelectedScopeDocTypes([]);
+  };
+
+  // Коллбэк открытия viewer'a в нужном месте документа:
+  // 1) тянем /api/v1/documents/{doc_id}/pdf-url
+  // 2) кладём реальный pdfUrl + location в стейт
+  const openViewerAt: OpenViewerAtFn = async (loc) => {
+    try {
+      setViewerError(null);
+      setIsViewerLoading(true);
+      
+      const resp = await fetch(
+        `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
+        { credentials: "include" },
+      );
+      if (!resp.ok) {
+        console.error("Failed to fetch pdf-url", resp.status);
+        setViewerError("Не удалось получить ссылку на PDF документа");
+        setIsViewerLoading(false);
+        return;
+      }
+      const pdfUrl = await resp.text();
+
+      console.log("PDF URL from backend:", pdfUrl);
+
+      if (!pdfUrl) {
+        setViewerError("Сервер не вернул ссылку на PDF");
+        setIsViewerLoading(false);
+        return;
+      }
+      setViewerState({ location: loc, pdfUrl });
+    } catch (e) {
+      console.error("Error fetching converted-pdf-url", e);
+      setViewerError("Ошибка при запросе PDF документа");
+    } finally {
+      setIsViewerLoading(false);
+    }
   };
 
   if (!runId) {
@@ -598,6 +647,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         onEyeClick={handleEyeClick}
         onSelectionChange={handleSelectionChange}
         mode={gridMode}
+        onOpenAtLocation={openViewerAt}
       />
 
       {zoomResult && (
@@ -614,6 +664,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
           result={panelResult}
           onClose={handleClosePanel}
           onQcChange={handlePanelQcChange}
+          onOpenAtLocation={openViewerAt}
         />
       )}
 
@@ -625,6 +676,14 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
           onOverride={handleBulkOverride}
         />
       )}
+
+      <DocumentViewerModal
+        open={!!viewerState}
+        onClose={() => setViewerState(null)}
+        fileUrl={viewerState?.pdfUrl ?? null}
+        location={viewerState?.location ?? null}
+        title={viewerError ?? (isViewerLoading ? "Загрузка PDF…" : null)}
+      />
     </div>
   );
 };

@@ -25,7 +25,7 @@ CheckRunner: playbook-based checks executor.
 
 import time
 import uuid
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 
 from core.config import settings
 from core.logging import get_logger
@@ -468,7 +468,24 @@ class CheckRunner:
 
                     quality_flags["raw"] = raw
 
-                structured_data = exec_result.get("structured_data")
+                # raw structured_data от CheckExecutor
+                structured_data_raw = exec_result.get("structured_data")
+
+                # Нормализация structured_data под контракт StructuredField:
+                # ожидаем формат {field_name: {value, unit?, source?, confidence?, found?, location?, qc?}}
+                structured_data: dict[str, Any] | None = None
+                if isinstance(structured_data_raw, dict):
+                    structured_data = {}
+                    for field_name, field_val in structured_data_raw.items():
+                        # Если уже новый формат (dict с ключом "value") — не трогаем
+                        if isinstance(field_val, dict) and "value" in field_val:
+                            structured_data[field_name] = field_val
+                            continue
+
+                        # Старый формат: поле = простое значение (строка/число и т.п.)
+                        structured_data[field_name] = {
+                            "value": field_val,
+                        }
 
                 conditional = getattr(check, "conditional", None)
                 if isinstance(conditional, dict):

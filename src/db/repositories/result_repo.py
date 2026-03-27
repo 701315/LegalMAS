@@ -2,6 +2,19 @@
 
 """
 Repository for CheckResult operations.
+
+Отвечает за:
+- создание результатов проверок (create);
+- выборку по run (с документами и без);
+- пагинацию для DD Grid;
+- обновление QC-статуса.
+
+Важно:
+- этот слой не решает "что такое structured_data",
+  он только аккуратно отдаёт то, что записал раннер
+  (ExtractionExecutor / CheckRunner) в CheckResult.structured_data.
+- контракт structured_data задаётся в api/schemas/results.py
+  (StructuredField / LocationField и т.п.).
 """
 
 import uuid
@@ -13,7 +26,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.result import CheckResult
-from ..models.document import Document  # НОВОЕ: подтягиваем документы
+from ..models.document import Document  # подтягиваем документы к результатам
+
 
 def normalize_origin_type(origin: str | None) -> str | None:
     """
@@ -65,7 +79,7 @@ class ResultRepository:
         trigger_name: str | None = None,
         origin: str | None = None,
     ) -> CheckResult:
-        """Create a check result.
+        """Создать результат проверки.
 
         origin:
             Источник определения проверки. Ожидаются значения:
@@ -86,6 +100,7 @@ class ResultRepository:
             confidence=confidence,
             detector_used=detector_used,
             quality_flags=quality_flags or {},
+            # ВАЖНО: сюда раннер кладёт JSON формата StructuredDataDict
             structured_data=structured_data,
             conditional_check_triggered=conditional_check_triggered,
             trigger_name=trigger_name,
@@ -95,9 +110,8 @@ class ResultRepository:
         await self.session.flush()
         return cr
 
-
     async def get_by_run(self, run_id: uuid.UUID, severity: str | None = None) -> list[CheckResult]:
-        """Get all results for a run, optionally filtered by severity (без join с документами)."""
+        """Получить все результаты для run (без join с документами)."""
         stmt = select(CheckResult).where(CheckResult.run_id == run_id)
         if severity is not None:
             stmt = stmt.where(CheckResult.severity == severity)
@@ -111,7 +125,7 @@ class ResultRepository:
 
         Возвращает список dict'ов, совместимых с CheckResultResponse:
         - поля из CheckResult;
-        - origin (источник определения проверки);
+        - origin / origin_type (источник определения проверки);
         - document_name, doc_type;
         - doc_classification_level, doc_classification_confidence.
         """
@@ -133,7 +147,7 @@ class ResultRepository:
 
         out: list[dict] = []
         for cr, document_name, doc_type, doc_level, doc_conf in rows:
-            # cr — это ORM-объект CheckResult; берем его attr'ы как есть
+            # cr — ORM-объект CheckResult; берём его поля как есть
             item = {
                 "id": cr.id,
                 "run_id": cr.run_id,
@@ -162,6 +176,7 @@ class ResultRepository:
                 "doc_classification_level": doc_level,
                 "doc_classification_confidence": doc_conf,
                 # structured_data и conditional
+                # ОЖИДАНИЕ: cr.structured_data уже в формате StructuredDataDict
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
@@ -172,7 +187,7 @@ class ResultRepository:
         return out
 
     async def get_by_document(self, document_id: uuid.UUID, run_id: uuid.UUID) -> list[CheckResult]:
-        """Get all results for a document within a run."""
+        """Получить все результаты для документа в рамках одного run."""
         result = await self.session.execute(
             select(CheckResult).where(
                 CheckResult.document_id == document_id,
@@ -188,7 +203,7 @@ class ResultRepository:
         qc_by: str,
         qc_comment: str | None = None,
     ) -> CheckResult | None:
-        """Update QC status on a single result."""
+        """Обновить QC-статус одного результата."""
         stmt = (
             update(CheckResult)
             .where(CheckResult.id == result_id)
@@ -213,7 +228,7 @@ class ResultRepository:
         qc_by: str,
         qc_comment: str | None = None,
     ) -> int:
-        """Bulk update QC status. Returns number of updated rows."""
+        """Массовое обновление QC-статуса. Возвращает количество обновлённых строк."""
         stmt = (
             update(CheckResult)
             .where(CheckResult.id.in_(result_ids))
@@ -229,7 +244,7 @@ class ResultRepository:
         return result.rowcount
 
     async def count_by_severity(self, run_id: uuid.UUID) -> dict[str, int]:
-        """Count results by severity for a run."""
+        """Посчитать количество результатов по severity для run."""
         stmt = (
             select(CheckResult.severity, func.count(CheckResult.id))
             .where(CheckResult.run_id == run_id)
@@ -317,6 +332,7 @@ class ResultRepository:
                 "doc_type": doc_type_value,
                 "doc_classification_level": doc_level,
                 "doc_classification_confidence": doc_conf,
+                # structured_data должно быть совместимо с StructuredDataDict
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,

@@ -1,0 +1,24 @@
+# /home/vladi/projects/LegalMAS/playbooks/grammars/json_any_object.gbnf
+
+root ::= object
+
+object ::= "{" ws members? ws "}"
+members ::= pair (ws "," ws pair)*
+pair ::= string ws ":" ws value
+
+value ::= string | number | object | array | "true" | "false" | "null"
+
+array ::= "[" ws elements? ws "]"
+elements ::= value (ws "," ws value)*
+
+string ::= "\"" chars* "\""
+chars ::= char | escape
+char ::= [^"\\]
+escape ::= "\\" ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+
+number ::= "-"? int frac? exp?
+int ::= "0" | [1-9] [0-9]*
+frac ::= "." [0-9]+
+exp ::= ("e" | "E") ("+" | "-")? [0-9]+
+
+ws ::= [ \t\n\r]*

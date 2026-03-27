@@ -9,20 +9,6 @@ Hybrid detector: сначала rules, затем LLM при необходим�
 - Если уверенность rules ниже порога или совпадений нет — подключает LLM.
 - Возвращает единый DetectionResult‑подобный словарь, пригодный для записи
   в CheckResult и дальнейшей аналитики.
-
-Главные принципы (важно для продакшн‑поведения):
-
-1) Rules — первый, дешёвый и устойчивый слой.
-   Если rules уверенно нашёл риск, LLM вообще не вызываем.
-
-2) LLM — “усилитель”, но НЕ точка отказа.
-   - Если LLM недоступен, даёт ошибку или неопределённый ответ,
-     мы НЕ выбрасываем исключения наверх.
-   - Вместо этого используем результат rules и помечаем в raw,
-     что LLM не смог отработать (тип ошибки, количество попыток).
-
-3) При наличии двух сигналов (rules и LLM) выбираем более уверенный,
-   но сохраняем в raw обе confidence, чтобы можно было анализировать поведение.
 """
 
 from typing import Any
@@ -90,11 +76,33 @@ class HybridDetector:
         - В худшем случае он возвращает "rules-only" результат
           с пояснением в raw, почему LLM не использовался или не сработал.
         """
+
+        logger.debug(
+            "HybridDetector.run: chunks summary",
+            extra={
+                "check_id": getattr(check, "id", None),
+                "chunks_count": len(chunks),
+                "first_chunk_page": chunks[0].page if chunks else None,
+                "first_chunk_clause_uid": chunks[0].clause_uid if chunks else None,
+                "first_chunk_element_id": chunks[0].element_id if chunks else None,
+            },
+        )
+
+
         # --- 1. Rules-based detection ---
         rules_result = self.rules.detect(text, check.rules)
         rules_result["check_id"] = getattr(check, "id", None)
         rules_result.setdefault("raw", {})
         rules_result["method"] = "rules"
+
+        # Если rules что‑то нашёл, привяжем результат к лучшему чанку,
+        # чтобы downstream (ExtractionExecutor, UI) могли показать локацию.
+        if rules_result.get("found"):
+            best_chunk = self._select_best_chunk(chunks)
+            if best_chunk is not None:
+                location, sources = self._build_location_from_chunk(best_chunk)
+                rules_result["location"] = location
+                rules_result["sources"] = sources
 
         # Ветка: rules уверенный, LLM не нужен
         if rules_result.get("found") and rules_result.get("confidence", 0.0) >= RULES_CONFIDENCE_THRESHOLD:
@@ -130,6 +138,7 @@ class HybridDetector:
 
         extra_variables = {
             "condition_name": check.name,
+            "legal_base": check.description or "",
             "check_id": check.id,
             "check_description": check.description,
             "severity": check.severity,
@@ -169,7 +178,11 @@ class HybridDetector:
             return rules_result
 
         # --- 4. Приводим LLMDetectionResult к "плоскому" виду ---
-        flat_llm = self._flatten_llm_result(llm_detection, check)
+        flat_llm = self._flatten_llm_result(
+            llm_detection,
+            check,
+            fallback_chunks=chunks,  # <-- НОВОЕ
+        )
         flat_llm.setdefault("raw", {})
         flat_llm["method"] = "llm"
 
@@ -225,7 +238,59 @@ class HybridDetector:
             return rules_result
 
     @staticmethod
-    def _flatten_llm_result(llm_result, check: CheckDefinition) -> dict[str, Any]:
+    def _select_best_chunk(chunks: list[RetrievedChunk]) -> RetrievedChunk | None:
+        """
+        Выбрать лучший чанк для привязки location:
+        - по максимальному combined_score,
+        - если скор не задан или список пуст — вернуть None.
+        """
+        if not chunks:
+            return None
+
+        # combined_score уже приходит из RetrievalEngine,
+        # если он везде 0.0, просто берём первый.
+        best = chunks[0]
+        best_score = float(getattr(best, "combined_score", 0.0) or 0.0)
+
+        for ch in chunks[1:]:
+            score = float(getattr(ch, "combined_score", 0.0) or 0.0)
+            if score > best_score:
+                best = ch
+                best_score = score
+
+        return best
+
+    @staticmethod
+    def _build_location_from_chunk(chunk: RetrievedChunk) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """
+        Построить location и sources из одного RetrievedChunk.
+        Используется для rules-результатов, чтобы привязать риск к клаузе.
+        """
+        base: dict[str, Any] = {
+            "element_id": getattr(chunk, "element_id", None),
+            "page": getattr(chunk, "page", None),
+            "clause_uid": getattr(chunk, "clause_uid", None),
+            "bbox": getattr(chunk, "bbox", None) or None,
+            "score": float(getattr(chunk, "combined_score", 0.0) or 0.0),
+        }
+
+        # Структурный контекст
+        base["path_titles"] = getattr(chunk, "path_titles", None) or None
+        base["start_page"] = getattr(chunk, "start_page", None)
+        base["end_page"] = getattr(chunk, "end_page", None)
+        base["element_ids"] = getattr(chunk, "element_ids", None) or None
+
+        location = dict(base)
+        sources = [dict(base)]
+        return location, sources
+
+    @staticmethod
+    def _flatten_llm_result(
+        llm_result,
+        check: CheckDefinition,
+        fallback_chunks: list[RetrievedChunk] | None = None,
+    ) -> dict[str, Any]:
+
         """
         Привести результат LLMDetector (с evidence_chunks и details)
         к "плоскому" DetectionResult‑подобному словарю, совместимому с rules‑результатом.
@@ -262,9 +327,36 @@ class HybridDetector:
             location = dict(base)
             sources = [dict(base)]
 
+        elif fallback_chunks:
+            # LLM не дал evidence_chunks, но у нас есть контекст от RetrievalEngine.
+            best_chunk = HybridDetector._select_best_chunk(fallback_chunks)
+            if best_chunk is not None:
+                loc, srcs = HybridDetector._build_location_from_chunk(best_chunk)
+                location = loc
+                sources = srcs
+
         confidence = float(getattr(llm_result, "confidence", 0.0) or 0.0)
         details = getattr(llm_result, "details", {}) or {}
         reason = details.get("reason") or details.get("parse_success")
+
+        # DEBUG: лог финальной location для этого check
+        try:
+            logger.debug(
+                "HybridDetector._flatten_llm_result",
+                extra={
+                    "check_id": getattr(check, "id", None),
+                    "found": found,
+                    "confidence": confidence,
+                    "has_location": location is not None,
+                    "location_page": location.get("page") if location else None,
+                    "location_clause_uid": location.get("clause_uid") if location else None,
+                    "location_element_id": location.get("element_id") if location else None,
+                    "location_start_page": location.get("start_page") if location else None,
+                    "location_end_page": location.get("end_page") if location else None,
+                },
+            )
+        except Exception:
+            logger.debug("HybridDetector._flatten_llm_result: debug logging failed")
 
         return {
             "found": found,

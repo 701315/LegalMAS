@@ -6,9 +6,35 @@ Pydantic-схемы для результатов проверок (check_result
 
 from uuid import UUID
 from datetime import datetime
-from typing import Any
-
+from typing import Optional, Dict, Any
 from pydantic import BaseModel
+
+
+
+class LocationField(BaseModel):
+    page: Optional[int] = None
+    clause_uid: Optional[str] = None
+    element_id: Optional[str] = None
+    start_page: Optional[int] = None
+    end_page: Optional[int] = None
+    path_titles: Optional[list[str]] = None
+
+class FieldQC(BaseModel):
+    status: Optional[str] = None  # "pending" | "accepted" | "rejected" | "auto_accepted"
+    by: Optional[str] = None
+    comment: Optional[str] = None
+    at: Optional[str] = None      # ISO8601
+
+class StructuredField(BaseModel):
+    value: Any
+    unit: Optional[str] = None
+    source: Optional[str] = None
+    confidence: Optional[float] = None
+    found: Optional[bool] = True
+    location: Optional[LocationField] = None
+    qc: Optional[FieldQC] = None
+
+StructuredDataDict = Dict[str, StructuredField]
 
 
 class CheckResultResponse(BaseModel):
@@ -61,7 +87,7 @@ class CheckResultResponse(BaseModel):
     doc_type: str | None = None
 
     # Новое: структурированные данные по проверке
-    structured_data: dict[str, Any] | None = None
+    structured_data: StructuredDataDict | None = None
 
     # Новое: метаданные условной проверки
     conditional_check_triggered: bool = False
@@ -106,3 +132,5 @@ class StructuredDataResponse(BaseModel):
     doc_type: str | None
     extracted_values: list[dict]   # [{check_id, field_name, field_value, page, clause_uid}]
     total_extracted: int
+
+

@@ -26,25 +26,25 @@ from ..playbook.models import (
 
 logger = get_logger(__name__)
 
-# ✅ ИСПРАВЛЕНИЕ Ошибки 5, шаг A:
 # Набор "мусорных" значений которые LLM возвращает когда не нашёл ответ.
-# Определяем на уровне модуля — один раз, используем везде в файле.
 # Все значения в нижнем регистре — сравниваем через .lower().strip()
-_NULL_VALUES = frozenset({
-    "null",
-    "none",
-    "not_found",
-    "n/a",
-    "na",
-    "не найдено",
-    "отсутствует",
-    "нет данных",
-    "",
-    "unknown",
-    "неизвестно",
-    "-",
-    "—",
-})
+_NULL_VALUES = frozenset(
+    {
+        "null",
+        "none",
+        "not_found",
+        "n/a",
+        "na",
+        "не найдено",
+        "отсутствует",
+        "нет данных",
+        "",
+        "unknown",
+        "неизвестно",
+        "-",
+        "—",
+    }
+)
 
 
 def _is_null_value(raw: Any) -> bool:
@@ -105,12 +105,29 @@ class ExtractionExecutor:
         if not base_text:
             return None
 
+        # Локация риска из HybridDetector: page / clause_uid / element_id / ...
+        # Это будет общей базовой location для всех полей, если LLM не вернул более точную.
+        raw_location = detection.get("location") or None
+        base_location: dict[str, Any] | None = None
+        if isinstance(raw_location, dict):
+            base_location = {
+                "page": raw_location.get("page"),
+                "clause_uid": raw_location.get("clause_uid"),
+                "element_id": raw_location.get("element_id"),
+                "start_page": raw_location.get("start_page"),
+                "end_page": raw_location.get("end_page"),
+                "path_titles": raw_location.get("path_titles"),
+            }
+
         structured: dict[str, dict[str, Any]] = {}
 
         # 1. RULES часть (работает для mode == rules и для hybrid/llm как baseline)
         for field_cfg in extraction_cfg.fields or []:
             field_result = self._extract_field(field_cfg, base_text)
             if field_result is not None:
+                # если rules не проставил location, используем общую base_location
+                if "location" not in field_result or field_result.get("location") is None:
+                    field_result["location"] = base_location
                 structured[field_cfg.name] = field_result
 
         # 2. LLM / HYBRID часть
@@ -131,11 +148,7 @@ class ExtractionExecutor:
 
                     value_raw = llm_payload.get("value")
 
-                    # ✅ ИСПРАВЛЕНИЕ Ошибки 5, шаг A:
-                    # Фильтруем "мусорные" значения сразу после получения от LLM —
-                    # ДО того как значение попадёт в structured и затем в БД.
-                    # Раньше "not_found", "N/A", None проходили дальше и записывались
-                    # в CheckResult.structured_data. Теперь — пропускаем такие значения.
+                    # Фильтруем "мусорные" значения сразу после получения от LLM.
                     if _is_null_value(value_raw):
                         logger.debug(
                             "LLM returned null-like value for field, skipping",
@@ -151,6 +164,9 @@ class ExtractionExecutor:
                     except (TypeError, ValueError):
                         confidence_llm = 0.7
 
+                    # Локация конкретного поля, если LLM её вернул (иначе общая base_location).
+                    field_location = llm_payload.get("location") or base_location
+
                     # Приводим к типу поля (MVP: через _cast_value)
                     value_cast = self._cast_value(field_cfg, str(value_raw))
 
@@ -161,6 +177,8 @@ class ExtractionExecutor:
                             "unit": field_cfg.unit,
                             "source": "llm",
                             "confidence": confidence_llm,
+                            "found": True,
+                            "location": field_location,
                         }
                     else:
                         # оба дали значение — если LLM увереннее, заменим
@@ -170,7 +188,52 @@ class ExtractionExecutor:
                                 "unit": field_cfg.unit,
                                 "source": "llm",
                                 "confidence": confidence_llm,
+                                "found": True,
+                                "location": field_location,
                             }
+
+        # 3. Нормализация: гарантируем запись для каждого поля из extraction_cfg
+        for field_cfg in extraction_cfg.fields or []:
+            name = field_cfg.name
+
+            if name in structured:
+                field = structured[name]
+                # дефолты
+                field.setdefault("unit", field_cfg.unit)
+                field.setdefault("source", field.get("source", "rules"))
+                try:
+                    field["confidence"] = float(field.get("confidence", 0.0))
+                except (TypeError, ValueError):
+                    field["confidence"] = 0.0
+                field.setdefault("found", True)
+                # каркас location и qc
+                field.setdefault("location", None)
+                field.setdefault(
+                    "qc",
+                    {
+                        "status": "pending",
+                        "by": None,
+                        "comment": None,
+                        "at": None,
+                    },
+                )
+                continue
+
+            # поле вообще не найдено ни rules, ни LLM — создаём "пустую" запись
+            structured[name] = {
+                "value": None,
+                "unit": field_cfg.unit,
+                "source": "none",
+                "confidence": 0.0,
+                "found": False,
+                "location": None,
+                "qc": {
+                    "status": "pending",
+                    "by": None,
+                    "comment": None,
+                    "at": None,
+                },
+            }
 
         if not structured:
             return None
@@ -209,7 +272,7 @@ class ExtractionExecutor:
         Извлечь одно поле по regex_patterns и keyword_hints.
 
         Возвращает:
-          {"value": ..., "unit": ..., "source": "rules", "confidence": float}
+          {"value": ..., "unit": ..., "source": "rules", "confidence": float, "found": bool}
           или None, если ничего не нашли или найденное значение — "мусор".
         """
         # 1. Regex-поиск: берём первый match из первого сработавшего паттерна.
@@ -228,9 +291,7 @@ class ExtractionExecutor:
             if m:
                 raw_value = m.group(1) if m.groups() else m.group(0)
 
-                # ✅ ИСПРАВЛЕНИЕ Ошибки 5 (rules-часть):
                 # Regex может поймать "N/A" или "не указано" прямо из текста договора.
-                # Проверяем и отбрасываем такие значения.
                 if _is_null_value(raw_value):
                     continue
 
@@ -240,6 +301,7 @@ class ExtractionExecutor:
                     "unit": field_cfg.unit,
                     "source": "rules",
                     "confidence": 0.8,
+                    "found": True,
                 }
 
         # 2. keyword_hints: если regex не сработал, попробуем понять "есть/нет" по ключевым словам.
@@ -252,7 +314,7 @@ class ExtractionExecutor:
                 else:
                     value = ", ".join(hits)
 
-                # ✅ Для keyword_hints тоже применяем фильтр на всякий случай
+                # Для keyword_hints тоже применяем фильтр на всякий случай
                 if _is_null_value(value):
                     return None
 
@@ -261,6 +323,7 @@ class ExtractionExecutor:
                     "unit": field_cfg.unit,
                     "source": "rules",
                     "confidence": 0.5,
+                    "found": True,
                 }
 
         return None

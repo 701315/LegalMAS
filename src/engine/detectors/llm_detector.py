@@ -1,35 +1,102 @@
 # src/engine/detectors/llm_detector.py
 
 """
-LLM-based detector for complex checks.
+LLMDetector: presence‑детектор "есть ли условие в фрагментах договора".
 
-Задача этого класса — аккуратно вызвать LLM для проверки условия
-и вернуть результат в виде DetectionResult.
+Высокоуровневая идея
+--------------------
+Этот класс отвечает за то, чтобы по выбранным чанкам текста договора
+и LLM‑промпту (описанному в LLMConfig) ответить на вопрос:
 
-Важно понимать несколько принципов:
+  «Есть ли здесь нужное условие, и если да — где именно оно в документе?»
 
-1) Не ломаем весь пайплайн из-за ошибки LLM.
-   - Если LLM недоступен, упал по timeout или вернул некорректный ответ,
-     мы НЕ выбрасываем исключение наружу.
-   - Вместо этого мы либо:
-       а) возвращаем DetectionResult с found=False и подробным описанием
-          ошибки в details;
-       б) или, если совсем нечем работать (нет промпта/чанков) — None,
-          чтобы HybridDetector мог честно остаться на rules.
+Результат детектора — объект DetectionResult:
+- found: True / False (или False, если LLM не смог дать уверенный ответ),
+- evidence_chunks: список EvidenceChunk с текстом цитаты и привязкой к chunk
+  (page, clause_uid, element_ids, bbox),
+- confidence: оценка уверенности LLM,
+- details: служебная информация (провайдер, модель, ошибки и т.п.).
 
-2) Добавляем простые ретраи для временных ошибок (TransientError).
-   - Пробуем несколько раз вызвать LLM.
-   - Если все попытки неудачны, пишем в details, сколько было попыток
-     и какой тип ошибки произошёл.
+Важно: LLMDetector НЕ занимается заполнением полей structured_data
+(этим занимается ExtractionLLMDetector). Его задача — именно presence‑детекция
+и локация (location) в документе.
 
-3) Детали для последующей аналитики:
-   - В details детектора попадает:
-       provider, model, tokens_used (если известны),
-       parse_success,
-       error_type (timeout, rate_limit, network, server_error, parse_failed и т.п.),
-       error_message (короткое описание ошибки),
-       last_exception (опционально, для дебага).
+Где используется в пайплайне
+----------------------------
+1. HybridDetector получает:
+   - список RetrievedChunk (все/топ чанки по результатам retrieval),
+   - конфигурацию LLMConfig из playbook (секция llm в YAML чека).
+
+2. HybridDetector:
+   - может сначала выполнить rules‑детекцию (keywords/regex),
+   - затем, при необходимости, вызывает:
+       - detect() — если промпт ожидает только {context},
+       - detect_with_variables() — если промпт ожидает дополнительные
+         переменные (например, generic_presence.txt с
+         {condition_name}, {legal_base}, {context}).
+
+3. LLMDetector:
+   - собирает текстовый контекст из чанков (_build_context),
+   - подставляет переменные в промпт,
+   - вызывает LLMClient с ретраями (_call_with_retries),
+   - парсит ответ через LLMClient/_parse_llm_response (found/evidence/confidence),
+   - пытается найти лучший chunk под evidence (_find_evidence_chunk),
+   - возвращает DetectionResult с заполненным found/confidence/evidence_chunks.
+
+Источники промпта
+-----------------
+Метод _resolve_prompt выбирает текст промпта по приоритету:
+1. config.prompt_template (inline в playbook),
+2. config.prompt_file (имя файла в каталоге prompts/),
+3. DEFAULT_PROMPT_FILE ("detection/genericclause").
+
+Для presence‑детектора в LegalMAS:
+- глобальные и типовые проверки используют prompt_file
+  "detection/generic_presence.txt",
+  который ожидает переменные {condition_name}, {legal_base}, {context}
+  и возвращает маленький JSON:
+    {"found": true/false, "evidence": "...", "confidence": 0.0-1.0}.
+
+Устойчивость и ошибки
+---------------------
+Класс построен так, чтобы НЕ ломать весь пайплайн при проблемах с LLM:
+
+1) Если LLM недоступен или выключен:
+   - detect*/() возвращают None (HybridDetector может опереться только на rules).
+
+2) Если LLM вернул ошибку, timeout или невалидный ответ:
+   - возвращается DetectionResult с found=False, пустыми evidence_chunks
+     и подробным описанием ошибки в details (reason, error_type, error_message).
+
+3) Для временных ошибок (TransientError):
+   - _call_with_retries выполняет несколько попыток до LLM_MAX_RETRIES;
+   - в details фиксируется количество попыток и последний тип ошибки.
+
+Привязка evidence к документу
+-----------------------------
+Метод _build_result:
+- использует response.found и response.evidence, чтобы построить EvidenceChunk;
+- через _find_evidence_chunk пытается найти лучший RetrievedChunk:
+  сначала по прямому вхождению evidence_text в chunk.text,
+  затем по пересечению слов;
+- если подходящий chunk найден, EvidenceChunk получает:
+  element_id, page, clause_uid, bbox, path_titles, element_ids;
+- если нет — EvidenceChunk создаётся без привязки (page=0, element_id="").
+
+Это позволяет:
+- наверху показывать юристу конкретную цитату в тексте (evidence),
+- и подсвечивать её в UI на нужной странице/клаузе документа.
+
+Важно
+-----
+LLMDetector — это ИМЕННО слой presence‑детекции:
+- отвечает на вопрос «есть ли условие и где оно находится»,
+- НЕ заполняет подробные структурные поля (это делает ExtractionLLMDetector),
+- встроен в гибридную схему (rules + LLM), чтобы:
+  - использовать LLM только там, где это действительно нужно,
+  - и не ломать обработку документа при временных проблемах с LLM.
 """
+
 
 from __future__ import annotations
 
@@ -43,7 +110,9 @@ from ..llm.client import LLMClient, LLMResponse
 from ..playbook.models import LLMConfig
 from ..prompts.loader import get_promptloader
 
+
 logger = get_logger(__name__)
+
 
 DEFAULT_PROMPT_FILE = "detection/genericclause"
 
@@ -452,6 +521,40 @@ class LLMDetector:
                     )
                 )
 
+        # DEBUG: логируем, что именно вернул LLM и какой чанк выбран
+        try:
+            logger.debug(
+                "LLMDetector._build_result",
+                extra={
+                    "found": bool(response.found),
+                    "evidence_preview": (response.evidence or "")[:200],
+                    "clause": response.clause,
+                    "context_chunks_count": len(context_chunks),
+                    "evidence_chunks_count": len(evidence_chunks),
+                    "best_chunk_element_id": (
+                        evidence_chunks[0].element_id if evidence_chunks else None
+                    ),
+                    "best_chunk_page": (
+                        evidence_chunks[0].page if evidence_chunks else None
+                    ),
+                    "best_chunk_clause_uid": (
+                        evidence_chunks[0].clause_uid if evidence_chunks else None
+                    ),
+                    "best_chunk_start_page": (
+                        evidence_chunks[0].start_page if evidence_chunks else None
+                    ),
+                    "best_chunk_end_page": (
+                        evidence_chunks[0].end_page if evidence_chunks else None
+                    ),
+                    "best_chunk_element_ids": (
+                        evidence_chunks[0].element_ids if evidence_chunks else None
+                    ),
+                },
+            )
+        except Exception:
+            # Лог сам по себе не должен ломать пайплайн
+            logger.debug("LLMDetector._build_result: debug logging failed")
+
         return DetectionResult(
             found=bool(response.found) if response.found is not None else False,
             evidence_chunks=evidence_chunks,
@@ -479,12 +582,33 @@ class LLMDetector:
         Сначала пробуем прямое вхождение, потом по пересечению слов.
         """
         evidence_lower = evidence_text.lower()[:100]  # ограничим длину
+
+        logger.debug(
+            "LLMDetector._find_evidence_chunk.start",
+            extra={
+                "evidence_preview": evidence_lower,
+                "chunks_count": len(chunks),
+            },
+        )
+
         if not evidence_lower.strip():
+            logger.debug(
+                "LLMDetector._find_evidence_chunk.empty_evidence",
+                extra={"evidence_preview": evidence_lower},
+            )
             return None
 
         # 1. Прямое вхождение
         for chunk in chunks:
             if evidence_lower in chunk.text.lower():
+                logger.debug(
+                    "LLMDetector._find_evidence_chunk.direct_match",
+                    extra={
+                        "chunk_element_id": getattr(chunk, "element_id", None),
+                        "chunk_page": getattr(chunk, "page", None),
+                        "chunk_clause_uid": getattr(chunk, "clause_uid", None),
+                    },
+                )
                 return chunk
 
         # 2. Пересечение слов
@@ -498,5 +622,21 @@ class LLMDetector:
             if overlap > best_overlap:
                 best_overlap = overlap
                 best_chunk = chunk
+
+        logger.debug(
+            "LLMDetector._find_evidence_chunk.overlap_result",
+            extra={
+                "best_overlap": best_overlap,
+                "best_chunk_element_id": getattr(best_chunk, "element_id", None)
+                if best_chunk
+                else None,
+                "best_chunk_page": getattr(best_chunk, "page", None)
+                if best_chunk
+                else None,
+                "best_chunk_clause_uid": getattr(best_chunk, "clause_uid", None)
+                if best_chunk
+                else None,
+            },
+        )
 
         return best_chunk if best_overlap >= 3 else None

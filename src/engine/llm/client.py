@@ -16,11 +16,12 @@ The client handles timeouts, retries, and error normalization.
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 import time
-from src.ops.metrics import METRICS
+
 import httpx
 
+from src.ops.metrics import METRICS
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
@@ -50,8 +51,9 @@ class LLMClient:
     def __init__(self) -> None:
         self.provider = settings.LLM_PROVIDER  # "none" | "openai" | "ollama" | "llamacpp"
         self.timeout = settings.LLM_TIMEOUT_SECONDS
-        # llamacpp модель можно лениво инициализировать, когда понадобится
+        # llama-cpp модель можно лениво инициализировать, когда понадобится
         self._llama_model: Any = None
+        self._llama_grammar_cache: dict[str, Any] = {}  # кэш грамматик
 
     def is_available(self) -> bool:
         """Check if any LLM provider is configured."""
@@ -62,9 +64,14 @@ class LLMClient:
         prompt: str,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        grammar_path: Optional[str] = None,
     ) -> LLMResponse | None:
         """
         Call the configured LLM provider.
+
+        grammar_path:
+            Optional path to a GBNF grammar file (used for llama-cpp).
+            For OpenAI/Ollama сейчас игнорируется (можно расширить позже).
 
         Returns:
             LLMResponse or None if LLM is not available/failed.
@@ -81,6 +88,7 @@ class LLMClient:
             temperature=temp,
             max_tokens=tokens,
             prompt_preview=prompt[:200],
+            grammar_enabled=bool(grammar_path),
         )
 
         start_time = time.time()
@@ -89,11 +97,13 @@ class LLMClient:
 
         try:
             if self.provider == "openai":
+                # Пока grammar_path игнорируем для openai
                 result = self._call_openai(prompt, temp, tokens)
             elif self.provider == "ollama":
+                # Пока grammar_path игнорируем для ollama
                 result = self._call_ollama(prompt, temp, tokens)
             elif self.provider == "llamacpp":
-                result = self._call_llamacpp(prompt, temp, tokens)
+                result = self._call_llamacpp(prompt, temp, tokens, grammar_path=grammar_path)
             else:
                 logger.warning("Unknown LLM provider", provider=self.provider)
                 error_type_for_metrics = "unknown_provider"
@@ -121,8 +131,6 @@ class LLMClient:
             result = None
         finally:
             # Метрики LLM-вызова — считаем всегда, даже при исключениях.
-            # ВАЖНО: любые ошибки метрик не должны ломать бизнес-логику,
-            # поэтому этот блок обёрнут в try/except.
             duration = time.time() - start_time
             try:
                 METRICS.llm_request_duration_seconds.labels(
@@ -175,7 +183,9 @@ class LLMClient:
         if response.status_code >= 500:
             raise TransientError(f"OpenAI server error: {response.status_code}")
         if response.status_code != 200:
-            raise PermanentError(f"OpenAI error {response.status_code}: {response.text[:200]}")
+            raise PermanentError(
+                f"OpenAI error {response.status_code}: {response.text[:200]}"
+            )
 
         data = response.json()
         text = data["choices"][0]["message"]["content"]
@@ -219,7 +229,9 @@ class LLMClient:
                 f"Run `ollama pull {settings.LLM_OLLAMA_MODEL}`."
             )
         if response.status_code != 200:
-            raise TransientError(f"Ollama error {response.status_code}: {response.text[:200]}")
+            raise TransientError(
+                f"Ollama error {response.status_code}: {response.text[:200]}"
+            )
 
         data = response.json()
         text = data.get("response", "")
@@ -239,24 +251,27 @@ class LLMClient:
         prompt: str,
         temperature: float,
         max_tokens: int,
+        grammar_path: Optional[str] = None,
     ) -> LLMResponse:
         """Call local model via llama-cpp-python."""
         model_path = settings.LLM_LOCAL_MODEL_PATH
         if not model_path:
             raise PermanentError("LLM_LOCAL_MODEL_PATH is not set for llamacpp provider")
 
-        # Нормализуем путь под Linux/Windows
         normalized = model_path.replace("\\", "/")
         if not os.path.exists(normalized):
-            raise PermanentError(f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)")
+            raise PermanentError(
+                f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)"
+            )
 
         # Lazy-load модели
         if self._llama_model is None:
             try:
-                from llama_cpp import Llama
+                from llama_cpp import Llama  # только Llama здесь
             except ImportError as e:
                 raise PermanentError(
-                    "llama-cpp-python is not installed. " "Install it or switch LLM_PROVIDER."
+                    "llama-cpp-python is not installed. "
+                    "Install it or switch LLM_PROVIDER."
                 ) from e
 
             logger.info(
@@ -273,14 +288,36 @@ class LLMClient:
             )
             logger.info("Local LLM model loaded successfully", path=normalized)
 
-        # Вызов модели
-        output = self._llama_model(
-            prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            stop=["\n\n", "###", "-----"],
-            echo=False,
-        )
+        # Импорт LlamaGrammar отдельно, вне if
+        from llama_cpp import LlamaGrammar
+
+        llama_kwargs: dict[str, Any] = {
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stop": ["\n\n", "###", "-----"],
+            "echo": False,
+        }
+
+        if grammar_path:
+            try:
+                if grammar_path not in self._llama_grammar_cache:
+                    with open(grammar_path, "r", encoding="utf-8") as f:
+                        gbnf_text = f.read()
+                    grammar_obj = LlamaGrammar.from_string(gbnf_text)
+                    self._llama_grammar_cache[grammar_path] = grammar_obj
+                else:
+                    grammar_obj = self._llama_grammar_cache[grammar_path]
+
+                llama_kwargs["grammar"] = grammar_obj
+            except Exception as e:
+                logger.warning(
+                    "Failed to load/parse GBNF grammar, falling back without it",
+                    path=grammar_path,
+                    error=str(e),
+                )
+
+        output = self._llama_model(**llama_kwargs)
 
         text = output["choices"][0]["text"].strip()
         tokens_used = output.get("usage", {}).get("total_tokens", 0)
@@ -318,7 +355,10 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
         response.found = json_data.get("found", None)
         response.evidence = str(json_data.get("evidence", "") or "")
         response.clause = str(json_data.get("clause", "") or "")
-        response.confidence = float(json_data.get("confidence", 0.7))
+        try:
+            response.confidence = float(json_data.get("confidence", 0.7))
+        except (TypeError, ValueError):
+            response.confidence = 0.7
         response.parse_success = True
     else:
         # Fallback: simple text analysis

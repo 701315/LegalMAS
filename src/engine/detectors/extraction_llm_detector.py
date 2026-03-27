@@ -1,11 +1,128 @@
 # src/engine/detectors/extraction_llm_detector.py
 
 """
-ExtractionLLMDetector: LLM-based structured data extractor.
+ExtractionLLMDetector: LLM‑экстрактор структурированных полей из текста договора.
 
-Назначение:
-- На основе ExtractionConfig (список полей) и текстового контекста
-  вызвать LLM с промптом "верни JSON с полями" и распарсить ответ.
+Высокоуровневая идея
+--------------------
+Этот класс отвечает ТОЛЬКО за извлечение значений полей (structured_data)
+из уже отобранного фрагмента договора, по заранее описанной схеме полей
+(ExtractionConfig). Он НЕ решает, есть ли вообще нужная оговорка в документе
+— этим занимается отдельный детектор (LLMDetector + rules).
+
+Где в пайплайне используется
+----------------------------
+1. CheckRunner / CheckExecutor для конкретного чека вызывают ExtractionExecutor.
+2. ExtractionExecutor:
+   - определяет, какие поля нужно заполнить (check.extraction.fields),
+   - формирует контекст текста (обычно вокруг evidence/location детектора),
+   - вызывает ExtractionLLMDetector.extract(check, basetext).
+3. ExtractionLLMDetector:
+   - строит промпт для LLM по общему шаблону playbooks/json_format_ru.txt,
+   - подмешивает доменный инструктаж из check.extraction.llm_prompt_extraction
+     (если он есть для этого чека),
+   - вызывает LLMClient и получает ответ в виде JSON {"fields": {...}},
+   - нормализует значения по схеме (allowed_values, confidence и т.п.),
+   - возвращает словарь вида:
+       {
+         "field_name": {
+           "value": ...,
+           "confidence": 0.0–1.0,
+         },
+         ...
+       }
+     который потом попадает в CheckResult.structured_data.
+
+Источники знаний для промпта
+----------------------------
+Промпт для LLM собирается из четырёх частей:
+
+1) Шаблон playbooks/json_format_ru.txt (универсальный каркас):
+   - описывает роль модели,
+   - объясняет, что нужно вернуть ТОЛЬКО один JSON‑объект с корневым ключом "fields",
+   - задаёт общие правила интерпретации и confidence.
+
+2) CHECK_META (динамический блок про чек):
+   - если в ExtractionConfig задано поле llm_prompt_extraction (как в кейсе
+     governing_law_and_forum), сюда подставляется этот длинный юридический
+     инструктаж (role, steps, edge cases и т.п.);
+   - если llm_prompt_extraction нет, используется простое описание:
+       "Текущая проверка: <name>. Краткое описание проверки: <description>".
+
+3) FIELDS_SCHEMA:
+   - генерируется по extraction_cfg.fields (name, type, allowed_values, unit, description),
+   - в человекочитаемом виде объясняет модели, какие именно поля нужно заполнить
+     и какие значения допустимы.
+
+4) EXAMPLE_JSON:
+   - автогенерируемый пример структуры ответа:
+       {
+         "fields": {
+           "field_name": {
+             "value": <пример значения>,
+             "confidence": 0.9
+           },
+           ...
+         }
+       }
+   - помогает модели придерживаться нужного JSON‑формата.
+
+Контракт ответа от LLM
+----------------------
+Ожидаемый формат ответа (после всех подсказок):
+
+{
+  "fields": {
+    "<field_name>": {
+      "value": ...,
+      "confidence": 0.0–1.0
+    },
+    ...
+  }
+}
+
+Где:
+- "value":
+  - строка, число, булево или null — в зависимости от типа поля и схемы;
+  - для полей с allowed_values должно быть одним из допустимых значений
+    (после нормализации).
+- "confidence":
+  - вещественное число от 0.0 до 1.0;
+  - по смыслу: насколько уверенно модель извлекла это значение
+    именно из данного текста (а не "придумала").
+
+Парсинг и нормализация
+----------------------
+- _parse_response:
+  - пытается распарсить ответ как JSON полностью;
+  - если не удаётся, пробует вытащить JSON‑объект "изнутри" текста (_extract_json);
+  - забирает только блок "fields" и для каждого поля — "value" и "confidence".
+
+- _normalize_fields:
+  - сопоставляет имена полей с ExtractionConfig;
+  - приводит confidence к float;
+  - если у поля есть allowed_values — старательно приводит value к одному из них
+    (учитывая регистр/пробелы).
+
+Гарантии устойчивости
+---------------------
+- Если LLM недоступен, вернул пустой ответ или невалидный JSON:
+  - метод extract() возвращает пустой словарь {},
+  - пайплайн не падает, просто не заполняет structured_data этим способом.
+
+- Если LLM вернул лишние поля, которых нет в схеме:
+  - такие поля игнорируются.
+
+- Если значение нельзя уверенно привести к allowed_values:
+  - возвращается оригинальная строка (по политике это можно поменять на None).
+
+Важно
+-----
+Этот класс рекомендуется использовать только после того, как:
+- детектор (rules + LLMDetector) уже нашёл релевантную оговорку
+  и дал текстовый контекст (evidence/location),
+- и нужно "выжать" из этого места максимум структурированных полей
+  по конкретной юридической проверке.
 """
 
 from __future__ import annotations
@@ -70,11 +187,16 @@ class ExtractionLLMDetector:
 
         prompt = self._build_prompt(check, extraction_cfg, text)
 
+        # Путь к GBNF-грамматике задаётся через настройки и используется
+        # только если LLM-клиент поддерживает grammar (llama-cpp).
+        grammar_path = getattr(settings, "LLM_EXTRACTION_JSON_GRAMMAR_PATH", None)
+
         try:
             response: LLMResponse | None = self.client.call(
                 prompt=prompt,
                 temperature=0.0,  # детерминированное извлечение
                 max_tokens=None,
+                grammar_path=grammar_path,
             )
         except Exception as e:
             logger.warning("LLM extraction call failed", error=str(e))
@@ -116,12 +238,20 @@ class ExtractionLLMDetector:
 
         # 1. Динамический блок про чек
         check_meta_lines: list[str] = []
-        if getattr(check, "name", None):
-            check_meta_lines.append(f"Текущая проверка: {check.name.strip()}.")
-        if getattr(check, "description", None):
-            check_meta_lines.append(
-                f"Краткое описание проверки: {check.description.strip()}"
-            )
+
+        # 1.1. Если в extraction есть свой LLM-промпт — используем его как основу
+        custom_extraction_prompt = getattr(extraction_cfg, "llm_prompt_extraction", None)
+        if isinstance(custom_extraction_prompt, str) and custom_extraction_prompt.strip():
+            check_meta_lines.append(custom_extraction_prompt.strip())
+        else:
+            # 1.2. Иначе — минимальная метаинформация по чекy
+            if getattr(check, "name", None):
+                check_meta_lines.append(f"Текущая проверка: {check.name.strip()}.")
+            if getattr(check, "description", None):
+                check_meta_lines.append(
+                    f"Краткое описание проверки: {check.description.strip()}"
+                )
+
         check_meta = "\n".join(check_meta_lines).strip()
         if not check_meta:
             check_meta = "Текущая проверка: (без названия)."
@@ -139,7 +269,8 @@ class ExtractionLLMDetector:
             if field.allowed_values:
                 allowed_vals = ", ".join(f'"{v}"' for v in field.allowed_values)
                 schema_lines.append(
-                    f"   Допустимые значения (СТРОГО только одно из списка, как строка): [{allowed_vals}]"
+                    "   Допустимые значения (СТРОГО только одно из списка, как строка): "
+                    f"[{allowed_vals}]"
                 )
 
             if getattr(field, "unit", None):
@@ -202,23 +333,38 @@ class ExtractionLLMDetector:
         lines.append(context_clean)
         lines.append("---")
         lines.append("")
-        lines.append("ЖЁСТКИЕ правила формата ответа:")
+
+        lines.append("ЖЁСТКИЕ правила формата ответа (ОБЯЗАТЕЛЬНО):")
         lines.append(
-            "- Выведи ТОЛЬКО один валидный JSON-объект с корневым ключом \"fields\"."
+            '- Выведи ТОЛЬКО один валидный JSON-объект с корневым ключом "fields".'
         )
         lines.append(
-            "- Не добавляй никакого текста до или после JSON (никаких пояснений, Markdown, бэктиков ``` и т.п.)."
+            "- НЕ добавляй НИКАКОГО текста до или после JSON: "
+            "никаких пояснений, инструкций, комментариев, Markdown, списков, "
+            '"Шаг 1", "Ответ:", подсказок по форматированию и т.п.'
+        )
+        lines.append(
+            '- НЕ объясняй, КАК нужно оформить JSON, не пиши советы типа '
+            '"заверши ответ запятой". Просто СРАЗУ выведи готовый JSON.'
         )
         lines.append(
             "- Все ключи и строковые значения должны быть в двойных кавычках."
         )
         lines.append(
-            "- Если по какому-то полю нет достаточно информации, установи value = null и снизь confidence (например, до 0.2)."
+            "- Если по какому-то полю нет достаточно информации, установи "
+            "value = null и confidence = 0.2."
         )
         lines.append(
             "- Не добавляй поля, которых нет в описанной схеме."
         )
-        lines.append("- Начни ответ сразу с символа {")
+        lines.append(
+            "- Начни ответ СРАЗУ с символа { и закончи СРАЗУ символом } "
+            "(никаких символов или переводов строк до и после)."
+        )
+        lines.append(
+            "- Пример выше — это только пример структуры. В ответе выведи "
+            "ТОЛЬКО реальный JSON, БЕЗ слов \"пример\", \"ответ\" и т.п."
+        )
 
         return "\n".join(lines)
 
@@ -248,7 +394,9 @@ class ExtractionLLMDetector:
             # Попробуем вытащить JSON "изнутри"
             candidate = _extract_json(text)
             if not candidate:
-                logger.warning("Failed to parse LLM extraction JSON", raw=text[:500])
+                logger.warning(
+                    "Failed to parse LLM extraction JSON", raw=text[:500]
+                )
                 return {}
             data = candidate
 

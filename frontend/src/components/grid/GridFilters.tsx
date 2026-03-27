@@ -80,7 +80,9 @@ const GridFilters: React.FC<GridFiltersProps> = ({
         <input
           type="text"
           value={searchText}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            onSearchChange(e.target.value)
+          }
           placeholder="Поиск по документу или проверке…"
           className="text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
         />

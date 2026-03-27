@@ -164,29 +164,21 @@ def build_document_detail(
     """
     Построить детальную карточку документа (DocumentDetailDTO) по его id.
 
-    Для каждого чека подтягивает структурированные значения из
-    agg.structured_value_rows по ключу (document_id, check_id).
+    Для каждого чека подтягивает structured_data напрямую из agg.rows
+    (это сырой JSON из CheckResult.structured_data с полями value/source/confidence/found/location/qc).
     """
     doc_meta = documents.get(document_id)
     if not doc_meta:
         raise ValueError(f"Document {document_id} not found in aggregated data")
-
-    # Индекс: (document_id, check_id) → {field_name: field_value}
-    structured_by_doc_check: dict[tuple[str, str], dict[str, Any]] = {}
-    for sv in agg.structured_value_rows:
-        if sv.document_id != document_id:
-            continue
-        key = (sv.document_id, sv.check_id)
-        bucket = structured_by_doc_check.setdefault(key, {})
-        bucket[sv.field_name] = sv.field_value
 
     checks: list[CheckItemDTO] = []
     for row in agg.rows:
         if row.document_id != document_id:
             continue
 
-        key = (row.document_id, row.check_id)
-        structured_data = structured_by_doc_check.get(key, {})
+        # В AggregatedResults.row.* уже должен лежать structured_data из CheckResult
+        # Если его нет, отдаём пустой dict – фронт покажет "нет извлечённых данных".
+        structured_data = row.structured_data or {}
 
         checks.append(
             CheckItemDTO(

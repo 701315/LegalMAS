@@ -35,7 +35,7 @@ from typing import List, Optional
 from fpdf import FPDF
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import Response
+from fastapi.responses import Response, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -504,6 +504,74 @@ async def get_document_pdf_url(
     presigned_url = store.get_presigned_get_url(version.original_ref)
 
     return {"url": presigned_url}
+
+
+@router.get(
+    "/{doc_id}/converted-pdf-url",
+    summary="Get converted PDF URL for document",
+    response_class=PlainTextResponse,  # <- ключевое
+)
+async def get_document_converted_pdf_url(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+
+    if not version or not version.converted_pdf_ref:
+        raise HTTPException(status_code=404, detail="Converted PDF not available")
+
+    store = ArtifactStore()
+    presigned_url = store.get_presigned_get_url(version.converted_pdf_ref)
+
+    # ВАЖНО: вернуть "сырой" текст, без JSON-обёртки
+    return presigned_url
+
+@router.get(
+    "/{doc_id}/converted-pdf-url",
+    summary="Get converted PDF URL for document",
+)
+async def get_document_converted_pdf_url(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+
+    if not version or not version.converted_pdf_ref:
+        raise HTTPException(status_code=404, detail="Converted PDF not available")
+
+    store = ArtifactStore()
+    presigned_url = store.get_presigned_get_url(version.converted_pdf_ref)
+
+    # Важно: вернуть СТРОКУ (как и другие "string" ответы в OpenAPI)
+    return presigned_url
 
 
 @router.get(

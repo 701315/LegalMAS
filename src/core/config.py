@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"  # "console" for dev, "json" for production
-
+    LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
 
     # --- Classification & Embeddings (общие) ---
     EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"
