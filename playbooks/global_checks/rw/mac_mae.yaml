@@ -1,9 +1,12 @@
 id: "mac_mae"
 name: "MAC/MAE (существенное неблагоприятное изменение)"
 description: >
-  Анализирует наличие и содержание MAC/MAE-клауз:
-  определение «существенного неблагоприятного изменения», исключения
-  и последствия (право расторжения, пересмотр цены, приостановка).
+  Анализирует наличие и содержание MAC/MAE-клауз: определение
+  «существенного неблагоприятного изменения», охват (финансовые
+  показатели, активы, бизнес, правовой статус), carve-outs
+  (отраслевые/макроизменения, изменения законов), последствия
+  (право расторжения, пересмотр цены, приостановка) и баланс
+  между сторонами.
 
 doc_types: []
 
@@ -15,7 +18,101 @@ severity_if_unclear: "medium"
 detector_type: "hybrid"
 
 rules:
+  keyword_mode: any
+
   keywords:
+    high:
+      # Прямые MAC/MAE определения
+      - "(?i)material\\s+adverse\\s+change"
+      - "(?i)material\\s+adverse\\s+effect"
+      - "(?i)\\bMAC\\b"
+      - "(?i)\\bMAE\\b"
+      - "(?i)существенн[а-я]+\\s+неблагоприятн[а-я]+\\s+(изменен|воздейств|событ)"
+      - "(?i)материальн[а-я]+\\s+неблагоприятн[а-я]+\\s+(изменен|воздейств)"
+
+      # MAC/MAE как condition precedent / termination trigger
+      - "(?i)MAC\\s+(condition|event|trigger)"
+      - "(?i)MAE\\s+(condition|event|trigger)"
+      - "(?i)(condition\\s+precedent|closing\\s+condition)[\\s\\S]{0,40}(MAC|MAE|material\\s+adverse)"
+      - "(?i)(termination|right\\s+to\\s+terminate)[\\s\\S]{0,40}(MAC|MAE|material\\s+adverse)"
+      - "(?i)(расторж|прекращ|отказ)[\\s\\S]{0,40}существенн[а-я]+\\s+неблагоприятн"
+
+      # Право на пересмотр цены при MAC
+      - "(?i)price\\s+adjustment[\\s\\S]{0,40}(MAC|MAE|material\\s+adverse)"
+      - "(?i)(MAC|MAE)[\\s\\S]{0,40}price\\s+(adjustment|reduction)"
+      - "(?i)пересмотр\\s+цен[ыи][\\s\\S]{0,40}существенн[а-я]+\\s+неблагоприятн"
+
+    medium:
+      # Общие adverse change формулировки
+      - "(?i)adverse\\s+change"
+      - "(?i)adverse\\s+effect"
+      - "(?i)неблагоприятн[а-я]+\\s+(изменен|воздейств|событ)"
+      - "(?i)негативн[а-я]+\\s+(изменен|воздейств|влиян)"
+
+      # Carve-outs / исключения
+      - "(?i)carve[-\\s]?out"
+      - "(?i)exception[s]?\\s+(to|from)\\s+[\\s\\S]{0,30}(MAC|MAE|material\\s+adverse)"
+      - "(?i)исключени[яе]\\s+из\\s+[\\s\\S]{0,30}(MAC|MAE|существенн)"
+      - "(?i)shall\\s+not\\s+constitute\\s+[\\s\\S]{0,20}(MAC|MAE)"
+      - "(?i)не\\s+считается\\s+[\\s\\S]{0,20}существенн[а-я]+\\s+неблагоприятн"
+
+      # Отраслевые/макро carve-outs
+      - "(?i)industry[-\\s]?wide\\s+(change|effect|condition)"
+      - "(?i)general\\s+(economic|market)\\s+(condition|change)"
+      - "(?i)макроэкономическ[а-я]+\\s+(изменен|условия|факторы)"
+      - "(?i)отраслев[а-я]+\\s+(изменен|условия)"
+      - "(?i)capital\\s+markets?\\s+(condition|change)"
+      - "(?i)pandemic"
+      - "(?i)пандеми"
+      - "(?i)force\\s+majeure"
+
+      # Изменения законодательства carve-out
+      - "(?i)change[s]?\\s+(in|of)\\s+(law|legislation|regulation)"
+      - "(?i)изменени[ея]\\s+(законодательств|законов|регулировани)"
+      - "(?i)accounting\\s+standards?"
+      - "(?i)GAAP\\s+change"
+      - "(?i)IFRS\\s+change"
+
+      # Materiality / существенность
+      - "(?i)materiality\\s+(threshold|standard|test)"
+      - "(?i)порог\\s+существенност[ьи]"
+      - "(?i)material(ly)?\\s+and\\s+adverse(ly)?"
+
+    low:
+      # Общие ссылки на изменения
+      - "(?i)change\\s+in\\s+(circumstances|condition|situation)"
+      - "(?i)изменени[ея]\\s+обстоятельств"
+      - "(?i)adverse"
+      - "(?i)неблагоприятн"
+
+      # Общие ссылки на condition precedent
+      - "(?i)condition\\s+precedent"
+      - "(?i)closing\\s+condition"
+      - "(?i)условие\\s+закрытия"
+      - "(?i)предварительн[а-я]+\\s+условие"
+
+      # Общие ссылки на существенность
+      - "(?i)material"
+      - "(?i)существенн"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
     - "material adverse change"
     - "material adverse effect"
     - "MAC"
@@ -24,15 +121,30 @@ rules:
     - "существенное неблагоприятное воздействие"
     - "adverse change"
     - "adverse effect"
-  keyword_mode: "any"
-  regex_patterns: []
-  clause_patterns: []
+    - "carve-out"
+    - "exception to MAC"
+    - "исключения из MAC"
+    - "industry-wide"
+    - "general economic conditions"
+    - "change in law"
+    - "изменение законодательства"
+    - "termination right"
+    - "право расторжения"
+    - "price adjustment"
+    - "condition precedent"
+    - "closing condition"
+  rerank: true
+  filters: {}
 
-llm:
-  prompt_template: |
+conditional: null
+
+extraction:
+  llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A и финансированию.
-    Твоя специализация — MAC/MAE-клаузы и их влияние на сделки и финансирование.
+    Твоя специализация — MAC/MAE-клаузы (Material Adverse Change /
+    Material Adverse Effect), их структура, carve-outs, последствия
+    и влияние на баланс рисков между сторонами сделки.
     </role>
 
     <context>
@@ -42,146 +154,225 @@ llm:
     </context>
 
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически связан с одним или
-    несколькими полями итоговой оценки.
+    Проведи анализ по шагам. Каждый шаг логически соответствует одному
+    или нескольким полям итоговой оценки риска.
 
     Шаг 1 — НАЛИЧИЕ MAC/MAE-КЛАУЗЫ
-    (используется для "has_mac_or_mae"):
+    (используется для заполнения поля "has_mac_mae"):
     - Определи, есть ли в тексте:
       * определения material adverse change / material adverse effect;
-      * русские эквиваленты (существенное неблагоприятное изменение/воздействие);
-      * ссылки на MAC/MAE как на отдельное условие или событие.
+      * русские эквиваленты (существенное неблагоприятное
+        изменение/воздействие);
+      * ссылки на MAC/MAE как на отдельное условие, событие
+        или триггер.
     - Сформулируй вывод:
-      * "yes" — если определение или явная MAC/MAE-клауза присутствует;
-      * "no" — если прямо указано, что специальных MAC/MAE-условий нет;
+      * "yes" — если определение или явная MAC/MAE-клауза
+        присутствует;
+      * "no" — если прямо указано, что специальных
+        MAC/MAE-условий нет;
       * "unclear" — если по фрагментам это неясно.
 
-    Шаг 2 — ОПРЕДЕЛЕНИЕ MAC/MAE
-    (используется для "definition_summary"):
-    - Кратко опиши, что считается MAC/MAE:
-      * какие аспекты охватываются (финансовые показатели, активы, обязательства,
-        правовой статус, бизнес/операции Target, способность исполнять договор);
-      * есть ли:
-        - тесты существенности (materiality),
-        - временной горизонт,
-        - количественные или качественные пороги.
-    - Сделай краткое текстовое резюме определения без юридического копипаста.
+    Шаг 2 — КОЛИЧЕСТВЕННЫЕ ПОРОГИ
+    (используется для заполнения поля "has_quantitative_thresholds"):
+    - Определи, содержит ли MAC/MAE определение количественные
+      критерии:
+      * конкретные суммы или проценты (снижение выручки на X%,
+        потери более $Y);
+      * ссылки на финансовые показатели с числовыми порогами.
+    - Если количественные пороги есть — вывод "yes".
+    - Если MAC/MAE чисто качественный (субъективная оценка
+      существенности) — вывод "no".
+    - Если неясно — вывод "unclear".
 
     Шаг 3 — CARVE-OUT ДЛЯ ОТРАСЛЕВЫХ/МАКРОИЗМЕНЕНИЙ
-    (используется для "has_industry_or_macro_carveouts"):
+    (используется для заполнения поля "has_industry_macro_carveouts"):
     - Определи, исключены ли из MAC/MAE:
-      * отраслевые изменения (industry-wide);
-      * общие макроэкономические изменения;
-      * изменения на рынках капитала, валютный курс, инфляция, пандемии,
-        политические события и т.п., если они не специфичны для Target.
-    - Сформулируй вывод: "yes" / "no" / "unclear" в зависимости от явных формулировок.
+      * отраслевые изменения (industry-wide changes);
+      * общие макроэкономические изменения (general economic
+        conditions);
+      * изменения на рынках капитала, валютный курс, инфляция;
+      * пандемии, эпидемии;
+      * политические события, войны, санкции;
+      * форс-мажор.
+    - Обрати внимание на оговорку "except to the extent such
+      changes disproportionately affect Target" — если она есть,
+      carve-out частичный.
+    - Сформулируй вывод:
+      * "yes" — упоминается carve-out;
+      * "no" — carve-out отсутствует;
+      * "unclear" — неясно.
 
     Шаг 4 — CARVE-OUT ДЛЯ ИЗМЕНЕНИЙ ЗАКОНОДАТЕЛЬСТВА
-    (используется для "has_law_change_carveouts"):
-    - Проверь, есть ли отдельное исключение, что:
-      * изменения законов, регулирования, accounting standards и т.п.
-        не считаются MAC/MAE,
-      * кроме случаев, когда они непропорционально затрагивают Target
-        (если это прямо оговорено).
-    - Зафиксируй наличие/отсутствие carve-out как "yes" / "no" / "unclear".
+    (используется для заполнения поля "has_law_change_carveouts"):
+    - Определи, есть ли отдельное исключение для:
+      * изменений законов, регулирования;
+      * изменений accounting standards (GAAP, IFRS);
+      * изменений налогового законодательства.
+    - Учитывай оговорку "except to the extent disproportionately
+      affecting Target".
+    - Сформулируй вывод:
+      * "yes" — поминается carve-out;
+      * "no" — carve-out отсутствует;
+      * "unclear" — неясно.
 
     Шаг 5 — ПОСЛЕДСТВИЯ MAC/MAE
-    (используется для "effects_on_deal"):
+    (используется для заполнения поля "effects_on_deal"):
     - Определи, какие права возникают при наступлении MAC/MAE:
-      * право выйти из сделки / отказаться от closing (termination);
-      * право пересмотреть цену (price_adjustment);
-      * право приостановить исполнение (suspension);
-      * комбинация нескольких механизмов — "mixed";
-      * отсутствие специальных последствий — "none";
-      * если по фрагментам неясно — "unclear".
-    - Учитывай, используется ли MAC/MAE как condition precedent до closing
+      * "termination" — право выйти из сделки / отказаться
+        от closing;
+      * "price_adjustment" — право пересмотреть цену;
+      * "suspension" — право приостановить исполнение;
+      * "acceleration" — право требовать досрочного исполнения
+        (в кредитных договорах);
+      * "mixed" — комбинация нескольких механизмов;
+      * "condition_only" — MAC/MAE используется только как
+        condition precedent без отдельного права termination;
+      * "none" — отсутствие специальных последствий;
+      * "unclear" — неясно.
+    - Учитывай, используется ли MAC/MAE до closing
       или также после закрытия.
 
-    Шаг 6 — ОБЩИЙ БАЛАНС И РИСК ДЛЯ TARGET
-    (используется для "overall_risk_level" и "reason"):
-    - Оцени общий уровень риска для Target, учитывая:
-      * широту и субъективность определения MAC/MAE (например,
-        по усмотрению покупателя);
-      * наличие или отсутствие carve-out для отраслевых/макроизменений
-        и изменений законодательства;
-      * перечень последствий и то, кто фактически получает рычаг
-        (покупатель, кредитор, другая сторона).
-    - Сформулируй общий риск как "low" / "medium" / "high".
-    - В "reason" кратко обоснуй вывод, ссылаясь на ключевые формулировки
-      (желательно с короткими цитатами), и поясни, почему конкретная
-      MAC/MAE-конструкция усиливает или снижает риск для Target.
+    Шаг 6 — КТО БЕНЕФИЦИАР MAC/MAE
+    (используется для заполнения поля "mac_beneficiary"):
+    - Определи, в чью пользу работает MAC/MAE-клауза:
+      * "buyer" — покупатель получает право на termination/
+        price adjustment при MAC у Target;
+      * "seller" — продавец получает право (редкий случай);
+      * "lender" — кредитор получает право (в кредитных договорах);
+      * "mutual" — обе стороны имеют симметричные права;
+      * "unclear" — неясно.
+
+    Шаг 7 — RED FLAGS
+    (используется для заполнения поля "red_flags"):
+    - Оцени наличие следующих рисковых факторов:
+
+      * «MAC1» — MAC/MAE даёт контрагенту очень широкое право
+        выйти или пересмотреть цену при любых неблагоприятных
+        событиях. Признаки:
+        - определение широкое и субъективное ("any adverse change",
+          "any event that could reasonably be expected to have
+          an adverse effect");
+        - отсутствует materiality threshold;
+        - effects_on_deal = "termination" или "price_adjustment";
+        - mac_beneficiary = "buyer" или "lender"
+          (контрагент Target).
+
+      * «MAC2» — Отсутствуют carve-outs для отраслевых/
+        макроэкономических изменений. Признаки:
+        - has_industry_macro_carveouts = "no";
+        - Target может быть обвинена в MAC из-за общего
+          экономического кризиса, отраслевого спада,
+          пандемии и т.п.
+
+      * «MAC3» — MAC/MAE чисто субъективный, без количественных
+        порогов, по усмотрению контрагента. Признаки:
+        - has_quantitative_thresholds = "no";
+        - определение позволяет контрагенту заявить MAC
+          на основании субъективной оценки;
+        - нет объективных критериев для оспаривания.
+
+    - Если MAC/MAE:
+      * имеет разумное определение с materiality threshold,
+      * содержит carve-outs для industry-wide и macro changes,
+      * последствия сбалансированы (или MAC — только condition
+        precedent),
+      — верни "NONE".
+    - Если данных недостаточно для оценки или текст противоречив —
+      верни "UNCLEAR".
+    - Формат: один или несколько кодов через запятую
+      ("MAC1", "MAC2", "MAC1, MAC2, MAC3"), "NONE" или "UNCLEAR".
+      Без комментариев в этом поле — всё объясняющее в reason.
+
+    Шаг 8 — ОБОСНОВАНИЕ
+    (используется для заполнения поля "reason"):
+
+    - В "reason" кратко обоснуй вывод:
+      * ссылайся на ключевые формулировки (по возможности
+        с короткими цитатами);
+      * поясни, как конкретная MAC/MAE-конструкция усиливает
+        или снижает риск для Target;
+      * если выставлены red_flags — объясни, почему именно
+        эти коды.
     </instructions>
 
     <edge_cases>
     Обрабатывай пограничные ситуации так:
 
     - Очень широкое и субъективное определение ("any adverse change"
-      без materiality, без carve-out) плюс право контрагента свободно
-      расторгнуть или пересмотреть цену:
-      отражай это как повышенный риск для Target.
+      без materiality, без carve-out) плюс право контрагента
+      свободно расторгнуть или пересмотреть цену:
+      ставь MAC1 и MAC2; overall_risk_level = "high".
 
-    - MAC/MAE ограничен существенными изменениями, специфичными для Target,
-      с carve-out для отраслевых/макроизменений и изменений законов:
-      воспринимай это как более сбалансированную конструкцию, риск может быть
-      "medium" или "low" в зависимости от последствий.
+    - MAC/MAE ограничен существенными изменениями, специфичными
+      для Target, с carve-out для отраслевых/макроизменений
+      и изменений законов:
+      это более сбалансированная конструкция;
+      overall_risk_level = "medium" или "low";
+      red_flags = "NONE" (если нет других проблем).
 
-    - MAC/MAE используется только как условие закрытия (condition precedent)
-      без отдельного права одностороннего расторжения после closing:
-      в "effects_on_deal" можно указать "mixed" и раскрыть детали в reason.
+    - Carve-outs есть, но с оговоркой "except to the extent
+      disproportionately affecting Target":
+      has_industry_macro_carveouts = "partial";
+      это снижает защиту, но не устраняет её;
+      учитывай в overall_risk_level.
 
-    - Текст фрагментарный: есть упоминание MAC/MAE, но непонятно определение
-      или последствия:
-      фиксируй наличие MAC/MAE, но оставляй конкретные характеристики
-      и риск как "unclear", явно описывая, каких данных не хватает.
+    - MAC/MAE используется только как condition precedent
+      без отдельного права одностороннего termination после closing:
+      effects_on_deal = "condition_only";
+      это снижает риск по сравнению с правом termination;
+      учитывай в overall_risk_level.
+
+    - MAC/MAE содержит количественные пороги (например,
+      "снижение EBITDA более чем на 20%"):
+      has_quantitative_thresholds = "yes";
+      это объективный критерий, снижающий субъективность;
+      не ставь MAC3.
+
+    - MAC/MAE определён для обеих сторон симметрично
+      (и покупатель, и продавец могут ссылаться на MAC):
+      mac_beneficiary = "mutual";
+      это более сбалансированная конструкция.
+
+    - Текст фрагментарный: есть упоминание MAC/MAE, но непонятно
+      определение или последствия:
+      has_mac_mae = "yes";
+      остальные поля = "unclear";
+      red_flags = "UNCLEAR";
+      overall_risk_level = "medium".
 
     - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа MAC/MAE-клауз и их последствий,
-      и объясни, как это влияет на неопределённость и оценку риска.
+      укажи, что данных недостаточно для анализа MAC/MAE-клауз.
+      has_mac_mae = "unclear";
+      red_flags = "UNCLEAR";
+      overall_risk_level = "medium".
     </edge_cases>
 
     <output_expectations>
     На основе твоего анализа отдельный механизм извлечения сформирует
     структурированные поля по заранее заданной схеме. Твоя задача —
     давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
+    из текста, на которых они основаны. Не генерируй JSON —
+    просто излагай выводы структурированно и однозначно.
     </output_expectations>
-  prompt_file: null
-  context_k: 4
-  temperature: 0.0
-  max_tokens: 512
 
-evidence:
-  required: true
-  min_snippet_length: 20
-  max_snippet_length: 500
-
-retrieval:
-  context_k: 4
-  max_chunks: 8
-  boost_keywords:
-    - "material adverse change"
-    - "material adverse effect"
-    - "существенное неблагоприятное изменение"
-  rerank: true
-  filters: {}
-
-conditional: null
-
-extraction:
   enabled: true
   mode: "hybrid"
   fields:
-    - name: "has_mac_or_mae"
+    - name: "has_mac_mae"
       type: "string"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "definition_summary"
+    - name: "has_quantitative_thresholds"
       type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
 
-    - name: "has_industry_or_macro_carveouts"
+    - name: "has_industry_macro_carveouts"
       type: "string"
       allowed_values:
         - "yes"
@@ -202,15 +393,22 @@ extraction:
         - "termination"
         - "price_adjustment"
         - "suspension"
+        - "acceleration"
+        - "condition_only"
         - "mixed"
         - "unclear"
 
-    - name: "overall_risk_level"
+    - name: "mac_beneficiary"
       type: "string"
       allowed_values:
-        - "low"
-        - "medium"
-        - "high"
+        - "buyer"
+        - "seller"
+        - "lender"
+        - "mutual"
+        - "unclear"
+
+    - name: "red_flags"
+      type: "string"
 
     - name: "reason"
       type: "string"
@@ -220,6 +418,8 @@ extraction:
 red_flags:
   items:
     - code: "MAC1"
-      description: "MAC/MAE даёт контрагенту очень широкое право выйти или пересмотреть цену при любых неблагоприятных новостях."
+      description: "MAC/MAE даёт контрагенту очень широкое право выйти или пересмотреть цену."
     - code: "MAC2"
-      description: "Отсутствуют carve-out для отраслевых/макроэкономических изменений."
+      description: "Отсутствуют carve-outs для отраслевых/макроэкономических изменений."
+    - code: "MAC3"
+      description: "MAC/MAE чисто субъективный, без количественных порогов."

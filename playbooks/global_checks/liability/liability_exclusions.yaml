@@ -2,8 +2,9 @@ id: "liability_exclusions"
 name: "Исключения из ответственности (indirect, loss of profit)"
 description: >
   Анализирует исключения из ответственности: indirect, consequential,
-  punitive, loss of profit, loss of business, и их реальное влияние
-  на риск-профиль Target.
+  special, punitive damages, loss of profit, loss of business, loss of revenue.
+  Оценивает, в чью пользу работают исключения (симметричные или односторонние),
+  и их реальное влияние на риск-профиль Target с учётом бизнес-модели.
 
 doc_types: []
 
@@ -15,128 +16,287 @@ severity_if_unclear: "medium"
 detector_type: "hybrid"
 
 rules:
+  keyword_mode: any
+
   keywords:
-    - "косвенные убытки"
-    - "опосредованные убытки"
-    - "последующие убытки"
+    high:
+      # Прямые исключения indirect/consequential
+      - "(?i)shall\\s+not\\s+be\\s+liable\\s+for\\s+[\\s\\S]{0,40}(indirect|consequential|special|punitive)"
+      - "(?i)exclud(e|es|ed|ing)\\s+[\\s\\S]{0,30}(indirect|consequential|special|punitive)\\s+damages"
+      - "(?i)no\\s+(party|liability)\\s+[\\s\\S]{0,40}(indirect|consequential)"
+      - "(?i)neither\\s+party\\s+[\\s\\S]{0,40}liable\\s+for\\s+[\\s\\S]{0,40}(indirect|consequential)"
+      - "(?i)не\\s+(несёт|несет)\\s+ответственност[ьи]\\s+за\\s+[\\s\\S]{0,40}(косвенн|опосредованн|последующ)"
+      - "(?i)исключ[а-я]+\\s+ответственность\\s+за\\s+[\\s\\S]{0,40}(косвенн|опосредованн)"
+      - "(?i)освобожда[ею]тся\\s+от\\s+ответственност[ьи]\\s+за\\s+[\\s\\S]{0,40}(косвенн|последующ)"
+
+      # Прямые исключения loss of profit/business
+      - "(?i)shall\\s+not\\s+be\\s+liable\\s+for\\s+[\\s\\S]{0,40}loss\\s+of\\s+(profit|business|revenue)"
+      - "(?i)exclud(e|es|ed|ing)\\s+[\\s\\S]{0,30}loss\\s+of\\s+(profit|business|revenue)"
+      - "(?i)including\\s+[\\s\\S]{0,20}loss\\s+of\\s+(profit|business|revenue|anticipated\\s+savings)"
+      - "(?i)не\\s+(несёт|несет)\\s+ответственност[ьи]\\s+за\\s+[\\s\\S]{0,40}упущенн[а-я]+\\s+выгод"
+      - "(?i)исключ[а-я]+\\s+ответственность\\s+за\\s+[\\s\\S]{0,40}упущенн[а-я]+\\s+выгод"
+      - "(?i)не\\s+возмеща[ею]тся\\s+[\\s\\S]{0,30}упущенн[а-я]+\\s+выгод"
+
+      # Перечни исключённых убытков
+      - "(?i)including\\s+(but\\s+not\\s+limited\\s+to\\s+)?[\\s\\S]{0,60}(loss\\s+of\\s+profit|loss\\s+of\\s+business|loss\\s+of\\s+revenue)"
+      - "(?i)(indirect|consequential)[,\\s]+(special[,\\s]+)?(punitive[,\\s]+)?[\\s\\S]{0,30}(loss\\s+of|lost)\\s+(profit|business)"
+
+    medium:
+      # Категории убытков — отдельные упоминания
+      - "(?i)indirect\\s+damages?"
+      - "(?i)consequential\\s+damages?"
+      - "(?i)special\\s+damages?"
+      - "(?i)punitive\\s+damages?"
+      - "(?i)incidental\\s+damages?"
+      - "(?i)exemplary\\s+damages?"
+      - "(?i)косвенн[а-я]+\\s+убытк[иов]"
+      - "(?i)опосредованн[а-я]+\\s+убытк[иов]"
+      - "(?i)последующ[а-я]+\\s+убытк[иов]"
+
+      # Loss of profit/business/revenue — отдельные упоминания
+      - "(?i)loss\\s+of\\s+profit"
+      - "(?i)lost\\s+profit"
+      - "(?i)loss\\s+of\\s+business"
+      - "(?i)loss\\s+of\\s+revenue"
+      - "(?i)loss\\s+of\\s+anticipated\\s+savings"
+      - "(?i)loss\\s+of\\s+goodwill"
+      - "(?i)loss\\s+of\\s+opportunity"
+      - "(?i)упущенн[а-я]+\\s+выгод[аыу]"
+      - "(?i)потер[яию]\\s+дохода"
+      - "(?i)потер[яию]\\s+прибыл[ьи]"
+      - "(?i)потер[яию]\\s+бизнеса"
+      - "(?i)недополученн[а-я]+\\s+(доход|прибыль|выручка)"
+
+      # Симметричность / применимость к сторонам
+      - "(?i)neither\\s+party"
+      - "(?i)each\\s+party"
+      - "(?i)ни\\s+одна\\s+из\\s+сторон"
+      - "(?i)обе\\s+стороны"
+      - "(?i)каждая\\s+из\\s+сторон"
+
+    low:
+      # Общие ссылки на исключения/ограничения
+      - "(?i)exclud(e|es|ed|ing)\\s+[\\s\\S]{0,30}(liability|damages)"
+      - "(?i)limit(ation)?\\s+of\\s+liability"
+      - "(?i)исключ[а-я]+\\s+из\\s+ответственност[ьи]"
+      - "(?i)ограничени[ея]\\s+ответственност[ьи]"
+      - "(?i)освобожден[иея]\\s+от\\s+ответственност[ьи]"
+
+      # Общие ссылки на убытки
+      - "(?i)damages"
+      - "(?i)убытк[иов]"
+      - "(?i)losses"
+      - "(?i)потер[ьи]"
+
+  regex_patterns: []
+  clause_patterns: []
+
+llm:
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "shall not be liable for indirect"
+    - "shall not be liable for consequential"
+    - "excludes indirect damages"
+    - "excludes consequential damages"
     - "indirect damages"
     - "consequential damages"
     - "special damages"
     - "punitive damages"
     - "loss of profit"
-    - "упущенная выгода"
+    - "lost profit"
     - "loss of business"
     - "loss of revenue"
-  keyword_mode: "any"
-  regex_patterns: []
-  clause_patterns: []
-
-llm:
-  prompt_template: |
-    <role>
-    Ты — юрист по коммерческим контрактам.
-    Твоя специализация — ограничения и исключения договорной ответственности
-    (indirect / consequential loss, loss of profit и т.п.).
-    </role>
-
-    <context>
-    Ниже приведены фрагменты договора с положениями об исключениях из ответственности:
-
-    {context}
-    </context>
-
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически связан с одним или
-    несколькими полями итоговой оценки.
-
-    Шаг 1 — ИСКЛЮЧЕНИЕ КОСВЕННЫХ/ПОСЛЕДУЮЩИХ УБЫТКОВ
-    (используется для "excludes_indirect_or_consequential"):
-    - Определи, исключены ли:
-      * косвенные, опосредованные, последующие убытки;
-      * indirect, consequential, special, punitive damages и аналогичные категории.
-    - Сформулируй вывод: yes / no / unclear, опираясь только на прямые формулировки
-      или очевидные эквиваленты.
-
-    Шаг 2 — ИСКЛЮЧЕНИЕ УПУЩЕННОЙ ВЫГОДЫ И ПОТЕРИ БИЗНЕСА
-    (используется для "excludes_loss_of_profit_or_business"):
-    - Проверь, исключена ли ответственность за:
-      * loss of profit, loss of business, loss of revenue,
-      * loss of anticipated savings и аналогичные формулировки.
-    - Зафиксируй наличие такого исключения как yes / no / unclear, ориентируясь
-      прежде всего на прямые упоминания этих категорий.
-
-    Шаг 3 — ОБЩИЙ РИСК ДЛЯ TARGET С УЧЁТОМ БИЗНЕС-ПРОФИЛЯ
-    (используется для "overall_risk_level" и "reason"):
-    - Оцени влияние исключений на риск-профиль Target:
-      * для моделей, завязанных на непрерывность сервиса и выручку (SaaS,
-        маркетплейс, дистрибуция, сервисы с высокой стоимостью простоя),
-        исключение косвенных убытков и упущенной выгоды часто критично;
-      * учти наличие в тексте иных механизмов смягчения (страхование, специальные
-        компенсации, сервис-кредиты, SLA-кредиты и т.п., если они видны во фрагментах).
-    - Сформулируй общий уровень риска как low / medium / high.
-    - В "reason" кратко обоснуй вывод, ссылаясь на ключевые формулировки
-      (желательно с короткими цитатами) и пояснив, почему структура исключений
-      снижает/повышает защищённость Target с учётом характера её бизнеса.
-    </instructions>
-
-    <edge_cases>
-    Обрабатывай пограничные ситуации так:
-
-    - Стандартная оговорка "no liability for indirect, consequential or special damages":
-      как правило означает excludes_indirect_or_consequential = "yes".
-      Если loss of profit не упомянута прямо, но может быть косвенно отнесена к
-      consequential damages, отметь это в reason, но флаг
-      "excludes_loss_of_profit_or_business" оцени по прямому тексту.
-
-    - Формулировки "including but not limited to loss of profit, loss of business,
-      loss of revenue" обычно означают, что упущенная выгода и потеря бизнеса
-      прямо исключены:
-      учитывай это как повышенный риск, особенно если Target критично зависит
-      от выручки/маржи.
-
-    - Исключения сформулированы симметрично для обеих сторон, но Target фактически
-      более уязвима (например, как покупатель критичного сервиса):
-      это укажи в reason и можешь оценить риск как "medium" вместо "low".
-
-    - Текст фрагментарный и непонятно, какие именно категории убытков исключены:
-      используй "unclear" для соответствующих полей и объясни в reason, какие
-      формулировки отсутствуют.
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа исключений из ответственности
-      (indirect/loss of profit), и отрази эту неопределённость в оценке риска.
-    </edge_cases>
-
-    <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
-    </output_expectations>
-  prompt_file: null
-  context_k: 3
-  temperature: 0.0
-  max_tokens: 384
-
-evidence:
-  required: true
-  min_snippet_length: 20
-  max_snippet_length: 400
-
-retrieval:
-  context_k: 3
-  max_chunks: 6
-  boost_keywords:
-    - "indirect damages"
-    - "consequential damages"
+    - "loss of anticipated savings"
     - "упущенная выгода"
-    - "loss of profit"
+    - "косвенные убытки"
+    - "опосредованные убытки"
+    - "последующие убытки"
+    - "потеря дохода"
+    - "недополученная прибыль"
+    - "neither party shall be liable"
   rerank: true
   filters: {}
 
 conditional: null
 
 extraction:
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по коммерческим контрактам.
+    Твоя специализация — ограничения и исключения договорной ответственности:
+    indirect/consequential damages, loss of profit, loss of business,
+    а также оценка их влияния на риск-профиль сторон.
+    </role>
+
+    <context>
+    Ниже приведены фрагменты договора с положениями об исключениях
+    из ответственности:
+
+    {context}
+    </context>
+
+    <instructions>
+    Проведи анализ по шагам. Каждый шаг логически соответствует одному
+    или нескольким полям итоговой оценки риска.
+
+    Шаг 1 — ИСКЛЮЧЕНИЕ КОСВЕННЫХ/ПОСЛЕДУЮЩИХ УБЫТКОВ
+    (используется для заполнения поля "excludes_indirect_or_consequential"):
+    - Определи, исключена ли ответственность за:
+      * indirect damages (косвенные убытки);
+      * consequential damages (последующие/опосредованные убытки);
+      * special damages (специальные убытки);
+      * punitive / exemplary damages (штрафные убытки);
+      * incidental damages (побочные убытки).
+    - Если такое исключение явно прописано — вывод "yes".
+    - Если исключения нет или ответственность за эти категории
+      явно сохранена — вывод "no".
+    - Если из фрагментов невозможно определить — вывод "unclear".
+
+    Шаг 2 — ИСКЛЮЧЕНИЕ УПУЩЕННОЙ ВЫГОДЫ И ПОТЕРИ БИЗНЕСА
+    (используется для заполнения поля "excludes_loss_of_profit"):
+    - Определи, исключена ли ответственность за:
+      * loss of profit / lost profits (упущенная выгода);
+      * loss of business (потеря бизнеса);
+      * loss of revenue (потеря выручки/дохода);
+      * loss of anticipated savings (потеря ожидаемой экономии);
+      * loss of goodwill (потеря деловой репутации);
+      * loss of opportunity (потеря возможности).
+    - Если такое исключение явно прописано (в том числе в перечне
+      "including but not limited to ...") — вывод "yes".
+    - Если исключения нет — вывод "no".
+    - Если из фрагментов невозможно определить — вывод "unclear".
+
+    Шаг 3 — НАПРАВЛЕННОСТЬ ИСКЛЮЧЕНИЙ (В ЧЬЮ ПОЛЬЗУ)
+    (используется для заполнения поля "exclusions_beneficiary"):
+    - Определи, в чью пользу работают исключения:
+      * "mutual" — исключения симметричные, применяются к обеим
+        сторонам ("neither party shall be liable");
+      * "target" — исключения преимущественно защищают Target
+        (Target не несёт ответственность за эти категории);
+      * "counterparty" — исключения преимущественно защищают
+        контрагента (контрагент не несёт ответственность,
+        но Target несёт);
+      * "unclear" — невозможно определить направленность.
+    - Обрати внимание на формулировки:
+      * "Neither party shall be liable" — mutual;
+      * "Provider shall not be liable" (а Target — shall be liable) —
+        в пользу контрагента;
+      * "Customer shall not be liable" — в пользу Target
+        (если Target = Customer).
+
+    Шаг 5 — RED FLAGS
+    (используется для заполнения поля "red_flags"):
+    - Оцени наличие следующих рисковых факторов:
+
+      * «LIAB8» — Исключена ответственность за loss of profit /
+        loss of business в пользу контрагента (но не Target)
+        при бизнес-модели Target, критично зависящей от выручки,
+        непрерывности сервиса или маржи. Признаки:
+        - формулировки "Provider/Supplier shall not be liable for
+          loss of profit" без симметричного исключения для Target;
+        - Target = покупатель критичного сервиса (SaaS, дистрибуция,
+          инфраструктура);
+        - исключение loss of profit/business явное и широкое.
+
+      * «LIAB9» — Асимметричные исключения indirect/consequential
+        damages: контрагент защищён от ответственности за эти
+        категории, а Target — нет (или защита Target существенно
+        уже). Признаки:
+        - исключения сформулированы только для одной стороны;
+        - перечень исключённых категорий для контрагента шире,
+          чем для Target;
+        - Target остаётся подвержена риску широких indirect claims
+          от контрагента.
+
+    - Если исключения симметричные и разумные, или отсутствуют
+      вообще — верни "NONE".
+    - Если данных недостаточно для оценки или текст противоречив —
+      верни "UNCLEAR".
+    - Формат: один или несколько кодов через запятую
+      ("LIAB8", "LIAB9", "LIAB8, LIAB9"), "NONE" или "UNCLEAR".
+      Без комментариев в этом поле — всё объясняющее в reason.
+
+    Шаг 5 — ОБОСНОВАНИЕ
+    (используется для заполнения поля "reason"):
+
+    - В "reason" кратко обоснуй вывод:
+      * ссылайся на ключевые формулировки (по возможности
+        с короткими цитатами);
+      * поясни, как структура исключений влияет на защищённость
+        Target с учётом характера её бизнеса;
+      * если выставлены red_flags — объясни, почему именно эти коды.
+    </instructions>
+
+    <edge_cases>
+    Обрабатывай пограничные ситуации так:
+
+    - Стандартная оговорка "neither party shall be liable for
+      indirect, consequential or special damages":
+      это симметричное исключение; excludes_indirect_or_consequential = "yes",
+      exclusions_beneficiary = "mutual"; риск обычно "low" или "medium"
+      в зависимости от бизнес-модели.
+
+    - Формулировка "including but not limited to loss of profit,
+      loss of business, loss of revenue":
+      это прямое исключение loss of profit/business;
+      excludes_loss_of_profit = "yes"; если исключение в пользу
+      контрагента — рассматривай как повышенный риск, ставь LIAB8.
+
+    - Исключения сформулированы симметрично ("neither party"),
+      но Target фактически более уязвима (например, как покупатель
+      критичного SaaS-сервиса):
+      отрази это в reason; exclusions_beneficiary = "mutual",
+      но overall_risk_level может быть "medium" из-за бизнес-контекста.
+
+    - Loss of profit не упомянута прямо, но может быть косвенно
+      отнесена к consequential damages по применимому праву:
+      excludes_loss_of_profit = "unclear" (или "no", если нет прямого
+      упоминания); отметь эту неопределённость в reason.
+
+    - Исключения сформулированы только для одной стороны
+      (например, "Provider shall not be liable for ..."):
+      exclusions_beneficiary = "counterparty" (или "target" в
+      зависимости от того, кто Provider); если Target не защищена —
+      рассматривай LIAB9.
+
+    - Есть исключения indirect, но предусмотрены SLA-кредиты
+      или service credits как компенсация:
+      отрази наличие компенсирующего механизма в reason;
+      это может снизить overall_risk_level до "medium" или "low".
+
+    - Текст фрагментарный, непонятно, какие именно категории
+      исключены и в чью пользу:
+      используй "unclear" для соответствующих полей;
+      red_flags = "UNCLEAR", overall_risk_level = "medium".
+
+    - Пустые или явно нерелевантные фрагменты:
+      укажи, что данных недостаточно для анализа исключений
+      из ответственности. Поставь excludes_indirect_or_consequential =
+      "unclear", excludes_loss_of_profit = "unclear",
+      exclusions_beneficiary = "unclear", red_flags = "UNCLEAR",
+      overall_risk_level = "medium".
+    </edge_cases>
+
+    <output_expectations>
+    На основе твоего анализа отдельный механизм извлечения сформирует
+    структурированные поля по заранее заданной схеме. Твоя задача —
+    давать чёткие юридические выводы и указывать конкретные формулировки
+    из текста, на которых они основаны. Не генерируй JSON —
+    просто излагай выводы структурированно и однозначно.
+    </output_expectations>
+
   enabled: true
   mode: "hybrid"
   fields:
@@ -147,19 +307,23 @@ extraction:
         - "no"
         - "unclear"
 
-    - name: "excludes_loss_of_profit_or_business"
+    - name: "excludes_loss_of_profit"
       type: "string"
       allowed_values:
         - "yes"
         - "no"
         - "unclear"
 
-    - name: "overall_risk_level"
+    - name: "exclusions_beneficiary"
       type: "string"
       allowed_values:
-        - "low"
-        - "medium"
-        - "high"
+        - "mutual"
+        - "target"
+        - "counterparty"
+        - "unclear"
+
+    - name: "red_flags"
+      type: "string"
 
     - name: "reason"
       type: "string"
@@ -168,5 +332,7 @@ extraction:
 
 red_flags:
   items:
-    - code: "LIAB5"
-      description: "Исключена ответственность за loss of profit/loss of business при бизнес-модели, завязанной на такие показатели."
+    - code: "LIAB8"
+      description: "Исключена ответственность за loss of profit/loss of business."
+    - code: "LIAB9"
+      description: "Асимметричные исключения indirect/consequential damages."

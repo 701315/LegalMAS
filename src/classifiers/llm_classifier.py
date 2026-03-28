@@ -10,11 +10,11 @@ L4: классификация документов через LLM (обёртк
   какой провайдер LLM использовать или отключить L4 полностью.
 
 Варианты провайдера (settings.LLM_PROVIDER):
-- "none"     — L4 отключён, каскад работает только на L1–L3.
-- "local"    — локальная GGUF‑модель через llama‑cpp‑python
-               (без риска утечки ПДн, модель работает на своём сервере).
-- "openai"   — облачный OpenAI API (обязательно использовать очищенный текст).
-- "anthropic"— облачный Anthropic API (обязательно использовать очищенный текст).
+- "none"      — L4 отключён, каскад работает только на L1–L3.
+- "local"     — локальная GGUF‑модель через llama‑cpp‑python
+                (без риска утечки ПДн, модель работает на своём сервере).
+- "openai"    — облачный OpenAI API (обязательно использовать очищенный текст).
+- "anthropic" — облачный Anthropic API (обязательно использовать очищенный текст).
 
 Текущий статус:
 - В Stage 8 основным L4 является логика внутри HybridClassifier.
@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any, Dict
 
 from .base import BaseLLMClassifier, ClassificationResult
 from .registry_loader import get_doc_type_config, load_registry
@@ -35,7 +36,14 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 # ── Шаблон системного промпта для LLM‑классификации ──────────────────────────
+# ВАЖНО: текст промпта хранится в отдельном файле
+# /prompts/classification/classify_document.txt.
+# Здесь оставляем только контракт по JSON: ожидаем поля
+#  - type_code: строка с кодом типа или "UNKNOWN" / null
+#  - confidence: число 0–1
+#  - reasoning: строка с кратким обоснованием.
 
 _CLASSIFY_PROMPT = (
     "Ты — классификатор юридических документов.\n"
@@ -47,10 +55,10 @@ _CLASSIFY_PROMPT = (
     "Инструкция:\n"
     "1) Внимательно прочитай имя файла, путь к папке (если есть) и начало текста документа.\n"
     "2) Выбери РОВНО ОДИН type_code из списка выше, который лучше всего описывает документ.\n"
-    "3) Если ни один тип явно не подходит, верни значение \"UNKNOWN\" в поле doctype.\n"
+    "3) Если ни один тип явно не подходит, верни значение null или строку \"UNKNOWN\" в поле type_code.\n"
     "4) Ответь СТРОГО одним JSON-объектом следующего вида:\n"
     "{"
-    "\"doctype\": \"<один type_code из списка или UNKNOWN>\", "
+    "\"type_code\": \"<один type_code из списка, либо \"UNKNOWN\" или null>\", "
     "\"confidence\": <число от 0 до 1>, "
     "\"reasoning\": \"краткое объяснение в 1–2 предложениях\""
     "}\n\n"
@@ -69,6 +77,69 @@ def _build_types_list(registry_path: str) -> str:
         if doc_type:
             lines.append(f"  - {doc_type}: {name}")
     return "\n".join(lines)
+
+
+def _parse_llm_json(
+    raw_text: str,
+    registry: Dict[str, Any],
+) -> tuple[str, float, str]:
+    """
+    Аккуратно разобрать JSON из ответа LLM и привести к безопасным значениям.
+
+    Возвращает кортеж (best_type, confidence, reasoning):
+    - best_type:
+        * если type_code валидный и есть в реестре → он;
+        * если type_code пустой/None/"UNKNOWN"/левый → "UNKNOWN".
+    - confidence:
+        * число 0–1, любые NaN/отрицательные/больше 1 обрезаются в [0, 1].
+    - reasoning:
+        * строка (даже если в JSON было что-то иное).
+    """
+    # 1. Вырезаем JSON-объект из текста (на случай, если модель добавила мусор).
+    start_idx = raw_text.find("{")
+    end_idx = raw_text.rfind("}") + 1
+    if start_idx == -1 or end_idx <= start_idx:
+        raise ValueError("No JSON object found in LLM response")
+
+    obj = json.loads(raw_text[start_idx:end_idx])
+
+    # 2. Нормализуем type_code.
+    raw_type = obj.get("type_code")
+    # На всякий случай поддерживаем старое имя поля "doctype"
+    if raw_type is None:
+        raw_type = obj.get("doctype")
+
+    if isinstance(raw_type, str):
+        raw_type = raw_type.strip()
+    else:
+        # Если это не строка (None, число и т.п.) — считаем, что типа нет.
+        raw_type = ""
+
+    # Всё, что похоже на "UNKNOWN" (в любом регистре), трактуем как отсутствие типа.
+    if raw_type.upper() == "UNKNOWN":
+        raw_type = ""
+
+    # Проверяем, что тип есть в YAML‑реестре.
+    allowed_types = {cfg.get("type", "") for cfg in registry.get("document_types", [])}
+    best_type = raw_type if raw_type in allowed_types else "UNKNOWN"
+
+    # 3. Нормализуем confidence.
+    raw_conf = obj.get("confidence", 0.0)
+    try:
+        conf = float(raw_conf)
+    except (TypeError, ValueError):
+        conf = 0.0
+    if conf < 0.0:
+        conf = 0.0
+    if conf > 1.0:
+        conf = 1.0
+
+    # 4. Нормализуем reasoning.
+    reasoning = obj.get("reasoning", "")
+    if not isinstance(reasoning, str):
+        reasoning = str(reasoning)
+
+    return best_type, conf, reasoning
 
 
 class LocalLLMClassifier(BaseLLMClassifier):
@@ -137,18 +208,18 @@ class LocalLLMClassifier(BaseLLMClassifier):
         Классификация документа через локальную GGUF‑модель.
 
         Параметры:
-        - text         : полный текст документа (можно сырой, без маскировки).
-        - filename     : имя файла (используется только в промптах, при необходимости).
-        - folder_path  : путь к папке (резерв на будущее).
+        - text          : полный текст документа (можно сырой, без маскировки).
+        - filename      : имя файла (используется только в промптах, при необходимости).
+        - folder_path   : путь к папке (резерв на будущее).
         - text_sanitized: зарезервировано для облачных провайдеров (здесь не используется).
-        - metadata     : дополнительная информация (например, кандидаты предыдущих уровней).
+        - metadata      : дополнительная информация (например, кандидаты предыдущих уровней).
 
         Возвращает ClassificationResult с полями:
-        - doctype      : выбранный type_code или "UNKNOWN".
-        - confidence   : уверенность LLM в диапазоне 0–1.
-        - level        : ClassificationLevel.L4_LLM.
-        - method       : строка "local_gguf" или описание ошибки.
-        - evidence     : краткое текстовое объяснение из поля reasoning.
+        - doctype       : выбранный type_code или "UNKNOWN".
+        - confidence    : уверенность LLM в диапазоне 0–1.
+        - level         : ClassificationLevel.L4_LLM.
+        - method        : строка "local_gguf" или описание ошибки.
+        - evidence      : краткое текстовое объяснение из поля reasoning.
         - language/jurisdiction: берутся из YAML‑конфига типа, если есть.
         """
         if self.llm is None:
@@ -181,31 +252,44 @@ class LocalLLMClassifier(BaseLLMClassifier):
                 stop=["\n\n"],
             )
             response_text = response["choices"][0]["text"].strip()
-            # Пытаемся найти JSON в ответе (иногда LLM добавляет лишний текст).
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}") + 1
-            if start_idx != -1 and end_idx != 0:
-                result = json.loads(response_text[start_idx:end_idx])
-            else:
-                raise ValueError("No JSON found in LLM response")
 
-            best_type = result.get("doctype", "UNKNOWN")
+            best_type, confidence, reasoning = _parse_llm_json(
+                raw_text=response_text,
+                registry=registry,
+            )
 
-            # Извлекаем метаданные для найденного типа из реестра
+            # Извлекаем метаданные для найденного типа из реестра.
             cfg = get_doc_type_config(registry, best_type) or {}
             doc_meta = cfg.get("metadata", {}) or {}
 
             return ClassificationResult(
                 doctype=best_type,
-                confidence=float(result.get("confidence", 0.0)),
+                confidence=confidence,
                 level=ClassificationLevel.L4_LLM,
                 method="local_gguf",
-                evidence=result.get("reasoning", ""),
+                evidence=reasoning,
                 language=doc_meta.get("language", "ru"),
                 jurisdiction=doc_meta.get("jurisdiction", "RU"),
             )
-        except (json.JSONDecodeError, ValueError, Exception) as e:
-            logger.warning("Local LLM classification failed", error=str(e))
+        except (json.JSONDecodeError, ValueError) as e:
+            # Типичная ситуация: LLM вернул текст без валидного JSON.
+            logger.warning(
+                "Local LLM classification failed: JSON parse error",
+                error=str(e),
+            )
+            return ClassificationResult(
+                doctype="UNKNOWN",
+                confidence=0.0,
+                level=ClassificationLevel.L4_LLM,
+                method="local_llm_error",
+                evidence=str(e),
+            )
+        except Exception as e:
+            # Любая другая ошибка — тоже не должна ронять пайплайн.
+            logger.warning(
+                "Local LLM classification failed: unexpected error",
+                error=str(e),
+            )
             return ClassificationResult(
                 doctype="UNKNOWN",
                 confidence=0.0,
@@ -252,18 +336,18 @@ def create_llm_classifier(
     Создать L4 LLM‑классификатор в зависимости от настроек.
 
     Параметры:
-    - provider     : строка с кодом провайдера ("none", "local", "openai", "anthropic").
-                     Если не задан, берётся из settings.LLM_PROVIDER.
-    - pii_mode     : режим работы с персональными данными
-                     (зарезервирован, текущая реализация не использует).
-    - registry_path: путь к YAML‑реестру типов документов.
-                     Если не задан, берётся из settings.CLASSIFIER_REGISTRY_PATH.
+    - provider      : строка с кодом провайдера ("none", "local", "openai", "anthropic").
+                      Если не задан, берётся из settings.LLM_PROVIDER.
+    - pii_mode      : режим работы с персональными данными
+                      (зарезервирован, текущая реализация не использует).
+    - registry_path : путь к YAML‑реестру типов документов.
+                      Если не задан, берётся из settings.CLASSIFIER_REGISTRY_PATH.
 
     Поведение:
-    - "none"      → возвращает None, L4 отключён.
-    - "local"     → создаёт LocalLLMClassifier для локальной GGUF‑модели.
-    - "openai"    → возвращает заглушку OpenAIClassifier.
-    - "anthropic" → возвращает заглушку AnthropicClassifier.
+    - "none"       → возвращает None, L4 отключён.
+    - "local"      → создаёт LocalLLMClassifier для локальной GGUF‑модели.
+    - "openai"     → возвращает заглушку OpenAIClassifier.
+    - "anthropic"  → возвращает заглушку AnthropicClassifier.
     - Если модель/ключи не найдены, логирует предупреждение и возвращает None.
     """
     provider = provider or settings.LLM_PROVIDER

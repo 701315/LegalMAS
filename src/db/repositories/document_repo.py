@@ -262,9 +262,9 @@ class DocumentRepository:
     async def update_classification(
         self,
         doc_id: uuid.UUID,
-        doc_type: str,
+        doc_type: str | None,
         classification_confidence: float,
-        classification_level: str,
+        classification_level: str | None,
         classification_details: dict,
         applicable_triggers: list[str],
         language: str | None = None,
@@ -283,7 +283,7 @@ class DocumentRepository:
         """
         values = {
             "doc_type": doc_type,
-            "classification_confidence": classification_confidence,
+            "classification_confidence": float(classification_confidence),
             "classification_level": classification_level,
             "classification_details": classification_details,
             "applicable_triggers": applicable_triggers,

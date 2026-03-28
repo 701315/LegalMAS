@@ -25,13 +25,13 @@ CheckRunner: playbook-based checks executor.
 
 import time
 import uuid
-from typing import Tuple, Optional, Any
+from typing import Any, Optional, Tuple
 
 from core.config import settings
 from core.logging import get_logger
-from db.repositories.runner_repo import RunnerRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.run_repo import RunRepository
+from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
 from engine.checks.executor import CheckExecutor
 from engine.content.document_content_service import DocumentContentService
@@ -352,7 +352,6 @@ class CheckRunner:
                     if not conditional:
                         continue
 
-                    trigger = None
                     if isinstance(conditional, dict):
                         trigger = conditional.get("trigger")
                     else:
@@ -486,6 +485,48 @@ class CheckRunner:
                         structured_data[field_name] = {
                             "value": field_val,
                         }
+
+                # Универсальная поддержка red_flags из structured_data
+                if structured_data:
+                    rf_payload = structured_data.get("red_flags")
+                    red_from_struct: Any | None = None
+
+                    if rf_payload is not None:
+                        if isinstance(rf_payload, dict):
+                            red_from_struct = rf_payload.get("value")
+                        else:
+                            red_from_struct = rf_payload
+
+                    codes: list[str] = []
+                    if red_from_struct:
+                        if isinstance(red_from_struct, str):
+                            codes = [
+                                c.strip()
+                                for c in red_from_struct.split(",")
+                                if c and c.strip()
+                            ]
+                        elif isinstance(red_from_struct, list):
+                            codes = [
+                                str(c).strip()
+                                for c in red_from_struct
+                                if str(c).strip()
+                            ]
+                        else:
+                            codes = [str(red_from_struct).strip()]
+
+                    if codes:
+                        existing = quality_flags.get("red_flags")
+                        if isinstance(existing, list):
+                            existing.extend(codes)
+                        elif isinstance(existing, str):
+                            merged = [
+                                e.strip()
+                                for e in existing.split(",")
+                                if e and e.strip()
+                            ] + codes
+                            quality_flags["red_flags"] = merged
+                        elif existing is None:
+                            quality_flags["red_flags"] = codes
 
                 conditional = getattr(check, "conditional", None)
                 if isinstance(conditional, dict):

@@ -758,7 +758,10 @@ class HybridClassifier:
 
         Важно:
         - мы явно передаём список допустимых type_code (из YAMLRegistry);
-        - просим модель выбрать ровно один код из этого списка.
+        - просим модель выбрать ровно один код из этого списка;
+        - формат ответа синхронизирован с промптом
+          /prompts/classification/classify_document.txt и LocalLLMClassifier:
+          ожидаем JSON с полями type_code, confidence, reasoning.
         """
         # Таблица type_code → name (для подсказки модели)
         rows: list[str] = []
@@ -768,7 +771,8 @@ class HybridClassifier:
             rows.append(f"- {tc}: {human_name}")
         types_block = "\n".join(rows)
 
-        # Инструкция полностью на русском, без экранирования кавычек
+        # Инструкция для LLM. Здесь мы не жёстко дублируем весь внешний промпт,
+        # но выдерживаем тот же JSON-контракт: type_code / confidence / reasoning.
         instruction = (
             "Ты — классификатор юридических документов.\n"
             "Твоя задача — выбрать наиболее подходящий код типа документа из разрешённого списка.\n\n"
@@ -777,10 +781,13 @@ class HybridClassifier:
             "Инструкция:\n"
             "1) Внимательно прочитай имя файла, путь к папке и начало текста документа.\n"
             "2) Выбери РОВНО ОДИН type_code из списка выше, который лучше всего описывает документ.\n"
-            "3) Если ни один тип не подходит, верни значение \"UNKNOWN\" в поле doctype.\n"
-            "4) Ответ ДОЛЖЕН быть строго в формате JSON следующего вида:\n"
-            '{ \"doctype\": \"<один type_code из списка или UNKNOWN>\", '
-            '\"confidence\": <число от 0 до 1> }\n\n'
+            "3) Если ни один тип не подходит, верни значение null или строку \"UNKNOWN\" в поле type_code.\n"
+            "4) Ответ ДОЛЖЕН быть строго в формате JSON вида:\n"
+            "{"
+            "\"type_code\": \"<один type_code из списка или \"UNKNOWN\" или null\", "
+            "\"confidence\": <число от 0 до 1>, "
+            "\"reasoning\": \"краткое объяснение в 1–2 предложениях\""
+            "}\n\n"
             "Не добавляй никакого текста до или после JSON.\n"
         )
 
@@ -807,18 +814,22 @@ class HybridClassifier:
         Парсит ответ LLM для задачи классификации документа.
 
         Ожидаемый формат текста:
-        - JSON: {"doctype": "...", "confidence": 0.85}
+        - JSON: {"type_code": "...", "confidence": 0.85, "reasoning": "..."}
         - или JSON внутри текста.
 
-        Дополнительное правило:
-        - если doctype не входит в allowed_types, он заменяется на "UNKNOWN".
+        Правила:
+        - если type_code не входит в allowed_types, он заменяется на "UNKNOWN";
+        - поддерживаем также старое имя поля "doctype" на случай несовпадения промптов;
+        - confidence приводим к диапазону [0, 1].
         """
         text = response.text.strip()
 
         data: dict[str, Any] = {}
+        # Пытаемся сначала распарсить весь ответ как JSON.
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
+            # Если не получилось, пытаемся вырезать подстроку с JSON-объектом.
             start = text.find("{")
             end = text.rfind("}")
             if start != -1 and end != -1 and end > start:
@@ -830,23 +841,45 @@ class HybridClassifier:
             else:
                 data = {}
 
-        raw_doctype = data.get("doctype") if isinstance(data, dict) else None
-        raw_confidence = data.get("confidence") if isinstance(data, dict) else None
+        if not isinstance(data, dict):
+            data = {}
 
-        if isinstance(raw_doctype, str):
-            doctype = raw_doctype.strip()
+        # --- Нормализация type_code / doctype ---
+        raw_type = data.get("type_code")
+        if raw_type is None:
+            # На всякий случай поддерживаем старое имя поля.
+            raw_type = data.get("doctype")
+
+        if isinstance(raw_type, str):
+            raw_type = raw_type.strip()
         else:
-            doctype = ""
+            raw_type = ""
 
-        if not doctype or doctype not in allowed_types:
+        # UNKNOWN (в любом регистре) трактуем как отсутствие типа.
+        if raw_type.upper() == "UNKNOWN":
+            raw_type = ""
+
+        # Фильтруем по списку допустимых типов.
+        allowed_set = set(allowed_types)
+        if raw_type and raw_type in allowed_set:
+            doctype = raw_type
+        else:
             doctype = "UNKNOWN"
 
+        # --- Нормализация confidence ---
+        raw_confidence = data.get("confidence")
         try:
             conf_val = float(raw_confidence)
         except (TypeError, ValueError):
+            # Если модель ничего внятного не дала, берём умеренную уверенность,
+            # чтобы не ломать логику, где L4 используется как "мягкий сигнал".
             conf_val = 0.7
 
-        conf_val = max(0.0, min(1.0, conf_val))
+        # Обрезаем до диапазона [0, 1].
+        if conf_val < 0.0:
+            conf_val = 0.0
+        if conf_val > 1.0:
+            conf_val = 1.0
 
         return {
             "doctype": doctype,

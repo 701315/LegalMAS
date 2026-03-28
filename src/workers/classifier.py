@@ -159,7 +159,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             classification_result = await classifier.classify_document(str(doc.id))
 
             # Ожидаемый формат classification_result см. в hybrid_classifier.py.
-            final_type = classification_result.get("final_type") or "UNKNOWN"
+            raw_final_type = classification_result.get("final_type") or "UNKNOWN"
             final_conf = float(classification_result.get("final_confidence") or 0.0)
             level = classification_result.get("level")
             language = classification_result.get("language")
@@ -168,6 +168,23 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                 "applicable_triggers", []
             )
             details = classification_result.get("details", {})
+
+            # Нормализация типа документа:
+            # - "UNKNOWN" не пишем в doc_type, вместо этого используем None.
+            #   Это важно, чтобы "UNKNOWN" не воспринимался как реальный тип.
+            final_type: str | None
+            if isinstance(raw_final_type, str) and raw_final_type.upper() == "UNKNOWN":
+                final_type = None
+            elif isinstance(raw_final_type, str) and raw_final_type.strip():
+                final_type = raw_final_type.strip()
+            else:
+                final_type = None
+
+            # Нормализация уровня:
+            # - если тип не определён (final_type is None),
+            #   то уровень тоже считаем не определённым.
+            if final_type is None:
+                level = None
 
             # 3. Маршрутизация на плейбук (deal-level PlaybookVersion)
             # Берём playbook, привязанный к сделке, или глобальный default.

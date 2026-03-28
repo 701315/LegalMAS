@@ -1,9 +1,13 @@
 id: "hr_key_management_and_change_of_control"
 name: "Топ-менеджмент, key employees и смена контроля"
 description: >
-  Анализирует трудовые договоры и соглашения с топ-менеджментом и ключевыми
-  сотрудниками: golden parachutes, выплаты при смене контроля или увольнении,
-  основания расторжения, non-compete/non-solicit, retention-бонусы.
+  Анализирует трудовые договоры и соглашения с топ-менеджментом
+  и key employees в контексте M&A: golden parachutes, выплаты
+  при смене контроля или увольнении, severance, retention bonuses,
+  single-trigger / double-trigger CoC payments, good leaver / bad leaver,
+  vesting / equity awards, non-compete / non-solicit и риск ухода
+  ключевых лиц. Оценивает финансовую нагрузку на покупателя
+  и влияние на удержание менеджмента после сделки.
 
 doc_types: []
 
@@ -15,135 +19,114 @@ severity_if_unclear: "medium"
 detector_type: "hybrid"
 
 rules:
+  keyword_mode: any
+
   keywords:
-    - "трудовой договор"
-    - "employment agreement"
-    - "служебный контракт"
-    - "top management"
-    - "топ-менеджмент"
-    - "key employee"
-    - "ключевой сотрудник"
-    - "golden parachute"
-    - "change of control"
-    - "смена контроля"
-    - "severance"
-    - "выходное пособие"
-    - "retention bonus"
-    - "bonus upon change of control"
-    - "non-compete"
-    - "ограничение конкуренции"
-    - "non-solicit"
-    - "запрет переманивания"
-  keyword_mode: "any"
+    high:
+      # Employment / key management
+      - "(?i)employment\\s+agreement"
+      - "(?i)трудов(ой|ого)\\s+договор"
+      - "(?i)служебн(ый|ого)\\s+контракт"
+      - "(?i)top\\s+management"
+      - "(?i)топ[-\\s]?менеджмент"
+      - "(?i)key\\s+employee"
+      - "(?i)ключев(ой|ого)\\s+сотрудник"
+      - "(?i)senior\\s+management"
+      - "(?i)executive\\s+officer"
+
+      # Golden parachute / CoC payments
+      - "(?i)golden\\s+parachute"
+      - "(?i)change\\s+of\\s+control\\s+payment"
+      - "(?i)bonus\\s+upon\\s+change\\s+of\\s+control"
+      - "(?i)change\\s+of\\s+control\\s+bonus"
+      - "(?i)выплат[аы]\\s+при\\s+смене\\s+контрол"
+      - "(?i)бонус\\s+при\\s+смене\\s+контрол"
+      - "(?i)single[-\\s]?trigger"
+      - "(?i)double[-\\s]?trigger"
+
+      # Severance / exit
+      - "(?i)severance"
+      - "(?i)выходн(ое|ого)\\s+пособи"
+      - "(?i)termination\\s+payment"
+      - "(?i)exit\\s+payment"
+      - "(?i)компенсаци[яи]\\s+при\\s+увольнении"
+      - "(?i)несколько\\s+окладов"
+      - "(?i)multiple\\s+of\\s+(salary|base\\s+salary)"
+
+      # Retention
+      - "(?i)retention\\s+bonus"
+      - "(?i)retention\\s+award"
+      - "(?i)удерживающ(ий|его)\\s+бонус"
+      - "(?i)bonus\\s+for\\s+remaining"
+      - "(?i)stay\\s+bonus"
+
+      # Non-compete / non-solicit
+      - "(?i)non[-\\s]?compete"
+      - "(?i)non[-\\s]?solicit"
+      - "(?i)restrictive\\s+covenants?"
+      - "(?i)ограничени[ея]\\s+конкуренци"
+      - "(?i)запрет\\s+переманивани"
+      - "(?i)запрет\\s+работать\\s+у\\s+конкурент"
+
+    medium:
+      # Good leaver / bad leaver
+      - "(?i)good\\s+leaver"
+      - "(?i)bad\\s+leaver"
+      - "(?i)good\\s+reason"
+      - "(?i)constructive\\s+dismissal"
+      - "(?i)по\\s+уважительной\\s+причине"
+      - "(?i)без\\s+вины\\s+работника"
+
+      # Equity / vesting
+      - "(?i)vesting"
+      - "(?i)vested"
+      - "(?i)unvested"
+      - "(?i)equity\\s+award"
+      - "(?i)stock\\s+option"
+      - "(?i)phantom\\s+shares?"
+      - "(?i)опцион\\s+на\\s+акции"
+      - "(?i)долгосрочн(ая|ого)\\s+мотиваци"
+
+      # Trigger terms
+      - "(?i)upon\\s+(a\\s+)?change\\s+of\\s+control"
+      - "(?i)в\\s+случае\\s+смены\\s+контрол"
+      - "(?i)upon\\s+termination\\s+without\\s+cause"
+      - "(?i)при\\s+увольнении\\s+без\\s+основан"
+      - "(?i)without\\s+cause"
+      - "(?i)for\\s+good\\s+reason"
+
+      # Restrictive covenant details
+      - "(?i)duration\\s+of\\s+(the\\s+)?non[-\\s]?compete"
+      - "(?i)территори[яи]\\s+действи[яе]"
+      - "(?i)срок\\s+действи[яе]\\s+ограничени"
+      - "(?i)liquidated\\s+damages"
+      - "(?i)штраф\\s+за\\s+нарушени[ея]\\s+non[-\\s]?compete"
+
+    low:
+      # Общие термины
+      - "(?i)employee"
+      - "(?i)работник"
+      - "(?i)manager"
+      - "(?i)менеджер"
+      - "(?i)bonus"
+      - "(?i)бонус"
+      - "(?i)payment"
+      - "(?i)выплат"
+      - "(?i)termination"
+      - "(?i)увольнени"
+      - "(?i)retention"
+      - "(?i)удержан"
+      - "(?i)competition"
+      - "(?i)конкуренц"
+
   regex_patterns: []
   clause_patterns: []
 
 llm:
-  prompt_template: |
-    <role>
-    Ты — юрист по трудовому праву и M&A.
-    Твоя специализация — условия договоров с топ-менеджментом и key employees
-    в контексте смены контроля и сделок.
-    </role>
-
-    <context>
-    Ниже приведены фрагменты трудовых договоров/соглашений с топ-менеджментом
-    и ключевыми сотрудниками:
-
-    {context}
-    </context>
-
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически связан с одним или
-    несколькими полями итоговой оценки.
-
-    Шаг 1 — СПЕЦИАЛЬНЫЕ ВЫПЛАТЫ ПРИ CoC/УВОЛЬНЕНИИ
-    (используется для "has_change_of_control_or_exit_payments"
-     и "coc_or_exit_payments_description"):
-    - Определи, предусмотрены ли:
-      * специальные выплаты при смене контроля (golden parachute, bonus upon change of control);
-      * увеличенные выходные пособия (severance) при увольнении, особенно без вины работника;
-      * exit-платежи, завязанные на совершение сделки или CoC.
-    - Кратко опиши структуру таких выплат (мультипликаторы окладов, бонусы и триггеры).
-
-    Шаг 2 — RETENTION-БОНУСЫ
-    (используется для "has_retention_bonuses"):
-    - Проверь, есть ли retention-бонусы:
-      * выплаты за продолжение работы до/после сделки;
-      * условия, при которых они сохраняются или утрачиваются (срок работы после CoC и т.п.).
-    - Сделай вывод: да / нет / неясно.
-
-    Шаг 3 — NON-COMPETE / NON-SOLICIT
-    (используется для "has_non_compete_or_non_solicit" и влияет на оценку рисков):
-    - Определи, содержатся ли:
-      * запрет работать у конкурентов или создавать конкурирующий бизнес (non-compete);
-      * запрет переманивать работников/клиентов (non-solicit);
-      * срок и территория действия, если указаны, а также механизмы обеспечения.
-    - Отметь в выводах, насколько эти ограничения выглядят жёсткими или, наоборот, слабыми/сомнительными.
-
-    Шаг 4 — РИСК УХОДА КЛЮЧЕВЫХ ЛИЦ
-    (используется для "key_person_departure_risk_level"):
-    - Оцени риск ухода key persons с учётом:
-      * наличия или отсутствия удерживающих механизмов (retention, vesting, долгосрочные бонусы);
-      * привлекательности «выхода» с крупной компенсацией после CoC;
-      * силы/слабости non-compete/non-solicit (насколько они реально препятствуют уходу к конкурентам).
-    - Классифицируй риск как low / medium / high / unclear и отрази ключевые факторы в reason.
-
-    Шаг 5 — ФИНАНСОВОЕ ВОЗДЕЙСТВИЕ НА СДЕЛКУ
-    (используется для "financial_impact_risk_level"):
-    - Оцени потенциальную финансовую нагрузку на покупателя/инвестора:
-      * размер возможных разовых выплат (severance, CoC-бонусы, retention);
-      * количество лиц, на которых такие условия распространяются;
-      * легкость наступления триггеров (простая смена контроля, увольнение без вины и т.п.).
-    - Определи уровень финансового риска как low / medium / high / unclear.
-
-    Шаг 6 — ОБЩИЙ РИСК ДЛЯ ПОКУПАТЕЛЯ
-    (используется для "overall_risk_level" и "reason"):
-    - Сведи воедино:
-      * риск потери ключевых лиц (и возможный ущерб для бизнеса);
-      * размер и вероятность крупных выплат;
-      * силу договорных ограничений (non-compete/non-solicit).
-    - Оцени общий уровень риска для покупателя бизнеса/инвестора как low / medium / high.
-    - В "reason" кратко обоснуй вывод, ссылаясь на конкретные формулировки
-      (желательно с короткими цитатами), и поясни, как условия влияют на
-      удержание key persons и финансовую нагрузку при сделке.
-    </instructions>
-
-    <edge_cases>
-    Обрабатывай пограничные ситуации так:
-
-    - Явно указано, что при смене контроля топ-менеджер вправе расторгнуть
-      договор с крупным severance (несколько окладов, бонус и т.п.):
-      учитывай это как сочетание повышенного риска ухода и высокой финнагрузки.
-
-    - Есть только стандартные выходные пособия по закону, без специальных
-      CoC/exit-условий:
-      не завышай финансовый риск, если нет иных крупных выплат.
-
-    - Non-compete/non-solicit упомянуты, но без срока, территории или
-      механизма исполнения:
-      отмечай их формальное наличие, но учитывай возможную слабую исполнимость
-      при оценке риска ухода.
-
-    - Текст прямо говорит, что при смене контроля дополнительных выплат нет
-      и условия не меняются:
-      не завышай финансовый риск только из-за факта CoC.
-
-    - Пустые или нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа условий договоров с топ-менеджментом
-      и key employees, и поясни, как это влияет на неопределённость и риск.
-    </edge_cases>
-
-    <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
-    </output_expectations>
-  prompt_file: null
+  prompt_file: "detection/generic_presence.txt"
   context_k: 5
   temperature: 0.0
-  max_tokens: 640
+  max_tokens: 750
 
 evidence:
   required: true
@@ -155,17 +138,179 @@ retrieval:
   max_chunks: 10
   boost_keywords:
     - "golden parachute"
-    - "change of control"
+    - "change of control payment"
+    - "bonus upon change of control"
+    - "single-trigger"
+    - "double-trigger"
     - "severance"
+    - "выходное пособие"
     - "retention bonus"
+    - "stay bonus"
     - "non-compete"
     - "non-solicit"
+    - "good leaver"
+    - "bad leaver"
+    - "vesting"
+    - "stock option"
+    - "phantom shares"
+    - "ключевой сотрудник"
+    - "топ-менеджмент"
+    - "employment agreement"
+    - "смена контроля"
   rerank: true
   filters: {}
 
 conditional: null
 
 extraction:
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по трудовому праву и M&A.
+    Твоя специализация — анализ условий договоров с топ-менеджментом
+    и key employees в контексте смены контроля, удержания персонала
+    и оценки финансовой нагрузки на покупателя.
+    </role>
+
+    <context>
+    Ниже приведены фрагменты трудовых договоров / соглашений
+    с топ-менеджментом и ключевыми сотрудниками:
+
+    {context}
+    </context>
+
+    <instructions>
+    Проведи анализ по шагам. Каждый шаг логически соответствует одному
+    или нескольким полям итоговой оценки.
+
+    Шаг 1 — CoC / EXIT ВЫПЛАТЫ
+    (используется для заполнения поля "has_change_of_control_or_exit_payments"):
+    - Определи, предусмотрены ли:
+      * специальные выплаты при смене контроля
+        (golden parachute, change of control bonus);
+      * увеличенные severance / выходные пособия;
+      * exit payments, завязанные на сделку или увольнение.
+    - Укажи:
+      * триггер выплаты;
+      * размер (если указан: количество окладов, фиксированная
+        сумма, бонус);
+      * single-trigger или double-trigger, если это видно.
+    - Оцени:
+      * "yes" — есть;
+      * "no" — нет;
+      * "unclear" — неясно.
+
+    Шаг 2 — RETENTION-МЕХАНИЗМЫ
+    (используется для заполнения поля "has_retention_bonuses"):
+    - Проверь, есть ли retention-механизмы:
+      * retention bonus / stay bonus;
+      * выплаты за продолжение работы до/после сделки;
+      * vesting, delayed bonus, long-term incentive plans.
+    - Оцени наличие:
+      * has_retention_bonuses = "yes" / "no" / "unclear"
+
+    Шаг 3 — NON-COMPETE / NON-SOLICIT
+    (используется для заполнения поля "has_non_compete_or_non_solicit"):
+    - Определи, содержатся ли:
+      * non-compete;
+      * non-solicit сотрудников / клиентов;
+      * иные restrictive covenants.
+    - Оцени наличие:
+      * "yes" / "no" / "unclear"
+
+    Шаг 4 — GOOD LEAVER / BAD LEAVER / VESTING
+    (используется для заполнения поля "has_leaver_or_vesting_terms"):
+    - Определи, предусмотрены ли:
+      * good leaver / bad leaver;
+      * vesting / forfeiture;
+      * потеря бонусов / опционов при уходе;
+      * acceleration vesting при CoC.
+    - Оцени:
+      * "yes" — положения есть;
+      * "no" — нет;
+      * "unclear" — неясно.
+
+    Шаг 5 — RED FLAGS
+    (используется для заполнения поля "red_flags"):
+    Присвой один или несколько кодов из списка ниже.
+    Если ни один код не применим — верни "NONE".
+    Если данных недостаточно для оценки — верни "UNCLEAR".
+
+    Коды:
+    • KEY1 — Крупные CoC / severance выплаты нескольким
+      key persons.
+    • KEY2 — Single-trigger CoC payment: выплата наступает
+      только из-за смены контроля, без увольнения.
+    • KEY3 — Key persons могут легко уйти после CoC
+      с существенной компенсацией.
+    • KEY4 — Retention mechanisms отсутствуют или слабы.
+    • KEY5 — Non-compete / non-solicit формально есть,
+      но выглядит слабым / трудноприменимым.
+    • KEY6 — Good leaver / bad leaver или vesting создают
+      существенный payout / loss scenario для покупателя.
+
+    Формат ответа: коды через запятую без комментариев
+    (например: "KEY1, KEY3").
+    Вся аргументация — в поле reason.
+
+    Шаг 6 — ОБОСНОВАНИЕ
+    (используется для заполнения поля "reason"):
+
+    - В reason кратко обоснуй вывод, опираясь на ключевые
+      формулировки из текста (с цитатами в кавычках), и укажи:
+      * есть ли CoC / exit выплаты и их триггеры;
+      * насколько сильны retention-механизмы;
+      * насколько исполнимы non-compete / non-solicit;
+      * есть ли leaver / vesting terms;
+      * если выставлены red_flags — обоснуй каждый код;
+      * если red_flags = "NONE" — укажи, почему риск
+        для покупателя умеренный / низкий.
+    </instructions>
+
+    <edge_cases>
+    Обрабатывай пограничные ситуации так:
+
+    - Топ-менеджер вправе расторгнуть договор при CoC
+      с крупным severance:
+      has_change_of_control_or_exit_payments = "yes";
+      coc_payment_trigger_type = "single_trigger" или "mixed";
+      зафиксируй KEY1 и/или KEY2, KEY3.
+
+    - Только стандартные выплаты по закону:
+      financial_impact_risk_level = "low";
+      red_flags могут быть "NONE".
+
+    - Non-compete / non-solicit есть, но без срока,
+      территории или санкций:
+      has_non_compete_or_non_solicit = "yes";
+      restrictive_covenants_strength = "weak";
+      зафиксируй KEY5.
+
+    - Текст прямо говорит, что при CoC дополнительных
+      выплат нет:
+      has_change_of_control_or_exit_payments = "no";
+      KEY1/KEY2 не выставляются.
+
+    - Есть strong retention bonus на 12–24 месяца
+      после closing:
+      has_retention_bonuses = "yes";
+      retention_strength = "strong";
+      это снижает departure risk.
+
+    - Acceleration vesting акций / phantom shares при CoC:
+      has_leaver_or_vesting_terms = "yes";
+      зафиксируй KEY6; financial impact может быть HIGH.
+
+    - Пустые или нерелевантные фрагменты:
+      red_flags = "UNCLEAR"; в reason укажи недостаток данных.
+    </edge_cases>
+
+    <output_expectations>
+    На основе твоего анализа отдельный механизм извлечения сформирует
+    структурированные поля по заранее заданной схеме. Твоя задача —
+    давать чёткие юридические выводы и указывать конкретные
+    формулировки из текста, на которых они основаны.
+    </output_expectations>
+
   enabled: true
   mode: "hybrid"
   fields:
@@ -175,9 +320,6 @@ extraction:
         - "yes"
         - "no"
         - "unclear"
-
-    - name: "coc_or_exit_payments_description"
-      type: "string"
 
     - name: "has_retention_bonuses"
       type: "string"
@@ -193,28 +335,15 @@ extraction:
         - "no"
         - "unclear"
 
-    - name: "key_person_departure_risk_level"
+    - name: "has_leaver_or_vesting_terms"
       type: "string"
       allowed_values:
-        - "low"
-        - "medium"
-        - "high"
+        - "yes"
+        - "no"
         - "unclear"
 
-    - name: "financial_impact_risk_level"
+    - name: "red_flags"
       type: "string"
-      allowed_values:
-        - "low"
-        - "medium"
-        - "high"
-        - "unclear"
-
-    - name: "overall_risk_level"
-      type: "string"
-      allowed_values:
-        - "low"
-        - "medium"
-        - "high"
 
     - name: "reason"
       type: "string"
@@ -223,7 +352,26 @@ extraction:
 
 red_flags:
   items:
-    - code: "HR1"
-      description: "Крупные выплаты при смене контроля/увольнении нескольких key persons."
-    - code: "HR2"
-      description: "Права ключевых лиц легко уйти при смене контроля с значительной компенсацией."
+    - code: "KEY1"
+      description: >
+        Крупные CoC / severance выплаты нескольким
+        key persons.
+    - code: "KEY2"
+      description: >
+        Single-trigger CoC payment: выплата наступает
+        только из-за смены контроля, без увольнения.
+    - code: "KEY3"
+      description: >
+        Key persons могут легко уйти после CoC
+        с существенной компенсацией.
+    - code: "KEY4"
+      description: >
+        Retention mechanisms отсутствуют или слабы.
+    - code: "KEY5"
+      description: >
+        Non-compete / non-solicit формально есть,
+        но выглядит слабым / трудноприменимым.
+    - code: "KEY6"
+      description: >
+        Good leaver / bad leaver или vesting создают
+        существенный payout / loss scenario для покупателя.

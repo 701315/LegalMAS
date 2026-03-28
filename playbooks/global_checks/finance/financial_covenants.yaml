@@ -1,8 +1,13 @@
 id: "financial_covenants"
 name: "Финансовые ковенанты"
 description: >
-  Анализирует финансовые ковенанты: показатели левериджа, ликвидности,
-  ограничения на дивиденды, новые заимствования и сделки с активами.
+  Анализирует финансовые ковенанты в кредитных и коммерческих договорах:
+  показатели левериджа и покрытия (leverage ratio, DSCR, interest coverage),
+  ковенанты ликвидности, ограничения на дивиденды, новые заимствования
+  и сделки с активами. Определяет тип ковенантов (maintenance vs.
+  incurrence), наличие cure period / equity cure, cross-default,
+  baskets и permitted exceptions. Оценивает вероятность нарушения
+  после M&A-сделки и общий риск для финансовой гибкости Target.
 
 doc_types: []
 
@@ -14,147 +19,376 @@ severity_if_unclear: "medium"
 detector_type: "hybrid"
 
 rules:
+  keyword_mode: any
+
   keywords:
-    - "financial covenants"
-    - "финансовые ковенанты"
-    - "covenant"
-    - "leverage ratio"
-    - "коэффициент левериджа"
-    - "debt service coverage"
-    - "DSCR"
-    - "interest coverage"
-    - "ликвидность"
-    - "liquidity"
-    - "dividend restrictions"
-    - "ограничения на выплату дивидендов"
-    - "negative covenants"
-    - "ограничения на распоряжение активами"
-    - "asset sale"
-    - "asset disposition"
-    - "incurrence of indebtedness"
-    - "ограничения на привлечение заимствований"
-  keyword_mode: "any"
+    high:
+      # Финансовые ковенанты — точные маркеры
+      - "(?i)financial\\s+covenants?"
+      - "(?i)финансов[а-я]+\\s+ковенант"
+      - "(?i)maintenance\\s+covenants?"
+      - "(?i)incurrence\\s+covenants?"
+
+      # Leverage / покрытие
+      - "(?i)leverage\\s+ratio"
+      - "(?i)коэффициент\\s+левериджа"
+      - "(?i)net\\s+debt[\\s/]+EBITDA"
+      - "(?i)чистый\\s+долг[\\s/]+EBITDA"
+      - "(?i)debt\\s+service\\s+coverage"
+      - "(?i)\\bDSCR\\b"
+      - "(?i)interest\\s+coverage"
+      - "(?i)покрыти[ея]\\s+процент"
+      - "(?i)\\bICR\\b"
+      - "(?i)fixed\\s+charge\\s+coverage"
+
+      # Ограничения на дивиденды
+      - "(?i)dividend\\s+restriction"
+      - "(?i)ограничени[яе]\\s+на\\s+(выплату\\s+)?дивиденд"
+      - "(?i)restricted\\s+payment"
+      - "(?i)distribution\\s+restriction"
+      - "(?i)запрет\\s+на\\s+(выплату\\s+)?дивиденд"
+      - "(?i)no\\s+dividends?\\s+shall"
+
+      # Ограничения на новый долг
+      - "(?i)incurrence\\s+of\\s+indebtedness"
+      - "(?i)ограничени[яе]\\s+на\\s+привлечени[ея]\\s+заимствовани"
+      - "(?i)limitation\\s+on\\s+(the\\s+)?incurrence"
+      - "(?i)shall\\s+not\\s+incur"
+      - "(?i)negative\\s+pledge"
+      - "(?i)запрет\\s+залога"
+
+      # Ограничения на активы
+      - "(?i)asset\\s+sale"
+      - "(?i)asset\\s+disposition"
+      - "(?i)ограничени[яе]\\s+на\\s+распоряжени[ея]\\s+активам[ьи]"
+      - "(?i)limitation\\s+on\\s+asset\\s+(sales?|dispositions?)"
+      - "(?i)запрет\\s+на\\s+(продажу|отчуждени[ея])\\s+актив"
+
+      # Cross-default
+      - "(?i)cross[-\\s]?default"
+      - "(?i)перекрёстн[а-я]+\\s+дефолт"
+      - "(?i)cross[-\\s]?acceleration"
+      - "(?i)перекрёстн[а-я]+\\s+акселераци"
+
+    medium:
+      # Общие ковенанты
+      - "(?i)\\bcovenant\\b"
+      - "(?i)\\bковенант\\b"
+      - "(?i)negative\\s+covenants?"
+      - "(?i)affirmative\\s+covenants?"
+      - "(?i)информационн[а-я]+\\s+ковенант"
+
+      # Liquidity
+      - "(?i)liquidity\\s+(ratio|requirement|covenant)"
+      - "(?i)ликвидност[ьи]"
+      - "(?i)minimum\\s+cash"
+      - "(?i)минимальн[а-я]+\\s+(денежн[а-я]+\\s+)?остаток"
+      - "(?i)current\\s+ratio"
+      - "(?i)коэффициент\\s+текущей\\s+ликвидност"
+
+      # Event of default / дефолт
+      - "(?i)event\\s+of\\s+default"
+      - "(?i)событи[ея]\\s+дефолта"
+      - "(?i)случай\\s+неисполнени[яи]"
+      - "(?i)default\\s+notice"
+
+      # Cure period / equity cure
+      - "(?i)cure\\s+period"
+      - "(?i)срок\\s+(для\\s+)?устранени[яи]"
+      - "(?i)equity\\s+cure"
+      - "(?i)cure\\s+right"
+      - "(?i)grace\\s+period"
+
+      # Baskets / permitted
+      - "(?i)permitted\\s+(indebtedness|investment|payment|lien)"
+      - "(?i)basket"
+      - "(?i)carve[-\\s]?out"
+      - "(?i)исключени[яе]\\s+из\\s+ковенант"
+
+      # Капитальные затраты
+      - "(?i)capex\\s+(restriction|limitation|covenant)"
+      - "(?i)capital\\s+expenditure\\s+(restriction|limitation)"
+      - "(?i)ограничени[яе]\\s+на\\s+капитальн[а-я]+\\s+затрат"
+
+    low:
+      # Общие термины
+      - "(?i)leverage"
+      - "(?i)леверидж"
+      - "(?i)debt"
+      - "(?i)долг"
+      - "(?i)ratio"
+      - "(?i)коэффициент"
+      - "(?i)dividend"
+      - "(?i)дивиденд"
+      - "(?i)indebtedness"
+      - "(?i)задолженност"
+      - "(?i)default"
+      - "(?i)дефолт"
+      - "(?i)restriction"
+      - "(?i)ограничени"
+      - "(?i)asset"
+      - "(?i)актив"
+
   regex_patterns: []
   clause_patterns: []
 
 llm:
-  prompt_template: |
-    <role>
-    Ты — юрист по финансированию.
-    Твоя специализация — кредитные договоры и финансовые ковенанты.
-    </role>
-
-    <context>
-    Ниже приведены фрагменты договора, где могут быть финансовые ковенанты:
-
-    {context}
-    </context>
-
-    <instructions>
-    Проведи анализ по шагам. Каждый шаг логически связан с одним или
-    несколькими полями итоговой оценки.
-
-    Шаг 1 — НАЛИЧИЕ КОВЕНАНТОВ ПО КОЭФФИЦИЕНТАМ
-    (используется для заполнения поля "has_leverage_or_coverage_covenants"):
-    - Определи, содержатся ли в договоре финансовые ковенанты, связанные с:
-      * показателями левериджа (например, Net Debt/EBITDA и аналогичные),
-      * покрытием долга (DSCR, interest coverage и т.п.),
-      * ликвидностью или другими финансовыми коэффициентами.
-    - Сделай вывод: есть ли такие ковенанты, нет или по фрагментам это неясно.
-
-    Шаг 2 — ОГРАНИЧЕНИЯ НА ДИВИДЕНДЫ, НОВЫЙ ДОЛГ И СДЕЛКИ С АКТИВАМИ
-    (используется для заполнения полей
-     "has_dividend_restrictions",
-     "has_new_debt_limitations",
-     "has_asset_disposition_restrictions"):
-    - Определи, есть ли в договоре ограничения на:
-      * выплату дивидендов (dividend restrictions, distribution restrictions);
-      * привлечение новых заимствований (incurrence of indebtedness);
-      * сделки с активами (asset sales, asset dispositions, ограничения на распоряжение активами).
-    - Для каждого направления сделай отдельный вывод: да, нет или неопределённо.
-
-    Шаг 3 — ВЕРОЯТНОСТЬ НАРУШЕНИЯ ПОСЛЕ СДЕЛКИ
-    (используется для заполнения поля "likelihood_of_breach_after_transaction"):
-    - На основе доступных формулировок оцени, насколько жёсткими выглядят ковенанты:
-      * уровни допустимого левериджа и покрытия процентов;
-      * степень ограничений по дивидендам, новому долгу и сделкам с активами.
-    - Исходя из типовой нагрузки на бизнес после M&A/рефинансирования оцени,
-      насколько реалистично соблюдение ковенантов:
-      * low — ковенанты выглядят умеренными;
-      * medium — существует заметный риск нарушения при стресс-сценариях;
-      * high — ковенанты кажутся очень жёсткими и легко нарушимыми;
-      * unclear — числовых значений и конкретики недостаточно.
-
-    Шаг 4 — ОБЩИЙ РИСК ДЛЯ СТРУКТУРЫ ДОЛГА
-    (используется для формирования "overall_risk_level" и "reason"):
-    - Оцени, насколько совокупность ковенантов опасна для стабильности
-      структуры долгов Target:
-      * риск ускорения (acceleration) и события дефолта;
-      * риск блокировки дивидендов;
-      * ограничения на новые заимствования и реструктуризацию;
-      * ограничения на сделки с активами.
-    - Сформулируй общий риск как low / medium / high.
-    - В "reason" кратко обоснуй вывод с опорой на ключевые формулировки
-      (желательно с короткими цитатами в кавычках), объяснив, какие именно
-      ковенанты создают угрозу или, наоборот, выглядят приемлемо.
-    </instructions>
-
-    <edge_cases>
-    Обрабатывай пограничные ситуации так:
-
-    - Ковенанты присутствуют, но числовые уровни коэффициентов в фрагментах
-      не видны:
-      отмечай наличие ковенантов, но фиксируй неопределённость в части
-      вероятности нарушения.
-
-    - Есть только общие обязательства "поддерживать удовлетворительное
-      финансовое состояние" без конкретных метрик:
-      указывай, что по вопросу именно финансовых ковенантов вывод
-      однозначно сделать нельзя.
-
-    - Ковенанты выглядят явно жёсткими (низкий допустимый leverage ratio,
-      строгие запреты на дивиденды и новый долг) и по описанию бизнеса
-      их соблюдение проблематично:
-      учитывай это как повышенный риск события дефолта и ограничений
-      на финансовую гибкость Target.
-
-    - Пустые или явно нерелевантные фрагменты:
-      укажи, что данных недостаточно для анализа финансовых ковенантов,
-      и поясни, как это влияет на неопределённость и риск.
-    </edge_cases>
-
-    <output_expectations>
-    На основе твоего анализа отдельный механизм извлечения сформирует
-    структурированные поля по заранее заданной схеме. Твоя задача —
-    давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
-    </output_expectations>
-  prompt_file: null
+  prompt_file: "detection/generic_presence.txt"
   context_k: 5
   temperature: 0.0
-  max_tokens: 640
+  max_tokens: 750
 
 evidence:
-  required: false
+  required: true
   min_snippet_length: 20
   max_snippet_length: 600
 
 retrieval:
   context_k: 5
-  max_chunks: 10
+  max_chunks: 12
   boost_keywords:
     - "financial covenants"
+    - "финансовые ковенанты"
+    - "maintenance covenants"
+    - "incurrence covenants"
     - "leverage ratio"
+    - "коэффициент левериджа"
+    - "Net Debt/EBITDA"
     - "DSCR"
+    - "debt service coverage"
+    - "interest coverage"
+    - "ICR"
+    - "liquidity"
+    - "ликвидность"
     - "dividend restrictions"
-    - "asset sale"
+    - "ограничения на дивиденды"
+    - "restricted payments"
     - "incurrence of indebtedness"
+    - "ограничения на заимствования"
+    - "negative pledge"
+    - "запрет залога"
+    - "asset sale"
+    - "asset disposition"
+    - "ограничения на активы"
+    - "cross-default"
+    - "перекрёстный дефолт"
+    - "event of default"
+    - "событие дефолта"
+    - "cure period"
+    - "equity cure"
+    - "permitted indebtedness"
+    - "basket"
   rerank: true
   filters: {}
 
 conditional: null
 
 extraction:
+  llm_prompt_extraction: |
+    <role>
+    Ты — юрист по финансированию и кредитным договорам.
+    Твоя специализация — анализ финансовых ковенантов,
+    включая показатели левериджа и покрытия, ограничения
+    на дивиденды, новые заимствования и сделки с активами,
+    а также оценку рисков для финансовой гибкости Target
+    в контексте M&A.
+    </role>
+
+    <context>
+    Ниже приведены фрагменты договора с финансовыми ковенантами
+    и/или ограничениями:
+
+    {context}
+    </context>
+
+    <instructions>
+    Проведи анализ по шагам. Каждый шаг логически соответствует одному
+    или нескольким полям итоговой оценки риска.
+
+    Шаг 1 — КОВЕНАНТЫ ПО КОЭФФИЦИЕНТАМ
+    (используется для заполнения поля "has_leverage_or_coverage_covenants"):
+    - Определи, содержит ли договор финансовые ковенанты
+      по коэффициентам:
+      * leverage ratio (Net Debt / EBITDA);
+      * interest coverage ratio (ICR);
+      * debt service coverage ratio (DSCR);
+      * fixed charge coverage ratio;
+      * ликвидность (current ratio, minimum cash);
+      * иные финансовые коэффициенты.
+    - Если ковенанты найдены:
+      * извлеки конкретные пороговые значения (например:
+        "Net Debt / EBITDA ≤ 3.5x", "ICR ≥ 2.0x");
+      * опиши частоту тестирования (ежеквартально,
+        ежегодно и т.п.).
+    - Оцени:
+      * "yes" — ковенанты по коэффициентам есть;
+      * "no" — нет;
+      * "unclear" — неясно.
+
+    Шаг 2 — ТИП КОВЕНАНТОВ: MAINTENANCE VS. INCURRENCE
+    (используется для заполнения поля "covenant_type"):
+    - Определи тип финансовых ковенантов:
+      * "maintenance" — постоянные: тестируются регулярно
+        (ежеквартально), нарушение = дефолт;
+      * "incurrence" — тестируются только при определённом
+        событии (новое заимствование, дивиденд, сделка);
+      * "both" — оба типа;
+      * "not_applicable" — ковенантов по коэффициентам нет;
+      * "unclear" — невозможно определить.
+
+    Шаг 3 — ОГРАНИЧЕНИЯ НА ДИВИДЕНДЫ, НОВЫЙ ДОЛГ И АКТИВЫ
+    (используется для заполнения полей "has_dividend_restrictions",
+     "has_new_debt_limitations", "has_asset_disposition_restrictions"):
+    - Для каждого направления определи наличие ограничений:
+      * Дивиденды: запрет / ограничение на выплату дивидендов,
+        restricted payments, distributions.
+      * Новый долг: limitation on incurrence of indebtedness,
+        negative pledge, запрет залога.
+      * Активы: limitation on asset sales/dispositions,
+        ограничения на отчуждение существенных активов.
+    - Для каждого оцени: "yes" / "no" / "unclear".
+
+    Шаг 4 — BASKETS И PERMITTED EXCEPTIONS
+    (используется для заполнения поля "has_baskets_or_exceptions"):
+    - Определи, предусмотрены ли исключения из ограничений:
+      * permitted indebtedness baskets;
+      * permitted payment baskets (для дивидендов);
+      * permitted liens;
+      * permitted investments;
+      * carve-out для внутригрупповых операций.
+    - Оцени:
+      * "yes" — baskets / exceptions есть;
+      * "no" — ограничения абсолютные, без исключений;
+      * "unclear" — неясно.
+
+    Шаг 5 — CURE PERIOD / EQUITY CURE
+    (используется для заполнения поля "has_cure_mechanism"):
+    - Определи, предусмотрены ли механизмы исправления
+      нарушения ковенанта до наступления дефолта:
+      * cure period (срок для устранения);
+      * equity cure (право внести капитал для исправления
+        коэффициента);
+      * grace period.
+    - Оцени:
+      * "yes" — cure mechanism есть;
+      * "no" — нарушение = немедленный дефолт;
+      * "unclear" — неясно.
+
+    Шаг 6 — CROSS-DEFAULT / CROSS-ACCELERATION
+    (используется для заполнения поля "has_cross_default"):
+    - Определи, содержит ли договор положения о cross-default
+      или cross-acceleration:
+      * нарушение данного договора вызывает дефолт по другим;
+      * дефолт по другим договорам вызывает дефолт по данному.
+    - Оцени:
+      * "yes" — cross-default / cross-acceleration есть;
+      * "no" — нет;
+      * "unclear" — неясно.
+
+    Шаг 7 — ВЕРОЯТНОСТЬ НАРУШЕНИЯ ПОСЛЕ СДЕЛКИ
+    (используется для заполнения поля "likelihood_of_breach_post_transaction"):
+    - На основе доступных числовых значений и типа ковенантов
+      оцени вероятность нарушения после M&A:
+      * "low" — ковенанты умеренные, maintenance с разумным
+        headroom или incurrence-only;
+      * "medium" — заметный риск при стресс-сценариях
+        (жёсткие maintenance, limited headroom);
+      * "high" — ковенанты очевидно нарушаются при типичной
+        post-closing нагрузке;
+      * "unclear" — числовых значений недостаточно.
+
+    Шаг 8 — RED FLAGS
+    (используется для заполнения поля "red_flags"):
+    Присвой один или несколько кодов из списка ниже.
+    Если ни один код не применим — верни "NONE".
+    Если данных недостаточно для оценки — верни "UNCLEAR".
+
+    Коды:
+    • FIN1 — Maintenance covenants с жёсткими пороговыми
+      значениями, оставляющими минимальный headroom
+      (например, Net Debt/EBITDA ≤ 2.5x при типичном
+      post-closing leverage 4x+).
+    • FIN2 — Полный запрет на дивиденды / distributions
+      без baskets или permitted payments.
+    • FIN3 — Ковенанты очевидно будут нарушены после сделки
+      (на основании числовых значений и типичной нагрузки).
+    • FIN4 — Строгие ограничения на новые заимствования
+      при планах post-closing рефинансирования.
+    • FIN5 — Cross-default / cross-acceleration: нарушение
+      ковенанта вызывает каскадный дефолт по другим
+      обязательствам.
+    • FIN6 — Нет cure period / equity cure — нарушение
+      немедленно становится событием дефолта.
+
+    Формат ответа: коды через запятую без комментариев
+    (например: "FIN1, FIN5").
+    Вся аргументация — в поле reason.
+
+    Шаг 9 — ОБОСНОВАНИЕ
+    (используется для заполнения поля "reason"):
+
+    - В reason кратко обоснуй вывод, опираясь на ключевые
+      формулировки из текста (с цитатами в кавычках), и укажи:
+      * какие ковенанты установлены и каковы их пороги;
+      * maintenance или incurrence;
+      * какие ограничения (дивиденды, долг, активы)
+        и есть ли baskets;
+      * есть ли cure mechanism и cross-default;
+      * если выставлены red_flags — обоснуй каждый код;
+      * если red_flags = "NONE" — укажи, почему ковенанты
+        не создают существенного риска.
+    </instructions>
+
+    <edge_cases>
+    Обрабатывай пограничные ситуации так:
+
+    - Ковенанты есть, но числовые значения не видны
+      в фрагментах:
+      has_leverage_or_coverage_covenants = "yes";
+      likelihood_of_breach_post_transaction = "unclear";
+      в reason укажи, что без числовых значений оценка
+      вероятности нарушения невозможна.
+
+    - Только общие обязательства «поддерживать
+      удовлетворительное финансовое состояние» без метрик:
+      has_leverage_or_coverage_covenants = "unclear";
+      covenant_type = "unclear"; в reason укажи, что
+      общие формулировки не дают ясности.
+
+    - Ковенанты жёсткие (низкий допустимый leverage,
+      строгие запреты на дивиденды/долг), но есть
+      equity cure:
+      зафиксируй FIN1 / FIN2 / FIN4 по ситуации,
+      но отметь наличие cure как смягчающий фактор;
+      risk может быть MEDIUM вместо HIGH.
+
+    - Incurrence covenants с высокими порогами
+      (тестируются только при событии):
+      covenant_type = "incurrence";
+      обычно это менее жёсткий режим — risk может быть
+      LOW или MEDIUM.
+
+    - Cross-default при жёстких ковенантах:
+      зафиксируй FIN5; в reason укажи каскадный эффект
+      и повышенный системный риск.
+
+    - Есть baskets / permitted exceptions:
+      has_baskets_or_exceptions = "yes"; это снижает
+      жёсткость ограничений; в reason укажи конкретные
+      исключения.
+
+    - Пустые или явно нерелевантные фрагменты:
+      red_flags = "UNCLEAR"; в reason укажи, что данных
+      недостаточно для оценки финансовых ковенантов.
+    </edge_cases>
+
+    <output_expectations>
+    На основе твоего анализа отдельный механизм извлечения сформирует
+    структурированные поля по заранее заданной схеме. Твоя задача —
+    давать чёткие юридические выводы и указывать конкретные
+    формулировки из текста, на которых они основаны.
+    </output_expectations>
+
   enabled: true
   mode: "hybrid"
   fields:
@@ -163,6 +397,15 @@ extraction:
       allowed_values:
         - "yes"
         - "no"
+        - "unclear"
+
+    - name: "covenant_type"
+      type: "string"
+      allowed_values:
+        - "maintenance"
+        - "incurrence"
+        - "both"
+        - "not_applicable"
         - "unclear"
 
     - name: "has_dividend_restrictions"
@@ -186,7 +429,28 @@ extraction:
         - "no"
         - "unclear"
 
-    - name: "likelihood_of_breach_after_transaction"
+    - name: "has_baskets_or_exceptions"
+      type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "has_cure_mechanism"
+      type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "has_cross_default"
+      type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "likelihood_of_breach_post_transaction"
       type: "string"
       allowed_values:
         - "low"
@@ -194,12 +458,8 @@ extraction:
         - "high"
         - "unclear"
 
-    - name: "overall_risk_level"
+    - name: "red_flags"
       type: "string"
-      allowed_values:
-        - "low"
-        - "medium"
-        - "high"
 
     - name: "reason"
       type: "string"
@@ -208,7 +468,28 @@ extraction:
 
 red_flags:
   items:
+    - code: "FIN1"
+      description: >
+        Maintenance covenants с жёсткими пороговыми значениями,
+        оставляющими минимальный headroom.
+    - code: "FIN2"
+      description: >
+        Полный запрет на дивиденды / distributions без baskets
+        или permitted payments.
     - code: "FIN3"
-      description: "Жёсткие ковенанты, которые очевидно будут нарушены после сделки."
+      description: >
+        Ковенанты очевидно будут нарушены после сделки
+        (на основании числовых значений и типичной нагрузки).
     - code: "FIN4"
-      description: "Сильные ограничения на дивиденды/новые заимствования при планах пост-Closing реструктуризации."
+      description: >
+        Строгие ограничения на новые заимствования при планах
+        post-closing рефинансирования / реструктуризации.
+    - code: "FIN5"
+      description: >
+        Cross-default / cross-acceleration: нарушение ковенанта
+        вызывает каскадный дефолт по другим обязательствам.
+    - code: "FIN6"
+      description: >
+        Нет cure period / equity cure — нарушение ковенанта
+        немедленно становится событием дефолта.
+        

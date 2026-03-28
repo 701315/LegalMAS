@@ -13,6 +13,15 @@ DocTypeCheckLoader — загружает специфические checks из
 Не читает: classification_runtime_v1, trigger_definitions (они обрабатываются отдельно).
 
 Возвращает список CheckDefinition, совместимых с CheckExecutor.
+
+Изменения (keyword_groups support):
+  - _build_rules_config() — выделен отдельный метод для построения RulesConfig.
+    Обрабатывает два формата keywords:
+      * Старый: keywords: ["word1", "word2"]  — flat list, без изменений.
+      * Новый:  keywords: {high: [...], medium: [...], low: [...]}
+                или отдельное поле keyword_groups: {...}
+  - _build_check_from_v8, _build_check_from_doc_type, _build_compliance_check
+    используют _build_rules_config() вместо прямого RulesConfig(...).
 """
 
 import re
@@ -62,11 +71,9 @@ class DocTypeCheckLoader:
         all_checks = global_checks + doc_type_checks
     """
 
-    # Максимум doc-type checks на документ (защита от взрыва LLM-вызовов)
     MAX_CHECKS = getattr(settings, "DOC_TYPE_MAX_CHECKS_PER_DOC", 30)
 
     def __init__(self, registry_dir: str | None = None) -> None:
-        # Папка, где лежат YAML типов документов (обычно playbooks/document_types)
         self._dir = Path(registry_dir or settings.CLASSIFIER_REGISTRY_PATH)
 
     def load_checks_for_doc(
@@ -91,7 +98,6 @@ class DocTypeCheckLoader:
         if not yaml_data:
             return []
 
-        # Резолвим shared_patterns для подстановки в regex
         shared_patterns = yaml_data.get("shared_patterns") or {}
         trigger_set = set(applicable_triggers)
 
@@ -116,7 +122,7 @@ class DocTypeCheckLoader:
             if check:
                 result.append(check)
 
-        # 2. doc_type_checks (rules-only, авто-конвертируемые)
+        # 2. doc_type_checks (rules-only)
         for item in yaml_data.get("doc_type_checks") or []:
             if not isinstance(item, dict):
                 continue
@@ -126,7 +132,7 @@ class DocTypeCheckLoader:
             if check:
                 result.append(check)
 
-        # 3. compliance_rules (по комбинации триггеров)
+        # 3. compliance_rules
         for rule in yaml_data.get("compliance_rules") or []:
             if not isinstance(rule, dict):
                 continue
@@ -178,7 +184,6 @@ class DocTypeCheckLoader:
           1) <registry_dir>/<doc_type>.yaml
           2) <registry_dir>/**/<doc_type>.yaml  (в любых подпапках)
         """
-        # 1) Прямой путь в корне
         direct = self._dir / f"{doc_type}.yaml"
         if direct.exists():
             try:
@@ -191,7 +196,6 @@ class DocTypeCheckLoader:
                 )
                 return None
 
-        # 2) Поиск по подпапкам
         pattern = f"**/{doc_type}.yaml"
         candidates = sorted(self._dir.glob(pattern))
 
@@ -228,13 +232,11 @@ class DocTypeCheckLoader:
         Проверить, подходит ли check для данного набора триггеров.
 
         Форматы triggers в YAML:
-          triggers: {}                   → всегда запускать (нет ограничений)
+          triggers: {}                   → всегда запускать
           triggers: {any: ["t1","t2"]}   → достаточно одного триггера
-          triggers: {all: ["t1","t2"]}   → нужны все перечисленные триггеры
+          triggers: {all: ["t1","t2"]}   → нужны все
         """
         triggers_cfg = item.get("triggers")
-
-        # Нет секции triggers или пустой dict → запускать всегда
         if not triggers_cfg:
             return True
 
@@ -252,7 +254,6 @@ class DocTypeCheckLoader:
         """
         Резолвит шаблонные ссылки вида {{ shared_patterns.cadastral_number }}
         или {{ cadastral_number }} в реальные regex-паттерны.
-        Прямые паттерны (без {{ }}) возвращаются как есть.
         """
         template_re = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
         resolved: list[str] = []
@@ -262,7 +263,6 @@ class DocTypeCheckLoader:
             m = template_re.match(p_str)
             if m:
                 key_path = m.group(1).split(".")
-                # Поддерживаем и "cadastral_number" и "shared_patterns.cadastral_number"
                 key = key_path[-1]
                 value = shared.get(key, p_str)
                 resolved.append(value)
@@ -270,6 +270,60 @@ class DocTypeCheckLoader:
                 resolved.append(p_str)
 
         return resolved
+
+    def _build_rules_config(
+        self,
+        rules_raw: dict,
+        shared_patterns: dict,
+    ) -> RulesConfig:
+        """
+        Построить RulesConfig из сырого dict блока rules.
+
+        Обрабатывает два формата keywords:
+
+        Старый (flat list):
+            rules:
+              keywords: ["word1", "word2"]
+
+        Новый (уровни):
+            rules:
+              keywords:
+                high: ["(?i)governed\\s+by"]
+                medium: ["jurisdiction"]
+                low: ["court"]
+
+        Также поддерживает отдельное поле keyword_groups рядом с keywords:
+            rules:
+              keyword_groups:
+                high: [...]
+                low: [...]
+
+        Regex-паттерны из keyword_groups автоматически роутятся в
+        regex_patterns через model_validator в RulesConfig.
+        """
+        raw_keywords = rules_raw.get("keywords")
+
+        if isinstance(raw_keywords, dict):
+            # Новый формат: keywords содержит уровни
+            keyword_groups = raw_keywords
+            flat_keywords: list[str] = []
+        else:
+            # Старый формат: keywords — плоский список
+            flat_keywords = raw_keywords or []
+            keyword_groups = rules_raw.get("keyword_groups") or {}
+
+        regex_patterns = self._resolve_patterns(
+            rules_raw.get("regex_patterns") or [], shared_patterns
+        )
+
+        return RulesConfig(
+            keywords=flat_keywords,
+            keyword_mode=rules_raw.get("keyword_mode", "any"),
+            regex_patterns=regex_patterns,
+            clause_patterns=rules_raw.get("clause_patterns") or [],
+            negative_keywords=rules_raw.get("negative_keywords") or [],
+            keyword_groups=keyword_groups,
+        )
 
     def _parse_extraction(self, extraction_cfg: dict | None) -> ExtractionConfig | None:
         """
@@ -333,11 +387,9 @@ class DocTypeCheckLoader:
         if not any_triggers:
             return None
 
-        # Берём первый триггер как primary (для совместимости с ConditionalConfig.trigger)
         if len(any_triggers) == 1:
             return ConditionalConfig(trigger=any_triggers[0])
 
-        # Несколько триггеров → используем список TriggerCondition
         return ConditionalConfig(
             triggers=[TriggerCondition(name=t, state="on") for t in any_triggers]
         )
@@ -360,16 +412,9 @@ class DocTypeCheckLoader:
             return None
 
         try:
-            # Rules config
-            rules_raw = item.get("rules") or {}
-            regex_patterns = self._resolve_patterns(
-                rules_raw.get("regex_patterns") or [], shared_patterns
-            )
-            rules = RulesConfig(
-                keywords=rules_raw.get("keywords") or [],
-                keyword_mode=rules_raw.get("keyword_mode", "any"),
-                regex_patterns=regex_patterns,
-                negative_keywords=rules_raw.get("negative_keywords") or [],
+            # Rules — через единый метод с поддержкой keyword_groups
+            rules = self._build_rules_config(
+                item.get("rules") or {}, shared_patterns
             )
 
             # LLM config
@@ -400,13 +445,9 @@ class DocTypeCheckLoader:
                 max_snippet_length=ev_raw.get("max_snippet_length", 500),
             )
 
-            # Extraction config
             extraction = self._parse_extraction(item.get("extraction"))
-
-            # Conditional (triggers)
             conditional = self._parse_conditional(item.get("triggers"))
 
-            # DetectorType
             dtype_str = item.get("detector_type", "rules")
             try:
                 detector_type = DetectorType(dtype_str)
@@ -456,20 +497,23 @@ class DocTypeCheckLoader:
 
         try:
             rules_raw = item.get("rules") or {}
-            regex_patterns = self._resolve_patterns(
-                rules_raw.get("regex_patterns") or [], shared_patterns
-            )
-            rules = RulesConfig(
-                keywords=rules_raw.get("keywords") or [],
-                keyword_mode=rules_raw.get("keyword_mode", "any"),
-                regex_patterns=regex_patterns,
-                negative_keywords=rules_raw.get("negative_keywords") or [],
-            )
 
-            # Extraction
+            # Rules — через единый метод с поддержкой keyword_groups
+            rules = self._build_rules_config(rules_raw, shared_patterns)
+
+            # boost_keywords для retrieval: берём из flat keywords.
+            # Если keywords — dict (уровни), собираем все значения всех уровней.
+            raw_keywords = rules_raw.get("keywords")
+            if isinstance(raw_keywords, dict):
+                all_kw: list[str] = []
+                for lvl_kws in raw_keywords.values():
+                    if isinstance(lvl_kws, list):
+                        all_kw.extend(lvl_kws)
+                boost_kw = all_kw[:5]
+            else:
+                boost_kw = (raw_keywords or [])[:5]
+
             extraction = self._parse_extraction(item.get("extraction"))
-
-            # Conditional (triggers)
             conditional = self._parse_conditional(item.get("triggers") or {})
 
             return CheckDefinition(
@@ -481,9 +525,9 @@ class DocTypeCheckLoader:
                 severity=item.get("severity", "medium"),
                 detector_type=DetectorType.RULES,
                 rules=rules,
-                llm=LLMConfig(),  # пустой — LLM не используется
+                llm=LLMConfig(),
                 retrieval=RetrievalConfig(
-                    boost_keywords=rules_raw.get("keywords", [])[:5],
+                    boost_keywords=boost_kw,
                 ),
                 evidence=EvidenceConfig(required=True),
                 extraction=extraction,
@@ -515,11 +559,9 @@ class DocTypeCheckLoader:
             return None
 
         try:
-            rules_raw = rule.get("rules") or {}
-            rules = RulesConfig(
-                keywords=rules_raw.get("keywords") or [],
-                keyword_mode=rules_raw.get("keyword_mode", "any"),
-            )
+            # compliance_rules обычно содержат простые keywords без уровней,
+            # но на всякий случай используем единый _build_rules_config.
+            rules = self._build_rules_config(rule.get("rules") or {}, {})
 
             ret_raw = rule.get("retrieval") or {}
             retrieval = RetrievalConfig(
@@ -552,4 +594,3 @@ class DocTypeCheckLoader:
                 },
             )
             return None
-        

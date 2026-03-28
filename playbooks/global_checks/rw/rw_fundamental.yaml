@@ -1,8 +1,11 @@
 id: "rw_fundamental"
 name: "Фундаментальные заверения и гарантии"
 description: >
-  Анализирует фундаментальные R&W: статус, полномочия, право собственности,
-  отсутствие конфликтов и существенных нарушений законов/регуляторных требований.
+  Анализирует фундаментальные R&W: статус и существование компании,
+  полномочия на заключение договора, право собственности (title),
+  отсутствие конфликтов, соответствие законам. Оценивает полноту
+  покрытия, наличие qualifiers (knowledge, materiality) и общий
+  уровень защиты для Target/покупателя.
 
 doc_types: []
 
@@ -14,30 +17,168 @@ severity_if_unclear: "medium"
 detector_type: "hybrid"
 
 rules:
+  keyword_mode: any
+
   keywords:
-    - "заверяет и гарантирует"
-    - "represents and warrants"
-    - "заверения и гарантии"
-    - "R&W"
-    - "право собственности"
-    - "title"
-    - "good and marketable title"
-    - "полномочия"
-    - "duly authorized"
-    - "no conflict"
-    - "отсутствие конфликта"
-    - "соответствие применимому праву"
-    - "compliance with applicable law"
-  keyword_mode: "any"
+    high:
+      # Прямые R&W формулировки
+      - "(?i)represents?\\s+and\\s+warrants?"
+      - "(?i)заверя[ею]т\\s+и\\s+гарантиру[ею]т"
+      - "(?i)representations?\\s+and\\s+warranties"
+      - "(?i)заверени[яи]\\s+и\\s+гарантии"
+      - "(?i)\\bR&W\\b"
+
+      # Статус и существование
+      - "(?i)duly\\s+(organized|incorporated|formed)"
+      - "(?i)validly\\s+existing"
+      - "(?i)good\\s+standing"
+      - "(?i)надлежащим\\s+образом\\s+(учрежден|создан|зарегистрирован)"
+      - "(?i)действующ[а-я]+\\s+(в\\s+соответствии|юридическ)"
+
+      # Полномочия
+      - "(?i)duly\\s+authorized"
+      - "(?i)full\\s+(corporate\\s+)?(power|authority)"
+      - "(?i)valid\\s+and\\s+binding\\s+obligation"
+      - "(?i)legally\\s+binding"
+      - "(?i)enforceable\\s+against"
+      - "(?i)надлежащ[а-я]+\\s+уполномочен"
+      - "(?i)полномочи[яи]\\s+на\\s+заключени[ея]"
+      - "(?i)корпоративн[а-я]+\\s+одобрени[яи]"
+
+      # Title / право собственности
+      - "(?i)good\\s+and\\s+marketable\\s+title"
+      - "(?i)clear\\s+title"
+      - "(?i)free\\s+and\\s+clear"
+      - "(?i)право\\s+собственности"
+      - "(?i)свободн[оа]\\s+от\\s+обременени[йя]"
+      - "(?i)без\\s+залогов\\s+и\\s+обременени[йя]"
+
+      # No conflict
+      - "(?i)no\\s+conflict"
+      - "(?i)will\\s+not\\s+conflict"
+      - "(?i)does\\s+not\\s+violate"
+      - "(?i)отсутстви[ея]\\s+конфликт[ао]"
+      - "(?i)не\\s+противоречит"
+      - "(?i)не\\s+нарушает\\s+(устав|договор|законодательств)"
+
+      # Compliance with laws
+      - "(?i)compliance\\s+with\\s+(all\\s+)?applicable\\s+(laws?|legislation)"
+      - "(?i)no\\s+material\\s+violation"
+      - "(?i)соответств[а-я]+\\s+применим[а-я]+\\s+(прав|законодательств)"
+      - "(?i)отсутстви[ея]\\s+существенн[а-я]+\\s+нарушени[йя]"
+
+    medium:
+      # Общие R&W термины
+      - "(?i)represents?"
+      - "(?i)warrants?"
+      - "(?i)заверя[ею]т"
+      - "(?i)гарантиру[ею]т"
+      - "(?i)representation"
+      - "(?i)warranty"
+      - "(?i)заверени[ея]"
+      - "(?i)гаранти[яию]"
+
+      # Qualifiers
+      - "(?i)to\\s+the\\s+(best\\s+of\\s+)?(its?|seller'?s?|target'?s?)\\s+knowledge"
+      - "(?i)по\\s+(наилучшему\\s+)?сведени[яиям]"
+      - "(?i)насколько\\s+известно"
+      - "(?i)material(ly)?"
+      - "(?i)существенн[а-яо]"
+      - "(?i)in\\s+all\\s+material\\s+respects"
+      - "(?i)во\\s+всех\\s+существенных\\s+отношениях"
+
+      # Disclosed exceptions
+      - "(?i)except\\s+as\\s+disclosed"
+      - "(?i)за\\s+исключением\\s+раскрыт"
+      - "(?i)other\\s+than\\s+as\\s+set\\s+forth"
+      - "(?i)кроме\\s+указанн"
+
+      # Корпоративные документы
+      - "(?i)charter"
+      - "(?i)by[-\\s]?laws"
+      - "(?i)articles\\s+of\\s+(incorporation|association)"
+      - "(?i)устав"
+      - "(?i)учредительн[а-я]+\\s+документ"
+
+      # Обременения
+      - "(?i)encumbrance"
+      - "(?i)lien"
+      - "(?i)pledge"
+      - "(?i)security\\s+interest"
+      - "(?i)обременени[ея]"
+      - "(?i)залог"
+
+    low:
+      # Общие ссылки на обязательства
+      - "(?i)obligation"
+      - "(?i)обязательств"
+      - "(?i)binding"
+      - "(?i)обязывающ"
+
+      # Общие ссылки на соответствие
+      - "(?i)comply"
+      - "(?i)compliance"
+      - "(?i)соответств"
+      - "(?i)соблюд"
+
+      # Общие ссылки на законы
+      - "(?i)applicable\\s+law"
+      - "(?i)применим[а-я]+\\s+прав"
+      - "(?i)законодательств"
+
   regex_patterns: []
   clause_patterns: []
 
 llm:
-  prompt_template: |
+  prompt_file: "detection/generic_presence.txt"
+  context_k: 5
+  temperature: 0.0
+  max_tokens: 640
+
+evidence:
+  required: true
+  min_snippet_length: 20
+  max_snippet_length: 600
+
+retrieval:
+  context_k: 5
+  max_chunks: 10
+  boost_keywords:
+    - "represents and warrants"
+    - "заверяет и гарантирует"
+    - "representations and warranties"
+    - "заверения и гарантии"
+    - "duly organized"
+    - "validly existing"
+    - "good standing"
+    - "duly authorized"
+    - "full power and authority"
+    - "valid and binding"
+    - "good and marketable title"
+    - "free and clear"
+    - "право собственности"
+    - "свободно от обременений"
+    - "no conflict"
+    - "does not violate"
+    - "отсутствие конфликта"
+    - "compliance with applicable law"
+    - "no material violation"
+    - "to the best of knowledge"
+    - "except as disclosed"
+  rerank: true
+  filters: {}
+
+conditional: null
+
+extraction:
+  llm_prompt_extraction: |
     <role>
     Ты — юрист по M&A.
-    Твоя специализация — структура фундаментальных заверений и гарантий (R&W)
-    в сделках по приобретению долей/активов.
+    Твоя специализация — структура заверений и гарантий (R&W)
+    в сделках по приобретению долей/активов, особенно
+    фундаментальные R&W (Fundamental Representations),
+    которые обычно имеют unlimited survival period
+    и не подпадают под caps.
     </role>
 
     <context>
@@ -47,145 +188,230 @@ llm:
     </context>
 
     <instructions>
-    Проведи анализ по шагам. Каждый шаг логически связан с одним или
-    несколькими полями итоговой оценки.
-
-    По каждому вида фундаментальных R&W используй значения:
-    - "present" — заверение явно и нормально сформулировано;
-    - "missing" — по смыслу блока фундаментальное заверение по этому вопросу отсутствует;
-    - "unclear" — по фрагментам нельзя уверенно судить.
+    Проведи анализ по шагам. Каждый шаг логически соответствует одному
+    или нескольким полям итоговой оценки риска.
 
     Шаг 1 — СТАТУС И СУЩЕСТВОВАНИЕ КОМПАНИИ
-    (используется для "rw_status_and_existence"):
+    (используется для заполнения поля "rw_status_existence"):
     - Определи, есть ли заверения о том, что компания:
-      * duly organized, validly existing, действующая и надлежащим образом учреждена;
+      * duly organized / duly incorporated / надлежащим образом учреждена;
+      * validly existing / действующая;
+      * in good standing / в надлежащем состоянии;
       * существует в соответствии с правом своей юрисдикции.
-    - Классифицируй поле "rw_status_and_existence" как present / missing / unclear.
+    - Обрати внимание на qualifiers:
+      * "to the best of knowledge" — ослабляет заверение;
+      * "in all material respects" — допустимый qualifier.
+    - Классифицируй: present / missing / unclear.
 
-    Шаг 2 — ПОЛНОМОЧИЯ И ДЕЕСПОСОБНОСТЬ ЗАКЛЮЧИТЬ ДОГОВОР
-    (используется для "rw_authority_and_capacity"):
-    - Проверь, есть ли заверения, что сторона:
+    Шаг 2 — ПОЛНОМОЧИЯ И ДЕЕСПОСОБНОСТЬ
+    (используется для заполнения поля "rw_authority"):
+    - Определи, есть ли заверения, что сторона:
       * duly authorized на заключение и исполнение договора;
-      * получила все необходимые корпоративные одобрения;
-      * договор является действительным и обязательным (valid and binding obligation).
-    - Установи значение "rw_authority_and_capacity": present / missing / unclear.
+      * имеет full corporate power and authority;
+      * получила все необходимые корпоративные одобрения
+        (board approval, shareholder approval);
+      * договор является valid and binding obligation,
+        enforceable against такую сторону.
+    - Классифицируй: present / missing / unclear.
 
-    Шаг 3 — ПРАВО СОБСТВЕННОСТИ НА ДОЛИ/АКТИВЫ
-    (используется для "rw_title_to_shares_or_assets"):
+    Шаг 3 — ПРАВО СОБСТВЕННОСТИ (TITLE)
+    (используется для заполнения поля "rw_title"):
     - Определи, есть ли R&W о том, что:
-      * продавец имеет good and marketable title к продаваемым долям/активам;
-      * право собственности полное и свободное от обременений,
-        кроме явно раскрытых (free and clear, except as disclosed);
+      * продавец имеет good and marketable title к продаваемым
+        долям/активам;
+      * право собственности полное и свободное от обременений
+        (free and clear of all liens, encumbrances, pledges,
+        security interests);
       * доли/активы действительно принадлежат продавцу.
-    - Установи значение "rw_title_to_shares_or_assets": present / missing / unclear.
+    - Обрати внимание на:
+      * "except as disclosed" — допустимое исключение;
+      * "except for Permitted Liens" — стандартное исключение;
+      * qualifiers, ослабляющие заверение.
+    - Классифицируй: present / missing / unclear.
 
-    Шаг 4 — ОТСУТСТВИЕ КОНФЛИКТОВ
-    (используется для "rw_no_conflicts"):
-    - Проверь, есть ли заверения, что:
-      * заключение и исполнение договора не нарушает устав, корпоративные документы;
-      * не противоречит существенным договорам, судебным актам, регуляторным требованиям;
-      * не требует дополнительных согласований, кроме прямо раскрытых.
-    - Установи значение "rw_no_conflicts": present / missing / unclear.
+    Шаг 4 — ОТСУТСТВИЕ КОНФЛИКТОВ (NO CONFLICT)
+    (используется для заполнения поля "rw_no_conflicts"):
+    - Определи, есть ли заверения, что заключение и исполнение
+      договора:
+      * не нарушает устав, by-laws, корпоративные документы;
+      * не противоречит существенным договорам, судебным актам,
+        регуляторным требованиям;
+      * не требует дополнительных согласований (кроме прямо
+        раскрытых);
+      * не приведёт к дефолту по другим обязательствам.
+    - Классифицируй: present / missing / unclear.
 
-    Шаг 5 — СООТВЕТСТВИЕ ЗАКОНАМ И РЕГУЛЯТОРНЫМ ТРЕБОВАНИЯМ
-    (используется для "rw_compliance_with_laws"):
+    Шаг 5 — СООТВЕТСТВИЕ ЗАКОНАМ (COMPLIANCE WITH LAWS)
+    (используется для заполнения поля "rw_compliance"):
     - Определи, есть ли заверения:
-      * об отсутствии существенных нарушений применимых законов и регуляторных требований
-        (no material violations, no material proceedings);
-      * о соблюдении компанией применимого законодательства.
-    - Установи значение "rw_compliance_with_laws": present / missing / unclear.
+      * об отсутствии существенных нарушений применимых законов
+        и регуляторных требований (no material violations);
+      * о соблюдении компанией применимого законодательства
+        (in compliance with applicable law);
+      * об отсутствии текущих расследований/proceedings.
+    - Обрати внимание на:
+      * "in all material respects" — стандартный qualifier;
+      * "to the best of knowledge" — ослабляющий qualifier.
+    - Классифицируй: present / missing / unclear.
 
-    Шаг 6 — ОБЩИЙ РИСК ДЛЯ TARGET
-    (используется для "overall_risk_level" и "reason"):
-    - Оцени полноту и качество фундаментальных R&W в совокупности:
-      * какие из пяти блоков присутствуют, какие отсутствуют;
-      * есть ли пробелы по ключевым вопросам (статус, полномочия, title, no conflict, compliance).
-    - Сформулируй общий риск как:
-      * "low" — полный и хорошо сформулированный набор фундаментальных R&W;
-      * "medium" — есть частичные пробелы, но покрыта большая часть фундаментальных рисков;
-      * "high" — отсутствуют или слабо сформулированы ключевые фундаментальные заверения.
-    - В "reason" кратко опиши, какие фундаментальные R&W покрыты/не покрыты
-      и как это влияет на риск для Target (желательно с короткими цитатами из текста).
+    Шаг 6 — KNOWLEDGE QUALIFIERS
+    (используется для заполнения поля "has_knowledge_qualifiers"):
+    - Определи, содержат ли фундаментальные R&W knowledge qualifiers:
+      * "to the best of Seller's knowledge";
+      * "to Seller's knowledge";
+      * "so far as Seller is aware";
+      * "по сведениям продавца", "насколько известно".
+    - Если knowledge qualifiers применяются к фундаментальным R&W —
+      вывод "yes" (это ослабляет защиту).
+    - Если не применяются — вывод "no".
+    - Если неясно — вывод "unclear".
+
+    Шаг 7 — MATERIALITY QUALIFIERS
+    (используется для заполнения поля "has_materiality_qualifiers"):
+    - Определи, содержат ли R&W materiality qualifiers:
+      * "in all material respects";
+      * "material", "materially";
+      * "существенный", "во всех существенных отношениях".
+    - Для фундаментальных R&W некоторые materiality qualifiers
+      (например, "no material violation") стандартны и приемлемы.
+    - Если materiality qualifiers чрезмерны и ослабляют защиту —
+      вывод "excessive".
+    - Если стандартные/приемлемые — вывод "standard".
+    - Если отсутствуют — вывод "none".
+    - Если неясно — вывод "unclear".
+
+    Шаг 8 — DISCLOSED EXCEPTIONS
+    (используется для заполнения поля "has_disclosed_exceptions"):
+    - Определи, содержат ли R&W ссылки на исключения:
+      * "except as disclosed in the Disclosure Schedule";
+      * "except as set forth in Schedule X";
+      * "за исключением раскрытого в Приложении".
+    - Если такие исключения есть — вывод "yes".
+    - Если нет — вывод "no".
+    - Если неясно — вывод "unclear".
+
+    Шаг 9 — RED FLAGS
+    (используется для заполнения поля "red_flags"):
+    - Оцени наличие следующих рисковых факторов:
+
+      * «RW1» — Отсутствуют или крайне слабые фундаментальные R&W
+        по статусу, полномочиям и праву собственности. Признаки:
+        - rw_status_existence = "missing" или "unclear";
+        - rw_authority = "missing" или "unclear";
+        - rw_title = "missing" или "unclear";
+        - отсутствие базовых заверений критично для сделки.
+
+      * «RW2» — Фундаментальные R&W существенно ослаблены
+        knowledge qualifiers. Признаки:
+        - has_knowledge_qualifiers = "yes";
+        - knowledge qualifiers применяются к title, authority
+          или status (что нестандартно и опасно);
+        - продавец может уйти от ответственности, заявив
+          "не знал".
+
+      * «RW3» — Критичные пробелы в покрытии (no conflict
+        или compliance отсутствуют). Признаки:
+        - rw_no_conflicts = "missing";
+        - и/или rw_compliance = "missing";
+        - при этом остальные R&W присутствуют;
+        - неполный набор фундаментальных R&W.
+
+    - Если все фундаментальные R&W присутствуют (present или
+      qualified со стандартными qualifiers), набор полный —
+      верни "NONE".
+    - Если данных недостаточно для оценки или текст противоречив —
+      верни "UNCLEAR".
+    - Формат: один или несколько кодов через запятую
+      ("RW1", "RW2", "RW1, RW3"), "NONE" или "UNCLEAR".
+      Без комментариев в этом поле — всё объясняющее в reason.
+
+    Шаг 10 — ОБОСНОВАНИЕ
+    (используется для заполнения поля "reason"):
+
+    - В "reason" кратко обоснуй вывод:
+      * перечисли, какие фундаментальные R&W покрыты/не покрыты;
+      * укажи на проблемные qualifiers;
+      * ссылайся на ключевые формулировки (по возможности
+        с короткими цитатами);
+      * если выставлены red_flags — объясни, почему именно
+        эти коды.
     </instructions>
 
     <edge_cases>
     Обрабатывай пограничные ситуации так:
 
-    - R&W сгруппированы общим блоком и содержат только часть фундаментальных заверений
-      (например, есть статус и полномочия, но нет явного title или no conflict):
-      по каждому подпункту ставь отдельные значения present/missing/unclear,
-      а не одно общее для всех.
+    - R&W сгруппированы общим блоком и содержат только часть
+      фундаментальных заверений (например, status и authority,
+      но нет title или no conflict):
+      по каждому подпункту ставь отдельные значения;
+      отсутствующие = "missing".
 
-    - Сильный блок по title (good and marketable title, free and clear), но слабые
-      или общие формулировки по compliance with laws:
-      rw_title_to_shares_or_assets = "present",
-      rw_compliance_with_laws оцени отдельно по конкретике (present или unclear).
+    - Сильный блок по title (good and marketable title, free and clear),
+      но слабые формулировки по compliance with laws:
+      rw_title = "present";
+      rw_compliance = "qualified" или "missing" в зависимости
+      от формулировок.
 
-    - Фрагменты показывают, что R&W ограничены только не фундаментальными вопросами
-      (операционные детали, мелкие риски), без охвата статуса/полномочий/title:
-      большинство фундаментальных полей будет "missing",
-      общий риск, как правило, "high".
+    - R&W ограничены только не фундаментальными вопросами
+      (операционные детали, мелкие риски):
+      большинство фундаментальных полей = "missing";
+      ставь RW1; overall_risk_level = "high".
 
-    - Текст фрагментарный (видно "represents and warrants", но не раскрыт контент
-      фундаментальных заверений):
-      по каждому полю используй "unclear", а в reason поясни, что фрагментов недостаточно.
+    - Knowledge qualifier применяется к title
+      ("to Seller's knowledge, Seller has good title"):
+      rw_title = "qualified";
+      has_knowledge_qualifiers = "yes";
+      ставь RW2 — это нестандартно и опасно.
+
+    - "Except as disclosed in the Disclosure Schedule" —
+      стандартное исключение:
+      не считай это ослаблением R&W, если Disclosure Schedule
+      существует; has_disclosed_exceptions = "yes".
+
+    - Materiality qualifier "in all material respects"
+      на compliance:
+      это стандартно; has_materiality_qualifiers = "standard";
+      rw_compliance = "present" (не "qualified").
+
+    - Текст фрагментарный (видно "represents and warrants",
+      но не раскрыт контент):
+      все поля по R&W = "unclear";
+      red_flags = "UNCLEAR";
+      overall_risk_level = "medium".
 
     - Пустые или явно нерелевантные фрагменты:
-      все поля по R&W = "unclear",
-      overall_risk_level = "medium",
-      reason = "Недостаточно данных для анализа фундаментальных заверений и гарантий."
+      все поля = "unclear";
+      red_flags = "UNCLEAR";
+      overall_risk_level = "medium";
+      reason = "Недостаточно данных для анализа фундаментальных R&W."
     </edge_cases>
 
     <output_expectations>
     На основе твоего анализа отдельный механизм извлечения сформирует
     структурированные поля по заранее заданной схеме. Твоя задача —
     давать чёткие юридические выводы и указывать конкретные формулировки
-    из текста, на которых они основаны.
+    из текста, на которых они основаны. Не генерируй JSON —
+    просто излагай выводы структурированно и однозначно.
     </output_expectations>
-  prompt_file: null
-  context_k: 4
-  temperature: 0.0
-  max_tokens: 512
 
-evidence:
-  required: true
-  min_snippet_length: 20
-  max_snippet_length: 600
-
-retrieval:
-  context_k: 4
-  max_chunks: 8
-  boost_keywords:
-    - "represents and warrants"
-    - "заверяет и гарантирует"
-    - "validly existing"
-    - "duly authorized"
-    - "good and marketable title"
-    - "no conflict"
-  rerank: true
-  filters: {}
-
-conditional: null
-
-extraction:
   enabled: true
   mode: "hybrid"
   fields:
-    - name: "rw_status_and_existence"
+    - name: "rw_status_existence"
       type: "string"
       allowed_values:
         - "present"
         - "missing"
         - "unclear"
 
-    - name: "rw_authority_and_capacity"
+    - name: "rw_authority"
       type: "string"
       allowed_values:
         - "present"
         - "missing"
         - "unclear"
 
-    - name: "rw_title_to_shares_or_assets"
+    - name: "rw_title"
       type: "string"
       allowed_values:
         - "present"
@@ -199,19 +425,37 @@ extraction:
         - "missing"
         - "unclear"
 
-    - name: "rw_compliance_with_laws"
+    - name: "rw_compliance"
       type: "string"
       allowed_values:
         - "present"
         - "missing"
         - "unclear"
 
-    - name: "overall_risk_level"
+    - name: "has_knowledge_qualifiers"
       type: "string"
       allowed_values:
-        - "low"
-        - "medium"
-        - "high"
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "has_materiality_qualifiers"
+      type: "string"
+      allowed_values:
+        - "excessive"
+        - "standard"
+        - "none"
+        - "unclear"
+
+    - name: "has_disclosed_exceptions"
+      type: "string"
+      allowed_values:
+        - "yes"
+        - "no"
+        - "unclear"
+
+    - name: "red_flags"
+      type: "string"
 
     - name: "reason"
       type: "string"
@@ -221,4 +465,8 @@ extraction:
 red_flags:
   items:
     - code: "RW1"
-      description: "Отсутствуют или крайне слабые фундаментальные R&W по статусу, полномочиям и праву собственности."
+      description: "Отсутствуют или крайне слабые фундаментальные R&W."
+    - code: "RW2"
+      description: "Фундаментальные R&W существенно ослаблены knowledge qualifiers."
+    - code: "RW3"
+      description: "Критичные пробелы в покрытии: отсутствует no conflict и/или compliance."

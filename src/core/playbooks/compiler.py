@@ -1,4 +1,4 @@
-# core/playbooks/compiler.py
+# src/core/playbooks/compiler.py
 
 """
 Playbook compiler.
@@ -44,6 +44,20 @@ Compiled плейбук — это простой JSON-совместимый di
 (глобальные чеки, собранные по bundles + include/exclude).
 Но структура данных уже готова к тому, чтобы в будущем добавлять
 DOCUMENT_TYPE и SYSTEM, не ломая формат.
+
+Изменения (keyword_groups support):
+- GlobalCheckConfig получил поле keyword_groups: Dict[str, Any].
+  Это позволяет хранить уровневые группы keywords (high/medium/low)
+  отдельно от блока rules. Loader затем объединяет:
+    * rules.keywords (если dict — inline группы),
+    * rules.keyword_groups (вложенное поле),
+    * keyword_groups (верхнеуровневое поле GlobalCheckConfig).
+
+Изменения (severity_if_* support):
+- GlobalCheckConfig получил поля severity_if_fail / severity_if_pass /
+  severity_if_unclear. Они позволяют задавать severity, зависящий от
+  результата проверки (fail/pass/unclear), который затем использует
+  исполнитель проверок.
 """
 
 from __future__ import annotations
@@ -57,7 +71,6 @@ import logging
 from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
-
 
 # Эти пути при необходимости можно будет сделать настраиваемыми через настройки проекта.
 GLOBAL_CHECKS_DIR = Path("playbooks/global_checks")
@@ -152,6 +165,20 @@ class GlobalCheckConfig(BaseModel):
         default="medium",
         description="low | medium | high | critical",
     )
+    # Outcome‑зависимые severity (опционально, переопределяют базовый severity)
+    severity_if_fail: Optional[str] = Field(
+        default=None,
+        description="Severity, если результат проверки: fail (опционально).",
+    )
+    severity_if_pass: Optional[str] = Field(
+        default=None,
+        description="Severity, если результат проверки: pass (опционально).",
+    )
+    severity_if_unclear: Optional[str] = Field(
+        default=None,
+        description="Severity, если результат проверки: unclear (опционально).",
+    )
+
     doc_types: List[str] = Field(
         default_factory=list,
         description="К каким типам документов чек применим.",
@@ -169,10 +196,25 @@ class GlobalCheckConfig(BaseModel):
         ...,
         description="'rules' | 'llm' | 'hybrid'",
     )
+
+    # Конфиг для rules-базированного детектора (keywords, regex и т.п.).
+    # Хранится как сырой dict, loader строит RulesConfig.
     rules: Dict[str, Any] = Field(
         default_factory=dict,
         description="Конфиг для rules-базированного детектора (keywords, regex и т.п.).",
     )
+
+    # Новое: уровневые keyword-группы (high/medium/low).
+    # Хранятся отдельно от rules для явной передачи в RulesConfig.keyword_groups.
+    # Если задано — используется loader'ом как дополнительный источник:
+    #   1) rules.keywords (если dict — inline groups),
+    #   2) rules.keyword_groups,
+    #   3) keyword_groups (это поле).
+    keyword_groups: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Уровневые группы keywords: {'high': [...], 'medium': [...], 'low': [...]}",
+    )
+
     llm: Dict[str, Any] = Field(
         default_factory=dict,
         description="Конфиг для LLM-детектора (prompt, model, параметры).",
@@ -267,15 +309,9 @@ def load_global_checks() -> Dict[str, GlobalCheckConfig]:
             raise RuntimeError(f"Cannot read global check file: {path}") from e
 
         # НОРМАЛИЗАЦИЯ source перед валидацией:
-        # Исторически в YAML могли писать "global_playbook" строчными.
-        # Здесь мы аккуратно приводим это к enum CheckSource, чтобы
-        # не падать на старых плейбуках и при этом сохранить строгий enum.
         source_raw = raw.get("source")
         if isinstance(source_raw, str):
-            # Приводим к верхнему регистру для сопоставления с enum
             normalized = source_raw.strip().upper()
-
-            # Поддерживаем исторический вариант "global_playbook"
             if normalized == "GLOBAL_PLAYBOOK":
                 raw["source"] = CheckSource.GLOBAL_PLAYBOOK
             elif normalized == "DOCUMENT_TYPE":
@@ -283,7 +319,6 @@ def load_global_checks() -> Dict[str, GlobalCheckConfig]:
             elif normalized == "SYSTEM":
                 raw["source"] = CheckSource.SYSTEM
             else:
-                # Неизвестное значение — логируем и даём понятную ошибку
                 logger.error(
                     "Unknown check source '%s' in %s. "
                     "Expected one of: GLOBAL_PLAYBOOK, DOCUMENT_TYPE, SYSTEM",
@@ -343,7 +378,6 @@ def load_bundle(bundle_id: str) -> BundleConfig:
         raise RuntimeError(f"Invalid bundle config in {path}: {e}") from e
 
     if cfg.id != bundle_id:
-        # защищаемся от рассинхрона имени файла и id внутри
         logger.error(
             "Bundle id mismatch for %s: file name id=%s, YAML id=%s",
             path,
@@ -449,7 +483,6 @@ def build_compiled_checks(
         filtered_ids: List[str] = []
         for cid in final_ids:
             cfg = all_checks[cid]
-            # если profiles_enabled пуст, считаем, что чек доступен во всех профилях
             if not cfg.profiles_enabled or profile in cfg.profiles_enabled:
                 filtered_ids.append(cid)
         if not filtered_ids:

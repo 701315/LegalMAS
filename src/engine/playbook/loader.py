@@ -31,6 +31,14 @@ Playbook Loader.
         - origin == "GLOBAL_PLAYBOOK"   – риски из глобального плейбука,
         - origin == "DOCUMENT_TYPE"     – риски из инструкций по типу документа,
         - origin == "SYSTEM"            – системные / тех. проверки.
+
+Изменения (keyword_groups support):
+   - load_playbook_from_dict теперь корректно обрабатывает два формата keywords:
+       * Старый: rules.keywords: ["word1", "word2"]  — flat list, без изменений.
+       * Новый:  rules.keywords: {high: [...], medium: [...], low: [...]}
+                 или отдельное поле keyword_groups: {...}
+     В обоих случаях результирующий RulesConfig получает keyword_groups,
+     а model_validator в RulesConfig нормализует паттерны по нужным полям.
 """
 
 from __future__ import annotations
@@ -56,6 +64,65 @@ from core.playbooks.compiler import GlobalCheckConfig, CheckSource
 
 logger = get_logger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Вспомогательная функция: строим RulesConfig из сырого dict
+# ---------------------------------------------------------------------------
+
+def _build_rules_config(rules_raw: dict, extra_keyword_groups: dict | None = None) -> RulesConfig:
+    """
+    Собрать RulesConfig из сырого dict блока rules.
+
+    Обрабатывает два формата keywords:
+
+    Старый (flat list):
+        rules:
+          keywords: ["word1", "word2"]
+
+    Новый (уровни, inline в rules.keywords):
+        rules:
+          keywords:
+            high: ["(?i)governed\\s+by"]
+            medium: ["jurisdiction"]
+            low: ["court"]
+
+    Также поддерживает отдельное поле keyword_groups на уровне GlobalCheckConfig
+    (передаётся через extra_keyword_groups).
+
+    Приоритет источников keyword_groups:
+        1) rules.keywords (если это dict — берём его)
+        2) rules.keyword_groups (вложенное поле)
+        3) extra_keyword_groups (отдельное поле GlobalCheckConfig.keyword_groups)
+    """
+    raw_keywords = rules_raw.get("keywords")
+
+    if isinstance(raw_keywords, dict):
+        # Новый формат: keywords содержит уровни {high: [...], medium: [...], low: [...]}
+        keyword_groups = raw_keywords
+        flat_keywords: list[str] = []
+    else:
+        # Старый формат: keywords — плоский список строк
+        flat_keywords = raw_keywords or []
+        # keyword_groups может быть вложен в rules или передан снаружи
+        keyword_groups = (
+            rules_raw.get("keyword_groups")
+            or extra_keyword_groups
+            or {}
+        )
+
+    return RulesConfig(
+        keywords=flat_keywords,
+        keyword_mode=rules_raw.get("keyword_mode", "any"),
+        regex_patterns=rules_raw.get("regex_patterns") or [],
+        clause_patterns=rules_raw.get("clause_patterns") or [],
+        negative_keywords=rules_raw.get("negative_keywords") or [],
+        keyword_groups=keyword_groups,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Публичные функции загрузки
+# ---------------------------------------------------------------------------
 
 def load_playbook_from_yaml(path: str) -> PlaybookDefinition:
     """
@@ -125,9 +192,7 @@ def _normalize_origin(source: str | CheckSource | None) -> str:
         return source.value
 
     if isinstance(source, str) and source:
-        # Поддержка старых значений вроде "global_playbook", "type_playbook"
         upper = source.upper()
-        # Мягкий маппинг старых строк к новым, чтобы не ловить мусор в UI.
         if upper in ("GLOBAL_PLAYBOOK", "DOCUMENT_TYPE", "SYSTEM"):
             return upper
         if upper in ("GLOBAL", "GLOBAL_PLAYBOOKS", "GLOBAL_PLAYBOOK_V1"):
@@ -136,10 +201,8 @@ def _normalize_origin(source: str | CheckSource | None) -> str:
             return "DOCUMENT_TYPE"
         if upper in ("SYS", "TECH", "TECHNICAL"):
             return "SYSTEM"
-        # Если встретили что-то экзотическое — безопасно считаем глобальным.
         return "GLOBAL_PLAYBOOK"
 
-    # Совсем пустое значение — тоже считаем глобальным плейбуком.
     return "GLOBAL_PLAYBOOK"
 
 
@@ -160,6 +223,7 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
         - Из GlobalCheckConfig собирается CheckDefinition, включая:
             * id / name / description / doc_types / severity и т.д.
             * origin – нормализованный источник (на основе cfg.source).
+            * rules  – через _build_rules_config() с поддержкой keyword_groups.
         - meta используется только для имени/версии плейбука и логов.
     """
     if not raw or not isinstance(raw, dict):
@@ -172,6 +236,12 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
     checks: list[CheckDefinition] = []
     for cfg in checks_cfg:
         origin = _normalize_origin(getattr(cfg, "source", None))
+
+        # Строим RulesConfig с поддержкой нового формата keyword_groups.
+        # extra_keyword_groups — отдельное поле GlobalCheckConfig (если задано).
+        extra_keyword_groups = getattr(cfg, "keyword_groups", None) or {}
+        rules = _build_rules_config(cfg.rules or {}, extra_keyword_groups)
+
         checks.append(
             CheckDefinition(
                 id=cfg.id,
@@ -180,8 +250,12 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 doc_types=cfg.doc_types or [],
                 origin=origin,
                 severity=cfg.severity,
+                # severity_if_* пробрасываем если заданы в GlobalCheckConfig
+                severity_if_fail=getattr(cfg, "severity_if_fail", None),
+                severity_if_pass=getattr(cfg, "severity_if_pass", None),
+                severity_if_unclear=getattr(cfg, "severity_if_unclear", None),
                 detector_type=DetectorType(cfg.detector_type),
-                rules=RulesConfig(**(cfg.rules or {})),
+                rules=rules,
                 llm=LLMConfig(**(cfg.llm or {})),
                 retrieval=RetrievalConfig(**(cfg.retrieval or {})),
                 extraction=ExtractionConfig(**(cfg.extraction or {}))
@@ -191,10 +265,6 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
         )
 
     meta = raw.get("meta") or {}
-    # Для имени плейбука используем:
-    #   1) profile из config (если есть) – полезно для Debug/View;
-    #   2) bundle_id – чтобы было понятно, откуда ноги растут;
-    #   3) дефолт "Compiled Playbook".
     name = (
         meta.get("config", {}).get("profile")
         or meta.get("bundle_id")
