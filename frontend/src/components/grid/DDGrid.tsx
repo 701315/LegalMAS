@@ -15,11 +15,12 @@ import type {
   ITooltipParams,
 } from "ag-grid-community";
 
-
 import type {
   CheckResult,
   OpenViewerAtFn,
   StructuredField,
+  ClassificationLevel,
+  SeverityLevel,
 } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
@@ -35,7 +36,10 @@ interface DDGridProps {
   onEyeClick?: (result: CheckResult) => void;
   onDocumentClick?: (result: CheckResult) => void;
   onCheckClick?: (result: CheckResult) => void;
-  onQcChange?: (result: CheckResult, newStatus: "approved" | "rejected") => void;
+  onQcChange?: (
+    result: CheckResult,
+    newStatus: "approved" | "rejected",
+  ) => void;
 
   // для bulk QC:
   // - в режиме list: ids результатов (CheckResult.id)
@@ -53,7 +57,10 @@ interface GridContext {
   onEyeClick?: (result: CheckResult) => void;
   onDocumentClick?: (result: CheckResult) => void;
   onCheckClick?: (result: CheckResult) => void;
-  onQcChange?: (result: CheckResult, newStatus: "approved" | "rejected") => void;
+  onQcChange?: (
+    result: CheckResult,
+    newStatus: "approved" | "rejected",
+  ) => void;
   onOpenAtLocation?: OpenViewerAtFn;
 }
 
@@ -61,20 +68,23 @@ interface GridContext {
 // Типы для матричного режима (строка = документ)
 // -------------------------------------------------------------
 
-interface MatrixRow {
+interface MatrixRowBase {
   documentId: string;
   documentName: string;
   docType?: string | null;
-  classificationLevel?: string | null;
+  classificationLevel?: ClassificationLevel | null;
   classificationConfidence?: number | null;
 
   totalCritical: number;
   totalHigh: number;
   totalMedium: number;
   totalUnclear: number;
-
-  [key: string]: any;
 }
+
+// динамические поля: risk_<checkId> -> CheckResult
+type MatrixRow = MatrixRowBase & {
+  [key: `risk_${string}`]: CheckResult | undefined;
+};
 
 interface MatrixColumnMeta {
   checkId: string;
@@ -141,7 +151,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
         });
       }
 
-      const colKey = `risk_${checkId}`;
+      const colKey = `risk_${checkId}` as const;
       row[colKey] = r;
 
       if (r.severity === "critical") row.totalCritical += 1;
@@ -216,8 +226,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           }
           return (
             <ClassificationBadge
-              // если в типах уровни совпадают, any не нужен
-              level={level as any}
+              level={level}
               confidence={conf ?? undefined}
               showConfidence={false}
             />
@@ -251,14 +260,15 @@ const MatrixGrid: React.FC<DDGridProps> = ({
   const riskCols = useMemo<ColDef<MatrixRow>[]>(
     () =>
       riskColumns.map((meta) => {
-        const field = `risk_${meta.checkId}`;
+        const field = `risk_${meta.checkId}` as const;
+
         return {
           headerName: meta.checkName,
           field,
           minWidth: 180,
           flex: 1,
           valueFormatter: (params) => {
-            const res = params.data?.[field] as CheckResult | undefined;
+            const res = params.data?.[field];
             if (!res) return "";
             if (res.result === "fail") {
               return res.severity ? `fail (${res.severity})` : "fail";
@@ -268,11 +278,11 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           tooltipValueGetter: (
             params: ITooltipParams<MatrixRow>,
           ): string => {
-            const res = params.data?.[field] as CheckResult | undefined;
+            const res = params.data?.[field];
             return res?.value_text || "";
           },
           cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
-            const res: CheckResult | undefined = p.data?.[field];
+            const res = p.data?.[field];
             if (!res) {
               return (
                 <span className="text-[11px] text-gray-300">—</span>
@@ -311,7 +321,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
                 <span className="text-[11px]">{textStatus}</span>
                 {severity && (
                   <div className="scale-90 origin-left">
-                    <SeverityBadge severity={severity as any} />
+                    <SeverityBadge severity={severity} />
                   </div>
                 )}
               </button>
@@ -321,7 +331,6 @@ const MatrixGrid: React.FC<DDGridProps> = ({
       }),
     [riskColumns, onEyeClick],
   );
-
 
   const columnDefs = useMemo<ColDef<MatrixRow>[]>(
     () => [...baseColumns, ...riskCols],
@@ -343,7 +352,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
     if (!onSelectionChange) return;
     const ids: string[] = event.api
       .getSelectedNodes()
-      .map((n) => (n.data as MatrixRow).documentId);
+      .map((n) => n.data!.documentId);
     onSelectionChange(ids);
   };
 
@@ -450,7 +459,12 @@ const ListGrid: React.FC<DDGridProps> = ({
           if (!level) {
             return <span className="text-[11px] text-gray-300">—</span>;
           }
-          return <ClassificationBadge level={level} confidence={conf} />;
+          return (
+            <ClassificationBadge
+              level={level}
+              confidence={conf}
+            />
+          );
         },
       },
       {
@@ -475,7 +489,7 @@ const ListGrid: React.FC<DDGridProps> = ({
         width: 160,
         cellRenderer: (params: ICellRendererParams<CheckResult>) => (
           <QCCellRenderer
-            value={params.value as string | undefined}
+            value={params.data?.qc_status ?? undefined}
             data={params.data as CheckResult}
             onQcChange={context.onQcChange}
           />
@@ -510,7 +524,7 @@ const ListGrid: React.FC<DDGridProps> = ({
           }
           return (
             <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[11px]"
+              className="inline-flex items=center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[11px]"
               title={name || "Conditional check triggered"}
             >
               ⚡ {name || "Conditional"}
@@ -524,7 +538,6 @@ const ListGrid: React.FC<DDGridProps> = ({
         flex: 0.8,
         minWidth: 110,
       },
-      // Новая колонка: извлечённые данные по чеку (structured_data)
       {
         headerName: "Extracted",
         field: "structured_data",
@@ -532,7 +545,6 @@ const ListGrid: React.FC<DDGridProps> = ({
         minWidth: 220,
         cellRenderer: StructuredDataCellRenderer,
       },
-      // ВРЕМЕННАЯ колонка для отладки origin
       {
         headerName: "Origin",
         field: "origin",
@@ -599,7 +611,8 @@ const ListGrid: React.FC<DDGridProps> = ({
 // Cell renderers для списка
 // -------------------------------------------------------------
 
-interface BaseCellParams extends ICellRendererParams<CheckResult, any> {
+interface BaseCellParams
+  extends ICellRendererParams<CheckResult, SeverityLevel | undefined> {
   context: GridContext;
   data: CheckResult;
 }
@@ -617,7 +630,11 @@ const SeverityCellRenderer: React.FC<BaseCellParams> = (props) => {
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1">
-        <SeverityBadge severity={value as any} />
+        {value ? (
+          <SeverityBadge severity={value} />
+        ) : (
+          <span className="text-[11px] text-gray-300">—</span>
+        )}
         {showConditional && (
           <span
             className="text-[13px]"

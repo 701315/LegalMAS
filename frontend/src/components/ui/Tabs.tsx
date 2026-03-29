@@ -11,16 +11,28 @@ interface TabsProps {
   children: React.ReactNode;
 }
 
-interface TabsTriggerProps {
+interface TabsTriggerOwnProps {
   value: string;
   children: React.ReactNode;
 }
 
-interface TabsContentProps {
+interface TabsTriggerInjectedProps {
+  currentValue?: string;
+  onChange?: (value: string) => void;
+}
+
+export type TabsTriggerProps = TabsTriggerOwnProps & TabsTriggerInjectedProps;
+
+interface TabsContentOwnProps {
   value: string;
-  currentValue: string;
   children: React.ReactNode;
 }
+
+interface TabsContentInjectedProps {
+  currentValue: string;
+}
+
+export type TabsContentProps = TabsContentOwnProps & TabsContentInjectedProps;
 
 /**
  * Обёртка для группы табов.
@@ -34,11 +46,33 @@ export const Tabs: React.FC<TabsProps> = ({ value, onChange, children }) => {
     <div data-active-tab={value}>
       {React.Children.map(children, (child) => {
         if (!React.isValidElement(child)) return child;
-        // Пробрасываем value и onChange в потомков (Triggers/Contents)
-        return React.cloneElement(child as any, {
-          currentValue: value,
-          onChange,
-        });
+
+        // child может быть TabsTrigger или TabsContent.
+        // Для TabsTrigger пробрасываем currentValue и onChange,
+        // для TabsContent — только currentValue.
+        const childType = child.type;
+
+        if (childType === TabsTrigger) {
+          return React.cloneElement(
+            child as React.ReactElement<TabsTriggerProps>,
+            {
+              currentValue: value,
+              onChange,
+            },
+          );
+        }
+
+        if (childType === TabsContent) {
+          return React.cloneElement(
+            child as React.ReactElement<TabsContentProps>,
+            {
+              currentValue: value,
+            },
+          );
+        }
+
+        // Для любых других потомков ничего не меняем
+        return child;
       })}
     </div>
   );
@@ -48,12 +82,12 @@ export const Tabs: React.FC<TabsProps> = ({ value, onChange, children }) => {
  * Кнопка-вкладка.
  * Используется внутри Tabs.
  */
-export const TabsTrigger: React.FC<
-  TabsTriggerProps & {
-    currentValue?: string;
-    onChange?: (value: string) => void;
-  }
-> = ({ value, currentValue, onChange, children }) => {
+export const TabsTrigger: React.FC<TabsTriggerProps> = ({
+  value,
+  currentValue,
+  onChange,
+  children,
+}) => {
   const isActive = currentValue === value;
   return (
     <button

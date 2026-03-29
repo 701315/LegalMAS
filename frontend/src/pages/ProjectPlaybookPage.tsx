@@ -4,9 +4,10 @@
 // =============================================================
 
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import client from "../api/client";
 import { useDealPermissions } from "../hooks/usePermissions";
+import type { ApiError } from "../types";
 
 interface PlaybookResponse {
   yaml: string;
@@ -22,19 +23,64 @@ const ProjectPlaybookPage: React.FC = () => {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [infoText, setInfoText] = useState<string | null>(null);
 
-  if (!dealId) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        dealId не указан в маршруте.
-      </div>
-    );
-  }
-
-  // Права по сделке: доступ к playbook связываем с возможностью
-  // видеть обзор/управлять проектом (superadmin, admin, editor с правами).
-  const { canViewOverview } = useDealPermissions(dealId);
+  // Хук прав вызываем без условий
+  const { canViewOverview } = useDealPermissions(dealId as string);
   const canEditPlaybook = canViewOverview;
 
+  // Загрузка существующего playbook — хук должен быть до любых return
+  useEffect(() => {
+    if (!dealId) return;
+
+    let cancelled = false;
+
+    async function loadPlaybook() {
+      setIsLoading(true);
+      setErrorText(null);
+      setInfoText(null);
+      try {
+        const res = await client.get<PlaybookResponse>(
+          `/api/v1/projects/${dealId}/playbook`,
+        );
+        if (!cancelled) {
+          setYamlText(res.data.yaml || "");
+        }
+      } catch (err) {
+        const apiErr = err as ApiError;
+        // Если 404 — считаем, что playbook ещё не создан
+        if (
+          apiErr.code === "404" ||
+          apiErr.detail === "Not Found" ||
+          apiErr.detail === "PLAYBOOK_NOT_FOUND"
+        ) {
+          if (!cancelled) {
+            setYamlText("");
+            setInfoText("Playbook для этого проекта ещё не создан.");
+          }
+        } else if (!cancelled) {
+          setErrorText(
+            apiErr.detail ||
+              "Не удалось загрузить playbook. Попробуйте позже.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadPlaybook();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId]);
+
+  // Если dealId отсутствует — редирект на список сделок
+  if (!dealId) {
+    return <Navigate to="/deals" replace />;
+  }
+
+  // Если прав нет — показываем экран "нет доступа"
   if (!canEditPlaybook) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -57,47 +103,6 @@ const ProjectPlaybookPage: React.FC = () => {
   const handleBack = () => {
     navigate(`/projects/${dealId}`);
   };
-
-  // Загрузка существующего playbook
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPlaybook() {
-      setIsLoading(true);
-      setErrorText(null);
-      setInfoText(null);
-      try {
-        const res = await client.get<PlaybookResponse>(
-          `/api/v1/projects/${dealId}/playbook`,
-        );
-        if (!cancelled) {
-          setYamlText(res.data.yaml || "");
-        }
-      } catch (err: any) {
-        // Если 404 — считаем, что playbook ещё не создан
-        if (err?.code === "404" || err?.detail === "Not Found") {
-          if (!cancelled) {
-            setYamlText("");
-            setInfoText("Playbook для этого проекта ещё не создан.");
-          }
-        } else if (!cancelled) {
-          setErrorText(
-            err?.detail ||
-              "Не удалось загрузить playbook. Попробуйте позже.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadPlaybook();
-    return () => {
-      cancelled = true;
-    };
-  }, [dealId]);
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -130,10 +135,11 @@ const ProjectPlaybookPage: React.FC = () => {
         yaml: yamlText,
       });
       setInfoText("Playbook успешно сохранён.");
-    } catch (err: any) {
+    } catch (err) {
+      const apiErr = err as ApiError;
       setErrorText(
-        err?.detail ||
-          "Не удалось сохранить playbook. Проверьте YAML и попробуйте еще раз.",
+        apiErr.detail ||
+          "Не удалось сохранить playbook. Проверьте YAML и попробуйте ещё раз.",
       );
     } finally {
       setIsSaving(false);
@@ -149,9 +155,7 @@ const ProjectPlaybookPage: React.FC = () => {
             <h1 className="text-xl font-bold text-gray-900">
               Playbook проекта
             </h1>
-            <p className="text-sm text-gray-500">
-              Проект: {dealId}
-            </p>
+            <p className="text-sm text-gray-500">Проект: {dealId}</p>
           </div>
           <button
             type="button"
@@ -170,7 +174,8 @@ const ProjectPlaybookPage: React.FC = () => {
                 YAML-playbook проекта
               </p>
               <p className="text-xs text-gray-500">
-                Вы можете отредактировать текст вручную или загрузить готовый YAML-файл.
+                Вы можете отредактировать текст вручную или загрузить готовый
+                YAML-файл.
               </p>
             </div>
 
@@ -201,15 +206,11 @@ const ProjectPlaybookPage: React.FC = () => {
           )}
 
           {errorText && (
-            <p className="text-sm text-red-600">
-              {errorText}
-            </p>
+            <p className="text-sm text-red-600">{errorText}</p>
           )}
 
           {infoText && !errorText && (
-            <p className="text-sm text-green-700">
-              {infoText}
-            </p>
+            <p className="text-sm text-green-700">{infoText}</p>
           )}
 
           <div className="flex items-center justify-end gap-3">

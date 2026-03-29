@@ -20,21 +20,8 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   const [filterAction, setFilterAction] = useState<string>("");
   const [page, setPage] = useState(1);
 
-  // RBAC: доступ только при canViewAuditLog
-  if (!canViewAuditLog) {
-    return (
-      <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg py-20 text-center">
-        <Shield size={48} className="text-gray-300 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Доступ ограничен
-        </h2>
-        <p className="text-gray-500">
-          Журнал аудита доступен только администраторам и ответственным за безопасность.
-        </p>
-      </div>
-    );
-  }
-
+  // Всегда вызываем хук загрузки — но он сам вернёт 403/пустые данные,
+  // если прав нет. Это важно для соблюдения правил хуков.
   const { data: auditData, isLoading } = useAuditLog(dealId, {
     action: filterAction || undefined,
     page,
@@ -43,6 +30,22 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
 
   const items = auditData?.items ?? [];
   const totalPages = auditData?.total_pages ?? 1;
+
+  // RBAC: визуально показываем экран "нет доступа"
+  if (!canViewAuditLog) {
+    return (
+      <div className="flex flex-col items-center justify-center bg-gray-50 rounded-lg py-20 text-center">
+        <Shield size={48} className="text-gray-300 mb-4" />
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Доступ ограничен
+        </h2>
+        <p className="text-gray-500">
+          Журнал аудита доступен только администраторам и ответственным за
+          безопасность.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -73,7 +76,10 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
       {/* Таблица */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin mr-3 text-blue-500" size={24} />
+          <Loader2
+            className="animate-spin mr-3 text-blue-500"
+            size={24}
+          />
           <span className="text-gray-500">Загружаем журнал…</span>
         </div>
       ) : (
@@ -106,7 +112,8 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
                     className={cn(
                       "hover:bg-gray-50",
                       log.action === "RECLASSIFY" && "bg-purple-50",
-                      log.action === "SET_DEAL_PLAYBOOK" && "bg-blue-50/40",
+                      log.action === "SET_DEAL_PLAYBOOK" &&
+                        "bg-blue-50/40",
                     )}
                   >
                     <td className="px-4 py-3 text-sm text-gray-700">
@@ -188,7 +195,8 @@ function formatDetails(
   // Специальный кейс: смена playbook сделки
   if (action === "SET_DEAL_PLAYBOOK") {
     const playbookName =
-      (details.playbook_name && String(details.playbook_name)) || "Playbook";
+      (details.playbook_name && String(details.playbook_name)) ||
+      "Playbook";
     const semver =
       details.semver && String(details.semver).trim().length > 0
         ? String(details.semver)
@@ -214,7 +222,8 @@ function formatDetails(
     const prev = String(details.previous_doc_type || "?");
     const next = String(details.new_doc_type || "?");
     const reason =
-      details.reason && String(details.reason).toString().trim().length > 0
+      details.reason &&
+      String(details.reason).toString().trim().length > 0
         ? ` · Причина: ${String(details.reason)}`
         : "";
     return `${prev} → ${next}${reason}`;

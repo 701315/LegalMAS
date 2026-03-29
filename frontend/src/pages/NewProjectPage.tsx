@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { useAuth } from "../hooks/useAuth";
+import type { ApiError } from "../types";
 
 interface CreateDealInput {
   name: string;
@@ -60,10 +61,44 @@ const NewProjectPage: React.FC = () => {
       const dealId = res.data.id;
       // После создания сразу переходим на страницу загрузки документов проекта
       navigate(`/projects/${dealId}/upload`);
-    } catch (err: any) {
-      setErrorText(
-        err?.detail || "Не удалось создать проект. Попробуйте позже.",
-      );
+    } catch (err: unknown) {
+      const e = err as unknown;
+
+      let detailFromResponse: string | undefined;
+      let detailFromApiError: string | undefined;
+      let messageFromError: string | undefined;
+
+      if (typeof e === "object" && e !== null) {
+        // axios-подобный ответ: response.data.detail
+        if ("response" in e) {
+          const resp = (e as { response?: { data?: ApiError } }).response;
+          detailFromResponse = resp?.data?.detail;
+        }
+
+        // прямой ApiError
+        if (
+          "detail" in e &&
+          typeof (e as { detail?: unknown }).detail === "string"
+        ) {
+          detailFromApiError = (e as { detail?: string }).detail;
+        }
+
+        // обычный Error с message
+        if (
+          "message" in e &&
+          typeof (e as { message?: unknown }).message === "string"
+        ) {
+          messageFromError = (e as { message?: string }).message;
+        }
+      }
+
+      const msg =
+        detailFromApiError ??
+        detailFromResponse ??
+        messageFromError ??
+        "Не удалось создать проект. Попробуйте позже.";
+
+      setErrorText(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -80,7 +115,8 @@ const NewProjectPage: React.FC = () => {
           Новый проект
         </h1>
         <p className="text-sm text-gray-500 mb-4">
-          Укажите основные данные проекта. Остальные настройки можно будет задать позже.
+          Укажите основные данные проекта. Остальные настройки можно
+          будет задать позже.
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -94,7 +130,7 @@ const NewProjectPage: React.FC = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="Например: DD по покупке ООО «Ромашка»"
+              placeholder='Например: DD по покупке ООО «Ромашка»'
             />
           </div>
 
@@ -114,9 +150,7 @@ const NewProjectPage: React.FC = () => {
 
           {/* Ошибка */}
           {errorText && (
-            <p className="text-sm text-red-600">
-              {errorText}
-            </p>
+            <p className="text-sm text-red-600">{errorText}</p>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">

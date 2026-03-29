@@ -64,6 +64,12 @@ class Deal(Base):
         comment="Document languages: ['RU', 'EN']",
     )
 
+    primary_language: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        comment="Primary language of the deal, e.g. 'RU' or 'EN'",
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

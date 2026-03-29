@@ -3,7 +3,7 @@
 // API-функции и React Query хуки для работы со сделками.
 // =============================================================
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
 import type { Deal, DealDetail, PaginatedResponse } from "../types";
 
@@ -19,8 +19,8 @@ export const dealApi = {
   list: (page = 1, perPage = 20, status?: string, tenantId?: string) =>
     client
       .get<PaginatedResponse<Deal>>("/api/v1/deals", {
-        params: { 
-          page, 
+        params: {
+          page,
           per_page: perPage,
           status: status || undefined,
           tenant_id: tenantId || undefined,
@@ -35,6 +35,17 @@ export const dealApi = {
   get: (dealId: string) =>
     client
       .get<DealDetail>(`/api/v1/deals/${dealId}`)
+      .then((response) => response.data),
+
+  /**
+   * Установить основной язык сделки.
+   * PATCH /api/v1/deals/{deal_id}/primary-language
+   */
+  setPrimaryLanguage: (dealId: string, primaryLanguage: string | null) =>
+    client
+      .patch<DealDetail>(`/api/v1/deals/${dealId}/primary-language`, {
+        primary_language: primaryLanguage,
+      })
       .then((response) => response.data),
 };
 
@@ -64,5 +75,27 @@ export function useDeal(dealId: string | null) {
     queryKey: ["deal", dealId],
     queryFn: () => dealApi.get(dealId!),
     enabled: !!dealId,
+  });
+}
+
+/**
+ * Хук для установки основного языка сделки.
+ * Пример:
+ *   const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
+ *   setPrimaryLanguage.mutate({ primary_language: "ru" });
+ */
+export function useSetPrimaryLanguage(dealId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: { primary_language: string | null }) =>
+      dealApi.setPrimaryLanguage(dealId, payload.primary_language),
+    onSuccess: (updatedDeal) => {
+      // Обновляем кеш детали сделки
+      queryClient.setQueryData<DealDetail>(["deal", dealId], updatedDeal);
+      // Инвалидируем детали сделки и все списки сделок
+      queryClient.invalidateQueries({ queryKey: ["deal", dealId] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+    },
   });
 }

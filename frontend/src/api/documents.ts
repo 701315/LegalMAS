@@ -17,6 +17,20 @@ import type {
   DocumentColumnId,
 } from "../types";
 
+// Debug-ответ для /documents/{doc_id}/debug/layouts.
+//
+// Для непрофессионального программиста:
+// - raw_layout_ref / sanitized_layout_ref — это строки-ссылки на JSON в хранилище;
+// - raw_layout / sanitized_layout — сами JSON-объекты (если их запросить флагами).
+export interface DocumentLayoutsDebugResponse {
+  document_id: string;
+  deal_id: string;
+  raw_layout_ref: string | null;
+  sanitized_layout_ref: string | null;
+  raw_layout: Record<string, unknown> | null;
+  sanitized_layout: Record<string, unknown> | null;
+}
+
 // -------------------------------------------------------------
 // НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
 // -------------------------------------------------------------
@@ -109,6 +123,35 @@ export const documentApi = {
         `/api/v1/documents/${docId}/extracted-values`,
       )
       .then((response) => response.data),
+
+  /**
+   * Debug: получить ссылки и, опционально, сами JSON layout'ы
+   * для raw и sanitized макетов документа.
+   *
+   * GET /api/v1/documents/{doc_id}/debug/layouts
+   *
+   * Для непрофессионального программиста:
+   * - includeRaw / includeSanitized управляют тем, вернёт ли backend
+   *   полные JSON-объекты layout'ов, а не только ссылки.
+   * - По умолчанию можно запрашивать только ссылки (оба флага false),
+   *   чтобы не тянуть тяжёлые JSON без необходимости.
+   */
+  getLayoutsDebug: (
+    docId: string,
+    includeRaw = true,
+    includeSanitized = true,
+  ) =>
+    client
+      .get<DocumentLayoutsDebugResponse>(
+        `/api/v1/documents/${docId}/debug/layouts`,
+        {
+          params: {
+            include_raw: includeRaw,
+            include_sanitized: includeSanitized,
+          },
+        },
+      )
+      .then((r) => r.data),
 
   /**
    * Загрузка новых документов в сделку.
@@ -349,6 +392,27 @@ export function useDocumentPdfUrl(docId: string | null) {
     queryKey: ["document-pdf-url", docId],
     queryFn: () => documentApi.getPdfUrl(docId!),
     enabled: !!docId,
+  });
+}
+
+/**
+ * Debug-хук для получения raw/sanitized layout'ов документа.
+ *
+ * Для непрофессионального программиста:
+ * - Этот хук обращается к debug-эндпоинту backend'а и возвращает:
+ *   ссылки на layout'ы и, при желании, сами JSON-объекты.
+ * - Параметр enabled позволяет не дергать эндпоинт, пока модалка
+ *   с debug-информацией не открыта.
+ */
+export function useDocumentLayoutsDebug(
+  docId: string | null,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ["document-layouts-debug", docId],
+    queryFn: () => documentApi.getLayoutsDebug(docId!),
+    enabled: !!docId && enabled,
+    staleTime: 5 * 60_000, // debug-данные почти не меняются
   });
 }
 

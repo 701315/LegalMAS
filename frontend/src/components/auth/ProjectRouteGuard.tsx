@@ -39,11 +39,14 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
 }) => {
   const { dealId } = useParams<{ dealId: string }>();
 
+  // ВАЖНО: хук вызываем всегда, даже если dealId ещё нет.
+  // Внутри useDealPermissions нужно быть готовым к undefined/null.
+  const dealPermissions = useDealPermissions(dealId as string);
+
+  // Если нет dealId в URL — отправляем на список сделок.
   if (!dealId) {
     return <Navigate to="/deals" replace />;
   }
-
-  const dealPermissions = useDealPermissions(dealId);
 
   // Если capability не задан, считаем, что достаточно иметь доступ к overview проекта.
   if (!requiredCapability) {
@@ -54,6 +57,7 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
     return children;
   }
 
+  // Если нужного права нет — показываем экран "Нет доступа".
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white border rounded-lg px-6 py-4 text-center max-w-sm">
@@ -61,8 +65,8 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
           Нет доступа
         </h1>
         <p className="text-sm text-gray-600 mb-4">
-          У вас нет прав для просмотра этой страницы. Обратитесь к администратору
-          проекта, если считаете, что это ошибка.
+          У вас нет прав для просмотра этой страницы. Обратитесь к
+          администратору проекта, если считаете, что это ошибка.
         </p>
       </div>
     </div>

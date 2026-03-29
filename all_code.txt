@@ -1,8 +1,8 @@
 ================================================================================
 PROJECT CODE DUMP
 Source directory: /home/vladi/projects/LegalMAS/src
-Generated at:    2026-03-28T13:11:04.678670
-Total files:     179
+Generated at:    2026-03-29T11:20:39.137026
+Total files:     180
 ================================================================================
 
 TABLE OF CONTENTS:
@@ -136,56 +136,57 @@ TABLE OF CONTENTS:
   127. ops/instrument.py
   128. ops/metrics.py
   129. services/__init__.py
-  130. services/deal_review_service.py
-  131. services/document_service.py
-  132. services/embeddings/embedding_service.py
-  133. services/export/__init__.py
-  134. services/export/aggregator.py
-  135. services/export/core.py
-  136. services/export/dd_request_loader.py
-  137. services/export/grid_builder.py
-  138. services/export/models.py
-  139. services/export/report_builder.py
-  140. services/export/service.py
-  141. services/export/summary_builder.py
-  142. services/extract_router.py
-  143. services/file_type_router.py
-  144. services/file_validator.py
-  145. services/layout_language_filter.py
-  146. services/pdf_extractor.py
-  147. services/pii_detector.py
-  148. services/pii_encryption.py
-  149. services/pii_tokenizer.py
-  150. services/playbooks/catalog.py
-  151. services/relations/__init__.py
-  152. services/relations/dedup.py
-  153. services/relations/detector.py
-  154. services/relations/family_builder.py
-  155. services/relations/models.py
-  156. services/run_analytics_service.py
-  157. services/run_checks_auto_starter.py
-  158. services/run_progress_service.py
-  159. services/structure/__init__.py
-  160. services/structure/builder.py
-  161. services/structure/models.py
-  162. storage/__init__.py
-  163. storage/artifact_store.py
-  164. storage/exports.py
-  165. workers/__init__.py
-  166. workers/check_runner_worker.py
-  167. workers/classifier.py
-  168. workers/convert_worker.py
-  169. workers/export_pending.py
-  170. workers/exporter.py
-  171. workers/extract_worker.py
-  172. workers/import_worker.py
-  173. workers/orchestrator.py
-  174. workers/pii_sanitizer.py
-  175. workers/relations_worker.py
-  176. workers/run_orchestrator.py
-  177. workers/runner.py
-  178. workers/structure_builder.py
-  179. workers/tasks.py
+  130. services/deal_language_service.py
+  131. services/deal_review_service.py
+  132. services/document_service.py
+  133. services/embeddings/embedding_service.py
+  134. services/export/__init__.py
+  135. services/export/aggregator.py
+  136. services/export/core.py
+  137. services/export/dd_request_loader.py
+  138. services/export/grid_builder.py
+  139. services/export/models.py
+  140. services/export/report_builder.py
+  141. services/export/service.py
+  142. services/export/summary_builder.py
+  143. services/extract_router.py
+  144. services/file_type_router.py
+  145. services/file_validator.py
+  146. services/layout_language_filter.py
+  147. services/pdf_extractor.py
+  148. services/pii_detector.py
+  149. services/pii_encryption.py
+  150. services/pii_tokenizer.py
+  151. services/playbooks/catalog.py
+  152. services/relations/__init__.py
+  153. services/relations/dedup.py
+  154. services/relations/detector.py
+  155. services/relations/family_builder.py
+  156. services/relations/models.py
+  157. services/run_analytics_service.py
+  158. services/run_checks_auto_starter.py
+  159. services/run_progress_service.py
+  160. services/structure/__init__.py
+  161. services/structure/builder.py
+  162. services/structure/models.py
+  163. storage/__init__.py
+  164. storage/artifact_store.py
+  165. storage/exports.py
+  166. workers/__init__.py
+  167. workers/check_runner_worker.py
+  168. workers/classifier.py
+  169. workers/convert_worker.py
+  170. workers/export_pending.py
+  171. workers/exporter.py
+  172. workers/extract_worker.py
+  173. workers/import_worker.py
+  174. workers/orchestrator.py
+  175. workers/pii_sanitizer.py
+  176. workers/relations_worker.py
+  177. workers/run_orchestrator.py
+  178. workers/runner.py
+  179. workers/structure_builder.py
+  180. workers/tasks.py
 ----------------------------------------
 
 
@@ -1246,16 +1247,27 @@ async def create_deal(
 ):
     """
     Создать новую сделку (проект) и сразу добавить создателя как admin-участника.
+
+    Важно:
+    - Если фронтенд не передал список языков (payload.languages = None),
+      мы считаем, что сделка по умолчанию русскоязычная и ставим ["ru"].
+    - Это даёт предсказуемое поведение до того, как появится честный layout.
     """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
+
+    # Жёсткий дефолт языков: если клиент не указал языки, считаем ["ru"].
+    # Для непрофессионального программиста:
+    # - payload.languages может быть None или списком строк;
+    # - мы нормализуем это в переменную effective_languages.
+    effective_languages = payload.languages or ["ru"]
 
     deal = await deal_repo.create(
         tenant_id=user.tenant_id,
         name=payload.name,
         deal_type=payload.deal_type,
         jurisdiction=payload.jurisdiction,
-        languages=payload.languages,
+        languages=effective_languages,
         pii_mode=payload.pii_mode,
         profile=payload.profile,
         playbook_version_id=payload.playbook_version_id,
@@ -1578,6 +1590,17 @@ class DealModelConfigUpdate(BaseModel):
 
     model_config_id: UUID | None
 
+class DealPrimaryLanguageUpdate(BaseModel):
+    """
+    Тело запроса для установки основного языка сделки.
+
+    Правила:
+    - primary_language должен входить в список languages сделки;
+    - если передан null, основной язык сбрасывается.
+    """
+
+    primary_language: str | None
+
 
 @router.patch(
     "/{deal_id}/playbook",
@@ -1743,6 +1766,69 @@ async def set_deal_model_config(
     return DealResponse.model_validate(deal)
 
 
+@router.patch(
+    "/{deal_id}/primary-language",
+    response_model=DealResponse,
+    summary="Установить основной язык сделки",
+)
+async def set_deal_primary_language(
+    deal_id: UUID,
+    payload: DealPrimaryLanguageUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Устанавливает (или сбрасывает) основной язык сделки.
+
+    Правила:
+    - менять основной язык могут только роли admin/editor;
+    - если primary_language не null, он должен быть в Deal.languages;
+    - при нарушении правил возвращаем 400/403/404.
+    """
+    # 1. Проверка прав: admin/editor
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal_repo = DealRepository(db)
+
+    # 2. Загружаем сделку
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # 3. Валидация значения: если язык задан, он должен быть в списке languages
+    new_lang = payload.primary_language
+
+    # Приводим список языков к списку строк для надёжности
+    deal_languages = list(deal.languages or [])
+
+    if new_lang is not None:
+        if not deal_languages:
+            # В сделке ещё нет языков, а пользователь пытается выбрать основной
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot set primary_language when deal has no languages",
+            )
+        if new_lang not in deal_languages:
+            raise HTTPException(
+                status_code=400,
+                detail="primary_language must be one of deal languages",
+            )
+
+    # 4. Обновляем основной язык
+    deal.primary_language = new_lang
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    return DealResponse.model_validate(deal)
+
+
 @router.get(
     "/{deal_id}/playbook-history",
     response_model=list[DealPlaybookHistoryItem],
@@ -1791,6 +1877,8 @@ async def get_deal_playbook_history(
         )
 
     return items
+
+
 
 
 # ----------------------------------------------------------------------
@@ -1968,7 +2056,7 @@ from io import BytesIO
 from typing import List, Optional
 from fpdf import FPDF
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import Response, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2474,39 +2562,6 @@ async def get_document_converted_pdf_url(
     # ВАЖНО: вернуть "сырой" текст, без JSON-обёртки
     return presigned_url
 
-@router.get(
-    "/{doc_id}/converted-pdf-url",
-    summary="Get converted PDF URL for document",
-)
-async def get_document_converted_pdf_url(
-    doc_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
-):
-    doc_repo = DocumentRepository(db)
-    doc = await doc_repo.get_by_id(doc_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    await require_project_role(
-        db=db,
-        user=user,
-        deal_id=doc.deal_id,
-        allowed_roles=("viewer", "editor", "admin"),
-    )
-
-    ver_repo = DocumentVersionRepository(db)
-    version = await ver_repo.get_latest(doc_id)
-
-    if not version or not version.converted_pdf_ref:
-        raise HTTPException(status_code=404, detail="Converted PDF not available")
-
-    store = ArtifactStore()
-    presigned_url = store.get_presigned_get_url(version.converted_pdf_ref)
-
-    # Важно: вернуть СТРОКУ (как и другие "string" ответы в OpenAPI)
-    return presigned_url
-
 
 @router.get(
     "/{doc_id}/structured-data",
@@ -2591,6 +2646,107 @@ async def get_document_structured_data(
 
     # payload уже dict/list, фронт получает JSON дерево
     return payload
+
+
+class DocumentLayoutsDebugResponse(BaseModel):
+    document_id: str
+    deal_id: str
+    raw_layout_ref: str | None = None
+    sanitized_layout_ref: str | None = None
+    raw_layout: dict | None = None
+    sanitized_layout: dict | None = None
+
+
+@router.get(
+    "/{doc_id}/debug/layouts",
+    response_model=DocumentLayoutsDebugResponse,
+    summary="Debug: raw vs sanitized layout for document",
+)
+async def get_document_layouts_debug(
+    doc_id: UUID,
+    include_raw: bool = Query(False, description="Вернуть ли полный raw layout JSON"),
+    include_sanitized: bool = Query(
+        False, description="Вернуть ли полный sanitized layout JSON"
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Debug‑эндпоинт для сравнения layout'ов "до/после" обработки.
+
+    Что делает:
+    - проверяет доступ к документу (viewer/editor/admin в сделке);
+    - находит последнюю версию документа;
+    - возвращает ссылки на:
+        * text_layout_raw_ref  — layout после extract (multi‑lang),
+        * text_layout_sanitized_ref — layout после PII (одноязычный, очищенный);
+    - по флагам include_raw / include_sanitized может вернуть сами JSON‑объекты.
+
+    Использование:
+    - фронт может отрисовать два представления:
+        * исходный layout (все языки),
+        * layout, реально ушедший в анализ (после PII и языковой фильтрации).
+    """
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="DocumentVersion not found")
+
+    raw_ref = version.text_layout_raw_ref
+    sanitized_ref = version.text_layout_sanitized_ref
+
+    store = ArtifactStore()
+
+    raw_layout: dict | None = None
+    sanitized_layout: dict | None = None
+
+    if include_raw and raw_ref:
+        try:
+            raw_layout = store.get_json(raw_ref)
+        except Exception as e:
+            # Для debug‑эндпоинта не считаем это критической ошибкой пайплайна:
+            logger.warning(
+                "Failed to load raw layout for debug",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "error": str(e),
+                },
+            )
+
+    if include_sanitized and sanitized_ref:
+        try:
+            sanitized_layout = store.get_json(sanitized_ref)
+        except Exception as e:
+            logger.warning(
+                "Failed to load sanitized layout for debug",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "error": str(e),
+                },
+            )
+
+    return DocumentLayoutsDebugResponse(
+        document_id=str(doc_id),
+        deal_id=str(doc.deal_id),
+        raw_layout_ref=raw_ref,
+        sanitized_layout_ref=sanitized_ref,
+        raw_layout=raw_layout,
+        sanitized_layout=sanitized_layout,
+    )
 
 
 @router.get(
@@ -7097,7 +7253,11 @@ class DealResponse(BaseModel):
     name: str
     deal_type: str | None = None
     jurisdiction: str | None = None
+    # Список языков документов сделки (из документов).
     languages: list[str] | None = None
+    # Новый атрибут: основной язык сделки, выбирается пользователем
+    # из списка languages на отдельном шаге.
+    primary_language: str | None = None
 
     # Можно оставить как str, чтобы не тянуть enum на фронт
     status: str  # или DealStatus
@@ -13277,6 +13437,8 @@ pii_sanitization_skipped_total = Counter(
 ================================================================================
 >>> FILE_START | index=61 | path=core/playbooks/compiler.py
 ================================================================================
+# src/core/playbooks/compiler.py
+
 """
 Playbook compiler.
 
@@ -14398,6 +14560,12 @@ class Deal(Base):
         ARRAY(String(10)),
         nullable=True,
         comment="Document languages: ['RU', 'EN']",
+    )
+
+    primary_language: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+        comment="Primary language of the deal, e.g. 'RU' or 'EN'",
     )
 
     status: Mapped[str] = mapped_column(
@@ -16598,7 +16766,6 @@ class DDRequestRepository:
 ================================================================================
 # src/db/repositories/deal_repo.py
 
-
 """
 Репозиторий для CRUD‑операций со сделками (Deal).
 
@@ -16850,6 +17017,48 @@ class DealRepository:
         )
         await self.session.execute(stmt)
         await self.session.flush()
+
+    async def update_languages(
+        self,
+        deal_id: uuid.UUID,
+        languages: list[str],
+    ) -> None:
+        """
+        Обновить список языков сделки (поле Deal.languages).
+
+        Для непрофессионального программиста:
+        - languages — готовый список строк, например ["ru"] или ["en", "ru"];
+        - метод просто записывает его в поле Deal.languages для указанной сделки;
+        - никакой логики объединения здесь нет — это уже сделал сервис.
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(languages=languages)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+
+    async def update_primary_language(
+        self,
+        deal_id: uuid.UUID,
+        primary_language: str | None,
+    ) -> None:
+        """
+        Обновить основное поле языка сделки (Deal.primary_language).
+
+        Для непрофессионального программиста:
+        - primary_language — строка вроде "ru" или "en", либо None;
+        - метод просто записывает значение в одно поле указанной сделки.
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(primary_language=primary_language)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+        
 
 ================================================================================
 <<< FILE_END | index=86 | path=db/repositories/deal_repo.py
@@ -27657,7 +27866,113 @@ else:
 
 
 ================================================================================
->>> FILE_START | index=130 | path=services/deal_review_service.py
+>>> FILE_START | index=130 | path=services/deal_language_service.py
+================================================================================
+# src/services/deal_language_service.py
+
+"""
+Сервис для обновления языков сделки (Deal.languages и primary_language).
+
+Назначение:
+- аккуратно добавлять новые языки в список Deal.languages
+  после появления честной информации (например, после извлечения layout);
+- не затирать уже сохранённые языки, а объединять их с новыми;
+- по возможности автоматически выставлять primary_language, если это безопасно.
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Iterable
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from db.repositories.deal_repo import DealRepository
+
+
+async def update_deal_languages(
+    db: AsyncSession,
+    deal_id: uuid.UUID,
+    new_languages: Iterable[str],
+) -> None:
+    """
+    Обновить Deal.languages и при необходимости скорректировать primary_language.
+
+    Для непрофессионального программиста:
+    - deal.languages предполагается списком строк, например ["ru", "en"].
+    - Функция делает три шага:
+      1) читает из БД текущие языки сделки и текущий primary_language;
+      2) объединяет их с new_languages (без дублей);
+      3) сохраняет обновлённый список и, если это безопасно, обновляет primary_language.
+
+    Поведение для primary_language:
+    - если после объединения в списке ровно один язык → делаем его primary_language;
+    - если языков несколько:
+        * если среди них есть "ru" → primary_language остаётся как есть
+          (предполагаем, что юрист сам выберет в UI);
+        * если "ru" нет и primary_language пока пустой → берём первый язык
+          из отсортированного списка (например, "en").
+    - если сделка не найдена, функция просто выйдет без ошибок.
+    """
+    repo = DealRepository(db)
+    deal = await repo.get_by_id(deal_id)
+    if not deal:
+        return
+
+    # 1. Текущее состояние
+    existing_languages = set(deal.languages or [])
+    current_primary = deal.primary_language
+
+    # 2. Добавляем новые языки
+    for lang in new_languages:
+        if not lang:
+            continue
+        existing_languages.add(lang)
+
+    if not existing_languages:
+        # Вообще нет языков — ничего не меняем.
+        return
+
+    # Приводим к отсортированному списку для предсказуемого порядка.
+    languages_sorted = sorted(existing_languages)
+
+    # 3. Вычисляем новое значение primary_language (если нужно).
+    new_primary: str | None = current_primary
+
+    if len(languages_sorted) == 1:
+        # Ровно один язык — его логично считать основным.
+        new_primary = languages_sorted[0]
+    else:
+        # Несколько языков.
+        has_ru = "ru" in languages_sorted
+
+        if not has_ru and not current_primary:
+            # Русского нет, явного primary ещё не было — ставим первым
+            # встречным (по алфавиту) языком, например "en".
+            new_primary = languages_sorted[0]
+        # Если есть "ru" или уже задан current_primary — не трогаем,
+        # пусть выбор делает юрист через UI.
+
+    # 4. Сохраняем изменения в БД через репозиторий.
+    await repo.update_languages(
+        deal_id=deal_id,
+        languages=languages_sorted,
+    )
+
+    # Обновляем primary_language только если мы его реально изменили.
+    if new_primary != current_primary:
+        await repo.update_primary_language(
+            deal_id=deal_id,
+            primary_language=new_primary,
+        )
+
+================================================================================
+<<< FILE_END | index=130 | path=services/deal_language_service.py
+================================================================================
+
+
+================================================================================
+>>> FILE_START | index=131 | path=services/deal_review_service.py
 ================================================================================
 # src/services/deal_review_service.py
 
@@ -28139,12 +28454,12 @@ def build_dd_matrix(
     )
 
 ================================================================================
-<<< FILE_END | index=130 | path=services/deal_review_service.py
+<<< FILE_END | index=131 | path=services/deal_review_service.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=131 | path=services/document_service.py
+>>> FILE_START | index=132 | path=services/document_service.py
 ================================================================================
 # src/services/document_service.py
 
@@ -28209,12 +28524,12 @@ class DocumentService:
         return map_document_to_response(document)
 
 ================================================================================
-<<< FILE_END | index=131 | path=services/document_service.py
+<<< FILE_END | index=132 | path=services/document_service.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=132 | path=services/embeddings/embedding_service.py
+>>> FILE_START | index=133 | path=services/embeddings/embedding_service.py
 ================================================================================
 from pathlib import Path
 
@@ -28273,22 +28588,22 @@ class EmbeddingService:
 embedding_service = EmbeddingService()
 
 ================================================================================
-<<< FILE_END | index=132 | path=services/embeddings/embedding_service.py
+<<< FILE_END | index=133 | path=services/embeddings/embedding_service.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=133 | path=services/export/__init__.py
+>>> FILE_START | index=134 | path=services/export/__init__.py
 ================================================================================
 
 
 ================================================================================
-<<< FILE_END | index=133 | path=services/export/__init__.py
+<<< FILE_END | index=134 | path=services/export/__init__.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=134 | path=services/export/aggregator.py
+>>> FILE_START | index=135 | path=services/export/aggregator.py
 ================================================================================
 # src/services/export/aggregator.py
 
@@ -28771,12 +29086,12 @@ def _truncate(text: str, max_length: int) -> str:
     return text[: max_length - 3] + "..."
 
 ================================================================================
-<<< FILE_END | index=134 | path=services/export/aggregator.py
+<<< FILE_END | index=135 | path=services/export/aggregator.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=135 | path=services/export/core.py
+>>> FILE_START | index=136 | path=services/export/core.py
 ================================================================================
 # src/services/export/core.py
 
@@ -29206,12 +29521,12 @@ async def export_core(
     }
 
 ================================================================================
-<<< FILE_END | index=135 | path=services/export/core.py
+<<< FILE_END | index=136 | path=services/export/core.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=136 | path=services/export/dd_request_loader.py
+>>> FILE_START | index=137 | path=services/export/dd_request_loader.py
 ================================================================================
 # src/services/export/dd_request_loader.py
 
@@ -29418,12 +29733,12 @@ def get_dd_request_loader() -> DDRequestTemplateLoader:
     return _loader
 
 ================================================================================
-<<< FILE_END | index=136 | path=services/export/dd_request_loader.py
+<<< FILE_END | index=137 | path=services/export/dd_request_loader.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=137 | path=services/export/grid_builder.py
+>>> FILE_START | index=138 | path=services/export/grid_builder.py
 ================================================================================
 # src/services/export/grid_builder.py
 
@@ -30090,12 +30405,12 @@ def _build_extracted_values_sheet(wb: Workbook, aggregated: AggregatedResults) -
             cell.alignment = _WRAP
 
 ================================================================================
-<<< FILE_END | index=137 | path=services/export/grid_builder.py
+<<< FILE_END | index=138 | path=services/export/grid_builder.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=138 | path=services/export/models.py
+>>> FILE_START | index=139 | path=services/export/models.py
 ================================================================================
 # src/services/export/models.py
 
@@ -30621,12 +30936,12 @@ class DDMatrixResponse:
     evidence_validity_rate: float = 1.0  # доля находок с цитатой (0.0–1.0)
 
 ================================================================================
-<<< FILE_END | index=138 | path=services/export/models.py
+<<< FILE_END | index=139 | path=services/export/models.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=139 | path=services/export/report_builder.py
+>>> FILE_START | index=140 | path=services/export/report_builder.py
 ================================================================================
 # src/services/export/report_builder.py
 
@@ -30968,12 +31283,12 @@ def _add_footer(
     p.runs[0].font.color.rgb = RGBColor(0x80, 0x80, 0x80)
 
 ================================================================================
-<<< FILE_END | index=139 | path=services/export/report_builder.py
+<<< FILE_END | index=140 | path=services/export/report_builder.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=140 | path=services/export/service.py
+>>> FILE_START | index=141 | path=services/export/service.py
 ================================================================================
 # src/services/export/service.py
 
@@ -31098,12 +31413,12 @@ async def process_one_pending_export(
     return True
 
 ================================================================================
-<<< FILE_END | index=140 | path=services/export/service.py
+<<< FILE_END | index=141 | path=services/export/service.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=141 | path=services/export/summary_builder.py
+>>> FILE_START | index=142 | path=services/export/summary_builder.py
 ================================================================================
 # src/services/export/summary_builder.py
 
@@ -31409,12 +31724,12 @@ def _build_classification_quality_sheet(wb: Workbook, agg: AggregatedResults) ->
         ws.cell(row=row_num, column=5, value=", ".join(triggers))
 
 ================================================================================
-<<< FILE_END | index=141 | path=services/export/summary_builder.py
+<<< FILE_END | index=142 | path=services/export/summary_builder.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=142 | path=services/extract_router.py
+>>> FILE_START | index=143 | path=services/extract_router.py
 ================================================================================
 # src/services/extract_router.py
 
@@ -31539,22 +31854,22 @@ def decide_extraction_strategy(filetype: str | None) -> ExtractRoutingDecision:
     )
 
 ================================================================================
-<<< FILE_END | index=142 | path=services/extract_router.py
+<<< FILE_END | index=143 | path=services/extract_router.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=143 | path=services/file_type_router.py
+>>> FILE_START | index=144 | path=services/file_type_router.py
 ================================================================================
 
 
 ================================================================================
-<<< FILE_END | index=143 | path=services/file_type_router.py
+<<< FILE_END | index=144 | path=services/file_type_router.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=144 | path=services/file_validator.py
+>>> FILE_START | index=145 | path=services/file_validator.py
 ================================================================================
 # src/services/file_validator.py
 
@@ -31844,28 +32159,28 @@ def _check_magic_bytes(filepath: str, extension: str) -> tuple[bool, str | None]
         return False, None
 
 ================================================================================
-<<< FILE_END | index=144 | path=services/file_validator.py
+<<< FILE_END | index=145 | path=services/file_validator.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=145 | path=services/layout_language_filter.py
+>>> FILE_START | index=146 | path=services/layout_language_filter.py
 ================================================================================
-# src/workers/layout_language_filter.py
+# src/services/layout_language_filter.py
 
 """
 Layout language filter.
 
 Назначение:
-- взять textlayoutraw JSON (layout после извлечения),
+- взять text_layout_raw JSON (layout после извлечения),
 - определить язык каждого текстового элемента по его содержимому,
-- оставить только элементы с русским текстом (кириллица),
+- при необходимости оставить только элементы выбранного языка (ru/en),
 - вернуть новый layout в том же формате.
 
 Почему так:
 - многие документы двуязычные (EN/RU, две колонки),
-- для анализа и классификации мы хотим работать только с русской частью,
-  чтобы упростить модели и правила.
+- для анализа и классификации мы хотим работать только с одной языковой
+  дорожкой, чтобы упростить модели и правила.
 
 Важно:
 - Функции не зависят от БД и MinIO, работают только с dict/list.
@@ -31874,7 +32189,6 @@ Layout language filter.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Any, Dict, List
 
 
@@ -31890,13 +32204,16 @@ def _detect_script(text: str) -> str:
 
     Для наших целей (отделить RU от EN в договорах) этого достаточно.
     """
-    cyr = lat = 0
+    cyr = 0
+    lat = 0
+
     for ch in text:
         code = ord(ch)
+
         # Диапазоны Юникода для основной кириллицы и доп. блока
         if 0x0400 <= code <= 0x04FF or 0x0500 <= code <= 0x052F:
             cyr += 1
-        # Базовая латиница + расширенная латиница
+        # Базовая латиница + немного расширенной латиницы
         elif 0x0041 <= code <= 0x005A or 0x0061 <= code <= 0x007A:
             lat += 1
         elif 0x00C0 <= code <= 0x00FF:
@@ -31915,39 +32232,92 @@ def _detect_script(text: str) -> str:
     # Если латиница явно доминирует
     if lat_ratio >= 0.7 and lat >= 3:
         return "en"
+
     return "mixed"
 
 
-def filter_layout_to_ru(layout: Dict[str, Any]) -> Dict[str, Any]:
+def detect_languages_in_layout(layout: Dict[str, Any]) -> List[str]:
     """
-    Оставить в layout только элементы с русским текстом.
+    Определить, какие языки реально присутствуют в layout.
+
+    Как это работает:
+    - Берём все элементы layout["elements"].
+    - Для каждого элемента смотрим текст и определяем "скрипт" (_detect_script).
+    - Собираем коды языков 'ru' и 'en', если они реально встретились.
+
+    Возвращает:
+    - отсортированный список кодов языков, например ["ru"], ["en"], ["en", "ru"];
+    - если вообще не нашли ни русских, ни английских символов, возвращаем ["ru"]
+      как дефолт (система ориентирована на русские документы).
+    """
+    elements: List[Dict[str, Any]] = layout.get("elements") or []
+    langs: set[str] = set()
+
+    for el in elements:
+        text = (el.get("text") or "").strip()
+        if not text:
+            continue
+
+        script = _detect_script(text)
+        if script in ("ru", "en"):
+            langs.add(script)
+
+    if not langs:
+        # Ничего не нашли — считаем, что по умолчанию документ русский.
+        return ["ru"]
+
+    return sorted(langs)
+
+
+def filter_layout_to_language(
+    layout: Dict[str, Any],
+    target_language: str,
+) -> Dict[str, Any]:
+    """
+    Оставить в layout только элементы выбранного языка (ru/en).
 
     Простая версия:
     - Для каждого элемента считаем "скрипт" по тексту.
-    - Удаляем явно английские элементы (script == "en").
-    - Элементы "ru" и "mixed" оставляем.
-      (mixed часто встречается в строках с цифрами, сокращениями и т.п.)
+    - Если target_language == "ru":
+        * удаляем явно английские элементы (script == "en"),
+        * оставляем "ru" и "mixed".
+    - Если target_language == "en":
+        * удаляем явно русские элементы (script == "ru"),
+        * оставляем "en" и "mixed".
+    - Для любых других значений target_language (неожиданный код языка)
+      фильтрацию не применяем и возвращаем layout как есть.
 
-    Более умный анализ колонок по bbox можно добавить позже,
-    но даже эта фильтрация уже уберёт большую часть чисто английских строк.
+    Таблицы и метаданные не трогаем.
     """
+    target = (target_language or "").lower()
+    if target not in ("ru", "en"):
+        # Неизвестный язык — безопаснее вернуть layout без изменений.
+        return layout
+
     elements: List[Dict[str, Any]] = layout.get("elements") or []
     filtered: List[Dict[str, Any]] = []
 
     for el in elements:
         text = (el.get("text") or "").strip()
         if not text:
-            # Пустые/почти пустые элементы пропускаем как есть
+            # Пустые/почти пустые элементы пропускаем, но не добавляем
+            # их в результирующий список, чтобы не плодить шум.
             continue
 
         script = _detect_script(text)
 
-        # Отбрасываем чисто английские строки.
-        if script == "en":
-            continue
-
-        # Для русских и смешанных строк элемент оставляем как есть.
-        filtered.append(el)
+        if target == "ru":
+            # Для русской дорожки отбрасываем чисто английские строки.
+            if script == "en":
+                continue
+            # "ru", "mixed", "other" оставляем — в mixed часто цифры/сокращения.
+            filtered.append(el)
+        elif target == "en":
+            # Для английской дорожки отбрасываем чисто русские строки.
+            if script == "ru":
+                continue
+            # "en", "mixed", "other" оставляем.
+            filtered.append(el)
 
     # Таблицы и метаданные не трогаем.
     tables = layout.get("tables") or []
@@ -31965,13 +32335,24 @@ def filter_layout_to_ru(layout: Dict[str, Any]) -> Dict[str, Any]:
         "metadata": metadata,
     }
 
+
+def filter_layout_to_ru(layout: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Backwards‑compatible обёртка для старого кода.
+
+    Исторически система умела фильтровать только до русского текста.
+    Чтобы не ломать существующие вызовы, оставляем эту функцию,
+    но внутри просто вызываем универсальный фильтр.
+    """
+    return filter_layout_to_language(layout, "ru")
+
 ================================================================================
-<<< FILE_END | index=145 | path=services/layout_language_filter.py
+<<< FILE_END | index=146 | path=services/layout_language_filter.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=146 | path=services/pdf_extractor.py
+>>> FILE_START | index=147 | path=services/pdf_extractor.py
 ================================================================================
 # src/services/pdf_extractor.py
 
@@ -32564,12 +32945,12 @@ def build_text_layout_raw(
     }
 
 ================================================================================
-<<< FILE_END | index=146 | path=services/pdf_extractor.py
+<<< FILE_END | index=147 | path=services/pdf_extractor.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=147 | path=services/pii_detector.py
+>>> FILE_START | index=148 | path=services/pii_detector.py
 ================================================================================
 """
 PII Detector.
@@ -32837,12 +33218,12 @@ def reset_detector() -> None:
     _detector_instance = None
 
 ================================================================================
-<<< FILE_END | index=147 | path=services/pii_detector.py
+<<< FILE_END | index=148 | path=services/pii_detector.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=148 | path=services/pii_encryption.py
+>>> FILE_START | index=149 | path=services/pii_encryption.py
 ================================================================================
 # src/services/pii_encryption.py
 
@@ -33107,12 +33488,12 @@ def reset_encryptor() -> None:
     _encryptor_instance = None
 
 ================================================================================
-<<< FILE_END | index=148 | path=services/pii_encryption.py
+<<< FILE_END | index=149 | path=services/pii_encryption.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=149 | path=services/pii_tokenizer.py
+>>> FILE_START | index=150 | path=services/pii_tokenizer.py
 ================================================================================
 """
 PII Tokenizer.
@@ -33321,12 +33702,12 @@ class PIITokenizer:
         )
 
 ================================================================================
-<<< FILE_END | index=149 | path=services/pii_tokenizer.py
+<<< FILE_END | index=150 | path=services/pii_tokenizer.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=150 | path=services/playbooks/catalog.py
+>>> FILE_START | index=151 | path=services/playbooks/catalog.py
 ================================================================================
 # src/services/playbooks/catalog.py
 
@@ -33414,22 +33795,22 @@ def load_global_checks_catalog() -> List[PlaybookTopicInfo]:
     return sorted(topics.values(), key=lambda t: t.topic_code)
 
 ================================================================================
-<<< FILE_END | index=150 | path=services/playbooks/catalog.py
+<<< FILE_END | index=151 | path=services/playbooks/catalog.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=151 | path=services/relations/__init__.py
+>>> FILE_START | index=152 | path=services/relations/__init__.py
 ================================================================================
 
 
 ================================================================================
-<<< FILE_END | index=151 | path=services/relations/__init__.py
+<<< FILE_END | index=152 | path=services/relations/__init__.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=152 | path=services/relations/dedup.py
+>>> FILE_START | index=153 | path=services/relations/dedup.py
 ================================================================================
 """
 Exact Dedup Service.
@@ -33544,12 +33925,12 @@ class ExactDedupService:
         return result, relations
 
 ================================================================================
-<<< FILE_END | index=152 | path=services/relations/dedup.py
+<<< FILE_END | index=153 | path=services/relations/dedup.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=153 | path=services/relations/detector.py
+>>> FILE_START | index=154 | path=services/relations/detector.py
 ================================================================================
 """
 Relation Detector Service.
@@ -34116,12 +34497,12 @@ class RelationDetector:
         return list(best.values())
 
 ================================================================================
-<<< FILE_END | index=153 | path=services/relations/detector.py
+<<< FILE_END | index=154 | path=services/relations/detector.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=154 | path=services/relations/family_builder.py
+>>> FILE_START | index=155 | path=services/relations/family_builder.py
 ================================================================================
 # src/services/relations/family_builder.py
 
@@ -34359,12 +34740,12 @@ class FamilyBuilder:
         return visited
 
 ================================================================================
-<<< FILE_END | index=154 | path=services/relations/family_builder.py
+<<< FILE_END | index=155 | path=services/relations/family_builder.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=155 | path=services/relations/models.py
+>>> FILE_START | index=156 | path=services/relations/models.py
 ================================================================================
 # src/services/relations/models.py
 
@@ -34500,12 +34881,12 @@ class RelationsReport:
         }
 
 ================================================================================
-<<< FILE_END | index=155 | path=services/relations/models.py
+<<< FILE_END | index=156 | path=services/relations/models.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=156 | path=services/run_analytics_service.py
+>>> FILE_START | index=157 | path=services/run_analytics_service.py
 ================================================================================
 # src/services/run_analytics_service.py
 
@@ -34630,12 +35011,12 @@ class RunAnalyticsService:
         )
 
 ================================================================================
-<<< FILE_END | index=156 | path=services/run_analytics_service.py
+<<< FILE_END | index=157 | path=services/run_analytics_service.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=157 | path=services/run_checks_auto_starter.py
+>>> FILE_START | index=158 | path=services/run_checks_auto_starter.py
 ================================================================================
 # src/services/run_checks_auto_starter.py
 
@@ -34854,12 +35235,12 @@ async def _has_run_deal_checks_job(db: AsyncSession, run_id: uuid.UUID) -> bool:
     return job is not None
 
 ================================================================================
-<<< FILE_END | index=157 | path=services/run_checks_auto_starter.py
+<<< FILE_END | index=158 | path=services/run_checks_auto_starter.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=158 | path=services/run_progress_service.py
+>>> FILE_START | index=159 | path=services/run_progress_service.py
 ================================================================================
 # src/services/run_progress_service.py
 
@@ -34972,22 +35353,22 @@ async def subscribe_run_progress(
         await asyncio.sleep(poll_interval)
 
 ================================================================================
-<<< FILE_END | index=158 | path=services/run_progress_service.py
+<<< FILE_END | index=159 | path=services/run_progress_service.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=159 | path=services/structure/__init__.py
+>>> FILE_START | index=160 | path=services/structure/__init__.py
 ================================================================================
 
 
 ================================================================================
-<<< FILE_END | index=159 | path=services/structure/__init__.py
+<<< FILE_END | index=160 | path=services/structure/__init__.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=160 | path=services/structure/builder.py
+>>> FILE_START | index=161 | path=services/structure/builder.py
 ================================================================================
 # src/services/structure/builder.py
 
@@ -35254,12 +35635,12 @@ class StructureBuilder:
         )
 
 ================================================================================
-<<< FILE_END | index=160 | path=services/structure/builder.py
+<<< FILE_END | index=161 | path=services/structure/builder.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=161 | path=services/structure/models.py
+>>> FILE_START | index=162 | path=services/structure/models.py
 ================================================================================
 # src/services/structure/models.py
 
@@ -35324,22 +35705,22 @@ class ClauseTree:
         }
 
 ================================================================================
-<<< FILE_END | index=161 | path=services/structure/models.py
+<<< FILE_END | index=162 | path=services/structure/models.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=162 | path=storage/__init__.py
+>>> FILE_START | index=163 | path=storage/__init__.py
 ================================================================================
 
 
 ================================================================================
-<<< FILE_END | index=162 | path=storage/__init__.py
+<<< FILE_END | index=163 | path=storage/__init__.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=163 | path=storage/artifact_store.py
+>>> FILE_START | index=164 | path=storage/artifact_store.py
 ================================================================================
 # src/storage/artifact_store.py
 
@@ -35436,6 +35817,25 @@ class ArtifactPath:
     @staticmethod
     def playbook_config(playbook_name: str, version: str) -> str:
         return f"playbooks/{playbook_name}/{version}/config.yaml"
+
+    @staticmethod
+    def layout_primary(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Одноязычный layout под выбранный основной язык сделки (Deal.primary_language).
+
+        Формируется на основе layout_raw фильтрацией по языку.
+        Используется всеми downstream-стадиями (PII, структура, LLM и т.п.).
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/primary.json"
+
+    @staticmethod
+    def layout_primary_sanitized(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Одноязычный layout после PII-сатнитизации.
+
+        Структура аналогична layout_primary, но все PII-токены уже заменены.
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/primary_sanitized.json"
 
 
 class ArtifactStore:
@@ -35636,12 +36036,12 @@ class ArtifactStore:
 
 
 ================================================================================
-<<< FILE_END | index=163 | path=storage/artifact_store.py
+<<< FILE_END | index=164 | path=storage/artifact_store.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=164 | path=storage/exports.py
+>>> FILE_START | index=165 | path=storage/exports.py
 ================================================================================
 from enum import StrEnum
 
@@ -35658,22 +36058,22 @@ def build_export_filename(run_id: str, suffix: ExportSuffix, ext: str = "json") 
     return f"{run_id}__{suffix.value}.{ext}"
 
 ================================================================================
-<<< FILE_END | index=164 | path=storage/exports.py
+<<< FILE_END | index=165 | path=storage/exports.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=165 | path=workers/__init__.py
+>>> FILE_START | index=166 | path=workers/__init__.py
 ================================================================================
 
 
 ================================================================================
-<<< FILE_END | index=165 | path=workers/__init__.py
+<<< FILE_END | index=166 | path=workers/__init__.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=166 | path=workers/check_runner_worker.py
+>>> FILE_START | index=167 | path=workers/check_runner_worker.py
 ================================================================================
 # src/workers/check_runner_worker.py
 
@@ -35910,12 +36310,12 @@ def run_deal_checks(
     return run_async(_run())
 
 ================================================================================
-<<< FILE_END | index=166 | path=workers/check_runner_worker.py
+<<< FILE_END | index=167 | path=workers/check_runner_worker.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=167 | path=workers/classifier.py
+>>> FILE_START | index=168 | path=workers/classifier.py
 ================================================================================
 # src/workers/classifier.py
 
@@ -36218,12 +36618,12 @@ async def _mark_failed(
 
 
 ================================================================================
-<<< FILE_END | index=167 | path=workers/classifier.py
+<<< FILE_END | index=168 | path=workers/classifier.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=168 | path=workers/convert_worker.py
+>>> FILE_START | index=169 | path=workers/convert_worker.py
 ================================================================================
 # src/workers/convert_worker.py
 
@@ -36631,12 +37031,12 @@ async def _mark_convert_failed(
 #   - import_worker.py лишь вызывает роутер и ставит задачи в Celery.
 
 ================================================================================
-<<< FILE_END | index=168 | path=workers/convert_worker.py
+<<< FILE_END | index=169 | path=workers/convert_worker.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=169 | path=workers/export_pending.py
+>>> FILE_START | index=170 | path=workers/export_pending.py
 ================================================================================
 # src/workers/export_pending.py
 
@@ -36714,12 +37114,12 @@ def export_process_pending(self, tenant_id: str = "default") -> bool:
     return run_async(_export_process_pending_async(tenant_id))
 
 ================================================================================
-<<< FILE_END | index=169 | path=workers/export_pending.py
+<<< FILE_END | index=170 | path=workers/export_pending.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=170 | path=workers/exporter.py
+>>> FILE_START | index=171 | path=workers/exporter.py
 ================================================================================
 # src/workers/exporter.py
 
@@ -36859,12 +37259,12 @@ def export_results(
     return run_async(_run())
 
 ================================================================================
-<<< FILE_END | index=170 | path=workers/exporter.py
+<<< FILE_END | index=171 | path=workers/exporter.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=171 | path=workers/extract_worker.py
+>>> FILE_START | index=172 | path=workers/extract_worker.py
 ================================================================================
 # src/workers/extract_worker.py
 
@@ -36873,12 +37273,12 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 
 Позиция в пайплайне:
 - Пайплайн: import → extract → pii → structure → classify → run_deal_checks.
-- На вход получает документ (PDF) и создаёт артефакт textlayoutraw.
+- На вход получает документ (PDF) и создаёт артефакт text_layout_raw.
 
 Что делает воркер:
 - Читает исходный PDF из MinIO (по ссылке original_ref или converted_pdf_ref из DocumentVersion).
 - Определяет стратегию извлечения (native text / OCR / гибрид).
-- Строит структуру textlayoutraw (элементы и таблицы) и сохраняет её в MinIO.
+- Строит структуру text_layout_raw (элементы и таблицы) и сохраняет её в MinIO.
 - При низком качестве извлечения или ошибках отправляет документ в карантин.
 - При успехе обновляет статус документа до EXTRACTED и запускает PII‑санитизацию.
 
@@ -36912,7 +37312,10 @@ from services.pdf_extractor import (
     build_text_layout_raw,
     extract_pdf,
 )
-from services.layout_language_filter import filter_layout_to_ru
+from services.layout_language_filter import (
+    detect_languages_in_layout,  # считаем фактические языки по исходному layout
+)
+from services.deal_language_service import update_deal_languages
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
@@ -37009,7 +37412,7 @@ async def _extract_document_async(
     run_id: str | None = None,
 ) -> dict:
     """
-    Extract text and tables from PDF and produce textlayoutraw artifact.
+    Extract text and tables from PDF and produce text_layout_raw artifact.
 
     Все операции с БД выполняются через переданную AsyncSession (db),
     чтобы одна задача worker'а работала в рамках одного unit of work.
@@ -37065,7 +37468,6 @@ async def _extract_document_async(
         raise PermanentError(f"Failed to read PDF from store: {e}")
     # --- КОНЕЦ БЛОКА ЧТЕНИЯ PDF ---
 
-
     # 2. Extract (Stage 4 PDF extractor: text / OCR / hybrid + tables)
     try:
         extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
@@ -37088,28 +37490,28 @@ async def _extract_document_async(
         # Тоже считаем фатальной ошибкой извлечения
         raise PermanentError(f"extract_pdf failed: {e}")
 
-
     # 3. Quarantine check
     _check_quarantine(extraction, document_id)
 
-    # 4. Build textlayoutraw JSON (clause_uid = null at this stage)
+    # 4. Build text_layout_raw JSON (clause_uid = null at this stage)
     text_layout_raw = build_text_layout_raw(
         extraction,
         document_id=document_id,
         document_version_id=document_version_id,
     )
 
-    # 4.1. Фильтруем layout до русскоязычных элементов.
-    # Для непрофессионального программиста:
-    # - text_layout_raw может содержать и английский, и русский текст (EN/RU договоры).
-    # - filter_layout_to_ru удаляет строки, где явно доминирует латинский текст.
-    # - В итоге у нас остаётся layout, пригодный для анализа только по русской части.
-    text_layout_ru = filter_layout_to_ru(text_layout_raw)
+    # 4.1. Определяем честный список языков по исходному layout (multi‑lang).
+    # Важно: здесь layout_raw ещё НЕ фильтруется, содержит все языки.
+    langs = detect_languages_in_layout(text_layout_raw)
+    await update_deal_languages(
+        db=db,
+        deal_id=uuid.UUID(deal_id),
+        new_languages=langs,
+    )
 
-    # 5. Upload to MinIO (сохраняем уже русскую версию layout)
+    # 5. Upload to MinIO: сохраняем полный многоязычный layout_raw
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
-    raw_ref = store.put_json(raw_path, text_layout_ru)
-
+    raw_ref = store.put_json(raw_path, text_layout_raw)
 
     # 6. Update DB (используем ту же сессию db)
     await update_extraction_result(
@@ -37210,7 +37612,6 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
         )
 
 
-# --- НОВОЕ ---
 async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
@@ -37235,7 +37636,6 @@ async def get_pdf_source_ref(
 
     # По умолчанию — исходный PDF.
     return version.original_ref
-# --- КОНЕЦ НОВОГО ---
 
 
 async def update_extraction_result(
@@ -37338,13 +37738,15 @@ async def _mark_quarantine(
     )
 
 
+    
+
 ================================================================================
-<<< FILE_END | index=171 | path=workers/extract_worker.py
+<<< FILE_END | index=172 | path=workers/extract_worker.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=172 | path=workers/import_worker.py
+>>> FILE_START | index=173 | path=workers/import_worker.py
 ================================================================================
 # src/workers/import_worker.py
 
@@ -37405,6 +37807,7 @@ from services.file_validator import (
     FileStatus,
     validate_file,
 )
+
 from services.extract_router import (
     ExtractRoutingDecision,
     decide_extraction_strategy,
@@ -37634,7 +38037,8 @@ async def _async_import(
       4. Дедупликация по SHA-256 внутри сделки.
       5. Загрузка оригинала в MinIO.
       6. Создание Document + DocumentVersion.
-      7. Постановка extract_document (PDF) или карантин для других типов.
+      7. Определение языка документа и обновление Deal.languages.
+      8. Постановка extract_document (PDF) или конвертация/карантин для других типов.
 
     folder_path сохраняется как есть и потом используется L1‑классификатором.
     """
@@ -37928,12 +38332,12 @@ def _get_content_type(filetype: str) -> str:
     return content_types.get(filetype, "application/octet-stream")
 
 ================================================================================
-<<< FILE_END | index=172 | path=workers/import_worker.py
+<<< FILE_END | index=173 | path=workers/import_worker.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=173 | path=workers/orchestrator.py
+>>> FILE_START | index=174 | path=workers/orchestrator.py
 ================================================================================
 # src/workers/orchestrator.py
 
@@ -38047,12 +38451,12 @@ async def _create_run(deal_id: str, tenant_id: str) -> str:
         return str(run.id)
 
 ================================================================================
-<<< FILE_END | index=173 | path=workers/orchestrator.py
+<<< FILE_END | index=174 | path=workers/orchestrator.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=174 | path=workers/pii_sanitizer.py
+>>> FILE_START | index=175 | path=workers/pii_sanitizer.py
 ================================================================================
 # src/workers/pii_sanitizer.py
 
@@ -38062,7 +38466,7 @@ PII Sanitizer Worker.
 Пайплайн: extract → pii → structure → classify → run_deal_checks.
 
 Назначение:
-- Считать сырой макет документа (textlayoutraw) из MinIO.
+- Считать одноязычный макет документа (layout_primary) из MinIO.
 - Найти PII‑сущности по политике (triggers + YAML‑конфиг типа документа).
 - Заменить чувствительные данные токенами, зашифровать mapping и сохранить его.
 - Сохранить sanitized‑layout и PII‑mapping в MinIO.
@@ -38164,15 +38568,29 @@ class PIISanitizer:
             return {"document_id": str(doc.id), "skipped": True}
 
         # 3. Проверка наличия исходного текста
+        #
+        # Исторически здесь использовался text_layout_raw_ref (многоязычный layout).
+        # В новой архитектуре:
+        #   - text_layout_raw_ref указывает на multi‑lang layout_raw;
+        #   - одноязычный layout_primary будет храниться отдельным артефактом.
+        #
+        # Пока layout_primary ещё не построен, продолжаем использовать
+        # text_layout_raw_ref, чтобы не ломать существующие данные.
         if not version.text_layout_raw_ref:
             raise PermanentError(
                 f"No text_layout_raw_ref for version {document_version_id}"
             )
 
         try:
-            # 4. Загрузить textlayoutraw из MinIO
-            # ArtifactStore.get_json — синхронный метод, НЕ используем await
-            layout_raw = self.store.get_json(version.text_layout_raw_ref)
+            # 4. Загрузить layout для санитизации из MinIO
+            # ArtifactStore.get_json — синхронный метод, НЕ используем await.
+            #
+            # TODO (после внедрения layout_primary):
+            #   - хранить явную ссылку на одноязычный layout в DocumentVersion
+            #     (например, primary_layout_ref),
+            #   - здесь в первую очередь читать именно его.
+            layout_ref = version.text_layout_raw_ref
+            layout_raw = self.store.get_json(layout_ref)
             elements = layout_raw.get("elements", [])
 
             # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
@@ -38185,6 +38603,12 @@ class PIISanitizer:
             )
 
             # 7. Сохранить sanitized‑layout
+            #
+            # В новой архитектуре для одноязычности мы хотим хранить
+            # отдельный артефакт layout_primary_sanitized.
+            # Пока layout_primary ещё не внедрён, путь будет совпадать
+            # по структуре с текущим, но использовать новый helper
+            # ArtifactPath.layout_primary_sanitized.
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
             sanitized_path = self._build_sanitized_path(doc)
             # ArtifactStore.put_json — синхронный метод, НЕ используем await
@@ -38235,7 +38659,6 @@ class PIISanitizer:
                 document_id=str(doc.id),
                 reason="pii_encryption_error",
             ) from e
-
 
     def _should_skip(self, doc) -> bool:
         """Проверить, нужно ли пропустить санитизацию (идемпотентность)."""
@@ -38330,7 +38753,11 @@ class PIISanitizer:
         return sanitized_elements, global_mapping, stats
 
     def _build_sanitized_path(self, doc) -> str:
-        """Построить путь для sanitized‑layout в MinIO через ArtifactPath."""
+        """
+        Построить путь для sanitized‑layout в MinIO через ArtifactPath.
+
+        В новой архитектуре это будет одноязычный layout_primary_sanitized.
+        """
         # tenant_id берём из связанной сделки, как единственный источник истины
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
             tenant_id = str(doc.deal.tenant_id)
@@ -38339,7 +38766,7 @@ class PIISanitizer:
             tenant_id = str(doc.deal_id)
 
         deal_id = str(doc.deal_id)
-        return ArtifactPath.layout_sanitized(
+        return ArtifactPath.layout_primary_sanitized(
             tenant_id=tenant_id,
             deal_id=deal_id,
             document_id=str(doc.id),
@@ -38539,14 +38966,15 @@ async def _mark_quarantine(
         reason=reason,
         run_id=None,
     )
+    
 
 ================================================================================
-<<< FILE_END | index=174 | path=workers/pii_sanitizer.py
+<<< FILE_END | index=175 | path=workers/pii_sanitizer.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=175 | path=workers/relations_worker.py
+>>> FILE_START | index=176 | path=workers/relations_worker.py
 ================================================================================
 # src/workers/relations_worker.py
 
@@ -38800,8 +39228,8 @@ async def _load_text_snippets(
     db: AsyncSession,
 ) -> list[dict]:
     """
-    Load first ~2000 chars of text_layout_raw for each document.
-    This text is used for text-based relation detection.
+    Load first ~2000 chars of layout text for each document.
+    Prefer sanitized layout, fallback to raw for legacy documents.
     """
     store = ArtifactStore()
     ver_repo = DocumentVersionRepository(db)
@@ -38809,14 +39237,22 @@ async def _load_text_snippets(
     for doc in documents:
         try:
             version = await ver_repo.get_latest(uuid.UUID(doc["id"]))
-            if version and version.text_layout_raw_ref:
-                # Передаём в ArtifactStore ровно ту ссылку, что лежит в *_ref.
-                layout = store.get_json(version.text_layout_raw_ref)
-                elements = layout.get("elements", [])
-                text_parts = [e.get("text", "") for e in elements[:20]]
-                doc["text_first_2000"] = " ".join(text_parts)[:2000]
-            else:
+            if not version:
                 doc["text_first_2000"] = ""
+                continue
+
+            layout_ref = (
+                version.text_layout_sanitized_ref
+                or version.text_layout_raw_ref
+            )
+            if not layout_ref:
+                doc["text_first_2000"] = ""
+                continue
+
+            layout = store.get_json(layout_ref)
+            elements = layout.get("elements", [])
+            text_parts = [e.get("text", "") for e in elements[:20]]
+            doc["text_first_2000"] = " ".join(text_parts)[:2000]
         except Exception as e:
             logger.debug(
                 "Failed to load text snippet",
@@ -38897,12 +39333,12 @@ async def _write_audit_log(
     )
 
 ================================================================================
-<<< FILE_END | index=175 | path=workers/relations_worker.py
+<<< FILE_END | index=176 | path=workers/relations_worker.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=176 | path=workers/run_orchestrator.py
+>>> FILE_START | index=177 | path=workers/run_orchestrator.py
 ================================================================================
 # src/workers/run_orchestrator.py
 
@@ -39181,9 +39617,9 @@ async def _start_run_pipeline_async(
 
         # SANITIZED
         if status == DocumentStatus.SANITIZED.value:
-            if not version or not version.text_layout_raw_ref:
+            if not version or not version.text_layout_sanitized_ref:
                 logger.warning(
-                    "Sanitized document without text_layout_raw_ref, skipping structure",
+                    "Sanitized document without text_layout_sanitized_ref, skipping structure",
                     extra={"document_id": doc_id_str},
                 )
                 continue
@@ -39315,12 +39751,12 @@ async def _start_run_pipeline_async(
     }
 
 ================================================================================
-<<< FILE_END | index=176 | path=workers/run_orchestrator.py
+<<< FILE_END | index=177 | path=workers/run_orchestrator.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=177 | path=workers/runner.py
+>>> FILE_START | index=178 | path=workers/runner.py
 ================================================================================
 # src/workers/runner.py
 # LEGACY: старый rules-only Runner (workers.run_checks).
@@ -39796,12 +40232,12 @@ async def _mark_checks_failed(
     )
 
 ================================================================================
-<<< FILE_END | index=177 | path=workers/runner.py
+<<< FILE_END | index=178 | path=workers/runner.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=178 | path=workers/structure_builder.py
+>>> FILE_START | index=179 | path=workers/structure_builder.py
 ================================================================================
 # src/workers/structure_builder.py
 
@@ -39809,7 +40245,7 @@ async def _mark_checks_failed(
 Structure Builder Worker.
 
 Назначение:
-- Считать сырой макет документа (textlayoutraw) из MinIO.
+- Считать санитизированный макет документа (одноязычный layout после PII) из MinIO.
 - Построить древовидную структуру документа (clause_tree) через сервис StructureBuilder.
 - Сохранить clause_tree в MinIO и обновить ссылки в DocumentVersion.
 - Обновить статус документа: sanitized -> structured.
@@ -39924,16 +40360,23 @@ async def _build_structure_async(
         logger.info("Already structured, skipping", document_id=str(doc.id))
         return {"document_id": str(doc.id), "skipped": True}
 
-    # 2. Получение сырого макета из MinIO
-    if not version.text_layout_raw_ref:
-        raise PermanentError(f"text_layout_raw_ref missing for version {v_id}")
+    # 2. Получение макета из MinIO
+    #
+    # Исторически здесь использовался text_layout_raw_ref (многоязычный layout после extract).
+    # В новой одноязычной архитектуре:
+    #   - extract сохраняет полный layout_raw (multi‑lang),
+    #   - PII пишет одноязычный layout_primary_sanitized,
+    #   - StructureBuilder должен работать по одноязычному, уже очищенному layout'у.
+    #
+    # Пока поле с явной ссылкой на layout_primary_sanitized хранится в sanitized_ref.
+    if not version.sanitized_ref:
+        raise PermanentError(f"sanitized_ref missing for version {v_id}")
 
     # ArtifactStore.get_json — синхронный метод, НЕ используем await
-    raw_layout = store.get_json(version.text_layout_raw_ref)
+    raw_layout = store.get_json(version.sanitized_ref)
     elements = raw_layout.get("elements", [])
     if not elements:
-        raise PermanentError(f"No elements in raw layout for version {v_id}")
-
+        raise PermanentError(f"No elements in sanitized layout for version {v_id}")
 
     # 3. Вызов сервиса построения структуры
     builder = StructureBuilder()
@@ -39959,7 +40402,6 @@ async def _build_structure_async(
     )
     # ArtifactStore.put_json — синхронный метод, НЕ используем await
     store.put_json(clause_tree_path, clause_tree.to_dict())
-
 
     # 5. Обновление БД
     await ver_repo.update_refs(version_id=v_id, clause_tree_ref=clause_tree_path)
@@ -40020,14 +40462,15 @@ async def _mark_failed(
         reason="structure_error",
         run_id=None,
     )
+    
 
 ================================================================================
-<<< FILE_END | index=178 | path=workers/structure_builder.py
+<<< FILE_END | index=179 | path=workers/structure_builder.py
 ================================================================================
 
 
 ================================================================================
->>> FILE_START | index=179 | path=workers/tasks.py
+>>> FILE_START | index=180 | path=workers/tasks.py
 ================================================================================
 # src/workers/tasks.py
 
@@ -40073,7 +40516,7 @@ from workers.export_pending import export_process_pending  # noqa: F401
 
 
 ================================================================================
-<<< FILE_END | index=179 | path=workers/tasks.py
+<<< FILE_END | index=180 | path=workers/tasks.py
 ================================================================================
 
 

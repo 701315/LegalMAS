@@ -160,16 +160,27 @@ async def create_deal(
 ):
     """
     Создать новую сделку (проект) и сразу добавить создателя как admin-участника.
+
+    Важно:
+    - Если фронтенд не передал список языков (payload.languages = None),
+      мы считаем, что сделка по умолчанию русскоязычная и ставим ["ru"].
+    - Это даёт предсказуемое поведение до того, как появится честный layout.
     """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
+
+    # Жёсткий дефолт языков: если клиент не указал языки, считаем ["ru"].
+    # Для непрофессионального программиста:
+    # - payload.languages может быть None или списком строк;
+    # - мы нормализуем это в переменную effective_languages.
+    effective_languages = payload.languages or ["ru"]
 
     deal = await deal_repo.create(
         tenant_id=user.tenant_id,
         name=payload.name,
         deal_type=payload.deal_type,
         jurisdiction=payload.jurisdiction,
-        languages=payload.languages,
+        languages=effective_languages,
         pii_mode=payload.pii_mode,
         profile=payload.profile,
         playbook_version_id=payload.playbook_version_id,
@@ -492,6 +503,17 @@ class DealModelConfigUpdate(BaseModel):
 
     model_config_id: UUID | None
 
+class DealPrimaryLanguageUpdate(BaseModel):
+    """
+    Тело запроса для установки основного языка сделки.
+
+    Правила:
+    - primary_language должен входить в список languages сделки;
+    - если передан null, основной язык сбрасывается.
+    """
+
+    primary_language: str | None
+
 
 @router.patch(
     "/{deal_id}/playbook",
@@ -657,6 +679,69 @@ async def set_deal_model_config(
     return DealResponse.model_validate(deal)
 
 
+@router.patch(
+    "/{deal_id}/primary-language",
+    response_model=DealResponse,
+    summary="Установить основной язык сделки",
+)
+async def set_deal_primary_language(
+    deal_id: UUID,
+    payload: DealPrimaryLanguageUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Устанавливает (или сбрасывает) основной язык сделки.
+
+    Правила:
+    - менять основной язык могут только роли admin/editor;
+    - если primary_language не null, он должен быть в Deal.languages;
+    - при нарушении правил возвращаем 400/403/404.
+    """
+    # 1. Проверка прав: admin/editor
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal_repo = DealRepository(db)
+
+    # 2. Загружаем сделку
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # 3. Валидация значения: если язык задан, он должен быть в списке languages
+    new_lang = payload.primary_language
+
+    # Приводим список языков к списку строк для надёжности
+    deal_languages = list(deal.languages or [])
+
+    if new_lang is not None:
+        if not deal_languages:
+            # В сделке ещё нет языков, а пользователь пытается выбрать основной
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot set primary_language when deal has no languages",
+            )
+        if new_lang not in deal_languages:
+            raise HTTPException(
+                status_code=400,
+                detail="primary_language must be one of deal languages",
+            )
+
+    # 4. Обновляем основной язык
+    deal.primary_language = new_lang
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    return DealResponse.model_validate(deal)
+
+
 @router.get(
     "/{deal_id}/playbook-history",
     response_model=list[DealPlaybookHistoryItem],
@@ -705,6 +790,8 @@ async def get_deal_playbook_history(
         )
 
     return items
+
+
 
 
 # ----------------------------------------------------------------------

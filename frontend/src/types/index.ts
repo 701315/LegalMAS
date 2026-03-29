@@ -27,6 +27,14 @@ export interface ApiError {
   status?: number; // HTTP-статус (404, 500 и т.п.)
 }
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 // -------------------------------------------------------------
 // РОЛИ И ПРАВА ДОСТУПА
 // -------------------------------------------------------------
@@ -176,6 +184,18 @@ export interface Document {
   classification_level?: ClassificationLevel | null;
   classification_confidence?: number | null;
   applicable_triggers?: string[];  // всегда массив (может быть пустой)
+
+  // Layout-артефакты (сырые и санитизированные макеты текста).
+  //
+  // Для непрофессионального программиста:
+  // - text_layout_raw_ref — это ссылка (строка) на "сырой" текстовый макет
+  //   документа после этапа extract (multi-lang JSON в хранилище).
+  // - text_layout_sanitized_ref — это ссылка на санитизированный макет,
+  //   в котором уже вычищены PII-данные (ФИО, телефоны и т.п.).
+  // - Оба поля опциональные: backend может не заполнять их для старых документов
+  //   или на ранних стадиях пайплайна.
+  text_layout_raw_ref?: string | null;
+  text_layout_sanitized_ref?: string | null;
 
   // Проверка юристом и риск
   reviewed_by_person: boolean;
@@ -468,7 +488,7 @@ export interface CheckResult {
 
 
 export interface StructuredField {
-  value: any;
+  value: JsonValue;
   unit?: string | null;
   source?: string | null;
   confidence?: number | null;
@@ -592,6 +612,15 @@ export interface Deal {
   status: DealStatus;
   deal_type?: string;
   bundle_id?: string;
+
+  /** Юрисдикция сделки (например, RU, EN, RU/EN). */
+  jurisdiction?: string | null;
+
+  /** Список языков документов по сделке (как в DealResponse.languages). */
+  languages?: string[] | null;
+
+  /** Основной язык сделки, выбираемый юристом. */
+  primary_language?: string | null;
 
   /** ID последнего запуска анализа по сделке (если был) */
   last_run_id?: string;

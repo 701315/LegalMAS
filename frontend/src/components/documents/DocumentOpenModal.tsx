@@ -39,14 +39,14 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   } = useStructuredData(loadStructured ? doc.id : null);
 
   const handleOpenPdf = () => {
-    // Если ещё грузится
     if (isPdfLoading) {
       return;
     }
 
-    // Ошибку пока показываем простым alert
     if (pdfError) {
-      alert("Исходный файл недоступен или произошла ошибка при загрузке URL.");
+      alert(
+        "Исходный файл недоступен или произошла ошибка при загрузке URL.",
+      );
       return;
     }
 
@@ -55,7 +55,6 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
       return;
     }
 
-    // Открываем в новой вкладке
     window.open(pdfData.url, "_blank", "noopener,noreferrer");
   };
 
@@ -65,15 +64,17 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   };
 
   // Одна строка оглавления
-  const renderClauseRow = (node: ClauseNode, key: React.Key, indentPx: number) => (
+  const renderClauseRow = (
+    node: ClauseNode,
+    key: React.Key,
+    indentPx: number,
+  ) => (
     <div
       key={key}
       className="flex justify-between text-[11px] py-0.5 border-b border-gray-100 last:border-0"
       style={{ paddingLeft: indentPx }}
     >
-      <span className="text-gray-400">
-        {node.clause_uid}
-      </span>
+      <span className="text-gray-400">{node.clause_uid}</span>
       <span className="text-gray-800 font-medium text-right">
         {node.title}
       </span>
@@ -129,14 +130,30 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
     }
 
     if (structuredError) {
-      const err = structuredError as any;
-      const status = err?.status;
-      const detail = err?.detail || "Ошибка при загрузке structured-data.";
+      // Рассматриваем ошибку как неизвестный объект и аккуратно достаём поля
+      const err = structuredError as unknown;
+
+      const status =
+        typeof err === "object" && err !== null
+          ? (err as { status?: number }).status
+          : undefined;
+
+      const detailValue =
+        typeof err === "object" && err !== null
+          ? (err as { detail?: unknown }).detail
+          : undefined;
+
+      const messageValue =
+        typeof err === "object" && err !== null
+          ? (err as { message?: string }).message
+          : undefined;
 
       const detailMessage =
-        typeof detail === "string"
-          ? detail
-          : (detail?.message as string) || "Ошибка при загрузке structured-data.";
+        typeof detailValue === "string"
+          ? detailValue
+          : typeof messageValue === "string"
+          ? messageValue
+          : "Ошибка при загрузке structured-data.";
 
       if (status === 404) {
         return (
@@ -155,7 +172,11 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
     }
 
     // structuredData – это массив узлов дерева или undefined
-    if (!structuredData || !Array.isArray(structuredData) || structuredData.length === 0) {
+    if (
+      !structuredData ||
+      !Array.isArray(structuredData) ||
+      structuredData.length === 0
+    ) {
       return (
         <div className="mt-2 text-xs text-gray-500">
           Структурированные данные находятся в обработке или недоступны.

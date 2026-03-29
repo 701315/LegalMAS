@@ -5,7 +5,7 @@
 // =============================================================
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import client from "../api/client";
 import { useDealPermissions } from "../hooks/usePermissions";
 import type {
@@ -19,9 +19,6 @@ import type {
   PlaybookCreateResponse,
   ApiError,
   DealPlaybookHistoryItem,
-  // новый тип: одна конфигурация модели
-  // (должен быть описан в ../types)
-  // interface ModelConfig { id: string; name: string; description?: string | null; }
   ModelConfig,
 } from "../types";
 
@@ -33,11 +30,20 @@ interface DealPlaybookSelectorPageProps {
 const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   deal,
 }) => {
+  // 1. Получаем параметры маршрута и навигацию.
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
+  // 2. Хук прав доступа вызываем БЕЗ условий.
+  const { canViewOverview } = useDealPermissions(dealId as string);
+  const canEditPlaybook = canViewOverview;
+
+  // 3. Локальные состояния страницы.
+
+  // Детальная информация о сделке
   const [dealDetail, setDealDetail] = useState<DealDetail | null>(null);
 
+  // Плейбуки и версии
   const [lines, setLines] = useState<PlaybookLine[]>([]);
   const [versions, setVersions] = useState<PlaybookVersionShort[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
@@ -49,6 +55,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   const [selectedLineDetail, setSelectedLineDetail] =
     useState<PlaybookLineDetail | null>(null);
 
+  // Общие флаги загрузки / ошибок
   const [isLoading, setIsLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
   const [isCreatingVersion, setIsCreatingVersion] = useState(false);
@@ -57,6 +64,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     null,
   );
 
+  // История смен playbook
   const [history, setHistory] = useState<DealPlaybookHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -65,49 +73,52 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   /** Список доступных конфигураций моделей, с которыми можно запускать плейбуки. */
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
   /** Выбранная конфигурация модели для создания новой версии плейбука. */
-  const [selectedModelConfigId, setSelectedModelConfigId] = useState<string | null>(null);
+  const [selectedModelConfigId, setSelectedModelConfigId] = useState<
+    string | null
+  >(null);
   /** Ошибки загрузки списка моделей. */
-  const [modelConfigsError, setModelConfigsError] = useState<string | null>(null);
+  const [modelConfigsError, setModelConfigsError] = useState<string | null>(
+    null,
+  );
   const [isModelConfigsLoading, setIsModelConfigsLoading] = useState(false);
   // -------------------------------------
 
-  if (!dealId) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        dealId не указан в маршруте.
-      </div>
+  // 4. Производные значения (memo).
+
+  // Если есть detail — берём его, иначе проброшенный deal, иначе null.
+  const effectiveDeal = useMemo(
+    () => dealDetail ?? deal ?? null,
+    [dealDetail, deal],
+  );
+
+  // Для быстрого доступа к PlaybookLine по id
+  const lineById = useMemo(() => {
+    const map = new Map<string, PlaybookLine>();
+    for (const l of lines) {
+      map.set(l.id, l);
+    }
+    return map;
+  }, [lines]);
+
+  const selectedLine = selectedLineId ? lineById.get(selectedLineId) : null;
+
+  // Список версий только для выбранной линии
+  const visibleVersions = useMemo(() => {
+    if (!selectedLineId) return [];
+    return versions.filter(
+      (v) =>
+        v.playbook_id === selectedLineId &&
+        (v.status === "default" || v.status === "active"),
     );
-  }
+  }, [versions, selectedLineId]);
 
-  const { canViewOverview } = useDealPermissions(dealId);
-  const canEditPlaybook = canViewOverview;
+  const currentVersionId = effectiveDeal?.playbook_version_id ?? null;
+  const isSameAsCurrent =
+    currentVersionId !== null && selectedVersionId === currentVersionId;
 
-  if (!canEditPlaybook) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
-          <p className="text-sm text-gray-700 mb-4">
-            У вас нет прав для настройки playbook этого проекта.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate(`/projects/${dealId}`)}
-            className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-          >
-            Вернуться к проекту
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // 5. Функции-коллбеки (useCallback там, где реально нужно).
 
-  const handleBack = () => {
-    navigate(`/projects/${dealId}`);
-  };
-
-  const effectiveDeal = dealDetail ?? deal ?? null;
-
-  // Загрузка истории смен playbook-версий для сделки
+  // История смен playbook-версий для сделки
   const loadHistory = useCallback(async () => {
     if (!dealId) return;
     setIsHistoryLoading(true);
@@ -127,195 +138,10 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     }
   }, [dealId]);
 
-  // Загружаем актуальное состояние сделки (чтобы иметь свежий playbook_version_id)
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadDeal() {
-      if (!dealId) return;
-      try {
-        const res = await client.get<DealDetail>(`/api/v1/deals/${dealId}`);
-        if (!cancelled) {
-          setDealDetail(res.data);
-        }
-      } catch {
-        // Если не смогли загрузить — используем deal из пропсов, если он есть
-      }
-    }
-
-    loadDeal();
-    return () => {
-      cancelled = true;
-    };
-  }, [dealId]);
-
-  // История смен playbook-версий для сделки — первичная загрузка
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
-
-  // Для быстрого доступа к PlaybookLine по id
-  const lineById = useMemo(() => {
-    const map = new Map<string, PlaybookLine>();
-    for (const l of lines) {
-      map.set(l.id, l);
-    }
-    return map;
-  }, [lines]);
-
-  const selectedLine = selectedLineId ? lineById.get(selectedLineId) : null;
-
-  // Загрузка списка логических плейбуков и версий
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadData() {
-      setIsLoading(true);
-      setErrorText(null);
-      try {
-        const [linesRes, versionsRes] = await Promise.all([
-          client.get<PlaybookLine[]>("/api/v1/playbooks/lines"),
-          client.get<PlaybookVersionShort[]>("/api/v1/playbooks"),
-        ]);
-
-        if (cancelled) return;
-
-        setLines(linesRes.data || []);
-        setVersions(versionsRes.data || []);
-
-        const currentPlaybookVersionId =
-          effectiveDeal?.playbook_version_id ?? null;
-
-        // Если для сделки уже есть playbook_version_id — восстанавливаем выбор
-        if (currentPlaybookVersionId) {
-          const version = (versionsRes.data || []).find(
-            (v) => v.id === currentPlaybookVersionId,
-          );
-          if (version) {
-            setSelectedVersionId(version.id);
-            if (version.playbook_id) {
-              setSelectedLineId(version.playbook_id);
-            }
-          }
-        }
-      } catch (err) {
-        const apiErr = err as ApiError;
-        if (!cancelled) {
-          setErrorText(
-            apiErr.detail ||
-              "Не удалось загрузить список playbook. Попробуйте позже.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, [dealId, effectiveDeal?.playbook_version_id]);
-
-  // НОВОЕ: загрузка списка ModelConfig
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadModelConfigs() {
-      setIsModelConfigsLoading(true);
-      setModelConfigsError(null);
-      try {
-        const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
-        if (cancelled) return;
-        const list = res.data || [];
-        setModelConfigs(list);
-        // Если ещё ничего не выбрано, а список не пуст — выбираем первую модель по умолчанию
-        if (list.length > 0) {
-          setSelectedModelConfigId((prev) => prev ?? list[0].id);
-        }
-      } catch (err) {
-        const apiErr = err as ApiError;
-        if (!cancelled) {
-          setModelConfigsError(
-            apiErr.detail ||
-              "Не удалось загрузить список моделей (ModelConfig). Обратитесь к администратору.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsModelConfigsLoading(false);
-        }
-      }
-    }
-
-    loadModelConfigs();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Когда выбрана версия — подтягиваем её детали (состав)
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadVersionDetail(versionId: string) {
-      setVersionDetail(null);
-      try {
-        const res = await client.get<PlaybookVersionDetail>(
-          `/api/v1/playbooks/${versionId}`,
-        );
-        if (!cancelled) {
-          setVersionDetail(res.data);
-        }
-      } catch {
-        if (!cancelled) {
-          setVersionDetail(null);
-        }
-      }
-    }
-
-    if (selectedVersionId) {
-      loadVersionDetail(selectedVersionId);
-    } else {
-      setVersionDetail(null);
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedVersionId]);
-
-  // Когда выбрана линия — подтягиваем её детали (состав шаблона)
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadLineDetail(lineId: string) {
-      setSelectedLineDetail(null);
-      try {
-        const res = await client.get<PlaybookLineDetail>(
-          `/api/v1/playbooks/lines/${lineId}`,
-        );
-        if (!cancelled) {
-          setSelectedLineDetail(res.data);
-        }
-      } catch {
-        if (!cancelled) {
-          setSelectedLineDetail(null);
-        }
-      }
-    }
-
-    if (selectedLineId) {
-      loadLineDetail(selectedLineId);
-    } else {
-      setSelectedLineDetail(null);
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedLineId]);
+  const handleBack = () => {
+    if (!dealId) return;
+    navigate(`/projects/${dealId}`);
+  };
 
   const handleSelectLine = (lineId: string) => {
     setSelectedLineId(lineId);
@@ -329,6 +155,11 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   };
 
   const handleApplyPlaybook = async () => {
+    if (!dealId) {
+      setErrorText("dealId не указан.");
+      return;
+    }
+
     if (!selectedVersionId) {
       setErrorText("Сначала выберите версию playbook.");
       return;
@@ -354,8 +185,6 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
       // Обновляем историю сразу после успешной смены playbook
       await loadHistory();
-
-      // Можно остаться на странице; сейчас оставляем поведение как есть
     } catch (err) {
       const apiErr = err as ApiError;
       setErrorText(
@@ -367,22 +196,20 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     }
   };
 
-  // Фильтруем версии по выбранной линии (если линия выбрана)
-  const visibleVersions = selectedLineId
-    ? versions.filter(
-        (v) =>
-          v.playbook_id === selectedLineId &&
-          (v.status === "default" || v.status === "active"),
-      )
-    : [];
-
   // Создание версии из выбранного шаблона
   const handleCreateVersionForSelectedLine = async () => {
+    if (!dealId) {
+      setCreateVersionError("dealId не указан.");
+      return;
+    }
+
     if (!selectedLineId) return;
 
     // Без выбранной модели запрещаем создавать версию и показываем понятную ошибку
     if (!selectedModelConfigId) {
-      setCreateVersionError("Сначала выберите модель (ModelConfig) для этого playbook.");
+      setCreateVersionError(
+        "Сначала выберите модель (ModelConfig) для этого playbook.",
+      );
       return;
     }
 
@@ -428,15 +255,221 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   };
 
   const handleEditSelectedLine = () => {
-    if (!selectedLineId) return;
-    navigate(
-      `/projects/${dealId}/playbooks/admin?playbook_id=${selectedLineId}`,
-    );
+    if (!dealId || !selectedLineId) return;
+    navigate(`/projects/${dealId}/playbooks/admin?playbook_id=${selectedLineId}`);
   };
 
-  const currentVersionId = effectiveDeal?.playbook_version_id ?? null;
-  const isSameAsCurrent =
-    currentVersionId && selectedVersionId === currentVersionId;
+  // 6. Эффекты (useEffect). Все объявлены после всех хуков и не зависят от условных return.
+
+  // Загрузка актуального состояния сделки (чтобы иметь свежий playbook_version_id)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDeal() {
+      if (!dealId) return;
+      try {
+        const res = await client.get<DealDetail>(`/api/v1/deals/${dealId}`);
+        if (!cancelled) {
+          setDealDetail(res.data);
+        }
+      } catch {
+        // Если не смогли загрузить — используем deal из пропсов, если он есть
+      }
+    }
+
+    loadDeal();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId]);
+
+  // История смен playbook-версий для сделки — первичная загрузка
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  // Загрузка списка логических плейбуков и версий
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      if (!dealId) return;
+
+      setIsLoading(true);
+      setErrorText(null);
+      try {
+        const [linesRes, versionsRes] = await Promise.all([
+          client.get<PlaybookLine[]>("/api/v1/playbooks/lines"),
+          client.get<PlaybookVersionShort[]>("/api/v1/playbooks"),
+        ]);
+
+        if (cancelled) return;
+
+        setLines(linesRes.data || []);
+        setVersions(versionsRes.data || []);
+
+        const currentPlaybookVersionId =
+          effectiveDeal?.playbook_version_id ?? null;
+
+        // Если для сделки уже есть playbook_version_id — восстанавливаем выбор
+        if (currentPlaybookVersionId) {
+          const version = (versionsRes.data || []).find(
+            (v) => v.id === currentPlaybookVersionId,
+          );
+          if (version) {
+            setSelectedVersionId(version.id);
+            if (version.playbook_id) {
+              setSelectedLineId(version.playbook_id);
+            }
+          }
+        }
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (!cancelled) {
+          setErrorText(
+            apiErr.detail ||
+              "Не удалось загрузить список playbook. Попробуйте позже.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId, effectiveDeal?.playbook_version_id]);
+
+  // НОВОЕ: загрузка списка ModelConfig
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadModelConfigs() {
+      setIsModelConfigsLoading(true);
+      setModelConfigsError(null);
+      try {
+        const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
+        if (cancelled) return;
+        const list = res.data || [];
+        setModelConfigs(list);
+        // Если ещё ничего не выбрано, а список не пуст — выбираем первую модель по умолчанию
+        if (list.length > 0) {
+          setSelectedModelConfigId((prev) => prev ?? list[0].id);
+        }
+      } catch (err) {
+        const apiErr = err as ApiError;
+        if (!cancelled) {
+          setModelConfigsError(
+            apiErr.detail ||
+              "Не удалось загрузить список моделей (ModelConfig). Обратитесь к администратору.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsModelConfigsLoading(false);
+        }
+      }
+    }
+
+    void loadModelConfigs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Когда выбрана версия — подтягиваем её детали (состав)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVersionDetail(versionId: string) {
+      setVersionDetail(null);
+      try {
+        const res = await client.get<PlaybookVersionDetail>(
+          `/api/v1/playbooks/${versionId}`,
+        );
+        if (!cancelled) {
+          setVersionDetail(res.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setVersionDetail(null);
+        }
+      }
+    }
+
+    if (selectedVersionId) {
+      void loadVersionDetail(selectedVersionId);
+    } else {
+      setVersionDetail(null);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVersionId]);
+
+  // Когда выбрана линия — подтягиваем её детали (состав шаблона)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLineDetail(lineId: string) {
+      setSelectedLineDetail(null);
+      try {
+        const res = await client.get<PlaybookLineDetail>(
+          `/api/v1/playbooks/lines/${lineId}`,
+        );
+        if (!cancelled) {
+          setSelectedLineDetail(res.data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedLineDetail(null);
+        }
+      }
+    }
+
+    if (selectedLineId) {
+      void loadLineDetail(selectedLineId);
+    } else {
+      setSelectedLineDetail(null);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLineId]);
+
+  // 7. УСЛОВНЫЕ РЕНДЕРЫ — ТОЛЬКО ПОСЛЕ ВСЕХ ХУКОВ.
+
+  // Если вообще нет dealId в урле — сразу отправляем на список сделок.
+  if (!dealId) {
+    return <Navigate to="/deals" replace />;
+  }
+
+  // Если нет прав на просмотр/редактирование playbook — показываем понятный экран.
+  if (!canEditPlaybook) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
+          <p className="text-sm text-gray-700 mb-4">
+            У вас нет прав для настройки playbook этого проекта.
+          </p>
+          <button
+            type="button"
+            onClick={handleBack}
+            className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+          >
+            Вернуться к проекту
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 8. Основной JSX.
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
@@ -444,9 +477,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         {/* Заголовок */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Playbook проекта
-            </h1>
+            <h1 className="text-xl font-bold text-gray-900">Playbook проекта</h1>
             <p className="text-sm text-gray-500">
               Проект: {effectiveDeal?.name || dealId}
             </p>
@@ -623,9 +654,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                 <button
                   type="button"
                   onClick={handleApplyPlaybook}
-                  disabled={
-                    !selectedVersionId || isApplying || !!isSameAsCurrent
-                  }
+                  disabled={!selectedVersionId || isApplying || isSameAsCurrent}
                   className="px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
                 >
                   {isApplying
@@ -684,7 +713,11 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                     <div className="font-semibold mt-2">Секции / профили</div>
                     {versionDetail.section_markers ? (
                       <pre className="bg-gray-50 border rounded p-2 overflow-x-auto">
-                        {JSON.stringify(versionDetail.section_markers, null, 2)}
+                        {JSON.stringify(
+                          versionDetail.section_markers,
+                          null,
+                          2,
+                        )}
                       </pre>
                     ) : (
                       <div className="text-gray-500">

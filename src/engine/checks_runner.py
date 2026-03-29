@@ -386,7 +386,24 @@ class CheckRunner:
                 session=uow.session,
             )
 
-            chunks = await content_service.get_chunks(doc.id)
+            # ВАЖНО:
+            # - Раньше мы брали один чанк = одна листовая клауза (get_chunks).
+            # - Теперь используем get_sized_chunks, который:
+            #     * берёт листовые клаузы как основу,
+            #     * аккуратно режет слишком длинные клаузы на под-чанки
+            #       по предложениям и абзацам,
+            #     * старается удерживать размер около target_tokens "токенов" (слов),
+            #       не превышая max_tokens.
+            #
+            # Для непрофессионального программиста:
+            # - Это делается, чтобы LLM и эмбеддинги работали с кусками текста
+            #   "удобного" размера и не теряли контекст.
+            chunks = await content_service.get_sized_chunks(
+                doc.id,
+                target_tokens=300,   # можно вынести в settings при необходимости
+                max_tokens=800,
+                overlap_ratio=0.15,
+            )
 
             if len(chunks) > MAX_CHUNKS_PER_DOC:
                 logger.warning(

@@ -9,6 +9,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import client from "../api/client";
 import type { ProjectRole } from "../api/auth";
+import type { ApiError } from "../types";
 
 interface UserProject {
   deal_id: string;
@@ -20,7 +21,9 @@ interface UserProject {
 
 // Низкоуровневая загрузка проектов пользователя
 async function fetchUserProjects(userId: string): Promise<UserProject[]> {
-  const res = await client.get<UserProject[]>(`/api/v1/user/${userId}/projects`);
+  const res = await client.get<UserProject[]>(
+    `/api/v1/user/${userId}/projects`,
+  );
   return res.data;
 }
 
@@ -57,7 +60,7 @@ const DashboardPage: React.FC = () => {
   const handleDeleteProject = async (dealId: string, dealName: string) => {
     const ok = window.confirm(
       `Удалить проект "${dealName}"?\n\n` +
-        "Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно."
+        "Это действие нельзя отменить. Все связанные данные могут быть удалены безвозвратно.",
     );
     if (!ok) return;
 
@@ -66,10 +69,43 @@ const DashboardPage: React.FC = () => {
     try {
       await client.delete(`/api/v1/deals/${dealId}`);
       await refetch();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const e = err as unknown;
+
+      let detailFromResponse: string | undefined;
+      let detailFromApiError: string | undefined;
+      let messageFromError: string | undefined;
+
+      if (typeof e === "object" && e !== null) {
+        // axios-подобный объект с response.data.detail
+        if ("response" in e) {
+          const resp = (e as { response?: { data?: ApiError } }).response;
+          detailFromResponse = resp?.data?.detail;
+        }
+
+        // прямой ApiError
+        if (
+          "detail" in e &&
+          typeof (e as { detail?: unknown }).detail === "string"
+        ) {
+          detailFromApiError = (e as { detail?: string }).detail;
+        }
+
+        // обычный Error с message
+        if (
+          "message" in e &&
+          typeof (e as { message?: unknown }).message === "string"
+        ) {
+          messageFromError = (e as { message?: string }).message;
+        }
+      }
+
       const msg =
-        err?.response?.data?.detail ||
+        detailFromApiError ??
+        detailFromResponse ??
+        messageFromError ??
         "Не удалось удалить проект. Возможно, есть связанные данные в системе.";
+
       setDeleteError(msg);
     } finally {
       setDeletingId(null);
@@ -85,7 +121,9 @@ const DashboardPage: React.FC = () => {
       <div className="max-w-5xl mx-auto">
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Мои проекты</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Мои проекты
+            </h1>
             <p className="text-sm text-gray-500">
               Пользователь: {userName || userId} ({globalRole || "user"})
             </p>
@@ -148,7 +186,9 @@ const DashboardPage: React.FC = () => {
                   </p>
                 )}
 
-                <p className="text-xs text-gray-500">deal_id: {p.deal_id}</p>
+                <p className="text-xs text-gray-500">
+                  deal_id: {p.deal_id}
+                </p>
 
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <button
@@ -162,11 +202,15 @@ const DashboardPage: React.FC = () => {
                   {globalRole === "superadmin" && (
                     <button
                       type="button"
-                      onClick={() => handleDeleteProject(p.deal_id, p.deal_name)}
+                      onClick={() =>
+                        handleDeleteProject(p.deal_id, p.deal_name)
+                      }
                       disabled={deletingId === p.deal_id}
                       className="px-3 py-1.5 text-xs rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
                     >
-                      {deletingId === p.deal_id ? "Удаляем…" : "Удалить"}
+                      {deletingId === p.deal_id
+                        ? "Удаляем…"
+                        : "Удалить"}
                     </button>
                   )}
                 </div>

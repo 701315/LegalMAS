@@ -79,7 +79,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     } else {
       setActiveTab("overview");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabFromUrl]);
 
   const handleOpenMembers = () => {

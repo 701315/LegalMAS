@@ -34,7 +34,7 @@ from io import BytesIO
 from typing import List, Optional
 from fpdf import FPDF
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import Response, PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -540,39 +540,6 @@ async def get_document_converted_pdf_url(
     # ВАЖНО: вернуть "сырой" текст, без JSON-обёртки
     return presigned_url
 
-@router.get(
-    "/{doc_id}/converted-pdf-url",
-    summary="Get converted PDF URL for document",
-)
-async def get_document_converted_pdf_url(
-    doc_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: CurrentUser = Depends(get_current_user),
-):
-    doc_repo = DocumentRepository(db)
-    doc = await doc_repo.get_by_id(doc_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    await require_project_role(
-        db=db,
-        user=user,
-        deal_id=doc.deal_id,
-        allowed_roles=("viewer", "editor", "admin"),
-    )
-
-    ver_repo = DocumentVersionRepository(db)
-    version = await ver_repo.get_latest(doc_id)
-
-    if not version or not version.converted_pdf_ref:
-        raise HTTPException(status_code=404, detail="Converted PDF not available")
-
-    store = ArtifactStore()
-    presigned_url = store.get_presigned_get_url(version.converted_pdf_ref)
-
-    # Важно: вернуть СТРОКУ (как и другие "string" ответы в OpenAPI)
-    return presigned_url
-
 
 @router.get(
     "/{doc_id}/structured-data",
@@ -657,6 +624,107 @@ async def get_document_structured_data(
 
     # payload уже dict/list, фронт получает JSON дерево
     return payload
+
+
+class DocumentLayoutsDebugResponse(BaseModel):
+    document_id: str
+    deal_id: str
+    raw_layout_ref: str | None = None
+    sanitized_layout_ref: str | None = None
+    raw_layout: dict | None = None
+    sanitized_layout: dict | None = None
+
+
+@router.get(
+    "/{doc_id}/debug/layouts",
+    response_model=DocumentLayoutsDebugResponse,
+    summary="Debug: raw vs sanitized layout for document",
+)
+async def get_document_layouts_debug(
+    doc_id: UUID,
+    include_raw: bool = Query(False, description="Вернуть ли полный raw layout JSON"),
+    include_sanitized: bool = Query(
+        False, description="Вернуть ли полный sanitized layout JSON"
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Debug‑эндпоинт для сравнения layout'ов "до/после" обработки.
+
+    Что делает:
+    - проверяет доступ к документу (viewer/editor/admin в сделке);
+    - находит последнюю версию документа;
+    - возвращает ссылки на:
+        * text_layout_raw_ref  — layout после extract (multi‑lang),
+        * text_layout_sanitized_ref — layout после PII (одноязычный, очищенный);
+    - по флагам include_raw / include_sanitized может вернуть сами JSON‑объекты.
+
+    Использование:
+    - фронт может отрисовать два представления:
+        * исходный layout (все языки),
+        * layout, реально ушедший в анализ (после PII и языковой фильтрации).
+    """
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="DocumentVersion not found")
+
+    raw_ref = version.text_layout_raw_ref
+    sanitized_ref = version.text_layout_sanitized_ref
+
+    store = ArtifactStore()
+
+    raw_layout: dict | None = None
+    sanitized_layout: dict | None = None
+
+    if include_raw and raw_ref:
+        try:
+            raw_layout = store.get_json(raw_ref)
+        except Exception as e:
+            # Для debug‑эндпоинта не считаем это критической ошибкой пайплайна:
+            logger.warning(
+                "Failed to load raw layout for debug",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "error": str(e),
+                },
+            )
+
+    if include_sanitized and sanitized_ref:
+        try:
+            sanitized_layout = store.get_json(sanitized_ref)
+        except Exception as e:
+            logger.warning(
+                "Failed to load sanitized layout for debug",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "error": str(e),
+                },
+            )
+
+    return DocumentLayoutsDebugResponse(
+        document_id=str(doc_id),
+        deal_id=str(doc.deal_id),
+        raw_layout_ref=raw_ref,
+        sanitized_layout_ref=sanitized_ref,
+        raw_layout=raw_layout,
+        sanitized_layout=sanitized_layout,
+    )
 
 
 @router.get(

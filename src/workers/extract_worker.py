@@ -5,12 +5,12 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 
 Позиция в пайплайне:
 - Пайплайн: import → extract → pii → structure → classify → run_deal_checks.
-- На вход получает документ (PDF) и создаёт артефакт textlayoutraw.
+- На вход получает документ (PDF) и создаёт артефакт text_layout_raw.
 
 Что делает воркер:
 - Читает исходный PDF из MinIO (по ссылке original_ref или converted_pdf_ref из DocumentVersion).
 - Определяет стратегию извлечения (native text / OCR / гибрид).
-- Строит структуру textlayoutraw (элементы и таблицы) и сохраняет её в MinIO.
+- Строит структуру text_layout_raw (элементы и таблицы) и сохраняет её в MinIO.
 - При низком качестве извлечения или ошибках отправляет документ в карантин.
 - При успехе обновляет статус документа до EXTRACTED и запускает PII‑санитизацию.
 
@@ -44,7 +44,13 @@ from services.pdf_extractor import (
     build_text_layout_raw,
     extract_pdf,
 )
-from services.layout_language_filter import filter_layout_to_ru
+from services.layout_language_filter import (
+    detect_languages_in_layout,
+    filter_layout_to_language,
+)
+from services.deal_language_service import update_deal_languages
+from db.repositories.deal_repo import DealRepository
+
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
@@ -141,7 +147,7 @@ async def _extract_document_async(
     run_id: str | None = None,
 ) -> dict:
     """
-    Extract text and tables from PDF and produce textlayoutraw artifact.
+    Extract text and tables from PDF and produce text_layout_raw artifact.
 
     Все операции с БД выполняются через переданную AsyncSession (db),
     чтобы одна задача worker'а работала в рамках одного unit of work.
@@ -197,7 +203,6 @@ async def _extract_document_async(
         raise PermanentError(f"Failed to read PDF from store: {e}")
     # --- КОНЕЦ БЛОКА ЧТЕНИЯ PDF ---
 
-
     # 2. Extract (Stage 4 PDF extractor: text / OCR / hybrid + tables)
     try:
         extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
@@ -220,28 +225,66 @@ async def _extract_document_async(
         # Тоже считаем фатальной ошибкой извлечения
         raise PermanentError(f"extract_pdf failed: {e}")
 
-
     # 3. Quarantine check
     _check_quarantine(extraction, document_id)
 
-    # 4. Build textlayoutraw JSON (clause_uid = null at this stage)
+    # 4. Build text_layout_raw JSON (clause_uid = null at this stage)
     text_layout_raw = build_text_layout_raw(
         extraction,
         document_id=document_id,
         document_version_id=document_version_id,
     )
 
-    # 4.1. Фильтруем layout до русскоязычных элементов.
-    # Для непрофессионального программиста:
-    # - text_layout_raw может содержать и английский, и русский текст (EN/RU договоры).
-    # - filter_layout_to_ru удаляет строки, где явно доминирует латинский текст.
-    # - В итоге у нас остаётся layout, пригодный для анализа только по русской части.
-    text_layout_ru = filter_layout_to_ru(text_layout_raw)
+    # 4.1. Определяем фактические языки по исходному layout (multi‑lang).
+    detected_langs = detect_languages_in_layout(text_layout_raw)
+    await update_deal_languages(
+        db=db,
+        deal_id=uuid.UUID(deal_id),
+        new_languages=detected_langs,
+    )
 
-    # 5. Upload to MinIO (сохраняем уже русскую версию layout)
+    # 4.2. Выбираем целевой язык для layout_primary.
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(uuid.UUID(deal_id))
+
+    # Нормализуем коды языков.
+    primary = (getattr(deal, "primary_language", None) or "").lower()
+    langs_from_deal = [(l or "").lower() for l in (getattr(deal, "languages", None) or [])]
+
+    target_lang: str | None = None
+
+    # Приоритет:
+    # 1) primary_language, если он есть в detected_langs
+    if primary and primary in detected_langs:
+        target_lang = primary
+    # 2) первый язык сделки, который есть в detected_langs
+    if not target_lang:
+        for l in langs_from_deal:
+            if l in detected_langs:
+                target_lang = l
+                break
+    # 3) если ничего не выбрали — берём первый из detected_langs
+    if not target_lang and detected_langs:
+        target_lang = detected_langs[0]
+
+    # 4.3. Строим одноязычный layout_primary.
+    # Если target_lang не определён или неизвестен (не ru/en),
+    # filter_layout_to_language вернёт исходный layout без изменений.
+    layout_primary = (
+        filter_layout_to_language(text_layout_raw, target_lang)
+        if target_lang
+        else text_layout_raw
+    )
+
+    # 5. Upload to MinIO
+
+    # 5.1. Полный многоязычный layout_raw (для отладки и fallback)
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
-    raw_ref = store.put_json(raw_path, text_layout_ru)
+    raw_ref = store.put_json(raw_path, text_layout_raw)
 
+    # 5.2. Одноязычный layout_primary (под выбранный язык)
+    primary_path = ArtifactPath.layout_primary(tenant_id, deal_id, document_id)
+    primary_ref = store.put_json(primary_path, layout_primary)
 
     # 6. Update DB (используем ту же сессию db)
     await update_extraction_result(
@@ -342,7 +385,6 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
         )
 
 
-# --- НОВОЕ ---
 async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
@@ -367,7 +409,6 @@ async def get_pdf_source_ref(
 
     # По умолчанию — исходный PDF.
     return version.original_ref
-# --- КОНЕЦ НОВОГО ---
 
 
 async def update_extraction_result(
@@ -469,3 +510,5 @@ async def _mark_quarantine(
         run_id=run_id,
     )
 
+
+    

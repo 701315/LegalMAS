@@ -250,8 +250,8 @@ async def _load_text_snippets(
     db: AsyncSession,
 ) -> list[dict]:
     """
-    Load first ~2000 chars of text_layout_raw for each document.
-    This text is used for text-based relation detection.
+    Load first ~2000 chars of layout text for each document.
+    Prefer sanitized layout, fallback to raw for legacy documents.
     """
     store = ArtifactStore()
     ver_repo = DocumentVersionRepository(db)
@@ -259,14 +259,22 @@ async def _load_text_snippets(
     for doc in documents:
         try:
             version = await ver_repo.get_latest(uuid.UUID(doc["id"]))
-            if version and version.text_layout_raw_ref:
-                # Передаём в ArtifactStore ровно ту ссылку, что лежит в *_ref.
-                layout = store.get_json(version.text_layout_raw_ref)
-                elements = layout.get("elements", [])
-                text_parts = [e.get("text", "") for e in elements[:20]]
-                doc["text_first_2000"] = " ".join(text_parts)[:2000]
-            else:
+            if not version:
                 doc["text_first_2000"] = ""
+                continue
+
+            layout_ref = (
+                version.text_layout_sanitized_ref
+                or version.text_layout_raw_ref
+            )
+            if not layout_ref:
+                doc["text_first_2000"] = ""
+                continue
+
+            layout = store.get_json(layout_ref)
+            elements = layout.get("elements", [])
+            text_parts = [e.get("text", "") for e in elements[:20]]
+            doc["text_first_2000"] = " ".join(text_parts)[:2000]
         except Exception as e:
             logger.debug(
                 "Failed to load text snippet",

@@ -118,6 +118,21 @@ export interface DocumentDetailsViewProps {
 
   // Заглушка под будущую replace-логику
   onReplaceFile?: (file: File) => Promise<void> | void;
+
+  // Наличие layout-артефактов (multi-lang raw и PII-sanitized).
+  //
+  // Для непрофессионального программиста:
+  // - rawLayoutAvailable == true, если в backend есть ссылка на "сырой"
+  //   текстовый макет после extract (до PII).
+  // - sanitizedLayoutAvailable == true, если есть санитизированный макет
+  //   после PII-очистки.
+  // - Сейчас мы их только показываем в виде индикаторов. Позже сюда можно
+  //   добавить кнопки открытия / diff-режим.
+  rawLayoutAvailable: boolean;
+  sanitizedLayoutAvailable: boolean;
+
+  // Колбэк для открытия debug-модалки с JSON layout'ами.
+  onOpenLayoutDebug?: () => void;
 }
 
 // =============================================================
@@ -147,12 +162,17 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   onReplaceFile,
   availableDocTypes,
   initialDocType,
+  rawLayoutAvailable,
+  sanitizedLayoutAvailable,
+  onOpenLayoutDebug,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
   // Состояние формы переклассификации
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
-  const [reclassifyDocType, setReclassifyDocType] = useState(initialDocType || "");
+  const [reclassifyDocType, setReclassifyDocType] = useState(
+    initialDocType || "",
+  );
   const [reclassifyReason, setReclassifyReason] = useState("");
 
   // Лоадер
@@ -330,7 +350,9 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   {processingError.timestamp && (
                     <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
                       Время:{" "}
-                      {new Date(processingError.timestamp).toLocaleString("ru-RU")}
+                      {new Date(processingError.timestamp).toLocaleString(
+                        "ru-RU",
+                      )}
                     </span>
                   )}
                   {processingError.run_id && (
@@ -526,10 +548,12 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 {lastReclassifyResult && (
                   <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2">
                     <p className="text-[11px] text-red-700">
-                      Документ переклассифицирован. Анализ рисков по новому типу документа
-                      будет произведён только после перезапуска анализа рисков по всей сделке.
-                      Текущее состояние архитектуры. После будет внедрён механизм отдельного
-                      пересчёта рисков по отдельному документу после его переклассификации.
+                      Документ переклассифицирован. Анализ рисков по новому
+                      типу документа будет произведён только после
+                      перезапуска анализа рисков по всей сделке.
+                      Текущее состояние архитектуры. После будет внедрён
+                      механизм отдельного пересчёта рисков по отдельному
+                      документу после его переклассификации.
                     </p>
                   </div>
                 )}
@@ -565,7 +589,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       <Section title="Структурированные данные">
         {structuredNotAvailable ? (
           <p className="text-xs text-gray-400">
-            Для этого документа пока нет извлечённых значений. Запустите анализ или обновите страницу после завершения проверки.
+            Для этого документа пока нет извлечённых значений. Запустите анализ
+            или обновите страницу после завершения проверки.
           </p>
         ) : structuredData && structuredData.extracted_values.length > 0 ? (
           <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
@@ -585,7 +610,67 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
           </div>
         ) : (
           <p className="text-xs text-gray-400">
-            Структурированные данные находятся в обработке. Обновите страницу через несколько минут после завершения анализа.
+            Структурированные данные находятся в обработке. Обновите страницу
+            через несколько минут после завершения анализа.
+          </p>
+        )}
+      </Section>
+
+      {/* ========== Текстовый макет (PII / debug) ========== */}
+      <Section title="Текстовый макет (PII / debug)">
+        {/* Для непрофессионального программиста:
+           * - Этот блок показывает, какие макеты доступны для документа.
+           * - Сейчас это только индикаторы. Позже сюда можно добавить
+           *   кнопки "Открыть raw" / "Открыть sanitized" или diff-режим.
+           */}
+        <p className="text-xs text-gray-500 mb-2">
+          Здесь можно проверить, построены ли сырые и санитизированные
+          текстовые макеты документа (для отладки PII и пайплайна).
+        </p>
+
+        <div className="flex flex-col gap-1 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400">Raw-макет (после extract)</span>
+            {rawLayoutAvailable ? (
+              <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                доступен
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
+                нет данных
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400">Sanitized-макет (после PII)</span>
+            {sanitizedLayoutAvailable ? (
+              <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                доступен
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
+                нет данных
+              </span>
+            )}
+          </div>
+        </div>
+
+        {(rawLayoutAvailable || sanitizedLayoutAvailable) && onOpenLayoutDebug && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={onOpenLayoutDebug}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Открыть debug‑layout (JSON)
+            </button>
+          </div>
+        )}
+
+        {!sanitizedLayoutAvailable && (
+          <p className="mt-2 text-[11px] text-gray-400">
+            Санитизированный макет появится после успешного прохождения PII
+            (статус документа SANITIZED и далее).
           </p>
         )}
       </Section>

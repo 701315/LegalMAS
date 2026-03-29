@@ -1,8 +1,7 @@
 # src/engine/content/document_content_service.py
 
 """
-DocumentContentService v2: выдаёт текстовые чанки и фрагменты
-для Runner / HybridClassifier / CheckExecutor на основе clause tree + layout.
+DocumentContentService v3: тонкий фасад над clause tree + layout.
 
 Простыми словами:
 
@@ -12,11 +11,14 @@ DocumentContentService v2: выдаёт текстовые чанки и фра�
 
 - Этот сервис:
   - читает clause tree и layout по ссылкам из последней DocumentVersion;
-  - собирает полный текст каждого пункта договора по element_ids;
+  - передаёт их в чистые helper'ы:
+      * ClauseTreeBuilder — строит клауза-чанки;
+      * chunking.* — режет текст на под-чанки, строит section-чанки, summary;
   - отдаёт:
     * чанки по листовым клаузам (для проверок/LLM/эмбеддингов),
-    * header (заголовки верхнего уровня) для L2,
-    * snippet (первые несколько пунктов) для L3/L4.
+    * sized-чанки (под-чанки нормированного размера),
+    * иерархию section/clause/subclause,
+    * header + snippet для классификаторов.
 
 - Сервис НИЧЕГО не кэширует между задачами Celery:
   - на каждый вызов ему дают свежую AsyncSession,
@@ -33,6 +35,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models.document import DocumentVersion
 from db.repositories.document_version_repo import DocumentVersionRepository
 from storage.artifact_store import ArtifactStore
+
+from engine.retrieval.tokenization import count_tokens
+from engine.content.clause_tree_builder import ClauseTreeBuilder
+from engine.content.chunking import (
+    build_chunk_summary,
+    build_section_chunks_from_clauses,
+    split_text_to_sized_chunks,
+)
 
 
 class ClauseTreeStorageClientProtocol:
@@ -116,31 +126,11 @@ class DocumentContentService:
     - Сервис работает как "адаптер" поверх:
         * AsyncSession (через DocumentVersionRepository),
         * ArtifactStore (через ClauseTreeStorageClient и LayoutStorageClient).
+    - Вся сложная логика вынесена в отдельные модули:
+        * ClauseTreeBuilder — обход clause tree;
+        * chunking.* — сплит текста и иерархия чанков.
     - Никаких глобальных синглтонов и кэшей здесь нет.
       Каждый воркер создаёт этот сервис в рамках одного UnitOfWork (db_uow).
-
-    Что он умеет:
-
-    - get_chunks(doc_id):
-        вернуть список чанков по листовым клаузам:
-          {
-            "id": "<doc_id>:<clause_uid>",
-            "text": "<полный текст клаузы>",
-            "metadata": {
-              "doc_id": ...,
-              "clause_uid": ...,
-              "title": ...,
-              "level": ...,
-              "start_page": ...,
-              "end_page": ...,
-              "element_ids": [...],
-            }
-          }
-
-    - get_header_and_snippet(doc_id):
-        вернуть:
-          * header_text: заголовки верхнего уровня (для L2),
-          * snippet_text: текст первых нескольких листовых клауз (для L3/L4).
     """
 
     def __init__(
@@ -191,6 +181,10 @@ class DocumentContentService:
             return None
         return await self.layout_storage.load_json(layout_ref)
 
+    # -------------------------------------------------------------------------
+    # Публичные методы
+    # -------------------------------------------------------------------------
+
     async def get_title_and_preamble(
         self,
         doc_id: uuid.UUID,
@@ -239,6 +233,7 @@ class DocumentContentService:
             # Примитивная эвристика: если строка похожа на раздел 1./1.1 и т.п.,
             # считаем, что шапка закончилась.
             import re
+
             if re.match(r"^\d{1,2}(\.\d{1,2})*\.\s+.+", text):
                 break
 
@@ -247,8 +242,6 @@ class DocumentContentService:
         if not header_elements:
             return None
 
-        # Просто склеиваем тексты по порядку. При желании здесь можно добавить
-        # более умное склеивание EN/RU, но сейчас layout уже RU‑only.
         parts: List[str] = []
         for el in header_elements:
             t = (el.get("text") or "").strip()
@@ -263,62 +256,6 @@ class DocumentContentService:
             full = full[:max_length]
 
         return full or None
-
-    @staticmethod
-    def _extract_root_children(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Извлечь список узлов верхнего уровня из clause tree JSON.
-
-        Формат ClauseTree.to_dict():
-          {
-            "document_id": "...",
-            "root": [ {...}, {...} ],
-            ...
-          }
-
-        На всякий случай поддерживаем и формат:
-          { "root": { "children": [ {...}, ... ] } }
-        """
-        raw_root = tree.get("root")
-
-        if isinstance(raw_root, list):
-            return raw_root
-
-        if isinstance(raw_root, dict):
-            children = raw_root.get("children")
-            if isinstance(children, list):
-                return children
-
-        return []
-
-    @staticmethod
-    def _build_element_index(layout: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-        """
-        Построить индекс element_id → элемент layout'а.
-
-        Это ускоряет сбор текста клаузы: вместо линейного поиска по всему
-        списку elements мы обращаемся к нужному элементу напрямую по ключу.
-
-        Формат элемента (см. build_text_layout_raw):
-          {
-            "element_id": str,
-            "type": "heading" | "text" | "listitem",
-            "text": str,
-            "page": int,
-            ...
-          }
-        """
-        elements = layout.get("elements") or []
-        index: Dict[str, Dict[str, Any]] = {}
-        for el in elements:
-            el_id = el.get("element_id")
-            if el_id:
-                index[el_id] = el
-        return index
-
-    # -------------------------------------------------------------------------
-    # Публичные методы
-    # -------------------------------------------------------------------------
 
     async def get_chunks(self, doc_id: uuid.UUID) -> List[Dict[str, Any]]:
         """
@@ -357,8 +294,13 @@ class DocumentContentService:
                 }
             ]
 
-        root_children = self._extract_root_children(tree)
-        if not root_children:
+        leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
+            doc_id=doc_id,
+            tree=tree,
+            layout=layout,
+        )
+
+        if not leaf_chunks:
             return [
                 {
                     "id": f"{doc_id}:full",
@@ -367,13 +309,7 @@ class DocumentContentService:
                 }
             ]
 
-        element_index = self._build_element_index(layout)
-
-        chunks: List[Dict[str, Any]] = []
-        for child in root_children:
-            # Пятый аргумент [] — стартовый пустой путь заголовков от корня.
-            self._collect_leaf_chunks(doc_id, child, element_index, chunks, [])
-        return chunks
+        return leaf_chunks
 
     async def get_header_and_snippet(
         self,
@@ -403,32 +339,25 @@ class DocumentContentService:
         if not tree or not layout:
             return None, None
 
-        root_children = self._extract_root_children(tree)
-        if not root_children:
-            return None, None
-
-        element_index = self._build_element_index(layout)
-
         # Header: нормализованная шапка (title + преамбула) из layout.
-        # Для единообразия используем тот же метод, что и HybridClassifier.
         header_text = await self.get_title_and_preamble(doc_id)
 
-        # Snippet: первые несколько листовых клауз.
-        leaf_chunks: List[Dict[str, Any]] = []
-        for child in root_children:
-            self._collect_leaf_chunks(doc_id, child, element_index, leaf_chunks, [])
-            if len(leaf_chunks) >= max_leaf_clauses:
-                break
+        # Листовые клаузы — используем тот же ClauseTreeBuilder.
+        leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
+            doc_id=doc_id,
+            tree=tree,
+            layout=layout,
+        )
 
         if not leaf_chunks:
             return header_text, None
 
+        # Берём первые max_leaf_clauses клауз.
+        leaf_chunks = leaf_chunks[:max_leaf_clauses]
+
         # --- Микрополитика длины сниппета ---
-        # Идея:
-        # - если первые 1–2 клаузы очень короткие, добавляем больше клауз в сниппет,
-        #   чтобы L3/L4 видели достаточно контекста.
-        MIN_CLAUSE_LEN = 80       # минимум символов для "осмысленной" клаузы
-        EXTRA_CLAUSES = 5         # сколько максимум клауз можно взять в сниппет
+        MIN_CLAUSE_LEN = 80      # минимум символов для "осмысленной" клаузы
+        EXTRA_CLAUSES = 5        # сколько максимум клауз можно взять в сниппет
 
         # Посчитаем суммарную длину первых двух клауз
         first_two = leaf_chunks[:2]
@@ -436,19 +365,12 @@ class DocumentContentService:
 
         # Если короткие — расширяем окно до EXTRA_CLAUSES (если они есть)
         if first_two_len < MIN_CLAUSE_LEN:
-            # Соберём дополнительные клаузы (если есть в дереве)
-            extra_leaf_chunks: List[Dict[str, Any]] = []
-            for child in root_children:
-                self._collect_leaf_chunks(
-                    doc_id,
-                    child,
-                    element_index,
-                    extra_leaf_chunks,
-                    [],
-                )
-                if len(extra_leaf_chunks) >= EXTRA_CLAUSES:
-                    break
-            leaf_chunks = extra_leaf_chunks or leaf_chunks
+            extra_leaf_chunks = leaf_chunks
+            if len(extra_leaf_chunks) < EXTRA_CLAUSES:
+                # На всякий случай можно было бы добавить клаузы из дерева,
+                # но сейчас у нас уже есть первые leaf_chunks.
+                pass
+            leaf_chunks = extra_leaf_chunks[:EXTRA_CLAUSES]
 
         # Собираем текст сниппета: клаузы разделяем двойным переводом строки,
         # чтобы модель видела границы пунктов.
@@ -465,101 +387,154 @@ class DocumentContentService:
 
         return header_text, (snippet_text or None)
 
-    # -------------------------------------------------------------------------
-    # Внутренние helper-методы для обхода clause tree
-    # -------------------------------------------------------------------------
-
-    def _collect_leaf_chunks(
+    async def get_sized_chunks(
         self,
         doc_id: uuid.UUID,
-        node: Dict[str, Any],
-        element_index: Dict[str, Dict[str, Any]],
-        out: List[Dict[str, Any]],
-        path_titles: List[str] | None = None,
-    ) -> None:
+        target_tokens: int = 300,
+        max_tokens: int = 800,
+        overlap_ratio: float = 0.15,
+    ) -> List[Dict[str, Any]]:
         """
-        Рекурсивно обойти дерево и добавить чанки для всех листовых клауз
-        (то есть узлов без children).
+        Построить НОРМАЛИЗОВАННЫЕ чанки поверх листовых клауз.
 
-        Для каждой листовой клаузы:
-        - берём все её element_ids,
-        - находим соответствующие элементы в layout,
-        - склеиваем их текст в одном чанке.
+        Для непрофессионального программиста:
+        - get_chunks() возвращает один крупный чанк на каждую листовую клаузу.
+        - get_sized_chunks() берёт эти клаузы и, если они слишком длинные,
+          аккуратно режет их по предложениям и абзацам.
+        - Цель: чтобы каждый чанк был "удобного" размера для эмбеддингов и LLM,
+          например около 300 слов, но не больше max_tokens.
         """
+        base_chunks = await self.get_chunks(doc_id)
 
-        # path_titles — это "хлебные крошки" из заголовков от корня до текущего узла.
-        current_path: List[str] = list(path_titles or [])
-        node_title = node.get("title")
-        if node_title:
-            current_path.append(node_title)
+        sized: List[Dict[str, Any]] = []
 
-        children = node.get("children") or []
+        for base in base_chunks:
+            text = base.get("text") or ""
+            metadata = base.get("metadata") or {}
 
-        if not children:
-            clause_uid = node.get("clause_uid")
-            element_ids: List[str] = node.get("element_ids") or []
+            # Если текста нет — пропускаем такой чанк.
+            if not text.strip():
+                continue
 
-            # Собираем текст клаузы из элементов layout.
-            texts: List[str] = []
-            pages: List[int] = []
-            last_page: int | None = None
+            clause_uid = metadata.get("clause_uid")
+            level = metadata.get("level")
+            path_titles = metadata.get("path_titles") or []
+            start_page = metadata.get("start_page")
+            end_page = metadata.get("end_page")
+            element_ids = metadata.get("element_ids") or []
 
-            for el_id in element_ids:
-                el = element_index.get(el_id)
-                if not el:
+            # Режем текст клаузы на под-чанки.
+            sub_texts = split_text_to_sized_chunks(
+                text=text,
+                target_tokens=target_tokens,
+                max_tokens=max_tokens,
+                overlap_ratio=overlap_ratio,
+            )
+
+            # Если по какой-то причине сплит не сработал — сохраняем исходный чанк.
+            if not sub_texts:
+                sized.append(
+                    {
+                        "id": f"{doc_id}:{clause_uid or 'full'}:0",
+                        "text": text,
+                        "metadata": metadata,
+                    }
+                )
+                continue
+
+            # Собираем под-чанки с отдельными ID, но с той же метадатой.
+            for sub_idx, sub_text in enumerate(sub_texts):
+                if not sub_text.strip():
                     continue
 
-                raw_text = el.get("text") or ""
-                text = raw_text.strip()
-                if not text:
-                    continue
+                chunk_id = f"{doc_id}:{clause_uid or 'full'}:{sub_idx}"
 
-                page = el.get("page")
-                if isinstance(page, int):
-                    pages.append(page)
-
-                # Если элемент на новой странице — добавляем пустую строку
-                # как явный разделитель, чтобы модели видели разрыв страниц.
-                if last_page is not None and page is not None and page != last_page:
-                    texts.append("")
-
-                texts.append(text)
-                last_page = page
-
-            # Склеиваем блоки через двойной перевод строки, чтобы сохранить структуру.
-            # Пустые строки, добавленные при смене страницы, превратятся в лишние
-            # пустые абзацы, что удобно для LLM.
-            full_text = "\n\n".join(texts).strip()
-
-            start_page = min(pages) if pages else node.get("start_page")
-            end_page = max(pages) if pages else node.get("end_page")
-
-            metadata = {
-                "doc_id": str(doc_id),
-                "clause_uid": clause_uid,
-                "title": node.get("title"),
-                "level": node.get("level"),
-                "path_titles": current_path,
-                "start_page": start_page,
-                "end_page": end_page,
-                "element_ids": element_ids,
-            }
-
-            out.append(
-                {
-                    "id": f"{doc_id}:{clause_uid}",
-                    "text": full_text,
-                    "metadata": metadata,
+                sub_metadata = {
+                    "doc_id": str(doc_id),
+                    "clause_uid": clause_uid,
+                    "title": metadata.get("title"),
+                    "level": level,
+                    "path_titles": path_titles,
+                    "start_page": start_page,
+                    "end_page": end_page,
+                    "element_ids": element_ids,
+                    "token_count": count_tokens(sub_text),
                 }
-            )
-            return
 
-        # Если у узла есть дети — спускаемся ниже по дереву.
-        for child in children:
-            self._collect_leaf_chunks(
-                doc_id,
-                child,
-                element_index,
-                out,
-                current_path,
-            )
+                sized.append(
+                    {
+                        "id": chunk_id,
+                        "text": sub_text,
+                        "metadata": sub_metadata,
+                    }
+                )
+
+        if not sized:
+            return [
+                {
+                    "id": f"{doc_id}:full",
+                    "text": "",
+                    "metadata": {"doc_id": str(doc_id)},
+                }
+            ]
+
+        return sized
+
+    async def get_hierarchical_chunks(
+        self,
+        doc_id: uuid.UUID,
+        target_tokens: int = 300,
+        max_tokens: int = 800,
+        overlap_ratio: float = 0.15,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Вернуть многоуровневые чанки по документу.
+
+        Для непрофессионального программиста:
+        - section: крупные разделы договора (объединённые клаузы по заголовкам).
+        - clause: исходные листовые клаузы (как в get_chunks()).
+        - subclause: нормализованные под-чанки внутри клауз (как в get_sized_chunks()).
+
+        Формат:
+        {
+            "section": [ {id, text, metadata}, ... ],
+            "clause": [ {id, text, metadata}, ... ],
+            "subclause": [ {id, text, metadata}, ... ],
+        }
+        """
+        clause_chunks = await self.get_chunks(doc_id)
+        sub_chunks = await self.get_sized_chunks(
+            doc_id,
+            target_tokens=target_tokens,
+            max_tokens=max_tokens,
+            overlap_ratio=overlap_ratio,
+        )
+        section_chunks = build_section_chunks_from_clauses(
+            doc_id=str(doc_id),
+            clause_chunks=clause_chunks,
+            max_tokens=1200,
+        )
+
+        def _with_summary(ch_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            out: List[Dict[str, Any]] = []
+            for ch in ch_list:
+                meta = ch.get("metadata") or {}
+                path_titles = meta.get("path_titles") or []
+                text = ch.get("text") or ""
+                if not meta.get("summary"):
+                    meta["summary"] = build_chunk_summary(path_titles, text)
+                out.append(
+                    {
+                        "id": ch.get("id"),
+                        "text": text,
+                        "metadata": meta,
+                    }
+                )
+            return out
+
+        return {
+            "section": section_chunks,
+            "clause": _with_summary(clause_chunks),
+            "subclause": _with_summary(sub_chunks),
+        }
+    

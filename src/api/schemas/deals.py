@@ -42,7 +42,11 @@ class DealResponse(BaseModel):
     name: str
     deal_type: str | None = None
     jurisdiction: str | None = None
+    # Список языков документов сделки (из документов).
     languages: list[str] | None = None
+    # Новый атрибут: основной язык сделки, выбирается пользователем
+    # из списка languages на отдельном шаге.
+    primary_language: str | None = None
 
     # Можно оставить как str, чтобы не тянуть enum на фронт
     status: str  # или DealStatus

@@ -4,7 +4,7 @@
 Structure Builder Worker.
 
 Назначение:
-- Считать сырой макет документа (textlayoutraw) из MinIO.
+- Считать санитизированный макет документа (одноязычный layout после PII) из MinIO.
 - Построить древовидную структуру документа (clause_tree) через сервис StructureBuilder.
 - Сохранить clause_tree в MinIO и обновить ссылки в DocumentVersion.
 - Обновить статус документа: sanitized -> structured.
@@ -119,16 +119,23 @@ async def _build_structure_async(
         logger.info("Already structured, skipping", document_id=str(doc.id))
         return {"document_id": str(doc.id), "skipped": True}
 
-    # 2. Получение сырого макета из MinIO
-    if not version.text_layout_raw_ref:
-        raise PermanentError(f"text_layout_raw_ref missing for version {v_id}")
+    # 2. Получение макета из MinIO
+    #
+    # Исторически здесь использовался text_layout_raw_ref (многоязычный layout после extract).
+    # В новой одноязычной архитектуре:
+    #   - extract сохраняет полный layout_raw (multi‑lang),
+    #   - PII пишет одноязычный layout_primary_sanitized,
+    #   - StructureBuilder должен работать по одноязычному, уже очищенному layout'у.
+    #
+    # Пока поле с явной ссылкой на layout_primary_sanitized хранится в sanitized_ref.
+    if not version.sanitized_ref:
+        raise PermanentError(f"sanitized_ref missing for version {v_id}")
 
     # ArtifactStore.get_json — синхронный метод, НЕ используем await
-    raw_layout = store.get_json(version.text_layout_raw_ref)
+    raw_layout = store.get_json(version.sanitized_ref)
     elements = raw_layout.get("elements", [])
     if not elements:
-        raise PermanentError(f"No elements in raw layout for version {v_id}")
-
+        raise PermanentError(f"No elements in sanitized layout for version {v_id}")
 
     # 3. Вызов сервиса построения структуры
     builder = StructureBuilder()
@@ -154,7 +161,6 @@ async def _build_structure_async(
     )
     # ArtifactStore.put_json — синхронный метод, НЕ используем await
     store.put_json(clause_tree_path, clause_tree.to_dict())
-
 
     # 5. Обновление БД
     await ver_repo.update_refs(version_id=v_id, clause_tree_ref=clause_tree_path)
@@ -215,3 +221,4 @@ async def _mark_failed(
         reason="structure_error",
         run_id=None,
     )
+    

@@ -91,7 +91,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   const { canDeleteDocuments } = useDealPermissions(deal.id);
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-
   const [modalDoc, setModalDoc] = useState<Document | null>(null);
   const [isOpenModal, setIsOpenModal] = useState(false);
 
@@ -102,7 +101,11 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
   const softDeleteMutation = useSoftDeleteDocument(deal.id);
 
   const documents = data?.items ?? [];
-  const classifiedDocs = classifiedPage?.items ?? [];
+
+  const classifiedDocs = useMemo(
+    () => classifiedPage?.items ?? [],
+    [classifiedPage],
+  );
 
   // === НОВОЕ: состояние видимых колонок и режима выбора ===
 
@@ -139,7 +142,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
     const lows: Document[] = [];
 
     for (const doc of classifiedDocs) {
-      const level = (doc.classification_level as keyof ClassificationStats) || "L0";
+      const level =
+        (doc.classification_level as keyof ClassificationStats) || "L0";
       stats[level] = (stats[level] || 0) + 1;
 
       const confidence =
@@ -153,7 +157,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
       }
     }
 
-    // Количество документов, классифицированных на уровне L4 (LLM)
     const l4Count = classifiedDocs.filter(
       (d) => d.classification_level === "L4",
     ).length;
@@ -608,9 +611,14 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                             case "updated_at":
                               value = formatDateTime(doc.updated_at);
                               break;
-                            default:
-                              value = (doc as any)[col.field];
+                            default: {
+                              // col.field совпадает с ключами Document, поэтому используем
+                              // индексный доступ без any.
+                              type DocumentKey = keyof Document;
+                              const fieldName = col.field as DocumentKey;
+                              value = doc[fieldName];
                               break;
+                            }
                           }
                           let title: string | undefined;
 

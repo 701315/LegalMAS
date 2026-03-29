@@ -275,9 +275,9 @@ async def _start_run_pipeline_async(
 
         # SANITIZED
         if status == DocumentStatus.SANITIZED.value:
-            if not version or not version.text_layout_raw_ref:
+            if not version or not version.text_layout_sanitized_ref:
                 logger.warning(
-                    "Sanitized document without text_layout_raw_ref, skipping structure",
+                    "Sanitized document without text_layout_sanitized_ref, skipping structure",
                     extra={"document_id": doc_id_str},
                 )
                 continue

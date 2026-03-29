@@ -12,10 +12,13 @@ import {
   useStartRun,
   useRun,
 } from "../../api/runs";
+import { useSetPrimaryLanguage } from "../../api/deals";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useSSEProgress } from "../../hooks/useSSE";
 import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
+import type { ClassificationLevel } from "../../types";
+
 
 // Если используешь toast, раскомментируй:
 // import { toast } from "react-hot-toast";
@@ -156,7 +159,7 @@ const ClassificationQualityCard: React.FC<{
                     {doc.doc_type || "Generic"}
                   </span>
                   <ClassificationBadge
-                    level={doc.classification_level as any}
+                    level={doc.classification_level as ClassificationLevel}
                     confidence={doc.confidence}
                   />
                 </div>
@@ -205,7 +208,8 @@ const RunProgressCard: React.FC<{
   const effectiveCompleted =
     lastEvent?.completed_checks ?? run?.completed_checks ?? 0;
   const effectiveTotal = lastEvent?.total_checks ?? run?.total_checks ?? 0;
-  const effectiveStatus = (lastEvent?.status ?? run?.status) as RunStatus | undefined;
+  const effectiveStatus = (lastEvent?.status ??
+    run?.status) as RunStatus | undefined;
 
   const percent =
     effectiveTotal > 0
@@ -280,42 +284,59 @@ const RunProgressCard: React.FC<{
             />
           </div>
           {(effectiveStatus === "failed" ||
-            effectiveStatus === "completed_with_errors") && run && (
-            <p
-              className={`mt-2 text-xs ${
-                effectiveStatus === "failed" ? "text-red-600" : "text-yellow-700"
-              }`}
-            >
-              {effectiveStatus === "failed"
-                ? "Анализ завершился с ошибкой."
-                : "Анализ завершён, но есть документы с ошибками."}
-              {effectiveStatus === "completed_with_errors" && (
-                <>
-                  {" "}
-                  {typeof run.failed_docs_count === "number" &&
-                    run.failed_docs_count > 0 && (
+            effectiveStatus === "completed_with_errors") &&
+            run && (
+              <p
+                className={`mt-2 text-xs ${
+                  effectiveStatus === "failed"
+                    ? "text-red-600"
+                    : "text-yellow-700"
+                }`}
+              >
+                {effectiveStatus === "failed"
+                  ? "Анализ завершился с ошибкой."
+                  : "Анализ завершён, но есть документы с ошибками."}
+                {effectiveStatus === "completed_with_errors" && (
+                  <>
+                    {" "}
+                    {typeof run.failed_docs_count === "number" &&
+                      run.failed_docs_count > 0 && (
+                        <>
+                          Проблемных документов (FAILED):{" "}
+                          {run.failed_docs_count}.{" "}
+                        </>
+                      )}
+                    {typeof run.quarantine_docs_count === "number" &&
+                      run.quarantine_docs_count > 0 && (
+                        <>
+                          Документов в карантине:{" "}
+                          {run.quarantine_docs_count}.{" "}
+                        </>
+                      )}
+                  </>
+                )}
+
+                {/* безопасный доступ к error_details.message без any */}
+                {(() => {
+                  const details = run.error_details;
+                  if (
+                    details &&
+                    typeof details === "object" &&
+                    "message" in details &&
+                    typeof (details as { message: unknown }).message === "string"
+                  ) {
+                    return (
                       <>
-                        Проблемных документов (FAILED):{" "}
-                        {run.failed_docs_count}.{" "}
+                        {" "}
+                        Детали:{" "}
+                        {(details as { message: string }).message}
                       </>
-                    )}
-                  {typeof run.quarantine_docs_count === "number" &&
-                    run.quarantine_docs_count > 0 && (
-                      <>
-                        Документов в карантине:{" "}
-                        {run.quarantine_docs_count}.{" "}
-                      </>
-                    )}
-                </>
-              )}
-              {run.error_details && (run.error_details as any).message && (
-                <>
-                  {" "}
-                  Детали: {String((run.error_details as any).message)}
-                </>
-              )}
-            </p>
-          )}
+                    );
+                  }
+                  return null;
+                })()}
+              </p>
+            )}
           {effectiveStatus === "running" && (
             <p className="mt-2 text-xs text-gray-500">
               Переклассифицированные документы будут учтены в этом анализе.
@@ -343,6 +364,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const navigate = useNavigate();
   const startRun = useStartRun(deal.id);
   const { canStartRun } = useDealPermissions(deal.id);
+  const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
 
   // Подтянем данные последнего Run, если он есть, чтобы показать режим/стратегию
   const { data: latestRun } = useRun(latestRunId ?? null, false);
@@ -556,6 +578,52 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               </button>
             )}
           </div>
+
+          {/* Языки документов и выбор основного языка */}
+          <div className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+            <div>
+              <span className="font-semibold">Языки документов:</span>{" "}
+              {deal.languages && deal.languages.length > 0 ? (
+                <span>{deal.languages.join(", ")}</span>
+              ) : (
+                // Если по каким‑то причинам список языков пуст,
+                // всё равно показываем, что по умолчанию считаем RU.
+                <span className="text-gray-500">RU (по умолчанию)</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">Основной язык для анализа:</span>
+              <select
+                className="border rounded px-2 py-1 text-xs bg-white text-gray-700 disabled:opacity-50"
+                value={deal.primary_language ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value || null;
+                  setPrimaryLanguage.mutate({ primary_language: value });
+                }}
+                disabled={
+                  !deal.languages ||
+                  deal.languages.length === 0 ||
+                  setPrimaryLanguage.isPending
+                }
+              >
+                {/* Пустое значение = автоматический выбор на стороне backend-а.
+                   Там мы используем RU по умолчанию или единственный язык из списка. */}
+                <option value="">
+                  Авто (RU по умолчанию)
+                </option>
+                {deal.languages?.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <p className="text-[11px] text-gray-400">
+              Основной язык влияет на распознавание структуры документов и работу моделей.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -569,3 +637,4 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
+

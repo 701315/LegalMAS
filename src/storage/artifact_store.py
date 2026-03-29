@@ -94,6 +94,25 @@ class ArtifactPath:
     def playbook_config(playbook_name: str, version: str) -> str:
         return f"playbooks/{playbook_name}/{version}/config.yaml"
 
+    @staticmethod
+    def layout_primary(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Одноязычный layout под выбранный основной язык сделки (Deal.primary_language).
+
+        Формируется на основе layout_raw фильтрацией по языку.
+        Используется всеми downstream-стадиями (PII, структура, LLM и т.п.).
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/primary.json"
+
+    @staticmethod
+    def layout_primary_sanitized(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Одноязычный layout после PII-сатнитизации.
+
+        Структура аналогична layout_primary, но все PII-токены уже заменены.
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/primary_sanitized.json"
+
 
 class ArtifactStore:
     """

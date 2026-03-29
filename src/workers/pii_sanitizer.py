@@ -6,7 +6,7 @@ PII Sanitizer Worker.
 Пайплайн: extract → pii → structure → classify → run_deal_checks.
 
 Назначение:
-- Считать сырой макет документа (textlayoutraw) из MinIO.
+- Считать одноязычный макет документа (layout_primary) из MinIO.
 - Найти PII‑сущности по политике (triggers + YAML‑конфиг типа документа).
 - Заменить чувствительные данные токенами, зашифровать mapping и сохранить его.
 - Сохранить sanitized‑layout и PII‑mapping в MinIO.
@@ -107,17 +107,46 @@ class PIISanitizer:
             )
             return {"document_id": str(doc.id), "skipped": True}
 
-        # 3. Проверка наличия исходного текста
-        if not version.text_layout_raw_ref:
+        # 3. Выбор layout для санитизации.
+        #
+        # Цель: работать по одноязычному layout_primary, но при этом
+        # не ломать старые версии, где его ещё нет.
+        #
+        # Приоритет:
+        # 1) явный primary layout по пути ArtifactPath.layout_primary(...)
+        # 2) text_layout_raw_ref (исторический multi‑lang layout)
+        layout_ref: str | None = None
+
+        # tenant_id/deal_id берём так же, как в _build_sanitized_path
+        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+            tenant_id = str(doc.deal.tenant_id)
+        else:
+            tenant_id = str(doc.deal_id)
+        deal_id = str(doc.deal_id)
+
+        # Путь к primary layout по конвенции ArtifactPath
+        primary_path = ArtifactPath.layout_primary(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+        )
+
+        # Сначала пробуем одноязычный layout_primary
+        if self.store.exists(primary_path):
+            layout_ref = primary_path
+        elif version.text_layout_raw_ref:
+            # Fallback на многоязычный raw (поддержка старых данных)
+            layout_ref = version.text_layout_raw_ref
+
+        if not layout_ref:
             raise PermanentError(
-                f"No text_layout_raw_ref for version {document_version_id}"
+                f"No layout_ref (primary or raw) for version {document_version_id}"
             )
 
         try:
-            # 4. Загрузить textlayoutraw из MinIO
-            # ArtifactStore.get_json — синхронный метод, НЕ используем await
-            layout_raw = self.store.get_json(version.text_layout_raw_ref)
+            layout_raw = self.store.get_json(layout_ref)
             elements = layout_raw.get("elements", [])
+
 
             # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
             triggers = getattr(doc, "applicable_triggers", None) or []
@@ -129,6 +158,12 @@ class PIISanitizer:
             )
 
             # 7. Сохранить sanitized‑layout
+            #
+            # В новой архитектуре для одноязычности мы хотим хранить
+            # отдельный артефакт layout_primary_sanitized.
+            # Пока layout_primary ещё не внедрён, путь будет совпадать
+            # по структуре с текущим, но использовать новый helper
+            # ArtifactPath.layout_primary_sanitized.
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
             sanitized_path = self._build_sanitized_path(doc)
             # ArtifactStore.put_json — синхронный метод, НЕ используем await
@@ -179,7 +214,6 @@ class PIISanitizer:
                 document_id=str(doc.id),
                 reason="pii_encryption_error",
             ) from e
-
 
     def _should_skip(self, doc) -> bool:
         """Проверить, нужно ли пропустить санитизацию (идемпотентность)."""
@@ -274,7 +308,11 @@ class PIISanitizer:
         return sanitized_elements, global_mapping, stats
 
     def _build_sanitized_path(self, doc) -> str:
-        """Построить путь для sanitized‑layout в MinIO через ArtifactPath."""
+        """
+        Построить путь для sanitized‑layout в MinIO через ArtifactPath.
+
+        В новой архитектуре это будет одноязычный layout_primary_sanitized.
+        """
         # tenant_id берём из связанной сделки, как единственный источник истины
         if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
             tenant_id = str(doc.deal.tenant_id)
@@ -283,7 +321,7 @@ class PIISanitizer:
             tenant_id = str(doc.deal_id)
 
         deal_id = str(doc.deal_id)
-        return ArtifactPath.layout_sanitized(
+        return ArtifactPath.layout_primary_sanitized(
             tenant_id=tenant_id,
             deal_id=deal_id,
             document_id=str(doc.id),
@@ -483,3 +521,4 @@ async def _mark_quarantine(
         reason=reason,
         run_id=None,
     )
+    

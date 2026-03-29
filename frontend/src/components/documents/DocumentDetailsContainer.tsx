@@ -36,6 +36,8 @@ import type {
   StructuredDataView,
 } from "./DocumentDetails";
 
+import { LayoutDebugModal } from "./LayoutDebugModal";
+
 interface Props {
   docId: string;
   dealId: string;
@@ -115,6 +117,18 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   }
   const structuredNotAvailable = structuredState.notAvailable;
 
+  // Для непрофессионального программиста:
+  // - Здесь мы просто смотрим, отдал ли backend ссылки на layout'ы.
+  // - Если поле есть и не равно null/пустой строке, считаем, что макет доступен.
+  const rawLayoutAvailable =
+    !!doc && !!doc.text_layout_raw_ref && doc.text_layout_raw_ref.trim() !== "";
+  const sanitizedLayoutAvailable =
+    !!doc &&
+    !!doc.text_layout_sanitized_ref &&
+    doc.text_layout_sanitized_ref.trim() !== "";
+
+  const [showLayoutDebug, setShowLayoutDebug] = React.useState(false);
+
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
   };
@@ -131,35 +145,49 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const isLoading = detailsState.isLoading;
 
   return (
-    <DocumentDetailsView
-      dealId={dealId}
-      doc={doc}
-      classification={classification}
-      family={family}
-      structuredData={structuredData}
-      structuredNotAvailable={structuredNotAvailable}
-      isLoading={isLoading}
-      notFound={detailsState.notFound}
-      error={detailsState.error}
-      canDownload={canDownload}
-      canOpenPdf={canOpenPdf}
-      canReclassify={canReclassify}
-      pdfUrl={pdfData?.url ?? null}
-      onSetReviewed={handleSetReviewed}
-      isSetReviewedPending={setReviewedMutation.isPending}
-      onReclassify={handleReclassify}
-      isReclassifyPending={reclassifyMutation.isPending}
-      lastReclassifyResult={
-        reclassifyMutation.isSuccess
-          ? reclassifyMutation.data ?? undefined
-          : undefined
-      }
-      onNavigateToGrid={onNavigateToGrid}
-      onReplaceFile={handleReplaceFile}
-      availableDocTypes={availableDocTypes}
-      initialDocType={doc?.doc_type ?? ""}
-    />
+    <>
+      <DocumentDetailsView
+        dealId={dealId}
+        doc={doc}
+        classification={classification}
+        family={family}
+        structuredData={structuredData}
+        structuredNotAvailable={structuredNotAvailable}
+        isLoading={isLoading}
+        notFound={detailsState.notFound}
+        error={detailsState.error}
+        canDownload={canDownload}
+        canOpenPdf={canOpenPdf}
+        canReclassify={canReclassify}
+        pdfUrl={pdfData?.url ?? null}
+        onSetReviewed={handleSetReviewed}
+        isSetReviewedPending={setReviewedMutation.isPending}
+        onReclassify={handleReclassify}
+        isReclassifyPending={reclassifyMutation.isPending}
+        lastReclassifyResult={
+          reclassifyMutation.isSuccess
+            ? reclassifyMutation.data ?? undefined
+            : undefined
+        }
+        onNavigateToGrid={onNavigateToGrid}
+        onReplaceFile={handleReplaceFile}
+        availableDocTypes={availableDocTypes}
+        initialDocType={doc?.doc_type ?? ""}
+        // Новые флаги наличия layout'ов — view сможет по ним отрисовать кнопки/иконки.
+        rawLayoutAvailable={rawLayoutAvailable}
+        sanitizedLayoutAvailable={sanitizedLayoutAvailable}
+        // Колбэк для открытия debug-модалки
+        onOpenLayoutDebug={() => setShowLayoutDebug(true)}
+      />
+
+      <LayoutDebugModal
+        docId={docId}
+        isOpen={showLayoutDebug}
+        onClose={() => setShowLayoutDebug(false)}
+      />
+    </>
   );
 };
 
 export default DocumentDetailsContainer;
+

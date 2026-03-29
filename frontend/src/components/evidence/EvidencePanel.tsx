@@ -12,6 +12,7 @@ import type {
   QCStatus,
   OpenViewerAtFn,
   StructuredField,
+  Evidence,
 } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
@@ -35,15 +36,12 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 }) => {
   const { data: evidence, isLoading, error } = useEvidence(result.id);
 
-  const evidenceObj = evidence as
-    | {
-        quote?: string;
-        snippet?: string;
-        page?: number;
-        clause_uid?: string;
-        structured_data?: unknown;
-      }
-    | undefined;
+  // evidence приходит как массив Evidence | undefined (по сигнатуре хука),
+  // но нас интересует один основной объект. Берём первый.
+  const evidenceObj: Evidence | undefined =
+    Array.isArray(evidence) && evidence.length > 0
+      ? evidence[0]
+      : (evidence as Evidence | undefined);
 
   const snippet =
     evidenceObj?.quote ||
@@ -52,12 +50,18 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     "(нет фрагмента текста)";
 
   const page = evidenceObj?.page;
-  const clauseUid = evidenceObj?.clause_uid;
+  const clauseUid =
+    (evidenceObj as Evidence & {
+      clause_uid?: string;
+    })?.clause_uid;
 
-  // structured_data из evidence: типизуем как обычный объект для JSON.stringify
+  // structured_data из evidence: типизуем как обычный объект для JSON.stringify.
+  // Здесь это может быть любая структура, поэтому используем Record<string, unknown>.
   const evidenceDetails =
-    (evidenceObj?.structured_data as Record<string, unknown> | undefined) ??
-    undefined;
+    ((evidenceObj as unknown as {
+      structured_data?: Record<string, unknown>;
+    })?.structured_data ?? undefined) || undefined;
+
   const hasEvidenceDetails = !!evidenceDetails;
 
   const qcStatus = result.qc_status;
@@ -73,17 +77,20 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 
   const handleViewOriginal = () => {
     // TODO: открыть viewer для исходного документа по document_id
+    // Сейчас просто логируем для отладки.
+    // В проде сюда подставляется реальное открытие viewer'а.
     console.log("Просмотр исходного документа", result.document_id);
   };
 
   const qualitySummary = React.useMemo(() => {
-    const flags = (result.quality_flags ?? {}) as Record<string, unknown>;
+    // quality_flags: Record<string, boolean> | undefined
+    const flags: Record<string, boolean> = result.quality_flags ?? {};
     const active: string[] = [];
 
-    if ((flags as any).structure_degraded) {
+    if (flags.structure_degraded) {
       active.push("Структура документа нарушена");
     }
-    if ((flags as any).llm_fallback_used) {
+    if (flags.llm_fallback_used) {
       active.push("Использован LLM fallback");
     }
     if (!active.length && Object.keys(flags).length) {
@@ -100,13 +107,18 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     if (!result.structured_data || typeof result.structured_data !== "object") {
       return [];
     }
-    return Object.entries(result.structured_data) as [string, StructuredField][];
+    return Object.entries(result.structured_data) as [
+      string,
+      StructuredField,
+    ][];
   }, [result.structured_data]);
 
   const hasStructuredData = structuredEntries.length > 0;
 
   // Простейшая логика статуса по полю: found + confidence.
-  const getFieldStatus = (field: StructuredField): "yes" | "no" | "unclear" => {
+  const getFieldStatus = (
+    field: StructuredField,
+  ): "yes" | "no" | "unclear" => {
     const found = field.found ?? true;
     const conf = typeof field.confidence === "number" ? field.confidence : 0;
     if (!found) return "no";
@@ -124,10 +136,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   // Человекочитаемый текст для location.
   const renderLocationLabel = (field: StructuredField) => {
     if (!field.location) return "—";
-    const { page, clause_uid } = field.location;
-    if (!page && !clause_uid) return "Фрагмент";
-    if (page && clause_uid) return `Стр. ${page}, п. ${clause_uid}`;
-    if (page) return `Стр. ${page}`;
+    const { page: locPage, clause_uid } = field.location;
+    if (!locPage && !clause_uid) return "Фрагмент";
+    if (locPage && clause_uid) return `Стр. ${locPage}, п. ${clause_uid}`;
+    if (locPage) return `Стр. ${locPage}`;
     return clause_uid || "Фрагмент";
   };
 
@@ -404,7 +416,9 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
                               <button
                                 type="button"
                                 className="text-blue-600 hover:underline"
-                                onClick={() => handleOpenFieldLocation(field)}
+                                onClick={() =>
+                                  handleOpenFieldLocation(field)
+                                }
                               >
                                 {renderLocationLabel(field)}
                               </button>
@@ -433,7 +447,9 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
               <div className="border rounded bg-white p-2 text-[11px]">
                 {result.qc_comment && (
                   <>
-                    <div className="mb-1 text-gray-500">Комментарий QC:</div>
+                    <div className="mb-1 text-gray-500">
+                      Комментарий QC:
+                    </div>
                     <div className="text-xs whitespace-pre-wrap mb-2">
                       {result.qc_comment}
                     </div>
@@ -517,3 +533,4 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 };
 
 export default EvidencePanel;
+

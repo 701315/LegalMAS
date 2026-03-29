@@ -1,6 +1,5 @@
 # src/db/repositories/deal_repo.py
 
-
 """
 Репозиторий для CRUD‑операций со сделками (Deal).
 
@@ -252,3 +251,45 @@ class DealRepository:
         )
         await self.session.execute(stmt)
         await self.session.flush()
+
+    async def update_languages(
+        self,
+        deal_id: uuid.UUID,
+        languages: list[str],
+    ) -> None:
+        """
+        Обновить список языков сделки (поле Deal.languages).
+
+        Для непрофессионального программиста:
+        - languages — готовый список строк, например ["ru"] или ["en", "ru"];
+        - метод просто записывает его в поле Deal.languages для указанной сделки;
+        - никакой логики объединения здесь нет — это уже сделал сервис.
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(languages=languages)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+
+    async def update_primary_language(
+        self,
+        deal_id: uuid.UUID,
+        primary_language: str | None,
+    ) -> None:
+        """
+        Обновить основное поле языка сделки (Deal.primary_language).
+
+        Для непрофессионального программиста:
+        - primary_language — строка вроде "ru" или "en", либо None;
+        - метод просто записывает значение в одно поле указанной сделки.
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(primary_language=primary_language)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+        

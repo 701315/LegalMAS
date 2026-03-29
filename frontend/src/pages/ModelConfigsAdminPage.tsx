@@ -12,7 +12,7 @@
 //   Также показывает, где профиль используется (плейбуки / проекты).
 // =============================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import type {
@@ -102,7 +102,7 @@ const ModelConfigsAdminPage: React.FC = () => {
   };
 
   // Загрузка списка ModelConfig
-  const loadConfigs = async () => {
+  const loadConfigs = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
       const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
@@ -125,11 +125,11 @@ const ModelConfigsAdminPage: React.FC = () => {
         usage: {},
       });
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadConfigs();
-  }, []);
+    void loadConfigs();
+  }, [loadConfigs]);
 
   const handleBack = () => {
     // Если нас вызвали из сделки, логично вернуться назад в историю,

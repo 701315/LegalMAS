@@ -36,19 +36,24 @@ export const RequestSidePanel: React.FC<Props> = ({
 }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
-  const [priority, setPriority] = useState<DDRequest["priority"]>("medium");
+  const [priority, setPriority] =
+    useState<DDRequest["priority"]>("medium");
   const [status, setStatus] = useState<DDRequest["status"]>("open");
   const [copied, setCopied] = useState(false);
 
-  // Синхронизация при выборе нового запроса
+  // Синхронизация при выборе нового запроса.
+  // Привязываемся только к идентификатору, чтобы сбрасывать форму
+  // когда пользователь выбрал другой request.
   useEffect(() => {
-    if (request) {
-      setText(request.text);
-      setPriority(request.priority);
-      setStatus(request.status);
-      setEditing(false);
+    if (!request) {
+      return;
     }
-  }, [request]);
+    setText(request.text);
+    setPriority(request.priority);
+    setStatus(request.status);
+    setEditing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.id]);
 
   // Закрытие по Escape
   useEffect(() => {
@@ -84,13 +89,19 @@ export const RequestSidePanel: React.FC<Props> = ({
   };
 
   // Приоритеты — фиксированный список (из типа)
-  const PRIORITY_OPTIONS: { value: DDRequest["priority"]; label: string }[] = [
+  const PRIORITY_OPTIONS: {
+    value: DDRequest["priority"];
+    label: string;
+  }[] = [
     { value: "critical", label: "Критичный" },
     { value: "high", label: "Высокий" },
     { value: "medium", label: "Средний" },
   ];
 
-  const STATUS_OPTIONS: { value: DDRequest["status"]; label: string }[] = [
+  const STATUS_OPTIONS: {
+    value: DDRequest["status"];
+    label: string;
+  }[] = [
     { value: "open", label: "Открыт" },
     { value: "in_progress", label: "В работе" },
     { value: "resolved", label: "Закрыт" },
@@ -185,14 +196,12 @@ export const RequestSidePanel: React.FC<Props> = ({
                 {sourceCfg?.icon && (
                   <span aria-hidden="true">{sourceCfg.icon}</span>
                 )}
-                <span>
-                  {sourceCfg?.label || request.source}
-                </span>
+                <span>{sourceCfg?.label || request.source}</span>
               </span>
               {request.source === "yaml_template" && (
                 <p className="text-xs text-purple-600 mt-1">
-                  Текст и адресат сгенерированы автоматически
-                  из YAML-инструкции типа документа.
+                  Текст и адресат сгенерированы автоматически из
+                  YAML-инструкции типа документа.
                 </p>
               )}
             </Field>
@@ -279,13 +288,8 @@ export const RequestSidePanel: React.FC<Props> = ({
           >
             {copied ? (
               <>
-                <Check
-                  size={14}
-                  className="text-green-600"
-                />
-                <span className="text-green-600">
-                  Скопировано!
-                </span>
+                <Check size={14} className="text-green-600" />
+                <span className="text-green-600">Скопировано!</span>
               </>
             ) : (
               <>
@@ -304,10 +308,7 @@ export const RequestSidePanel: React.FC<Props> = ({
                 className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
               >
                 {isSaving ? (
-                  <Loader2
-                    className="animate-spin"
-                    size={14}
-                  />
+                  <Loader2 className="animate-spin" size={14} />
                 ) : (
                   <Check size={14} />
                 )}
@@ -315,6 +316,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               </button>
               <button
                 onClick={() => {
+                  // Явный откат к значениям текущего запроса
                   setText(request.text);
                   setPriority(request.priority);
                   setStatus(request.status);

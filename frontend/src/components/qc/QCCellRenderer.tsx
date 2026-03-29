@@ -4,12 +4,15 @@
 // =============================================================
 
 import React from "react";
-import type { CheckResult } from "../../types";
+import type { CheckResult, QCStatus } from "../../types";
 
 interface QCCellRendererProps {
-  value: string | undefined;
+  value: QCStatus | undefined;
   data: CheckResult;
-  onQcChange?: (result: CheckResult, newStatus: "approved" | "rejected") => void;
+  onQcChange?: (
+    result: CheckResult,
+    newStatus: "approved" | "rejected",
+  ) => void;
 }
 
 export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
@@ -17,25 +20,26 @@ export const QCCellRenderer: React.FC<QCCellRendererProps> = ({
   data,
   onQcChange,
 }) => {
-  const status = value as string | undefined;
+  const status: QCStatus | undefined = value;
 
-  const handleApprove = (e: React.MouseEvent) => {
+  const handleApprove = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQcChange?.(data, "approved");
   };
 
-  const handleReject = (e: React.MouseEvent) => {
+  const handleReject = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQcChange?.(data, "rejected");
   };
 
-  let label = status || "pending";
-  let color = "text-gray-600";
-  if (status === "approved") color = "text-green-600";
-  if (status === "rejected") color = "text-red-600";
-  if (status === "needs_review") color = "text-orange-600";
+  const label: QCStatus = status ?? "pending";
 
-  const isPending = status === "pending" || !status;
+  let color = "text-gray-600";
+  if (label === "approved") color = "text-green-600";
+  if (label === "rejected") color = "text-red-600";
+  if (label === "needs_review") color = "text-orange-600";
+
+  const isPending = label === "pending";
 
   return (
     <div className="flex items-center gap-2">

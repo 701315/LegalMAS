@@ -4,37 +4,37 @@
 // =============================================================
 
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import { useDocuments, useUploadDocuments } from "../api/documents";
 import { formatDate } from "../utils";
 import { useDealPermissions } from "../hooks/usePermissions";
+import type { ApiError } from "../types";
 
 const ProjectUploadPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
+  // Хуки прав и API вызываем без условий
+  const { canUploadDocuments } = useDealPermissions(dealId as string);
+  const { data: docsPage, isLoading: docsLoading } = useDocuments(
+    dealId as string,
+    1,
+  );
+  const uploadMutation = useUploadDocuments(dealId as string);
+
+  const documents = docsPage?.items ?? [];
+  const isSubmitting = uploadMutation.isPending;
+
+  // Локальный стейт
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [folderPath, setFolderPath] = useState<string>("");
   const [errorText, setErrorText] = useState<string | null>(null);
 
+  // После всех хуков — условные return
+
   if (!dealId) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        dealId не указан в маршруте.
-      </div>
-    );
+    return <Navigate to="/deals" replace />;
   }
-
-  // Права на загрузку документов в конкретную сделку
-  const { canUploadDocuments } = useDealPermissions(dealId);
-
-  // Список уже загруженных документов по сделке (первая страница)
-  const { data: docsPage, isLoading: docsLoading } = useDocuments(dealId, 1);
-  const documents = docsPage?.items ?? [];
-
-  // Мутация для загрузки файлов
-  const uploadMutation = useUploadDocuments(dealId);
-  const isSubmitting = uploadMutation.isPending;
 
   if (!canUploadDocuments) {
     return (
@@ -81,10 +81,13 @@ const ProjectUploadPage: React.FC = () => {
 
       setSelectedFiles([]);
       navigate(`/projects/${dealId}`);
-    } catch (err: any) {
+    } catch (err) {
+      const apiErr = err as ApiError & {
+        response?: { data?: { detail?: string } };
+      };
       const detail =
-        err?.response?.data?.detail ||
-        err?.detail ||
+        apiErr.response?.data?.detail ||
+        apiErr.detail ||
         "Не удалось загрузить документы. Попробуйте позже.";
       setErrorText(detail);
     }
@@ -103,9 +106,7 @@ const ProjectUploadPage: React.FC = () => {
             <h1 className="text-xl font-bold text-gray-900">
               Загрузка документов
             </h1>
-            <p className="text-sm text-gray-500">
-              Проект: {dealId}
-            </p>
+            <p className="text-sm text-gray-500">Проект: {dealId}</p>
           </div>
           <button
             type="button"
@@ -144,7 +145,8 @@ const ProjectUploadPage: React.FC = () => {
                   <div>
                     <p className="text-gray-800">{doc.filename}</p>
                     <p className="text-xs text-gray-500">
-                      Статус: {doc.status} · Создан: {formatDate(doc.created_at)}
+                      Статус: {doc.status} · Создан:{" "}
+                      {formatDate(doc.created_at)}
                     </p>
                   </div>
                 </li>
@@ -195,9 +197,7 @@ const ProjectUploadPage: React.FC = () => {
           </div>
 
           {errorText && (
-            <p className="text-sm text-red-600">
-              {errorText}
-            </p>
+            <p className="text-sm text-red-600">{errorText}</p>
           )}
 
           <div className="flex items-center gap-3">

@@ -13,15 +13,18 @@ interface QualityFlagRendererProps {
 export const QualityFlagRenderer: React.FC<QualityFlagRendererProps> = ({
   result,
 }) => {
-  const flags = result.quality_flags || {};
-  const hasStructureDegraded = (flags as any).structure_degraded;
-  const hasLlmFallback = (flags as any).llm_fallback_used;
-  const otherFlags =
+  // quality_flags приходит как словарь вида { [ключ]: boolean }
+  const flags: Record<string, boolean> = result.quality_flags ?? {};
+
+  const hasStructureDegraded = Boolean(flags.structure_degraded);
+  const hasLlmFallback = Boolean(flags.llm_fallback_used);
+
+  const otherFlagsExist =
     Object.keys(flags).filter(
       (k) => k !== "structure_degraded" && k !== "llm_fallback_used",
     ).length > 0;
 
-  if (!hasStructureDegraded && !hasLlmFallback && !otherFlags) {
+  if (!hasStructureDegraded && !hasLlmFallback && !otherFlagsExist) {
     return <span className="text-[11px] text-gray-300">—</span>;
   }
 
@@ -39,7 +42,7 @@ export const QualityFlagRenderer: React.FC<QualityFlagRendererProps> = ({
           title="Использован LLM fallback"
         />
       )}
-      {otherFlags && (
+      {otherFlagsExist && (
         <span
           className="w-2 h-2 rounded-full bg-gray-500"
           title="Другие флаги качества"

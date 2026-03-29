@@ -45,12 +45,34 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   const [pageNumber, setPageNumber] = React.useState<number>(1);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
+  // Ширина контейнера, считанная один раз и при ресайзах
+  const [containerWidth, setContainerWidth] = React.useState<number | null>(
+    null,
+  );
+
   // При смене location — прыгаем на нужную страницу
   React.useEffect(() => {
     if (location?.page && location.page > 0) {
       setPageNumber(location.page);
     }
   }, [location]);
+
+  // Измеряем ширину контейнера и подписываемся на resize
+  React.useLayoutEffect(() => {
+    if (!open) return;
+
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => {
+      window.removeEventListener("resize", updateWidth);
+    };
+  }, [open]);
 
   // Esc‑закрытие
   React.useEffect(() => {
@@ -91,10 +113,16 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   };
 
   const headerTitle =
-    title || (location?.documentId ? `Документ ${location.documentId}` : "Документ");
+    title ||
+    (location?.documentId ? `Документ ${location.documentId}` : "Документ");
 
   const hasErrorTitle = Boolean(title && title.toLowerCase().includes("ошибка"));
-  const isLoadingTitle = Boolean(title && title.toLowerCase().includes("загрузка"));
+  const isLoadingTitle = Boolean(
+    title && title.toLowerCase().includes("загрузка"),
+  );
+
+  // Итоговая ширина страницы: либо измеренная, либо дефолт
+  const pageWidth = (containerWidth ?? 900) * initialScale;
 
   return (
     <div
@@ -191,14 +219,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                   </div>
                 }
               >
-                <Page
-                  pageNumber={pageNumber}
-                  width={
-                    containerRef.current
-                      ? containerRef.current.clientWidth * initialScale
-                      : 900 * initialScale
-                  }
-                />
+                <Page pageNumber={pageNumber} width={pageWidth} />
               </Document>
             </div>
           )}

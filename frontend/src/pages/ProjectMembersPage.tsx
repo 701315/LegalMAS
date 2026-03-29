@@ -4,17 +4,16 @@
 // =============================================================
 
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Navigate } from "react-router-dom";
 import {
   useProjectMembers,
   useCreateProjectMember,
   useUpdateProjectMember,
   useDeleteProjectMember,
 } from "../api/projectMembers";
-import type {
-  ProjectMember,
-} from "../api/projectMembers";
+import type { ProjectMember } from "../api/projectMembers";
 import type { ProjectRole } from "../api/auth";
+import type { ApiError } from "../types";
 import { useDealPermissions } from "../hooks/usePermissions";
 
 type FormMode = "create" | "edit";
@@ -39,6 +38,18 @@ const ProjectMembersPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
+  // Хуки должны вызываться без условий:
+  // 1) проверка прав доступа
+  const { canManageRequests } = useDealPermissions(dealId as string);
+  const canManageMembers = canManageRequests;
+
+  // 2) запросы к API
+  const { data: members, isLoading } = useProjectMembers(dealId as string);
+  const createMutation = useCreateProjectMember(dealId as string);
+  const updateMutation = useUpdateProjectMember(dealId as string);
+  const deleteMutation = useDeleteProjectMember(dealId as string);
+
+  // 3) локальное состояние формы и ошибок
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [form, setForm] = useState<MemberFormState>(EMPTY_FORM);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -46,19 +57,14 @@ const ProjectMembersPage: React.FC = () => {
     null,
   );
 
+  // После хуков уже можно делать условные return.
+
+  // Если нет dealId в урле — перенаправляем на список сделок
   if (!dealId) {
-    return (
-      <div className="p-6 text-center text-red-600">
-        dealId не указан в маршруте.
-      </div>
-    );
+    return <Navigate to="/deals" replace />;
   }
 
-  // Права по проекту: управление участниками завязываем на canManageRequests
-  // (при необходимости можно ввести отдельный capability для управления участниками).
-  const { canManageRequests } = useDealPermissions(dealId);
-  const canManageMembers = canManageRequests;
-
+  // Если нет прав управления участниками — показываем понятный экран
   if (!canManageMembers) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -77,11 +83,6 @@ const ProjectMembersPage: React.FC = () => {
       </div>
     );
   }
-
-  const { data: members, isLoading } = useProjectMembers(dealId);
-  const createMutation = useCreateProjectMember(dealId);
-  const updateMutation = useUpdateProjectMember(dealId);
-  const deleteMutation = useDeleteProjectMember(dealId);
 
   const handleBack = () => {
     navigate(`/projects/${dealId}`);
@@ -111,10 +112,7 @@ const ProjectMembersPage: React.FC = () => {
     setErrorText(null);
   };
 
-  const handleFormChange = (
-    field: keyof MemberFormState,
-    value: string,
-  ) => {
+  const handleFormChange = (field: keyof MemberFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -150,16 +148,18 @@ const ProjectMembersPage: React.FC = () => {
             name: form.name.trim(),
             login: form.login.trim(),
             role: form.role,
+            // Если пароль не введён — не отправляем его, чтобы не затирать
             password: form.password.trim() || undefined,
           },
         });
       }
       closeForm();
-    } catch (err: any) {
-      if (err?.detail === "LOGIN_TAKEN") {
+    } catch (err) {
+      const apiErr = err as ApiError;
+      if (apiErr.detail === "LOGIN_TAKEN") {
         setErrorText("Такой логин уже занят. Выберите другой.");
       } else {
-        setErrorText(err?.detail || "Не удалось сохранить участника.");
+        setErrorText(apiErr.detail || "Не удалось сохранить участника.");
       }
     }
   };
@@ -170,9 +170,11 @@ const ProjectMembersPage: React.FC = () => {
     try {
       await deleteMutation.mutateAsync(confirmDelete.member_id);
       setConfirmDelete(null);
-    } catch (err: any) {
+    } catch (err) {
+      const apiErr = err as ApiError;
       setErrorText(
-        err?.detail || "Не удалось удалить участника. Попробуйте позже.",
+        apiErr.detail ||
+          "Не удалось удалить участника. Попробуйте позже.",
       );
     }
   };
@@ -186,9 +188,7 @@ const ProjectMembersPage: React.FC = () => {
             <h1 className="text-xl font-bold text-gray-900">
               Участники проекта
             </h1>
-            <p className="text-sm text-gray-500">
-              Проект: {dealId}
-            </p>
+            <p className="text-sm text-gray-500">Проект: {dealId}</p>
           </div>
           <button
             type="button"
@@ -243,15 +243,9 @@ const ProjectMembersPage: React.FC = () => {
               <tbody>
                 {(members ?? []).map((m) => (
                   <tr key={m.member_id} className="border-t border-gray-100">
-                    <td className="px-2 py-2 text-gray-800">
-                      {m.name}
-                    </td>
-                    <td className="px-2 py-2 text-gray-600">
-                      {m.login}
-                    </td>
-                    <td className="px-2 py-2 text-gray-600">
-                      {m.role}
-                    </td>
+                    <td className="px-2 py-2 text-gray-800">{m.name}</td>
+                    <td className="px-2 py-2 text-gray-600">{m.login}</td>
+                    <td className="px-2 py-2 text-gray-600">{m.role}</td>
                     <td className="px-2 py-2 text-right space-x-2">
                       <button
                         type="button"
@@ -277,9 +271,7 @@ const ProjectMembersPage: React.FC = () => {
 
         {/* Ошибка вне форм */}
         {errorText && !formMode && !confirmDelete && (
-          <p className="text-sm text-red-600">
-            {errorText}
-          </p>
+          <p className="text-sm text-red-600">{errorText}</p>
         )}
 
         {/* Форма добавления/редактирования */}
@@ -353,7 +345,7 @@ const ProjectMembersPage: React.FC = () => {
                 <select
                   value={form.role}
                   onChange={(e) =>
-                    handleFormChange("role", e.target.value)
+                    handleFormChange("role", e.target.value as ProjectRole)
                   }
                   className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
@@ -364,9 +356,7 @@ const ProjectMembersPage: React.FC = () => {
               </div>
 
               {errorText && (
-                <p className="text-sm text-red-600">
-                  {errorText}
-                </p>
+                <p className="text-sm text-red-600">{errorText}</p>
               )}
 
               <div className="flex items-center justify-end gap-3 pt-2">
@@ -422,3 +412,4 @@ const ProjectMembersPage: React.FC = () => {
 };
 
 export default ProjectMembersPage;
+

@@ -57,6 +57,7 @@ from services.file_validator import (
     FileStatus,
     validate_file,
 )
+
 from services.extract_router import (
     ExtractRoutingDecision,
     decide_extraction_strategy,
@@ -286,7 +287,8 @@ async def _async_import(
       4. Дедупликация по SHA-256 внутри сделки.
       5. Загрузка оригинала в MinIO.
       6. Создание Document + DocumentVersion.
-      7. Постановка extract_document (PDF) или карантин для других типов.
+      7. Определение языка документа и обновление Deal.languages.
+      8. Постановка extract_document (PDF) или конвертация/карантин для других типов.
 
     folder_path сохраняется как есть и потом используется L1‑классификатором.
     """

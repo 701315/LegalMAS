@@ -10,16 +10,17 @@ import { useAuth } from "../hooks/useAuth";
 import { useLogin } from "../api/auth";
 import type { GlobalRole } from "../stores/uiStore";
 import type { ProjectRole } from "../api/auth";
+import type { ApiError } from "../types";
 
 // Все известные роли бэкенда → GlobalRole фронта
 const ROLE_MAP: Record<string, GlobalRole> = {
   superadmin: "superadmin",
-  admin:      "admin",
-  editor:     "editor",
-  reviewer:   "reviewer",
-  viewer:     "viewer",
-  user:       "user",
-  system:     "system",
+  admin: "admin",
+  editor: "editor",
+  reviewer: "reviewer",
+  viewer: "viewer",
+  user: "user",
+  system: "system",
 };
 
 const LoginPage: React.FC = () => {
@@ -27,7 +28,7 @@ const LoginPage: React.FC = () => {
   const { setUserInfo, logout } = useAuth();
   const loginMutation = useLogin();
 
-  const [login, setLogin]       = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -58,29 +59,44 @@ const LoginPage: React.FC = () => {
           const projectRoles: Record<string, ProjectRole> = {};
 
           setUserInfo({
-            userId:       user.id,
-            userName:     user.email ?? user.id,
+            userId: user.id,
+            userName: user.email ?? user.id,
             globalRole,
             projectRoles,
-            apiKey:       data.access_token,
+            apiKey: data.access_token,
           });
 
           navigate("/dashboard");
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
+          // Аккуратно достаём detail/message из ошибки любого формата
+          const apiErr = err as
+            | ApiError
+            | (ApiError & { response?: { data?: ApiError } })
+            | Error
+            | { message?: string }
+            | null
+            | undefined;
+
+          const detailFromResponse =
+            (apiErr as { response?: { data?: ApiError } })?.response?.data
+              ?.detail;
+
           const detail =
-            err?.detail ||
-            err?.message ||
+            (apiErr as ApiError)?.detail ??
+            detailFromResponse ??
+            (apiErr as Error)?.message ??
+            (apiErr as { message?: string })?.message ??
             "Ошибка входа. Проверьте логин и пароль.";
+
           setErrorText(String(detail));
         },
-      }
+      },
     );
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
-
       {/* Логотип-ссылка на лендинг */}
       <button
         onClick={() => navigate("/")}
@@ -90,7 +106,9 @@ const LoginPage: React.FC = () => {
           <Shield className="w-5 h-5 text-white" />
         </div>
         <div className="text-left">
-          <p className="text-base font-bold text-slate-900 leading-none">LegalMAS</p>
+          <p className="text-base font-bold text-slate-900 leading-none">
+            LegalMAS
+          </p>
           <p className="text-[11px] text-slate-500 mt-0.5">
             Система интеллектуального анализа правовых документов
           </p>
@@ -99,7 +117,9 @@ const LoginPage: React.FC = () => {
 
       {/* Карточка формы */}
       <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <h1 className="text-lg font-bold text-slate-900 mb-1">Вход в систему</h1>
+        <h1 className="text-lg font-bold text-slate-900 mb-1">
+          Вход в систему
+        </h1>
         <p className="text-sm text-slate-500 mb-6">
           Введите логин и пароль, выданные администратором.
         </p>
@@ -157,7 +177,6 @@ const LoginPage: React.FC = () => {
       >
         ← Вернуться на главную
       </button>
-
     </div>
   );
 };
