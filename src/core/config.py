@@ -183,6 +183,18 @@ class Settings(BaseSettings):
     RUNNER_SPARSE_WEIGHT: float = 0.3  # BM25
     RUNNER_METADATA_WEIGHT: float = 0.1  # doc_type / meta
 
+    # Runner: metadata-boost для RetrievalEngine
+    # Для непрофессионального программиста:
+    # - Эти коэффициенты задают, насколько сильно влияют разные метаданные
+    #   (тип чанка, заголовки, позиция в документе, summary) на итоговый score.
+    # - Их можно тюнить через переменные окружения без изменения кода.
+    RUNNER_METADATA_KIND_BONUS_SUBCLAUSE: float = 0.3
+    RUNNER_METADATA_KIND_PENALTY_SECTION: float = 0.1
+    RUNNER_METADATA_SECTION_TITLE_BOOST: float = 1.0
+    RUNNER_METADATA_POSITION_MID_BOOST: float = 0.3
+    RUNNER_METADATA_PATH_TITLES_BOOST: float = 0.5
+    RUNNER_METADATA_SUMMARY_BOOST: float = 0.2
+
     # Runner: режим выбора проверок
     #   "global_and_doc_type" — глобальный плейбук + doc-type YAML
     #   "global_only"         — только глобальный плейбук

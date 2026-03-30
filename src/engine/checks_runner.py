@@ -1,5 +1,3 @@
-# src/engine/checks_runner.py
-
 """
 CheckRunner: playbook-based checks executor.
 
@@ -388,19 +386,44 @@ class CheckRunner:
 
             # ВАЖНО:
             # - Раньше мы брали один чанк = одна листовая клауза (get_chunks).
-            # - Теперь используем get_sized_chunks, который:
-            #     * берёт листовые клаузы как основу,
-            #     * аккуратно режет слишком длинные клаузы на под-чанки
-            #       по предложениям и абзацам,
-            #     * старается удерживать размер около target_tokens "токенов" (слов),
-            #       не превышая max_tokens.
+            # - Теперь используем get_retrieval_chunks_for_checks, который:
+            #     * берёт leaf-клаузу как основу,
+            #     * режет длинные клаузы на под-чанки,
+            #     * может отдавать разный набор уровней (subclause/section/clause).
             #
-            # Для непрофессионального программиста:
-            # - Это делается, чтобы LLM и эмбеддинги работали с кусками текста
-            #   "удобного" размера и не теряли контекст.
-            chunks = await content_service.get_sized_chunks(
-                doc.id,
-                target_tokens=300,   # можно вынести в settings при необходимости
+            # Здесь мы больше не захардкоживаем уровни, а берём их из retrieval-конфига
+            # КАЖДОГО check'а. Но сами чанки считаем один раз на документ,
+            # а не заново для каждого check, поэтому:
+            #   1) сначала считаем "широкий" набор уровней для документа,
+            #   2) а уже CheckExecutor использует required_kind/rerank/context_k.
+            #
+            # Для простоты и обратной совместимости:
+            # - берём union уровней по всем checks документа,
+            # - если ни у кого levels не заданы — используем ["subclause", "section"].
+            all_levels: set[str] = set()
+            for chk in checks:
+                retr_cfg = getattr(chk, "retrieval", None)
+                if retr_cfg and getattr(retr_cfg, "levels", None):
+                    try:
+                        all_levels.update(str(l).lower() for l in retr_cfg.levels)
+                    except Exception:
+                        # На всякий случай не ломаемся на странных данных
+                        pass
+
+            if not all_levels:
+                # дефолт как было раньше
+                levels_for_doc = ["subclause", "section"]
+            else:
+                # фиксируем порядок: subclause, clause, section
+                preferred_order = ["subclause", "clause", "section"]
+                levels_for_doc = [
+                    lvl for lvl in preferred_order if lvl in all_levels
+                ] or list(all_levels)
+
+            chunks = await content_service.get_retrieval_chunks_for_checks(
+                doc_id=doc.id,
+                levels=levels_for_doc,
+                target_tokens=300,
                 max_tokens=800,
                 overlap_ratio=0.15,
             )
@@ -593,3 +616,4 @@ class CheckRunner:
             # Коммит делает db_uow() при выходе из контекста
 
         return total_checks, failed_checks
+    

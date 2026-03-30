@@ -37,6 +37,7 @@ from db.repositories.document_version_repo import DocumentVersionRepository
 from storage.artifact_store import ArtifactStore
 
 from engine.retrieval.tokenization import count_tokens
+from engine.retrieval.models import RetrievalChunk
 from engine.content.clause_tree_builder import ClauseTreeBuilder
 from engine.content.chunking import (
     build_chunk_summary,
@@ -182,6 +183,46 @@ class DocumentContentService:
         return await self.layout_storage.load_json(layout_ref)
 
     # -------------------------------------------------------------------------
+    # Вспомогательный расчёт position_ratio
+    # -------------------------------------------------------------------------
+
+    def _calc_position_ratio(
+        self,
+        start_page: int | None,
+        end_page: int | None,
+        total_pages: int | None,
+    ) -> float | None:
+        """
+        Посчитать нормализованную позицию чанка в документе.
+
+        Для непрофессионального программиста:
+        - Если знаем страницу(ы) чанка и общее число страниц,
+          считаем "середину" чанка и делим на длину документа.
+        - Получаем число от 0.0 до 1.0:
+            ~0.0  — начало документа,
+            ~0.5  — середина,
+            ~1.0  — конец.
+        """
+        if not total_pages or total_pages <= 0:
+            return None
+
+        if start_page is None and end_page is None:
+            return None
+
+        s = start_page if isinstance(start_page, int) else end_page
+        e = end_page if isinstance(end_page, int) else start_page
+        if s is None or e is None:
+            return None
+
+        mid = (s + e) / 2.0
+        ratio = mid / float(total_pages)
+        if ratio < 0.0:
+            return 0.0
+        if ratio > 1.0:
+            return 1.0
+        return ratio
+
+    # -------------------------------------------------------------------------
     # Публичные методы
     # -------------------------------------------------------------------------
 
@@ -309,6 +350,27 @@ class DocumentContentService:
                 }
             ]
 
+        # Пытаемся достать общее число страниц из layout.metadata
+        total_pages: int | None = None
+        layout_meta = layout.get("metadata") or {}
+        # возможные ключи: page_count, pages и т.п.
+        for key in ("page_count", "pages", "num_pages", "total_pages"):
+            value = layout_meta.get(key)
+            if isinstance(value, int) and value > 0:
+                total_pages = value
+                break
+
+        # Добавляем position_ratio для каждого листового чанка (если можем)
+        if total_pages:
+            for ch in leaf_chunks:
+                meta = ch.get("metadata") or {}
+                start_page = meta.get("start_page")
+                end_page = meta.get("end_page")
+                pos = self._calc_position_ratio(start_page, end_page, total_pages)
+                if pos is not None:
+                    meta["position_ratio"] = pos
+                    ch["metadata"] = meta
+
         return leaf_chunks
 
     async def get_header_and_snippet(
@@ -387,6 +449,125 @@ class DocumentContentService:
 
         return header_text, (snippet_text or None)
 
+    async def _get_clause_chunks_as_retrieval(
+        self,
+        doc_id: uuid.UUID,
+    ) -> list[RetrievalChunk]:
+        """
+        Внутренний адаптер: get_chunks -> список RetrievalChunk с kind="clause".
+
+        Для непрофессионального программиста:
+        - Мы берём уже готовые клауза-чанки (dict) из get_chunks();
+        - Превращаем каждый в объект RetrievalChunk с нормальным "паспортом";
+        - В дальнейшем retrieval / LLM / checks будут работать именно с этим типом.
+        """
+        raw_chunks = await self.get_chunks(doc_id)
+
+        retrieval_chunks: list[RetrievalChunk] = []
+        for ch in raw_chunks:
+            text = (ch.get("text") or "").strip()
+            meta = ch.get("metadata") or {}
+            if not text:
+                continue
+
+            rc = RetrievalChunk(
+                id=str(ch.get("id") or f"{doc_id}:clause"),
+                doc_id=meta.get("doc_id") or str(doc_id),
+                kind="clause",
+                clause_uid=meta.get("clause_uid"),
+                level=meta.get("level"),
+                text=text,
+                token_count=meta.get("token_count") or count_tokens(text),
+                path_titles=list(meta.get("path_titles") or []),
+                start_page=meta.get("start_page"),
+                end_page=meta.get("end_page"),
+                element_ids=[str(e) for e in meta.get("element_ids") or []],
+                summary=meta.get("summary"),
+                meta={
+                    k: v
+                    for k, v in meta.items()
+                    if k
+                    not in {
+                        "doc_id",
+                        "clause_uid",
+                        "level",
+                        "path_titles",
+                        "start_page",
+                        "end_page",
+                        "element_ids",
+                        "token_count",
+                        "summary",
+                    }
+                },
+            )
+            retrieval_chunks.append(rc)
+
+        return retrieval_chunks
+
+    async def _get_sized_chunks_as_retrieval(
+        self,
+        doc_id: uuid.UUID,
+        target_tokens: int = 300,
+        max_tokens: int = 800,
+        overlap_ratio: float = 0.15,
+    ) -> list[RetrievalChunk]:
+        """
+        Внутренний адаптер: get_sized_chunks -> список RetrievalChunk с kind="subclause".
+
+        Для непрофессионального программиста:
+        - get_sized_chunks уже умеет строить нормализованные под-чанки
+          (subclause) в формате dict;
+        - здесь мы аккуратно упаковываем их в RetrievalChunk, не меняя
+          внешний интерфейс get_sized_chunks (он по-прежнему возвращает dict).
+        """
+        raw_chunks = await self.get_sized_chunks(
+            doc_id=doc_id,
+            target_tokens=target_tokens,
+            max_tokens=max_tokens,
+            overlap_ratio=overlap_ratio,
+        )
+
+        retrieval_chunks: list[RetrievalChunk] = []
+        for ch in raw_chunks:
+            text = (ch.get("text") or "").strip()
+            meta = ch.get("metadata") or {}
+            if not text:
+                continue
+
+            rc = RetrievalChunk(
+                id=str(ch.get("id") or f"{doc_id}:subclause"),
+                doc_id=meta.get("doc_id") or str(doc_id),
+                kind="subclause",
+                clause_uid=meta.get("clause_uid"),
+                level=meta.get("level"),
+                text=text,
+                token_count=meta.get("token_count") or count_tokens(text),
+                path_titles=list(meta.get("path_titles") or []),
+                start_page=meta.get("start_page"),
+                end_page=meta.get("end_page"),
+                element_ids=[str(e) for e in meta.get("element_ids") or []],
+                summary=meta.get("summary"),
+                meta={
+                    k: v
+                    for k, v in meta.items()
+                    if k
+                    not in {
+                        "doc_id",
+                        "clause_uid",
+                        "level",
+                        "path_titles",
+                        "start_page",
+                        "end_page",
+                        "element_ids",
+                        "token_count",
+                        "summary",
+                    }
+                },
+            )
+            retrieval_chunks.append(rc)
+
+        return retrieval_chunks
+
     async def get_sized_chunks(
         self,
         doc_id: uuid.UUID,
@@ -397,16 +578,45 @@ class DocumentContentService:
         """
         Построить НОРМАЛИЗОВАННЫЕ чанки поверх листовых клауз.
 
-        Для непрофессионального программиста:
-        - get_chunks() возвращает один крупный чанк на каждую листовую клаузу.
-        - get_sized_chunks() берёт эти клаузы и, если они слишком длинные,
-          аккуратно режет их по предложениям и абзацам.
-        - Цель: чтобы каждый чанк был "удобного" размера для эмбеддингов и LLM,
-          например около 300 слов, но не больше max_tokens.
-        """
-        base_chunks = await self.get_chunks(doc_id)
+        Для непрофессионального пользователя:
+        - сначала каждая листовая клауза превращается в один крупный чанк (get_chunks);
+        - затем мы берём эти большие куски и аккуратно делим их
+          на более мелкие части по предложениям и абзацам;
+        - цель: чтобы каждый чанк был удобного размера для нейросети,
+          примерно около target_tokens, но не больше max_tokens;
+        - небольшое перекрытие (overlap_ratio) нужно, чтобы смысл не терялся
+          на стыках чанков: часть текста повторяется в соседнем чанке.
 
+        На выходе:
+        - возвращается список словарей с полями:
+          * "id" — уникальный идентификатор чанка,
+          * "text" — текст чанка,
+          * "metadata" — служебные данные (пункт договора, страницы, путь в структуре и т.п.).
+        """
+
+        # Политика длины клаузы:
+        # - короткие клаузы (<= SHORT_CLAUSE_MAX_TOKENS) не режем вообще;
+        # - очень длинные (>= LONG_CLAUSE_MIN_TOKENS) режем;
+        # - средние оставляем целиком, чтобы не дробить нормальные пункты.
+        SHORT_CLAUSE_MAX_TOKENS = int(target_tokens * 0.9)   # ~270 при target=300
+        LONG_CLAUSE_MIN_TOKENS = int(max_tokens * 1.2)       # ~960 при max=800
+
+        base_chunks = await self.get_chunks(doc_id)
         sized: List[Dict[str, Any]] = []
+
+        # Пытаемся вычислить total_pages ещё раз, если он есть в metadata базовых чанков.
+        # (get_chunks уже пытался, но здесь мы подстраховываемся от будущих изменений.)
+        total_pages: int | None = None
+        for base in base_chunks:
+            meta = base.get("metadata") or {}
+            pos = meta.get("position_ratio")
+            # если position_ratio уже есть, значит total_pages уже учитывался
+            if pos is not None:
+                total_pages = None
+                break
+
+        # Если вдруг потребуется, можно будет снова достать layout и пересчитать,
+        # но сейчас считаем, что get_chunks уже сделал основную работу.
 
         for base in base_chunks:
             text = base.get("text") or ""
@@ -423,7 +633,50 @@ class DocumentContentService:
             end_page = metadata.get("end_page")
             element_ids = metadata.get("element_ids") or []
 
-            # Режем текст клаузы на под-чанки.
+            # Считаем длину клаузы в токенах один раз.
+            clause_token_count = count_tokens(text)
+
+            # Считаем position_ratio для всей клаузы (если ещё нет).
+            if "position_ratio" in metadata:
+                position_ratio = metadata.get("position_ratio")
+            elif total_pages:
+                position_ratio = self._calc_position_ratio(start_page, end_page, total_pages)
+            else:
+                position_ratio = None
+
+            def _append_whole_clause_chunk() -> None:
+                chunk_id = f"{doc_id}:{clause_uid or 'full'}:0"
+                sized.append(
+                    {
+                        "id": chunk_id,
+                        "text": text,
+                        "metadata": {
+                            "doc_id": str(doc_id),
+                            "clause_uid": clause_uid,
+                            "title": metadata.get("title"),
+                            "level": level,
+                            "path_titles": path_titles,
+                            "start_page": start_page,
+                            "end_page": end_page,
+                            "element_ids": element_ids,
+                            "token_count": clause_token_count,
+                            "position_ratio": position_ratio,
+                        },
+                    }
+                )
+
+            # 1) Короткие клаузы: вообще не режем.
+            if clause_token_count <= SHORT_CLAUSE_MAX_TOKENS:
+                _append_whole_clause_chunk()
+                continue
+
+            # 2) Средние клаузы: по умолчанию тоже не режем,
+            # чтобы сохранить одну «юридическую мысль» целиком.
+            if SHORT_CLAUSE_MAX_TOKENS < clause_token_count < LONG_CLAUSE_MIN_TOKENS:
+                _append_whole_clause_chunk()
+                continue
+
+            # 3) Только очень длинные клаузы режем на под-чанки.
             sub_texts = split_text_to_sized_chunks(
                 text=text,
                 target_tokens=target_tokens,
@@ -433,13 +686,7 @@ class DocumentContentService:
 
             # Если по какой-то причине сплит не сработал — сохраняем исходный чанк.
             if not sub_texts:
-                sized.append(
-                    {
-                        "id": f"{doc_id}:{clause_uid or 'full'}:0",
-                        "text": text,
-                        "metadata": metadata,
-                    }
-                )
+                _append_whole_clause_chunk()
                 continue
 
             # Собираем под-чанки с отдельными ID, но с той же метадатой.
@@ -447,8 +694,10 @@ class DocumentContentService:
                 if not sub_text.strip():
                     continue
 
+                sub_token_count = count_tokens(sub_text)
                 chunk_id = f"{doc_id}:{clause_uid or 'full'}:{sub_idx}"
 
+                # Для под-чанков логично наследовать position_ratio родительской клаузы.
                 sub_metadata = {
                     "doc_id": str(doc_id),
                     "clause_uid": clause_uid,
@@ -458,7 +707,8 @@ class DocumentContentService:
                     "start_page": start_page,
                     "end_page": end_page,
                     "element_ids": element_ids,
-                    "token_count": count_tokens(sub_text),
+                    "token_count": sub_token_count,
+                    "position_ratio": position_ratio,
                 }
 
                 sized.append(
@@ -495,46 +745,93 @@ class DocumentContentService:
         - clause: исходные листовые клаузы (как в get_chunks()).
         - subclause: нормализованные под-чанки внутри клауз (как в get_sized_chunks()).
 
-        Формат:
-        {
-            "section": [ {id, text, metadata}, ... ],
-            "clause": [ {id, text, metadata}, ... ],
-            "subclause": [ {id, text, metadata}, ... ],
-        }
+        ВАЖНО:
+        - Внешний формат остаётся таким же, как был раньше:
+            {
+                "section": [ {id, text, metadata}, ... ],
+                "clause":  [ {id, text, metadata}, ... ],
+                "subclause": [ {id, text, metadata}, ... ],
+            }
+        - Внутри мы уже работаем с RetrievalChunk, чтобы иметь единый "паспорт"
+          для всех уровней.
         """
-        clause_chunks = await self.get_chunks(doc_id)
-        sub_chunks = await self.get_sized_chunks(
-            doc_id,
+        # 1. Берём clause/subclause как RetrievalChunk
+        clause_chunks_rc = await self._get_clause_chunks_as_retrieval(doc_id)
+        sub_chunks_rc = await self._get_sized_chunks_as_retrieval(
+            doc_id=doc_id,
             target_tokens=target_tokens,
             max_tokens=max_tokens,
             overlap_ratio=overlap_ratio,
         )
-        section_chunks = build_section_chunks_from_clauses(
+
+        # 2. Для построения section-чанков пока используем старую функцию,
+        #    которая ожидает dict-формат clause-чанков.
+        clause_chunks_legacy = [rc.to_legacy_dict() for rc in clause_chunks_rc]
+        section_chunks_legacy = build_section_chunks_from_clauses(
             doc_id=str(doc_id),
-            clause_chunks=clause_chunks,
+            clause_chunks=clause_chunks_legacy,
             max_tokens=1200,
         )
 
-        def _with_summary(ch_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        # 3. Добавляем summary для clause/subclause поверх RetrievalChunk
+        def _with_summary_rc(chunks: List[RetrievalChunk]) -> List[Dict[str, Any]]:
             out: List[Dict[str, Any]] = []
-            for ch in ch_list:
-                meta = ch.get("metadata") or {}
-                path_titles = meta.get("path_titles") or []
-                text = ch.get("text") or ""
-                if not meta.get("summary"):
-                    meta["summary"] = build_chunk_summary(path_titles, text)
-                out.append(
+            for rc in chunks:
+                if not rc.summary:
+                    rc.summary = build_chunk_summary(rc.path_titles, rc.text)
+                out.append(rc.to_legacy_dict())
+            return out
+
+        # 4. Возвращаем в старом формате
+        return {
+            "section": section_chunks_legacy,
+            "clause": _with_summary_rc(clause_chunks_rc),
+            "subclause": _with_summary_rc(sub_chunks_rc),
+        }
+
+    async def get_retrieval_chunks_for_checks(
+        self,
+        doc_id: uuid.UUID,
+        levels: list[str] | None = None,
+        target_tokens: int = 300,
+        max_tokens: int = 800,
+        overlap_ratio: float = 0.15,
+    ) -> list[dict[str, Any]]:
+        """
+        Удобный фасад для CheckRunner:
+        вернуть плоский список чанков для checks с mix уровней.
+
+        По умолчанию:
+        - subclause: нормализованные под-чанки,
+        - section: крупные разделы.
+        """
+        if levels is None:
+            levels = ["subclause", "section"]
+
+        hier = await self.get_hierarchical_chunks(
+            doc_id=doc_id,
+            target_tokens=target_tokens,
+            max_tokens=max_tokens,
+            overlap_ratio=overlap_ratio,
+        )
+
+        chunks: list[dict[str, Any]] = []
+        for level in levels:
+            items = hier.get(level) or []
+            # гарантируем формат dict с id/text/metadata
+            for ch in items:
+                if not isinstance(ch, dict):
+                    continue
+                text = (ch.get("text") or "").strip()
+                if not text:
+                    continue
+                chunks.append(
                     {
                         "id": ch.get("id"),
                         "text": text,
-                        "metadata": meta,
+                        "metadata": ch.get("metadata") or {},
                     }
                 )
-            return out
 
-        return {
-            "section": section_chunks,
-            "clause": _with_summary(clause_chunks),
-            "subclause": _with_summary(sub_chunks),
-        }
+        return chunks
     

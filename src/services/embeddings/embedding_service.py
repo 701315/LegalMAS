@@ -1,3 +1,5 @@
+# src/services/embeddings/embedding_service.py
+
 from pathlib import Path
 
 import numpy as np

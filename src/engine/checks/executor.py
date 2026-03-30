@@ -60,22 +60,46 @@ class CheckExecutor:
 
         start_time = time.time()
 
+        # Собираем важные термины для данного check'а:
+        # - имя проверки (name),
+        # - boost_keywords из retrieval-конфига плейбука.
+        # Эти слова будут использоваться RetrievalEngine для небольшого
+        # буста по заголовкам (section_title / path_titles / summary).
+        raw_boost_keywords = getattr(check.retrieval, "boost_keywords", []) or []
+        important_terms: list[str] = []
+
+        # 1) добавляем name проверки
+        if isinstance(check.name, str) and check.name.strip():
+            important_terms.append(check.name.strip())
+
+        # 2) добавляем boost_keywords как есть (нормализация по регистру
+        # и пробелам уже делается внутри RetrievalEngine)
+        for kw in raw_boost_keywords:
+            if isinstance(kw, str) and kw.strip():
+                important_terms.append(kw.strip())
+
         # 1. Retrieval (поиск релевантных чанков для rules/LLM)
-        retriever = RetrievalEngine(chunks)
+        # Передаём important_terms, чтобы RetrievalEngine мог
+        # учитывать их при metadata-boost'е.
+        retriever = RetrievalEngine(chunks, important_terms=important_terms)
 
         # Расширяем query: к названию проверки добавляем boost_keywords из playbook.
         # Например: "Смена контроля" → "Смена контроля change of control смена собственника"
-        boost_keywords = getattr(check.retrieval, "boost_keywords", []) or []
+        boost_keywords = raw_boost_keywords
         if boost_keywords:
             query = f"{check.name} {' '.join(boost_keywords[:3])}".strip()
         else:
             query = check.name
 
-        # retrieval уже знает про context_k, но мы продублируем из playbook
-        context_k = getattr(check.retrieval, "context_k", 5)
+        # retrieval уже знает про context_k, но мы продублируем из playbook.
+        # max_chunks — сколько максимум чанков запрашиваем из движка (top-N кандидатов).
+        retr_cfg = getattr(check, "retrieval", None) or getattr(check, "retrieval", None)
+        context_k = getattr(retr_cfg, "context_k", 5)
+        max_chunks = getattr(retr_cfg, "max_chunks", None) or context_k
 
-        # contexts: list[dict] из RetrievalEngine
-        contexts = retriever.search(query, top_k=context_k)
+        # Сначала берём top-N кандидатов из RetrievalEngine (max_chunks),
+        # а уже потом будем выбирать context_k для детектора.
+        contexts = retriever.search(query, top_k=max_chunks)
 
         # Преобразуем dict-чанки в RetrievedChunk, чтобы дальше весь пайплайн
         # работал с типизированной моделью и не терял структурный контекст.
@@ -93,11 +117,16 @@ class CheckExecutor:
             if page is None:
                 page = meta.get("page") or 0
 
+            try:
+                page_int = int(page)
+            except (TypeError, ValueError):
+                page_int = 0
+
             retrieved_chunks.append(
                 RetrievedChunk(
                     element_id=first_element_id,
                     text=c.get("text") or "",
-                    page=int(page) if isinstance(page, int) or str(page).isdigit() else 0,
+                    page=page_int,
                     clause_uid=meta.get("clause_uid") or "",
                     bbox=[],  # bbox можно подтягивать позже из layout по element_id
                     dense_score=0.0,       # при желании можно проставить из отдельных скорингов
@@ -110,6 +139,90 @@ class CheckExecutor:
                     element_ids=element_ids,
                 )
             )
+
+        # На этом этапе у нас есть:
+        # - contexts: список dict-чанков от RetrievalEngine,
+        # - retrieved_chunks: такие же чанки, но в типизированном виде.
+        #
+        # Дальше:
+        # 1) При необходимости делаем лёгкий rerank.
+        # 2) Учитываем required_kind из retrieval-конфига, чтобы контекст
+        #    для детектора в первую очередь состоял из нужного типа чанков.
+
+        required_kind = getattr(retr_cfg, "required_kind", None)
+        do_rerank = bool(getattr(retr_cfg, "rerank", True))
+
+        # Построим словарь chunk_id -> metadata/текст, чтобы можно было
+        # узнать kind и текст, когда будем считать улучшенный score.
+        id_to_meta: dict[str, dict] = {}
+        id_to_text: dict[str, str] = {}
+        for c in contexts:
+            cid = str(c.get("id") or "")
+            id_to_meta[cid] = c.get("metadata", {}) or {}
+            id_to_text[cid] = c.get("text") or ""
+
+        def _simple_rerank(chunks_rc: list[RetrievedChunk]) -> list[RetrievedChunk]:
+            """
+            Очень простой пересортировщик поверх combined_score.
+
+            Для непрофессионального программиста:
+            - Мы берём базовый score из RetrievalEngine.
+            - Немного повышаем под-clauses (subclause).
+            - Немного понижаем большие разделы (section).
+            - Даём небольшой бонус, если в тексте чанка есть важные слова.
+            """
+            important_lower = [s.lower() for s in important_terms if isinstance(s, str)]
+
+            def _score(rc: RetrievedChunk) -> float:
+                base = float(rc.combined_score or 0.0)
+                cid = str(rc.element_id or "")
+                meta = id_to_meta.get(cid, {})
+                text = id_to_text.get(cid, "").lower()
+
+                kind = str(meta.get("kind") or "").lower()
+                if kind == "subclause":
+                    base += 0.05
+                elif kind == "section":
+                    base -= 0.02
+
+                # Небольшой бонус за точное вхождение важных слов.
+                for term in important_lower:
+                    if term and term in text:
+                        base += 0.03
+
+                return base
+
+            return sorted(chunks_rc, key=_score, reverse=True)
+
+        # Применяем rerank, если он включён в конфиге.
+        if do_rerank and retrieved_chunks:
+            retrieved_chunks = _simple_rerank(retrieved_chunks)
+
+        # Теперь учитываем required_kind:
+        # - если задан, пытаемся сначала взять чанки только этого типа,
+        # - если таких чанков нет, используем полный список (fallback).
+        if required_kind:
+            required_kind_lower = str(required_kind).lower()
+            primary: list[RetrievedChunk] = []
+            fallback: list[RetrievedChunk] = []
+            for rc in retrieved_chunks:
+                cid = str(rc.element_id or "")
+                meta = id_to_meta.get(cid, {})
+                kind = str(meta.get("kind") or "").lower()
+                if kind == required_kind_lower:
+                    primary.append(rc)
+                else:
+                    fallback.append(rc)
+
+            if primary:
+                retrieved_chunks = primary + fallback
+
+        # Ограничиваем количество чанков для детектора по context_k.
+        # Важно: contexts и retrieved_chunks должны быть синхронны,
+        # поэтому обрезаем их одинаково.
+        if len(retrieved_chunks) > context_k:
+            retrieved_chunks = retrieved_chunks[:context_k]
+            contexts = contexts[:context_k]
 
         # Строим структурированный текстовый контекст для rules/LLM,
         # используя метаданные (clause_uid, path_titles, страницы).
@@ -342,3 +455,4 @@ class CheckExecutor:
             "element_id": element_id,
             "bbox": bbox,
         }
+    

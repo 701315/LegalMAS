@@ -17,7 +17,6 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from src.ops.instrument import setup_metrics
 
 # Здесь собираем все группы эндпоинтов (роутеры) в одном месте.
@@ -38,6 +37,7 @@ from .endpoints import (
     playbook_runs,
     model_configs,
     document_types,
+    document_chunk_exports,
 )
 from .middleware.audit import AuditMiddleware
 
@@ -120,3 +120,7 @@ app.include_router(playbook_runs.router, prefix="/api/v1")
 
 # Конфигурации моделей (ModelConfig) для выбора модели на UI.
 app.include_router(model_configs.router, prefix="/api/v1")
+
+# Документы (debug‑экспорт чанков).
+app.include_router(document_chunk_exports.router, prefix="/api/v1")
+

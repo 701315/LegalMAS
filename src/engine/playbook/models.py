@@ -37,6 +37,11 @@ core.playbooks.compiler.GlobalCheckConfig и используется в UI (DD 
 - ExtractionConfig: добавлено поле llm_prompt_extraction: str | None.
   Если задано, ExtractionLLMDetector использует его как inline-промпт
   для LLM-извлечения вместо файлового шаблона.
+
+Изменения (retrieval levels/required_kind):
+- RetrievalConfig: добавлены поля levels и required_kind.
+  levels задаёт, какие уровни чанков использовать (section/clause/subclause).
+  required_kind задаёт минимальный "тип" чанка для evidence (например, subclause).
 """
 
 import re
@@ -47,6 +52,7 @@ from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_valid
 
 
 # ────────────────────────── DETECTOR CONFIG ──────────────────────────
+
 
 class DetectorType(str, Enum):
     """Как именно выполняется проверка."""
@@ -168,11 +174,22 @@ class RetrievalConfig(BaseModel):
     """
     Конфигурация выбора чанков (retrieval) для проверки.
 
-    Управляет тем:
-    - сколько чанков брать в контекст (context_k),
-    - какие дополнительные keywords использовать для поиска,
-    - включён ли rerank,
-    - какие фильтры применять к metadata (page, section_title, clause_uid и т.д.).
+    Для непрофессионального программиста:
+
+    - context_k: сколько чанков реально пойдёт в детектор (rules/LLM).
+    - max_chunks: сколько максимум чанков запрашивать из RetrievalEngine.
+      (Если None — берём дефолтное top_k движка.)
+    - boost_keywords: дополнительные ключевые слова для поиска.
+    - rerank: включать ли дополнительный пересортировщик (reranker)
+      поверх базового скоринга BM25+dense.
+    - filters: будущие фильтры по metadata (page, section_title, clause_uid и т.п.).
+    - levels: какие уровни чанков использовать:
+        ["subclause", "section"] по умолчанию.
+      Например, для узких чеков можно задать ["subclause"],
+      для общих — ["section", "clause"].
+    - required_kind: минимальный "тип" чанка для evidence.
+      Например, "subclause" — значит, мы предпочитаем брать доказательство
+      из под‑клаузы, даже если section тоже матчится.
     """
 
     context_k: int = 5
@@ -181,8 +198,21 @@ class RetrievalConfig(BaseModel):
     rerank: bool = True
     filters: dict[str, Any] = Field(default_factory=dict)
 
+    # Новое поле: уровни чанков, которые участвуют в retrieval.
+    # Возможные значения: "section", "clause", "subclause".
+    # По умолчанию: subclause + section, как сейчас в коде.
+    levels: list[str] = Field(default_factory=lambda: ["subclause", "section"])
+
+    # Новое поле: "предпочитаемый" тип чанка для evidence.
+    # Например:
+    #   required_kind = "subclause"
+    # означает, что при выборе лучших чанков мы сначала смотрим на subclause,
+    # и только если их нет — используем другие уровни.
+    required_kind: str | None = None
+
 
 # ────────────────────────── NEW CONDITIONAL ──────────────────────────
+
 
 class TriggerCondition(BaseModel):
     """
@@ -260,6 +290,7 @@ class ConditionalConfig(BaseModel):
 
 # ────────────────────────── EXTRACTION ───────────────────────────────
 
+
 class ExtractionFieldType(str, Enum):
     """Тип значения, которое мы хотим извлечь."""
 
@@ -336,6 +367,7 @@ class ExtractionConfig(BaseModel):
 
 
 # ────────────────────────── CHECK & PLAYBOOK ─────────────────────────
+
 
 class CheckDefinition(BaseModel):
     """

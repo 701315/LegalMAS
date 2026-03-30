@@ -33,7 +33,8 @@ from uuid import UUID
 from io import BytesIO
 from typing import List, Optional
 from fpdf import FPDF
-
+from pydantic import BaseModel, Field
+from engine.content.document_content_service import DocumentContentService
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from fastapi.responses import Response, PlainTextResponse
 from sqlalchemy import select
@@ -100,8 +101,6 @@ router = APIRouter(
 # Схемы и вспомогательные функции для экспорта
 # -------------------------------------------------------------------
 
-from pydantic import BaseModel
-
 
 class DocumentsExportRequest(BaseModel):
     """
@@ -116,9 +115,6 @@ class DocumentsExportRequest(BaseModel):
 
     deal_id: UUID
     visible_column_ids: Optional[List[DocumentColumnId]] = None
-
-
-
 
 
 def build_table_rows(
@@ -159,6 +155,70 @@ def build_table_rows(
 
     return headers, rows
 
+
+# -------------------------------------------------------------------
+# Схемы для layout-for-viewer и sized-chunks
+# -------------------------------------------------------------------
+
+
+class ViewerLayoutElement(BaseModel):
+    """
+    Один визуальный элемент layout для viewer'а.
+
+    Простыми словами:
+    - element_id: уникальный ID кусочка текста (строчка/фрагмент);
+    - page: номер страницы (1, 2, 3, ...);
+    - bbox: прямоугольник [x0, top, x1, bottom] в координатах PDF.
+
+    Важно:
+    - координаты должны совпадать с тем, как рисуется PDF в react-pdf.
+      Если на бэке bbox в "страничных" координатах, фронт может
+      использовать их напрямую (масштабируя по ширине/высоте страницы).
+    """
+
+    element_id: str
+    page: int
+    bbox: list[float]
+
+
+class ViewerLayoutResponse(BaseModel):
+    """
+    Ответ для /documents/{doc_id}/layout-for-viewer.
+
+    Для непрофессионального программиста:
+    - document_id: ID документа;
+    - elements: список кусочков текста с координатами.
+    """
+
+    document_id: str
+    elements: list[ViewerLayoutElement]
+
+
+class ViewerSizedChunkMeta(BaseModel):
+    """
+    Краткая информация о чанке для viewer'а.
+
+    - id: ID чанка (тот же, что в retrieval / embeddings);
+    - element_ids: список element_id, которые входят в этот чанк;
+    - clause_uids: список UID клауз/подклауз, которые попали в этот чанк.
+      Это позволит на фронте подсветить именно тот чанк, где сработал риск.
+    """
+
+    id: str
+    element_ids: list[str]
+    clause_uids: list[str] = Field(default_factory=list)
+
+
+class ViewerSizedChunksResponse(BaseModel):
+    """
+    Ответ для /documents/{doc_id}/sized-chunks.
+
+    - document_id: ID документа;
+    - chunks: список чанков с привязкой к element_ids и clause_uids.
+    """
+
+    document_id: str
+    chunks: list[ViewerSizedChunkMeta]
 
 
 # -------------------------------------------------------------------
@@ -542,6 +602,103 @@ async def get_document_converted_pdf_url(
 
 
 @router.get(
+    "/{doc_id}/layout-for-viewer",
+    response_model=ViewerLayoutResponse,
+    summary="Get compact layout (elements with bbox) for viewer overlay",
+)
+async def get_document_layout_for_viewer(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Вернуть компактный layout для viewer'а: элементы с element_id, page, bbox.
+
+    Для непрофессионального программиста:
+    - этот эндпоинт не отдаёт весь layout JSON,
+      а только список "кусочков текста" с координатами;
+    - фронт по этим координатам будет рисовать бело‑серые прямоугольники
+      поверх PDF (чередуя чанк‑номера).
+    """
+    # 1. Проверяем, что документ существует и доступен пользователю.
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    # 2. Берём последнюю версию документа и её layout (sanitized, если есть, иначе raw).
+    ver_repo = DocumentVersionRepository(db)
+    version = await ver_repo.get_latest(doc_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="DocumentVersion not found")
+
+    layout_ref = version.text_layout_sanitized_ref or version.text_layout_raw_ref
+    if not layout_ref:
+        raise HTTPException(
+            status_code=404,
+            detail="Layout not available for this document",
+        )
+
+    store = ArtifactStore()
+    try:
+        layout_json = store.get_json(layout_ref)
+    except PermanentError:
+        raise HTTPException(
+            status_code=404,
+            detail="Layout artifact missing",
+        )
+    except TransientError:
+        raise HTTPException(
+            status_code=503,
+            detail="Storage temporarily unavailable",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="Layout temporarily unavailable",
+        )
+
+    # 3. Преобразуем layout.elements -> список ViewerLayoutElement.
+    elements = layout_json.get("elements") or []
+    viewer_elements: list[ViewerLayoutElement] = []
+
+    for el in elements:
+        element_id = el.get("element_id")
+        page = el.get("page")
+        bbox = el.get("bbox")
+
+        # Простейшая защита: пропускаем мусор.
+        if not element_id or not isinstance(page, int) or not bbox:
+            continue
+
+        try:
+            # Ожидаем bbox как список из 4 чисел.
+            x0, top, x1, bottom = bbox
+            viewer_elements.append(
+                ViewerLayoutElement(
+                    element_id=str(element_id),
+                    page=page,
+                    bbox=[float(x0), float(top), float(x1), float(bottom)],
+                )
+            )
+        except Exception:
+            # Если bbox не в ожидаемом формате — просто пропускаем этот элемент.
+            continue
+
+    return ViewerLayoutResponse(
+        document_id=str(doc_id),
+        elements=viewer_elements,
+    )
+
+
+@router.get(
     "/{doc_id}/structured-data",
     summary="Get structured clause tree for document",
 )
@@ -624,6 +781,82 @@ async def get_document_structured_data(
 
     # payload уже dict/list, фронт получает JSON дерево
     return payload
+
+
+
+@router.get(
+    "/{doc_id}/sized-chunks",
+    response_model=ViewerSizedChunksResponse,
+    summary="Get sized chunks for viewer overlay (clause/subclause with element_ids)",
+)
+async def get_document_sized_chunks_for_viewer(
+    doc_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Вернуть нормализованные чанки документа для viewer'а.
+
+    Для непрофессионального программиста:
+    - здесь мы НЕ отдаём весь текст чанков;
+    - вместо этого отдаём только:
+      * id чанка,
+      * список element_ids, которые входят в этот чанк.
+    - фронт по этим данным будет чередовать фон (белый/серый) по чанкам.
+    """
+    # 1. Проверяем, что документ существует и доступен.
+    doc_repo = DocumentRepository(db)
+    doc = await doc_repo.get_by_id(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=doc.deal_id,
+        allowed_roles=("viewer", "editor", "admin"),
+    )
+
+    # 2. Используем DocumentContentService, чтобы получить sized_chunks.
+    service = DocumentContentService(session=db)
+    try:
+        sized_chunks = await service.get_sized_chunks(doc_id=doc_id)
+    except Exception as e:
+        logger.exception(
+            "Failed to build sized_chunks for viewer",
+            extra={"doc_id": str(doc_id), "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Sized chunks temporarily unavailable",
+        )
+
+    # 3. Маппим в компактный формат для viewer'а.
+    viewer_chunks: list[ViewerSizedChunkMeta] = []
+    for ch in sized_chunks:
+        ch_id = ch.get("id")
+        meta = ch.get("metadata") or {}
+        element_ids = meta.get("element_ids") or []
+
+        # У под-чанка один clause_uid, но фронту удобнее список.
+        clause_uid = meta.get("clause_uid")
+        clause_uids = [str(clause_uid)] if clause_uid else []
+
+        if not ch_id:
+            continue
+
+        viewer_chunks.append(
+            ViewerSizedChunkMeta(
+                id=str(ch_id),
+                element_ids=[str(eid) for eid in element_ids],
+                clause_uids=clause_uids,
+            )
+        )
+
+    return ViewerSizedChunksResponse(
+        document_id=str(doc_id),
+        chunks=viewer_chunks,
+    )
 
 
 class DocumentLayoutsDebugResponse(BaseModel):

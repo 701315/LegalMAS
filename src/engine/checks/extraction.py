@@ -250,17 +250,131 @@ class ExtractionExecutor:
 
         Приоритет:
           1) detection["evidence"], если есть.
-          2) иначе текст из всех contexts, склеенный.
+          2) иначе текст из наиболее релевантных чанков из contexts.
+             Сначала пробуем сузить список по location (element_id / clause_uid / page),
+             если это не получилось — используем весь контекст.
         """
+        # 1. Если LLM/Rules уже вернули готовый evidence-текст — используем его.
         evidence = detection.get("evidence") or ""
-        if evidence.strip():
+        if isinstance(evidence, str) and evidence.strip():
             return evidence
 
+        if not contexts:
+            return ""
+
+        # 2. Пытаемся сузить контекст по location
+        raw_location = detection.get("location") or {}
+        loc_element_id = None
+        loc_clause_uid = None
+        loc_page = None
+        loc_start_page = None
+        loc_end_page = None
+        loc_element_ids: list[str] = []
+
+        if isinstance(raw_location, dict):
+            loc_element_id = raw_location.get("element_id")
+            loc_clause_uid = raw_location.get("clause_uid")
+            loc_page = raw_location.get("page")
+            loc_start_page = raw_location.get("start_page")
+            loc_end_page = raw_location.get("end_page")
+            loc_element_ids = raw_location.get("element_ids") or []
+            if not isinstance(loc_element_ids, list):
+                loc_element_ids = []
+
+        # Нормализуем ссылки на element_id'ы в строковый список
+        loc_element_ids_str = {
+            str(eid) for eid in loc_element_ids if eid is not None
+        }
+        if loc_element_id is not None:
+            loc_element_ids_str.add(str(loc_element_id))
+
+        # 2.1. Фильтрация по element_id / element_ids
+        # Если location явно ссылается на конкретный элемент, пытаемся взять
+        # только те чанки, которые содержат этот element_id.
+        filtered_by_element: list[dict[str, Any]] = []
+        if loc_element_ids_str:
+            for c in contexts:
+                meta = c.get("metadata") or {}
+                ctx_element_ids = meta.get("element_ids") or []
+                if not isinstance(ctx_element_ids, list):
+                    ctx_element_ids = []
+                ctx_element_ids_str = {str(eid) for eid in ctx_element_ids if eid is not None}
+
+                # Также можно сравнить сам id чанка как fallback.
+                chunk_id = c.get("id")
+                if chunk_id is not None:
+                    ctx_element_ids_str.add(str(chunk_id))
+
+                if loc_element_ids_str & ctx_element_ids_str:
+                    filtered_by_element.append(c)
+
+        # 2.2. Фильтрация по clause_uid, если по element_id ничего не нашли
+        filtered_by_clause: list[dict[str, Any]] = []
+        if not filtered_by_element and loc_clause_uid:
+            loc_clause_uid_str = str(loc_clause_uid)
+            for c in contexts:
+                meta = c.get("metadata") or {}
+                ctx_clause_uid = meta.get("clause_uid")
+                if ctx_clause_uid is not None and str(ctx_clause_uid) == loc_clause_uid_str:
+                    filtered_by_clause.append(c)
+
+        # 2.3. Фильтрация по страницам, если ни element_id, ни clause_uid не помогли
+        filtered_by_page: list[dict[str, Any]] = []
+        if (
+            not filtered_by_element
+            and not filtered_by_clause
+            and (loc_page is not None or loc_start_page is not None or loc_end_page is not None)
+        ):
+            try:
+                sp = int(loc_start_page) if loc_start_page is not None else int(loc_page)
+            except (TypeError, ValueError):
+                sp = None
+            try:
+                ep = int(loc_end_page) if loc_end_page is not None else int(loc_page)
+            except (TypeError, ValueError):
+                ep = None
+
+            if sp is not None and ep is not None:
+                for c in contexts:
+                    meta = c.get("metadata") or {}
+                    ctx_start = meta.get("start_page") or meta.get("page")
+                    ctx_end = meta.get("end_page") or meta.get("page")
+                    try:
+                        ctx_start_i = int(ctx_start) if ctx_start is not None else None
+                        ctx_end_i = int(ctx_end) if ctx_end is not None else None
+                    except (TypeError, ValueError):
+                        ctx_start_i = ctx_end_i = None
+
+                    if ctx_start_i is None and ctx_end_i is None:
+                        continue
+
+                    # Пересечение диапазонов страниц
+                    if ctx_start_i is None:
+                        ctx_start_i = ctx_end_i
+                    if ctx_end_i is None:
+                        ctx_end_i = ctx_start_i
+
+                    if ctx_end_i >= sp and ctx_start_i <= ep:
+                        filtered_by_page.append(c)
+
+        # Выбираем итоговый список чанков для extraction
+        if filtered_by_element:
+            relevant_contexts = filtered_by_element
+        elif filtered_by_clause:
+            relevant_contexts = filtered_by_clause
+        elif filtered_by_page:
+            relevant_contexts = filtered_by_page
+        else:
+            # Fallback: если сузить не удалось, используем весь контекст, как раньше.
+            relevant_contexts = contexts
+
+        # 3. Склеиваем текст только из релевантных чанков
         parts: list[str] = []
-        for c in contexts:
+        for c in relevant_contexts:
             text = c.get("text") or ""
             if text:
                 parts.append(text)
+
         return "\n\n".join(parts).strip()
 
     def _extract_field(
