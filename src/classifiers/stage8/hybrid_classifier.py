@@ -1,21 +1,28 @@
 # src/classifiers/stage8/hybrid_classifier.py
 
 """
-HybridClassifier (L1 → L2 → L3 → L4) с интеграцией контент‑сервиса и LLM‑fallback.
+    Гибридный классификатор документов по каскаду уровней L1 → L2 → L3 → (L4/LLM-fallback).
 
-Назначение:
-- Единая точка классификации документов в Runner.
-- Учитывает dedup/families и четыре уровня сигналов:
-  L1: имя файла / путь (быстрый, дешёвый)
-  L2: заголовок (header) + keywords/regex по YAML-паттернам
-  L3: семантика (эмбеддинги) по обогащённым прототипам типов
-  L4: LLM-fallback, если предыдущие уровни не дали уверенный результат.
+    Для непрофессионального программиста:
+    - L1 (filename) и L2 (header/keywords) используют правила из YAML через YAMLRegistry.
+    - L3 (semantic) смотрит на смысл текста через эмбеддинги.
+    - L4 (LLM) вызывается только как резервный вариант, если L1–L3 не дали
+      уверенного результата.
 
-Ключевые принципы:
-- L2 и сильный L1 имеют приоритет над L3 при конфликте.
-- Exclusions из L2 могут полностью подавлять тип.
-- L4 никогда не переезжает сильно уверенный L1/L2/L3.
-- Есть явный UNKNOWN‑коридор по confidence.
+    Источник правил:
+    - YAMLRegistry.get_instance() даёт DocumentTypeConfig для каждого типа.
+    - Из DocumentTypeConfig берутся:
+        * filename_patterns / folder_patterns (L1),
+        * header_patterns / keywords_* / exclusions (L2),
+        * semantic-прототипы (L3, через rules_keywords / rules_phrases и др.),
+        * trigger_definitions / trigger_ids (для applicable_triggers).
+
+    applicable_triggers:
+    - Это список строковых идентификаторов триггеров для финального типа документа.
+    - Строится на основе блока trigger_definitions в YAML-конфиге этого типа
+      через YAMLRegistry / DocumentTypeConfig.
+    - В паре с doc_type образует «профиль документа», который затем использует
+      движок проверки (CheckRunner/DocTypeCheckLoader) для выбора рисков/check'ов.
 """
 
 from __future__ import annotations
@@ -36,6 +43,8 @@ from db.repositories.runner_repo import RunnerRepository
 from engine.content.document_content_service import DocumentContentService
 from engine.llm.client import LLMClient, LLMResponse
 
+from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO
+
 logger = get_logger(__name__)
 
 
@@ -43,11 +52,47 @@ class HybridClassifier:
     """
     Гибридный классификатор документов по каскаду уровней L1 → L2 → L3 → (L4/LLM-fallback).
 
+    Назначение:
+    - Единая точка классификации документов в пайплайне (Stage 6/7).
+    - Учитывает дубликаты (master/family) и четыре уровня сигналов:
+      L1: имя файла / путь,
+      L2: заголовок и YAML‑паттерны,
+      L3: семантика (эмбеддинги),
+      L4: LLM‑fallback.
+
     Важно:
     - L4/LLM используется только как резервный вариант, когда L1–L3 и голосование
       не дали уверенный результат.
     - Если LLM выключен или произошла ошибка, поведение остаётся как раньше.
+
+    Результат classify_document(doc_id):
+      Возвращает словарь с полями:
+        - levels_tried: список уровней, которые реально отрабатывали
+            например: ["L1", "L2", "L3", "L4"] или ["MASTERCOPY"]
+        - candidates: список всех кандидатов от L1–L3:
+            [
+              {
+                "type_code": "...",
+                "confidence": 0.9,
+                "level": "L2",
+                "method": "header_pattern",
+                ...
+              },
+              ...
+            ]
+        - final_type: строка с финальным type_code или "UNKNOWN"
+        - final_confidence: число 0.0–1.0 — уверенность финального решения
+        - level: строка с уровнем, который дал финальное решение
+                 ("L1", "L2", "L3", "L4", "HYBRID", "COPIED") или None
+        - language: язык документа (обычно "ru")
+        - jurisdiction: юрисдикция (обычно "RU")
+        - applicable_triggers: список строк‑триггеров, найденных на L3
+        - details: словарь с подробностями по уровням и голосованию:
+            details["L1"], ["L2"], ["L3"], ["L4"], ["MASTERCOPY"]
+            details["voting"], details["voting_override"]
+            details["candidates"] — дубликат поля candidates для удобства.
     """
+
 
     def __init__(self, uow, content_service: DocumentContentService | None = None) -> None:
         """
@@ -79,13 +124,129 @@ class HybridClassifier:
             "L3": 0.40,
         }
 
-        # Порог для уверенного HYBRID‑решения и UNKNOWN‑коридор
+        # Порог для уверенного HYBRID‑решения и UNKNOWN‑коридор.
+        # Для непрофессионального программиста:
+        # - если уверенность >= hybrid_accept → считаем результат уверенным;
+        # - если уверенность <= unknown_max → считаем тип не определён (UNKNOWN);
+        # - зона между ними = "низкая уверенность", документ можно пометить как
+        #   требующий ручной проверки.
+        # Базовые пороги из "низкоуровневых" настроек Stage 8
+        base_accept = float(getattr(settings, "CLASSIFICATION_HYBRID_ACCEPT", 0.65))
+        base_unknown = float(getattr(settings, "CLASSIFICATION_UNKNOWN_MAX", 0.40))
+
+        # Доменные алиасы — могут переопределяться через переменные окружения,
+        # при этом сохраняется обратная совместимость со старыми именами.
         self.hybrid_accept: float = float(
-            getattr(settings, "CLASSIFICATION_HYBRID_ACCEPT", 0.65)
+            getattr(settings, "CLASSIFIER_ACCEPT_THRESHOLD", base_accept)
         )
         self.unknown_max: float = float(
-            getattr(settings, "CLASSIFICATION_UNKNOWN_MAX", 0.40)
+            getattr(settings, "CLASSIFIER_UNKNOWN_THRESHOLD", base_unknown)
         )
+
+        # Флаг: включён ли вообще L4-fallback как этап.
+        # Для непрофессионального программиста:
+        # - если False, L4 не вызывается даже при наличии LLM.
+        self.l4_enabled: bool = bool(getattr(settings, "CLASSIFIER_L4_ENABLED", True))
+
+
+    def _build_applicable_triggers(self, doc_id: str, final_type: str) -> list[str]:
+        """
+        Построить applicable_triggers для финального типа документа.
+
+        Для непрофессионального программиста:
+        - Берём YAML-конфиг типа через YAMLRegistry / DocumentTypeConfig.
+        - Возвращаем список trigger_ids (ключи trigger_definitions).
+        - Если тип UNKNOWN или конфиг не найден, возвращаем пустой список.
+        """
+        if not isinstance(final_type, str) or not final_type or final_type == "UNKNOWN":
+            return []
+
+        cfg = self.registry.get_config(final_type)
+        if cfg is None:
+            logger.info(
+                "HybridClassifier: no YAML config found for final_type",
+                extra={"doc_id": doc_id, "final_type": final_type},
+            )
+            return []
+
+        try:
+            return list(getattr(cfg, "trigger_ids", []) or [])
+        except Exception as e:
+            logger.warning(
+                "HybridClassifier: failed to build applicable_triggers",
+                extra={
+                    "doc_id": doc_id,
+                    "final_type": final_type,
+                    "error": str(e),
+                },
+            )
+            return []
+
+
+    def _build_result_dto(
+        self,
+        *,
+        final_type: Optional[str],
+        final_confidence: float,
+        level: Optional[str],
+        language: Optional[str],
+        jurisdiction: Optional[str],
+        applicable_triggers: list[str],
+        levels_tried: list[str],
+        candidates: list[dict],
+        details: dict,
+    ) -> dict:
+        """
+        Построить результат в виде HybridClassificationResultDTO и вернуть .__dict__.
+
+        ВНИМАНИЕ:
+        - Внешний контракт HybridClassifier.classify_document остаётся dict.
+        - Этот helper просто гарантирует соответствие модели HybridClassificationResultDTO.
+        """
+        dto_candidates: list[HybridClassificationCandidate] = []
+        for c in candidates or []:
+            dto_candidates.append(
+                HybridClassificationCandidate(
+                    doctype=c.get("type_code") or c.get("doctype", "UNKNOWN"),
+                    confidence=float(c.get("confidence") or 0.0),
+                    level=str(c.get("level") or ""),
+                    method=c.get("method"),
+                    evidence=c.get("evidence"),
+                    language=c.get("language"),
+                    jurisdiction=c.get("jurisdiction"),
+                    extra={
+                        k: v
+                        for k, v in c.items()
+                        if k
+                        not in {
+                            "type_code",
+                            "doctype",
+                            "confidence",
+                            "level",
+                            "method",
+                            "evidence",
+                            "language",
+                            "jurisdiction",
+                        }
+                    },
+                )
+            )
+
+        dto = HybridClassificationResultDTO(
+            final_type=final_type,
+            final_confidence=float(final_confidence or 0.0),
+            level=level,
+            language=language,
+            jurisdiction=jurisdiction,
+            applicable_triggers=list(applicable_triggers or []),
+            levels_tried=list(levels_tried or []),
+            candidates=dto_candidates,
+            details=details or {},
+        )
+        # Возвращаем обычный dict, чтобы не ломать вызывающий код
+        return dto.__dict__
+
+
 
     async def classify_document(self, doc_id: str) -> dict:
         """
@@ -151,26 +312,22 @@ class HybridClassifier:
                     "copied_from_master": str(master.id),
                 }
 
-                self.metrics.classification_duration.labels(...).observe(
+                self.metrics.classification_duration.labels(source="copied").observe(
                     time.time() - started_at
                 )
 
-                return {
-                    "levels_tried": details["levels_tried"],
-                    "candidates": [],
-                    "final_type": master.doc_type,
-                    "final_confidence": float(
-                        master.classification_confidence or 0.0
-                    ),
-                    "level": "COPIED",
-                    "copied_from_master": str(master.id),
-                    "language": getattr(master, "language", None),
-                    "jurisdiction": getattr(master, "jurisdiction", None),
-                    "applicable_triggers": list(
-                        getattr(master, "applicable_triggers", []) or []
-                    ),
-                    "details": details,
-                }
+                return self._build_result_dto(
+                    levels_tried=details["levels_tried"],
+                    candidates=[],
+                    final_type=master.doc_type,
+                    final_confidence=float(master.classification_confidence or 0.0),
+                    level="COPIED",
+                    copied_from_master=str(master.id),
+                    language=getattr(master, "language", None),
+                    jurisdiction=getattr(master, "jurisdiction", None),
+                    applicable_triggers=list(getattr(master, "applicable_triggers", []) or []),
+                    details=details,
+                )
 
         # --- L1: filename/folder ---
         l1_results = self.l1.classify(filename, folder)
@@ -417,20 +574,23 @@ class HybridClassifier:
                 },
             )
 
-            self.metrics.classification_duration.labels(...).observe(
+            self.metrics.classification_duration.labels(source="l2_strong").observe(
                 time.time() - started_at
             )
-            return {
-                "levels_tried": details["levels_tried"],
-                "candidates": candidates,
-                "final_type": final_type,
-                "final_confidence": final_conf,
-                "level": "L2",
-                "language": language,
-                "jurisdiction": jurisdiction,
-                "applicable_triggers": applicable_triggers,
-                "details": details,
-            }
+
+            applicable_triggers = self._build_applicable_triggers(doc_id, final_type)
+
+            return self._build_result_dto(
+                levels_tried=details["levels_tried"],
+                candidates=candidates,
+                final_type=final_type,
+                final_confidence=final_conf,
+                level="L2",
+                language=language,
+                jurisdiction=jurisdiction,
+                applicable_triggers=applicable_triggers,
+                details=details,
+            )
 
         # 2) Если L1 и L2 совпали по типу и оба достаточно уверены — фиксируем это как HYBRID.
         if top_l1 and top_l2:
@@ -457,22 +617,29 @@ class HybridClassifier:
                     },
                 )
 
-                self.metrics.classification_duration.labels(...).observe(
+                self.metrics.classification_duration.labels(source="l1_l2_agree").observe(
                     time.time() - started_at
                 )
-                return {
-                    "levels_tried": details["levels_tried"],
-                    "candidates": candidates,
-                    "final_type": final_type,
-                    "final_confidence": final_conf,
-                    "level": "HYBRID",
-                    "language": language,
-                    "jurisdiction": jurisdiction,
-                    "applicable_triggers": applicable_triggers,
-                    "details": details,
-                }
 
-        # --- Взвешенное голосование L1–L3 ---
+                applicable_triggers = self._build_applicable_triggers(doc_id, final_type)
+
+                return self._build_result_dto(
+                    levels_tried=details["levels_tried"],
+                    candidates=candidates,
+                    final_type=final_type,
+                    final_confidence=final_conf,
+                    level="HYBRID",
+                    language=language,
+                    jurisdiction=jurisdiction,
+                    applicable_triggers=applicable_triggers,
+                    details=details,
+                )
+
+        # Для непрофессионального программиста:
+        # - сортируем кандидатов по уверенности от большего к меньшему.
+        #   Это не меняет результат голосования, но делает список удобным
+        #   для отображения в интерфейсе и аудита.
+        candidates.sort(key=lambda c: float(c.get("confidence", 0.0)), reverse=True)
         details["candidates"] = candidates
         voted = self._weighted_voting(candidates)
 
@@ -522,7 +689,7 @@ class HybridClassifier:
 
             # Если голосование дало уверенный результат — сразу возвращаем HYBRID
             if final_conf >= self.hybrid_accept:
-                self.metrics.classification_duration.labels(...).observe(
+                self.metrics.classification_duration.labels(source="hybrid_voting").observe(
                     time.time() - started_at
                 )
                 logger.info(
@@ -533,17 +700,20 @@ class HybridClassifier:
                         "final_confidence": final_conf,
                     },
                 )
-                return {
-                    "levels_tried": details["levels_tried"],
-                    "candidates": candidates,
-                    "final_type": final_type,
-                    "final_confidence": final_conf,
-                    "level": "HYBRID",
-                    "language": language,
-                    "jurisdiction": jurisdiction,
-                    "applicable_triggers": applicable_triggers,
-                    "details": details,
-                }
+
+                applicable_triggers = self._build_applicable_triggers(doc_id, final_type)
+
+                return self._build_result_dto(
+                    levels_tried=details["levels_tried"],
+                    candidates=candidates,
+                    final_type=final_type,
+                    final_confidence=final_conf,
+                    level="HYBRID",
+                    language=language,
+                    jurisdiction=jurisdiction,
+                    applicable_triggers=applicable_triggers,
+                    details=details,
+                )
 
             final_type_after_voting = final_type
             final_conf_after_voting = final_conf
@@ -558,21 +728,31 @@ class HybridClassifier:
         llm_used = False
         llm_result_doctype: Optional[str] = None
         llm_result_confidence: float = 0.0
+        llm_reasoning: str = ""
+        llm_parse_success: bool = False
+        llm_raw: dict[str, Any] = {}
 
         # Список допустимых типов из YAMLRegistry
         allowed_types = self.registry.list_types()
 
-        # Не вызываем L4, если есть сильный сигнал любого уровня
+        # Не вызываем L4, если есть сильный сигнал любого уровня.
+        # Для непрофессионального программиста:
+        # - "сильный" сигнал значит, что один уровень и так очень уверен,
+        #   и звать LLM только добавит шума и затрат.
         strong_single_level = False
-        if top_l1 and top_l1.get("confidence", 0.0) >= 0.9:
+        l1_strong = float(getattr(settings, "CLASSIFICATION_L1_STRONG", 0.90))
+        l2_strong = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
+
+        if top_l1 and top_l1.get("confidence", 0.0) >= l1_strong:
             strong_single_level = True
-        if top_l2 and top_l2.confidence >= 0.9:
+        if top_l2 and top_l2.confidence >= l2_strong:
             strong_single_level = True
-        if top_l3 and top_l3.confidence >= 0.9:
+        if top_l3 and top_l3.confidence >= l2_strong:
             strong_single_level = True
 
         if (
-            llm_enabled
+            self.l4_enabled
+            and llm_enabled
             and llm_source_text
             and final_conf_after_voting < self.hybrid_accept
             and allowed_types
@@ -588,34 +768,82 @@ class HybridClassifier:
                 },
             )
 
+            llm_errordetails: dict[str, Any] = {}
+
             try:
-                llm_response = self._call_llm_for_classification(
+                llm_response, llm_errordetails = self._call_llm_for_classification(
                     text=llm_source_text,
                     filename=filename,
                     folder_path=folder,
                     allowed_types=allowed_types,
                 )
             except Exception as e:
+                # Для непрофессионального программиста:
+                # - если сломалось уже вокруг самого вызова helper-метода,
+                #   мы не роняем классификацию;
+                # - записываем информацию об ошибке в details["L4"]["raw"].
                 logger.warning(
                     "HybridClassifier: L4 LLM classification failed",
                     doc_id=str(doc.id),
                     error=str(e),
                 )
+                details["L4"] = {
+                    "type": "UNKNOWN",
+                    "confidence": 0.0,
+                    "method": "llm_error",
+                    "reasoning": "",
+                    "parse_success": False,
+                    "raw": {
+                        "provider": getattr(self.llm_client, "provider", None),
+                        "model": None,
+                        "tokens_used": None,
+                        "parse_success": False,
+                        "error_type": "unexpected_exception",
+                        "error_message": str(e),
+                        "response_text": None,
+                        "parsed_json": None,
+                        "llm_attempts": 0,
+                    },
+                }
                 llm_response = None
+                llm_errordetails = {
+                    "llm_attempts": 0,
+                    "error_type": "unexpected_exception",
+                    "error_message": str(e),
+                }
 
             if llm_response is not None:
                 llm_used = True
                 parsed = self._parse_llm_classification(
-                    llm_response, allowed_types=allowed_types
+                    llm_response,
+                    allowed_types=allowed_types,
                 )
-                llm_result_doctype = parsed.get("doctype")
-                llm_result_confidence = parsed.get("confidence", 0.0)
 
+                llm_result_doctype = parsed.get("type_code") or "UNKNOWN"
+                llm_result_confidence = float(parsed.get("confidence", 0.0) or 0.0)
+                llm_reasoning = parsed.get("reasoning") or ""
+                llm_parse_success = bool(parsed.get("parse_success", False))
+                llm_raw = parsed.get("raw") or {}
+
+                # Для непрофессионального программиста:
+                # - сюда добавляем служебную информацию от общего retry-механизма;
+                # - так details["L4"]["raw"] будет таким же информативным,
+                #   как у LLM-детекторов checks.
+                for key in ("llm_attempts", "error_type", "error_message"):
+                    value = llm_errordetails.get(key)
+                    if value is not None:
+                        llm_raw[key] = value
+
+                # Для непрофессионального программиста:
+                # - здесь мы формируем единый контракт L4 для details["L4"],
+                #   похожий на то, как устроены LLM‑детекторы checks.
                 details["L4"] = {
-                    "raw_text": llm_response.text,
-                    "provider": llm_response.provider,
-                    "model": llm_response.model,
-                    "parsed": parsed,
+                    "type": llm_result_doctype,
+                    "confidence": llm_result_confidence,
+                    "method": "llm",
+                    "reasoning": llm_reasoning,
+                    "parse_success": llm_parse_success,
+                    "raw": llm_raw,
                 }
 
                 logger.info(
@@ -629,7 +857,7 @@ class HybridClassifier:
 
         # --- Если L4 дал допустимый тип — используем его как финальный fallback ---
         if llm_used and llm_result_doctype and llm_result_doctype != "UNKNOWN":
-            self.metrics.classification_duration.labels(...).observe(
+            self.metrics.classification_duration.labels(source="l4").observe(
                 time.time() - started_at
             )
             logger.info(
@@ -640,29 +868,61 @@ class HybridClassifier:
                     "final_confidence": llm_result_confidence,
                 },
             )
-            return {
-                "levels_tried": details["levels_tried"],
-                "candidates": candidates,
-                "final_type": llm_result_doctype,
-                "final_confidence": llm_result_confidence,
-                "level": "L4",
-                "language": language,
-                "jurisdiction": jurisdiction,
-                "applicable_triggers": applicable_triggers,
-                "details": details,
-            }
+
+            applicable_triggers = self._build_applicable_triggers(doc_id, llm_result_doctype)
+
+            return self._build_result_dto(
+                levels_tried=details["levels_tried"],
+                candidates=candidates,
+                final_type=llm_result_doctype,
+                final_confidence=llm_result_confidence,
+                level="L4",
+                language=language,
+                jurisdiction=jurisdiction,
+                applicable_triggers=applicable_triggers,
+                details=details,
+            )
 
         # --- Fallback: если L4 не помог или выключен — UNKNOWN или слабый HYBRID ---
-        self.metrics.classification_duration.labels(...).observe(
+        self.metrics.classification_duration.labels(source="fallback").observe(
             time.time() - started_at
         )
 
         final_type_out = final_type_after_voting
         final_conf_out = final_conf_after_voting
 
-        # UNKNOWN‑коридор
+        # UNKNOWN‑коридор.
+        # - если уверенность меньше или равна порогу unknown_max,
+        #   мы считаем, что тип надёжно не определён и записываем "UNKNOWN".
+        #   Это помогает фронтенду и аналитике отличать "реальные" типы
+        #   от случаев, когда модель по сути не уверена.
         if final_conf_out <= self.unknown_max:
             final_type_out = "UNKNOWN"
+
+        # --- Определяем applicable_triggers для финального типа документа ---
+
+        # Для непрофессионального программиста:
+        # - На этом этапе у нас есть финальный тип документа (final_type_out).
+        # - Нам нужно понять, какие триггеры «актуальны» для этого типа:
+        #   ипотека, маткапитал, сельхозземли и т.п.
+        # - Список этих триггеров берётся из блока trigger_definitions
+        #   в YAML-конфиге типа через YAMLRegistry / DocumentTypeConfig.
+
+        applicable_triggers = self._build_applicable_triggers(doc_id, final_type_out)
+
+        # Зоны уверенности классификации.
+        # - confident: модель уверена, можно использовать тип без ручной проверки;
+        # - low: тип определён, но с низкой уверенностью — желательно проверить руками;
+        # - unknown: тип надёжно не определён, документ требует внимания.
+        if final_conf_out >= self.hybrid_accept:
+            confidence_zone = "confident"
+            requires_manual_review = False
+        elif final_conf_out <= self.unknown_max:
+            confidence_zone = "unknown"
+            requires_manual_review = True
+        else:
+            confidence_zone = "low"
+            requires_manual_review = True
 
         logger.info(
             "Hybrid final result",
@@ -671,8 +931,14 @@ class HybridClassifier:
                 "final_type": final_type_out,
                 "final_confidence": final_conf_out,
                 "levels_tried": details["levels_tried"],
+                "confidence_zone": confidence_zone,
+                "requires_manual_review": requires_manual_review,
+                "applicable_triggers": applicable_triggers,
             },
         )
+
+        details["confidence_zone"] = confidence_zone
+        details["requires_manual_review"] = requires_manual_review
 
         return {
             "levels_tried": details["levels_tried"],
@@ -685,6 +951,7 @@ class HybridClassifier:
             "applicable_triggers": applicable_triggers,
             "details": details,
         }
+    
 
     def _weighted_voting(self, candidates: list[dict]) -> dict | None:
         """
@@ -752,7 +1019,7 @@ class HybridClassifier:
         filename: str,
         folder_path: str,
         allowed_types: list[str],
-    ) -> LLMResponse | None:
+    ) -> tuple[LLMResponse | None, dict]:
         """
         Вызывает LLM для задачи классификации документа.
 
@@ -784,7 +1051,7 @@ class HybridClassifier:
             "3) Если ни один тип не подходит, верни значение null или строку \"UNKNOWN\" в поле type_code.\n"
             "4) Ответ ДОЛЖЕН быть строго в формате JSON вида:\n"
             "{"
-            "\"type_code\": \"<один type_code из списка или \"UNKNOWN\" или null\", "
+            "\"type_code\": \"<один type_code из списка или \\\"UNKNOWN\\\" или null>\", "
             "\"confidence\": <число от 0 до 1>, "
             "\"reasoning\": \"краткое объяснение в 1–2 предложениях\""
             "}\n\n"
@@ -798,11 +1065,19 @@ class HybridClassifier:
             f"Начало текста документа:\n{text}\n"
         )
 
-        return self.llm_client.call(
+        # Для непрофессионального программиста:
+        # - здесь мы используем общий метод LLM-клиента с повторами;
+        # - он возвращает два значения:
+        #   1) сам ответ LLM (или None),
+        #   2) диагностическую информацию по вызову.
+        # Мы честно возвращаем оба значения наверх, без скрытых атрибутов.
+        response, errordetails = self.llm_client.call_with_retries(
             prompt=prompt,
             temperature=0.0,
             max_tokens=settings.LLM_MAX_TOKENS,
         )
+        return response, errordetails
+    
 
     @staticmethod
     def _parse_llm_classification(
@@ -811,77 +1086,105 @@ class HybridClassifier:
         allowed_types: List[str],
     ) -> Dict[str, Any]:
         """
-        Парсит ответ LLM для задачи классификации документа.
+        Аккуратно разобрать JSON из ответа LLM для L4‑классификации и привести к безопасным значениям.
 
-        Ожидаемый формат текста:
-        - JSON: {"type_code": "...", "confidence": 0.85, "reasoning": "..."}
-        - или JSON внутри текста.
-
-        Правила:
-        - если type_code не входит в allowed_types, он заменяется на "UNKNOWN";
-        - поддерживаем также старое имя поля "doctype" на случай несовпадения промптов;
-        - confidence приводим к диапазону [0, 1].
+        Для непрофессионального программиста:
+        - Модель должна вернуть JSON с полями type_code, confidence, reasoning.
+        - Мы НЕ доверяем ответу «как есть», а:
+          * проверяем, что type_code входит в список допустимых типов из YAMLRegistry;
+          * приводим confidence к числу от 0 до 1;
+          * reasoning делаем строкой.
+        - В поле raw складываем всю диагностическую информацию, чтобы
+          потом можно было понять, что именно вернул провайдер и как это парсилось.
         """
-        text = response.text.strip()
 
-        data: dict[str, Any] = {}
-        # Пытаемся сначала распарсить весь ответ как JSON.
+        text = (response.text or "").strip()
+        allowed_set = set(allowed_types or [])
+
+        # Базовый каркас raw-диагностики
+        raw: Dict[str, Any] = {
+            "provider": getattr(response, "provider", None),
+            "model": getattr(response, "model", None),
+            "tokens_used": getattr(response, "tokens_used", None),
+            "parse_success": False,
+            "error_type": None,
+            "error_message": None,
+            "response_text": text,
+            "parsed_json": None,
+        }
+
+        type_code = "UNKNOWN"
+        confidence = 0.0
+        reasoning = ""
+        parse_success = False
+
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            # Если не получилось, пытаемся вырезать подстроку с JSON-объектом.
-            start = text.find("{")
-            end = text.rfind("}")
-            if start != -1 and end != -1 and end > start:
-                candidate = text[start : end + 1]
-                try:
-                    data = json.loads(candidate)
-                except json.JSONDecodeError:
-                    data = {}
+            # Пытаемся вытащить JSON-объект из текста (на случай мусора вокруг)
+            start_idx = text.find("{")
+            end_idx = text.rfind("}") + 1
+            if start_idx == -1 or end_idx <= start_idx:
+                raise ValueError("No JSON object found in LLM response")
+
+            obj = json.loads(text[start_idx:end_idx])
+            if not isinstance(obj, dict):
+                raise ValueError("LLM response JSON is not an object")
+
+            raw["parsed_json"] = obj
+
+            # --- type_code ---
+            raw_type = obj.get("type_code")
+            # На всякий случай поддерживаем старое имя поля "doctype"
+            if raw_type is None:
+                raw_type = obj.get("doctype")
+
+            if isinstance(raw_type, str):
+                raw_type = raw_type.strip()
             else:
-                data = {}
+                raw_type = ""
 
-        if not isinstance(data, dict):
-            data = {}
+            # Всё, что похоже на "UNKNOWN" (в любом регистре), трактуем как отсутствие типа.
+            if raw_type.upper() == "UNKNOWN":
+                raw_type = ""
 
-        # --- Нормализация type_code / doctype ---
-        raw_type = data.get("type_code")
-        if raw_type is None:
-            # На всякий случай поддерживаем старое имя поля.
-            raw_type = data.get("doctype")
+            if raw_type and raw_type in allowed_set:
+                type_code = raw_type
+            else:
+                type_code = "UNKNOWN"
 
-        if isinstance(raw_type, str):
-            raw_type = raw_type.strip()
-        else:
-            raw_type = ""
+            # --- confidence ---
+            raw_conf = obj.get("confidence", 0.0)
+            try:
+                confidence = float(raw_conf)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            if confidence < 0.0:
+                confidence = 0.0
+            if confidence > 1.0:
+                confidence = 1.0
 
-        # UNKNOWN (в любом регистре) трактуем как отсутствие типа.
-        if raw_type.upper() == "UNKNOWN":
-            raw_type = ""
+            # --- reasoning ---
+            reasoning_val = obj.get("reasoning", "")
+            if isinstance(reasoning_val, str):
+                reasoning = reasoning_val
+            else:
+                reasoning = str(reasoning_val)
 
-        # Фильтруем по списку допустимых типов.
-        allowed_set = set(allowed_types)
-        if raw_type and raw_type in allowed_set:
-            doctype = raw_type
-        else:
-            doctype = "UNKNOWN"
+            parse_success = True
+            raw["parse_success"] = True
 
-        # --- Нормализация confidence ---
-        raw_confidence = data.get("confidence")
-        try:
-            conf_val = float(raw_confidence)
-        except (TypeError, ValueError):
-            # Если модель ничего внятного не дала, берём умеренную уверенность,
-            # чтобы не ломать логику, где L4 используется как "мягкий сигнал".
-            conf_val = 0.7
-
-        # Обрезаем до диапазона [0, 1].
-        if conf_val < 0.0:
-            conf_val = 0.0
-        if conf_val > 1.0:
-            conf_val = 1.0
+        except Exception as e:
+            # Любая ошибка парсинга — это не крах пайплайна, а сигнал в raw.
+            raw["error_type"] = "parse_error"
+            raw["error_message"] = str(e)
+            raw["parse_success"] = False
+            type_code = "UNKNOWN"
+            confidence = 0.0
+            reasoning = ""
 
         return {
-            "doctype": doctype,
-            "confidence": conf_val,
+            "type_code": type_code,
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "parse_success": parse_success,
+            "raw": raw,
         }

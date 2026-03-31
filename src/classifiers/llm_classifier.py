@@ -141,6 +141,58 @@ def _parse_llm_json(
 
     return best_type, conf, reasoning
 
+def _build_llm_contract_payload(
+    raw_text: str,
+    registry: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Построить нормализованный L4‑контракт для результата классификации.
+
+    Для непрофессионального программиста:
+    - type_code: строка с кодом типа или "UNKNOWN";
+    - confidence: число 0–1;
+    - reasoning: краткое объяснение;
+    - parse_success: удалось ли корректно разобрать JSON;
+    - raw: диагностическая информация (ответ модели, ошибки парсинга и т.п.).
+    """
+    text = (raw_text or "").strip()
+
+    raw: Dict[str, Any] = {
+        "parse_success": False,
+        "error_type": None,
+        "error_message": None,
+        "response_text": text,
+        "parsed_json": None,
+    }
+
+    try:
+        best_type, confidence, reasoning = _parse_llm_json(
+            raw_text=text,
+            registry=registry,
+        )
+        raw["parse_success"] = True
+        raw["parsed_json"] = {
+            "type_code": best_type,
+            "confidence": confidence,
+            "reasoning": reasoning,
+        }
+        parse_success = True
+    except Exception as e:
+        best_type = "UNKNOWN"
+        confidence = 0.0
+        reasoning = ""
+        parse_success = False
+        raw["parse_success"] = False
+        raw["error_type"] = "parse_error"
+        raw["error_message"] = str(e)
+
+    return {
+        "type_code": best_type,
+        "confidence": confidence,
+        "reasoning": reasoning,
+        "parse_success": parse_success,
+        "raw": raw,
+    }
 
 class LocalLLMClassifier(BaseLLMClassifier):
     """
@@ -253,15 +305,24 @@ class LocalLLMClassifier(BaseLLMClassifier):
             )
             response_text = response["choices"][0]["text"].strip()
 
-            best_type, confidence, reasoning = _parse_llm_json(
+            # Строим нормализованный L4‑контракт (type_code/confidence/reasoning/raw)
+            contract = _build_llm_contract_payload(
                 raw_text=response_text,
                 registry=registry,
             )
+
+            best_type = contract["type_code"]
+            confidence = contract["confidence"]
+            reasoning = contract["reasoning"]
 
             # Извлекаем метаданные для найденного типа из реестра.
             cfg = get_doc_type_config(registry, best_type) or {}
             doc_meta = cfg.get("metadata", {}) or {}
 
+            # Для непрофессионального программиста:
+            # - основной результат остаётся таким же (doctype/confidence/evidence);
+            # - в extra["llm_contract"] кладём полный контракт L4, чтобы
+            #   его можно было использовать дальше в пайплайне или для отладки.
             return ClassificationResult(
                 doctype=best_type,
                 confidence=confidence,
@@ -270,7 +331,11 @@ class LocalLLMClassifier(BaseLLMClassifier):
                 evidence=reasoning,
                 language=doc_meta.get("language", "ru"),
                 jurisdiction=doc_meta.get("jurisdiction", "RU"),
+                extra={
+                    "llm_contract": contract,
+                },
             )
+        
         except (json.JSONDecodeError, ValueError) as e:
             # Типичная ситуация: LLM вернул текст без валидного JSON.
             logger.warning(

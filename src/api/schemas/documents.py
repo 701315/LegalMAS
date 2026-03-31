@@ -3,6 +3,7 @@
 """
 Pydantic‑схемы для документов и связанных сущностей (версии, семьи, связи).
 
+
 Зачем нужен этот модуль и где он используется:
 - формат ответов API для списка документов сделки и карточки документа:
   - DocumentResponse — строка в таблице документов по сделке;
@@ -14,12 +15,14 @@ Pydantic‑схемы для документов и связанных сущн
 - формат запроса на пометку документа как просмотренного юристом:
   - DocumentReviewedUpdateRequest.
 
+
 Важно про статусы и ошибки:
 - status: DocumentStatus — статус обработки документа в пайплайне:
   PENDING, EXTRACTING, EXTRACTED, SANITIZED, STRUCTURED, CLASSIFIED,
   ANALYZING, COMPLETED, QUARANTINE, FAILED, DUPLICATE и т.п.;
 - processing_error_details: dict | None — единое поле для описания ошибки
   по конкретному документу (если статус FAILED или QUARANTINE).
+
 
 Формат processing_error_details:
     {
@@ -31,10 +34,12 @@ Pydantic‑схемы для документов и связанных сущн
         "run_id": "<UUID Run, если есть>" (опционально)
     }
 
+
 Фронт использует эти поля, чтобы:
 - показывать юристу, на какой стадии остановился документ;
 - выводить понятное текстовое объяснение, что пошло не так;
 - подсвечивать документы в QUARANTINE, требующие ручной проверки.
+
 
 Основные схемы:
 - ClassificationMetadata — метаданные классификации для карточки документа
@@ -42,7 +47,7 @@ Pydantic‑схемы для документов и связанных сущн
   наличие YAML‑инструкции);
 - DocumentResponse — краткая карточка документа для таблиц, семейств, связей
   (status, doc_type, флаги reviewed_by_person / human_review_status,
-  classification_* поля, processing_error_details);
+  classification_* поля, processing_error_details, classification_requires_review);
 - DocumentVersionResponse — техническая версия документа с ссылками на артефакты
   (original_ref, text_layout_raw_ref/sanitized_ref, clause_tree_ref, pipeline_strategy и т.п.);
 - DocumentDetailResponse — объединяет DocumentResponse, последнюю версию,
@@ -58,7 +63,9 @@ Pydantic‑схемы для документов и связанных сущн
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, List
+
 from pydantic import BaseModel, Field
+
 from core.constants import DocumentStatus, RelationType
 
 
@@ -72,6 +79,9 @@ class ClassificationMetadata(BaseModel):
     - какие триггеры/разделы риска к нему применимы;
     - есть ли YAML‑инструкция для этого типа документа;
     - низкая ли уверенность (low_confidence).
+
+    По сути, doc_type + applicable_triggers образуют «профиль документа»
+    для UI: тип договора и связанные с ним сценарии/триггеры.
     """
     doc_type: str
     classification_level: str          # "L0", "L1", "L2", "L3", "L4", "L_manual"
@@ -96,7 +106,11 @@ class DocumentResponse(BaseModel):
        COMPLETED / QUARANTINE / FAILED / DUPLICATE и др.);
     - processing_error_details — детали последней ошибки обработки, если есть;
     - classification_* поля — результат классификации (если она выполнялась);
-    - reviewed_by_person / human_review_status — флаги ручной проверки юристом.
+    - reviewed_by_person / human_review_status — флаги ручной проверки юристом;
+    - classification_requires_review — флаг, что HybridClassifier пометил
+      документ как требующий ручной проверки (низкая уверенность или зона unknown);
+    - doc_type + applicable_triggers — «профиль документа» для UI
+      (тип договора и активные сценарии/триггеры по нему).
     """
     id: UUID
     deal_id: UUID
@@ -114,6 +128,10 @@ class DocumentResponse(BaseModel):
     classification_level: str | None = None
     classification_confidence: float | None = None
     applicable_triggers: List[str] = Field(default_factory=list)
+
+    # Флаг «нужна ручная проверка» по результатам классификации.
+    # True, если HybridClassifier определил зону low-confidence или unknown.
+    classification_requires_review: bool = False
 
     # Детали последней ошибки обработки (если статус FAILED/QUARANTINE и т.п.).
     # Структура описана в модуле repositories/document_repo.py.
@@ -186,19 +204,21 @@ class ReclassifyRequest(BaseModel):
     rerun_checks: bool = False
 
 
-
 class ReclassifyResponse(BaseModel):
     """
     Ответ после ручной переклассификации документа.
 
     Используется UI для:
     - подтверждения нового типа документа;
-    - показания, были ли перезапущены проверки.
+    - показа нового профиля документа (doc_type + applicable_triggers);
+    - индикации, были ли перезапущены проверки.
     """
     document_id: UUID
     previous_doc_type: str | None
     new_doc_type: str
-    new_applicable_triggers: list[UUID] | list[str] = Field(default_factory=list)
+    # Новый профиль триггеров по документу после смены doc_type.
+    # Для UI это часть профиля документа: doc_type + applicable_triggers.
+    new_applicable_triggers: list[str] = Field(default_factory=list)
     yaml_instruction_found: bool
     checks_requeued: bool = False
 
@@ -273,7 +293,6 @@ class DocumentReviewedUpdateRequest(BaseModel):
     reviewed_by_person: bool
 
 
-
 class ExtractedValue(BaseModel):
     """Одно извлечённое значение из документа."""
 
@@ -298,7 +317,4 @@ class DocumentExtractedValuesResponse(BaseModel):
     doc_type: Optional[str] = None
     extracted_values: List[ExtractedValue]
     total_extracted: int
-
-
-
-
+    

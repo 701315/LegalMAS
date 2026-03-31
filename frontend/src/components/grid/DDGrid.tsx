@@ -74,6 +74,7 @@ interface MatrixRowBase {
   docType?: string | null;
   classificationLevel?: ClassificationLevel | null;
   classificationConfidence?: number | null;
+  requiresManualReview?: boolean; // NEW: флаг manual review из DD Matrix
 
   totalCritical: number;
   totalHigh: number;
@@ -135,6 +136,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           docType: r.doc_type ?? null,
           classificationLevel: r.doc_classification_level ?? null,
           classificationConfidence: r.doc_classification_confidence ?? null,
+          // Для матричного режима CheckResult приходит из DD Matrix:
+          // backend кладёт туда метаданные документа (в т. ч. флаг manual review).
+          requiresManualReview: r.doc_requires_manual_review ?? false,
           totalCritical: 0,
           totalHigh: 0,
           totalMedium: 0,
@@ -230,6 +234,25 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               confidence={conf ?? undefined}
               showConfidence={false}
             />
+          );
+        },
+      },
+      {
+        headerName: "Нужна проверка",
+        field: "requiresManualReview",
+        width: 140,
+        cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
+          const v = params.data?.requiresManualReview;
+          if (!v) {
+            return <span className="text-[11px] text-gray-300">—</span>;
+          }
+          return (
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded bg-yellow-50 text-[11px] text-yellow-700 border border-yellow-200"
+              title="Классификатор пометил документ как требующий ручной проверки"
+            >
+              Нужна проверка
+            </span>
           );
         },
       },
@@ -457,7 +480,9 @@ const ListGrid: React.FC<DDGridProps> = ({
           const level = params.data?.doc_classification_level;
           const conf = params.data?.doc_classification_confidence;
           if (!level) {
-            return <span className="text-[11px] text-gray-300">—</span>;
+            return (
+              <span className="text-[11px] text-gray-300">—</span>
+            );
           }
           return (
             <ClassificationBadge
@@ -520,7 +545,9 @@ const ListGrid: React.FC<DDGridProps> = ({
           const triggered = params.data?.conditional_check_triggered;
           const name = params.data?.trigger_name;
           if (!triggered) {
-            return <span className="text-[11px] text-gray-300">—</span>;
+            return (
+              <span className="text-[11px] text-gray-300">—</span>
+            );
           }
           return (
             <span

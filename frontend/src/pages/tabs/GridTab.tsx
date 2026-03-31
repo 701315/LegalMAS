@@ -29,7 +29,10 @@ import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
 import ExportButtons from "../../components/grid/ExportButtons";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useRun } from "../../api/runs";
-import DocumentViewerModal from "../../components/viewer/DocumentViewerModal";
+import DocumentViewerModal, {
+  type LayoutElement,
+  type SizedChunkMeta,
+} from "../../components/viewer/DocumentViewerModal";
 
 interface GridTabProps {
   dealId: string;
@@ -73,9 +76,13 @@ function normalizeOrigin(
   return "other";
 }
 
+// Состояние viewer'а: куда прыгать, какой PDF открывать,
+// и дополнительные данные для overlay (layout + чанки).
 type ViewerState = {
   location: OpenViewerAtPayload;
   pdfUrl: string;
+  layoutElements?: LayoutElement[];
+  sizedChunks?: SizedChunkMeta[];
 } | null;
 
 const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
@@ -100,7 +107,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   >([]);
   const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
 
-  // Стейт цели для viewer'a + реальный PDF URL
+  // Стейт цели для viewer'a + реальный PDF URL + данные для overlay
   const [viewerState, setViewerState] = React.useState<ViewerState>(null);
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
   const [viewerError, setViewerError] = React.useState<string | null>(null);
@@ -400,13 +407,15 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   };
 
   // Коллбэк открытия viewer'a в нужном месте документа:
-  // 1) тянем /api/v1/documents/{doc_id}/pdf-url
-  // 2) кладём реальный pdfUrl + location в стейт
+  // 1) тянем /api/v1/documents/{doc_id}/converted-pdf-url
+  // 2) ПАРАЛЛЕЛЬНО тянем layout + sized-chunks для overlay
+  // 3) кладём всё в стейт viewerState
   const openViewerAt: OpenViewerAtFn = async (loc) => {
     try {
       setViewerError(null);
       setIsViewerLoading(true);
-      
+
+      // 1) PDF URL, как и раньше.
       const resp = await fetch(
         `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
         { credentials: "include" },
@@ -419,17 +428,71 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       }
       const pdfUrl = await resp.text();
 
-      console.log("PDF URL from backend:", pdfUrl);
-
       if (!pdfUrl) {
         setViewerError("Сервер не вернул ссылку на PDF");
         setIsViewerLoading(false);
         return;
       }
-      setViewerState({ location: loc, pdfUrl });
+
+      // 2) Параллельно тянем layout и чанки для overlay.
+      //
+      // Для непрофессионального программиста:
+      // - здесь мы предполагаем, что на бэке есть два эндпоинта:
+      //   * GET /api/v1/documents/{id}/layout-for-viewer
+      //   * GET /api/v1/documents/{id}/sized-chunks
+      // - формат ответа мы сразу приводим к простым массивам:
+      //   * layoutElements: [{element_id, page, bbox}, ...]
+      //   * sizedChunks: [{id, metadata: {element_ids: [...] } }, ...]
+      const [layoutResp, chunksResp] = await Promise.all([
+        fetch(
+          `/api/v1/documents/${loc.documentId}/layout-for-viewer`,
+          { credentials: "include" },
+        ),
+        fetch(
+          `/api/v1/documents/${loc.documentId}/sized-chunks`,
+          { credentials: "include" },
+        ),
+      ]);
+
+      let layoutElements: LayoutElement[] | undefined;
+      let sizedChunks: SizedChunkMeta[] | undefined;
+
+      if (layoutResp.ok) {
+        const layoutJson = await layoutResp.json();
+        layoutElements = (layoutJson.elements ?? []).map((el: any) => ({
+          elementId: el.element_id,
+          page: el.page,
+          bbox: el.bbox,
+        }));
+      }
+
+      if (chunksResp.ok) {
+        const chunksJson = await chunksResp.json();
+
+        const rawChunks = Array.isArray(chunksJson?.chunks)
+          ? chunksJson.chunks
+          : [];
+
+        sizedChunks = rawChunks.map((ch: any) => ({
+          id: String(ch.id),
+          elementIds: Array.isArray(ch.element_ids)
+            ? ch.element_ids.map(String)
+            : [],
+          clauseUids: Array.isArray(ch.clause_uids)
+            ? ch.clause_uids.map(String)
+            : [],
+        }));
+      }
+
+      setViewerState({
+        location: loc,
+        pdfUrl,
+        layoutElements,
+        sizedChunks,
+      });
     } catch (e) {
-      console.error("Error fetching converted-pdf-url", e);
-      setViewerError("Ошибка при запросе PDF документа");
+      console.error("Error fetching viewer data", e);
+      setViewerError("Ошибка при запросе данных для просмотра документа");
     } finally {
       setIsViewerLoading(false);
     }
@@ -683,9 +746,12 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         fileUrl={viewerState?.pdfUrl ?? null}
         location={viewerState?.location ?? null}
         title={viewerError ?? (isViewerLoading ? "Загрузка PDF…" : null)}
+        layoutElements={viewerState?.layoutElements}
+        sizedChunks={viewerState?.sizedChunks}
       />
     </div>
   );
 };
 
 export default GridTab;
+

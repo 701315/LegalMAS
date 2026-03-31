@@ -146,6 +146,7 @@ class DocumentMatrixRowDTO(BaseModel):
     status: str
     classification_level: str
     classification_confidence: float
+    requires_manual_review: bool = False
     results: dict[str, MatrixCellDTO]
 
 

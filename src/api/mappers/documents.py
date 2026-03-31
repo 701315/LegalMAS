@@ -29,17 +29,19 @@
   - нормализует applicable_triggers: None → [];
   - прокидывает processing_error_details как есть, чтобы фронт мог
     показывать детали последней ошибки обработки;
+  - прокидывает classification_requires_review, чтобы UI мог подсветить
+    документы, требующие ручной проверки;
   - вычисляет human_review_status через _compute_human_review_status.
 
 Таким образом, любые изменения формата ответа по документам для UI
 должны сначала вноситься сюда, а не напрямую в ORM‑модели или в контроллеры.
 """
 
+from typing import Iterable, List
 
+from core.constants import DocumentStatus
 from db.models.document import Document
 from api.schemas.documents import DocumentResponse
-from core.constants import DocumentStatus
-from typing import Iterable, List
 
 
 def _compute_human_review_status(doc: Document) -> str:
@@ -79,7 +81,13 @@ def map_document_to_response(doc: Document) -> DocumentResponse:
         classification_level=doc.classification_level,
         classification_confidence=doc.classification_confidence,
         applicable_triggers=doc.applicable_triggers or [],  # ключевая нормализация
-        processing_error_details=doc.processing_error_details,  # NEW
+        # Флаг «нужна ручная проверка», выставленный HybridClassifier
+        # (low-confidence или зона unknown).
+        classification_requires_review=getattr(
+            doc, "classification_requires_review", False
+        ),
+        # Детали последней ошибки обработки пайплайна.
+        processing_error_details=doc.processing_error_details,
         created_at=doc.created_at,
         updated_at=doc.updated_at,
     )

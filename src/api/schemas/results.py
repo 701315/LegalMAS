@@ -2,13 +2,25 @@
 
 """
 Pydantic-схемы для результатов проверок (check_results) и evidence.
+
+Важно для фронта:
+- На уровне отдельного результата проверки (CheckResultResponse) мы
+  передаём базовые данные документа:
+    * document_id / document_name,
+    * doc_type.
+- Через другие API (эндпоинты классификации/документа) фронт также
+  получает applicable_triggers для документа.
+- Пара (doc_type, applicable_triggers) образует «профиль документа»,
+  который UI может использовать для отображения:
+    * базового типа документа (например, "договор купли-продажи недвижимости"),
+    * активных сценариев (ипотека, маткапитал, наследование, судебная продажа и т.п.).
 """
 
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, Dict, Any
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 
 class LocationField(BaseModel):
@@ -19,11 +31,13 @@ class LocationField(BaseModel):
     end_page: Optional[int] = None
     path_titles: Optional[list[str]] = None
 
+
 class FieldQC(BaseModel):
     status: Optional[str] = None  # "pending" | "accepted" | "rejected" | "auto_accepted"
     by: Optional[str] = None
     comment: Optional[str] = None
     at: Optional[str] = None      # ISO8601
+
 
 class StructuredField(BaseModel):
     value: Any
@@ -33,6 +47,7 @@ class StructuredField(BaseModel):
     found: Optional[bool] = True
     location: Optional[LocationField] = None
     qc: Optional[FieldQC] = None
+
 
 StructuredDataDict = Dict[str, StructuredField]
 
@@ -50,6 +65,16 @@ class CheckResultResponse(BaseModel):
     - флаги качества и QC-статус,
     - базовые данные документа,
     - structured_data и условные проверки.
+
+    В контексте профиля документа:
+    - Поле doc_type даёт базовый тип документа, к которому относится эта проверка.
+    - applicable_triggers для документа в целом приходит из других эндпоинтов
+      (например, из API документа/классификации).
+    - Фронт может комбинировать doc_type из этой схемы и applicable_triggers
+      из классификации, чтобы рисовать:
+        * «тип документа»,
+        * и «сценарии» (ипотека, маткапитал, наследование и т.п.)
+          рядом с результатами проверок.
     """
 
     id: UUID
@@ -85,6 +110,7 @@ class CheckResultResponse(BaseModel):
     # Обогащаем из таблицы documents (JOIN в репозитории/сервисе)
     document_name: str | None = None
     doc_type: str | None = None
+    doc_requires_manual_review: bool | None = None  # ← сюда
 
     # Новое: структурированные данные по проверке
     structured_data: StructuredDataDict | None = None
@@ -94,7 +120,6 @@ class CheckResultResponse(BaseModel):
     trigger_name: str | None = None
 
     model_config = {"from_attributes": True}
-
 
 
 class EvidenceResponse(BaseModel):
@@ -132,5 +157,4 @@ class StructuredDataResponse(BaseModel):
     doc_type: str | None
     extracted_values: list[dict]   # [{check_id, field_name, field_value, page, clause_uid}]
     total_extracted: int
-
-
+    

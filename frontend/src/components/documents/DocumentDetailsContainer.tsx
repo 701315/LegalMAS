@@ -14,6 +14,7 @@ import {
   useReclassifyDocument,
   useDocumentPdfUrl,
   useSetDocumentReviewed,
+  useDocumentChunkViewUrl,
 } from "../../api/documents";
 import {
   useDocumentDetailsState,
@@ -37,6 +38,7 @@ import type {
 } from "./DocumentDetails";
 
 import { LayoutDebugModal } from "./LayoutDebugModal";
+import { DocumentChunksModal } from "./DocumentChunksModal";
 
 interface Props {
   docId: string;
@@ -76,6 +78,9 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   // --- Дополнительные данные (DTO-хуки) ---
   const { data: familyDto } = useDocumentFamily(docId);
   const { data: pdfData } = useDocumentPdfUrl(docId);
+  const { data: chunkViewData } = useDocumentChunkViewUrl(docId); 
+  console.log("chunkViewData:", chunkViewData);
+
 
   // --- Права доступа по сделке ---
   const {
@@ -83,14 +88,20 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     canReclassifyDocuments,
   } = useDealPermissions(dealId);
 
-  // --- Мутации ---
-  const reclassifyMutation = useReclassifyDocument(docId);
-  const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
-
   // --- Capabilities ---
   const canDownload = canDownloadDocuments;
   const canOpenPdf = canDownloadDocuments;
   const canReclassify = canReclassifyDocuments;
+
+  // Можно ли показывать кнопку «документ в формате чанка».
+  // Логика простая: если пользователь может скачивать документы,
+  // он же может открыть и debug‑представление документа.
+  const canOpenChunkView = canDownloadDocuments;
+
+
+  // --- Мутации ---
+  const reclassifyMutation = useReclassifyDocument(docId);
+  const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
   // --- Адаптация стейтов к view-модели ---
 
@@ -128,6 +139,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     doc.text_layout_sanitized_ref.trim() !== "";
 
   const [showLayoutDebug, setShowLayoutDebug] = React.useState(false);
+  const [showChunksModal, setShowChunksModal] = React.useState(false);
 
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
@@ -178,12 +190,25 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
         sanitizedLayoutAvailable={sanitizedLayoutAvailable}
         // Колбэк для открытия debug-модалки
         onOpenLayoutDebug={() => setShowLayoutDebug(true)}
+        canOpenChunkView={canOpenChunkView}
+        chunkViewUrl={chunkViewData?.url ?? null}
+        onOpenChunkView={
+          canOpenChunkView && chunkViewData?.url
+            ? () => setShowChunksModal(true)
+            : undefined
+        }
       />
 
       <LayoutDebugModal
         docId={docId}
         isOpen={showLayoutDebug}
         onClose={() => setShowLayoutDebug(false)}
+      />
+      <DocumentChunksModal
+        isOpen={showChunksModal}
+        onClose={() => setShowChunksModal(false)}
+        chunkViewUrl={chunkViewData?.url ?? null}
+        docName={doc?.filename ?? ""}
       />
     </>
   );

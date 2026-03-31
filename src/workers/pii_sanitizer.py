@@ -1,5 +1,3 @@
-# src/workers/pii_sanitizer.py
-
 """
 PII Sanitizer Worker.
 
@@ -147,7 +145,6 @@ class PIISanitizer:
             layout_raw = self.store.get_json(layout_ref)
             elements = layout_raw.get("elements", [])
 
-
             # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
             triggers = getattr(doc, "applicable_triggers", None) or []
             policy = self._build_policy(doc, triggers)
@@ -161,9 +158,8 @@ class PIISanitizer:
             #
             # В новой архитектуре для одноязычности мы хотим хранить
             # отдельный артефакт layout_primary_sanitized.
-            # Пока layout_primary ещё не внедрён, путь будет совпадать
-            # по структуре с текущим, но использовать новый helper
-            # ArtifactPath.layout_primary_sanitized.
+            # sanitized_path будет единственным источником истины для
+            # text_layout_sanitized_ref в DocumentVersion.
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
             sanitized_path = self._build_sanitized_path(doc)
             # ArtifactStore.put_json — синхронный метод, НЕ используем await
@@ -176,6 +172,14 @@ class PIISanitizer:
             self.store.put_file(mapping_path, encrypted)
 
             # 9. Обновить DocumentVersion и статус документа
+            #
+            # ВАЖНО:
+            # - sanitized_path указывает на одноязычный sanitized layout
+            #   (ArtifactPath.layout_primary_sanitized).
+            # - Через update_refs мы записываем эту ссылку в колонку
+            #   text_layout_sanitized_ref, которая является единым
+            #   источником истины для всех следующих стадий (structure,
+            #   DocumentContentService, checks).
             await self.version_repo.update_refs(
                 version_id=version.id,
                 sanitized_ref=sanitized_path,
@@ -413,7 +417,7 @@ def sanitize_document(
                     not result.get("skipped")
                     and not settings.DISABLE_DOWNSTREAM_TASKS
                 ):
-                    from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
+                    from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
 
                     logger.info(
                         "Scheduling build_structure after PII",

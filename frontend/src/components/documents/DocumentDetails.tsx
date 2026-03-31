@@ -41,6 +41,16 @@ import type {
 /**
  * Упрощённое представление классификации для view.
  * Основано на ClassificationMetadata из types/index.ts.
+ *
+ * Важно:
+ * - Пара (doc_type, applicable_triggers) представляет собой
+ *   «профиль документа» для фронта.
+ *   doc_type  — базовый тип (например, "contract_1.6_real_estate").
+ *   applicable_triggers — активные сценарии для этого документа
+ *   (ипотека, маткапитал, наследование, судебная продажа и т.п.).
+ * - UI может использовать этот профиль, чтобы показывать:
+ *   * тип документа,
+ *   * и набор сценариев/тегов рядом.
  */
 export interface DocumentDetailsViewClassification {
   doc_type: string;
@@ -133,6 +143,16 @@ export interface DocumentDetailsViewProps {
 
   // Колбэк для открытия debug-модалки с JSON layout'ами.
   onOpenLayoutDebug?: () => void;
+
+  // Открытие документа, собранного из чанков (Markdown-представление).
+  //
+  // Для непрофессионального пользователя:
+  // - по этой ссылке откроется специальный .md-файл,
+  //   где документ показан как последовательность чанков,
+  //   с заголовками и пояснениями.
+  canOpenChunkView?: boolean;
+  chunkViewUrl?: string | null;
+  onOpenChunkView?: () => void;
 }
 
 // =============================================================
@@ -165,6 +185,9 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   rawLayoutAvailable,
   sanitizedLayoutAvailable,
   onOpenLayoutDebug,
+  canOpenChunkView,
+  chunkViewUrl,
+  onOpenChunkView,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -229,6 +252,8 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
     classification?.classification_confidence !== undefined &&
     classification?.classification_confidence !== null &&
     classification.classification_confidence < 0.6;
+
+  const needsManualReview = !!doc.classification_requires_review;
 
   const handleFile = async (file: File) => {
     if (onReplaceFile) {
@@ -398,6 +423,11 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   {classification.doc_type}
                 </span>
               )}
+              {needsManualReview && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-yellow-50 text-[11px] text-yellow-700 border border-yellow-200">
+                  Нужна ручная проверка
+                </span>
+              )}
             </div>
 
             {statusHint && (
@@ -430,17 +460,22 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               </div>
             )}
 
-            {/* Triggers */}
+            {/* Triggers как часть профиля документа */}
             {classification.applicable_triggers &&
               classification.applicable_triggers.length > 0 && (
                 <div>
                   <p className="text-xs text-gray-400 mb-1">
-                    Активные триггеры:
+                    Активные триггеры (профиль документа):
                   </p>
                   <TriggerList
                     triggers={classification.applicable_triggers}
                     maxVisible={4}
                   />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Для непрофессионального пользователя: тип документа и эти
+                    триггеры вместе описывают сценарии по документу
+                    (ипотека, маткапитал, наследование, судебная продажа и т.п.).
+                  </p>
                 </div>
               )}
 
@@ -616,63 +651,110 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         )}
       </Section>
 
-      {/* ========== Текстовый макет (PII / debug) ========== */}
-      <Section title="Текстовый макет (PII / debug)">
-        {/* Для непрофессионального программиста:
-           * - Этот блок показывает, какие макеты доступны для документа.
-           * - Сейчас это только индикаторы. Позже сюда можно добавить
-           *   кнопки "Открыть raw" / "Открыть sanitized" или diff-режим.
-           */}
+      {/* ========== Информационный блок по документу ========== */}
+      <Section title="Информационный блок по документу">
         <p className="text-xs text-gray-500 mb-2">
           Здесь можно проверить, построены ли сырые и санитизированные
-          текстовые макеты документа (для отладки PII и пайплайна).
+          текстовые макеты документа (для отладки PII и пайплайна), а также
+          просмотреть документ в виде чанков для ручной проверки границ.
         </p>
 
-        <div className="flex flex-col gap-1 text-xs">
+        <div className="flex flex-col gap-2 text-xs">
+          {/* Raw */}
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">Raw-макет (после extract)</span>
-            {rawLayoutAvailable ? (
-              <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                доступен
+            <div className="flex flex-col">
+              <span className="text-gray-400">Raw-макет (после extract)</span>
+              <span className="text-[11px] text-gray-400">
+                JSON-структура, как её отдал extract-воркер.
               </span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
-                нет данных
-              </span>
-            )}
+            </div>
+            <div className="flex items-center gap-2">
+              {rawLayoutAvailable ? (
+                <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                  доступен
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
+                  нет данных
+                </span>
+              )}
+
+              {rawLayoutAvailable && onOpenLayoutDebug && (
+                <button
+                  type="button"
+                  onClick={onOpenLayoutDebug}
+                  className="px-2 py-0.5 border rounded text-[11px] text-gray-700 hover:bg-gray-50"
+                >
+                  Посмотреть
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Sanitized */}
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">Sanitized-макет (после PII)</span>
-            {sanitizedLayoutAvailable ? (
-              <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                доступен
+            <div className="flex flex-col">
+              <span className="text-gray-400">
+                Sanitized-макет (после PII)
               </span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
-                нет данных
+              <span className="text-[11px] text-gray-400">
+                JSON после PII-санитизации (без персональных данных).
               </span>
-            )}
+
+              {!sanitizedLayoutAvailable && (
+                <span className="mt-1 text-[11px] text-gray-400">
+                  Санитизированный макет появится после успешного прохождения PII
+                  (статус документа SANITIZED и далее).
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {sanitizedLayoutAvailable ? (
+                <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                  доступен
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
+                  нет данных
+                </span>
+              )}
+
+              {sanitizedLayoutAvailable && onOpenLayoutDebug && (
+                <button
+                  type="button"
+                  onClick={onOpenLayoutDebug}
+                  className="px-2 py-0.5 border rounded text-[11px] text-gray-700 hover:bg-gray-50"
+                >
+                  Посмотреть
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Chanked */}
+          {canOpenChunkView && chunkViewUrl && onOpenChunkView && (
+            <div className="flex items-center justify-between border-t pt-2 mt-1">
+              <div className="flex flex-col">
+                <span className="text-gray-400">
+                  Chanked-макет (для проверок)
+                </span>
+                <span className="text-[11px] text-gray-400">
+                  Линейный просмотр документа по чанкам, как его «видит»
+                  система чанкинга.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onOpenChunkView}
+                  className="px-2 py-0.5 border rounded text-[11px] text-gray-700 hover:bg-gray-50"
+                >
+                  Посмотреть
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-
-        {(rawLayoutAvailable || sanitizedLayoutAvailable) && onOpenLayoutDebug && (
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={onOpenLayoutDebug}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              Открыть debug‑layout (JSON)
-            </button>
-          </div>
-        )}
-
-        {!sanitizedLayoutAvailable && (
-          <p className="mt-2 text-[11px] text-gray-400">
-            Санитизированный макет появится после успешного прохождения PII
-            (статус документа SANITIZED и далее).
-          </p>
-        )}
       </Section>
 
       {/* ========== Действия ========== */}

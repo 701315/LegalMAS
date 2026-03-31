@@ -27,6 +27,17 @@ import type {
   ReclassifyResult,
 } from "../../types";
 
+/**
+ * Упрощённое представление классификации для view.
+ *
+ * Важно:
+ * - Пара (doc_type, applicable_triggers) — это «профиль документа» для UI.
+ *   doc_type  — базовый тип (например, "contract_1.6_real_estate").
+ *   applicable_triggers — активные сценарии по документу
+ *   (ипотека, маткапитал, наследование, судебная продажа и т.п.).
+ * - Фронт может использовать этот профиль, чтобы показывать
+ *   тип документа + сценарии/теги рядом.
+ */
 export interface DocumentDetailsViewClassification {
   doc_type: string;
   classification_level: ClassificationLevel;
@@ -329,16 +340,22 @@ export const DocumentDetailsClean: React.FC<DocumentDetailsViewProps> = ({
               </div>
             )}
 
+            {/* Triggers как часть профиля документа */}
             {classification.applicable_triggers &&
               classification.applicable_triggers.length > 0 && (
                 <div>
                   <p className="text-xs text-gray-400 mb-1">
-                    Активные триггеры:
+                    Активные триггеры (профиль документа):
                   </p>
                   <TriggerList
                     triggers={classification.applicable_triggers}
                     maxVisible={4}
                   />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Для непрофессионального пользователя: тип документа и эти
+                    триггеры вместе описывают сценарии по документу
+                    (ипотека, маткапитал, наследование, судебная продажа и т.п.).
+                  </p>
                 </div>
               )}
 
@@ -623,3 +640,4 @@ const FamilyRow: React.FC<FamilyRowProps> = ({ icon, label, doc }) => (
 );
 
 export default DocumentDetailsClean;
+

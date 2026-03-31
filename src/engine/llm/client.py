@@ -55,6 +55,12 @@ class LLMClient:
         self._llama_model: Any = None
         self._llama_grammar_cache: dict[str, Any] = {}  # кэш грамматик
 
+    # Максимальное количество попыток для повторов LLM-запроса.
+    # Для непрофессионального программиста:
+    # - 0 означает «ровно один вызов без ретраев»;
+    # - 2 означает «до трёх вызовов: первая попытка + 2 повтора».
+    _DEFAULT_MAX_RETRIES = getattr(settings, "LLM_MAX_RETRIES", 2)
+
     def is_available(self) -> bool:
         """Check if any LLM provider is configured."""
         return self.provider in ("openai", "ollama", "llamacpp")
@@ -149,6 +155,123 @@ class LLMClient:
                 logger.exception("LLMClient: failed to update LLM metrics")
 
         return result
+
+    def call_with_retries(
+        self,
+        prompt: str,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        grammar_path: Optional[str] = None,
+        max_retries: int | None = None,
+    ) -> tuple[LLMResponse | None, dict]:
+        """
+        Вызов LLM с повторами при временных ошибках.
+
+        Для непрофессионального программиста:
+        - сначала мы пробуем один обычный вызов LLM (через self.call);
+        - если ловим временную ошибку (TransientError), пробуем ещё раз,
+          пока не исчерпаем max_retries;
+        - если ошибка постоянная (PermanentError) или неожиданная — не повторяем;
+        - всегда возвращаем пару (response_or_none, errordetails_dict).
+
+        errordetails содержит:
+        - llm_attempts: сколько реальных попыток было сделано;
+        - error_type: None, если всё ок; иначе строку ("transient_error", "permanent_error", ...);
+        - error_message: текст ошибки (если была).
+        """
+        attempts = 0
+        last_error_type: str | None = None
+        last_error_message: str | None = None
+
+        # Определяем, сколько раз максимум будем повторять
+        retries = (
+            max_retries
+            if max_retries is not None
+            else getattr(settings, "LLM_MAX_RETRIES", 2)
+        )
+
+        while True:
+            try:
+                attempts += 1
+                response = self.call(
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    grammar_path=grammar_path,
+                )
+
+                # Если self.call вернул None (например, LLM_PROVIDER="none"),
+                # считаем, что это не ошибка LLM, а просто отсутствие провайдера.
+                if response is None:
+                    return None, {
+                        "llm_attempts": attempts,
+                        "error_type": "unavailable",
+                        "error_message": "LLM provider is not available",
+                    }
+
+                # Успешный ответ — выходим без ошибок.
+                return response, {
+                    "llm_attempts": attempts,
+                    "error_type": None,
+                    "error_message": None,
+                }
+
+            except TransientError as e:
+                # Временная ошибка: можно попробовать ещё раз, если не исчерпали лимит.
+                last_error_type = "transient_error"
+                last_error_message = str(e)
+                logger.warning(
+                    "LLMClient transient error, will retry if attempts left",
+                    provider=self.provider,
+                    attempt=attempts,
+                    max_retries=retries,
+                    error=str(e),
+                )
+                if attempts > retries:
+                    break
+                # Переходим к следующей итерации цикла и пробуем ещё раз.
+                continue
+
+            except PermanentError as e:
+                # Постоянная ошибка: повторять бессмысленно.
+                last_error_type = "permanent_error"
+                last_error_message = str(e)
+                logger.warning(
+                    "LLMClient permanent error, no retries",
+                    provider=self.provider,
+                    attempt=attempts,
+                    error=str(e),
+                )
+                return None, {
+                    "llm_attempts": attempts,
+                    "error_type": last_error_type,
+                    "error_message": last_error_message,
+                }
+
+            except Exception as e:
+                # Любая неожиданная ошибка: ведём себя консервативно, не повторяем.
+                last_error_type = "unexpected_error"
+                last_error_message = str(e)
+                logger.error(
+                    "LLMClient unexpected exception",
+                    provider=self.provider,
+                    attempt=attempts,
+                    error=str(e),
+                )
+                return None, {
+                    "llm_attempts": attempts,
+                    "error_type": last_error_type,
+                    "error_message": last_error_message,
+                }
+
+        # Если сюда дошли — значит, были только временные ошибки и мы исчерпали retries.
+        return None, {
+            "llm_attempts": attempts,
+            "error_type": last_error_type or "transient_error",
+            "error_message": last_error_message,
+        }
+
+
 
     # --- OpenAI-compatible provider ---
 

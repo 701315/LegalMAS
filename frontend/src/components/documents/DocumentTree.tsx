@@ -216,6 +216,7 @@ const NodeView: React.FC<NodeViewProps> = ({
           {/* Файлы в текущей папке */}
           {node.docs.map((doc) => {
             const config = DOCUMENT_STATUS_CONFIG[doc.status];
+            const needsReview = doc.classification_requires_review;
 
             return (
               <div
@@ -241,6 +242,16 @@ const NodeView: React.FC<NodeViewProps> = ({
                     showConfidence={false}
                     className="shrink-0 ml-1"
                   />
+                )}
+
+                {/* Бейдж "нужна проверка" при low-confidence/unknown */}
+                {needsReview && (
+                  <span
+                    className="ml-1 shrink-0 px-1.5 py-0.5 rounded bg-yellow-50 text-[11px] text-yellow-700 border border-yellow-200"
+                    title="Классификатор не уверен, требуется ручной просмотр"
+                  >
+                    нужна проверка
+                  </span>
                 )}
 
                 {/* Явный статус документа */}

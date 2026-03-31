@@ -185,6 +185,13 @@ export interface Document {
   classification_confidence?: number | null;
   applicable_triggers?: string[];  // всегда массив (может быть пустой)
 
+  /** 
+   * Флаг, что гибридный классификатор пометил документ
+   * как требующий ручной проверки (низкая уверенность / зона unknown).
+   */
+  classification_requires_review?: boolean;
+
+
   // Layout-артефакты (сырые и санитизированные макеты текста).
   //
   // Для непрофессионального программиста:
@@ -484,6 +491,7 @@ export interface CheckResult {
   doc_classification_confidence?: number;
   origin?: CheckResultOrigin; // "global_playbook" | "doctype_playbook" | ...
   origin_type?: CheckResultOriginType;
+  doc_requires_manual_review?: boolean | null;
 }
 
 
@@ -733,7 +741,8 @@ export type DocumentColumnId =
   | "created_at"
   | "updated_at"
   | "id"
-  | "deal_id";
+  | "deal_id"
+  | "classification_requires_review";  
 
 export interface DocumentColumnDef {
   /** Уникальный ID колонки (используем в настройках/экспорте) */
@@ -798,6 +807,14 @@ export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
     label: "Флаг проверки",
     description: "Логический флаг: документ проверен юристом.",
     field: "reviewed_by_person",
+    defaultVisible: false,
+  },
+  {
+    id: "classification_requires_review",
+    label: "Нужна проверка",
+    description:
+      "Флаг, что классификатор пометил документ как требующий ручной проверки (низкая уверенность).",
+    field: "classification_requires_review",
     defaultVisible: false,
   },
   {

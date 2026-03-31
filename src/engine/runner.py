@@ -120,7 +120,7 @@ class Runner:
 
             if hasattr(doc, "language"):
                 doc.language = class_result.get("language")
-            if hasattr(doc, "jurisdiction"):
+            if hasattr(doc, "jurisdiction_guess"):
                 doc.jurisdiction = class_result.get("jurisdiction")
 
             # 2. Триггеры

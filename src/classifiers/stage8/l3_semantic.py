@@ -11,10 +11,10 @@ L3 SemanticClassifier — семантическая классификация 
 
 
 Источники знаний:
-- YAMLRegistry.get_all_configs() даёт полный YAML-конфиг для каждого типа.
+- YAMLRegistry.get_all_configs() даёт DocumentTypeConfig для каждого типа.
 - Для каждого типа строится "обогащённый прототип" из:
   - name, description,
-  - rules.keywords / rules.phrases (high/medium/low),
+  - rules_keywords / rules_phrases (high/medium/low) из classification_runtime_v1.rules,
   - metadata (aliases, section_markers),
   - essential_elements (ключевые элементы договора).
 
@@ -99,8 +99,9 @@ class L3SemanticClassifier(BaseClassifier):
         meta_list: List[dict] = []
 
         for cfg in configs:
-            # cfg.raw — оригинальный YAML-конфиг
-            proto_text = self._create_enriched_prototype(cfg.raw)
+            # cfg — нормализованный конфиг типа (DocumentTypeConfig)
+            proto_text = self._create_enriched_prototype(cfg)
+
             if not proto_text.strip():
                 continue
 
@@ -147,48 +148,52 @@ class L3SemanticClassifier(BaseClassifier):
             extra={"count": len(self._prototypes)},
         )
 
-    def _create_enriched_prototype(self, cfg: dict) -> str:
+    def _create_enriched_prototype(self, cfg: DocumentTypeConfig) -> str:
         """
-        Обогащённый прототип, аналогичный SemanticMatcher:
+        Обогащённый прототип для семантической классификации L3.
 
-        - name, description
-        - rules.keywords/phrases (по уровням high/medium/low)
-        - semantic маркеры (party_roles, essential_terms, aliases и т.п.)
+        Для непрофессионального программиста:
+        - Здесь мы собираем один большой текст, который описывает тип документа.
+        - Этот текст потом кодируется в вектор (embedding) и используется
+          для сравнения с текстом конкретного документа.
+
+        Используем поля DocumentTypeConfig, которые уже собраны из YAML:
+        - cfg.name, cfg.raw["description"]
+        - cfg.rules_keywords / cfg.rules_phrases (high/medium/low)
+        - cfg.aliases, cfg.section_markers
+        - cfg.essential_elements (element, keywords, phrases)
         """
         parts: list[str] = []
 
-        # 1. Основная информация
-        parts.append(str(cfg.get("name", "") or ""))
-        parts.append(str(cfg.get("description", "") or ""))
+        # 1. Основная информация о типе
+        parts.append(str(cfg.name or ""))
+        raw = cfg.raw or {}
+        parts.append(str(raw.get("description", "") or ""))
 
-        # 2. Ключевые слова и фразы
-        # В новых YAML они находятся внутри classification_runtime_v1.rules
-        runtime = cfg.get("classification_runtime_v1") or {}
-        rules: dict = runtime.get("rules") or cfg.get("rules", {}) or {}
-
+        # 2. Ключевые слова и фразы по уровням влияния
         for impact in ("high", "medium", "low"):
-            parts.extend(rules.get("keywords", {}).get(impact, []) or [])
-            parts.extend(rules.get("phrases", {}).get(impact, []) or [])
+            parts.extend(cfg.rules_keywords.get(impact, []) or [])
+            parts.extend(cfg.rules_phrases.get(impact, []) or [])
 
-        # 3. Семантические поля (если нормализованы загрузчиком/редактором YAML)
-        metadata = cfg.get("metadata", {}) or {}
-        parts.extend(metadata.get("aliases", []) or [])
-        parts.extend(metadata.get("section_markers", []) or [])
+        # 3. Семантические маркеры из metadata
+        parts.extend(cfg.aliases or [])
+        parts.extend(cfg.section_markers or [])
 
-        # 4. essential_elements (если есть)
-        for elem in cfg.get("essential_elements") or []:
+        # 4. Ключевые элементы договора (essential_elements)
+        for elem in cfg.essential_elements or []:
             parts.append(str(elem.get("element", "") or ""))
             parts.extend(elem.get("keywords", []) or [])
             parts.extend(elem.get("phrases", []) or [])
 
+        # Фильтруем пустые значения и нестроковые типы,
+        # склеиваем всё в одну строку и обрезаем до разумной длины.
         clean_parts = [str(p) for p in parts if p and isinstance(p, (str, int, float))]
         proto = " ".join(clean_parts)[:4000]
 
-        # DEBUG-лог для сложных кейсов (можно включать по уровню)
         logger.debug(
             "L3 prototype built",
             extra={
-                "name": cfg.get("name", ""),
+                "name": cfg.name,
                 "length": len(proto),
             },
         )

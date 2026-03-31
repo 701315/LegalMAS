@@ -1,5 +1,3 @@
-# src/workers/structure_builder.py
-
 """
 Structure Builder Worker.
 
@@ -121,23 +119,30 @@ async def _build_structure_async(
 
     # 2. Получение макета из MinIO
     #
-    # Исторически здесь использовался text_layout_raw_ref (многоязычный layout после extract).
-    # В новой одноязычной архитектуре:
-    #   - extract сохраняет полный layout_raw (multi‑lang),
-    #   - PII пишет одноязычный layout_primary_sanitized,
-    #   - StructureBuilder должен работать по одноязычному, уже очищенному layout'у.
+    # Архитектурный контракт (совпадает с DocumentContentService):
+    #   - text_layout_sanitized_ref — единый указатель на одноязычный
+    #     sanitized layout (после PII), если он есть;
+    #   - text_layout_raw_ref       — исходный layout после extract (multi‑lang).
     #
-    # Пока поле с явной ссылкой на layout_primary_sanitized хранится в sanitized_ref.
-    if not version.sanitized_ref:
-        raise PermanentError(f"sanitized_ref missing for version {v_id}")
+    # StructureBuilder ДОЛЖЕН работать по sanitized layout'у, чтобы не
+    # использовать PII, но в dev / при миграции мы можем аккуратно
+    # деградировать на raw, если sanitized ещё не построен.
+    layout_ref = getattr(version, "text_layout_sanitized_ref", None) or getattr(
+        version, "text_layout_raw_ref", None
+    )
+
+    if not layout_ref:
+        # Для продакшена это честная "твёрдая" ошибка пайплайна:
+        # предыдущие стадии не создали ни raw, ни sanitized layout.
+        raise PermanentError(f"no layout_ref (sanitized or raw) for version {v_id}")
 
     # ArtifactStore.get_json — синхронный метод, НЕ используем await
-    raw_layout = store.get_json(version.sanitized_ref)
+    raw_layout = store.get_json(layout_ref)
     elements = raw_layout.get("elements", [])
     if not elements:
-        raise PermanentError(f"No elements in sanitized layout for version {v_id}")
+        raise PermanentError(f"No elements in layout for version {v_id}")
 
-    # 3. Вызов сервиса построения структуры
+    # 3. Вызок сервиса построения структуры
     builder = StructureBuilder()
     clause_tree = builder.build(
         document_id=str(doc.id),

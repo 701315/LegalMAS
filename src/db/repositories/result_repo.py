@@ -3,11 +3,13 @@
 """
 Repository for CheckResult operations.
 
+
 Отвечает за:
 - создание результатов проверок (create);
 - выборку по run (с документами и без);
 - пагинацию для DD Grid;
 - обновление QC-статуса.
+
 
 Важно:
 - этот слой не решает "что такое structured_data",
@@ -16,6 +18,7 @@ Repository for CheckResult operations.
 - контракт structured_data задаётся в api/schemas/results.py
   (StructuredField / LocationField и т.п.).
 """
+
 
 import uuid
 from datetime import UTC, datetime
@@ -127,7 +130,8 @@ class ResultRepository:
         - поля из CheckResult;
         - origin / origin_type (источник определения проверки);
         - document_name, doc_type;
-        - doc_classification_level, doc_classification_confidence.
+        - doc_classification_level, doc_classification_confidence;
+        - doc_requires_manual_review.
         """
         stmt = (
             select(
@@ -136,6 +140,7 @@ class ResultRepository:
                 Document.doc_type.label("doc_type"),
                 Document.classification_level.label("doc_classification_level"),
                 Document.classification_confidence.label("doc_classification_confidence"),
+                Document.classification_requires_review.label("doc_requires_manual_review"),
             )
             .join(Document, Document.id == CheckResult.document_id)
             .where(CheckResult.run_id == run_id)
@@ -146,7 +151,14 @@ class ResultRepository:
         rows = result.all()
 
         out: list[dict] = []
-        for cr, document_name, doc_type, doc_level, doc_conf in rows:
+        for (
+            cr,
+            document_name,
+            doc_type,
+            doc_level,
+            doc_conf,
+            doc_requires_manual_review,
+        ) in rows:
             # cr — ORM-объект CheckResult; берём его поля как есть
             item = {
                 "id": cr.id,
@@ -175,6 +187,7 @@ class ResultRepository:
                 # доп. поля, которые уже ждёт фронт (через types)
                 "doc_classification_level": doc_level,
                 "doc_classification_confidence": doc_conf,
+                "doc_requires_manual_review": doc_requires_manual_review,
                 # structured_data и conditional
                 # ОЖИДАНИЕ: cr.structured_data уже в формате StructuredDataDict
                 "structured_data": cr.structured_data,
@@ -274,6 +287,7 @@ class ResultRepository:
                 Document.doc_type.label("doc_type"),
                 Document.classification_level.label("doc_classification_level"),
                 Document.classification_confidence.label("doc_classification_confidence"),
+                Document.classification_requires_review.label("doc_requires_manual_review"),
             )
             .join(Document, Document.id == CheckResult.document_id)
             .where(CheckResult.run_id == run_id)
@@ -306,7 +320,14 @@ class ResultRepository:
         rows = result.all()
 
         items: list[dict] = []
-        for cr, document_name, doc_type_value, doc_level, doc_conf in rows:
+        for (
+            cr,
+            document_name,
+            doc_type_value,
+            doc_level,
+            doc_conf,
+            doc_requires_manual_review,
+        ) in rows:
             item = {
                 "id": cr.id,
                 "run_id": cr.run_id,
@@ -332,6 +353,7 @@ class ResultRepository:
                 "doc_type": doc_type_value,
                 "doc_classification_level": doc_level,
                 "doc_classification_confidence": doc_conf,
+                "doc_requires_manual_review": doc_requires_manual_review,
                 # structured_data должно быть совместимо с StructuredDataDict
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,

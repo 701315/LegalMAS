@@ -1,3 +1,5 @@
+# src/classifiers/stage8/l1_filename.py
+
 """
 L1: Filename classifier с YAMLRegistry (Stage 8).
 

@@ -99,6 +99,25 @@ export const documentApi = {
       .then((r) => r.data),
 
   /**
+   * Специальный Markdown-файл с чанками документа.
+   *
+   * GET /api/v1/documents/{doc_id}/chunk-view
+   *
+   * Backend:
+   * - собирает уже посчитанные sized‑чанки документа в .md-файл,
+   * - кладёт его во внутреннее хранилище (MinIO / S3),
+   * - возвращает JSON { url: "https://.../doc_id__chunks_view.md" }.
+   *
+   * Для непрофессионального пользователя:
+   * - по этому URL можно открыть документ, разрезанный на чанки,
+   *   в новой вкладке браузера или скачать файл.
+   */
+  getChunkViewUrl: (docId: string) =>
+    client
+      .get<{ url: string }>(`/api/v1/documents/${docId}/chunk-view`)
+      .then((r) => r.data),
+
+  /**
    * Ручная переклассификация документа (Editor+).
    * POST /api/v1/documents/{doc_id}/reclassify
    */
@@ -394,6 +413,15 @@ export function useDocumentPdfUrl(docId: string | null) {
     enabled: !!docId,
   });
 }
+
+export function useDocumentChunkViewUrl(docId: string | null) {
+  return useQuery({
+    queryKey: ["document-chunk-view-url", docId],
+    queryFn: () => documentApi.getChunkViewUrl(docId!),
+    enabled: !!docId,
+  });
+}
+
 
 /**
  * Debug-хук для получения raw/sanitized layout'ов документа.

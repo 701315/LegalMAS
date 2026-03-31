@@ -26,22 +26,65 @@ _instance: Optional["YAMLRegistry"] = None
 
 
 class DocumentTypeConfig:
-    """Parsed configuration for one document type."""
+    """
+    Parsed configuration for one document type.
+
+    Для непрофессионального программиста:
+    - Этот класс отвечает за то, чтобы один YAML-файл типа документа
+      превратить в удобный объект для всех уровней классификации (L1–L3)
+      и детектора триггеров.
+
+    Источник данных: YAML типа (например, contract_1.6_real_estate.yaml).
+
+    Основные блоки YAML, которые относятся к "classification rule-engine":
+
+      1) classification_runtime_v1.rules
+         - filename_patterns  → используются на L1 (по имени файла).
+         - folder_patterns    → используются на L1 (по пути к папке).
+         - header_patterns    → используются на L2 (заголовок договора).
+         - keywords.high/.medium/.low → используются на L2 (header/keywords)
+           и частично на L3 (семантика).
+         - phrases.high/.medium/.low  → используются на L3 (семантика).
+         - exclusions         → используются на L2 (подавление типа) и могут
+           учитываться в дополнительных правилах.
+
+      2) trigger_definitions (либо в classification_runtime_v1, либо в корне YAML)
+         - описывают триггеры (например, residential_property, mortgage_related).
+         - по ключам этого словаря строится список trigger_ids, который
+           используется HybridClassifier для формирования applicable_triggers.
+         - сами trigger_definitions затем использует TriggerDetector, чтобы
+           понять, какие триггеры реально сработали по тексту документа.
+
+    Этот класс:
+      - компилирует regex-паттерны для L1/L2;
+      - готовит нормализованные списки строк для L3 (rules_keywords / rules_phrases);
+      - вытаскивает метаданные (язык, юрисдикция, aliases, section_markers);
+      - сохраняет essential_elements для семантических алгоритмов и checks.
+
+    Итого:
+      - DocumentTypeConfig можно рассматривать как "спецификацию" для
+        classification rule-engine и системы триггеров по одному type_code.
+    """
 
     def __init__(self, raw: dict):
+        # Полный сырой YAML-конфиг, сохраняем "как есть" на случай,
+        # если где-то ещё нужны нестандартные поля.
         self.raw = raw
+
+        # Базовые поля типа
         self.type_code = str(raw.get("type", ""))
         self.name = str(raw.get("name", ""))
 
         runtime = raw.get("classification_runtime_v1") or {}
         # Правила классификации: в приоритете блок classification_runtime_v1.rules
-        rules = runtime.get("rules") or raw.get("rules", {})
+        rules = runtime.get("rules") or raw.get("rules", {}) or {}
         validation = raw.get("validation_engine_v3_2") or raw.get("validation_metadata") or {}
         self.triggerdefinitions = dict(
             runtime.get("trigger_definitions") or validation.get("trigger_definitions") or {}
         )
 
         # --- filename_patterns / folder_patterns: для L1 ---
+        # Эти паттерны используются L1FilenameClassifier для быстрого матча по имени файла и пути.
         self.filename_patterns: list = [
             re.compile(p.lstrip("r").strip('"').strip("'"))
             for p in rules.get("filename_patterns", [])
@@ -87,12 +130,29 @@ class DocumentTypeConfig:
         self.keywords_low = self._compile_regex_list(kw.get("low", []))
         self.exclusions = self._compile_regex_list(rules.get("exclusions", []))
 
+        # НОВОЕ: "сырые" keywords/phrases для семантического уровня (L3).
+        # Здесь мы не компилируем ничего в regex, а просто храним строки,
+        # чтобы L3 мог собрать текстовый прототип.
+        self.rules_keywords: dict[str, list[str]] = {
+            "high": [str(x) for x in kw.get("high", []) or []],
+            "medium": [str(x) for x in kw.get("medium", []) or []],
+            "low": [str(x) for x in kw.get("low", []) or []],
+        }
+
+        phrases = rules.get("phrases", {}) or {}
+        self.rules_phrases: dict[str, list[str]] = {
+            "high": [str(x) for x in phrases.get("high", []) or []],
+            "medium": [str(x) for x in phrases.get("medium", []) or []],
+            "low": [str(x) for x in phrases.get("low", []) or []],
+        }
+
         # trigger_definitions → applicable_triggers list
-        # Keys of trigger_definitions become trigger IDs
+        # Keys of trigger_definitions become trigger IDs (используются в HybridClassifier).
         tdef = raw.get("trigger_definitions", {}) or {}
         self.trigger_ids: list = list(tdef.keys())
 
-        # trigger_definitions with their keyword matchers (used by TriggerDetector)
+        # Полное описание триггеров, которое использует TriggerDetector,
+        # чтобы понять, какие триггеры реально нашли подтверждение в тексте.
         self.trigger_definitions: dict = tdef
 
         metadata = raw.get("metadata", {}) or {}
@@ -101,6 +161,15 @@ class DocumentTypeConfig:
         self.risk_level: str = metadata.get("risk_level", "medium")
         self.language: str = metadata.get("language", "ru")
         self.jurisdiction: str = metadata.get("jurisdiction", "RU")
+
+        # НОВОЕ: семантические маркеры для L3 и checks.
+        # aliases / section_markers могут использоваться как дополнительные сигналы.
+        self.aliases: list[str] = list(metadata.get("aliases", []) or [])
+        self.section_markers: list[str] = list(metadata.get("section_markers", []) or [])
+
+        # essential_elements передаём наверх, чтобы L3 и checks могли
+        # строить логику вокруг ключевых элементов договора.
+        self.essential_elements: list[dict] = list(raw.get("essential_elements") or [])
 
         # NEW: party role keywords from essential_elements.parties
         self.party_role_keywords: dict[str, str] = self._build_party_role_keywords(raw)
@@ -138,6 +207,10 @@ class DocumentTypeConfig:
     def _build_party_role_keywords(raw: dict) -> dict[str, str]:
         """
         Build {keyword_lower: ROLE_ID} from essential_elements.parties.party_roles.
+
+        Для непрофессионального программиста:
+        - В YAML могут быть роли сторон (Покупатель, Продавец и т.п.) с ключевыми словами.
+        - Здесь мы строим словарь, чтобы по ключевому слову быстро понять роль.
         """
         mapping: dict[str, str] = {}
         for elem in raw.get("essential_elements") or []:
@@ -270,8 +343,28 @@ class YAMLRegistry:
         )
         return master_types
 
+
     def get_classification_rules(self, type_code: str) -> dict:
-        """Получить правила классификации для HybridClassifier/L1/L2/L3."""
+        """
+        Получить правила классификации (ClassificationRulesSpec-подобный dict)
+        для HybridClassifier / L1 / L2 / L3.
+
+        Структура возвращаемого словаря:
+            {
+                "filename_patterns": list[Pattern],  # для L1 (имя файла)
+                "folder_patterns":   list[Pattern],  # для L1 (путь к папке)
+                "keywords_high":     list[Pattern],  # для L2/L3
+                "keywords_medium":   list[Pattern],
+                "keywords_low":      list[Pattern],
+                "exclusions":        list[Pattern],  # для L2 (и доп. логики)
+            }
+
+        Для непрофессионального программиста:
+        - это "нарезка" из DocumentTypeConfig, которую удобно подавать
+          в L1FilenameClassifier, L2HeaderClassifier и L3SemanticClassifier,
+          не вытаскивая весь config.raw.
+        """
+
         config = self.get_config(type_code)
         if not config:
             return {

@@ -14,12 +14,22 @@ applicable_triggers:
   - Загружается из блока trigger_definitions в YAML-конфиге типа.
   - Используется Runner’ом (Stage 8), чтобы решать, какие проверки из каталога
     запускать для данного документа (условная маршрутизация проверок).
+
+Профиль документа:
+  - Под «профилем документа» мы понимаем пару:
+      (doc_type, applicable_triggers).
+  - doc_type задаёт базовый тип (например, "contract_1.6_real_estate").
+  - applicable_triggers описывает сценарии, которые актуальны для этого документа:
+      ипотека, маткапитал, судебная продажа, сельхозземля, наследственный титул и т.п.
+  - Именно профиль документа потом использует движок проверок (CheckRunner),
+    чтобы выбрать, какие проверки запускать и как формировать DD Grid.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 from core.constants import ClassificationLevel
 
@@ -29,15 +39,28 @@ class ClassificationResult:
     """
     Результат работы одного уровня классификации (L1–L4).
 
+    Для непрофессионального программиста:
+    - Классификация идёт по уровням (L1, L2, L3, L4).
+    - Каждый уровень возвращает свой промежуточный результат, который
+      агрегируется в финальное решение (HybridClassifier).
+
     Поля:
-    - doctype   : код типа документа (например, "contract_1.6_real_estate" или "UNKNOWN").
-    - confidence: уверенность уровня в диапазоне 0.0–1.0.
-    - level     : уровень каскада (L1, L2, L3, L4).
-    - method    : человекочитаемое описание метода (например, "filename", "header_pattern").
-    - language  : предполагаемый язык документа (по умолчанию "ru").
-    - jurisdiction: предполагаемая юрисдикция (по умолчанию "RU").
-    - evidence  : текстовая «улика»/объяснение (паттерн, cosine_sim и т.п.).
+    - doctype          : код типа документа (например, "contract_1.6_real_estate" или "UNKNOWN").
+    - confidence       : уверенность уровня в диапазоне 0.0–1.0.
+    - level            : уровень каскада (L1, L2, L3, L4).
+    - method           : человекочитаемое описание метода (например, "filename", "header_pattern").
+    - language         : предполагаемый язык документа (по умолчанию "ru").
+    - jurisdiction     : предполагаемая юрисдикция (по умолчанию "RU").
+    - evidence         : текстовая «улика»/объяснение (паттерн, cosine_sim и т.п.).
     - alternative_types: альтернативные типы с более низкой уверенностью (опционально).
+    - extra            : произвольный словарь с дополнительными данными уровня.
+
+    applicable_triggers:
+    - Список триггеров, которые уровень считает релевантными данному типу.
+    - Обычно наполняется на этапе финальной агрегации (HybridClassifier),
+      используя YAML trigger_definitions для выбранного doc_type.
+    - В сумме с doc_type эти триггеры участвуют в формировании общего
+      профиля документа.
     """
 
     doctype: str
@@ -49,6 +72,7 @@ class ClassificationResult:
     evidence: str | None = None
     alternative_types: list = field(default_factory=list)
     extra: dict | None = None
+    applicable_triggers: list = field(default_factory=list)
 
 
 @dataclass
@@ -66,11 +90,51 @@ class FinalClassification:
       - details             → Document.classification_details
       - applicable_triggers → Document.applicable_triggers
 
+    Структура details/candidates (см. HybridClassifier.classify_document):
+
+      {
+        "levels_tried": ["L1", "L2", "L3", "L4"],
+        "L1": {
+          "type": "contract.real_estate",
+          "confidence": 0.8,
+          "method": "filename",
+          "details": {...}
+        },
+        "L2": {...},
+        "L3": {...},
+        "L4": {...},  # если L4 вызывался
+        "voting": {
+          "strategy": "L1_L2_AGREE" | "L2_STRONG_WINS" | "HYBRID",
+          "type": "contract.real_estate",
+          "confidence": 0.82
+        },
+        "voting_override": {
+          "strategy": "L1_OVERRIDE_L3",
+          "original_voted": {...}
+        },
+        "candidates": [
+          {
+            "type_code": "contract.real_estate",
+            "confidence": 0.82,
+            "level": "L2",
+            "method": "header_pattern"
+          },
+          ...
+        ],
+        "confidence_zone": "confident" | "low" | "unknown",
+        "requires_manual_review": true | false
+      }
+
     applicable_triggers:
       - Управляют маршрутизацией в Runner:
         по этому списку выбираются проверки из каталога, которые надо запускать
         для конкретного документа (например, проверки для ипотеки, маткапитала,
         наследственного титула и т.п.).
+      - Строятся на основе trigger_definitions в YAML-конфиге типа документа
+        через YAMLRegistry / DocumentTypeConfig и фактических срабатываний
+        TriggerDetector (семья, текст).
+      - В паре с doctype образуют «профиль документа», который дальнейший
+        движок проверок использует для выбора рисков и формирования DD Grid.
     """
 
     doctype: str
@@ -80,6 +144,119 @@ class FinalClassification:
     jurisdiction: str
     details: dict
     applicable_triggers: list = field(default_factory=list)
+
+
+@dataclass
+class HybridClassificationCandidate:
+    """
+    Один кандидат из агрегированного списка candidates HybridClassifier.
+
+    Структура соответствует элементу из HybridClassifier.classify_document(...):
+
+        {
+            "doctype": "contract_1.6_real_estate",
+            "confidence": 0.91,
+            "level": "L2",
+            "method": "header_keyword_high",
+            "evidence": "...",
+            # опционально:
+            # "language": "ru",
+            # "jurisdiction": "RU",
+            # "raw_similarity": 0.82,
+        }
+
+    Для непрофессионального программиста:
+    - Это просто «строчка» в длинном списке возможных типов документов.
+    - Финальное решение выбирает один тип (final_type), но все кандидаты
+      сохраняются в details для прозрачности и отладки.
+    """
+
+    doctype: str
+    confidence: float
+    level: str  # "L1", "L2", "L3", "L4"
+    method: Optional[str] = None
+    evidence: Optional[str] = None
+    language: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class HybridClassificationResultDTO:
+    """
+    Формальный DTO для результата HybridClassifier.classify_document().
+
+    ВАЖНО:
+    - HybridClassifier по-прежнему возвращает обычный dict.
+    - Структура этого dict должна соответствовать этому dataclass-у.
+    - Используется как контракт между classifier worker, Runner и API.
+
+    Профиль документа:
+        Пара (final_type, applicable_triggers) — это «профиль документа».
+
+        final_type:
+          - строковый код типа документа (например, "contract_1.6_real_estate");
+          - None или "UNKNOWN" означает, что тип не определён.
+
+        applicable_triggers:
+          - список идентификаторов триггеров из YAML (trigger_definitions);
+          - учитывает и «теоретически возможные» триггеры по типу,
+            и реально сработавшие триггеры из TriggerDetector;
+          - используется DocTypeCheckLoader/Runner для выбора checks.
+
+    Зоны уверенности (details["confidence_zone"]):
+        - "confident" : final_confidence >= CLASSIFIER_ACCEPT_THRESHOLD
+        - "low"       : UNKNOWN_THRESHOLD < final_confidence < ACCEPT_THRESHOLD
+        - "unknown"   : final_confidence <= UNKNOWN_THRESHOLD
+
+    requires_manual_review (details["requires_manual_review"]):
+        - True, если зона "low" или "unknown";
+        - False, если зона "confident".
+
+    Структура details:
+        {
+            "L1": {...},               # результат L1 (если запускался)
+            "L2": {...},               # результат L2
+            "L3": {...},               # результат L3
+            "L4": {                     # результат L4/LLM (если вызывался)
+                "type": "contract_1.6_real_estate" | "UNKNOWN",
+                "confidence": 0.72,
+                "method": "llm" | "llm_error",
+                "reasoning": "краткое объяснение",
+                "parse_success": true | false,
+                "raw": {
+                    "provider": "llamacpp" | "openai" | "...",
+                    "model": "...",
+                    "tokens_used": 123,
+                    "parse_success": true | false,
+                    "error_type": null | "parse_error" | "unexpected_exception",
+                    "error_message": null | "текст ошибки",
+                    "response_text": "... сырой текст ответа LLM ...",
+                    "parsed_json": {        # если парсинг JSON удался
+                        "type_code": "contract_1.6_real_estate" | "UNKNOWN" | null,
+                        "confidence": 0.72,
+                        "reasoning": "краткое объяснение"
+                    } | null
+                }
+            },
+            "MASTERCOPY": {...},       # если решение скопировано из master-документа
+            "voting": {...},           # детали голосования L1/L2/L3
+            "voting_override": {...},  # если был override (например, L1_OVERRIDE_L3)
+            "candidates": [...],       # список кандидатов (дублирует верхнеуровневое поле)
+            "confidence_zone": "confident" | "low" | "unknown",
+            "requires_manual_review": true | false
+        }
+    """
+
+    final_type: Optional[str] = None
+    final_confidence: float = 0.0
+    level: Optional[str] = None  # "L1","L2","L3","L4","HYBRID","COPIED",None
+    language: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    applicable_triggers: List[str] = field(default_factory=list)
+    levels_tried: List[str] = field(default_factory=list)
+    candidates: List[HybridClassificationCandidate] = field(default_factory=list)
+    details: Dict[str, Any] = field(default_factory=dict)
 
 
 class BaseClassifier(ABC):

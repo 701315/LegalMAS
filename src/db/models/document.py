@@ -110,7 +110,6 @@ class Document(Base):
         ),
     )
 
-    # флаг "документ проверен юристом"
     reviewed_by_person: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -168,6 +167,17 @@ class Document(Base):
         JSONB,
         nullable=True,
         comment="Full classification history with all levels tried",
+    )
+
+    classification_requires_review: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default="false",
+        comment=(
+            "True, если HybridClassifier.details['requires_manual_review'] == True. "
+            "Используется для подсветки документов, требующих ручной проверки "
+            "результата классификации."
+        ),
     )
 
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(

@@ -139,34 +139,44 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
       low_confidence: 0,
     };
 
-    const lows: Document[] = [];
+  const lowsByThreshold: Document[] = [];
+  const lowsByFlag: Document[] = [];
 
-    for (const doc of classifiedDocs) {
-      const level =
-        (doc.classification_level as keyof ClassificationStats) || "L0";
-      stats[level] = (stats[level] || 0) + 1;
+  for (const doc of classifiedDocs) {
+    const level =
+      (doc.classification_level as keyof ClassificationStats) || "L0";
+    stats[level] = (stats[level] || 0) + 1;
 
-      const confidence =
-        typeof doc.classification_confidence === "number"
-          ? doc.classification_confidence
-          : null;
+    const confidence =
+      typeof doc.classification_confidence === "number"
+        ? doc.classification_confidence
+        : null;
 
-      if (confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD) {
-        lows.push(doc);
-        stats.low_confidence++;
-      }
+    if (confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD) {
+      lowsByThreshold.push(doc);
+      stats.low_confidence++;
     }
 
-    const l4Count = classifiedDocs.filter(
-      (d) => d.classification_level === "L4",
-    ).length;
+    if (doc.classification_requires_review) {
+      lowsByFlag.push(doc);
+    }
+  }
 
-    return {
-      classificationStats: stats,
-      lowConfidenceDocs: lows,
-      l4Count,
-    };
-  }, [classifiedDocs]);
+  const l4Count = classifiedDocs.filter(
+    (d) => d.classification_level === "L4",
+  ).length;
+
+  // Если backend уже шлёт явный флаг manual review, используем его.
+  // Для старых данных (без флага) — fallback по порогу confidence.
+  const lowDocs =
+    lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
+
+  return {
+    classificationStats: stats,
+    lowConfidenceDocs: lowDocs,
+    l4Count,
+  };
+}, [classifiedDocs]);
 
   const handleDeleteDocument = (doc: Document) => {
     if (!canDeleteDocuments) return;

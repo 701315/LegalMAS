@@ -1,3 +1,5 @@
+# src/engine/checks_runner.py
+
 """
 CheckRunner: playbook-based checks executor.
 
@@ -5,6 +7,16 @@ CheckRunner: playbook-based checks executor.
 - Запускает playbook-checks по уже классифицированным документам сделки.
 - Использует playbook и CheckExecutor, но НЕ выполняет повторную классификацию
   документов и НЕ работает с триггерами на уровне запуска пайплайна.
+
+Профиль документа:
+- Под «профилем документа» понимается пара:
+    (doc_type, applicable_triggers).
+- doc_type заполняется каскадом классификации (HybridClassifier).
+- applicable_triggers формируются на основе:
+    * типовых триггеров из YAML (trigger_definitions) для данного doc_type,
+    * фактических срабатываний TriggerDetector (семья, текст).
+- Именно этот профиль (doc_type + applicable_triggers) определяет,
+  какие проверки будут выбраны для документа и как будет формироваться DD Grid.
 
 Новая архитектура (после рефакторинга):
 
@@ -261,7 +273,26 @@ class CheckRunner:
         """
         Выполнить все релевантные checks для одного документа в отдельном UoW.
 
-        Важно:
+        Профиль документа:
+        - В начале метода мы читаем:
+            * doc_type  из doc.doc_type,
+            * applicable_triggers из doc.applicable_triggers.
+        - Эта пара (doc_type, applicable_triggers) считается «профилем документа».
+        - На основе этого профиля выбираются проверки:
+            * global_checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
+              — глобальные проверки из плейбука, которые зависят от триггеров;
+            * doc_type_checks = DocTypeCheckLoader.load_checks_for_doc(...)
+              — doc-type-специфичные проверки из YAML для данного doc_type,
+                отфильтрованные по required_triggers/triggers.any.
+
+        Иными словами:
+        - Если профиль документа меняется (другой doc_type или другой набор
+          applicable_triggers), то и набор checks для этого документа меняется.
+        - Это позволяет включать/выключать сценарии (ипотека, маткапитал,
+          наследование, сельхозземля и т.п.) через YAML-блоки trigger_definitions
+          и compliance_rules, не трогая сам CheckRunner.
+
+        Важно по реализации:
         - Здесь мы создаём DocumentContentService на сессии текущего UoW,
           чтобы читать layout/clause tree и собирать чанки.
         - Чанки передаются в CheckExecutor, который сам делает retrieval

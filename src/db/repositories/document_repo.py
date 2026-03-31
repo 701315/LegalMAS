@@ -267,6 +267,7 @@ class DocumentRepository:
         classification_level: str | None,
         classification_details: dict,
         applicable_triggers: list[str],
+        classification_requires_review: bool | None = None,
         language: str | None = None,
         jurisdiction: str | None = None,
         playbook_version_id: uuid.UUID | None = None,
@@ -280,6 +281,9 @@ class DocumentRepository:
         - детальной информации о том, почему выбрана такая классификация;
         - языковых и юрисдикционных метаданных;
         - ID версии плейбука, по которому классифицировали документ.
+        - classification_requires_review:
+            флаг, который приходит из HybridClassifier.details["requires_manual_review"]
+            и сохраняется в Document.classification_requires_review для UX.
         """
         values = {
             "doc_type": doc_type,
@@ -289,6 +293,9 @@ class DocumentRepository:
             "applicable_triggers": applicable_triggers,
         }
 
+        if classification_requires_review is not None:
+            values["classification_requires_review"] = classification_requires_review
+            
         # Обновляем язык и юрисдикцию, если они переданы.
         if language:
             values["language"] = language

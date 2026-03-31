@@ -1,9 +1,6 @@
 // =============================================================
 // src/components/viewer/DocumentViewerModal.tsx
-// Модалка с PDF‑viewer для договора.
-// - Показывает PDF по URL
-// - Умеет прыгать на нужную страницу
-// - Вызывается через OpenViewerAtFn из GridTab / EvidencePanel / DDGrid
+// Модалка с PDF‑viewer для договора + overlay по чанкам.
 // =============================================================
 
 import React from "react";
@@ -15,6 +12,24 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
 ).toString();
+
+/**
+ * Один элемент layout (маленький кусочек текста на странице).
+ */
+export interface LayoutElement {
+  elementId: string;
+  page: number;
+  bbox: [number, number, number, number]; // [x0, top, x1, bottom]
+}
+
+/**
+ * Краткая информация о чанке для overlay.
+ */
+export interface SizedChunkMeta {
+  id: string;
+  elementIds: string[];
+  clauseUids: string[];
+}
 
 interface DocumentViewerModalProps {
   open: boolean;
@@ -31,6 +46,10 @@ interface DocumentViewerModalProps {
 
   // Заголовок: имя документа ИЛИ текст ошибки/статуса (из GridTab)
   title?: string | null;
+
+  // НОВОЕ: данные для overlay по чанкам.
+  layoutElements?: LayoutElement[];
+  sizedChunks?: SizedChunkMeta[];
 }
 
 const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
@@ -40,6 +59,8 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   location,
   initialScale = 0.9,
   title,
+  layoutElements,
+  sizedChunks,
 }) => {
   const [numPages, setNumPages] = React.useState<number | null>(null);
   const [pageNumber, setPageNumber] = React.useState<number>(1);
@@ -49,6 +70,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   const [containerWidth, setContainerWidth] = React.useState<number | null>(
     null,
   );
+
+  // Исходные размеры страницы в координатах PDF (от react-pdf/Page)
+  const [pageSize, setPageSize] = React.useState<{
+    originalWidth: number;
+    originalHeight: number;
+  } | null>(null);
 
   // При смене location — прыгаем на нужную страницу
   React.useEffect(() => {
@@ -102,6 +129,19 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     }
   };
 
+  // react-pdf/Page отдаёт исходные width/height страницы; сохраняем их
+  const handlePageRenderSuccess = (pageData: any) => {
+    if (
+      typeof pageData?.originalWidth === "number" &&
+      typeof pageData?.originalHeight === "number"
+    ) {
+      setPageSize({
+        originalWidth: pageData.originalWidth,
+        originalHeight: pageData.originalHeight,
+      });
+    }
+  };
+
   const handlePrevPage = () => {
     setPageNumber((prev) => Math.max(1, prev - 1));
   };
@@ -116,13 +156,48 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     title ||
     (location?.documentId ? `Документ ${location.documentId}` : "Документ");
 
-  const hasErrorTitle = Boolean(title && title.toLowerCase().includes("ошибка"));
+  const hasErrorTitle = Boolean(
+    title && title.toLowerCase().includes("ошибка"),
+  );
   const isLoadingTitle = Boolean(
     title && title.toLowerCase().includes("загрузка"),
   );
 
   // Итоговая ширина страницы: либо измеренная, либо дефолт
   const pageWidth = (containerWidth ?? 900) * initialScale;
+
+  // Ищем "активный" чанк по clauseUid из location (если есть)
+  const activeChunkIndex =
+    location?.clauseUid && sizedChunks
+      ? sizedChunks.findIndex((ch) =>
+          ch.clauseUids?.includes(location.clauseUid!),
+        )
+      : -1;
+
+
+  // Карта elementId -> индекс чанка (без useMemo)
+  const elementToChunkIndex = (() => {
+    const map = new Map<string, number>();
+    (sizedChunks ?? []).forEach((chunk, chunkIndex) => {
+      (chunk.elementIds ?? []).forEach((elId) => {
+        if (elId) {
+          map.set(elId, chunkIndex);
+        }
+      });
+    });
+    return map;
+  })();
+
+  // Overlay‑объекты для текущей страницы (без useMemo)
+  const pageOverlays =
+    layoutElements && layoutElements.length
+      ? layoutElements
+          .filter((el) => el.page === pageNumber)
+          .map((el) => ({
+            bbox: el.bbox,
+            chunkIndex: elementToChunkIndex.get(el.elementId) ?? null,
+          }))
+      : [];
 
   return (
     <div
@@ -219,7 +294,60 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                   </div>
                 }
               >
-                <Page pageNumber={pageNumber} width={pageWidth} />
+                <div
+                  className="relative"
+                  style={{ width: pageWidth }}
+                >
+                  <Page
+                    pageNumber={pageNumber}
+                    width={pageWidth}
+                    onRenderSuccess={handlePageRenderSuccess}
+                  />
+
+                  {pageOverlays.length > 0 && (
+                    <div className="pointer-events-none absolute inset-0">
+                      {pageOverlays.map((ov, i) => {
+                        if (ov.chunkIndex == null) return null;
+
+                        const [x0, top, x1, bottom] = ov.bbox;
+
+                        if (!pageSize) return null;
+
+                        const scaleX =
+                          pageWidth / pageSize.originalWidth;
+                        const scaleY = scaleX;
+
+                        const left = x0 * scaleX;
+                        const width = (x1 - x0) * scaleX;
+                        const y = top * scaleY;
+                        const height = (bottom - top) * scaleY;
+
+                        const isEven = ov.chunkIndex % 2 === 0;
+                        const isActive = activeChunkIndex >= 0 && ov.chunkIndex === activeChunkIndex;
+
+                        const bgClass = isActive
+                          ? "bg-yellow-200/60 ring-2 ring-yellow-500"
+                          : isEven
+                          ? "bg-white/60"
+                          : "bg-gray-200/60";
+
+                        return (
+                          <div
+                            key={i}
+                            className={bgClass}
+                            style={{
+                              position: "absolute",
+                              left,
+                              top: y,
+                              width,
+                              height,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </Document>
             </div>
           )}
@@ -230,3 +358,4 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 };
 
 export default DocumentViewerModal;
+

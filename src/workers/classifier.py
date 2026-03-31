@@ -158,8 +158,15 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             classifier = _get_classifier(uow)
             classification_result = await classifier.classify_document(str(doc.id))
 
+
+            # Формат classification_result:
+            # - см. HybridClassifier.classify_document и FinalClassification в classifiers/base.py.
+            # - финальные поля (final_type, final_confidence, level, language, jurisdiction,
+            #   applicable_triggers, details) считаются стабильным контрактом.
+            # - details содержит JSON-структуру с L1/L2/L3/L4, голосованием и зоной уверенности.
             # Ожидаемый формат classification_result см. в hybrid_classifier.py.
             raw_final_type = classification_result.get("final_type") or "UNKNOWN"
+
             final_conf = float(classification_result.get("final_confidence") or 0.0)
             level = classification_result.get("level")
             language = classification_result.get("language")
@@ -167,7 +174,17 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             applicable_triggers = classification_result.get(
                 "applicable_triggers", []
             )
-            details = classification_result.get("details", {})
+            details = classification_result.get("details", {}) or {}
+
+            # Флаг "нужна ручная проверка" приходит из HybridClassifier.
+            # Для непрофессионального программиста:
+            # - сам классификатор уже решил, попадает ли документ в зоны
+            #   confident / low / unknown.
+            # - если зона low или unknown, он ставит requires_manual_review=True.
+            # - здесь мы только читаем этот флаг и сохраняем его в БД.
+            classification_requires_review = bool(
+                details.get("requires_manual_review", False)
+            )
 
             # Нормализация типа документа:
             # - "UNKNOWN" не пишем в doc_type, вместо этого используем None.
@@ -198,6 +215,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                 classification_level=level,
                 classification_details=details,
                 applicable_triggers=applicable_triggers,
+                classification_requires_review=classification_requires_review,
                 language=language,
                 jurisdiction=jurisdiction,
                 playbook_version_id=playbook.id if playbook else None,
@@ -270,6 +288,8 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
         "jurisdiction": classification_result.get("jurisdiction") if classification_result else None,
         "playbook_found": playbook is not None,
         "duration_ms": duration_ms,
+        # Для внешнего кода: подсказка, нужен ли manual review.
+        "classification_requires_review": classification_requires_review if classification_result else None,
     }
 
 

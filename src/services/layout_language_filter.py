@@ -1,7 +1,6 @@
-# src/services/layout_language_filter.py
-
 """
 Layout language filter.
+
 
 Назначение:
 - взять text_layout_raw JSON (layout после извлечения),
@@ -9,10 +8,12 @@ Layout language filter.
 - при необходимости оставить только элементы выбранного языка (ru/en),
 - вернуть новый layout в том же формате.
 
+
 Почему так:
-- многие документы двуязычные (EN/RU, две колонки),
+- многие документы двуязычные (EN/RU, две колонки или две строки подряд),
 - для анализа и классификации мы хотим работать только с одной языковой
   дорожкой, чтобы упростить модели и правила.
+
 
 Важно:
 - Функции не зависят от БД и MinIO, работают только с dict/list.
@@ -72,15 +73,12 @@ def detect_languages_in_layout(layout: Dict[str, Any]) -> List[str]:
     """
     Определить, какие языки реально присутствуют в layout.
 
-    Как это работает:
     - Берём все элементы layout["elements"].
-    - Для каждого элемента смотрим текст и определяем "скрипт" (_detect_script).
+    - Для каждого элемента смотрим текст и определяем "скрипт".
     - Собираем коды языков 'ru' и 'en', если они реально встретились.
 
-    Возвращает:
-    - отсортированный список кодов языков, например ["ru"], ["en"], ["en", "ru"];
-    - если вообще не нашли ни русских, ни английских символов, возвращаем ["ru"]
-      как дефолт (система ориентирована на русские документы).
+    Если вообще не нашли ни русских, ни английских символов, возвращаем ["ru"]
+    как дефолт (система ориентирована на русские документы).
     """
     elements: List[Dict[str, Any]] = layout.get("elements") or []
     langs: set[str] = set()
@@ -95,7 +93,6 @@ def detect_languages_in_layout(layout: Dict[str, Any]) -> List[str]:
             langs.add(script)
 
     if not langs:
-        # Ничего не нашли — считаем, что по умолчанию документ русский.
         return ["ru"]
 
     return sorted(langs)
@@ -108,22 +105,22 @@ def filter_layout_to_language(
     """
     Оставить в layout только элементы выбранного языка (ru/en).
 
-    Простая версия:
+    Жёсткая политика для реально одноязычных чанков:
+
     - Для каждого элемента считаем "скрипт" по тексту.
     - Если target_language == "ru":
-        * удаляем явно английские элементы (script == "en"),
-        * оставляем "ru" и "mixed".
+        * оставляем только элементы со script == "ru";
+        * выкидываем "en", "mixed", "other".
     - Если target_language == "en":
-        * удаляем явно русские элементы (script == "ru"),
-        * оставляем "en" и "mixed".
+        * оставляем только элементы со script == "en";
+        * выкидываем "ru", "mixed", "other".
     - Для любых других значений target_language (неожиданный код языка)
       фильтрацию не применяем и возвращаем layout как есть.
 
-    Таблицы и метаданные не трогаем.
+    Таблицы и метаданные не трогаем, но обновляем metadata["element_count"].
     """
     target = (target_language or "").lower()
     if target not in ("ru", "en"):
-        # Неизвестный язык — безопаснее вернуть layout без изменений.
         return layout
 
     elements: List[Dict[str, Any]] = layout.get("elements") or []
@@ -132,30 +129,20 @@ def filter_layout_to_language(
     for el in elements:
         text = (el.get("text") or "").strip()
         if not text:
-            # Пустые/почти пустые элементы пропускаем, но не добавляем
-            # их в результирующий список, чтобы не плодить шум.
             continue
 
         script = _detect_script(text)
 
         if target == "ru":
-            # Для русской дорожки отбрасываем чисто английские строки.
-            if script == "en":
-                continue
-            # "ru", "mixed", "other" оставляем — в mixed часто цифры/сокращения.
-            filtered.append(el)
-        elif target == "en":
-            # Для английской дорожки отбрасываем чисто русские строки.
             if script == "ru":
-                continue
-            # "en", "mixed", "other" оставляем.
-            filtered.append(el)
+                filtered.append(el)
+        elif target == "en":
+            if script == "en":
+                filtered.append(el)
 
-    # Таблицы и метаданные не трогаем.
     tables = layout.get("tables") or []
     metadata = layout.get("metadata") or {}
 
-    # Обновим счётчик элементов в metadata, чтобы он соответствовал фильтру.
     metadata = dict(metadata)
     metadata["element_count"] = len(filtered)
 
@@ -170,10 +157,6 @@ def filter_layout_to_language(
 
 def filter_layout_to_ru(layout: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Backwards‑compatible обёртка для старого кода.
-
-    Исторически система умела фильтровать только до русского текста.
-    Чтобы не ломать существующие вызовы, оставляем эту функцию,
-    но внутри просто вызываем универсальный фильтр.
+    Backwards‑compatible обёртка для старого кода: фильтрация до русского.
     """
     return filter_layout_to_language(layout, "ru")

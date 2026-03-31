@@ -439,10 +439,14 @@ def build_dd_matrix(
                 classification_confidence=float(
                     doc_meta.get("classification_confidence", 0.0)
                 ),
+                # Новое поле: флаг, что документ требует ручной проверки
+                requires_manual_review=bool(
+                    doc_meta.get("classification_requires_review") or False
+                ),
                 results=results,
             )
         )
-
+        
     # ------------------------------------------------------------------
     # Шаг 5. Сортировка: сначала документы с наибольшим числом critical fail,
     # затем по общему числу fail. Карантинные документы уходят в конец.

@@ -24,6 +24,7 @@ from src.ops.instrument import setup_metrics
 from .endpoints import (
     auth,        # <--- добавили auth
     runner,
+    classifier,
     documents,
     deal_review,
     runs,
@@ -80,6 +81,9 @@ app.include_router(auth.router)
 
 # Runner / запуск проверок.
 app.include_router(runner.router, prefix="/api/v1")
+
+# Классификация документов (через Celery-воркер).
+app.include_router(classifier.router, prefix="/api/v1")
 
 # Документы (загрузка, статус и т.д.).
 app.include_router(documents.router, prefix="/api/v1")
