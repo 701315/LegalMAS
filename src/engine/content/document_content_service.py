@@ -169,15 +169,23 @@ class DocumentContentService:
 
     async def _load_layout(self, version: DocumentVersion) -> Optional[Dict[str, Any]]:
         """
-        Загрузить layout JSON (санитизированный, а если его нет — raw)
-        по DocumentVersion.
+        Загрузить layout JSON по DocumentVersion с учётом нового одноязычного контракта.
 
         Для непрофессионального программиста:
-        - Сначала пытаемся использовать sanitized layout (после PII),
-          чтобы не светить персональные данные в чанкерах и LLM.
-        - Если по каким-то причинам sanitized ещё нет, используем raw layout.
+        - Сначала пытаемся использовать одноязычный sanitized layout
+          (layout_primary_sanitized_ref) — это основной безопасный вариант
+          для чанкинга и LLM.
+        - Если его ещё нет, пробуем одноязычный layout без санитизации
+          (layout_primary_ref).
+        - Если и его нет, используем legacy sanitized (text_layout_sanitized_ref),
+          и только в самом крайнем случае — raw layout (text_layout_raw_ref).
         """
-        layout_ref = version.text_layout_sanitized_ref or version.text_layout_raw_ref
+        layout_ref = (
+            getattr(version, "layout_primary_sanitized_ref", None)
+            or getattr(version, "layout_primary_ref", None)
+            or getattr(version, "text_layout_sanitized_ref", None)
+            or getattr(version, "text_layout_raw_ref", None)
+        )
         if not layout_ref:
             return None
         return await self.layout_storage.load_json(layout_ref)
@@ -340,6 +348,18 @@ class DocumentContentService:
             tree=tree,
             layout=layout,
         )
+
+        from core.logging import get_logger
+        logger = get_logger(__name__)
+        if str(doc_id) == "7012e86f-89a2-46b3-ac1a-55afa3c989c4":
+            logger.info(
+                "DEBUG chunk 8 sample",
+                layout_ref=getattr(version, "layout_primary_sanitized_ref", None)
+                        or getattr(version, "layout_primary_ref", None)
+                        or getattr(version, "text_layout_sanitized_ref", None)
+                        or getattr(version, "text_layout_raw_ref", None),
+                chunk_8_text=(leaf_chunks[7].get("text") if len(leaf_chunks) > 7 else None),
+            )
 
         if not leaf_chunks:
             return [

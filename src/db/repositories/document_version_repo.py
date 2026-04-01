@@ -1,7 +1,16 @@
-# src/db/repositories/document_version_repo.py
-
 """
 Repository for DocumentVersion CRUD operations.
+
+Для непрофессионального программиста:
+
+- Этот репозиторий — единственная "официальная точка", через которую стадии
+  пайплайна должны обновлять ссылки на артефакты DocumentVersion.
+- Здесь мы храним не только legacy refs (raw/sanitized), но и новые refs
+  для одноязычного пайплайна:
+  - layout_primary_ref;
+  - layout_primary_sanitized_ref.
+- Благодаря этому downstream-стадии (PII, structure, content service, checks)
+  могут брать нужный layout из БД, а не вычислять путь в MinIO вручную.
 """
 
 import uuid
@@ -57,7 +66,9 @@ class DocumentVersionRepository:
         self,
         version_id: uuid.UUID,
         raw_ref: str | None = None,
+        layout_primary_ref: str | None = None,
         sanitized_ref: str | None = None,
+        layout_primary_sanitized_ref: str | None = None,
         clause_tree_ref: str | None = None,
         extraction_strategy: str | None = None,
         ocr_confidence: float | None = None,
@@ -65,34 +76,53 @@ class DocumentVersionRepository:
         converted_pdf_ref: str | None = None,
     ) -> DocumentVersion | None:
         """
-        Update S3 references and processing metadata on a document version.
+        Update artifact references and processing metadata on a document version.
 
-        Used by:
-        - Stage 4 (raw text layout),
-        - Stage 5 (sanitized layout),
-        - Stage 6 (clause_tree),
-        - convert_worker (converted_pdf_ref после DOCX→PDF).
+        Используется разными стадиями:
+        - convert_worker:
+            converted_pdf_ref
+        - extract_worker:
+            raw_ref, layout_primary_ref, extraction_strategy, ocr_confidence, pipeline_strategy
+        - pii_sanitizer:
+            sanitized_ref, layout_primary_sanitized_ref
+        - structure_builder:
+            clause_tree_ref
+
+        Важно:
+        - raw_ref / sanitized_ref оставляем для backward compatibility;
+        - layout_primary_ref / layout_primary_sanitized_ref — это новый основной
+          контракт для одноязычного downstream-пайплайна.
         """
-        values: dict = {}
+        values: dict[str, object] = {}
+
         if raw_ref is not None:
             values["text_layout_raw_ref"] = raw_ref
+
+        if layout_primary_ref is not None:
+            values["layout_primary_ref"] = layout_primary_ref
+
         if sanitized_ref is not None:
             values["text_layout_sanitized_ref"] = sanitized_ref
+
+        if layout_primary_sanitized_ref is not None:
+            values["layout_primary_sanitized_ref"] = layout_primary_sanitized_ref
+
         if clause_tree_ref is not None:
             values["clause_tree_ref"] = clause_tree_ref
+
         if extraction_strategy is not None:
             values["extraction_strategy"] = extraction_strategy
+
         if ocr_confidence is not None:
             values["ocr_confidence"] = ocr_confidence
+
         if pipeline_strategy is not None:
             values["pipeline_strategy"] = pipeline_strategy
+
         if converted_pdf_ref is not None:
-            # Сохраняем ссылку на PDF, полученный после конвертации DOCX/DOC → PDF.
-            # Для исходных PDF это поле остаётся NULL.
             values["converted_pdf_ref"] = converted_pdf_ref
 
         if not values:
-            # Если нечего обновлять, просто возвращаем текущую версию из БД.
             return await self.get_by_id(version_id)
 
         stmt = (
@@ -106,3 +136,4 @@ class DocumentVersionRepository:
         if ver:
             await self.session.flush()
         return ver
+    

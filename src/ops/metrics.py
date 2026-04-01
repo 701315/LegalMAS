@@ -1,5 +1,3 @@
-# src/ops/metrics.py
-
 """
 Prometheus Metrics Registry.
 
@@ -287,8 +285,9 @@ class MetricsRegistry:
 
         self.classification_duration = Histogram(
             f"{_P}_classification_duration_seconds",
-            "Time to classify one document via HybridClassifier.",
-            labelnames=["level"],  # "L0", "L1", "L2", "L3", "L4", "L_manual"
+            "Time to classify one document via HybridClassifier "
+            "by decision source (L2STRONGWINS, HYBRID, L4, fallback, etc.).",
+            labelnames=["source"],  # e.g. "MASTERCOPY", "L2STRONGWINS", "HYBRID", "L4", "FALLBACK"
             buckets=[0.05, 0.1, 0.25, 0.5, 1, 2, 5],
             registry=registry,
         )
@@ -394,3 +393,4 @@ else:
             return getattr(get_metrics(), item)
 
     METRICS = _MetricsProxy()
+    

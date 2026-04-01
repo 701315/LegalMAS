@@ -291,6 +291,7 @@ async def _extract_document_async(
         document_version_id=document_version_id,
         document_id=document_id,
         raw_ref=raw_ref,
+        primary_ref=primary_ref,
         page_count=extraction.page_count,
         strategy=extraction.strategy,
         ocr_confidence=extraction.avg_ocr_confidence,
@@ -415,6 +416,7 @@ async def update_extraction_result(
     document_version_id: str,
     document_id: str,
     raw_ref: str,
+    primary_ref: str | None,
     page_count: int,
     strategy: str,
     ocr_confidence: float,
@@ -424,6 +426,11 @@ async def update_extraction_result(
     Обновить результаты извлечения в БД (version + document).
 
     Работает через переданную AsyncSession в рамках одного unit of work.
+
+    ВАЖНО:
+    - raw_ref указывает на многоязычный layout_raw (для отладки и fallback);
+    - primary_ref указывает на одноязычный layout_primary по основному языку сделки.
+      Downstream-стадии (PII, structure, chunks) должны использовать именно его.
     """
     ver_repo = DocumentVersionRepository(db)
     doc_repo = DocumentRepository(db)
@@ -454,6 +461,7 @@ async def update_extraction_result(
     await ver_repo.update_refs(
         version_uuid,
         raw_ref=raw_ref,
+        layout_primary_ref=primary_ref,
         extraction_strategy=strategy,
         ocr_confidence=ocr_confidence,
         pipeline_strategy=pipeline_strategy,

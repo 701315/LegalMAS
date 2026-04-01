@@ -9,14 +9,6 @@ description: |
 version: 4.0
 parent: class_1_transfer_of_ownership
 
-# Структура
-#   classification_runtime_v1  → YAMLRegistry (L1/L2 классификация)
-#   trigger_definitions        → TriggerDetector
-#   checks_v8                  → DocTypeCheckLoader (прямое исполнение)
-#   doc_type_checks            → DocTypeCheckConverter (авто-конверсия)
-#   dd_request_templates       → DDRequestTemplateLoader
-#   compliance_rules           → exclusion_logic → compliance-проверки
-
 metadata:
   category: contract
   subcategory: ownership_transfer
@@ -40,7 +32,6 @@ engine_expectations:
   allow_not_found: true
   output_style: "dd_grid"
   prefer_structured_outputs: true
-
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 1: КЛАССИФИКАЦИЯ (L1/L2)
@@ -146,7 +137,6 @@ classification_runtime_v1:
       - "(?i)безвозмездн[а-я\\s]+передач[аи]\\s+недвижимост[иьи]"
       - "(?i)внесени[ея]\\s+недвижимост[иьи]\\s+в\\s+уставн[ыйой]\\s+капитал"
       - "(?i)вклад\\s+недвижимост[иьи]\\s+в\\s+имуществ[оа]\\s+общества"
-
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

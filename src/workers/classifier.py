@@ -223,11 +223,14 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
 
             # --- Метрики классификации ---
             # ВАЖНО: ошибки при обновлении метрик не должны ломать бизнес-логику.
+            #
+            # Для непрофессионального программиста:
+            # - Время классификации (duration) уже измеряется внутри HybridClassifier
+            #   с разными "источниками" решения (source="copied", "l2_strong", "l4" и т.п.).
+            # - Здесь, в воркере, мы считаем только агрегат:
+            #   сколько документов попало в каждый уровень (L1/L2/L3/L4/HYBRID/UNKNOWN)
+            #   и с каким финальным типом.
             try:
-                metrics.classification_duration.labels(
-                    level=level or "UNKNOWN",
-                ).observe(time.time() - start_time)
-
                 metrics.classification_level_distribution.labels(
                     level=level or "UNKNOWN",
                     doc_type=final_type or "UNKNOWN",

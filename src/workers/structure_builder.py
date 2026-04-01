@@ -119,16 +119,20 @@ async def _build_structure_async(
 
     # 2. Получение макета из MinIO
     #
-    # Архитектурный контракт (совпадает с DocumentContentService):
-    #   - text_layout_sanitized_ref — единый указатель на одноязычный
-    #     sanitized layout (после PII), если он есть;
-    #   - text_layout_raw_ref       — исходный layout после extract (multi‑lang).
+    # Новый архитектурный контракт (совпадает с DocumentContentService):
+    #   1) layout_primary_sanitized_ref — одноязычный sanitized layout (целевой кейс);
+    #   2) layout_primary_ref           — одноязычный layout без PII (если sanitized ещё не построен);
+    #   3) text_layout_sanitized_ref    — legacy sanitized layout;
+    #   4) text_layout_raw_ref          — исходный multi‑lang layout.
     #
-    # StructureBuilder ДОЛЖЕН работать по sanitized layout'у, чтобы не
-    # использовать PII, но в dev / при миграции мы можем аккуратно
-    # деградировать на raw, если sanitized ещё не построен.
-    layout_ref = getattr(version, "text_layout_sanitized_ref", None) or getattr(
-        version, "text_layout_raw_ref", None
+    # StructureBuilder ДОЛЖЕН работать по sanitized одноязычному layout'у,
+    # но для старых или частично обработанных документов аккуратно деградирует
+    # на менее предпочтительные варианты.
+    layout_ref = (
+        getattr(version, "layout_primary_sanitized_ref", None)
+        or getattr(version, "layout_primary_ref", None)
+        or getattr(version, "text_layout_sanitized_ref", None)
+        or getattr(version, "text_layout_raw_ref", None)
     )
 
     if not layout_ref:

@@ -1,5 +1,3 @@
-# src/db/models/document.py
-
 """
 Document and DocumentVersion models.
 
@@ -19,8 +17,10 @@ DocumentVersion:
 - Для каждой версии хранит ссылки на артефакты в S3/MinIO:
   - original_ref — исходный файл;
   - converted_pdf_ref — PDF после конвертации офисных форматов (DOCX, DOC и др.);
-  - text_layout_raw_ref — сырой текстовый макет;
-  - text_layout_sanitized_ref — макет после PII‑санитизации;
+  - text_layout_raw_ref — сырой многоязычный текстовый макет;
+  - layout_primary_ref — одноязычный layout по основному языку сделки;
+  - text_layout_sanitized_ref — legacy / общий sanitized layout;
+  - layout_primary_sanitized_ref — одноязычный layout после PII‑санитизации;
   - clause_tree_ref — дерево пунктов договора.
 - Также фиксирует технические параметры пайплайна:
   - extraction_strategy, ocr_confidence;
@@ -36,7 +36,6 @@ DocumentVersion:
   - подсветить документы с низкой уверенностью или требующие ручной проверки.
 """
 
-
 import uuid
 
 from sqlalchemy import (
@@ -45,10 +44,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    Column,
     Boolean,
-    DateTime,
-    ARRAY,
 )
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -227,11 +223,7 @@ class DocumentVersion(Base):
         nullable=True,
         comment="S3 URI to original file",
     )
-    
-    # --- НОВОЕ ПОЛЕ ---
-    # Хранит ссылку на PDF, который получился после конвертации DOCX/DOC → PDF.
-    # Если документ изначально был PDF — это поле всегда NULL.
-    # extract_worker смотрит сначала сюда, и только если NULL — берёт original_ref.
+
     converted_pdf_ref: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,
@@ -242,17 +234,42 @@ class DocumentVersion(Base):
         ),
     )
 
-
     text_layout_raw_ref: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,
-        comment="S3 URI to raw text layout JSON",
+        comment=(
+            "S3 URI to raw multilingual text layout JSON. "
+            "Это исходный layout после extract без фильтрации по основному языку."
+        ),
+    )
+
+    layout_primary_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to primary-language-only layout JSON. "
+            "Формируется после определения языков документа и выбора основного "
+            "языка сделки. Именно этот layout должен быть основным входом для "
+            "downstream-стадий анализа."
+        ),
     )
 
     text_layout_sanitized_ref: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,
-        comment="S3 URI to PII-sanitized text layout JSON",
+        comment=(
+            "S3 URI to legacy/general PII-sanitized layout JSON. "
+            "Оставлено для обратной совместимости и fallback."
+        ),
+    )
+
+    layout_primary_sanitized_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to primary-language-only PII-sanitized layout JSON. "
+            "Это целевой основной layout для structure, chunking, retrieval и checks."
+        ),
     )
 
     clause_tree_ref: Mapped[str | None] = mapped_column(
@@ -300,3 +317,4 @@ class DocumentVersion(Base):
     __table_args__ = (
         Index("idx_docver_doc_version", "document_id", "version_num"),
     )
+    
