@@ -105,48 +105,12 @@ class PIISanitizer:
             )
             return {"document_id": str(doc.id), "skipped": True}
 
-        # 3. Выбор layout для санитизации.
-        #
-        # Цель: работать по одноязычному layout_primary, но при этом
-        # не ломать старые версии, где его ещё нет.
-        #
-        # Новый приоритет (через модель DocumentVersion):
-        # 1) layout_primary_ref (одноязычный layout из БД);
-        # 2) text_layout_raw_ref (исторический multi‑lang layout);
-        # 3) fallback по старому пути ArtifactPath.layout_primary(...) — только
-        #    на случай, если поле в БД ещё не заполнено, но файл уже существует.
-        layout_ref: str | None = None
-
-        # tenant_id/deal_id берём так же, как в _build_sanitized_path
-        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-            tenant_id = str(doc.deal.tenant_id)
-        else:
-            tenant_id = str(doc.deal_id)
-        deal_id = str(doc.deal_id)
-
-        # 3.1. Пробуем layout_primary_ref из БД
-        if getattr(version, "layout_primary_ref", None):
-            layout_ref = version.layout_primary_ref
-
-        # 3.2. Если его нет — fallback на legacy raw layout
-        elif getattr(version, "text_layout_raw_ref", None):
-            layout_ref = version.text_layout_raw_ref
-
-        # 3.3. Дополнительный fallback: старый путь ArtifactPath.layout_primary(...)
-        # Используем только если по какой‑то причине поля в БД нет,
-        # но файл в MinIO уже лежит по конвенционному пути.
-        else:
-            primary_path = ArtifactPath.layout_primary(
-                tenant_id=tenant_id,
-                deal_id=deal_id,
-                document_id=str(doc.id),
-            )
-            if self.store.exists(primary_path):
-                layout_ref = primary_path
-
+        # 3. Единый контракт пайплайна:
+        # PII работает только по layout_primary_ref.
+        layout_ref = getattr(version, "layout_primary_ref", None)
         if not layout_ref:
             raise PermanentError(
-                f"No layout_ref (primary or raw) for version {document_version_id}"
+                f"layout_primary_ref is required for PII sanitization, version={document_version_id}"
             )
 
         try:
@@ -162,12 +126,12 @@ class PIISanitizer:
                 elements, policy
             )
 
-            # 7. Сохранить sanitized‑layout
+            # 7. Сохранить sanitized-layout.
             #
-            # В новой архитектуре для одноязычности мы хотим хранить
-            # отдельный артефакт layout_primary_sanitized.
-            # sanitized_path будет единственным источником истины для
-            # layout_primary_sanitized_ref в DocumentVersion.
+            # Контракт пайплайна:
+            # - layout_primary_sanitized_ref является единственным downstream
+            #   sanitized layout;
+            # - legacy sanitized layout paths больше не используются.
             layout_sanitized = {**layout_raw, "elements": sanitized_elements}
             sanitized_path = self._build_sanitized_path(doc)
             # ArtifactStore.put_json — синхронный метод, НЕ используем await
@@ -533,4 +497,6 @@ async def _mark_quarantine(
         reason=reason,
         run_id=None,
     )
+    
+
     

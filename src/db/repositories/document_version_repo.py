@@ -1,3 +1,5 @@
+# src/db/repositories/document_version_repo.py
+
 """
 Repository for DocumentVersion CRUD operations.
 
@@ -11,6 +13,12 @@ Repository for DocumentVersion CRUD operations.
   - layout_primary_sanitized_ref.
 - Благодаря этому downstream-стадии (PII, structure, content service, checks)
   могут брать нужный layout из БД, а не вычислять путь в MinIO вручную.
+
+Важно:
+- Значение None в update_refs() означает "это поле не обновляем".
+- То есть этот метод НЕ используется для очистки ссылок.
+- Если когда-нибудь понадобится явно очищать ref, лучше сделать для этого
+  отдельный метод, чтобы не было двусмысленности.
 """
 
 import uuid
@@ -82,7 +90,8 @@ class DocumentVersionRepository:
         - convert_worker:
             converted_pdf_ref
         - extract_worker:
-            raw_ref, layout_primary_ref, extraction_strategy, ocr_confidence, pipeline_strategy
+            raw_ref, layout_primary_ref, extraction_strategy,
+            ocr_confidence, pipeline_strategy
         - pii_sanitizer:
             sanitized_ref, layout_primary_sanitized_ref
         - structure_builder:
@@ -91,9 +100,11 @@ class DocumentVersionRepository:
         Важно:
         - raw_ref / sanitized_ref оставляем для backward compatibility;
         - layout_primary_ref / layout_primary_sanitized_ref — это новый основной
-          контракт для одноязычного downstream-пайплайна.
+          контракт для одноязычного downstream-пайплайна;
+        - None означает "не обновлять это поле";
+        - если version_id не найден, метод возвращает None.
         """
-        values: dict[str, object] = {}
+        values: dict[str, str | float] = {}
 
         if raw_ref is not None:
             values["text_layout_raw_ref"] = raw_ref
@@ -125,6 +136,10 @@ class DocumentVersionRepository:
         if not values:
             return await self.get_by_id(version_id)
 
+        existing = await self.get_by_id(version_id)
+        if not existing:
+            return None
+
         stmt = (
             update(DocumentVersion)
             .where(DocumentVersion.id == version_id)
@@ -132,8 +147,10 @@ class DocumentVersionRepository:
             .returning(DocumentVersion)
         )
         result = await self.session.execute(stmt)
-        ver = result.scalar_one_or_none()
-        if ver:
+        version = result.scalar_one_or_none()
+
+        if version:
             await self.session.flush()
-        return ver
-    
+
+        return version
+

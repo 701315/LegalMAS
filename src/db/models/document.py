@@ -318,3 +318,4 @@ class DocumentVersion(Base):
         Index("idx_docver_doc_version", "document_id", "version_num"),
     )
     
+    

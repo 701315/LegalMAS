@@ -916,7 +916,11 @@ async def get_document_layouts_debug(
         raise HTTPException(status_code=404, detail="DocumentVersion not found")
 
     raw_ref = version.text_layout_raw_ref
-    sanitized_ref = version.text_layout_sanitized_ref
+    sanitized_ref = (
+        version.layout_primary_sanitized_ref          # новое поле — приоритет
+        or version.text_layout_sanitized_ref          # legacy fallback
+    )
+
 
     store = ArtifactStore()
 

@@ -587,3 +587,4 @@ def build_text_layout_raw(
             "errors": extraction.errors,
         },
     }
+

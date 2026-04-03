@@ -135,8 +135,10 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     !!doc && !!doc.text_layout_raw_ref && doc.text_layout_raw_ref.trim() !== "";
   const sanitizedLayoutAvailable =
     !!doc &&
-    !!doc.text_layout_sanitized_ref &&
-    doc.text_layout_sanitized_ref.trim() !== "";
+    (
+      !!doc.layout_primary_sanitized_ref?.trim() ||
+      !!doc.text_layout_sanitized_ref?.trim()      // fallback для legacy
+    );
 
   const [showLayoutDebug, setShowLayoutDebug] = React.useState(false);
   const [showChunksModal, setShowChunksModal] = React.useState(false);

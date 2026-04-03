@@ -157,6 +157,8 @@ class DocumentVersionResponse(BaseModel):
     original_ref: str | None
     text_layout_raw_ref: str | None
     text_layout_sanitized_ref: str | None
+    layout_primary_ref: str | None = None              # добавить
+    layout_primary_sanitized_ref: str | None = None    # добавить ← ключевое
     clause_tree_ref: str | None
     extraction_strategy: str | None
     ocr_confidence: float | None
@@ -317,4 +319,5 @@ class DocumentExtractedValuesResponse(BaseModel):
     doc_type: Optional[str] = None
     extracted_values: List[ExtractedValue]
     total_extracted: int
+    
     

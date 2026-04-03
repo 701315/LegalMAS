@@ -44,7 +44,9 @@ from engine.content.chunking import (
     build_section_chunks_from_clauses,
     split_text_to_sized_chunks,
 )
+from core.logging import get_logger
 
+logger = get_logger(__name__)
 
 class ClauseTreeStorageClientProtocol:
     """
@@ -169,22 +171,15 @@ class DocumentContentService:
 
     async def _load_layout(self, version: DocumentVersion) -> Optional[Dict[str, Any]]:
         """
-        Загрузить layout JSON по DocumentVersion с учётом нового одноязычного контракта.
+        Загрузить рабочий layout документа по единому контракту пайплайна.
 
-        Для непрофессионального программиста:
-        - Сначала пытаемся использовать одноязычный sanitized layout
-          (layout_primary_sanitized_ref) — это основной безопасный вариант
-          для чанкинга и LLM.
-        - Если его ещё нет, пробуем одноязычный layout без санитизации
-          (layout_primary_ref).
-        - Если и его нет, используем legacy sanitized (text_layout_sanitized_ref),
-          и только в самом крайнем случае — raw layout (text_layout_raw_ref).
+        Приоритет:
+        1) layout_primary_sanitized_ref — основной source of truth после PII;
+        2) layout_primary_ref — recovery fallback для случаев, когда PII ещё не выполнен.
         """
         layout_ref = (
             getattr(version, "layout_primary_sanitized_ref", None)
             or getattr(version, "layout_primary_ref", None)
-            or getattr(version, "text_layout_sanitized_ref", None)
-            or getattr(version, "text_layout_raw_ref", None)
         )
         if not layout_ref:
             return None
@@ -322,6 +317,10 @@ class DocumentContentService:
         """
         version = await self._get_latest_version(doc_id)
         if not version:
+            logger.warning(
+                "DocumentContentService.get_chunks: no latest version, returning empty fallback chunk",
+                extra={"doc_id": str(doc_id)},
+            )
             return [
                 {
                     "id": f"{doc_id}:full",
@@ -334,7 +333,17 @@ class DocumentContentService:
         layout = await self._load_layout(version)
 
         if not tree or not layout:
-            # Нет структуры или текста — возвращаем один "пустой" чанк.
+            logger.warning(
+                "DocumentContentService.get_chunks: missing clause tree or layout, returning empty fallback chunk",
+                extra={
+                    "doc_id": str(doc_id),
+                    "has_tree": bool(tree),
+                    "has_layout": bool(layout),
+                    "clause_tree_ref": getattr(version, "clause_tree_ref", None),
+                    "layout_primary_ref": getattr(version, "layout_primary_ref", None),
+                    "layout_primary_sanitized_ref": getattr(version, "layout_primary_sanitized_ref", None),
+                },
+            )
             return [
                 {
                     "id": f"{doc_id}:full",
@@ -362,6 +371,15 @@ class DocumentContentService:
             )
 
         if not leaf_chunks:
+            logger.warning(
+                "DocumentContentService.get_chunks: clause tree produced no leaf chunks, returning empty fallback chunk",
+                extra={
+                    "doc_id": str(doc_id),
+                    "clause_tree_ref": getattr(version, "clause_tree_ref", None),
+                    "layout_primary_ref": getattr(version, "layout_primary_ref", None),
+                    "layout_primary_sanitized_ref": getattr(version, "layout_primary_sanitized_ref", None),
+                },
+            )
             return [
                 {
                     "id": f"{doc_id}:full",
@@ -379,6 +397,26 @@ class DocumentContentService:
             if isinstance(value, int) and value > 0:
                 total_pages = value
                 break
+
+        # Пробрасываем информацию о language_filter / degraded из layout в метаданные чанков.
+        lf_meta = (layout_meta.get("language_filter") or {}) if isinstance(layout_meta, dict) else {}
+        lf_degraded = lf_meta.get("degraded")
+        lf_reason = lf_meta.get("degraded_reason")
+        lf_target_lang = lf_meta.get("target_language")
+
+        if lf_degraded is not None or lf_target_lang:
+            for ch in leaf_chunks:
+                meta = ch.get("metadata") or {}
+                lf = dict(meta.get("language_filter") or {})
+                if lf_target_lang is not None and "target_language" not in lf:
+                    lf["target_language"] = lf_target_lang
+                if lf_degraded is not None and "degraded" not in lf:
+                    lf["degraded"] = bool(lf_degraded)
+                if lf_reason is not None and "degraded_reason" not in lf:
+                    lf["degraded_reason"] = lf_reason
+                if lf:
+                    meta["language_filter"] = lf
+                    ch["metadata"] = meta
 
         # Добавляем position_ratio для каждого листового чанка (если можем)
         if total_pages:
@@ -740,6 +778,10 @@ class DocumentContentService:
                 )
 
         if not sized:
+            logger.warning(
+                "DocumentContentService.get_sized_chunks: no sized chunks built, returning empty fallback chunk",
+                extra={"doc_id": str(doc_id)},
+            )
             return [
                 {
                     "id": f"{doc_id}:full",

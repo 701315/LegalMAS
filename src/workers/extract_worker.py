@@ -1,5 +1,4 @@
 # src/workers/extract_worker.py
-
 """
 Extract Worker — извлечение текста и таблиц из PDF, сохранённых в MinIO.
 
@@ -171,13 +170,11 @@ async def _extract_document_async(
         )
 
         if not pdf_ref:
-            # Если нет ни converted_pdf_ref, ни original_ref, это фатальная ошибка конфигурации.
             raise PermanentError(
                 f"No PDF source ref for version {document_version_id} "
                 f"(neither converted_pdf_ref nor original_ref is set)"
             )
 
-        # pdf_ref может быть как полным s3://..., так и относительным путём.
         s3_path = pdf_ref.replace(f"s3://{store.bucket}/", "")
         logger.info(
             "Extract: reading PDF from store",
@@ -185,6 +182,7 @@ async def _extract_document_async(
             version_id=document_version_id,
             s3_path=s3_path,
         )
+
         pdf_bytes = store.get_file(s3_path)
         logger.info(
             "Extract: PDF bytes loaded",
@@ -199,7 +197,6 @@ async def _extract_document_async(
             version_id=document_version_id,
             error=str(e),
         )
-        # Превращаем в PermanentError, чтобы таска завершилась, а не крутилась бесконечно
         raise PermanentError(f"Failed to read PDF from store: {e}")
     # --- КОНЕЦ БЛОКА ЧТЕНИЯ PDF ---
 
@@ -222,7 +219,6 @@ async def _extract_document_async(
             version_id=document_version_id,
             error=str(e),
         )
-        # Тоже считаем фатальной ошибкой извлечения
         raise PermanentError(f"extract_pdf failed: {e}")
 
     # 3. Quarantine check
@@ -235,7 +231,7 @@ async def _extract_document_async(
         document_version_id=document_version_id,
     )
 
-    # 4.1. Определяем фактические языки по исходному layout (multi‑lang).
+    # 4.1. Определяем фактические языки по исходному layout (multi-lang).
     detected_langs = detect_languages_in_layout(text_layout_raw)
     await update_deal_languages(
         db=db,
@@ -247,34 +243,98 @@ async def _extract_document_async(
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(uuid.UUID(deal_id))
 
-    # Нормализуем коды языков.
     primary = (getattr(deal, "primary_language", None) or "").lower()
-    langs_from_deal = [(l or "").lower() for l in (getattr(deal, "languages", None) or [])]
+    langs_from_deal = [
+        (l or "").lower()
+        for l in (getattr(deal, "languages", None) or [])
+        if (l or "").strip()
+    ]
 
     target_lang: str | None = None
 
-    # Приоритет:
-    # 1) primary_language, если он есть в detected_langs
+    # 1) Явный primary_language сделки, если он реально найден в документе
     if primary and primary in detected_langs:
         target_lang = primary
-    # 2) первый язык сделки, который есть в detected_langs
+
+    # 2) Первый язык сделки, который реально найден в документе
     if not target_lang:
-        for l in langs_from_deal:
-            if l in detected_langs:
-                target_lang = l
+        for lang in langs_from_deal:
+            if lang in detected_langs:
+                target_lang = lang
                 break
-    # 3) если ничего не выбрали — берём первый из detected_langs
+
+    # 3) Доминирующий язык документа
     if not target_lang and detected_langs:
         target_lang = detected_langs[0]
 
-    # 4.3. Строим одноязычный layout_primary.
-    # Если target_lang не определён или неизвестен (не ru/en),
-    # filter_layout_to_language вернёт исходный layout без изменений.
-    layout_primary = (
-        filter_layout_to_language(text_layout_raw, target_lang)
-        if target_lang
-        else text_layout_raw
+    # 4) Явный fallback контракта пайплайна
+    if not target_lang:
+        target_lang = primary or (langs_from_deal[0] if langs_from_deal else "ru")
+
+    # 4.3. Языковая фильтрация layout.
+    #
+    # is_bilingual определяем здесь, а не внутри filter_layout_to_language,
+    # чтобы у extract_worker была та же картина, что у фильтра.
+    is_bilingual = len(detected_langs) >= 2
+
+    filter_context = {
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "document_id": document_id,
+        "is_bilingual": is_bilingual,
+    }
+    layout_primary = filter_layout_to_language(
+        text_layout_raw, target_lang, context=filter_context
     )
+
+    # 4.4. Оценка качества одноязычного layout относительно исходного.
+    #
+    # Передаём is_bilingual чтобы пороги degraded учитывали тип документа:
+    # - для билингвального документа ~50% элементов — это норма (один язык из двух);
+    # - для монолингвального 50% элементов — это уже деградация.
+    quality = _evaluate_primary_layout_quality(
+        text_layout_raw, layout_primary, is_bilingual=is_bilingual
+    )
+
+    if not (layout_primary.get("elements") or []):
+        logger.warning(
+            "Primary layout is empty after language filter, falling back to raw layout",
+            document_id=document_id,
+            version_id=document_version_id,
+            target_lang=target_lang,
+        )
+        layout_primary = text_layout_raw
+    else:
+        # Записываем диагностику внутрь metadata layout_primary
+        metadata = dict(layout_primary.get("metadata") or {})
+        lf_meta = dict(metadata.get("language_filter") or {})
+        lf_meta.update(
+            {
+                "target_language": target_lang,
+                "elements_before": quality["elements_before"],
+                "elements_after": quality["elements_after"],
+                "chars_before": quality["chars_before"],
+                "chars_after": quality["chars_after"],
+                "element_retention_ratio": quality["element_retention_ratio"],
+                "char_retention_ratio": quality["char_retention_ratio"],
+                "degraded": quality["degraded"],
+                "degraded_reason": quality["degraded_reason"],
+            }
+        )
+        metadata["language_filter"] = lf_meta
+        layout_primary["metadata"] = metadata
+
+        if quality["degraded"]:
+            logger.warning(
+                "Primary layout marked as degraded after language filter",
+                document_id=document_id,
+                version_id=document_version_id,
+                target_lang=target_lang,
+                element_retention_ratio=quality["element_retention_ratio"],
+                char_retention_ratio=quality["char_retention_ratio"],
+                degraded_reason=quality["degraded_reason"],
+                is_bilingual=is_bilingual,
+            )
 
     # 5. Upload to MinIO
 
@@ -308,6 +368,9 @@ async def _extract_document_async(
         strategy=extraction.strategy,
         ocr_confidence=round(extraction.avg_ocr_confidence, 3),
         duration_seconds=round(duration, 2),
+        target_lang=target_lang,
+        is_bilingual=is_bilingual,
+        element_retention_ratio=round(quality["element_retention_ratio"], 3),
     )
 
     # --- Метрики извлечения ---
@@ -326,8 +389,6 @@ async def _extract_document_async(
     if not settings.DISABLE_DOWNSTREAM_TASKS:
         from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
 
-        # Запускаем таску по строковому имени, без прямого импорта workers.pii_sanitizer,
-        # чтобы избежать циклических зависимостей между воркерами.
         _celery.send_task(
             "pii.sanitize_document",
             kwargs={
@@ -347,7 +408,6 @@ async def _extract_document_async(
 
 def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
     """Raise QuarantineError if extraction results are below quality thresholds."""
-    # Parse errors + no elements
     if extraction.errors and not extraction.elements:
         METRICS.quarantine.labels(reason="extraction_failed").inc()
         raise QuarantineError(
@@ -356,7 +416,6 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
             reason="extraction_failed",
         )
 
-    # 0 elements at all
     if not extraction.elements:
         METRICS.quarantine.labels(reason="no_text_extracted").inc()
         raise QuarantineError(
@@ -365,7 +424,6 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
             reason="no_text_extracted",
         )
 
-    # Low OCR confidence for OCR/hybrid strategies
     if extraction.strategy in ("ocr", "hybrid") and (
         extraction.avg_ocr_confidence
         < settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD
@@ -386,6 +444,89 @@ def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
         )
 
 
+def _evaluate_primary_layout_quality(
+    raw_layout: dict,
+    primary_layout: dict,
+    is_bilingual: bool = False,
+) -> dict:
+    """
+    Оценить качество layout_primary относительно исходного text_layout_raw.
+
+    Возвращает словарь с полями:
+    - elements_before / elements_after
+    - chars_before / chars_after
+    - element_retention_ratio
+    - char_retention_ratio
+    - degraded (bool)
+    - degraded_reason (str | None)
+
+    Пороги degraded зависят от типа документа:
+
+    Монолингвальный документ:
+      - Нормальный фильтр оставляет >80% элементов (убирает только шум).
+      - Порог degraded: элементов < 60%, символов < 65%.
+
+    Билингвальный документ (is_bilingual=True):
+      - Нормальный фильтр оставляет ~50% элементов (один язык из двух).
+      - Пороги должны быть ниже, иначе все двуязычные документы будут degraded.
+      - Порог degraded: элементов < 20%, символов < 25%.
+      - Почему 20%: если осталось меньше 1/5 от исходного — что-то точно сломалось
+        (например, неверно определён целевой язык или фильтр упал в fallback
+        и оставил только нейтральные блоки).
+    """
+    raw_elements = raw_layout.get("elements") or []
+    prim_elements = primary_layout.get("elements") or []
+
+    elements_before = len(raw_elements)
+    elements_after = len(prim_elements)
+
+    def _count_chars(text: str) -> int:
+        return len((text or "").replace(" ", "").replace("\n", ""))
+
+    chars_before = sum(_count_chars(el.get("text") or "") for el in raw_elements)
+    chars_after = sum(_count_chars(el.get("text") or "") for el in prim_elements)
+
+    elem_ratio = (elements_after / elements_before) if elements_before else 0.0
+    char_ratio = (chars_after / chars_before) if chars_before else 0.0
+
+    # Выбираем пороги в зависимости от типа документа
+    if is_bilingual:
+        # Для билингвального: нормально потерять ~50%, критично потерять >80%
+        elem_threshold = 0.20
+        char_threshold = 0.25
+    else:
+        # Для монолингвального: должно оставаться большинство элементов
+        elem_threshold = 0.60
+        char_threshold = 0.65
+
+    degraded = False
+    reason: str | None = None
+
+    if elem_ratio < elem_threshold:
+        degraded = True
+        reason = (
+            f"too_few_elements_retained:{elem_ratio:.2f}"
+            f"(threshold={'bilingual' if is_bilingual else 'monolingual'}:{elem_threshold})"
+        )
+    elif char_ratio < char_threshold:
+        degraded = True
+        reason = (
+            f"too_few_chars_retained:{char_ratio:.2f}"
+            f"(threshold={'bilingual' if is_bilingual else 'monolingual'}:{char_threshold})"
+        )
+
+    return {
+        "elements_before": elements_before,
+        "elements_after": elements_after,
+        "chars_before": chars_before,
+        "chars_after": chars_after,
+        "element_retention_ratio": elem_ratio,
+        "char_retention_ratio": char_ratio,
+        "degraded": degraded,
+        "degraded_reason": reason,
+    }
+
+
 async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
@@ -396,19 +537,15 @@ async def get_pdf_source_ref(
     Логика:
     - если у версии есть converted_pdf_ref (DOCX/DOC → PDF), используем его;
     - иначе используем original_ref (исходный PDF).
-
-    Работает через переданную AsyncSession, не создаёт собственных сессий.
     """
     repo = DocumentVersionRepository(db)
     version = await repo.get_by_id(uuid.UUID(document_version_id))
     if not version:
         return None
 
-    # Если документ был конвертирован из офисного формата, используем PDF после конвертации.
     if getattr(version, "converted_pdf_ref", None):
         return version.converted_pdf_ref
 
-    # По умолчанию — исходный PDF.
     return version.original_ref
 
 
@@ -425,12 +562,11 @@ async def update_extraction_result(
     """
     Обновить результаты извлечения в БД (version + document).
 
-    Работает через переданную AsyncSession в рамках одного unit of work.
-
-    ВАЖНО:
-    - raw_ref указывает на многоязычный layout_raw (для отладки и fallback);
-    - primary_ref указывает на одноязычный layout_primary по основному языку сделки.
-      Downstream-стадии (PII, structure, chunks) должны использовать именно его.
+    Контракт пайплайна:
+    - raw_ref хранит технический multi-language snapshot после extract;
+    - layout_primary_ref — единственный downstream layout после extract;
+    - все следующие стадии (PII, structure, content/chunks, checks) должны
+      использовать именно layout_primary_ref, а не raw_ref.
     """
     ver_repo = DocumentVersionRepository(db)
     doc_repo = DocumentRepository(db)
@@ -438,7 +574,6 @@ async def update_extraction_result(
     version_uuid = uuid.UUID(document_version_id)
     version = await ver_repo.get_by_id(version_uuid)
 
-    # Вычисляем pipeline_strategy на основе origin_filetype + стратегии извлечения
     pipeline_strategy: str | None = None
     origin_filetype = getattr(version, "origin_filetype", None) if version else None
 
@@ -482,10 +617,6 @@ async def _mark_failed(
     message: str,
     run_id: uuid.UUID | None,
 ) -> None:
-    """
-    Отдельный простой UoW для перевода документа в статус FAILED
-    с заполнением processing_error_details.
-    """
     repo = DocumentRepository(uow.session)
     await repo.set_failed(
         document_uuid,
@@ -503,10 +634,6 @@ async def _mark_quarantine(
     error: QuarantineError,
     run_id: uuid.UUID | None,
 ) -> None:
-    """
-    Отдельный простой UoW для перевода документа в QUARANTINE
-    с заполнением processing_error_details.
-    """
     repo = DocumentRepository(uow.session)
     reason = getattr(error, "reason", None)
     msg = str(error)
@@ -517,6 +644,3 @@ async def _mark_quarantine(
         reason=reason,
         run_id=run_id,
     )
-
-
-    

@@ -1,0 +1,4648 @@
+====================================================================================================
+FOCUSED PIPELINE CODE DUMP
+Project root:    /home/vladi/projects/LegalMAS
+Generated at:    2026-04-03T10:31:39.929585
+Total files:     13
+Found files:     13
+Missing files:   0
+====================================================================================================
+
+TABLE OF CONTENTS:
+------------------------------------------------------------
+    1. src/workers/check_runner_worker.py
+    2. src/workers/classifier.py
+    3. src/workers/convert_worker.py
+    4. src/workers/export_pending.py
+    5. src/workers/exporter.py
+    6. src/workers/extract_worker.py
+    7. src/workers/import_worker.py
+    8. src/workers/orchestrator.py
+    9. src/workers/pii_sanitizer.py
+   10. src/workers/relations_worker.py
+   11. src/workers/run_orchestrator.py
+   12. src/workers/runner.py
+   13. src/workers/structure_builder.py
+------------------------------------------------------------
+
+
+====================================================================================================
+>>> FILE_START | index=1 | path=src/workers/check_runner_worker.py
+====================================================================================================
+# src/workers/check_runner_worker.py
+
+"""
+CheckRunner Worker — запуск playbook-checks по уже классифицированным документам сделки.
+
+Позиция в пайплайне:
+- import → extract → pii → structure → classify → run_deal_checks → export_results.
+
+Что делает:
+- Для одного Run по deal_id:
+  - вытаскивает все non-duplicate документы сделки;
+  - прогоняет их через CheckRunner (playbook + CheckExecutor);
+  - пишет CheckResult'ы в БД;
+  - агрегирует статистику (processed_docs, total_checks, failed_checks, errors);
+  - обновляет Run.total_checks и финальный статус Run.
+
+Архитектура:
+- Снаружи — синхронная Celery-таска run_deal_checks (def), чтобы Celery мог её вызывать.
+- Внутри — один переход sync → async через run_async.
+- Вся работа с БД и CheckRunner — под db_uow() / AsyncSession.
+- Этот воркер запускается ОДИН раз на весь Run (по сделке), а не по каждому документу отдельно.
+"""
+
+import time
+import uuid
+
+from ops.metrics import get_metrics
+from core.logging import get_logger
+from core.constants import RunStatus
+from db.uow import db_uow
+from db.repositories.run_repo import RunRepository
+from db.repositories.playbook_repo import PlaybookRepository
+from engine.checks_runner import CheckRunner
+from engine.llm.client import LLMClient
+from engine.playbook.loader import load_playbook_from_version
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.run_deal_checks",
+    track_job=False,
+    # queue="default",
+)
+def run_deal_checks(
+    self,
+    run_id: str,
+    deal_id: str,
+    tenant_id: str | None = None,
+) -> dict:
+    """
+    Синхронная Celery‑таска: запускает CheckRunner по сделке для указанного Run.
+
+    Внутри:
+      - создаёт LLMClient;
+      - переходит в async‑ядро через run_async;
+      - внутри async‑ядра открывает db_uow(), запускает CheckRunner.run_deal_checks;
+      - по результату обновляет Run (total_checks, статус);
+      - возвращает summary от CheckRunner + финальный статус Run.
+
+    Для непрофессионального программиста:
+    - Здесь просто «обёртка» для Celery.
+    - Основная логика находится во внутренней async‑функции _run().
+    """
+    logger.info(
+        "Run deal checks task received",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+        },
+    )
+
+    started_at = time.time()
+    metrics = get_metrics()
+    llm_client = LLMClient()
+    run_uuid = uuid.UUID(run_id)
+    deal_uuid = uuid.UUID(deal_id)
+
+    async def _run() -> dict:
+        async with db_uow() as uow:
+            run_repo = RunRepository(uow.session)
+            pb_repo = PlaybookRepository(uow.session)
+
+            try:
+                logger.info(
+                    "Run deal checks: loading run and playbook",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                    },
+                )
+
+                # 1. Достаём Run, чтобы узнать playbook_version_id
+                run_obj = await run_repo.get(run_uuid)
+                if run_obj is None:
+                    raise ValueError(f"Run not found: {run_uuid}")
+
+                # Определяем режим проверок для этого Run.
+                checks_mode = getattr(run_obj, "checks_mode", "global_and_doc_type")
+
+                # 2. Достаём PlaybookVersion по этому ID
+                pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
+                if pb_version is None:
+                    raise ValueError(
+                        f"PlaybookVersion not found: {run_obj.playbook_version_id}"
+                    )
+
+                # 3. Собираем PlaybookDefinition из compiled_checks
+                playbook = load_playbook_from_version(pb_version)
+
+                logger.info(
+                    "Run deal checks: playbook loaded",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "playbook_version_id": str(run_obj.playbook_version_id),
+                        "checks_mode": checks_mode,
+                    },
+                )
+
+                # 4. Создаём CheckRunner.
+                # ВАЖНО: передаём run_repo, чтобы CheckRunner мог обновлять прогресс Run.
+                runner = CheckRunner(
+                    llm_client=llm_client,
+                    playbook_version_id=run_obj.playbook_version_id,
+                    checks_mode=checks_mode,
+                    run_repo=run_repo,
+                )
+
+                logger.info(
+                    "Run deal checks: starting CheckRunner",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "checks_mode": checks_mode,
+                    },
+                )
+
+                # 5. Основной запуск checks по сделке
+                summary = await runner.run_deal_checks(
+                    deal_id=deal_uuid,
+                    run_id=run_uuid,
+                    playbook=playbook,
+                    checks_mode=checks_mode,
+                )
+
+                # Обновляем total_checks по фактическим данным.
+                # completed_checks к этому моменту уже инкрементировался по документам.
+                total_checks = int(summary.get("total_checks", 0) or 0)
+                failed_checks = int(summary.get("failed_checks", 0) or 0)
+                errors = int(summary.get("errors", 0) or 0)
+
+                # Определяем финальный статус Run:
+                # - если были ошибки на уровне документов/чеков → COMPLETED_WITH_ERRORS;
+                # - иначе → COMPLETED.
+                if errors > 0:
+                    final_status = RunStatus.COMPLETED_WITH_ERRORS.value
+                else:
+                    final_status = RunStatus.COMPLETED.value
+
+                await run_repo.update_status(
+                    run_uuid,
+                    final_status,
+                    total_checks=total_checks,
+                    # completed_checks не передаём: оно уже было увеличено CheckRunner'ом.
+                )
+
+                duration = time.time() - started_at
+
+                # Метрика длительности всех checks по сделке.
+                # Важно: ошибка метрик не должна ломать бизнес-логику.
+                try:
+                    metrics.checks_duration.labels(stage="deal_checks").observe(duration)
+                except Exception:
+                    logger.exception(
+                        "run_deal_checks: failed to update checks_duration metric",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                        },
+                    )
+
+                logger.info(
+                    "Run deal checks completed",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "duration_sec": round(duration, 2),
+                        "processed_docs": summary.get("processed_docs"),
+                        "total_checks": total_checks,
+                        "failed_checks": failed_checks,
+                        "errors": errors,
+                        "status": final_status,
+                    },
+                )
+
+                return {
+                    **summary,
+                    "status": final_status,
+                    "duration_sec": round(duration, 2),
+                }
+
+            except Exception as e:
+                logger.error(
+                    "Run deal checks failed",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "error": str(e),
+                    },
+                )
+                # Помечаем Run как failed и сохраняем детали ошибки
+                await run_repo.update_status(
+                    run_uuid,
+                    RunStatus.FAILED.value,
+                    error_details={
+                        "stage": "run_deal_checks",
+                        "type": "failed",
+                        "reason": "checks_error",
+                        "message": str(e),
+                    },
+                )
+                # Пробрасываем, чтобы Celery видел failure
+                raise
+
+    # Запуск async‑ядра через общий helper run_async.
+    return run_async(_run())
+
+====================================================================================================
+<<< FILE_END | index=1 | path=src/workers/check_runner_worker.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=2 | path=src/workers/classifier.py
+====================================================================================================
+# src/workers/classifier.py
+
+"""
+Classifier Worker — каскадная классификация документов (Stage 6/7).
+
+Позиция в пайплайне:
+- import → extract → pii → structure → classify → run_deal_checks.
+- На вход получает структурированный документ (есть text_layout_raw / sanitized).
+
+Что делает:
+- Запускает 3‑уровневый каскад классификации + L4-fallback внутри HybridClassifier:
+  L1 (filename) → L2 (header) → L3 (semantic) → опционально L4 (LLM-fallback).
+- Обновляет документ полями:
+  - doc_type, language, jurisdiction, classification_confidence,
+    classification_level, classification_details, applicable_triggers.
+- Подбирает и привязывает подходящий playbook_version_id по сделке.
+- Обновляет статус документа: structured → classified.
+
+Архитектура:
+- Внешняя Celery‑таска classify_document — синхронная (def), её вызывает Celery.
+- Внутри один раз выполняется переход sync → async через run_async
+  в _classify_document_async.
+- Вся работа с БД выполняется под db_uow().
+- Экземпляр HybridClassifier (_get_classifier) кэшируется на процесс воркера,
+  чтобы тяжёлые модели L3/L4 инициализировались один раз.
+"""
+
+import time
+import uuid
+
+from ops.metrics import get_metrics
+from services.run_checks_auto_starter import maybe_start_run_checks
+
+from classifiers.stage8.hybrid_classifier import HybridClassifier
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError
+from core.logging import get_logger
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.playbook_repo import PlaybookRepository
+from db.uow import db_uow, UnitOfWork
+from engine.content.document_content_service import (
+    DocumentContentService,
+    ClauseTreeStorageClient,
+)
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+
+logger = get_logger(__name__)
+
+# Кэшируем экземпляр классификатора и контент‑сервиса
+# в рамках процесса воркера.
+#
+# Для непрофессионального программиста:
+# - Эти объекты создаются только один раз на процесс.
+# - Это экономит время: тяжёлые модели инициализируются один раз,
+#   а не для каждого документа.
+_classifier_instance: HybridClassifier | None = None
+_content_service_instance: DocumentContentService | None = None
+
+
+def _get_classifier(uow: UnitOfWork) -> HybridClassifier:
+    """
+    Lazy singleton: инициализирует HybridClassifier один раз на процесс.
+
+    Для непрофессионального программиста:
+    - Эта функция создаёт объект HybridClassifier только при первом вызове.
+    - Все последующие вызовы будут переиспользовать уже созданный объект.
+    """
+    global _classifier_instance, _content_service_instance
+
+    if _classifier_instance is None:
+        # content_service используется HybridClassifier для получения header/snippet
+        # из clause tree. Теперь он требует:
+        # - session: AsyncSession — для доступа к версиям документа;
+        # - storage_client: клиент для чтения JSON из хранилища.
+        if _content_service_instance is None:
+            _content_service_instance = DocumentContentService(
+                session=uow.session,
+                storage_client=ClauseTreeStorageClient(),
+            )
+
+        _classifier_instance = HybridClassifier(
+            uow=uow,
+            content_service=_content_service_instance,
+        )
+
+    return _classifier_instance
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.classify_document",
+    queue="default",
+)
+def classify_document(self, document_id: str, **kwargs) -> dict:
+    """
+    Sync Celery entry point: обёртка над асинхронным ядром.
+
+    Паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри один раз передаём управление в async‑мир через run_async.
+    """
+
+    async def _wrapper() -> dict:
+        return await _classify_document_async(self, document_id, kwargs)
+
+    return run_async(_wrapper())
+
+
+async def _classify_document_async(task, document_id: str, extra_args: dict) -> dict:
+    """
+    Асинхронное ядро классификации одного документа.
+
+    Для непрофессионального программиста:
+    - Здесь вся основная логика.
+    - Функция работает с БД, классификатором и обновляет документ.
+    """
+    start_time = time.time()
+    doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
+
+    metrics = get_metrics()
+    run_id_str = extra_args.get("run_id")
+    run_uuid = uuid.UUID(run_id_str) if run_id_str else None
+
+    playbook = None
+    classification_result: dict | None = None
+
+    try:
+        async with db_uow() as uow:
+            doc_repo = DocumentRepository(uow.session)
+            ver_repo = DocumentVersionRepository(uow.session)
+            playbook_repo = PlaybookRepository(uow.session)
+
+            # 1. Загрузка документа и версии
+            doc = await doc_repo.get_by_id(doc_uuid)
+            if not doc:
+                raise PermanentError(f"Document {document_id} not found")
+
+            # Идемпотентность: если документ уже классифицирован или в анализе — пропускаем
+            if doc.status in (
+                DocumentStatus.CLASSIFIED.value,
+                DocumentStatus.ANALYZING.value,
+            ):
+                logger.info("Already classified, skipping", document_id=document_id)
+                return {"document_id": document_id, "skipped": True}
+
+            version = await ver_repo.get_latest(doc.id)
+            if not version:
+                raise PermanentError(
+                    f"No version found for document {document_id}"
+                )
+
+            # 2. Запуск HybridClassifier (L1–L3 + L4 внутри)
+            classifier = _get_classifier(uow)
+            classification_result = await classifier.classify_document(str(doc.id))
+
+
+            # Формат classification_result:
+            # - см. HybridClassifier.classify_document и FinalClassification в classifiers/base.py.
+            # - финальные поля (final_type, final_confidence, level, language, jurisdiction,
+            #   applicable_triggers, details) считаются стабильным контрактом.
+            # - details содержит JSON-структуру с L1/L2/L3/L4, голосованием и зоной уверенности.
+            # Ожидаемый формат classification_result см. в hybrid_classifier.py.
+            raw_final_type = classification_result.get("final_type") or "UNKNOWN"
+
+            final_conf = float(classification_result.get("final_confidence") or 0.0)
+            level = classification_result.get("level")
+            language = classification_result.get("language")
+            jurisdiction = classification_result.get("jurisdiction")
+            applicable_triggers = classification_result.get(
+                "applicable_triggers", []
+            )
+            details = classification_result.get("details", {}) or {}
+
+            # Флаг "нужна ручная проверка" приходит из HybridClassifier.
+            # Для непрофессионального программиста:
+            # - сам классификатор уже решил, попадает ли документ в зоны
+            #   confident / low / unknown.
+            # - если зона low или unknown, он ставит requires_manual_review=True.
+            # - здесь мы только читаем этот флаг и сохраняем его в БД.
+            classification_requires_review = bool(
+                details.get("requires_manual_review", False)
+            )
+
+            # Нормализация типа документа:
+            # - "UNKNOWN" не пишем в doc_type, вместо этого используем None.
+            #   Это важно, чтобы "UNKNOWN" не воспринимался как реальный тип.
+            final_type: str | None
+            if isinstance(raw_final_type, str) and raw_final_type.upper() == "UNKNOWN":
+                final_type = None
+            elif isinstance(raw_final_type, str) and raw_final_type.strip():
+                final_type = raw_final_type.strip()
+            else:
+                final_type = None
+
+            # Нормализация уровня:
+            # - если тип не определён (final_type is None),
+            #   то уровень тоже считаем не определённым.
+            if final_type is None:
+                level = None
+
+            # 3. Маршрутизация на плейбук (deal-level PlaybookVersion)
+            # Берём playbook, привязанный к сделке, или глобальный default.
+            playbook = await playbook_repo.get_for_deal(doc.deal_id)
+
+            # 4. Атомарное сохранение результатов классификации
+            await doc_repo.update_classification(
+                doc_id=doc.id,
+                doc_type=final_type,
+                classification_confidence=final_conf,
+                classification_level=level,
+                classification_details=details,
+                applicable_triggers=applicable_triggers,
+                classification_requires_review=classification_requires_review,
+                language=language,
+                jurisdiction=jurisdiction,
+                playbook_version_id=playbook.id if playbook else None,
+            )
+
+            # --- Метрики классификации ---
+            # ВАЖНО: ошибки при обновлении метрик не должны ломать бизнес-логику.
+            #
+            # Для непрофессионального программиста:
+            # - Время классификации (duration) уже измеряется внутри HybridClassifier
+            #   с разными "источниками" решения (source="copied", "l2_strong", "l4" и т.п.).
+            # - Здесь, в воркере, мы считаем только агрегат:
+            #   сколько документов попало в каждый уровень (L1/L2/L3/L4/HYBRID/UNKNOWN)
+            #   и с каким финальным типом.
+            try:
+                metrics.classification_level_distribution.labels(
+                    level=level or "UNKNOWN",
+                    doc_type=final_type or "UNKNOWN",
+                ).inc()
+            except Exception:
+                logger.exception("classify_document: failed to update classification metrics")
+
+            # 5. Обновляем статус документа на CLASSIFIED
+            await doc_repo.update_status(
+                doc.id,
+                DocumentStatus.CLASSIFIED.value,
+                processing_error_details=None,
+            )
+
+            # 6. Проверяем, не пора ли запускать run_deal_checks для этого Run.
+            # Для непрофессионального программиста:
+            # - maybe_start_run_checks сам найдёт Run по run_id,
+            #   возьмёт из него deal_id и проверит все документы сделки.
+            # - Если все "живые" документы уже CLASSIFIED/COMPLETED,
+            #   он один раз поставит задачу workers.run_deal_checks.
+            if run_uuid is not None:
+                await maybe_start_run_checks(
+                    db=uow.session,
+                    run_id=run_uuid,
+                )
+            # UoW зафиксирует транзакцию (commit)
+
+    except PermanentError as e:
+        # Обновляем статус документа на FAILED в отдельном простом UoW
+        logger.error(
+            "Permanent error during classification",
+            document_id=document_id,
+            error=str(e),
+        )
+        async with db_uow() as uow_status:
+            await _mark_failed(
+                uow_status,
+                doc_uuid,
+                message=str(e),
+                run_id=run_uuid,
+            )
+        return {"status": DocumentStatus.FAILED.value, "error": str(e)}
+
+    # Важно: здесь больше НЕТ запуска per-document checks.
+    # Все проверки по сделке будет запускать отдельный воркер run_deal_checks
+    # после того, как авто-стартер решит, что все документы классифицированы.
+
+    duration_ms = int((time.time() - start_time) * 1000)
+    return {
+        "document_id": document_id,
+        "doctype": classification_result.get("final_type")
+        if classification_result
+        else None,
+        "confidence": classification_result.get("final_confidence")
+        if classification_result
+        else 0.0,
+        "language": classification_result.get("language") if classification_result else None,
+        "jurisdiction": classification_result.get("jurisdiction") if classification_result else None,
+        "playbook_found": playbook is not None,
+        "duration_ms": duration_ms,
+        # Для внешнего кода: подсказка, нужен ли manual review.
+        "classification_requires_review": classification_requires_review if classification_result else None,
+    }
+
+
+async def _mark_failed(
+    uow: UnitOfWork,
+    doc_id: uuid.UUID,
+    *,
+    message: str,
+    run_id: uuid.UUID | None,
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в статус FAILED
+    с заполнением processing_error_details.
+
+    Для непрофессионального программиста:
+    - Эта функция просто помечает документ как неуспешно обработанный.
+    - Причина и сообщение сохраняются в базе для диагностики.
+    """
+    repo = DocumentRepository(uow.session)
+    await repo.set_failed(
+        doc_id,
+        stage="classify",
+        message=message,
+        reason="classification_error",
+        run_id=run_id,
+    )
+
+
+====================================================================================================
+<<< FILE_END | index=2 | path=src/workers/classifier.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=3 | path=src/workers/convert_worker.py
+====================================================================================================
+# src/workers/convert_worker.py
+
+"""
+Convert Worker.
+
+Назначение:
+- Конвертация исходных файлов (DOC/DOCX/и др.) в PDF, чтобы дальше использовать
+  существующий PDF‑пайплайн (workers.extract_document).
+
+Сценарий работы:
+  1) Import Worker сохраняет исходный файл (DOC/DOCX/...) в MinIO
+     и создаёт Document + DocumentVersion.
+  2) Extract Router (services.extract_router) по filetype решает, что для этого типа
+     нужно сначала выполнить конвертацию в PDF.
+  3) Import Worker ставит задачу workers.convert_to_pdf с нужными параметрами.
+  4) Этот воркер:
+       - достаёт оригинал из MinIO;
+       - конвертирует в PDF;
+       - кладёт PDF в MinIO;
+       - обновляет DocumentVersion.converted_pdf_ref ссылкой на PDF;
+       - ставит задачу на PDF‑extractor (workers.extract_document).
+
+Архитектура:
+- Внешняя Celery‑таска convert_to_pdf — синхронная (def), как и в других воркерах.
+- Внутри один раз выполняется переход sync → async через run_async.
+- Асинхронное ядро convert_to_pdf_async работает под db_uow() и использует AsyncSession.
+"""
+
+import uuid
+import tempfile
+from typing import Optional
+
+import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError, TransientError
+from core.logging import get_logger
+from db.repositories import DocumentRepository, DocumentVersionRepository
+from db.uow import db_uow, UnitOfWork
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from storage.artifact_store import ArtifactStore, ArtifactPath
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.convert_to_pdf",
+    track_job=False,
+    queue="default",
+)
+def convert_to_pdf(
+    self,
+    document_id: str,
+    document_version_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
+) -> dict:
+    """
+    Celery‑задача конвертации исходного файла в PDF.
+
+    Паттерн:
+    - синхронная точка входа для Celery;
+    - внутри один переход в async‑код через run_async.
+    """
+
+    async def _wrapper() -> dict:
+        async with db_uow() as uow:
+            try:
+                return await convert_to_pdf_async(
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                    run_id=run_id,
+                )
+            except PermanentError as e:
+                # Фатальная ошибка конвертации: помечаем документ FAILED с stage="convert".
+                logger.error(
+                    "Permanent error during conversion",
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                    error=str(e),
+                )
+                async with db_uow() as uow_status:
+                    await _mark_convert_failed(
+                        uow_status,
+                        document_uuid=uuid.UUID(document_id),
+                        message=str(e),
+                        run_id=uuid.UUID(run_id) if run_id else None,
+                    )
+                return {
+                    "status": DocumentStatus.FAILED.value,
+                    "document_id": document_id,
+                    "error": str(e),
+                }
+
+    return run_async(_wrapper())
+
+
+async def convert_to_pdf_async(
+    document_id: str,
+    document_version_id: str,
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+    run_id: str | None = None,
+) -> dict:
+    """
+    Асинхронное ядро конвертации DOC/DOCX → PDF.
+
+    Контракт:
+    - Берём original_ref (DOC/DOCX) из DocumentVersion.
+    - Скачиваем файл из MinIO.
+    - Конвертируем в PDF (через внешний инструмент/сервис).
+    - Заливаем PDF в MinIO по предсказуемому пути (ArtifactPath.converted_pdf).
+    - Обновляем DocumentVersion.converted_pdf_ref.
+    - Ставим стандартную задачy workers.extract_document.
+
+    В случае фатальной ошибки кидаем PermanentError — верхний уровень пометит документ FAILED.
+    """
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
+    store = ArtifactStore(settings)
+
+    doc_uuid = uuid.UUID(document_id)
+    ver_uuid = uuid.UUID(document_version_id)
+
+    # 1. Загружаем сущности из БД
+    document = await doc_repo.get_by_id(doc_uuid)
+    version = await ver_repo.get_by_id(ver_uuid)
+
+    if not document or not version:
+        # Это ошибка согласованности данных: без версии/документа нельзя продолжать.
+        raise PermanentError(
+            f"convert_to_pdf: document or version not found "
+            f"(document_id={document_id}, document_version_id={document_version_id})"
+        )
+
+    if not version.original_ref:
+        # У версии нет исходного файла — конвертировать нечего.
+        raise PermanentError(
+            f"convert_to_pdf: missing original_ref for version {document_version_id}"
+        )
+
+    logger.info(
+        "Starting DOCX/DOC → PDF conversion",
+        document_id=document_id,
+        document_version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        original_ref=version.original_ref,
+        run_id=run_id,
+    )
+
+    # 2. Скачиваем исходный файл из MinIO (DOCX/DOC/другой офисный формат)
+    src_s3_path = version.original_ref.replace(f"s3://{store.bucket}/", "")
+    src_bytes = store.get_file(src_s3_path)
+
+    # 3. Конвертируем в PDF (через внешний конвертер)
+    pdf_bytes = await _convert_office_bytes_to_pdf_bytes(src_bytes)
+
+    # 4. Кладём PDF в MinIO
+    pdf_path = ArtifactPath.converted_pdf(tenant_id, deal_id, document_id)
+    pdf_ref = store.put_file(pdf_path, pdf_bytes, content_type="application/pdf")
+
+    # 5. Обновляем DocumentVersion: ссылка на сконвертированный PDF
+    await ver_repo.update_refs(
+        ver_uuid,
+        converted_pdf_ref=pdf_ref,
+    )
+
+    logger.info(
+        "DOCX/DOC → PDF conversion complete, scheduling extraction",
+        document_id=document_id,
+        document_version_id=document_version_id,
+        pdf_ref=pdf_ref,
+    )
+
+    # 6. Ставим стандартный extract_document (Stage 4)
+    from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
+
+    _celery.send_task(
+        "workers.extract_document",
+        kwargs={
+            "document_version_id": document_version_id,
+            "document_id": document_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "run_id": run_id,
+        },
+    )
+
+    # Статус документа (IN_PROGRESS/EXTRACTED) будет обновлён уже в extract_worker.
+    return {
+        "status": "ok",
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "pdf_ref": pdf_ref,
+    }
+
+
+async def _convert_office_bytes_to_pdf_bytes(src_bytes: bytes) -> bytes:
+    """
+    Конвертация офисного файла (DOCX/DOC/...) в PDF через внешний HTTP‑сервис.
+
+    Ожидаемый протокол сервиса:
+
+    - URL берётся из settings.DOCX_CONVERTER_URL, например:
+        http://office-converter:8080/convert
+
+    - Запрос:
+        POST /convert
+        Content-Type: multipart/form-data
+        form-data:
+          - file: бинарное содержимое исходного файла (DOCX/DOC/...)
+
+    - Успешный ответ:
+        200 OK
+        Content-Type: application/pdf
+        body: байты PDF
+
+    - Ошибка:
+        4xx/5xx с текстом ошибки в body (text/json).
+
+    Пока сервис не поднят или URL не настроен — кидаем PermanentError
+    с понятным текстом, чтобы было видно, что конвертация ещё не подключена.
+    """
+    converter_url = getattr(settings, "DOCX_CONVERTER_URL", None)
+    timeout_seconds = getattr(settings, "DOCX_CONVERTER_TIMEOUT_SECONDS", 60)
+
+    if not converter_url:
+        # Инфраструктура ещё не настроена — явный и понятный сигнал.
+        raise PermanentError(
+            "Office → PDF conversion service is not configured. "
+            "Set DOCX_CONVERTER_URL in settings and deploy your LibreOffice-based "
+            "converter service behind HTTP."
+        )
+
+    # Ниже — реальный вызов сервиса.
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            files = {"file": ("input.docx", src_bytes, "application/octet-stream")}
+            resp = await client.post(converter_url, files=files)
+
+        if resp.status_code != 200:
+            # Сервис ответил ошибкой — фатально для конкретного документа,
+            # но не транзиентная сетевуха.
+            raise PermanentError(
+                f"Conversion service error: {resp.status_code} {resp.text}"
+            )
+
+        # Успешная конвертация: возвращаем байты PDF.
+        return resp.content
+
+    except httpx.TimeoutException as e:
+        # Таймаут — временная ошибка, можно повторить.
+        raise TransientError(f"Conversion service timeout: {e}")
+    except httpx.ConnectError as e:
+        # Нет соединения — временная ошибка.
+        raise TransientError(f"Conversion service connection failed: {e}")
+    except httpx.RequestError as e:
+        # Другие сетевые ошибки — тоже временные.
+        raise TransientError(f"Conversion service request error: {e}")
+
+
+async def _mark_convert_failed(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    message: str,
+    run_id: Optional[uuid.UUID],
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в статус FAILED
+    на стадии convert, с заполнением processing_error_details.
+    """
+    repo = DocumentRepository(uow.session)
+    await repo.set_failed(
+        document_uuid,
+        stage="convert",
+        message=message,
+        reason="conversion_error",
+        run_id=run_id,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# КАК ДЕЙСТВОВАТЬ, КОГДА ПОЯВИТСЯ РЕАЛЬНЫЙ EXTRACTOR ИЛИ КОНВЕРТЕР ДЛЯ НОВОГО ТИПА
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Ниже — пошаговая инструкция для будущего себя или коллеги,
+# который будет подключать новый тип файла в пайплайн.
+#
+# Сценарий 1. Появился конвертер DOCX/DOC → PDF
+# -------------------------------------------
+#
+# Цель: для doc/docx сначала делать конвертацию, потом пускать через PDF-экстрактор.
+#
+# Шаг 1. Реализовать конвертацию в convert_to_pdf_async
+#   1.1. Взять исходный файл из MinIO:
+#        - у версии документа (version.original_ref) уже есть путь к оригиналу.
+#        - через ArtifactStore.get_file(...) получить байты файла.
+#   1.2. Вызвать внешний инструмент конвертации:
+#        - например, LibreOffice (через subprocess) или отдельный HTTP-сервис.
+#        - на вход подать исходный файл, на выход получить PDF-байты.
+#   1.3. Сохранить PDF в MinIO:
+#        - придумать путь, например:
+#              ArtifactPath.converted(tenant_id, deal_id, document_id) + ".pdf"
+#        - через store.put_file(...) загрузить PDF в хранилище.
+#   1.4. Обновить/создать DocumentVersion:
+#        - либо обновить существующую версию, добавив ссылку на PDF (например, отдельное поле),
+#        - либо создать новую версию (version_num + 1) с original_ref указывающим уже на PDF.
+#   1.5. Поставить задачу на PDF-экстрактор:
+#        - celery_app.send_task(
+#              "workers.extract_document",
+#              kwargs={
+#                  "document_version_id": str(<id нужной версии>),
+#                  "document_id": document_id,
+#                  "deal_id": deal_id,
+#                  "tenant_id": tenant_id,
+#                  "run_id": None или нужный run_id,
+#              },
+#          )
+#
+# Шаг 2. Включить конвертацию для DOC/DOCX в роутере
+#   2.1. Открыть services/extract_router.py.
+#   2.2. В функции decide_extraction_strategy найти ветку:
+#            if ft in ("docx", "doc"):
+#                return ExtractRoutingDecision(
+#                    action="unsupported",
+#                    extractor_task=None,
+#                    reason="DOC/DOCX documents require conversion to PDF before analysis (not implemented yet)",
+#                )
+#   2.3. Заменить её на:
+#            if ft in ("docx", "doc"):
+#                return ExtractRoutingDecision(
+#                    action="convert_then_extract",
+#                    extractor_task="workers.convert_to_pdf",
+#                    reason="DOC/DOCX will be converted to PDF before analysis",
+#                )
+#
+# Шаг 3. Обновить Import Worker (если нужно)
+#   3.1. В _async_import Import Worker уже использует Extract Router.
+#   3.2. Для action == "convert_then_extract" он сейчас "карантинит" документ.
+#        - этот код нужно заменить на постановку задачи convert_to_pdf:
+#              tasks_to_dispatch.append(
+#                  {
+#                      "task_name": decision.extractor_task,
+#                      "kwargs": {
+#                          "document_version_id": str(doc_version.id),
+#                          "document_id": str(doc.id),
+#                          "deal_id": deal_id,
+#                          "tenant_id": tenant_id,
+#                          "run_id": run_id,
+#                      },
+#                  }
+#              )
+#        - и НЕ отправлять документ в карантин.
+#
+# Сценарий 2. Появился "родной" extractor для типа файла (например, DOCX)
+# ------------------------------------------------------------------------
+#
+# Цель: для docx больше НЕ конвертировать в PDF, а сразу вызывать свой extractor.
+#
+# Шаг 1. Реализовать новый extractor
+#   1.1. Создать новый Celery-воркер (файл), например src/workers/extract_docx_worker.py.
+#   1.2. В нём сделать задачу, например:
+#            @celery_app.task(name="workers.extract_document_docx", ...)
+#        которая:
+#            - берёт исходный DOCX из MinIO;
+#            - извлекает текст/структуру;
+#            - сохраняет артефакты (в текстовые JSON, как это делает PDF extractor);
+#            - обновляет DocumentVersion и статус документа.
+#
+# Шаг 2. Переключить роутер на новый extractor
+#   2.1. В services/extract_router.py в decide_extraction_strategy
+#        для ft == "docx" заменить логику:
+#            с action="convert_then_extract" на action="extract"
+#            и extractor_task="workers.extract_document_docx".
+#        Пример:
+#            if ft == "docx":
+#                return ExtractRoutingDecision(
+#                    action="extract",
+#                    extractor_task="workers.extract_document_docx",
+#                    reason=None,
+#                )
+#
+# Шаг 3. Ничего не менять в Import Worker
+#   3.1. Import Worker уже использует Extract Router и не знает деталей.
+#   3.2. После изменения роутера docx-документы начнут автоматически
+#        уходить в новый extractor, без каких-либо правок в import_worker.py.
+#
+# Таким образом:
+#   - convert_worker.py хранит логику конвертации в PDF (одна точка доработки).
+#   - extract_router.py отвечает за выбор конвертации/экстрактора.
+#   - import_worker.py лишь вызывает роутер и ставит задачи в Celery.
+
+====================================================================================================
+<<< FILE_END | index=3 | path=src/workers/convert_worker.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=4 | path=src/workers/export_pending.py
+====================================================================================================
+# src/workers/export_pending.py
+
+"""
+Export Pending Worker.
+
+Этот модуль содержит Celery‑воркер, который по одному обрабатывает
+отложенные (pending) задачи экспорта из базы данных.
+
+Назначение:
+  - периодически проверять наличие задач экспорта в состоянии "ожидание";
+  - брать одну такую задачу и пытаться её обработать до конца;
+  - обеспечивать атомарность изменений по одному экспорту через db_uow;
+  - инкапсулировать всю бизнес‑логику обработки в
+    services.export.service.process_one_pending_export.
+
+Поведение:
+  - если в БД есть хотя бы один экспорт в статусе "pending",
+    воркер берёт его, выполняет все шаги обработки и возвращает True;
+  - если подходящих задач нет, воркер ничего не делает и возвращает False;
+  - если во время работы происходит временная ошибка (БД, сеть и т.п.),
+    MASBaseTask помечает её как транзиентную и инициирует повторный запуск.
+
+Архитектура:
+  - снаружи — синхронная Celery‑таска export_process_pending (def),
+    зарегистрированная в общем приложении mas_queue.celery_app.celery_app;
+  - внутри — один переход sync → async через run_async(), который запускает
+    асинхронную функцию _export_process_pending_async(...);
+  - _export_process_pending_async открывает UnitOfWork через db_uow(),
+    вызывает process_one_pending_export(db=uow.session, tenant_id=...),
+    и возвращает булево значение "что‑то обработано / нет".
+
+Таким образом, этот воркер постепенно «разгрызает» очередь отложенных экспортов.
+Для пользователя это означает: если экспорт находится в ожидании, именно этот
+воркер со временем его подхватит и либо успешно завершит, либо зафейлит с
+понятным статусом и ошибкой в логах.
+"""
+
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.export.service import process_one_pending_export
+
+
+async def _export_process_pending_async(tenant_id: str) -> bool:
+    """
+    Асинхронная реализация обработки одной "ожидающей" задачи экспорта.
+
+    Здесь вся работа с БД и бизнес‑логика.
+    """
+    async with db_uow() as uow:
+        return await process_one_pending_export(
+            db=uow.session,
+            tenant_id=tenant_id,
+        )
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="export.process_pending",
+    track_job=False,
+    queue="default",
+)
+def export_process_pending(self, tenant_id: str = "default") -> bool:
+    """
+    Синхронная Celery‑таска обработки одной "ожидающей" задачи экспорта.
+
+    Внутри:
+      - вызывает асинхронную функцию _export_process_pending_async(...)
+        через общий мост run_async();
+      - возвращает True, если что‑то было обработано, иначе False.
+    """
+    return run_async(_export_process_pending_async(tenant_id))
+
+====================================================================================================
+<<< FILE_END | index=4 | path=src/workers/export_pending.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=5 | path=src/workers/exporter.py
+====================================================================================================
+# src/workers/exporter.py
+
+"""
+Exporter Worker — (экспорт результатов по сделке).
+
+Что делает:
+- Формирует полный пакет экспортных файлов по Run/сделке:
+  - dd_grid_{run_id}.xlsx      — DD Grid с несколькими листами.
+  - summary_{run_id}.xlsx      — Summary по сделке.
+  - report_{run_id}.docx       — Word‑отчёт.
+  - aggregated_{run_id}.json   — JSON‑дамп агрегации.
+
+Архитектура:
+- Синхронная Celery‑таска export_results (def) + async‑ядро export_core(...) под db_uow().
+- Вся логика агрегации и генерации файлов вынесена в services.export.core.export_core.
+- БД‑операции выполняются через db_uow / AsyncSession.
+- Файлы сохраняются в хранилище через ArtifactStore внутри export_core.
+- Переход sync → async выполняется один раз через run_async,
+  без ручного управления event loop в коде таски.
+"""
+
+import time
+import uuid
+
+from ops.metrics import get_metrics
+from core.logging import get_logger
+from db.uow import db_uow
+from db.repositories.run_repo import RunRepository
+from core.constants import RunStatus
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.export.core import export_core
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.export_results",
+    track_job=False,
+    queue="default",
+)
+def export_results(
+    self,
+    run_id: str,
+    deal_id: str,
+    tenant_id: str,
+) -> dict:
+    """
+    Синхронная Celery‑таска экспорта результатов сделки.
+
+    Внутри:
+      - открывает UnitOfWork через db_uow();
+      - вызывает services.export.core.export_core(...);
+      - пишет метрику длительности экспорта;
+      - при ошибке помечает Run как failed;
+      - возвращает результат с refs на сгенерированные файлы.
+    """
+    logger.info(
+        "Export results task received",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+        },
+    )
+
+    logger.info(
+        "Запуск экспорта",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+        },
+    )
+
+    started_at = time.time()
+    metrics = get_metrics()
+
+    async def _run() -> dict:
+        async with db_uow() as uow:
+            run_repo = RunRepository(uow.session)
+            run_uuid = uuid.UUID(run_id)
+
+            try:
+                result = await export_core(
+                    run_id=run_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                )
+
+                duration = time.time() - started_at
+                metrics.export_duration.labels(
+                    export_type="full_deal_export"
+                ).observe(duration)
+
+                logger.info(
+                    "Экспорт завершён",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "duration_sec": round(duration, 2),
+                        "files_generated": len(result.get("refs", {})),
+                    },
+                )
+
+                return result
+
+            except Exception as e:
+                logger.error(
+                    "Экспорт завершился с ошибкой",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "error": str(e),
+                    },
+                )
+                # Помечаем Run как failed и сохраняем детали ошибки
+                await run_repo.update_status(
+                    run_uuid,
+                    RunStatus.FAILED.value,
+                    error_details={
+                        "stage": "export",
+                        "type": "failed",
+                        "reason": "export_error",
+                        "message": str(e),
+                    },
+                )
+
+                # Пробрасываем ошибку дальше, чтобы Celery видел failure
+                raise
+
+    # Запускаем async‑ядро через общий мост run_async
+    return run_async(_run())
+
+====================================================================================================
+<<< FILE_END | index=5 | path=src/workers/exporter.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=6 | path=src/workers/extract_worker.py
+====================================================================================================
+# src/workers/extract_worker.py
+"""
+Extract Worker — извлечение текста и таблиц из PDF, сохранённых в MinIO.
+
+Позиция в пайплайне:
+- Пайплайн: import → extract → pii → structure → classify → run_deal_checks.
+- На вход получает документ (PDF) и создаёт артефакт text_layout_raw.
+
+Что делает воркер:
+- Читает исходный PDF из MinIO (по ссылке original_ref или converted_pdf_ref из DocumentVersion).
+- Определяет стратегию извлечения (native text / OCR / гибрид).
+- Строит структуру text_layout_raw (элементы и таблицы) и сохраняет её в MinIO.
+- При низком качестве извлечения или ошибках отправляет документ в карантин.
+- При успехе обновляет статус документа до EXTRACTED и запускает PII‑санитизацию.
+
+Архитектура:
+- Внешняя Celery‑таска extract_document — синхронная (def), её вызывает Celery.
+- Внутри таски один раз происходит переход sync → async через run_async.
+- Вся логика работы с БД и MinIO сосредоточена в _extract_document_async()
+  и вспомогательных async‑функциях под управлением db_uow(), без ручного
+  управления event loop.
+- Метрики производительности и качества извлечения пишутся в Prometheus
+  через глобальный реестр METRICS.
+"""
+
+import time
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.ops.metrics import METRICS
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError, QuarantineError
+from core.logging import get_logger
+from db.repositories import DocumentRepository, DocumentVersionRepository
+from db.uow import db_uow, UnitOfWork
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.pdf_extractor import (
+    ExtractionResult,
+    build_text_layout_raw,
+    extract_pdf,
+)
+from services.layout_language_filter import (
+    detect_languages_in_layout,
+    filter_layout_to_language,
+)
+from services.deal_language_service import update_deal_languages
+from db.repositories.deal_repo import DealRepository
+
+from storage.artifact_store import ArtifactPath, ArtifactStore
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.extract_document",
+    track_job=False,
+    queue="default",
+)
+def extract_document(
+    self,
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
+) -> dict:
+    """
+    Sync Celery entrypoint.
+
+    Новый архитектурный паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри мы один раз передаём управление в async‑мир через run_async.
+    - Весь async‑код (БД, MinIO и т.п.) живёт в _extract_document_async()
+      и вспомогательных async‑функциях под db_uow().
+    """
+
+    async def _wrapper() -> dict:
+        # Основной unit of work для извлечения
+        async with db_uow() as uow:
+            try:
+                return await _extract_document_async(
+                    document_version_id=document_version_id,
+                    document_id=document_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    db=uow.session,
+                    run_id=run_id,
+                )
+            except PermanentError as e:
+                logger.error(
+                    "Permanent error during extraction",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса FAILED + деталей
+                async with db_uow() as uow_status:
+                    await _mark_failed(
+                        uow_status,
+                        document_uuid=uuid.UUID(document_id),
+                        message=str(e),
+                        run_id=uuid.UUID(run_id) if run_id else None,
+                    )
+                return {
+                    "status": DocumentStatus.FAILED.value,
+                    "document_id": document_id,
+                    "error": str(e),
+                }
+            except QuarantineError as e:
+                logger.error(
+                    "Quarantine error during extraction",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса QUARANTINE + деталей
+                async with db_uow() as uow_status:
+                    await _mark_quarantine(
+                        uow_status,
+                        document_uuid=uuid.UUID(document_id),
+                        error=e,
+                        run_id=uuid.UUID(run_id) if run_id else None,
+                    )
+                return {
+                    "status": DocumentStatus.QUARANTINE.value,
+                    "document_id": document_id,
+                    "error": str(e),
+                }
+
+    # Запускаем async‑обёртку через общий мост run_async
+    return run_async(_wrapper())
+
+
+async def _extract_document_async(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+    run_id: str | None = None,
+) -> dict:
+    """
+    Extract text and tables from PDF and produce text_layout_raw artifact.
+
+    Все операции с БД выполняются через переданную AsyncSession (db),
+    чтобы одна задача worker'а работала в рамках одного unit of work.
+    """
+    logger.info(
+        "Starting extraction",
+        document_id=document_id,
+        version_id=document_version_id,
+    )
+    start_time = time.time()
+    store = ArtifactStore(settings)
+
+    # --- Чтение PDF из MinIO с защитой и логами ---
+    try:
+        pdf_ref = await get_pdf_source_ref(document_version_id, db)
+        logger.info(
+            "Extract: pdf_ref resolved",
+            document_id=document_id,
+            version_id=document_version_id,
+            pdf_ref=pdf_ref,
+        )
+
+        if not pdf_ref:
+            raise PermanentError(
+                f"No PDF source ref for version {document_version_id} "
+                f"(neither converted_pdf_ref nor original_ref is set)"
+            )
+
+        s3_path = pdf_ref.replace(f"s3://{store.bucket}/", "")
+        logger.info(
+            "Extract: reading PDF from store",
+            document_id=document_id,
+            version_id=document_version_id,
+            s3_path=s3_path,
+        )
+
+        pdf_bytes = store.get_file(s3_path)
+        logger.info(
+            "Extract: PDF bytes loaded",
+            document_id=document_id,
+            version_id=document_version_id,
+            size=len(pdf_bytes),
+        )
+    except Exception as e:
+        logger.exception(
+            "Extract: failed to read PDF from store",
+            document_id=document_id,
+            version_id=document_version_id,
+            error=str(e),
+        )
+        raise PermanentError(f"Failed to read PDF from store: {e}")
+    # --- КОНЕЦ БЛОКА ЧТЕНИЯ PDF ---
+
+    # 2. Extract (Stage 4 PDF extractor: text / OCR / hybrid + tables)
+    try:
+        extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
+        logger.info(
+            "Extract: pdf parsed",
+            document_id=document_id,
+            version_id=document_version_id,
+            elements=len(extraction.elements),
+            tables=len(extraction.tables),
+            pages=extraction.page_count,
+            strategy=extraction.strategy,
+        )
+    except Exception as e:
+        logger.exception(
+            "Extract: extract_pdf failed",
+            document_id=document_id,
+            version_id=document_version_id,
+            error=str(e),
+        )
+        raise PermanentError(f"extract_pdf failed: {e}")
+
+    # 3. Quarantine check
+    _check_quarantine(extraction, document_id)
+
+    # 4. Build text_layout_raw JSON (clause_uid = null at this stage)
+    text_layout_raw = build_text_layout_raw(
+        extraction,
+        document_id=document_id,
+        document_version_id=document_version_id,
+    )
+
+    # 4.1. Определяем фактические языки по исходному layout (multi-lang).
+    detected_langs = detect_languages_in_layout(text_layout_raw)
+    await update_deal_languages(
+        db=db,
+        deal_id=uuid.UUID(deal_id),
+        new_languages=detected_langs,
+    )
+
+    # 4.2. Выбираем целевой язык для layout_primary.
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(uuid.UUID(deal_id))
+
+    primary = (getattr(deal, "primary_language", None) or "").lower()
+    langs_from_deal = [
+        (l or "").lower()
+        for l in (getattr(deal, "languages", None) or [])
+        if (l or "").strip()
+    ]
+
+    target_lang: str | None = None
+
+    # 1) Явный primary_language сделки, если он реально найден в документе
+    if primary and primary in detected_langs:
+        target_lang = primary
+
+    # 2) Первый язык сделки, который реально найден в документе
+    if not target_lang:
+        for lang in langs_from_deal:
+            if lang in detected_langs:
+                target_lang = lang
+                break
+
+    # 3) Доминирующий язык документа
+    if not target_lang and detected_langs:
+        target_lang = detected_langs[0]
+
+    # 4) Явный fallback контракта пайплайна
+    if not target_lang:
+        target_lang = primary or (langs_from_deal[0] if langs_from_deal else "ru")
+
+    # 4.3. Языковая фильтрация layout.
+    #
+    # is_bilingual определяем здесь, а не внутри filter_layout_to_language,
+    # чтобы у extract_worker была та же картина, что у фильтра.
+    is_bilingual = len(detected_langs) >= 2
+
+    filter_context = {
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "document_id": document_id,
+        "is_bilingual": is_bilingual,
+    }
+    layout_primary = filter_layout_to_language(
+        text_layout_raw, target_lang, context=filter_context
+    )
+
+    # 4.4. Оценка качества одноязычного layout относительно исходного.
+    #
+    # Передаём is_bilingual чтобы пороги degraded учитывали тип документа:
+    # - для билингвального документа ~50% элементов — это норма (один язык из двух);
+    # - для монолингвального 50% элементов — это уже деградация.
+    quality = _evaluate_primary_layout_quality(
+        text_layout_raw, layout_primary, is_bilingual=is_bilingual
+    )
+
+    if not (layout_primary.get("elements") or []):
+        logger.warning(
+            "Primary layout is empty after language filter, falling back to raw layout",
+            document_id=document_id,
+            version_id=document_version_id,
+            target_lang=target_lang,
+        )
+        layout_primary = text_layout_raw
+    else:
+        # Записываем диагностику внутрь metadata layout_primary
+        metadata = dict(layout_primary.get("metadata") or {})
+        lf_meta = dict(metadata.get("language_filter") or {})
+        lf_meta.update(
+            {
+                "target_language": target_lang,
+                "elements_before": quality["elements_before"],
+                "elements_after": quality["elements_after"],
+                "chars_before": quality["chars_before"],
+                "chars_after": quality["chars_after"],
+                "element_retention_ratio": quality["element_retention_ratio"],
+                "char_retention_ratio": quality["char_retention_ratio"],
+                "degraded": quality["degraded"],
+                "degraded_reason": quality["degraded_reason"],
+            }
+        )
+        metadata["language_filter"] = lf_meta
+        layout_primary["metadata"] = metadata
+
+        if quality["degraded"]:
+            logger.warning(
+                "Primary layout marked as degraded after language filter",
+                document_id=document_id,
+                version_id=document_version_id,
+                target_lang=target_lang,
+                element_retention_ratio=quality["element_retention_ratio"],
+                char_retention_ratio=quality["char_retention_ratio"],
+                degraded_reason=quality["degraded_reason"],
+                is_bilingual=is_bilingual,
+            )
+
+    # 5. Upload to MinIO
+
+    # 5.1. Полный многоязычный layout_raw (для отладки и fallback)
+    raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
+    raw_ref = store.put_json(raw_path, text_layout_raw)
+
+    # 5.2. Одноязычный layout_primary (под выбранный язык)
+    primary_path = ArtifactPath.layout_primary(tenant_id, deal_id, document_id)
+    primary_ref = store.put_json(primary_path, layout_primary)
+
+    # 6. Update DB (используем ту же сессию db)
+    await update_extraction_result(
+        document_version_id=document_version_id,
+        document_id=document_id,
+        raw_ref=raw_ref,
+        primary_ref=primary_ref,
+        page_count=extraction.page_count,
+        strategy=extraction.strategy,
+        ocr_confidence=extraction.avg_ocr_confidence,
+        db=db,
+    )
+
+    duration = time.time() - start_time
+    logger.info(
+        "Extraction complete",
+        document_id=document_id,
+        elements=len(extraction.elements),
+        tables=len(extraction.tables),
+        pages=extraction.page_count,
+        strategy=extraction.strategy,
+        ocr_confidence=round(extraction.avg_ocr_confidence, 3),
+        duration_seconds=round(duration, 2),
+        target_lang=target_lang,
+        is_bilingual=is_bilingual,
+        element_retention_ratio=round(quality["element_retention_ratio"], 3),
+    )
+
+    # --- Метрики извлечения ---
+    METRICS.extraction_duration.labels(
+        strategy=extraction.strategy,
+    ).observe(duration)
+
+    METRICS.extraction_pages.labels(
+        strategy=extraction.strategy,
+    ).inc(extraction.page_count)
+
+    if extraction.strategy == "ocr" and extraction.avg_ocr_confidence is not None:
+        METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
+
+    # 7. Trigger PII Sanitizer (Stage 5)
+    if not settings.DISABLE_DOWNSTREAM_TASKS:
+        from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
+
+        _celery.send_task(
+            "pii.sanitize_document",
+            kwargs={
+                "document_version_id": document_version_id,
+            },
+        )
+
+    return {
+        "document_id": document_id,
+        "elements": len(extraction.elements),
+        "tables": len(extraction.tables),
+        "pages": extraction.page_count,
+        "strategy": extraction.strategy,
+        "duration_seconds": round(duration, 2),
+    }
+
+
+def _check_quarantine(extraction: ExtractionResult, document_id: str) -> None:
+    """Raise QuarantineError if extraction results are below quality thresholds."""
+    if extraction.errors and not extraction.elements:
+        METRICS.quarantine.labels(reason="extraction_failed").inc()
+        raise QuarantineError(
+            f"PDF extraction failed: {'; '.join(extraction.errors)}",
+            document_id=document_id,
+            reason="extraction_failed",
+        )
+
+    if not extraction.elements:
+        METRICS.quarantine.labels(reason="no_text_extracted").inc()
+        raise QuarantineError(
+            "No text extracted from PDF — 0 elements",
+            document_id=document_id,
+            reason="no_text_extracted",
+        )
+
+    if extraction.strategy in ("ocr", "hybrid") and (
+        extraction.avg_ocr_confidence
+        < settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD
+    ):
+        METRICS.quarantine.labels(reason="ocr_low_confidence").inc()
+        raise QuarantineError(
+            (
+                f"OCR confidence too low: "
+                f"{extraction.avg_ocr_confidence:.2f} < "
+                f"threshold {settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD}"
+            ),
+            document_id=document_id,
+            reason="ocr_low_confidence",
+            details={
+                "avg_confidence": extraction.avg_ocr_confidence,
+                "threshold": settings.EXTRACTION_OCR_QUARANTINE_THRESHOLD,
+            },
+        )
+
+
+def _evaluate_primary_layout_quality(
+    raw_layout: dict,
+    primary_layout: dict,
+    is_bilingual: bool = False,
+) -> dict:
+    """
+    Оценить качество layout_primary относительно исходного text_layout_raw.
+
+    Возвращает словарь с полями:
+    - elements_before / elements_after
+    - chars_before / chars_after
+    - element_retention_ratio
+    - char_retention_ratio
+    - degraded (bool)
+    - degraded_reason (str | None)
+
+    Пороги degraded зависят от типа документа:
+
+    Монолингвальный документ:
+      - Нормальный фильтр оставляет >80% элементов (убирает только шум).
+      - Порог degraded: элементов < 60%, символов < 65%.
+
+    Билингвальный документ (is_bilingual=True):
+      - Нормальный фильтр оставляет ~50% элементов (один язык из двух).
+      - Пороги должны быть ниже, иначе все двуязычные документы будут degraded.
+      - Порог degraded: элементов < 20%, символов < 25%.
+      - Почему 20%: если осталось меньше 1/5 от исходного — что-то точно сломалось
+        (например, неверно определён целевой язык или фильтр упал в fallback
+        и оставил только нейтральные блоки).
+    """
+    raw_elements = raw_layout.get("elements") or []
+    prim_elements = primary_layout.get("elements") or []
+
+    elements_before = len(raw_elements)
+    elements_after = len(prim_elements)
+
+    def _count_chars(text: str) -> int:
+        return len((text or "").replace(" ", "").replace("\n", ""))
+
+    chars_before = sum(_count_chars(el.get("text") or "") for el in raw_elements)
+    chars_after = sum(_count_chars(el.get("text") or "") for el in prim_elements)
+
+    elem_ratio = (elements_after / elements_before) if elements_before else 0.0
+    char_ratio = (chars_after / chars_before) if chars_before else 0.0
+
+    # Выбираем пороги в зависимости от типа документа
+    if is_bilingual:
+        # Для билингвального: нормально потерять ~50%, критично потерять >80%
+        elem_threshold = 0.20
+        char_threshold = 0.25
+    else:
+        # Для монолингвального: должно оставаться большинство элементов
+        elem_threshold = 0.60
+        char_threshold = 0.65
+
+    degraded = False
+    reason: str | None = None
+
+    if elem_ratio < elem_threshold:
+        degraded = True
+        reason = (
+            f"too_few_elements_retained:{elem_ratio:.2f}"
+            f"(threshold={'bilingual' if is_bilingual else 'monolingual'}:{elem_threshold})"
+        )
+    elif char_ratio < char_threshold:
+        degraded = True
+        reason = (
+            f"too_few_chars_retained:{char_ratio:.2f}"
+            f"(threshold={'bilingual' if is_bilingual else 'monolingual'}:{char_threshold})"
+        )
+
+    return {
+        "elements_before": elements_before,
+        "elements_after": elements_after,
+        "chars_before": chars_before,
+        "chars_after": chars_after,
+        "element_retention_ratio": elem_ratio,
+        "char_retention_ratio": char_ratio,
+        "degraded": degraded,
+        "degraded_reason": reason,
+    }
+
+
+async def get_pdf_source_ref(
+    document_version_id: str,
+    db: AsyncSession,
+) -> str | None:
+    """
+    Получить ссылку на PDF-источник для извлечения.
+
+    Логика:
+    - если у версии есть converted_pdf_ref (DOCX/DOC → PDF), используем его;
+    - иначе используем original_ref (исходный PDF).
+    """
+    repo = DocumentVersionRepository(db)
+    version = await repo.get_by_id(uuid.UUID(document_version_id))
+    if not version:
+        return None
+
+    if getattr(version, "converted_pdf_ref", None):
+        return version.converted_pdf_ref
+
+    return version.original_ref
+
+
+async def update_extraction_result(
+    document_version_id: str,
+    document_id: str,
+    raw_ref: str,
+    primary_ref: str | None,
+    page_count: int,
+    strategy: str,
+    ocr_confidence: float,
+    db: AsyncSession,
+) -> None:
+    """
+    Обновить результаты извлечения в БД (version + document).
+
+    Контракт пайплайна:
+    - raw_ref хранит технический multi-language snapshot после extract;
+    - layout_primary_ref — единственный downstream layout после extract;
+    - все следующие стадии (PII, structure, content/chunks, checks) должны
+      использовать именно layout_primary_ref, а не raw_ref.
+    """
+    ver_repo = DocumentVersionRepository(db)
+    doc_repo = DocumentRepository(db)
+
+    version_uuid = uuid.UUID(document_version_id)
+    version = await ver_repo.get_by_id(version_uuid)
+
+    pipeline_strategy: str | None = None
+    origin_filetype = getattr(version, "origin_filetype", None) if version else None
+
+    if origin_filetype:
+        if origin_filetype == "pdf":
+            if strategy == "native":
+                pipeline_strategy = "pdf_native"
+            elif strategy == "ocr":
+                pipeline_strategy = "pdf_ocr"
+            elif strategy == "hybrid":
+                pipeline_strategy = "pdf_hybrid"
+        elif origin_filetype == "docx":
+            if strategy == "native":
+                pipeline_strategy = "docx_via_pdf_native"
+            elif strategy == "ocr":
+                pipeline_strategy = "docx_via_pdf_ocr"
+            elif strategy == "hybrid":
+                pipeline_strategy = "docx_via_pdf_hybrid"
+
+    await ver_repo.update_refs(
+        version_uuid,
+        raw_ref=raw_ref,
+        layout_primary_ref=primary_ref,
+        extraction_strategy=strategy,
+        ocr_confidence=ocr_confidence,
+        pipeline_strategy=pipeline_strategy,
+    )
+
+    await doc_repo.update_status(
+        uuid.UUID(document_id),
+        DocumentStatus.EXTRACTED.value,
+        page_count=page_count,
+        processing_error_details=None,
+    )
+
+
+async def _mark_failed(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    message: str,
+    run_id: uuid.UUID | None,
+) -> None:
+    repo = DocumentRepository(uow.session)
+    await repo.set_failed(
+        document_uuid,
+        stage="extract",
+        message=message,
+        reason="extraction_error",
+        run_id=run_id,
+    )
+
+
+async def _mark_quarantine(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    error: QuarantineError,
+    run_id: uuid.UUID | None,
+) -> None:
+    repo = DocumentRepository(uow.session)
+    reason = getattr(error, "reason", None)
+    msg = str(error)
+    await repo.set_quarantined(
+        document_uuid,
+        stage="extract",
+        message=msg,
+        reason=reason,
+        run_id=run_id,
+    )
+
+====================================================================================================
+<<< FILE_END | index=6 | path=src/workers/extract_worker.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=7 | path=src/workers/import_worker.py
+====================================================================================================
+# src/workers/import_worker.py
+
+"""
+Import Worker — production.
+
+Назначение:
+- Первичный импорт файлов в систему и постановка задач на дальнейшую обработку.
+- Работает как первый этап пайплайна: import → extract → pii → structure → classify → run_deal_checks.
+
+Основные функции:
+  - Распаковка ZIP с сохранением структуры папок (folder_path).
+  - Валидация файлов (расширение, размер, сигнатура / magic bytes).
+  - Дедупликация по SHA‑256 внутри одной сделки.
+  - Идемпотентность через IdempotencyKey (возврат кэшированного результата при повторном вызове).
+  - Карантин для некорректных / повреждённых / неподдерживаемых файлов.
+  - Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
+  - Определение исходного формата файла (source_extension, source_filetype).
+  - Роутинг по типу файла через Extract Router:
+      * PDF → постановка задачи на PDF‑extractor (workers.extract_document).
+      * другие типы → пока отправляются в карантин с понятной причиной,
+        но архитектура готова к добавлению конвертации (DOCX → PDF) и новых extractors.
+
+Архитектура:
+- Внешняя Celery‑таска import_bundle — синхронная (def), её вызывает Celery.
+- Внутри таски один раз происходит переход sync → async через run_async.
+- Всё взаимодействие с БД и MinIO реализовано в _import_bundle_async() и _async_import()
+  под управлением db_uow(), без ручного управления event loop.
+- Сам Import Worker НЕ делает классификацию, он только честно сохраняет folder_path
+  и ставит downstream‑задачи на дальнейшие стадии пайплайна.
+"""
+
+import hashlib
+import os
+import tempfile
+import uuid
+import zipfile
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ops.metrics import get_metrics
+from core.constants import DocumentStatus
+from core.exceptions import IdempotencyConflictError, PermanentError
+from core.logging import get_logger
+from db.models.bundle import Bundle
+from db.repositories import (
+    AuditRepository,
+    DocumentRepository,
+    DocumentVersionRepository,
+    IdempotencyRepository,
+)
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.file_validator import (
+    FileStatus,
+    validate_file,
+)
+
+from services.extract_router import (
+    ExtractRoutingDecision,
+    decide_extraction_strategy,
+)
+from storage.artifact_store import ArtifactPath, ArtifactStore
+
+logger = get_logger(__name__)
+
+
+def compute_sha256(filepath: str) -> str:
+    """Посчитать SHA-256 хэш файла для дедупликации."""
+    sha256 = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.import_bundle",
+    track_job=False,
+    queue="default",
+)
+def import_bundle(
+    self,
+    deal_id: str,
+    tenant_id: str,
+    source_path: str,
+    idempotency_key: str | None = None,
+    run_id: str | None = None,
+) -> dict:
+    """
+    Синхронная точка входа Celery‑таски импорта.
+
+    Новый паттерн:
+    - Celery вызывает обычную (sync) функцию.
+    - Внутри мы один раз передаём управление в async‑мир через run_async.
+    - Весь async‑код живёт в _import_bundle_async() + db_uow().
+    """
+
+    async def _wrapper() -> dict:
+        # db_uow() создаёт AsyncSession и управляет транзакцией.
+        async with db_uow() as uow:
+            return await _import_bundle_async(
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                source_path=source_path,
+                idempotency_key=idempotency_key,
+                run_id=run_id,
+                db=uow.session,
+            )
+
+    # Запускаем асинхронную часть через общий мост run_async
+    result = run_async(_wrapper())
+
+    # ВАЖНО: на этом месте транзакция уже закоммичена.
+    # То есть все документы по сделке уже созданы в БД.
+    # Если в этом импорте появились новые документы, имеет смысл
+    # заново перестроить связи и «семьи» документов по сделке.
+    #
+    # Для непрофессионального программиста:
+    # - мы смотрим, сколько документов реально импортировано;
+    # - если число > 0, ставим отдельную фоновую задачу
+    #   workers.build_relations, которая в фоне пересчитает связи.
+    imported_count = result.get("imported_count", 0)
+    if imported_count > 0:
+        celery_app.send_task(
+            "workers.build_relations",
+            kwargs={
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
+        )
+
+    return result
+
+
+async def _import_bundle_async(
+    deal_id: str,
+    tenant_id: str,
+    source_path: str,
+    db: AsyncSession,
+    idempotency_key: str | None = None,
+    run_id: str | None = None,
+) -> dict:
+    logger.info(
+        "Starting import",
+        deal_id=deal_id,
+        source_path=source_path,
+        idempotency_key=idempotency_key,
+    )
+
+    metrics = get_metrics()
+
+    # Idempotency check
+    if idempotency_key:
+        cached = await _check_idempotency(
+            tenant_id=tenant_id,
+            key=idempotency_key,
+            db=db,
+        )
+        if cached is not None:
+            logger.info(
+                "Idempotent replay — returning cached result",
+                idempotency_key=idempotency_key,
+            )
+            return cached
+
+    if not os.path.exists(source_path):
+        metrics.import_fail.labels(reason="source_not_found").inc()
+        raise PermanentError(
+            f"Source file not found: {source_path}",
+            details={"source_path": source_path},
+        )
+
+    # Распаковываем ZIP или работаем с одиночным файлом
+    if zipfile.is_zipfile(source_path):
+        file_list = _extract_zip(source_path)
+    else:
+        folder = ""
+        file_list = [(folder, source_path)]
+
+    result = await _async_import(
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        file_list=file_list,
+        db=db,
+        run_id=run_id,
+        idempotency_key=idempotency_key,
+    )
+
+    logger.info(
+        "Import completed",
+        deal_id=deal_id,
+        imported=result["imported_count"],
+        quarantined=result["quarantine_count"],
+        duplicates=result["duplicate_count"],
+        skipped=result["skipped_count"],
+    )
+    return result
+
+
+def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
+    """
+    Распаковать ZIP и вернуть список (folder_path, filepath).
+
+    Сохраняет структуру папок Data Room.
+    Пример:
+      путь внутри ZIP: "02. Contracts/SPA/spa_main.pdf"
+      → folder_path = "02. Contracts/SPA"
+    """
+    metrics = get_metrics()
+
+    tmp_dir = tempfile.mkdtemp(prefix="mas_import_")
+    file_list: list[tuple[str, str]] = []
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmp_dir)
+    except zipfile.BadZipFile:
+        metrics.import_fail.labels(reason="bad_zip").inc()
+        raise PermanentError(
+            "Invalid or corrupted ZIP file",
+            details={"source_path": zip_path},
+        )
+
+    for root, dirs, files in os.walk(tmp_dir):
+        for fname in files:
+            full_path = os.path.join(root, fname)
+            rel_dir = os.path.relpath(root, tmp_dir)
+            folder_path = rel_dir if rel_dir != "." else ""
+            file_list.append((folder_path, full_path))
+
+    logger.info("ZIP extracted", total_files=len(file_list), tmp_dir=tmp_dir)
+    return file_list
+
+
+async def _check_idempotency(
+    tenant_id: str,
+    key: str,
+    db: AsyncSession,
+) -> dict | None:
+    """
+    Проверка идемпотентности.
+
+    Возвращает:
+    - кэшированный результат, если импорт уже завершён;
+    - None, если это новый запуск;
+    - выбрасывает IdempotencyConflictError, если импорт ещё идёт.
+    """
+    expires_at = datetime.now(UTC) + timedelta(days=7)
+
+    repo = IdempotencyRepository(db)
+    record, is_new = await repo.get_or_create(
+        tenant_id=uuid.UUID(tenant_id),
+        endpoint="import",
+        key=key,
+        expires_at=expires_at,
+    )
+    if is_new:
+        return None
+    if record.status == "completed":
+        return record.result
+    if record.status == "processing":
+        raise IdempotencyConflictError(f"Import with key '{key}' is already in progress")
+    if record.status == "failed":
+        # позволяем повторить
+        return None
+    return None
+
+
+async def _async_import(
+    deal_id: str,
+    tenant_id: str,
+    file_list: list[tuple[str, str]],
+    db: AsyncSession,
+    run_id: str | None = None,
+    idempotency_key: str | None = None,
+) -> dict:
+    """
+    Основная логика импорта. Для каждого файла:
+
+      1. Валидация (расширение, размер, сигнатура).
+      2. Пропуск скрытых/системных файлов.
+      3. Карантин невалидных файлов.
+      4. Дедупликация по SHA-256 внутри сделки.
+      5. Загрузка оригинала в MinIO.
+      6. Создание Document + DocumentVersion.
+      7. Определение языка документа и обновление Deal.languages.
+      8. Постановка extract_document (PDF) или конвертация/карантин для других типов.
+
+    folder_path сохраняется как есть и потом используется L1‑классификатором.
+    """
+    metrics = get_metrics()
+
+    store = ArtifactStore()
+    imported_ids: list[str] = []
+    quarantine_ids: list[str] = []
+    duplicate_count = 0
+    skipped_count = 0
+    tasks_to_dispatch: list[dict] = []
+
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
+
+    # Создаём Bundle
+    bundle = Bundle(
+        deal_id=uuid.UUID(deal_id),
+        source_type="zip" if len(file_list) > 1 else "local",
+        status="processing",
+        idempotency_key=idempotency_key,
+        file_count=0,
+    )
+    db.add(bundle    )
+    await db.flush()
+
+    for folder_path, filepath in file_list:
+        filename = os.path.basename(filepath)
+        validation = validate_file(filepath)
+
+        # 1. Skip
+        if validation.status == FileStatus.SKIP:
+            skipped_count += 1
+            logger.debug(
+                "File skipped",
+                filename=filename,
+                reason=validation.reason,
+            )
+            continue
+
+        # 2. Quarantine invalid
+        if validation.status == FileStatus.QUARANTINE:
+            q_doc = await doc_repo.create(
+                deal_id=uuid.UUID(deal_id),
+                bundle_id=bundle.id,
+                filename=filename,
+                folder_path=folder_path or None,
+                status=DocumentStatus.QUARANTINE.value,
+            )
+            await ver_repo.create(
+                document_id=q_doc.id,
+                version_num=1,
+                original_ref=None,
+                origin_filetype=validation.filetype,
+                origin_extension=validation.original_extension,
+            )
+            # Бест‑эффорт: загружаем оригинал для ручного разбора
+            try:
+                with open(filepath, "rb") as f:
+                    file_bytes = f.read()
+                artifact_path = ArtifactPath.original(tenant_id, deal_id, str(q_doc.id))
+                store.put_file(
+                    artifact_path + (validation.original_extension or ".bin"),
+                    file_bytes,
+                )
+            except Exception:
+                pass
+
+            quarantine_ids.append(str(q_doc.id))
+            logger.warning(
+                "File quarantined",
+                filename=filename,
+                reason=validation.reason,
+                doc_id=str(q_doc.id),
+            )
+
+            metrics.quarantine.labels(
+                reason=validation.reason or "import_quarantine"
+            ).inc()
+            continue
+
+        # 3. SHA-256 deduplication
+        sha256 = compute_sha256(filepath)
+        existing = await doc_repo.get_by_sha256(uuid.UUID(deal_id), sha256)
+        if existing:
+            duplicate_count += 1
+            logger.info(
+                "Duplicate file detected",
+                filename=filename,
+                sha256=sha256[:16],
+                existing_doc=str(existing.id),
+            )
+            continue
+
+        # 4. Читаем файл
+        try:
+            with open(filepath, "rb") as f:
+                file_bytes = f.read()
+        except Exception as e:
+            metrics.import_fail.labels(reason="read_error").inc()
+            logger.error(
+                "Failed to read file during import",
+                filename=filename,
+                error=str(e),
+            )
+            continue
+
+        # 5. Создаём Document
+        # Сохраняем исходное расширение и внутренний тип файла, чтобы downstream знал,
+        # что реально было загружено (pdf/docx/xlsx/image/...).
+        source_ext = validation.original_extension  # например, ".pdf", ".docx"
+        doc = await doc_repo.create(
+            deal_id=uuid.UUID(deal_id),
+            bundle_id=bundle.id,
+            filename=filename,
+            folder_path=folder_path or None,
+            sha256_file=sha256,
+            status=DocumentStatus.PENDING.value,
+            source_extension=source_ext,
+            source_filetype=validation.filetype,
+        )
+
+        # Определяем расширение для сохранения в MinIO:
+        # - если валидация знает исходное расширение — используем его;
+        # - иначе по умолчанию считаем, что это PDF.
+        ext = source_ext or ".pdf"
+
+        artifact_path = ArtifactPath.original(tenant_id, deal_id, str(doc.id))
+        original_ref = store.put_file(
+            artifact_path + ext,
+            file_bytes,
+            content_type=_get_content_type(validation.filetype),
+        )
+
+        # 6. DocumentVersion
+        doc_version = await ver_repo.create(
+            document_id=doc.id,
+            version_num=1,
+            original_ref=original_ref,
+            origin_filetype=validation.filetype,
+            origin_extension=source_ext,
+        )
+        imported_ids.append(str(doc.id))
+        logger.info(
+            "Document imported",
+            doc_id=str(doc.id),
+            filename=filename,
+            folder_path=folder_path,
+            filetype=validation.filetype,
+            sha256=sha256[:16],
+        )
+
+        # 7. Решаем, что делать дальше по типу файла через централизованный роутер
+        decision: ExtractRoutingDecision = decide_extraction_strategy(validation.filetype)
+
+        if decision.action == "extract" and decision.extractor_task:
+            # Сразу ставим extractor-задачу (сейчас только для PDF).
+            tasks_to_dispatch.append(
+                {
+                    "task_name": decision.extractor_task,
+                    "kwargs": {
+                        "document_version_id": str(doc_version.id),
+                        "document_id": str(doc.id),
+                        "deal_id": deal_id,
+                        "tenant_id": tenant_id,
+                        "run_id": run_id,
+                    },
+                }
+            )
+        elif decision.action == "convert_then_extract" and decision.extractor_task:
+            # DOC/DOCX: ставим задачу конвертации в PDF.
+            # Сам convert_to_pdf пока заглушка, но архитектура уже готова.
+            tasks_to_dispatch.append(
+                {
+                    "task_name": decision.extractor_task,
+                    "kwargs": {
+                        "document_version_id": str(doc_version.id),
+                        "document_id": str(doc.id),
+                        "deal_id": deal_id,
+                        "tenant_id": tenant_id,
+                        "run_id": run_id,
+                    },
+                }
+            )
+            logger.info(
+                "File scheduled for conversion before extraction",
+                filename=filename,
+                filetype=validation.filetype,
+                reason=decision.reason,
+            )
+
+        else:
+            # unsupported: честно отправляем в карантин с понятной причиной
+            await doc_repo.set_quarantined(
+                doc.id,
+                stage="import",
+                message=(
+                    "Тип файла не поддерживается пайплайном анализа: "
+                    f"{validation.filetype or 'unknown'}"
+                ),
+                reason=decision.reason or "unsupported_filetype",
+                run_id=uuid.UUID(run_id) if run_id else None,
+            )
+            quarantine_ids.append(str(doc.id))
+            imported_ids.remove(str(doc.id))
+            logger.info(
+                "File type not supported by analysis pipeline — quarantined",
+                filename=filename,
+                filetype=validation.filetype,
+                reason=decision.reason,
+            )
+
+            metrics.quarantine.labels(
+                reason=decision.reason or "unsupported_filetype"
+            ).inc()
+            continue
+
+    # Финализируем bundle
+    bundle.file_count = len(imported_ids) + len(quarantine_ids)
+    bundle.status = "completed"
+    bundle.completed_at = datetime.now(UTC)
+    await db.flush()
+
+    # Аудит‑лог
+    audit_repo = AuditRepository(db)
+    await audit_repo.log(
+        tenant_id=uuid.UUID(tenant_id),
+        deal_id=uuid.UUID(deal_id),
+        action="IMPORT",
+        actor="system",
+        actor_role="system",
+        details={
+            "bundle_id": str(bundle.id),
+            "total_files": len(file_list),
+            "imported_count": len(imported_ids),
+            "quarantine_count": len(quarantine_ids),
+            "duplicate_count": duplicate_count,
+            "skipped_count": skipped_count,
+        },
+    )
+
+    result = {
+        "bundle_id": str(bundle.id),
+        "document_ids": imported_ids,
+        "quarantined_ids": quarantine_ids,
+        "imported_count": len(imported_ids),
+        "quarantine_count": len(quarantine_ids),
+        "duplicate_count": duplicate_count,
+        "skipped_count": skipped_count,
+    }
+
+    # Идемпотентность: помечаем ключ как завершённый
+    if idempotency_key:
+        idem_repo = IdempotencyRepository(db)
+        record, _ = await idem_repo.get_or_create(
+            uuid.UUID(tenant_id),
+            "import",
+            idempotency_key,
+        )
+        response_hash = hashlib.sha256(str(result).encode()).hexdigest()
+        await idem_repo.mark_completed(
+            record.id,
+            response_hash=response_hash,
+            result=result,
+        )
+
+    # Транзакция закоммичена — можно публиковать downstream‑таски
+    from mas_queue.celery_app import celery_app as _celery  # локальный импорт, чтобы избежать циклов
+
+    for task in tasks_to_dispatch:
+        task_name = task.get("task_name", "workers.extract_document")
+        task_kwargs = task.get("kwargs", task)
+        _celery.send_task(
+            task_name,
+            kwargs=task_kwargs,
+        )
+
+    return result
+
+
+def _get_content_type(filetype: str) -> str:
+    """Преобразовать тип файла во вполне разумный MIME‑тип."""
+    content_types = {
+        "pdf": "application/pdf",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "doc": "application/msword",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls": "application/vnd.ms-excel",
+        "image": "image/png",
+    }
+    return content_types.get(filetype, "application/octet-stream")
+
+====================================================================================================
+<<< FILE_END | index=7 | path=src/workers/import_worker.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=8 | path=src/workers/orchestrator.py
+====================================================================================================
+# src/workers/orchestrator.py
+
+"""
+Orchestrator — создаёт Run и запускает пайплайн по сделке.
+
+Назначение:
+- Создать запись Run в БД на основе playbook'а сделки.
+- Поставить в очередь первую таску пайплайна: workers.import_bundle.
+- Вернуть run_id, чтобы фронт/клиент мог отслеживать прогресс.
+
+Архитектура:
+- Внешний интерфейс — синхронная функция start_pipeline, которую вызывает API.
+- Внутри мы один раз переходим в async‑уровень через безопасный мост
+  (run_async → _create_run) без ручного управления event loop.
+- Orchestrator сам по себе не выполняет анализ, он только создаёт Run и
+  инициирует первую Celery‑таску пайплайна.
+"""
+
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.logging import get_logger
+from db.repositories import PlaybookRepository, RunRepository
+from db.uow import db_uow
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+
+logger = get_logger(__name__)
+
+
+def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict:
+    """
+    Синхронная точка входа для запуска пайплайна по сделке.
+
+    Делает две вещи:
+      1) в async‑уровне создаёт Run в БД (run_async → _create_run);
+      2) ставит в очередь Celery‑таску workers.import_bundle с run_id.
+
+    Переход в async‑мир делаем через общий мост run_async,
+    без ручного создания event loop.
+    """
+
+    # 1. Создаём Run в async‑уровне
+    run_id = run_async(run_async_entry(deal_id, tenant_id))
+
+    # 2. Стартуем импорт как первую Celery‑таску пайплайна
+    celery_app.send_task(
+        "workers.import_bundle",
+        kwargs={
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "source_path": source_path,
+            "run_id": run_id,
+            # idempotency_key можно добавить при необходимости
+        },
+    )
+
+    logger.info(
+        "Pipeline started",
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+        source_path=source_path,
+    )
+
+    return {"status": "started", "run_id": run_id}
+
+
+async def run_async_entry(deal_id: str, tenant_id: str) -> str:
+    """
+    Async entrypoint: создаёт Run и возвращает run_id.
+
+    Не знает про Celery — только про бизнес‑логику создания Run.
+    """
+    return await _create_run(deal_id, tenant_id)
+
+
+async def _create_run(deal_id: str, tenant_id: str) -> str:
+    """
+    Внутренний helper: создаёт Run запись в БД для сделки.
+    """
+    async with db_uow() as uow:
+        db: AsyncSession = uow.session
+
+        playbook_repo = PlaybookRepository(db)
+        run_repo = RunRepository(db)
+
+        deal_uuid = uuid.UUID(deal_id)
+        playbook = await playbook_repo.get_for_deal(deal_uuid)
+        assert playbook is not None, "No playbook found for deal and no global default"
+
+        run = await run_repo.create(
+            deal_id=deal_uuid,
+            playbook_version_id=playbook.id,
+            model_config_id=playbook.model_config_id,
+            bundle_id=None,
+            environment_hash=None,
+            profile="full",
+            checks_mode="global_and_doc_type",
+        )
+
+        logger.info(
+            "Run created",
+            run_id=str(run.id),
+            deal_id=deal_id,
+            playbook_id=str(playbook.id),
+        )
+
+        return str(run.id)
+
+====================================================================================================
+<<< FILE_END | index=8 | path=src/workers/orchestrator.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=9 | path=src/workers/pii_sanitizer.py
+====================================================================================================
+"""
+PII Sanitizer Worker.
+
+Пайплайн: extract → pii → structure → classify → run_deal_checks.
+
+Назначение:
+- Считать одноязычный макет документа (layout_primary) из MinIO.
+- Найти PII‑сущности по политике (triggers + YAML‑конфиг типа документа).
+- Заменить чувствительные данные токенами, зашифровать mapping и сохранить его.
+- Сохранить sanitized‑layout и PII‑mapping в MinIO.
+- Обновить статус документа: extracted -> sanitized.
+- Запустить следующий этап пайплайна: workers.build_structure.
+
+Архитектурные принципы:
+- Celery‑таска синхронная (def) + async‑ядро (PIISanitizer.sanitize) под db_uow().
+- Основная санитизация работает в одном UnitOfWork (db_uow) — читаем и пишем всё
+  в рамках одной транзакции.
+- Если при санитизации происходит ошибка, мы ОТДЕЛЬНО открываем новый db_uow
+  только чтобы надёжно записать статус документа (FAILED / QUARANTINE) +
+  processing_error_details.
+- Для юриста это означает: документ никогда не «зависает» в промежуточном состоянии,
+  всегда имеет честный и понятный статус.
+"""
+
+import uuid
+from typing import Any
+
+from core.config import settings
+from core.exceptions import PermanentError, QuarantineError
+from core.logging import get_logger
+from db.repositories import (
+    AuditRepository,
+    DocumentRepository,
+    DocumentVersionRepository,
+)
+from db.uow import UnitOfWork, db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.pii_detector import get_pii_detector, get_preserve_types
+from services.pii_encryption import PIIEncryptionError, get_pii_encryptor
+from services.pii_tokenizer import PIIPolicy, PIITokenizer
+from classifiers.yaml_registry import YAMLRegistry
+from core.constants import DocumentStatus
+from storage.artifact_store import ArtifactStore, ArtifactPath
+
+logger = get_logger(__name__)
+
+
+class PIISanitizer:
+    """
+    Сервис санитизации PII в документе.
+
+    Отделён от Celery‑таски для тестируемости.
+    Получает UnitOfWork извне, работает строго в его границах.
+    """
+
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        artifact_store,  # ArtifactStore
+        detector=None,
+        tokenizer=None,
+        encryptor=None,
+    ):
+        self.uow = uow
+        self.store = artifact_store
+
+        # Репозитории поверх сессии из UoW
+        self.doc_repo = DocumentRepository(uow.session)
+        self.version_repo = DocumentVersionRepository(uow.session)
+        self.audit_repo = AuditRepository(uow.session)
+
+        # Dependency injection (для тестов)
+        self.detector = detector or get_pii_detector()
+        self.tokenizer = tokenizer or PIITokenizer()
+        self.encryptor = encryptor or get_pii_encryptor()
+
+    async def sanitize(self, document_version_id: uuid.UUID) -> dict[str, Any]:
+        """
+        Выполнить санитизацию документа.
+
+        Возвращает словарь с полями:
+        - document_id
+        - entities_detected / tokenized / preserved
+        - skipped (True, если документ уже был обработан)
+
+        В этой функции мы НЕ открываем новый UnitOfWork,
+        используем только тот, что был передан снаружи.
+        """
+        # 1. Загрузка версии и документа
+        version = await self.version_repo.get_by_id(document_version_id)
+        if not version:
+            raise PermanentError(f"DocumentVersion {document_version_id} not found")
+
+        doc = await self.doc_repo.get_by_id(version.document_id)
+        if not doc:
+            raise PermanentError(f"Document {version.document_id} not found")
+
+        # 2. Идемпотентность
+        if self._should_skip(doc):
+            logger.info(
+                "Document already sanitized, skipping",
+                document_id=str(doc.id),
+            )
+            return {"document_id": str(doc.id), "skipped": True}
+
+        # 3. Единый контракт пайплайна:
+        # PII работает только по layout_primary_ref.
+        layout_ref = getattr(version, "layout_primary_ref", None)
+        if not layout_ref:
+            raise PermanentError(
+                f"layout_primary_ref is required for PII sanitization, version={document_version_id}"
+            )
+
+        try:
+            layout_raw = self.store.get_json(layout_ref)
+            elements = layout_raw.get("elements", [])
+
+            # 5. Построить PIIPolicy с учётом applicable_triggers и YAML‑конфига
+            triggers = getattr(doc, "applicable_triggers", None) or []
+            policy = self._build_policy(doc, triggers)
+
+            # 6. Обработать элементы
+            sanitized_elements, global_mapping, stats = self._process_elements(
+                elements, policy
+            )
+
+            # 7. Сохранить sanitized-layout.
+            #
+            # Контракт пайплайна:
+            # - layout_primary_sanitized_ref является единственным downstream
+            #   sanitized layout;
+            # - legacy sanitized layout paths больше не используются.
+            layout_sanitized = {**layout_raw, "elements": sanitized_elements}
+            sanitized_path = self._build_sanitized_path(doc)
+            # ArtifactStore.put_json — синхронный метод, НЕ используем await
+            self.store.put_json(sanitized_path, layout_sanitized)
+
+            # 8. Зашифровать и сохранить pii_mapping
+            mapping_path = self._build_mapping_path(doc)
+            encrypted = self.encryptor.encrypt_mapping(global_mapping)
+            # ArtifactStore.put_file — синхронный метод, НЕ используем await
+            self.store.put_file(mapping_path, encrypted)
+
+            # 9. Обновить DocumentVersion и статус документа
+            #
+            # ВАЖНО:
+            # - sanitized_path указывает на одноязычный sanitized layout
+            #   (ArtifactPath.layout_primary_sanitized).
+            # - Через update_refs мы записываем эту ссылку в колонку
+            #   layout_primary_sanitized_ref, которая должна быть основным
+            #   источником истины для всех следующих стадий (structure,
+            #   DocumentContentService, checks).
+            await self.version_repo.update_refs(
+                version_id=version.id,
+                layout_primary_sanitized_ref=sanitized_path,
+            )
+            await self.doc_repo.update_status(
+                doc_id=doc.id,
+                status=DocumentStatus.SANITIZED.value,
+                processing_error_details=None,
+            )
+
+            # 10. AuditLog (опционально)
+            if settings.PII_AUDIT_ENABLED:
+                await self._write_audit_log(doc, triggers, policy, stats)
+
+            logger.info(
+                "PII sanitization complete",
+                document_id=str(doc.id),
+                entities_detected=stats["detected"],
+                entities_tokenized=stats["tokenized"],
+                entities_preserved=stats["preserved"],
+                role_map_used=policy.use_role_map,
+            )
+
+            return {
+                "document_id": str(doc.id),
+                "entities_detected": stats["detected"],
+                "entities_tokenized": stats["tokenized"],
+                "entities_preserved": stats["preserved"],
+                "skipped": False,
+            }
+
+        except PIIEncryptionError as e:
+            # Ошибка шифрования → карантин
+            raise QuarantineError(
+                f"Encryption error: {e}",
+                document_id=str(doc.id),
+                reason="pii_encryption_error",
+            ) from e
+
+    def _should_skip(self, doc) -> bool:
+        """Проверить, нужно ли пропустить санитизацию (идемпотентность)."""
+        if not settings.PII_SKIP_IF_ALREADY_SANITIZED:
+            return False
+        return doc.status == DocumentStatus.SANITIZED.value
+
+    def _build_policy(self, doc, triggers: list) -> PIIPolicy:
+        """
+        Построить PIIPolicy с учётом YAML‑конфига типа документа.
+        """
+        party_role_keywords: dict[str, str] | None = None
+
+        # На Stage 5 doc_type может быть ещё None (классификация позже)
+        type_code = getattr(doc, "doc_type", None)
+
+        if type_code:
+            try:
+                registry = YAMLRegistry.get_instance()
+                cfg = registry.get_config(type_code)
+
+                if cfg and cfg.party_role_keywords:
+                    party_role_keywords = cfg.party_role_keywords
+                    logger.debug(
+                        "Using party_role_keywords from YAML",
+                        doc_type=type_code,
+                        keywords_count=len(party_role_keywords),
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to load YAML config for doc_type",
+                    doc_type=type_code,
+                    error=str(e),
+                )
+
+        return PIITokenizer.build_policy_from_triggers(
+            applicable_triggers=triggers,
+            party_role_keywords=party_role_keywords,
+        )
+
+    def _process_elements(
+        self,
+        elements: list[dict],
+        policy: PIIPolicy,
+    ) -> tuple[list[dict], dict[str, str], dict[str, int]]:
+        """
+        Обработать элементы layout'а.
+
+        Возвращает:
+          sanitized_elements, global_mapping, stats
+        """
+        sanitized_elements = []
+        global_mapping: dict[str, str] = {}
+        stats = {"detected": 0, "tokenized": 0, "preserved": 0, "role_mapped": 0}
+
+        preserve_types = get_preserve_types()
+
+        for elem in elements:
+            raw_text = elem.get("text", "")
+            if not raw_text:
+                sanitized_elements.append(elem)
+                continue
+
+            # Детектируем PII
+            all_entities = self.detector.detect(raw_text)
+            stats["detected"] += len(all_entities)
+
+            # Оставляем без токенизации типы, которые надо сохранить как есть
+            pii_entities = [e for e in all_entities if e.type not in preserve_types]
+
+            if not pii_entities:
+                sanitized_elements.append({**elem})
+                stats["preserved"] += len(all_entities)
+                continue
+
+            # Токенизируем
+            context = raw_text[:500]
+            result = self.tokenizer.tokenize(
+                raw_text,
+                pii_entities,
+                policy,
+                context_window=context,
+            )
+
+            global_mapping.update(result.mapping)
+            stats["tokenized"] += result.entities_tokenized
+            stats["preserved"] += result.entities_preserved
+            stats["role_mapped"] += result.entities_role_mapped
+
+            sanitized_elements.append({**elem, "text": result.sanitized_text})
+
+        return sanitized_elements, global_mapping, stats
+
+    def _build_sanitized_path(self, doc) -> str:
+        """
+        Построить путь для sanitized‑layout в MinIO через ArtifactPath.
+
+        В новой архитектуре это будет одноязычный layout_primary_sanitized.
+        """
+        # tenant_id берём из связанной сделки, как единственный источник истины
+        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+            tenant_id = str(doc.deal.tenant_id)
+        else:
+            # fallback для dev-режима, если связь не подгружена
+            tenant_id = str(doc.deal_id)
+
+        deal_id = str(doc.deal_id)
+        return ArtifactPath.layout_primary_sanitized(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+        )
+
+    def _build_mapping_path(self, doc) -> str:
+        """Построить путь для PII‑mapping в MinIO через ArtifactPath."""
+        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+            tenant_id = str(doc.deal.tenant_id)
+        else:
+            tenant_id = str(doc.deal_id)
+
+        deal_id = str(doc.deal_id)
+        return ArtifactPath.pii_mapping(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+        )
+
+    async def _write_audit_log(
+        self,
+        doc,
+        triggers: list,
+        policy: PIIPolicy,
+        stats: dict,
+    ) -> None:
+        """Записать audit‑лог по результатам санитизации."""
+        if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+            tenant_id: uuid.UUID = doc.deal.tenant_id
+        else:
+            # fallback: используем deal_id как tenant_id (dev‑режим)
+            tenant_id = doc.deal_id
+
+        await self.audit_repo.log(
+            tenant_id=tenant_id,
+            deal_id=doc.deal_id,
+            action="SANITIZE",
+            actor="system:pii_sanitizer",
+            actor_role="system",
+            details={
+                "document_id": str(doc.id),
+                "entities_detected": stats["detected"],
+                "entities_tokenized": stats["tokenized"],
+                "entities_preserved": stats["preserved"],
+                "entities_role_mapped": stats["role_mapped"],
+                "classification_level": getattr(doc, "classification_level", None),
+                "applicable_triggers": triggers,
+                "role_map_used": policy.use_role_map,
+                "yaml_keywords_used": policy.party_role_keywords is not None,
+                "encryption_enabled": self.encryptor.is_encryption_enabled,
+            },
+        )
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="pii.sanitize_document",
+    track_job=False,
+    queue="default",
+)
+def sanitize_document(
+    self,
+    document_version_id: str,
+) -> dict:
+    """
+    Синхронная Celery‑таска санитизации документа.
+
+    Внутри:
+      - открывает основной UnitOfWork (uow_main) через db_uow();
+      - запускает асинхронную санитизацию через PIISanitizer.sanitize;
+      - при ошибке открывает второй, маленький UnitOfWork только для записи
+        статуса (FAILED / QUARANTINE) + processing_error_details;
+      - при успехе ставит задачу следующего этапа (Structure Builder).
+    """
+    version_uuid = uuid.UUID(document_version_id)
+
+    async def _run() -> dict:
+        # Основной UnitOfWork для санитизации
+        async with db_uow() as uow_main:
+            store = ArtifactStore(settings)
+            sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
+
+            try:
+                result = await sanitizer.sanitize(version_uuid)
+
+                # Успех → ставим следующую стадию (build_structure)
+                if (
+                    not result.get("skipped")
+                    and not settings.DISABLE_DOWNSTREAM_TASKS
+                ):
+                    from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
+
+                    logger.info(
+                        "Scheduling build_structure after PII",
+                        document_version_id=document_version_id,
+                    )
+
+                    _celery.send_task(
+                        "workers.build_structure",
+                        kwargs={
+                            "document_version_id": document_version_id,
+                            # run_id можно добавить при необходимости
+                        },
+                    )
+
+                return result
+
+            except PermanentError as e:
+                logger.error(
+                    "Permanent error during PII sanitization",
+                    document_version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса FAILED + деталей
+                async with db_uow() as uow_status:
+                    await _mark_failed(
+                        uow_status,
+                        version_id=version_uuid,
+                        message=str(e),
+                    )
+                return {
+                    "status": DocumentStatus.FAILED.value,
+                    "error": str(e),
+                }
+
+            except QuarantineError as e:
+                logger.error(
+                    "Quarantine error during PII sanitization",
+                    document_version_id=document_version_id,
+                    error=str(e),
+                )
+                # Отдельный UoW только для записи статуса QUARANTINE + деталей
+                async with db_uow() as uow_status:
+                    await _mark_quarantine(
+                        uow_status,
+                        version_id=version_uuid,
+                        error=e,
+                    )
+                return {
+                    "status": DocumentStatus.QUARANTINE.value,
+                    "error": str(e),
+                }
+
+    # Переход в async‑мир через общий мост run_async
+    return run_async(_run())
+
+
+async def _mark_failed(
+    uow: UnitOfWork,
+    version_id: uuid.UUID,
+    *,
+    message: str,
+) -> None:
+    """
+    Обновить статус документа на FAILED в отдельной, простой транзакции
+    с заполнением processing_error_details.
+    """
+    version_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+
+    version = await version_repo.get_by_id(version_id)
+    if not version:
+        return
+
+    await doc_repo.set_failed(
+        version.document_id,
+        stage="pii",
+        message=message,
+        reason="pii_error",
+        run_id=None,
+    )
+
+
+async def _mark_quarantine(
+    uow: UnitOfWork,
+    version_id: uuid.UUID,
+    *,
+    error: QuarantineError,
+) -> None:
+    """
+    Обновить статус документа на QUARANTINE в отдельной транзакции
+    с заполнением processing_error_details.
+    """
+    version_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+
+    version = await version_repo.get_by_id(version_id)
+    if not version:
+        return
+
+    reason = getattr(error, "reason", None)
+    await doc_repo.set_quarantined(
+        version.document_id,
+        stage="pii",
+        message=str(error),
+        reason=reason,
+        run_id=None,
+    )
+    
+
+    
+
+====================================================================================================
+<<< FILE_END | index=9 | path=src/workers/pii_sanitizer.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=10 | path=src/workers/relations_worker.py
+====================================================================================================
+# src/workers/relations_worker.py
+
+"""
+Relations Worker — построение дедупликации, связей и семей документов по сделке.
+
+Назначение:
+- Один раз на сделку пройти по всем документам и:
+  1) сделать точный дедуп по SHA‑256;
+  2) загрузить первые ~2000 символов текста для каждого документа;
+  3) найти связи между документами (по имени файла и текстовым паттернам);
+  4) собрать семьи документов (master + appendices + amendments + версии);
+  5) сохранить связи и семьи в БД;
+  6) записать audit‑лог по результатам.
+
+Архитектурный паттерн:
+- Снаружи — синхронная Celery‑таска build_relations (def), чтобы Celery
+  мог корректно сериализовать результат в prefork‑модели.
+- Внутри — один переход sync → async через run_async, всё
+  взаимодействие с БД и MinIO реализовано в _build_relations_async() и helpers.
+"""
+
+import time
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ops.metrics import get_metrics
+
+from core.config import settings
+from core.constants import DocumentStatus
+from core.logging import get_logger
+from db.repositories import (
+    DocumentRepository,
+    RelationRepository,
+    DocumentVersionRepository,
+    AuditRepository,
+)
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.relations.dedup import ExactDedupService
+from services.relations.detector import RelationDetector
+from services.relations.family_builder import FamilyBuilder
+from services.relations.models import (
+    DedupResult,
+    DetectedRelation,
+    FamilyGroup,
+    RelationsReport,
+)
+from storage.artifact_store import ArtifactStore
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.build_relations",
+    track_job=False,
+    queue="default",
+)
+def build_relations(
+    self,
+    deal_id: str,
+    tenant_id: str,
+) -> dict:
+    """
+    Синхронная Celery‑таска построения связей и семей документов.
+
+    Внутри:
+      - один раз передаём управление в async‑ядро _build_relations_async()
+        через run_async;
+      - открываем UnitOfWork через db_uow();
+      - возвращаем агрегированный отчёт (кол‑во документов, дубликатов, семей).
+    """
+
+    async def _wrapper() -> dict:
+        async with db_uow() as uow:
+            return await _build_relations_async(deal_id, tenant_id, uow.session)
+
+    return run_async(_wrapper())
+
+
+async def _build_relations_async(
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+) -> dict:
+    """
+    Асинхронное ядро воркера: вся бизнес‑логика построения связей/семей.
+    """
+    metrics = get_metrics()
+
+    start = time.time()
+    logger.info("Build relations started", deal_id=deal_id)
+
+    # ВАЖНО: приводим deal_id к UUID один раз и используем далее.
+    deal_uuid = uuid.UUID(deal_id)
+
+    # Шаг 0: очистка старых связей и семей по сделке.
+    #
+    # Для непрофессионального программиста:
+    # - перед тем как строить новые связи, мы честно удаляем все старые
+    #   связи и «семьи» документов по этой сделке;
+    # - это делает задачу идемпотентной: если её запустить повторно,
+    #   результат будет таким же, а старых «остатков» не останется.
+    relation_repo = RelationRepository(db)
+    await relation_repo.delete_all_for_deal(deal_uuid)
+
+    # Step 1: load deal documents
+    docs = await _load_deal_documents(deal_id, db)
+    if not docs:
+        logger.info("No documents for deal", deal_id=deal_id)
+        duration = time.time() - start
+        return {
+            "deal_id": deal_id,
+            "total_documents": 0,
+            "exact_duplicates": 0,
+            "relations": 0,
+            "families": 0,
+            "duration_seconds": round(duration, 2),
+        }
+
+    original_total = len(docs)
+
+    # Step 2: Exact dedup (SHA‑256)
+    dedup_relations: list[DetectedRelation] = []
+    dedup_result: DedupResult | None = None
+
+    if settings.DEDUP_EXACT_ENABLED:
+        deduper = ExactDedupService()
+        dedup_result, dedup_relations = deduper.find_duplicates(docs)
+
+        kept_ids = set(dedup_result.kept_doc_ids) if dedup_result else set()
+        if kept_ids:
+            docs = [d for d in docs if d["id"] in kept_ids]
+
+        logger.info(
+            "Exact dedup summary",
+            deal_id=deal_id,
+            total=dedup_result.total_documents if dedup_result else len(docs),
+            duplicates=dedup_result.exact_duplicates if dedup_result else 0,
+        )
+
+        # Optionally mark duplicates in DB
+        if dedup_result and dedup_result.marked_doc_ids:
+            await _mark_duplicates(dedup_result.marked_doc_ids, db)
+
+    # Step 3: load text snippets for text-based relations
+    await _load_text_snippets(docs, tenant_id=tenant_id, deal_id=deal_id, db=db)
+
+    # Step 4: relation detection
+    traversal_start = time.time()
+
+    detector = RelationDetector()
+    detected_relations = detector.detect_all_relations(docs)
+
+    # Add version relations from dedup
+    all_relations: list[DetectedRelation] = detected_relations + dedup_relations
+
+    # Step 5: family building
+    family_builder = FamilyBuilder()
+    families: list[FamilyGroup] = family_builder.build_families(docs, all_relations)
+
+    metrics.relation_traversal_latency.observe(time.time() - traversal_start)
+
+    # Step 6: save relations and families using repositories
+    await _save_relations(deal_id, all_relations, db)
+    await _save_families(deal_id, families, db)
+
+    # Step 7: audit + logging
+    report = RelationsReport(
+        deal_id=deal_id,
+        dedup_result=dedup_result or DedupResult(total_documents=len(docs)),
+        relations_found=len(all_relations),
+        families_created=len(families),
+        family_groups=families,
+        errors=[],
+    )
+    await _write_audit_log(tenant_id=tenant_id, deal_id=deal_id, report=report, db=db)
+
+    if families:
+        masters_with_yaml = sum(1 for f in families if f.master_yaml_available)
+        master_levels = [
+            f.master_classification_level for f in families if f.master_classification_level
+        ]
+        logger.info(
+            "Family masters classification summary",
+            deal_id=deal_id,
+            families=len(families),
+            masters_with_yaml=masters_with_yaml,
+            master_levels=master_levels,
+        )
+
+    duration = time.time() - start
+    logger.info(
+        "Build relations finished",
+        deal_id=deal_id,
+        families=len(families),
+        duration_seconds=round(duration, 2),
+    )
+
+    return {
+        "deal_id": deal_id,
+        "total_documents": original_total,
+        "exact_duplicates": dedup_result.exact_duplicates if dedup_result else 0,
+        "relations": len(all_relations),
+        "families": len(families),
+        "duration_seconds": round(duration, 2),
+    }
+
+
+# =====================================================================
+# DB helpers (работают на AsyncSession через db_uow)
+# =====================================================================
+
+
+async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
+    """Load all non‑quarantined documents for a deal, with classification info."""
+    repo = DocumentRepository(db)
+    docs = await repo.get_by_deal(uuid.UUID(deal_id))
+
+    return [
+        {
+            "id": str(d.id),
+            "filename": d.filename,
+            "folder_path": d.folder_path or "",
+            "doc_type": d.doc_type or "",
+            "sha256_file": d.sha256_file or "",
+            "created_at": d.created_at.isoformat() if d.created_at else "",
+            "status": d.status,
+            # Classification fields from HybridClassifier (Stage 6)
+            "classification_level": d.classification_level or "L0",
+            "classification_confidence": float(d.classification_confidence or 0.0),
+            "yaml_instruction_available": bool(
+                getattr(d, "yaml_instruction_available", False)
+            ),
+            "applicable_triggers": d.applicable_triggers or [],
+        }
+        for d in docs
+        if d.status not in (DocumentStatus.QUARANTINE.value,)
+    ]
+
+
+async def _load_text_snippets(
+    documents: list[dict],
+    tenant_id: str,
+    deal_id: str,
+    db: AsyncSession,
+) -> list[dict]:
+    """
+    Load first ~2000 chars of layout text for each document.
+    Prefer sanitized layout, fallback to raw for legacy documents.
+    """
+    store = ArtifactStore()
+    ver_repo = DocumentVersionRepository(db)
+
+    for doc in documents:
+        try:
+            version = await ver_repo.get_latest(uuid.UUID(doc["id"]))
+            if not version:
+                doc["text_first_2000"] = ""
+                continue
+
+            layout_ref = (
+                version.text_layout_sanitized_ref
+                or version.text_layout_raw_ref
+            )
+            if not layout_ref:
+                doc["text_first_2000"] = ""
+                continue
+
+            layout = store.get_json(layout_ref)
+            elements = layout.get("elements", [])
+            text_parts = [e.get("text", "") for e in elements[:20]]
+            doc["text_first_2000"] = " ".join(text_parts)[:2000]
+        except Exception as e:
+            logger.debug(
+                "Failed to load text snippet",
+                document_id=doc["id"],
+                error=str(e),
+            )
+            doc["text_first_2000"] = ""
+
+    return documents
+
+
+async def _mark_duplicates(doc_ids: list[str], db: AsyncSession) -> None:
+    """Mark documents as duplicates in DB."""
+    repo = DocumentRepository(db)
+    for doc_id in doc_ids:
+        await repo.update_status(
+            uuid.UUID(doc_id),
+            "duplicate",
+        )
+
+
+async def _save_relations(
+    deal_id: str,
+    relations: list[DetectedRelation],
+    db: AsyncSession,
+) -> None:
+    """Save detected relations to DB."""
+    repo = RelationRepository(db)
+    for rel in relations:
+        await repo.create(
+            deal_id=uuid.UUID(deal_id),
+            source_doc_id=uuid.UUID(rel.source_doc_id),
+            target_doc_id=uuid.UUID(rel.target_doc_id),
+            relation_type=rel.relation_type,
+            confidence=rel.confidence,
+            evidence_text=rel.evidence_text,
+        )
+    # commit делает db_uow
+
+
+async def _save_families(
+    deal_id: str,
+    families: list[FamilyGroup],
+    db: AsyncSession,
+) -> None:
+    repo = RelationRepository(db)
+    for family in families:
+        db_family = await repo.create_family(
+            deal_id=uuid.UUID(deal_id),
+            master_doc_id=uuid.UUID(family.master_doc_id),
+            master_classification_level=family.master_classification_level,
+        )
+        family.family_id = str(db_family.id)
+
+        for member_id in family.member_doc_ids:
+            await repo.create_family_member(
+                family_id=db_family.id,
+                document_id=uuid.UUID(member_id),
+                relation_to_master=None,
+            )
+
+
+async def _write_audit_log(
+    tenant_id: str,
+    deal_id: str,
+    report: RelationsReport,
+    db: AsyncSession,
+) -> None:
+    """Write relations audit log entry."""
+    repo = AuditRepository(db)
+    await repo.log(
+        tenant_id=uuid.UUID(tenant_id),
+        deal_id=uuid.UUID(deal_id),
+        action="BUILD_RELATIONS",
+        actor="system",
+        actor_role="system",
+        details=report.to_dict(),
+    )
+
+====================================================================================================
+<<< FILE_END | index=10 | path=src/workers/relations_worker.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=11 | path=src/workers/run_orchestrator.py
+====================================================================================================
+# src/workers/run_orchestrator.py
+
+"""
+Run Orchestrator Worker.
+
+Назначение:
+- Оркестрация пайплайна анализа для конкретного Run:
+  extract -> pii -> structure -> classify -> (далее отдельный воркер run_deal_checks).
+- Находит все документы сделки и по их статусу решает, какие задачи поставить:
+  - PENDING     -> workers.extract_document
+  - EXTRACTED   -> pii.sanitize_document
+  - SANITIZED   -> workers.build_structure
+  - STRUCTURED  -> workers.classify_document
+- Переводит Run в статус RUNNING и запоминает,
+  для скольких документов будут запущены последующие стадии.
+"""
+
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.logging import get_logger
+from core.constants import DocumentStatus, RunStatus
+from db.models.run import Run
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.run_repo import RunRepository
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async  # единый мост sync → async
+from services.run_checks_auto_starter import maybe_start_run_checks
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.start_run_pipeline",
+    track_job=False,
+    queue="default",
+)
+def start_run_pipeline(
+    self,
+    run_id: str,
+    deal_id: str | None = None,
+    tenant_id: str | None = None,
+    force_reclassify: bool = False,
+) -> dict:
+    """
+    Sync Celery entrypoint для оркестрации пайплайна Run.
+
+    Шаги:
+    1) по run_id находим Run и его deal_id (если не передан);
+    2) по deal_id и tenant_id (из сделки) обходим все документы;
+    3) для каждого документа по статусу решаем, какие стадии запускать;
+    4) переводим Run в статус "running".
+    """
+
+    async def _wrapper() -> dict:
+        # db_uow создаёт отдельную AsyncSession и управляет commit/rollback/close.
+        async with db_uow() as uow:
+            return await _start_run_pipeline_async(
+                run_id=run_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                force_reclassify=force_reclassify,
+                db=uow.session,
+            )
+
+    # Запускаем асинхронный код через единый мост run_async
+    return run_async(_wrapper())
+
+
+async def _start_run_pipeline_async(
+    run_id: str,
+    deal_id: str | None,
+    tenant_id: str | None,
+    force_reclassify: bool,
+    db: AsyncSession,
+) -> dict:
+    """
+    Async‑ядро оркестрации Run.
+
+    Для непрофессионального программиста:
+    - Здесь мы решаем, какие задачи по документам надо запустить.
+    - Если документ уже дошёл до нужного статуса, мы можем переиспользовать результат.
+    """
+
+    logger.info(
+        "Starting run pipeline",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "force_reclassify": force_reclassify,
+        },
+    )
+
+    run_repo = RunRepository(db)
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
+
+    run_uuid = uuid.UUID(run_id)
+    run_obj: Run | None = await run_repo.get_by_id(run_uuid)
+    if not run_obj:
+        await run_repo.update_status(
+            run_uuid,
+            RunStatus.FAILED.value,
+            error_details={
+                "stage": "orchestrator",
+                "type": "config_error",
+                "reason": "run_not_found",
+                "message": f"Run {run_id} not found",
+            },
+        )
+        logger.error(
+            "Run not found for orchestrator",
+            extra={"run_id": run_id},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": None,
+            "tenant_id": tenant_id,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+        }
+
+    # Пытаемся атомарно стартовать Run.
+    # Если Run уже кто‑то запустил (или он уже завершён),
+    # мы не должны повторно ставить задачи по документам.
+    started = await run_repo.try_start_run(run_uuid)
+    if not started:
+        logger.info(
+            "Run pipeline already started or finished, skipping orchestration",
+            extra={"run_id": run_id},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": str(run_obj.deal_id) if run_obj and run_obj.deal_id else None,
+            "tenant_id": tenant_id,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+        }
+
+    # Определяем стратегию пайплайна для этого Run.
+    pipeline_strategy = getattr(run_obj, "pipeline_strategy", "REUSE_STRUCTURE")
+    is_full_rerun = pipeline_strategy == "FULL_RERUN"
+
+    logger.info(
+        "Resolved run pipeline strategy",
+        extra={
+            "run_id": run_id,
+            "pipeline_strategy": pipeline_strategy,
+            "force_reclassify": force_reclassify,
+        },
+    )
+
+    # deal_id / tenant_id берём из Run / связанной сделки, если не переданы явно.
+    deal_uuid = (
+        run_obj.deal_id
+        if run_obj.deal_id
+        else uuid.UUID(deal_id) if deal_id else None
+    )
+    if deal_uuid is None:
+        await run_repo.update_status(
+            run_uuid,
+            RunStatus.FAILED.value,
+            error_details={
+                "stage": "orchestrator",
+                "type": "config_error",
+                "reason": "deal_not_bound",
+                "message": f"Run {run_id} has no deal_id",
+            },
+        )
+        logger.error(
+            "Run has no deal_id",
+            extra={"run_id": run_id},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": None,
+            "tenant_id": tenant_id,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+        }
+
+    deal_id_str = str(deal_uuid)
+
+    if tenant_id is None:
+        if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
+            tenant_id_str = str(run_obj.deal.tenant_id)
+        else:
+            tenant_id_str = deal_id_str
+    else:
+        tenant_id_str = tenant_id
+
+    # Загружаем все документы сделки.
+    docs = await doc_repo.get_by_deal(deal_uuid)
+    if not docs:
+        logger.info(
+            "No documents for deal, nothing to process",
+            extra={"run_id": run_id, "deal_id": deal_id_str},
+        )
+        await run_repo.update_status(run_uuid, RunStatus.COMPLETED.value)
+
+        return {
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+        }
+
+    tasks_scheduled = 0
+
+    for doc in docs:
+        doc_id_str = str(doc.id)
+        status = doc.status or ""
+
+        # Берём последнюю версию, чтобы проверить наличие артефактов
+        # единого pipeline-контракта (layout_primary / layout_primary_sanitized).
+        version = await ver_repo.get_latest(doc.id)
+
+        logger.info(
+            "Evaluating document for run pipeline",
+            extra={
+                "run_id": run_id,
+                "document_id": doc_id_str,
+                "status": status,
+                "doc_type": getattr(doc, "doctype", None),
+                "classification_level": getattr(doc, "classification_level", None),
+            },
+        )
+
+        # PENDING
+        if status == DocumentStatus.PENDING.value:
+            if not version:
+                logger.warning(
+                    "Document has PENDING status but no version, skipping extract",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            celery_app.send_task(
+                "workers.extract_document",
+                kwargs={
+                    "document_version_id": str(version.id),
+                    "document_id": doc_id_str,
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                    "run_id": run_id,
+                },
+            )
+            tasks_scheduled += 1
+            continue
+
+        # EXTRACTED
+        if status == DocumentStatus.EXTRACTED.value:
+            if not version or not getattr(version, "layout_primary_ref", None):
+                logger.warning(
+                    "EXTRACTED document without layout_primary_ref, skipping pii",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            celery_app.send_task(
+                "pii.sanitize_document",
+                kwargs={
+                    "document_version_id": str(version.id),
+                },
+            )
+            tasks_scheduled += 1
+            continue
+
+        # SANITIZED
+        if status == DocumentStatus.SANITIZED.value:
+            if not version:
+                logger.warning(
+                    "SANITIZED document without version, skipping structure",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            has_sanitized = bool(
+                getattr(version, "layout_primary_sanitized_ref", None)
+            )
+            has_primary = bool(getattr(version, "layout_primary_ref", None))
+
+            # Для непрофессионального программиста:
+            # - Нормальный путь: есть layout_primary_sanitized_ref (после PII).
+            # - Recovery-путь: если по какой-то причине PII не сохранил sanitized layout,
+            #   но есть layout_primary_ref, StructureBuilder по контракту умеет
+            #   использовать и его.
+            if not has_sanitized and not has_primary:
+                logger.warning(
+                    "SANITIZED document without layout_primary_sanitized_ref "
+                    "or layout_primary_ref, skipping structure",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            if not has_sanitized and has_primary:
+                logger.warning(
+                    "SANITIZED document without sanitized layout, "
+                    "falling back to layout_primary_ref for structure building",
+                    extra={"document_id": doc_id_str},
+                )
+
+            celery_app.send_task(
+                "workers.build_structure",
+                kwargs={
+                    "document_version_id": str(version.id),
+                    "run_id": run_id,
+                },
+            )
+            tasks_scheduled += 1
+            continue
+
+        # STRUCTURED
+        if status == DocumentStatus.STRUCTURED.value:
+            celery_app.send_task(
+                "workers.classify_document",
+                kwargs={
+                    "document_id": doc_id_str,
+                    "run_id": run_id,
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                },
+            )
+            tasks_scheduled += 1
+            continue
+
+        # CLASSIFIED: уже классифицирован
+        if status == DocumentStatus.CLASSIFIED.value:
+            if is_full_rerun or force_reclassify:
+                # Вариант "полного прогона" — заново запускаем классификацию.
+                celery_app.send_task(
+                    "workers.classify_document",
+                    kwargs={
+                        "document_id": doc_id_str,
+                        "run_id": run_id,
+                        "deal_id": deal_id_str,
+                        "tenant_id": tenant_id_str,
+                    },
+                )
+                tasks_scheduled += 1
+            else:
+                logger.info(
+                    "Document already classified, reusing classification for this run",
+                    extra={"document_id": doc_id_str, "run_id": run_id},
+                )
+            continue
+
+        # COMPLETED: документ уже прошёл полный пайплайн в прошлом Run.
+        if status == DocumentStatus.COMPLETED.value:
+            if is_full_rerun:
+                celery_app.send_task(
+                    "workers.classify_document",
+                    kwargs={
+                        "document_id": doc_id_str,
+                        "run_id": run_id,
+                        "deal_id": deal_id_str,
+                        "tenant_id": tenant_id_str,
+                    },
+                )
+                tasks_scheduled += 1
+            else:
+                logger.info(
+                    "Document already completed, reusing for this run",
+                    extra={"document_id": doc_id_str, "run_id": run_id},
+                )
+            continue
+
+        # FAILED / QUARANTINE / другие статусы
+        # ВАЖНО:
+        # - Документы в статусах FAILED / QUARANTINE мы здесь не трогаем.
+        # - Они не участвуют в дальнейших стадиях и не блокируют запуск checks,
+        #   потому что maybe_start_run_checks учитывает только "живые" документы.
+        # - Если оставить документ навсегда в промежуточном статусе
+        #   (например, structured), но не перевести в FAILED/QUARANTINE
+        #   при перманентной ошибке, Run может зависнуть в RUNNING.
+
+        logger.info(
+            "Document in unsupported status for run pipeline, skipping",
+            extra={"document_id": doc_id_str, "status": status, "run_id": run_id},
+        )
+
+    logger.info(
+        "Run pipeline documents evaluation complete",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": len(docs),
+            "tasks_scheduled": tasks_scheduled,
+        },
+    )
+
+    logger.info(
+        "Run marked as RUNNING, calling maybe_start_run_checks",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+        },
+    )
+
+    # После того как Run стал RUNNING (в начале функции через try_start_run),
+    # даём сигнал авто-стартеру checks.
+    # Для непрофессионального программиста:
+    # - maybe_start_run_checks сам посмотрит все документы сделки;
+    # - если все "живые" документы уже CLASSIFIED/COMPLETED и
+    #   ещё не запускались checks, он один раз поставит задачу
+    #   workers.run_deal_checks.
+    await maybe_start_run_checks(db=db, run_id=run_uuid)
+
+    logger.info(
+        "Run pipeline scheduling complete",
+        extra={
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": len(docs),
+            "tasks_scheduled": tasks_scheduled,
+        },
+    )
+
+    return {
+        "run_id": run_id,
+        "deal_id": deal_id_str,
+        "tenant_id": tenant_id_str,
+        "documents_total": len(docs),
+        "tasks_scheduled": tasks_scheduled,
+    }
+
+
+====================================================================================================
+<<< FILE_END | index=11 | path=src/workers/run_orchestrator.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=12 | path=src/workers/runner.py
+====================================================================================================
+# src/workers/runner.py
+# LEGACY: старый rules-only Runner (workers.run_checks).
+# Не используется в текущем пайплайне; оставлен только как reference.
+
+"""
+Runner — упрощённая версия для вертикального среза, обновлённая до работы с плейбуком.
+
+Назначение:
+- Выполнить проверки DD по одному документу в рамках конкретного Run.
+- Брать конфигурацию проверок (checks) из PlaybookVersion.compiled_checks,
+  привязанного к этому Run.
+- На каждый документ ставится отдельная Celery‑задача run_checks.
+
+Архитектура:
+- HTTP-эндпоинт создаёт Run и ставит по одной задаче run_checks на каждый документ сделки.
+- Внутри задачи:
+  1) по run_id находим Run и PlaybookVersion;
+  2) извлекаем список checks из compiled_checks["checks"];
+  3) загружаем layout и clause_tree документа из ArtifactStore по ссылкам в DocumentVersion;
+  4) для каждого check_cfg вызываем простой rules-исполнитель execute_check_for_document;
+  5) сохраняем результаты в CheckResult и кладём NDJSON в сторедж;
+  6) (экспорт сейчас запускается отдельным эндпоинтом).
+
+Важное ограничение:
+- Сейчас используется упрощённый rules-only executor (без LLM и сложного движка Stage 8).
+  Позже его можно заменить/расширить, не меняя контракт с Runner'ом.
+"""
+
+import json
+import uuid
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.ops.metrics import METRICS
+from core.constants import DocumentStatus, RunStatus
+from core.exceptions import PermanentError
+from core.logging import get_logger
+from db.models.run import Run
+from db.repositories import ResultRepository, DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.playbook_repo import PlaybookRepository
+from db.repositories.run_repo import RunRepository
+from db.uow import db_uow, UnitOfWork
+from engine.checks.simple_rules import execute_check_for_document
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from storage.artifact_store import ArtifactPath, ArtifactStore
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.run_checks",
+    track_job=False,
+    queue="default",
+)
+def run_checks(
+    self,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
+    doctype: str = "Other",
+) -> dict:
+    """
+    Sync Celery entrypoint: обёртка над асинхронным ядром _run_checks_async.
+
+    Паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри один раз передаём управление в async‑мир через run_async.
+    """
+
+    logger.info(
+        "Starting checks",
+        document_id=document_id,
+        deal_id=deal_id,
+        run_id=run_id,
+        doctype=doctype,
+    )
+
+    async def _wrapper() -> dict:
+        try:
+            async with db_uow() as uow:
+                return await _run_checks_async(
+                    document_id=document_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
+                    doctype=doctype,
+                    db=uow.session,
+                )
+        except Exception as e:
+            # Любая непойманная ошибка на стадии checks:
+            # - логируем;
+            # - помечаем документ FAILED с деталями ошибки (stage="checks");
+            # - пробрасываем исключение, чтобы Celery видел задачу как failed.
+            logger.error(
+                "Unhandled error during checks",
+                document_id=document_id,
+                deal_id=deal_id,
+                run_id=run_id,
+                error=str(e),
+            )
+            async with db_uow() as uow_status:
+                await _mark_checks_failed(
+                    uow_status,
+                    document_id=document_id,
+                    run_id=run_id,
+                    message=str(e),
+                )
+            raise
+
+    return run_async(_wrapper())
+
+
+async def _run_checks_async(
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None,
+    doctype: str,
+    db: AsyncSession,
+) -> dict:
+    """
+    Основная асинхронная логика: загрузить артефакты, выполнить checks,
+    сохранить результаты и подготовить артефакты для экспорта.
+
+    Все операции с БД выполняются через переданную AsyncSession (db),
+    чтобы одна задача Runner'а работала в рамках одного unit of work.
+    """
+
+    # 1. Получаем список checks из PlaybookVersion.compiled_checks
+    checks_cfg: list[dict] = []
+
+    if run_id:
+        run_uuid = UUID(run_id)
+
+        # Находим Run по run_id
+        result = await db.execute(select(Run).where(Run.id == run_uuid))
+        run_obj = result.scalar_one_or_none()
+        if not run_obj:
+            # PermanentError: бизнес-ошибка конфигурации Run / Playbook (Run не найден)
+            raise PermanentError(f"Run {run_id} not found")
+
+        # Находим PlaybookVersion по run.playbook_version_id
+        pb_repo = PlaybookRepository(db)
+        playbook = await pb_repo.get_by_id(run_obj.playbook_version_id)
+        if not playbook or not playbook.compiled_checks:
+            # PermanentError: Run есть, но плейбук не готов или пустой
+            raise PermanentError(
+                f"PlaybookVersion for run {run_id} has no compiled_checks"
+            )
+
+        compiled = playbook.compiled_checks or {}
+        checks_cfg = compiled.get("checks") or []
+
+    # 2. Загружаем артефакты документа (layout и clause_tree) по ссылкам версии.
+    store = ArtifactStore()
+
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
+
+    doc_uuid = UUID(document_id)
+    doc = await doc_repo.get_by_id(doc_uuid)
+    if not doc:
+        # PermanentError: сам документ не найден
+        raise PermanentError(f"Document {document_id} not found")
+
+    version = await ver_repo.get_latest(doc.id)
+    if not version:
+        # PermanentError: нет версии документа — выполнить checks невозможно
+        raise PermanentError(f"No version found for document {document_id}")
+
+    if not version.text_layout_raw_ref:
+        # Без raw layout проверки выполнить невозможно.
+        # Это бизнес-ошибка пайплайна по конкретному документу.
+        raise PermanentError(
+            f"text_layout_raw_ref missing for document {document_id}"
+        )
+
+    text_layout_raw = store.get_json(version.text_layout_raw_ref)
+    elements = text_layout_raw.get("elements", [])
+
+    if not version.clause_tree_ref:
+        # По договоренности: отсутствие дерева пунктов — фатальная ошибка для документа.
+        raise PermanentError(
+            f"clause_tree_ref missing for document {document_id}"
+        )
+
+    clause_tree = store.get_json(version.clause_tree_ref)
+
+    check_results: list[dict] = []
+    evidence_records: list[dict] = []
+
+    # 3. Выполняем все checks из плейбука для этого документа.
+    if checks_cfg:
+        for check_cfg in checks_cfg:
+            result = execute_check_for_document(
+                check_cfg=check_cfg,
+                document_id=document_id,
+                elements=elements,
+                clause_tree=clause_tree,
+                doc_type=doctype,
+            )
+            check_results.append(result)
+
+            # Если есть evidence_snippet, добавляем запись в evidence_records.
+            snippet = result.get("evidence_snippet")
+            page = result.get("evidence_page")
+            if snippet:
+                evidence_records.append(
+                    {
+                        "check_id": result["check_id"],
+                        "document_id": document_id,
+                        "snippet": snippet,
+                        "page": page,
+                    }
+                )
+    else:
+        logger.warning(
+            "No checks_cfg for run/document, skipping checks",
+            run_id=run_id,
+            document_id=document_id,
+        )
+
+    # 4. Метрики выполнения проверок.
+    for cr in check_results:
+        METRICS.checks_executed.labels(
+            detector_type=cr.get("detector_used", "unknown"),
+            result=cr.get("result", "unknown"),
+        ).inc()
+
+        METRICS.check_duration.labels(
+            detector_type=cr.get("detector_used", "unknown"),
+        ).observe(0.0)  # TODO: заменить на реальную длительность.
+
+    # 5. Сохраняем результаты в БД и обновляем статус документа / Run.
+    await _finalize(
+        run_id=run_id,
+        document_id=document_id,
+        check_results=check_results,
+        db=db,
+    )
+
+    # 6. Сохраняем результаты в NDJSON для экспорта/отладки.
+    if run_id:
+        results_path = ArtifactPath.check_results(tenant_id, deal_id, run_id)
+        results_ndjson = "\n".join(
+            json.dumps(r, ensure_ascii=False) for r in check_results
+        )
+        store.put_file(
+            results_path,
+            results_ndjson.encode("utf-8"),
+            content_type="application/x-ndjson",
+        )
+
+        if evidence_records:
+            evidence_path = ArtifactPath.evidence(tenant_id, deal_id, run_id)
+            evidence_ndjson = "\n".join(
+                json.dumps(e, ensure_ascii=False) for e in evidence_records
+            )
+            store.put_file(
+                evidence_path,
+                evidence_ndjson.encode("utf-8"),
+                content_type="application/x-ndjson",
+            )
+
+    logger.info(
+        "Checks complete",
+        document_id=document_id,
+        results=len(check_results),
+        evidence=len(evidence_records),
+    )
+
+    # Экспорт теперь запускается отдельным эндпоинтом /runs/{run_id}/export.
+
+    return {
+        "document_id": document_id,
+        "checks_run": len(check_results),
+        "findings": sum(1 for r in check_results if r["result"] == "fail"),
+    }
+
+
+def _find_clause_for_element(clause_tree, element_id) -> str | None:
+    """
+    Вспомогательная функция: найти clause_uid по element_id в clause_tree.
+
+    Сейчас не используется в simple_rules, но может пригодиться позже,
+    когда будем привязывать evidence к конкретным пунктам договора.
+    """
+
+    def search(nodes):
+        for node in nodes:
+            if element_id in node.get("element_ids", []):
+                return node["clause_uid"]
+            found = search(node.get("children", []))
+            if found:
+                return found
+        return None
+
+    root_children = clause_tree.get("root", {}).get("children", [])
+    return search(root_children)
+
+
+async def _save_results(
+    run_id: str | None,
+    document_id: str,
+    check_results: list[dict],
+    db: AsyncSession,
+) -> None:
+    """Сохранить результаты проверок в БД (таблица check_results)."""
+    if not run_id:
+        return
+
+    repo = ResultRepository(db)
+    for cr in check_results:
+        await repo.create(
+            run_id=uuid.UUID(run_id),
+            document_id=uuid.UUID(document_id),
+            check_id=cr["check_id"],
+            check_name=cr["check_name"],
+            result=cr["result"],
+            severity=cr["severity"],
+            value_text=cr.get("value_text"),
+            confidence=cr.get("confidence"),
+            detector_used=cr.get("detector_used"),
+            quality_flags=cr.get("quality_flags"),
+            structured_data=cr.get("structured_data"),
+            conditional_check_triggered=cr.get(
+                "conditional_check_triggered", False
+            ),
+            trigger_name=cr.get("trigger_name"),
+        )
+
+
+async def _finalize(
+    run_id: str | None,
+    document_id: str,
+    check_results: list[dict],
+    db: AsyncSession,
+) -> None:
+    """
+    Финализация задачи Runner'а:
+    - сохранение результатов в CheckResult;
+    - обновление статуса документа;
+    - инкремент completed_checks для Run (если run_id задан);
+    - автозавершение Run, если все документы обработаны.
+    """
+    await _save_results(run_id, document_id, check_results, db)
+    await _update_document_status(document_id, db)
+
+    if not run_id:
+        return
+
+    run_uuid = uuid.UUID(run_id)
+    run_repo = RunRepository(db)
+
+    # Увеличиваем счётчик обработанных документов для этого Run.
+    await run_repo.increment_completed_checks(run_uuid)
+
+    # Проверяем, можно ли финализировать Run (completed / completed_with_errors / failed).
+    await _maybe_finalize_run(run_uuid, db)
+
+
+async def _maybe_finalize_run(run_id: uuid.UUID, db: AsyncSession) -> None:
+    """
+    Определить финальный статус Run, когда все документы для него обработаны.
+
+    Правила:
+    - если completed_checks < total_checks — Run ещё в процессе, ничего не делаем;
+    - если completed_checks >= total_checks:
+        * если у Run уже стоит статус failed — не трогаем (критическая ошибка выше по стеку);
+        * иначе смотрим на статусы документов по сделке:
+            - если есть FAILED или QUARANTINE -> completed_with_errors;
+            - иначе -> completed.
+    """
+    run_repo = RunRepository(db)
+    doc_repo = DocumentRepository(db)
+
+    total, completed = await run_repo.get_counts(run_id)
+    if not total or completed < total:
+        return
+
+    # Получаем сам Run, чтобы узнать deal_id и текущий статус.
+    run_obj = await run_repo.get_by_id(run_id)
+    if not run_obj:
+        return
+
+    # Если Run уже помечен как failed где-то выше (например, оркестратором) — не переопределяем.
+    if run_obj.status == RunStatus.FAILED.value:
+        return
+
+    # Загружаем все документы сделки и считаем проблемные.
+    docs = await doc_repo.get_by_deal(run_obj.deal_id)
+
+    failed_count = sum(
+        1 for d in docs if d.status == DocumentStatus.FAILED.value
+    )
+    quarantine_count = sum(
+        1 for d in docs if d.status == DocumentStatus.QUARANTINE.value
+    )
+
+    has_errors = failed_count > 0 or quarantine_count > 0
+
+    if has_errors:
+        await run_repo.update_status(
+            run_id,
+            RunStatus.COMPLETED_WITH_ERRORS.value,
+            has_errors=True,
+            failed_docs_count=failed_count,
+            quarantine_docs_count=quarantine_count,
+        )
+    else:
+        await run_repo.update_status(
+            run_id,
+            RunStatus.COMPLETED.value,
+            has_errors=False,
+            failed_docs_count=0,
+            quarantine_docs_count=0,
+        )
+
+
+async def _update_document_status(
+    document_id: str,
+    db: AsyncSession,
+) -> None:
+    """
+    Обновить статус документа после успешного выполнения checks.
+
+    Важный момент для UX:
+    - если Runner дошёл до сюда без ошибок, документ считается успешно проверенным;
+    - статус -> COMPLETED, ошибки очищаем (processing_error_details=None).
+    """
+    repo = DocumentRepository(db)
+    await repo.update_status(
+        uuid.UUID(document_id),
+        DocumentStatus.COMPLETED.value,
+        processing_error_details=None,
+    )
+
+
+async def _mark_checks_failed(
+    uow: UnitOfWork,
+    document_id: str,
+    run_id: str | None,
+    *,
+    message: str,
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в FAILED
+    с деталями ошибки на стадии checks.
+
+    Здесь мы используем единый контракт set_failed с заполнением:
+    - stage="checks" (чётко показываем, на какой стадии упал документ);
+    - reason="checks_error";
+    - message=текст исключения (можно будет дополнительно нормализовать);
+    - run_id=текущий Run (если есть).
+    """
+    repo = DocumentRepository(uow.session)
+    run_uuid = uuid.UUID(run_id) if run_id else None
+    await repo.set_failed(
+        uuid.UUID(document_id),
+        stage="checks",
+        message=message,
+        reason="checks_error",
+        run_id=run_uuid,
+    )
+
+====================================================================================================
+<<< FILE_END | index=12 | path=src/workers/runner.py
+====================================================================================================
+
+
+====================================================================================================
+>>> FILE_START | index=13 | path=src/workers/structure_builder.py
+====================================================================================================
+# src/workers/structure_builder.py
+
+"""
+Structure Builder Worker.
+
+Назначение:
+- Считать санитизированный макет документа (одноязычный layout после PII) из MinIO.
+- Построить древовидную структуру документа (clause_tree) через сервис StructureBuilder.
+- Сохранить clause_tree в MinIO и обновить ссылки в DocumentVersion.
+- Обновить статус документа: sanitized -> structured.
+- Запустить следующую задачу пайплайна: workers.classify_document.
+
+Архитектурный паттерн:
+- Внешняя функция Celery‑таски остаётся синхронной (def), чтобы Celery
+  мог корректно сериализовать результат и работать в prefork‑модели.
+- Вся асинхронная логика (БД, MinIO) находится в _build_structure_async()
+  и вызывается из таски через безопасный переход sync → async (run_async + db_uow).
+"""
+
+import time
+import uuid
+
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError
+from core.logging import get_logger
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.uow import db_uow, UnitOfWork
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.structure.builder import StructureBuilder
+from storage.artifact_store import ArtifactPath, ArtifactStore
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.build_structure",
+    queue="default",
+)
+def build_structure(
+    self,
+    document_version_id: str,
+    **kwargs,  # принимаем остальные аргументы (deal_id, run_id и т.д.) для совместимости
+) -> dict:
+    """
+    Sync Celery entry point.
+
+    Паттерн:
+    - Celery вызывает синхронную функцию.
+    - Внутри один раз передаём управление в async‑мир через run_async.
+    """
+
+    async def _wrapper() -> dict:
+        try:
+            async with db_uow() as uow:
+                return await _build_structure_async(
+                    document_version_id=document_version_id,
+                    extra_args=kwargs,
+                    uow=uow,
+                )
+        except PermanentError as e:
+            logger.error(
+                "Permanent error during structure building",
+                document_version_id=document_version_id,
+                error=str(e),
+            )
+            # Отдельный UoW только для перевода документа в FAILED + деталей
+            async with db_uow() as uow_status:
+                await _mark_failed(
+                    uow_status,
+                    document_version_id=document_version_id,
+                    message=str(e),
+                )
+            return {
+                "status": DocumentStatus.FAILED.value,
+                "document_version_id": document_version_id,
+                "error": str(e),
+            }
+
+    return run_async(_wrapper())
+
+
+async def _build_structure_async(
+    document_version_id: str,
+    extra_args: dict,
+    uow: UnitOfWork,
+) -> dict:
+    store = ArtifactStore(settings)
+    start = time.time()
+    v_id = (
+        uuid.UUID(document_version_id)
+        if isinstance(document_version_id, str)
+        else document_version_id
+    )
+
+    ver_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+
+    # 1. Загрузка версии и документа
+    version = await ver_repo.get_by_id(v_id)
+    if not version:
+        raise PermanentError(f"DocumentVersion {v_id} not found")
+
+    doc = await doc_repo.get_by_id(version.document_id)
+    if not doc:
+        raise PermanentError(f"Document {version.document_id} not found")
+
+    # Идемпотентность: не перестраиваем, если уже готово
+    if doc.status in (
+        DocumentStatus.STRUCTURED.value,
+        DocumentStatus.CLASSIFIED.value,
+        DocumentStatus.ANALYZING.value,
+    ):
+        logger.info("Already structured, skipping", document_id=str(doc.id))
+        return {"document_id": str(doc.id), "skipped": True}
+
+    # 2. Получение макета из MinIO.
+    #
+    # Единый контракт пайплайна:
+    #   1) layout_primary_sanitized_ref — основной source of truth после PII;
+    #   2) layout_primary_ref — допустимый recovery fallback, если PII ещё не выполнен,
+    #      но нужно восстановить ход пайплайна.
+    layout_ref = (
+        getattr(version, "layout_primary_sanitized_ref", None)
+        or getattr(version, "layout_primary_ref", None)
+    )
+
+    if not layout_ref:
+        raise PermanentError(
+            f"no layout_primary_sanitized_ref/layout_primary_ref for version {v_id}"
+        )
+
+    # ArtifactStore.get_json — синхронный метод, НЕ используем await
+    raw_layout = store.get_json(layout_ref)
+    elements = raw_layout.get("elements", [])
+    if not elements:
+        raise PermanentError(f"No elements in layout for version {v_id}")
+
+    # 3. Вызок сервиса построения структуры
+    builder = StructureBuilder()
+    clause_tree = builder.build(
+        document_id=str(doc.id),
+        elements=elements,
+    )
+
+    # 4. Сохранение ClauseTree как отдельного артефакта
+    # ВАЖНО: tenant_id берём из связанной сделки, а не подменяем deal_id.
+    if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+        tenant_id = str(doc.deal.tenant_id)
+    else:
+        # fallback для dev‑режима, если связь не подгружена
+        tenant_id = str(doc.deal_id)
+
+    deal_id = str(doc.deal_id)
+
+    clause_tree_path = ArtifactPath.clause_tree(
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=str(doc.id),
+    )
+    # ArtifactStore.put_json — синхронный метод, НЕ используем await
+    store.put_json(clause_tree_path, clause_tree.to_dict())
+
+    # 5. Обновление БД
+    await ver_repo.update_refs(version_id=v_id, clause_tree_ref=clause_tree_path)
+    await doc_repo.update_status(
+        doc.id,
+        DocumentStatus.STRUCTURED.value,
+        processing_error_details=None,
+    )
+    # UoW зафиксирует изменения (commit) при выходе из db_uow в таске
+
+    # 6. Запуск следующего этапа (Классификация)
+    # Передаём в classify_document достаточный контекст:
+    # - run_id (если есть),
+    # - deal_id и tenant_id для корректного запуска run_deal_checks через классификатор.
+    from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
+
+    _celery.send_task(
+        "workers.classify_document",
+        kwargs={
+            "document_id": str(doc.id),
+            "run_id": extra_args.get("run_id"),
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+        },
+    )
+
+    return {
+        "document_id": str(doc.id),
+        "clause_tree_ref": clause_tree_path,
+        "confidence": clause_tree.structure_confidence,
+        "is_degraded": clause_tree.degraded,
+        "duration": round(time.time() - start, 2),
+    }
+
+
+async def _mark_failed(
+    uow: UnitOfWork,
+    document_version_id: str,
+    *,
+    message: str,
+) -> None:
+    """
+    Отдельный простой UoW для перевода документа в статус FAILED
+    с заполнением processing_error_details, если структура не смогла построиться.
+    """
+    ver_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+
+    v_id = uuid.UUID(document_version_id)
+    version = await ver_repo.get_by_id(v_id)
+    if not version:
+        return
+
+    await doc_repo.set_failed(
+        version.document_id,
+        stage="structure",
+        message=message,
+        reason="structure_error",
+        run_id=None,
+    )
+    
+    
+
+====================================================================================================
+<<< FILE_END | index=13 | path=src/workers/structure_builder.py
+====================================================================================================
+
+
+====================================================================================================
+END OF FOCUSED PIPELINE CODE DUMP
+====================================================================================================

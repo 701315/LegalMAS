@@ -52,6 +52,12 @@ class ArtifactPath:
 
     @staticmethod
     def layout_sanitized(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Legacy path for pre-primary sanitized layout.
+
+        Do not use in the active pipeline.
+        Kept temporarily only for backward compatibility / migration.
+        """
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/sanitized.json"
 
     @staticmethod

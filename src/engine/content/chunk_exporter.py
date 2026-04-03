@@ -69,6 +69,9 @@ class ChunkExportService:
         content = DocumentContentService(session=self.db)
         chunks = await content.get_sized_chunks(doc_id)
 
+        if not chunks or not any((ch.get("text") or "").strip() for ch in chunks):
+            raise ValueError(f"No sized chunks for document {doc_id}")        
+
         # Проверяем, что документ существует (на случай расхождений в БД).
         doc = await self.doc_repo.get_by_id(doc_id)
         if doc is None:
@@ -116,4 +119,5 @@ class ChunkExportService:
         )
         uri = self.store.put_file(export_path, data, content_type="text/markdown")
         return uri
+    
     

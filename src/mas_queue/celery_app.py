@@ -1,6 +1,5 @@
 # src/mas_queue/celery_app.py
 
-
 """
 Конфигурация Celery-приложения.
 
@@ -12,86 +11,126 @@
 Все воркеры импортируют celery_app из этого файла и регистрируют задачи через
 @celery_app.task(...), используя общий экземпляр приложения.
 
-Backlog (технический долг, связанный с очередями и асинхронностью):
+Конфигурация очередей:
 
-  Задача 1 — Рефакторинг Celery-задач (высокий приоритет)
-    Цель: убрать кастомный run_async из тела Celery-задач и перейти
-          на простой паттерн asyncio.run(_async_fn()) в синхронной оболочке.
-    Почему:
-      - текущий паттерн хрупок при разных Celery pool (gevent, eventlet, solo);
-      - создаёт неявные зависимости от состояния event loop.
-    Целевой шаблон:
-        @celery_app.task
-        def import_bundle(deal_id, tenant_id, source_path, run_id):
-            asyncio.run(_import_bundle_async(deal_id, tenant_id, source_path, run_id))
+  high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
+  default        — основной пайплайн (extract, pii, structure, classify).
+                    x-max-priority=5.
+  llm_checks     — LLM-тяжёлые задачи (run_deal_checks). Без приоритетов,
+                    собственный time_limit/visibility_timeout.
+  low_priority   — фоновые задачи (export, relations). x-max-priority=1.
 
-        async def _import_bundle_async(deal_id, tenant_id, source_path, run_id):
-            # вся логика здесь, чисто async
-            ...
-    Затронутые файлы:
-      - все воркеры в src/workers/;
-      - src/workers/orchestrator.py;
-      - src/queue/async_helpers.py.
+Политика надёжности (ключевые настройки):
 
-  Задача 2 — Изолировать engine/session factory в тестах (средний приоритет)
-    Цель: тесты должны использовать отдельный engine, а не тот же singleton,
-          что и продакшн-код.
-    Сейчас:
-      - _engine и _session_factory в async_helpers.py — глобальные синглтоны;
-      - в тестах они создаются один раз и живут через все тесты,
-        что приводит к утечкам состояния между тестами.
-    Что нужно:
-      - механизм подмены engine в тестовом окружении
-        (через DI, фикстуры или переменную окружения).
+  task_acks_late=True              — ACK только после успешного выполнения.
+  worker_prefetch_multiplier=1     — воркер берёт ровно одну задачу за раз.
+  task_reject_on_worker_lost=True  — при падении воркера задача возвращается.
+  task_soft_time_limit             — SIGTERM за 60 сек до hard limit.
+  task_time_limit                  — SIGKILL через заданное время.
+  visibility_timeout               — должен быть >= task_time_limit * 2,
+                                     иначе Redis может переотправить задачу
+                                     до завершения работы воркера.
 
-  Задача 3 — Покрыть run_async unit-тестами (низкий приоритет)
-    Цель: добавить тесты для run_async на все ветки:
-          - нормальный loop;
-          - закрытый loop;
-          - уже работающий loop.
-    Причина:
-      - после нескольких фиксов run_async стал нетривиальным;
-      - нужны изолированные unit-тесты, чтобы ловить регрессии сразу.
+Важно: SoftTimeLimitExceeded нужно перехватывать в MASBaseTask (base_task.py),
+иначе задача может остаться в RUNNING без записи в DLQ.
 
+Технический долг (актуальное):
+
+  - Изолировать engine/session factory в тестах:
+      * тесты должны использовать отдельный engine, а не тот же singleton,
+        что и продакшн-код (см. async_helpers.py).
+  - Покрыть run_async unit-тестами:
+      * протестировать ветки: нормальный loop, закрытый loop,
+        уже работающий loop.
 """
 
+from urllib.parse import urlparse, urlunparse
 
 from celery import Celery
 from kombu import Exchange, Queue
 
 from core.config import settings
 
+# ---------------------------------------------------------------------------
+# Экземпляр приложения
+# ---------------------------------------------------------------------------
 
-# Создаём экземпляр Celery.
-# Используем Redis DB 0 как брокер и Redis DB 1 как backend результатов.
 celery_app = Celery("mas_dd")
 
-# Backend результатов: меняем номер БД в REDIS_URL на 1.
-# Пример: redis://localhost:6379/0 -> redis://localhost:6379/1
-_result_backend = settings.REDIS_URL.rsplit("/", 1)[0] + "/1"
+# ---------------------------------------------------------------------------
+# Backend результатов
+# ---------------------------------------------------------------------------
 
+
+def _make_result_backend(broker_url: str, db: int = 1) -> str:
+    """
+    Строит URL для result backend, подставляя нужный номер Redis DB.
+
+    Используем urlparse/urlunparse, корректно обрабатывает URL без
+    trailing /{db} (например redis://localhost:6379 без номера базы).
+    """
+    parsed = urlparse(broker_url)
+    return urlunparse(parsed._replace(path=f"/{db}"))
+
+
+_result_backend = _make_result_backend(settings.REDIS_URL)
+
+# ---------------------------------------------------------------------------
+# Конфигурация
+# ---------------------------------------------------------------------------
 
 celery_app.conf.update(
-    # Брокер (очередь сообщений)
+    # --- Брокер и backend ---
     broker_url=settings.REDIS_URL,
-    # Backend результатов (хранение результатов задач)
     result_backend=_result_backend,
-    # Сериализация: только JSON для безопасности и дебага
+
+    # --- Сериализация: только JSON для безопасности и читаемости ---
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
-    # Часовой пояс
+
+    # --- Часовой пояс ---
     timezone="UTC",
     enable_utc=True,
-    # Настройки надёжности
+
+    # --- Надёжность доставки ---
     task_acks_late=True,              # ACK после выполнения задачи, а не до
-    worker_prefetch_multiplier=1,     # Воркер берёт по одной задаче
-    task_reject_on_worker_lost=True,  # При падении воркера задачи переочередяются
-    # Настройки результатов задач
+    worker_prefetch_multiplier=1,     # Воркер берёт ровно одну задачу за раз
+    task_reject_on_worker_lost=True,  # При падении воркера задача переочерёдивается
+
+    # --- Результаты ---
     result_expires=3600,              # Результаты живут 1 час
-    task_track_started=True,
+    task_track_started=True,          # Видно STARTED через AsyncResult
+
+    # --- Переподключение к брокеру при старте ---
     broker_connection_retry_on_startup=True,
-    # Определение очередей
+
+    # --- Лимиты выполнения задач ---
+    #
+    # Глобальные лимиты — для большинства задач пайплайна (import, extract, pii, etc.):
+    #   - soft: 10 мин — SIGTERM, даёт время завершить текущую операцию.
+    #   - hard: 11 мин — SIGKILL, если soft не помог.
+    # Для llm_checks лимиты можно переопределить через task_annotations.
+    task_soft_time_limit=600,  # SIGTERM через 10 мин
+    task_time_limit=660,       # SIGKILL через 11 мин
+
+    # --- Защита брокерного соединения ---
+    broker_transport_options={
+        # Для Redis: время, после которого невзятое сообщение считается
+        # «пропавшим» и возвращается в очередь. Должно быть >= максимального
+        # task_time_limit для всех очередей.
+        # Здесь 7200 с = 2 ч, перекрывает и глобальный лимит (660 с),
+        # и потенциальный LLM-лимит (до 3600 с) с запасом.
+        "visibility_timeout": 7200,
+        "socket_timeout": 30,
+        "socket_connect_timeout": 10,
+    },
+
+    # --- Управление памятью воркеров ---
+    # Перезапускать форк-процесс воркера после N задач.
+    worker_max_tasks_per_child=200,
+
+    # --- Определение очередей ---
     task_queues=(
         Queue(
             "high_priority",
@@ -111,20 +150,21 @@ celery_app.conf.update(
             routing_key="low_priority",
             queue_arguments={"x-max-priority": 1},
         ),
+        # LLM-очередь без приоритетов — задачи обрабатываются строго по FIFO.
         Queue(
             "llm_checks",
             Exchange("llm_checks"),
             routing_key="llm_checks",
         ),
     ),
-    # Очередь по умолчанию
+
+    # --- Очередь по умолчанию ---
     task_default_queue="default",
     task_default_exchange="default",
     task_default_routing_key="default",
-    
-    # Маршрутизация задач
+
+    # --- Маршрутизация задач ---
     task_routes={
-        # остальные роуты, если есть...
         "workers.run_deal_checks": {
             "queue": "llm_checks",
             "routing_key": "llm_checks",
@@ -132,19 +172,32 @@ celery_app.conf.update(
     },
 )
 
-# ЯВНАЯ регистрация задач через реестр workers.tasks.
-# При старте воркера этот импорт гарантирует, что все таски зарегистрированы.
+# ---------------------------------------------------------------------------
+# LLM-задачи: переопределение time limits (пример)
+# ---------------------------------------------------------------------------
+#
+# Пример для run_deal_checks (включить, когда будут понятны реальные SLA):
+#
+# celery_app.conf.update({
+#     "task_annotations": {
+#         "workers.run_deal_checks": {
+#             "soft_time_limit": 3540,  # SIGTERM за 60 сек до hard limit
+#             "time_limit": 3600,       # SIGKILL через 1 час
+#         }
+#     }
+# })
+
+# ---------------------------------------------------------------------------
+# Регистрация задач
+# ---------------------------------------------------------------------------
+
 try:
     import workers.tasks  # noqa: F401
-    import workers.run_orchestrator  # noqa: F401  <-- добавить эту строку
-
 except ImportError as e:
-    # При старте API (без воркера) модуль workers.tasks может отсутствовать.
-    # В этом случае просто логируем предупреждение и не падаем.
     from core.logging import get_logger
 
     logger = get_logger(__name__)
     logger.warning(
-        "Failed to import workers.tasks during celery_app init: %s",
-        e,
+        "Failed to import workers.tasks during celery_app init",
+        error=str(e),
     )

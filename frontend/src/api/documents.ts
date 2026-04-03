@@ -155,22 +155,20 @@ export const documentApi = {
    * - По умолчанию можно запрашивать только ссылки (оба флага false),
    *   чтобы не тянуть тяжёлые JSON без необходимости.
    */
-  getLayoutsDebug: (
-    docId: string,
-    includeRaw = true,
-    includeSanitized = true,
-  ) =>
+  getLayoutsDebug: (docId: string) =>
     client
       .get<DocumentLayoutsDebugResponse>(
         `/api/v1/documents/${docId}/debug/layouts`,
         {
           params: {
-            include_raw: includeRaw,
-            include_sanitized: includeSanitized,
+            // имена под бэкенд: includeraw / includesanitized
+            includeraw: true,
+            includesanitized: true,
           },
         },
       )
       .then((r) => r.data),
+
 
   /**
    * Загрузка новых документов в сделку.
@@ -426,11 +424,11 @@ export function useDocumentChunkViewUrl(docId: string | null) {
 /**
  * Debug-хук для получения raw/sanitized layout'ов документа.
  *
- * Для непрофессионального программиста:
- * - Этот хук обращается к debug-эндпоинту backend'а и возвращает:
- *   ссылки на layout'ы и, при желании, сами JSON-объекты.
- * - Параметр enabled позволяет не дергать эндпоинт, пока модалка
- *   с debug-информацией не открыта.
+ * Для пользователя UI:
+ * - используется только когда открыта debug-модалка;
+ * - запрашивает у backend не только ссылки на layout-артефакты,
+ *   но и сами JSON layout'ы;
+ * - нужен для визуального сравнения "до / после санитизации".
  */
 export function useDocumentLayoutsDebug(
   docId: string | null,
@@ -440,9 +438,10 @@ export function useDocumentLayoutsDebug(
     queryKey: ["document-layouts-debug", docId],
     queryFn: () => documentApi.getLayoutsDebug(docId!),
     enabled: !!docId && enabled,
-    staleTime: 5 * 60_000, // debug-данные почти не меняются
+    staleTime: 5 * 60_000,
   });
 }
+
 
 /**
  * Хук для получения «сырых» структурированных данных документа (DTO).

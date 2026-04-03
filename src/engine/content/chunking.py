@@ -275,6 +275,32 @@ def build_section_chunks_from_clauses(
             "summary": build_chunk_summary(path_titles, full_text),
         }
 
+        # Аккуратно подтягиваем важные служебные поля из клауз в раздел:
+        # - language_filter (target_language, degraded и пр.);
+        # - position_ratio (если есть у клауз).
+        lf_merged: dict[str, Any] = {}
+        positions: list[float] = []
+
+        for it in items_sorted:
+            meta_it = it.get("metadata") or {}
+            lf_it = meta_it.get("language_filter") or {}
+            if lf_it:
+                # Не переопределяем уже проставленные поля, чтобы сохранять
+                # первый встретившийся "диагностический" контекст.
+                for k, v in lf_it.items():
+                    lf_merged.setdefault(k, v)
+
+            pos_it = meta_it.get("position_ratio")
+            if isinstance(pos_it, (int, float)):
+                positions.append(float(pos_it))
+
+        if lf_merged:
+            metadata["language_filter"] = lf_merged
+        if positions:
+            # Для раздела логичнее взять медиану/среднее по клаузам,
+            # здесь возьмём простое среднее.
+            metadata["position_ratio"] = sum(positions) / len(positions)
+
         sections.append(
             {
                 "id": section_id,
@@ -284,3 +310,4 @@ def build_section_chunks_from_clauses(
         )
 
     return sections
+

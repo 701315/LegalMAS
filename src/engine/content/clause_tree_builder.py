@@ -179,6 +179,13 @@ class ClauseTreeBuilder:
             # пустые абзацы, что удобно для LLM.
             full_text = "\n\n".join(texts).strip()
 
+            if not full_text:
+                # Для непрофессионального программиста:
+                # - если после фильтрации / санитизации в этой листовой клаузе
+                #   не осталось ни одного непустого текстового элемента,
+                #   пустой чанк создавать не нужно.
+                return
+
             start_page = min(pages) if pages else node.get("start_page")
             end_page = max(pages) if pages else node.get("end_page")
 
@@ -211,3 +218,5 @@ class ClauseTreeBuilder:
                 out=out,
                 path_titles=current_path,
             )
+
+            

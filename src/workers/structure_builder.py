@@ -1,3 +1,5 @@
+# src/workers/structure_builder.py
+
 """
 Structure Builder Worker.
 
@@ -117,28 +119,21 @@ async def _build_structure_async(
         logger.info("Already structured, skipping", document_id=str(doc.id))
         return {"document_id": str(doc.id), "skipped": True}
 
-    # 2. Получение макета из MinIO
+    # 2. Получение макета из MinIO.
     #
-    # Новый архитектурный контракт (совпадает с DocumentContentService):
-    #   1) layout_primary_sanitized_ref — одноязычный sanitized layout (целевой кейс);
-    #   2) layout_primary_ref           — одноязычный layout без PII (если sanitized ещё не построен);
-    #   3) text_layout_sanitized_ref    — legacy sanitized layout;
-    #   4) text_layout_raw_ref          — исходный multi‑lang layout.
-    #
-    # StructureBuilder ДОЛЖЕН работать по sanitized одноязычному layout'у,
-    # но для старых или частично обработанных документов аккуратно деградирует
-    # на менее предпочтительные варианты.
+    # Единый контракт пайплайна:
+    #   1) layout_primary_sanitized_ref — основной source of truth после PII;
+    #   2) layout_primary_ref — допустимый recovery fallback, если PII ещё не выполнен,
+    #      но нужно восстановить ход пайплайна.
     layout_ref = (
         getattr(version, "layout_primary_sanitized_ref", None)
         or getattr(version, "layout_primary_ref", None)
-        or getattr(version, "text_layout_sanitized_ref", None)
-        or getattr(version, "text_layout_raw_ref", None)
     )
 
     if not layout_ref:
-        # Для продакшена это честная "твёрдая" ошибка пайплайна:
-        # предыдущие стадии не создали ни raw, ни sanitized layout.
-        raise PermanentError(f"no layout_ref (sanitized or raw) for version {v_id}")
+        raise PermanentError(
+            f"no layout_primary_sanitized_ref/layout_primary_ref for version {v_id}"
+        )
 
     # ArtifactStore.get_json — синхронный метод, НЕ используем await
     raw_layout = store.get_json(layout_ref)
@@ -230,4 +225,5 @@ async def _mark_failed(
         reason="structure_error",
         run_id=None,
     )
+    
     

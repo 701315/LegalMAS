@@ -219,7 +219,8 @@ async def _start_run_pipeline_async(
         doc_id_str = str(doc.id)
         status = doc.status or ""
 
-        # Берём последнюю версию для понимания, есть ли layout_raw и т.п.
+        # Берём последнюю версию, чтобы проверить наличие артефактов
+        # единого pipeline-контракта (layout_primary / layout_primary_sanitized).
         version = await ver_repo.get_latest(doc.id)
 
         logger.info(
@@ -257,9 +258,9 @@ async def _start_run_pipeline_async(
 
         # EXTRACTED
         if status == DocumentStatus.EXTRACTED.value:
-            if not version or not version.text_layout_raw_ref:
+            if not version or not getattr(version, "layout_primary_ref", None):
                 logger.warning(
-                    "EXTRACTED document without text_layout_raw_ref, skipping pii",
+                    "EXTRACTED document without layout_primary_ref, skipping pii",
                     extra={"document_id": doc_id_str},
                 )
                 continue
@@ -275,12 +276,37 @@ async def _start_run_pipeline_async(
 
         # SANITIZED
         if status == DocumentStatus.SANITIZED.value:
-            if not version or not version.text_layout_sanitized_ref:
+            if not version:
                 logger.warning(
-                    "Sanitized document without text_layout_sanitized_ref, skipping structure",
+                    "SANITIZED document without version, skipping structure",
                     extra={"document_id": doc_id_str},
                 )
                 continue
+
+            has_sanitized = bool(
+                getattr(version, "layout_primary_sanitized_ref", None)
+            )
+            has_primary = bool(getattr(version, "layout_primary_ref", None))
+
+            # Для непрофессионального программиста:
+            # - Нормальный путь: есть layout_primary_sanitized_ref (после PII).
+            # - Recovery-путь: если по какой-то причине PII не сохранил sanitized layout,
+            #   но есть layout_primary_ref, StructureBuilder по контракту умеет
+            #   использовать и его.
+            if not has_sanitized and not has_primary:
+                logger.warning(
+                    "SANITIZED document without layout_primary_sanitized_ref "
+                    "or layout_primary_ref, skipping structure",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            if not has_sanitized and has_primary:
+                logger.warning(
+                    "SANITIZED document without sanitized layout, "
+                    "falling back to layout_primary_ref for structure building",
+                    extra={"document_id": doc_id_str},
+                )
 
             celery_app.send_task(
                 "workers.build_structure",
@@ -407,3 +433,4 @@ async def _start_run_pipeline_async(
         "documents_total": len(docs),
         "tasks_scheduled": tasks_scheduled,
     }
+

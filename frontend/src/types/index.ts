@@ -204,6 +204,10 @@ export interface Document {
   text_layout_raw_ref?: string | null;
   text_layout_sanitized_ref?: string | null;
 
+  // NEW — новая архитектура layout'ов
+  layout_primary_ref?: string | null;
+  layout_primary_sanitized_ref?: string | null;
+
   // Проверка юристом и риск
   reviewed_by_person: boolean;
   human_review_status?: string | null;  // производное поле из backend

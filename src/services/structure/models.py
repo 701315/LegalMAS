@@ -59,3 +59,4 @@ class ClauseTree:
             "end_page": node.end_page,
             "children": [self._node_to_dict(c) for c in node.children],
         }
+
