@@ -99,6 +99,16 @@ def build_quick_layout_result_from_pdf(
             f"Quick PDF layout build failed: empty pdf_bytes for document {document_id}"
         )
 
+    # Быстрый guard от очевидно неверного входа:
+    # quick-layout сервис работает только с PDF-байтами.
+    # Это не полная PDF-валидация, но помогает раньше и понятнее
+    # ловить случаи, когда по ошибке передали DOCX/ZIP/HTML/etc.
+    if not _looks_like_pdf(pdf_bytes):
+        raise PermanentError(
+            f"Quick PDF layout build failed: source is not a PDF "
+            f"for document {document_id}"
+        )
+
     logger.info(
         "Quick PDF layout: starting",
         document_id=document_id,
@@ -155,6 +165,25 @@ def build_quick_layout_result_from_pdf(
         layout=layout,
         extraction=extraction,
     )
+
+
+def _looks_like_pdf(file_bytes: bytes) -> bool:
+    """
+    Быстрая эвристика: проверяем, похож ли вход на PDF.
+
+    Почему не делаем здесь "строгую" валидацию:
+    - строгая валидация уже фактически произойдёт внутри extract_pdf;
+    - здесь нам нужен дешёвый guard от очевидно неверных входов.
+
+    PDF обычно начинается с сигнатуры %PDF-.
+    Дополнительно допускаем редкий случай, когда перед сигнатурой
+    есть небольшой мусор/байты BOM, поэтому ищем %PDF- в первых 1024 байтах.
+    """
+    if not file_bytes:
+        return False
+
+    header_window = file_bytes[:1024]
+    return b"%PDF-" in header_window
 
 
 def _attach_quick_layout_metadata(

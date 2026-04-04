@@ -31,6 +31,45 @@ export interface DocumentLayoutsDebugResponse {
   sanitized_layout: Record<string, unknown> | null;
 }
 
+/**
+ * Статусы, при которых документ ещё находится в обработке
+ * или требует пользовательского действия, и UI должен периодически
+ * переподтягивать актуальные данные с backend.
+ *
+ * Для нашего кейса это важно, чтобы статус
+ * `language_selection_required` появлялся автоматически,
+ * без ручного обновления страницы.
+ */
+const ACTIVE_PROCESSING_STATUSES = new Set<string>([
+  "created",
+  "uploaded",
+  "pending",
+  "converting",
+  "primary_ready",
+  "extracting",
+  "extracted",
+  "sanitizing",
+  "sanitized",
+  "structuring",
+  "structured",
+  "chunking",
+  "chunked",
+  "classifying",
+  "language_selection_required",
+]);
+
+const DOCUMENTS_POLL_INTERVAL_MS = 2000;
+
+function shouldPollDocuments(data?: PaginatedResponse<Document>): boolean {
+  const items = data?.items ?? [];
+  return items.some((doc) => ACTIVE_PROCESSING_STATUSES.has(doc.status));
+}
+
+function shouldPollDocumentDetail(data?: DocumentDetail): boolean {
+  const status = data?.document?.status;
+  return !!status && ACTIVE_PROCESSING_STATUSES.has(status);
+}
+
 // -------------------------------------------------------------
 // НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
 // -------------------------------------------------------------
@@ -83,7 +122,6 @@ export const documentApi = {
       .get<DocumentDetail>(`/api/v1/documents/${docId}`)
       .then((response) => response.data),
 
-  // ...
   getFamily: (docId: string) =>
     client
       .get<DocumentFamily>(`/api/v1/documents/${docId}/family`)
@@ -161,14 +199,12 @@ export const documentApi = {
         `/api/v1/documents/${docId}/debug/layouts`,
         {
           params: {
-            // имена под бэкенд: includeraw / includesanitized
             includeraw: true,
             includesanitized: true,
           },
         },
       )
       .then((r) => r.data),
-
 
   /**
    * Загрузка новых документов в сделку.
@@ -189,21 +225,19 @@ export const documentApi = {
   ): Promise<{
     status?: string;
     files_uploaded?: number;
-    // оставляем поле для будущего расширения (bundle_id, etc.)
     [key: string]: unknown;
   }> => {
     const formData = new FormData();
 
-    // Добавляем все файлы под ключом "files" (соответствует параметру в FastAPI)
     files.forEach((file) => {
       formData.append("files", file);
     });
 
-    // Собираем URL с учётом folder_path (если есть)
     const params = new URLSearchParams();
     if (options?.folderPath) {
       params.set("folder_path", options.folderPath);
     }
+
     const query = params.toString();
     const url = query
       ? `/api/v1/deals/${dealId}/documents/upload?${query}`
@@ -212,14 +246,11 @@ export const documentApi = {
     return client
       .post(url, formData, {
         headers: {
-          // Axios сам добавит boundary, здесь важно указать тип тела
           "Content-Type": "multipart/form-data",
         },
       })
       .then((r) => {
         const data = r.data ?? {};
-        // Нормализуем ответ: гарантируем наличие status/files_uploaded,
-        // даже если бэкенд пока возвращает просто []
         if (Array.isArray(data)) {
           return {
             status: "queued",
@@ -363,6 +394,11 @@ export function useDocumentsWithClassification(dealId: string, page = 1) {
       documentApi.list(dealId, page, 50, { include_classification: true }),
     enabled: !!dealId,
     staleTime: 2 * 60_000,
+    refetchInterval: (query) => {
+      const data = query.state.data as PaginatedResponse<Document> | undefined;
+      return shouldPollDocuments(data) ? DOCUMENTS_POLL_INTERVAL_MS : false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -376,6 +412,11 @@ export function useDocuments(dealId: string, page = 1) {
     queryKey: ["documents", dealId, page],
     queryFn: () => documentApi.list(dealId, page),
     enabled: !!dealId,
+    refetchInterval: (query) => {
+      const data = query.state.data as PaginatedResponse<Document> | undefined;
+      return shouldPollDocuments(data) ? DOCUMENTS_POLL_INTERVAL_MS : false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -393,6 +434,11 @@ export function useDocumentDetail(docId: string | null) {
     queryKey: ["document", docId],
     queryFn: () => documentApi.get(docId!),
     enabled: !!docId,
+    refetchInterval: (query) => {
+      const data = query.state.data as DocumentDetail | undefined;
+      return shouldPollDocumentDetail(data) ? DOCUMENTS_POLL_INTERVAL_MS : false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -420,7 +466,6 @@ export function useDocumentChunkViewUrl(docId: string | null) {
   });
 }
 
-
 /**
  * Debug-хук для получения raw/sanitized layout'ов документа.
  *
@@ -442,7 +487,6 @@ export function useDocumentLayoutsDebug(
   });
 }
 
-
 /**
  * Хук для получения «сырых» структурированных данных документа (DTO).
  *
@@ -457,7 +501,7 @@ export function useStructuredData(docId: string | null) {
     queryKey: ["structured-data", docId],
     queryFn: () => documentApi.getStructuredData(docId!),
     enabled: !!docId,
-    staleTime: 5 * 60_000, // 5 минут — данные редко меняются
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -467,6 +511,7 @@ export function useStructuredData(docId: string | null) {
  */
 export function useReclassifyDocument(docId: string) {
   const qc = useQueryClient();
+
   return useMutation({
     mutationFn: (data: ReclassifyInput) =>
       documentApi.reclassify(docId, data),
@@ -511,10 +556,12 @@ export function useUploadDocuments(dealId: string) {
       documentApi.upload(dealId, params.files, {
         folderPath: params.folderPath,
       }),
-    onSuccess: () => {
-      // После успешной загрузки обновляем списки документов для этой сделки
-      qc.invalidateQueries({ queryKey: ["documents", dealId] });
-      qc.invalidateQueries({ queryKey: ["documents-classified", dealId] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["documents", dealId] }),
+        qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
+        qc.invalidateQueries({ queryKey: ["deal", dealId] }),
+      ]);
     },
   });
 }
@@ -533,10 +580,8 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
     mutationFn: (reviewedByPerson: boolean) =>
       documentApi.setReviewed(docId, reviewedByPerson),
     onSuccess: () => {
-      // Обновляем детальную карточку документа
       qc.invalidateQueries({ queryKey: ["document", docId] });
 
-      // Обновляем списки документов, если есть dealId
       if (dealId) {
         qc.invalidateQueries({ queryKey: ["documents", dealId] });
         qc.invalidateQueries({
@@ -546,3 +591,4 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
     },
   });
 }
+

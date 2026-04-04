@@ -5,18 +5,19 @@ Run Orchestrator Worker.
 
 Назначение:
 - Оркестрация пайплайна анализа для конкретного Run:
-  primary_source -> extract -> pii -> structure -> chunks -> classify
-  -> (далее отдельный воркер run_deal_checks).
+  primary_source -> extract -> pii -> structure
+  -> (далее цепочка продолжается из самих воркеров: build_structure -> build_chunks -> classify).
 - Находит все документы сделки и по их статусу решает, какие задачи поставить:
   - PENDING        -> workers.build_primary_language_source
   - PRIMARY_READY  -> workers.extract_document
   - EXTRACTED      -> pii.sanitize_document
   - SANITIZED      -> workers.build_structure
-  - STRUCTURED     -> workers.chunk_builder
-  - CHUNKED        -> workers.classify_document
+  - STRUCTURED     -> не трогаем, ждём chain из build_structure
+  - CHUNKED        -> не трогаем, ждём chain из build_chunks
 - Переводит Run в статус RUNNING и запоминает,
   для скольких документов будут запущены последующие стадии.
 """
+
 
 import uuid
 
@@ -33,6 +34,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async  # единый мост sync → async
 from services.run_checks_auto_starter import maybe_start_run_checks
+
 
 logger = get_logger(__name__)
 
@@ -345,40 +347,24 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # STRUCTURED: структура документа построена, но чанки ещё не материализованы.
+        # STRUCTURED: структура уже построена.
+        # Дальше цепочку ведёт сам workers.build_structure -> workers.build_chunks.
         if status == DocumentStatus.STRUCTURED.value:
-            if not version:
-                logger.warning(
-                    "STRUCTURED document without version, skipping chunk_builder",
-                    extra={"document_id": doc_id_str},
-                )
-                continue
-
-            celery_app.send_task(
-                "workers.chunk_builder",
-                kwargs={
-                    "document_version_id": str(version.id),
-                    "document_id": doc_id_str,
-                    "run_id": run_id,
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                },
+            logger.info(
+                "Document already structured, relying on downstream chaining "
+                "from workers.build_structure to workers.build_chunks",
+                extra={"document_id": doc_id_str, "run_id": run_id},
             )
-            tasks_scheduled += 1
             continue
 
-        # CHUNKED: чанки уже построены, можно запускать классификацию.
+        # CHUNKED: чанки уже построены.
+        # Дальше цепочку ведёт сам workers.build_chunks -> workers.classify_document.
         if status == DocumentStatus.CHUNKED.value:
-            celery_app.send_task(
-                "workers.classify_document",
-                kwargs={
-                    "document_id": doc_id_str,
-                    "run_id": run_id,
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                },
+            logger.info(
+                "Document already chunked, relying on downstream chaining "
+                "from workers.build_chunks to workers.classify_document",
+                extra={"document_id": doc_id_str, "run_id": run_id},
             )
-            tasks_scheduled += 1
             continue
 
         # CLASSIFIED: уже классифицирован
@@ -481,3 +467,5 @@ async def _start_run_pipeline_async(
         "documents_total": len(docs),
         "tasks_scheduled": tasks_scheduled,
     }
+
+

@@ -31,6 +31,7 @@ from workers.extract_worker import extract_document  # noqa: F401
 from workers.pii_sanitizer import sanitize_document  # noqa: F401
 from workers.structure_builder import build_structure  # noqa: F401
 from workers.classifier import classify_document  # noqa: F401
+from workers.chunk_builder import build_chunks  # noqa: F401
 
 # запуск комплексных checks по сделке
 from workers.check_runner_worker import run_deal_checks  # noqa: F401
@@ -39,3 +40,4 @@ from workers.check_runner_worker import run_deal_checks  # noqa: F401
 from workers.relations_worker import build_relations  # noqa: F401
 from workers.exporter import export_results  # noqa: F401
 from workers.export_pending import export_process_pending  # noqa: F401
+

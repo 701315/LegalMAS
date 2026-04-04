@@ -129,7 +129,31 @@ async def _build_primary_language_source_async(
         origin_filetype=origin_filetype,
     )
 
-    source_ref = converted_pdf_ref or original_ref
+    # Выбор source_ref зависит от исходного типа:
+    # - PDF: можно работать по original_ref;
+    # - DOC/DOCX: строго требуем converted_pdf_ref;
+    # - прочие: пробуем converted_pdf_ref, потом original_ref.
+    source_ref: str | None = None
+    source_kind: str | None = None
+
+    if origin_filetype and origin_filetype.lower() in {"pdf"}:
+        source_ref = original_ref
+        source_kind = "original_ref_pdf"
+
+    elif origin_filetype and origin_filetype.lower() in {"doc", "docx"}:
+        if converted_pdf_ref:
+            source_ref = converted_pdf_ref
+            source_kind = "converted_pdf_ref_docx"
+        else:
+            raise PermanentError(
+                "No converted PDF for DOC/DOCX document; "
+                f"cannot build primary language source (version_id={document_version_id})"
+            )
+
+    else:
+        source_ref = converted_pdf_ref or original_ref
+        source_kind = "converted_pdf_ref_other" if converted_pdf_ref else "original_ref_other"
+
     if not source_ref:
         raise PermanentError(
             "No source PDF found for primary source build "
@@ -141,7 +165,7 @@ async def _build_primary_language_source_async(
         document_id=document_id,
         version_id=document_version_id,
         source_ref=source_ref,
-        source_kind="converted_pdf_ref" if converted_pdf_ref else "original_ref",
+        source_kind=source_kind,
     )
 
     # Если primary_source_ref уже существует И мы считаем его валидным,
@@ -250,7 +274,6 @@ async def _build_primary_language_source_async(
             "detected_languages": decision.detected_languages,
             "requires_user_selection": True,
         }
-
 
     # 4. Собираем одноязычный PDF из primary_layout.
     try:
@@ -406,5 +429,7 @@ def _schedule_extract(
             "run_id": run_id,
         },
     )
+
+
 
     
