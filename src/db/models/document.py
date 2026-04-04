@@ -1,3 +1,5 @@
+# src/db/models/document.py
+
 """
 Document and DocumentVersion models.
 
@@ -21,7 +23,8 @@ DocumentVersion:
   - layout_primary_ref — одноязычный layout по основному языку сделки;
   - text_layout_sanitized_ref — legacy / общий sanitized layout;
   - layout_primary_sanitized_ref — одноязычный layout после PII‑санитизации;
-  - clause_tree_ref — дерево пунктов договора.
+  - clause_tree_ref — дерево пунктов договора;
+  - chunks_ref — materialized snapshot чанков для retrieval/checks.
 - Также фиксирует технические параметры пайплайна:
   - extraction_strategy, ocr_confidence;
   - origin_filetype/origin_extension;
@@ -234,6 +237,16 @@ class DocumentVersion(Base):
         ),
     )
 
+    primary_source_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to primary-language-only source file (usually PDF). "
+            "Build by language worker before extract; "
+            "extract_worker prefers this over converted_pdf_ref/original_ref."
+        ),
+    )
+
     text_layout_raw_ref: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,
@@ -278,6 +291,15 @@ class DocumentVersion(Base):
         comment="S3 URI to clause tree JSON",
     )
 
+    chunks_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to canonical chunk snapshot JSON "
+            "(section/clause/subclause) for this version."
+        ),
+    )
+
     extraction_strategy: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
@@ -317,5 +339,5 @@ class DocumentVersion(Base):
     __table_args__ = (
         Index("idx_docver_doc_version", "document_id", "version_num"),
     )
-    
-    
+
+

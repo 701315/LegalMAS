@@ -644,10 +644,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                             } else {
                               title = typeof value === "string" ? value : undefined;
                             }
+                          } else if (col.field === "status" && doc.status) {
+                            title =
+                              DOCUMENT_STATUS_CONFIG[doc.status]?.tooltip ??
+                              (typeof value === "string" ? value : undefined);
                           } else if (typeof value === "string") {
                             title = value;
                           }
-
                           return (
                             <td
                               key={col.id}

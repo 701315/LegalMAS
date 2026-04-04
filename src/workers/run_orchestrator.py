@@ -5,12 +5,15 @@ Run Orchestrator Worker.
 
 Назначение:
 - Оркестрация пайплайна анализа для конкретного Run:
-  extract -> pii -> structure -> classify -> (далее отдельный воркер run_deal_checks).
+  primary_source -> extract -> pii -> structure -> chunks -> classify
+  -> (далее отдельный воркер run_deal_checks).
 - Находит все документы сделки и по их статусу решает, какие задачи поставить:
-  - PENDING     -> workers.extract_document
-  - EXTRACTED   -> pii.sanitize_document
-  - SANITIZED   -> workers.build_structure
-  - STRUCTURED  -> workers.classify_document
+  - PENDING        -> workers.build_primary_language_source
+  - PRIMARY_READY  -> workers.extract_document
+  - EXTRACTED      -> pii.sanitize_document
+  - SANITIZED      -> workers.build_structure
+  - STRUCTURED     -> workers.chunk_builder
+  - CHUNKED        -> workers.classify_document
 - Переводит Run в статус RUNNING и запоминает,
   для скольких документов будут запущены последующие стадии.
 """
@@ -220,7 +223,7 @@ async def _start_run_pipeline_async(
         status = doc.status or ""
 
         # Берём последнюю версию, чтобы проверить наличие артефактов
-        # единого pipeline-контракта (layout_primary / layout_primary_sanitized).
+        # единого pipeline-контракта (layout_primary / layout_primary_sanitized и т.д.).
         version = await ver_repo.get_latest(doc.id)
 
         logger.info(
@@ -234,11 +237,35 @@ async def _start_run_pipeline_async(
             },
         )
 
-        # PENDING
+        # PENDING: только что импортированный/сконвертированный документ.
+        # На этом шаге мы готовим основной источник по выбранному языку.
         if status == DocumentStatus.PENDING.value:
             if not version:
                 logger.warning(
-                    "Document has PENDING status but no version, skipping extract",
+                    "Document has PENDING status but no version, skipping primary_source build",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            celery_app.send_task(
+                "workers.build_primary_language_source",
+                kwargs={
+                    "document_version_id": str(version.id),
+                    "document_id": doc_id_str,
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                    "run_id": run_id,
+                },
+            )
+            tasks_scheduled += 1
+            continue
+
+        # PRIMARY_READY: основной источник (primary_source_ref) уже построен.
+        # Теперь можно извлекать текст и строить layout.
+        if status == DocumentStatus.PRIMARY_READY.value:
+            if not version:
+                logger.warning(
+                    "PRIMARY_READY document without version, skipping extract",
                     extra={"document_id": doc_id_str},
                 )
                 continue
@@ -318,8 +345,30 @@ async def _start_run_pipeline_async(
             tasks_scheduled += 1
             continue
 
-        # STRUCTURED
+        # STRUCTURED: структура документа построена, но чанки ещё не материализованы.
         if status == DocumentStatus.STRUCTURED.value:
+            if not version:
+                logger.warning(
+                    "STRUCTURED document without version, skipping chunk_builder",
+                    extra={"document_id": doc_id_str},
+                )
+                continue
+
+            celery_app.send_task(
+                "workers.chunk_builder",
+                kwargs={
+                    "document_version_id": str(version.id),
+                    "document_id": doc_id_str,
+                    "run_id": run_id,
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                },
+            )
+            tasks_scheduled += 1
+            continue
+
+        # CHUNKED: чанки уже построены, можно запускать классификацию.
+        if status == DocumentStatus.CHUNKED.value:
             celery_app.send_task(
                 "workers.classify_document",
                 kwargs={
@@ -381,7 +430,6 @@ async def _start_run_pipeline_async(
         # - Если оставить документ навсегда в промежуточном статусе
         #   (например, structured), но не перевести в FAILED/QUARANTINE
         #   при перманентной ошибке, Run может зависнуть в RUNNING.
-
         logger.info(
             "Document in unsupported status for run pipeline, skipping",
             extra={"document_id": doc_id_str, "status": status, "run_id": run_id},
@@ -433,4 +481,3 @@ async def _start_run_pipeline_async(
         "documents_total": len(docs),
         "tasks_scheduled": tasks_scheduled,
     }
-

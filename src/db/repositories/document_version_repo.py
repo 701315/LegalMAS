@@ -10,9 +10,10 @@ Repository for DocumentVersion CRUD operations.
 - Здесь мы храним не только legacy refs (raw/sanitized), но и новые refs
   для одноязычного пайплайна:
   - layout_primary_ref;
-  - layout_primary_sanitized_ref.
+  - layout_primary_sanitized_ref;
+  - chunks_ref — snapshot чанков для retrieval/checks.
 - Благодаря этому downstream-стадии (PII, structure, content service, checks)
-  могут брать нужный layout из БД, а не вычислять путь в MinIO вручную.
+  могут брать нужный layout/структуры/чанки из БД, а не вычислять путь в MinIO вручную.
 
 Важно:
 - Значение None в update_refs() означает "это поле не обновляем".
@@ -82,6 +83,8 @@ class DocumentVersionRepository:
         ocr_confidence: float | None = None,
         pipeline_strategy: str | None = None,
         converted_pdf_ref: str | None = None,
+        primary_source_ref: str | None = None,
+        chunks_ref: str | None = None,
     ) -> DocumentVersion | None:
         """
         Update artifact references and processing metadata on a document version.
@@ -89,6 +92,8 @@ class DocumentVersionRepository:
         Используется разными стадиями:
         - convert_worker:
             converted_pdf_ref
+        - build_primary_language_source:
+            primary_source_ref
         - extract_worker:
             raw_ref, layout_primary_ref, extraction_strategy,
             ocr_confidence, pipeline_strategy
@@ -96,11 +101,16 @@ class DocumentVersionRepository:
             sanitized_ref, layout_primary_sanitized_ref
         - structure_builder:
             clause_tree_ref
+        - chunk_builder:
+            chunks_ref
 
         Важно:
         - raw_ref / sanitized_ref оставляем для backward compatibility;
         - layout_primary_ref / layout_primary_sanitized_ref — это новый основной
           контракт для одноязычного downstream-пайплайна;
+        - primary_source_ref — одноязычный source (PDF) до extract;
+        - chunks_ref — materialized snapshot чанков (section/clause/subclause)
+          для Retrieval/CheckRunner;
         - None означает "не обновлять это поле";
         - если version_id не найден, метод возвращает None.
         """
@@ -133,6 +143,12 @@ class DocumentVersionRepository:
         if converted_pdf_ref is not None:
             values["converted_pdf_ref"] = converted_pdf_ref
 
+        if primary_source_ref is not None:
+            values["primary_source_ref"] = primary_source_ref
+
+        if chunks_ref is not None:
+            values["chunks_ref"] = chunks_ref
+
         if not values:
             return await self.get_by_id(version_id)
 
@@ -153,4 +169,5 @@ class DocumentVersionRepository:
             await self.session.flush()
 
         return version
-
+    
+    

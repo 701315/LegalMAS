@@ -13,6 +13,8 @@ OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_workers_dump.txt"
 
 FILES = [
     "src/workers/check_runner_worker.py",
+    "src/workers/build_primary_language_source.py",
+    "src/workers/chunk_builder.py",
     "src/workers/classifier.py",
     "src/workers/convert_worker.py",
     "src/workers/export_pending.py",

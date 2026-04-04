@@ -408,6 +408,41 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </div>
       </Section>
 
+      {/* ========== Баннер: нужен выбор основного языка ========== */}
+      {doc.status === "language_selection_required" && (
+        <Section title="Требуется действие">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-amber-600">🌐</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-amber-900">
+                  Нужно выбрать основной язык проверки
+                </p>
+                <p className="mt-1 text-xs leading-5 text-amber-800">
+                  {statusConfig?.description ||
+                    "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка — приведение к одноязычности по выбранному основному языку проверки, а также экстракция, санитизация, построение структуры, чанкинг и классификация — не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык."}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                    onClick={() => {
+                      // TODO: открыть модал/панель выбора основного языка документа
+                    }}
+                  >
+                    Выбрать основной язык
+                  </button>
+
+                  <span className="text-[11px] text-amber-700">
+                    Текущий язык по умолчанию: русский
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Section>
+      )}
+
       {/* ========== Классификация ========== */}
       <Section title="Классификация документа">
         {classification ? (

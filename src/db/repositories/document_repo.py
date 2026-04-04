@@ -517,3 +517,4 @@ class DocumentRepository:
         result = await self.session.execute(stmt)
         count = result.scalar_one() or 0
         return count > 0
+

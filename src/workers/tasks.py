@@ -1,6 +1,5 @@
 # src/workers/tasks.py
 
-
 """
 Task registry — единая точка регистрации всех Celery-задач.
 
@@ -27,6 +26,7 @@ from workers.convert_worker import convert_to_pdf  # noqa: F401
 from workers.run_orchestrator import start_run_pipeline  # noqa: F401
 
 # основной пайплайн обработки документов
+from workers.build_primary_language_source import build_primary_language_source  # noqa: F401
 from workers.extract_worker import extract_document  # noqa: F401
 from workers.pii_sanitizer import sanitize_document  # noqa: F401
 from workers.structure_builder import build_structure  # noqa: F401
@@ -39,4 +39,3 @@ from workers.check_runner_worker import run_deal_checks  # noqa: F401
 from workers.relations_worker import build_relations  # noqa: F401
 from workers.exporter import export_results  # noqa: F401
 from workers.export_pending import export_process_pending  # noqa: F401
-

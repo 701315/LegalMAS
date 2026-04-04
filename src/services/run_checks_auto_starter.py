@@ -12,8 +12,16 @@ Run Checks Auto-Starter Service.
 - Он проверяет:
   1) Run всё ещё в статусе RUNNING.
   2) Для этого Run ещё нет Job с task_type="run_deal_checks".
-  3) Все «живые» документы сделки для этого Run уже в статусах CLASSIFIED или COMPLETED.
+  3) Все «участвующие» документы сделки для этого Run уже в статусах
+     CLASSIFIED или COMPLETED.
 - Если все условия выполняются, ставится один Celery-заказ workers.run_deal_checks.
+
+Важно:
+- Документы в FAILED, QUARANTINE и LANGUAGE_SELECTION_REQUIRED
+  не участвуют в auto-start checks.
+- LANGUAGE_SELECTION_REQUIRED означает, что пайплайн по документу
+  остановлен до ручного выбора основного языка, поэтому такой документ
+  не должен блокировать checks по остальным документам сделки.
 """
 
 import uuid
@@ -44,7 +52,7 @@ async def maybe_start_run_checks(
       * run_id не передан;
       * Run не в статусе RUNNING;
       * checks уже запускались для этого Run;
-      * ещё остались документы, которые не дошли до CLASSIFIED/COMPLETED.
+      * ещё остались участвующие документы, которые не дошли до CLASSIFIED/COMPLETED.
     - Если всё готово — она один раз поставит Celery-задачу для run_deal_checks.
     """
     if not run_id:
@@ -55,7 +63,6 @@ async def maybe_start_run_checks(
         extra={"run_id": str(run_id)},
     )
 
-    # 1. Загружаем Run
     result = await db.execute(select(Run).where(Run.id == run_id))
     run_obj: Run | None = result.scalar_one_or_none()
     if not run_obj:
@@ -65,7 +72,6 @@ async def maybe_start_run_checks(
         )
         return
 
-    # Checks запускаем только для живого RUNNING.
     if run_obj.status != RunStatus.RUNNING.value:
         logger.debug(
             "maybe_start_run_checks: run is not RUNNING, skip",
@@ -76,7 +82,6 @@ async def maybe_start_run_checks(
         )
         return
 
-    # 2. Проверяем, не запускались ли уже checks (Job с task_type='run_deal_checks').
     job_exists = await _has_run_deal_checks_job(db, run_id)
     if job_exists:
         logger.debug(
@@ -85,14 +90,11 @@ async def maybe_start_run_checks(
         )
         return
 
-    # 3. Проверяем статусы документов сделки.
     doc_repo = DocumentRepository(db)
     deal_id = run_obj.deal_id
-
     docs = await doc_repo.get_by_deal(deal_id)
 
     if not docs:
-        # Нет документов — логируем и не запускаем checks.
         logger.info(
             "maybe_start_run_checks: no documents for deal, nothing to check",
             extra={
@@ -102,16 +104,22 @@ async def maybe_start_run_checks(
         )
         return
 
-    # Документ считается "готовым для checks", если он:
-    # - не в FAILED/QUARANTINE;
-    # - и уже CLASSIFIED или COMPLETED.
-    ready_statuses = {DocumentStatus.CLASSIFIED.value, DocumentStatus.COMPLETED.value}
-    error_statuses = {DocumentStatus.FAILED.value, DocumentStatus.QUARANTINE.value}
+    ready_statuses = {
+        DocumentStatus.CLASSIFIED.value,
+        DocumentStatus.COMPLETED.value,
+    }
 
-    participating_docs = [d for d in docs if d.status not in error_statuses]
+    non_participating_statuses = {
+        DocumentStatus.FAILED.value,
+        DocumentStatus.QUARANTINE.value,
+        DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+    }
+
+    participating_docs = [
+        d for d in docs if d.status not in non_participating_statuses
+    ]
 
     if not participating_docs:
-        # Все документы либо упали/в карантине, либо их нет — checks запускать бессмысленно.
         logger.info(
             "maybe_start_run_checks: no participating documents, skip checks",
             extra={
@@ -124,7 +132,6 @@ async def maybe_start_run_checks(
     all_ready = all(d.status in ready_statuses for d in participating_docs)
 
     if not all_ready:
-        # Есть ещё документы, которые не дошли до классификации.
         logger.debug(
             "maybe_start_run_checks: not all documents are ready for checks",
             extra={
@@ -134,11 +141,15 @@ async def maybe_start_run_checks(
                 "ready_docs": sum(
                     1 for d in participating_docs if d.status in ready_statuses
                 ),
+                "blocked_docs": sum(
+                    1 for d in docs
+                    if d.status == DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value
+                ),
             },
         )
         return
 
-    total_checks = None  # сюда можно будет положить реальное число при планировании
+    total_checks = None
 
     logger.info(
         "maybe_start_run_checks: all documents ready, planning checks",
@@ -149,15 +160,12 @@ async def maybe_start_run_checks(
         },
     )
 
-    # 4. Все нужные документы готовы, checks ещё не запускались — ставим задачу.
     tenant_id: str | None
     if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
         tenant_id = str(run_obj.deal.tenant_id)
     else:
-        # Простейший fallback: используем deal_id как tenant_id (как в оркестраторе).
         tenant_id = str(deal_id)
 
-    # Создаём Job-запись, чтобы второй раз не запустить checks.
     job = Job(
         run_id=run_id,
         document_id=None,
@@ -213,3 +221,4 @@ async def _has_run_deal_checks_job(db: AsyncSession, run_id: uuid.UUID) -> bool:
     )
     job = result.scalar_one_or_none()
     return job is not None
+

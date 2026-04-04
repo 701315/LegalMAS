@@ -18,7 +18,7 @@ Convert Worker.
        - конвертирует в PDF;
        - кладёт PDF в MinIO;
        - обновляет DocumentVersion.converted_pdf_ref ссылкой на PDF;
-       - ставит задачу на PDF‑extractor (workers.extract_document).
+       - ставит задачу workers.build_primary_language_source.
 
 Архитектура:
 - Внешняя Celery‑таска convert_to_pdf — синхронная (def), как и в других воркерах.
@@ -122,7 +122,7 @@ async def convert_to_pdf_async(
     - Конвертируем в PDF (через внешний инструмент/сервис).
     - Заливаем PDF в MinIO по предсказуемому пути (ArtifactPath.converted_pdf).
     - Обновляем DocumentVersion.converted_pdf_ref.
-    - Ставим стандартную задачy workers.extract_document.
+    - Ставим задачу workers.build_primary_language_source.
 
     В случае фатальной ошибки кидаем PermanentError — верхний уровень пометит документ FAILED.
     """
@@ -178,17 +178,17 @@ async def convert_to_pdf_async(
     )
 
     logger.info(
-        "DOCX/DOC → PDF conversion complete, scheduling extraction",
+        "DOCX/DOC → PDF conversion complete, scheduling primary source build",
         document_id=document_id,
         document_version_id=document_version_id,
         pdf_ref=pdf_ref,
     )
 
-    # 6. Ставим стандартный extract_document (Stage 4)
+    # 6. После конвертации запускаем build_primary_language_source.
     from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
 
     _celery.send_task(
-        "workers.extract_document",
+        "workers.build_primary_language_source",
         kwargs={
             "document_version_id": document_version_id,
             "document_id": document_id,

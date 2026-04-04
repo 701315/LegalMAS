@@ -130,7 +130,8 @@ export type DocumentStatus =
   | "completed"
   | "quarantine"
   | "failed"
-  | "duplicate";
+  | "duplicate"
+  | "language_selection_required";
 
 /** Детали ошибки обработки документа (JSONB из backend: Document.processing_error_details).
  *

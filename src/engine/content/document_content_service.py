@@ -1,5 +1,3 @@
-# src/engine/content/document_content_service.py
-
 """
 DocumentContentService v3: тонкий фасад над clause tree + layout.
 
@@ -33,6 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models.document import DocumentVersion
+from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from storage.artifact_store import ArtifactStore
 
@@ -47,6 +46,7 @@ from engine.content.chunking import (
 from core.logging import get_logger
 
 logger = get_logger(__name__)
+
 
 class ClauseTreeStorageClientProtocol:
     """
@@ -144,8 +144,11 @@ class DocumentContentService:
     ) -> None:
         self.session = session
         self.versions = DocumentVersionRepository(session)
+        self.documents = DocumentRepository(session)
         self.storage = storage_client or ClauseTreeStorageClient()
         self.layout_storage = layout_client or LayoutStorageClient()
+        # Внутренний ArtifactStore для чтения snapshot'ов чанков (chunks_ref).
+        self._artifact_store = ArtifactStore()
 
     # -------------------------------------------------------------------------
     # Внутренние helpers: загрузка последней версии, clause tree и layout
@@ -224,6 +227,79 @@ class DocumentContentService:
         if ratio > 1.0:
             return 1.0
         return ratio
+
+    # -------------------------------------------------------------------------
+    # Внутренний helper: загрузка чанков из snapshot'а (chunks_ref)
+    # -------------------------------------------------------------------------
+
+    async def _load_chunks_from_snapshot(
+        self,
+        doc_id: uuid.UUID,
+        levels: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Попробовать прочитать чанки из готового snapshot'а по ссылке chunks_ref.
+
+        Для непрофессионального программиста:
+        - chunk_builder уже мог построить и сохранить snapshot чанков (JSON) в MinIO;
+        - в DocumentVersion есть поле chunks_ref со ссылкой вида s3://bucket/path;
+        - здесь мы:
+          1) читаем snapshot через ArtifactStore.get_json;
+          2) берём из него нужные уровни (section/clause/subclause);
+          3) приводим каждый элемент к виду {id, text, metadata}.
+        """
+        version = await self._get_latest_version(doc_id)
+        if not version or not getattr(version, "chunks_ref", None):
+            return []
+
+        chunks_ref = version.chunks_ref
+
+        try:
+            # В snapshot структура вида:
+            # {
+            #   "schema_version": 1,
+            #   "doc_id": "...",
+            #   "chunks": {
+            #       "section": [...],
+            #       "clause": [...],
+            #       "subclause": [...]
+            #   }
+            # }
+            snapshot = self._artifact_store.get_json(chunks_ref)
+        except Exception as e:
+            logger.warning(
+                "DocumentContentService: failed to load chunk snapshot, falling back to on-the-fly",
+                doc_id=str(doc_id),
+                chunks_ref=chunks_ref,
+                error=str(e),
+            )
+            return []
+
+        chunks_by_level = snapshot.get("chunks") or {}
+        if not isinstance(chunks_by_level, dict):
+            return []
+
+        level_set = {lvl.lower() for lvl in levels}
+        out: list[dict[str, Any]] = []
+
+        for lvl, items in chunks_by_level.items():
+            if lvl.lower() not in level_set or not isinstance(items, list):
+                continue
+            for ch in items:
+                if not isinstance(ch, dict):
+                    continue
+                text = (ch.get("text") or "").strip()
+                if not text:
+                    continue
+                out.append(
+                    {
+                        "id": ch.get("id"),
+                        "text": text,
+                        "metadata": ch.get("metadata") or {},
+                    }
+                )
+
+        return out
 
     # -------------------------------------------------------------------------
     # Публичные методы
@@ -358,10 +434,10 @@ class DocumentContentService:
             layout=layout,
         )
 
-        from core.logging import get_logger
-        logger = get_logger(__name__)
+        from core.logging import get_logger as _get_logger
+        _logger = _get_logger(__name__)
         if str(doc_id) == "7012e86f-89a2-46b3-ac1a-55afa3c989c4":
-            logger.info(
+            _logger.info(
                 "DEBUG chunk 8 sample",
                 layout_ref=getattr(version, "layout_primary_sanitized_ref", None)
                         or getattr(version, "layout_primary_ref", None)
@@ -866,10 +942,21 @@ class DocumentContentService:
         По умолчанию:
         - subclause: нормализованные под-чанки,
         - section: крупные разделы.
+
+        ВАЖНО:
+        - Сначала пробуем читать чанки из snapshot'а по chunks_ref;
+        - Если snapshot отсутствует или повреждён — падаем обратно
+          на on-the-fly расчёт через get_hierarchical_chunks.
         """
         if levels is None:
             levels = ["subclause", "section"]
 
+        # 1. Пытаемся прочитать чанки из snapshot'а (если chunks_ref есть).
+        snapshot_chunks = await self._load_chunks_from_snapshot(doc_id, levels)
+        if snapshot_chunks:
+            return snapshot_chunks
+
+        # 2. Fallback — текущая логика: строим чанки "на лету".
         hier = await self.get_hierarchical_chunks(
             doc_id=doc_id,
             target_tokens=target_tokens,
@@ -896,4 +983,6 @@ class DocumentContentService:
                 )
 
         return chunks
+    
+
     

@@ -12,16 +12,19 @@ class DocumentStatus(str, Enum):
     """Status of a document in the processing pipeline."""
 
     PENDING = "pending"
+    LANGUAGE_SELECTION_REQUIRED = "language_selection_required"
+    PRIMARY_READY = "primary_ready"
     EXTRACTING = "extracting"
     EXTRACTED = "extracted"
     SANITIZED = "sanitized"
     STRUCTURED = "structured"
+    CHUNKED = "chunked"
     CLASSIFIED = "classified"
     ANALYZING = "analyzing"
     COMPLETED = "completed"
     QUARANTINE = "quarantine"
     DUPLICATE = "duplicate"
-    DELETED = "deleted"   # сключён из активной работы, но данные сохраняются для аудита/истории
+    DELETED = "deleted"   # исключён из активной работы, но данные сохраняются для аудита/истории
     FAILED = "failed"
 
 
@@ -71,6 +74,7 @@ class JobStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     DLQ = "dlq"
+
 
 class RunStatus(str, Enum):
     """Status of an analysis run."""
@@ -173,6 +177,7 @@ CLASSIFICATION_WEIGHTS = {
     "L3": 0.40,  # Embeddings similarity
 }
 
+
 CLASSIFICATION_THRESHOLDS = {
     "L2_accept": 0.85,
     "L3_accept": 0.80,
@@ -184,3 +189,5 @@ CLASSIFICATION_THRESHOLDS = {
 # NOTE: TriggerType удален.
 # Триггеры определяются динамически на основе YAML-файлов инструкций.
 # и генерируются в src/core/generated_trigger_types.py
+
+

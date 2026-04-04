@@ -1,0 +1,410 @@
+# src/workers/build_primary_language_source.py
+
+"""
+Build Primary Language Source Worker.
+
+Назначение:
+- Подготовить primary_source_ref для extract_worker.
+- В архитектуре варианта А extract_worker больше НЕ занимается языковой
+  фильтрацией и всегда работает по primary_source_ref.
+- На этом этапе мы:
+  1) строим layout из исходного PDF;
+  2) определяем языки документа и выбираем основной;
+  3) строим одноязычный layout по выбранному языку;
+  4) собираем новый одноязычный PDF и сохраняем его как primary_source_ref.
+
+Позиция в пайплайне:
+- import/convert -> build_primary_language_source -> extract -> pii -> structure -> ...
+
+Контракт:
+- вызывается оркестратором или авто-пайплайном после import/convert_to_pdf;
+- по завершении (успех) документ должен перейти в статус PRIMARY_READY;
+- в DocumentVersion.primary_source_ref должна появиться S3‑ссылка на одноязычный PDF;
+- далее автоматически запускается workers.extract_document.
+"""
+
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import settings
+from core.constants import DocumentStatus
+from core.exceptions import PermanentError
+from core.logging import get_logger
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.uow import db_uow
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from mas_queue.async_helpers import run_async
+from services.document_language_pipeline import build_primary_language_layout
+from services.primary_pdf_builder import build_pdf_from_layout
+from services.quick_pdf_layout import build_quick_layout_from_pdf
+from storage.artifact_store import ArtifactPath, ArtifactStore
+
+logger = get_logger(__name__)
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.build_primary_language_source",
+    track_job=False,
+    queue="default",
+)
+def build_primary_language_source(
+    self,
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
+) -> dict:
+    """
+    Sync Celery entrypoint.
+
+    Контракт:
+    - вызывается оркестратором или auto-pipeline для документов после import
+      или после convert_to_pdf;
+    - по завершении (успех) документ должен перейти в статус PRIMARY_READY;
+    - в DocumentVersion.primary_source_ref должна появиться S3-ссылка;
+    - далее автоматически запускается extract_document.
+    """
+
+    async def _wrapper() -> dict:
+        async with db_uow() as uow:
+            return await _build_primary_language_source_async(
+                document_version_id=document_version_id,
+                document_id=document_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                db=uow.session,
+                run_id=run_id,
+            )
+
+    return run_async(_wrapper())
+
+
+async def _build_primary_language_source_async(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+    run_id: str | None = None,
+) -> dict:
+    logger.info(
+        "Starting build_primary_language_source",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+    )
+
+    ver_repo = DocumentVersionRepository(db)
+    doc_repo = DocumentRepository(db)
+    store = ArtifactStore(settings)
+
+    version_uuid = uuid.UUID(document_version_id)
+    doc_uuid = uuid.UUID(document_id)
+    deal_uuid = uuid.UUID(deal_id)
+
+    version = await ver_repo.get_by_id(version_uuid)
+    if not version:
+        raise PermanentError(f"DocumentVersion {document_version_id} not found")
+
+    existing_primary_ref = getattr(version, "primary_source_ref", None)
+    converted_pdf_ref = getattr(version, "converted_pdf_ref", None)
+    original_ref = getattr(version, "original_ref", None)
+    origin_filetype = getattr(version, "origin_filetype", None)
+
+    logger.info(
+        "Primary source build: resolved version refs",
+        document_id=document_id,
+        version_id=document_version_id,
+        existing_primary_source_ref=existing_primary_ref,
+        converted_pdf_ref=converted_pdf_ref,
+        original_ref=original_ref,
+        origin_filetype=origin_filetype,
+    )
+
+    source_ref = converted_pdf_ref or original_ref
+    if not source_ref:
+        raise PermanentError(
+            "No source PDF found for primary source build "
+            f"(version_id={document_version_id}; converted_pdf_ref and original_ref are empty)"
+        )
+
+    logger.info(
+        "Primary source build: source selected",
+        document_id=document_id,
+        version_id=document_version_id,
+        source_ref=source_ref,
+        source_kind="converted_pdf_ref" if converted_pdf_ref else "original_ref",
+    )
+
+    # Если primary_source_ref уже существует И мы считаем его валидным,
+    # можно было бы его переиспользовать. В варианте А мы хотим гарантированно
+    # получить одноязычный PDF через новый pipeline, поэтому сейчас не
+    # делаем early-return, а всегда перестраиваем primary_source.
+    # При желании сюда можно добавить флаг force_rebuild.
+    if existing_primary_ref:
+        logger.info(
+            "Primary source build: existing primary_source_ref present, rebuilding to enforce single-language PDF",
+            document_id=document_id,
+            version_id=document_version_id,
+            existing_primary_source_ref=existing_primary_ref,
+        )
+
+    # 1. Считываем исходный PDF из MinIO.
+    try:
+        source_path = _s3_ref_to_store_path(source_ref, store.bucket)
+        logger.info(
+            "Primary source build: reading source PDF from store",
+            document_id=document_id,
+            version_id=document_version_id,
+            source_ref=source_ref,
+            source_path=source_path,
+        )
+        pdf_bytes = store.get_file(source_path)
+        logger.info(
+            "Primary source build: source PDF loaded",
+            document_id=document_id,
+            version_id=document_version_id,
+            source_ref=source_ref,
+            size=len(pdf_bytes),
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to read source PDF for primary source build",
+            document_id=document_id,
+            version_id=document_version_id,
+            source_ref=source_ref,
+            error=str(e),
+        )
+        raise PermanentError(f"Failed to read source PDF: {e}")
+
+    # 2. Строим layout для раннего языкового анализа.
+    quick_layout = build_quick_layout_from_pdf(
+        pdf_bytes=pdf_bytes,
+        document_id=document_id,
+        document_version_id=document_version_id,
+    )
+
+    # 3. Строим одноязычный layout и обновляем языки сделки.
+    primary_layout_result = await build_primary_language_layout(
+        db=db,
+        deal_id=deal_uuid,
+        tenant_id=tenant_id,
+        document_id=document_id,
+        layout=quick_layout,
+    )
+
+    primary_layout = primary_layout_result.primary_layout
+    decision = primary_layout_result.decision
+    target_language = decision.target_language
+
+    logger.info(
+        "Primary source build: primary layout constructed",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        target_language=target_language,
+        detected_languages=primary_layout_result.decision.detected_languages,
+        is_bilingual=primary_layout_result.decision.is_bilingual,
+        requires_user_selection=decision.requires_user_selection,
+    )
+
+    # документ многоязычный, язык не выбран пользователем.
+    if decision.requires_user_selection and target_language is None:
+        # Здесь не строим PDF и не запускаем extract.
+        updated_doc = await doc_repo.update_status(
+            doc_uuid,
+            DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+            processing_error_details=None,
+        )
+        if not updated_doc:
+            raise PermanentError(
+                f"Document {document_id} not found during LANGUAGE_SELECTION_REQUIRED status update"
+            )
+
+        logger.info(
+            "Primary source build: user primary language selection required, pipeline paused",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            detected_languages=decision.detected_languages,
+        )
+
+        return {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "source_ref": source_ref,
+            "primary_source_ref": existing_primary_ref,
+            "target_language": None,
+            "detected_languages": decision.detected_languages,
+            "requires_user_selection": True,
+        }
+
+
+    # 4. Собираем одноязычный PDF из primary_layout.
+    try:
+        primary_pdf_bytes = build_pdf_from_layout(primary_layout)
+    except Exception as e:
+        logger.exception(
+            "Failed to build primary PDF from layout",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            target_language=target_language,
+            error=str(e),
+        )
+        raise PermanentError(f"Failed to build primary PDF from layout: {e}")
+
+    # 5. Сохраняем одноязычный PDF как primary_source_ref.
+    primary_path = ArtifactPath.primary_source(
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=document_id,
+    )
+
+    try:
+        primary_source_ref = store.put_file(
+            primary_path,
+            primary_pdf_bytes,
+            content_type="application/pdf",
+        )
+        logger.info(
+            "Primary source build: primary single-language PDF stored",
+            document_id=document_id,
+            version_id=document_version_id,
+            primary_path=primary_path,
+            primary_source_ref=primary_source_ref,
+            size=len(primary_pdf_bytes),
+            target_language=target_language,
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to store primary source PDF",
+            document_id=document_id,
+            version_id=document_version_id,
+            path=primary_path,
+            error=str(e),
+        )
+        raise PermanentError(f"Failed to store primary source PDF: {e}")
+
+    # 6. Обновляем DocumentVersion.primary_source_ref.
+    updated_version = await ver_repo.update_refs(
+        version_id=version_uuid,
+        primary_source_ref=primary_source_ref,
+    )
+    if not updated_version:
+        raise PermanentError(
+            f"Failed to update primary_source_ref for version {document_version_id}"
+        )
+
+    # 7. Переводим документ в статус PRIMARY_READY.
+    await _mark_primary_ready(
+        doc_repo=doc_repo,
+        document_id=doc_uuid,
+        document_id_str=document_id,
+    )
+
+    logger.info(
+        "Primary language source built (single-language PDF), scheduling extraction",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        source_ref=source_ref,
+        primary_source_ref=primary_source_ref,
+        target_language=target_language,
+        detected_languages=primary_layout_result.decision.detected_languages,
+    )
+
+    # 8. Запускаем следующий шаг пайплайна: extract_document.
+    _schedule_extract(
+        document_version_id=document_version_id,
+        document_id=document_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+    )
+
+    return {
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "source_ref": source_ref,
+        "primary_source_ref": primary_source_ref,
+        "target_language": target_language,
+        "detected_languages": primary_layout_result.decision.detected_languages,
+    }
+
+
+def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
+    """
+    Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
+    Если ссылка не начинается с s3://<bucket>/, возвращаем ошибку явно,
+    чтобы не читать случайный путь молча.
+    """
+    prefix = f"s3://{bucket}/"
+    if not s3_ref or not s3_ref.startswith(prefix):
+        raise PermanentError(
+            f"Invalid S3 ref for bucket '{bucket}': {s3_ref}"
+        )
+    return s3_ref.replace(prefix, "", 1)
+
+
+async def _mark_primary_ready(
+    doc_repo: DocumentRepository,
+    document_id: uuid.UUID,
+    document_id_str: str,
+) -> None:
+    """
+    Перевести документ в статус PRIMARY_READY.
+    Отдельная функция нужна, чтобы не дублировать проверку update_status.
+    """
+    updated_doc = await doc_repo.update_status(
+        document_id,
+        DocumentStatus.PRIMARY_READY.value,
+        processing_error_details=None,
+    )
+    if not updated_doc:
+        raise PermanentError(
+            f"Document {document_id_str} not found during PRIMARY_READY status update"
+        )
+
+
+def _schedule_extract(
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None,
+) -> None:
+    """
+    Поставить следующий шаг пайплайна: extract_document.
+    Отдельная функция делает код чище и уменьшает риск ошибиться в kwargs.
+    """
+    from mas_queue.celery_app import celery_app as _celery
+
+    _celery.send_task(
+        "workers.extract_document",
+        kwargs={
+            "document_version_id": document_version_id,
+            "document_id": document_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "run_id": run_id,
+        },
+    )
+
+    

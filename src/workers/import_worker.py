@@ -16,9 +16,9 @@ Import Worker — production.
   - Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
   - Определение исходного формата файла (source_extension, source_filetype).
   - Роутинг по типу файла через Extract Router:
-      * PDF → постановка задачи на PDF‑extractor (workers.extract_document).
-      * другие типы → пока отправляются в карантин с понятной причиной,
-        но архитектура готова к добавлению конвертации (DOCX → PDF) и новых extractors.
+      * PDF → постановка задачи на build_primary_language_source (далее внутри него extract).
+      * DOC/DOCX → convert_to_pdf, который после конвертации ставит build_primary_language_source.
+      * другие типы → карантин с понятной причиной.
 
 Архитектура:
 - Внешняя Celery‑таска import_bundle — синхронная (def), её вызывает Celery.
@@ -57,7 +57,6 @@ from services.file_validator import (
     FileStatus,
     validate_file,
 )
-
 from services.extract_router import (
     ExtractRoutingDecision,
     decide_extraction_strategy,
@@ -93,11 +92,6 @@ def import_bundle(
 ) -> dict:
     """
     Синхронная точка входа Celery‑таски импорта.
-
-    Новый паттерн:
-    - Celery вызывает обычную (sync) функцию.
-    - Внутри мы один раз передаём управление в async‑мир через run_async.
-    - Весь async‑код живёт в _import_bundle_async() + db_uow().
     """
 
     async def _wrapper() -> dict:
@@ -115,15 +109,7 @@ def import_bundle(
     # Запускаем асинхронную часть через общий мост run_async
     result = run_async(_wrapper())
 
-    # ВАЖНО: на этом месте транзакция уже закоммичена.
-    # То есть все документы по сделке уже созданы в БД.
-    # Если в этом импорте появились новые документы, имеет смысл
-    # заново перестроить связи и «семьи» документов по сделке.
-    #
-    # Для непрофессионального программиста:
-    # - мы смотрим, сколько документов реально импортировано;
-    # - если число > 0, ставим отдельную фоновую задачу
-    #   workers.build_relations, которая в фоне пересчитает связи.
+    # На этом месте транзакция уже закоммичена.
     imported_count = result.get("imported_count", 0)
     if imported_count > 0:
         celery_app.send_task(
@@ -205,11 +191,6 @@ async def _import_bundle_async(
 def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
     """
     Распаковать ZIP и вернуть список (folder_path, filepath).
-
-    Сохраняет структуру папок Data Room.
-    Пример:
-      путь внутри ZIP: "02. Contracts/SPA/spa_main.pdf"
-      → folder_path = "02. Contracts/SPA"
     """
     metrics = get_metrics()
 
@@ -243,11 +224,6 @@ async def _check_idempotency(
 ) -> dict | None:
     """
     Проверка идемпотентности.
-
-    Возвращает:
-    - кэшированный результат, если импорт уже завершён;
-    - None, если это новый запуск;
-    - выбрасывает IdempotencyConflictError, если импорт ещё идёт.
     """
     expires_at = datetime.now(UTC) + timedelta(days=7)
 
@@ -265,7 +241,6 @@ async def _check_idempotency(
     if record.status == "processing":
         raise IdempotencyConflictError(f"Import with key '{key}' is already in progress")
     if record.status == "failed":
-        # позволяем повторить
         return None
     return None
 
@@ -279,18 +254,7 @@ async def _async_import(
     idempotency_key: str | None = None,
 ) -> dict:
     """
-    Основная логика импорта. Для каждого файла:
-
-      1. Валидация (расширение, размер, сигнатура).
-      2. Пропуск скрытых/системных файлов.
-      3. Карантин невалидных файлов.
-      4. Дедупликация по SHA-256 внутри сделки.
-      5. Загрузка оригинала в MinIO.
-      6. Создание Document + DocumentVersion.
-      7. Определение языка документа и обновление Deal.languages.
-      8. Постановка extract_document (PDF) или конвертация/карантин для других типов.
-
-    folder_path сохраняется как есть и потом используется L1‑классификатором.
+    Основная логика импорта.
     """
     metrics = get_metrics()
 
@@ -312,7 +276,7 @@ async def _async_import(
         idempotency_key=idempotency_key,
         file_count=0,
     )
-    db.add(bundle    )
+    db.add(bundle)
     await db.flush()
 
     for folder_path, filepath in file_list:
@@ -397,8 +361,6 @@ async def _async_import(
             continue
 
         # 5. Создаём Document
-        # Сохраняем исходное расширение и внутренний тип файла, чтобы downstream знал,
-        # что реально было загружено (pdf/docx/xlsx/image/...).
         source_ext = validation.original_extension  # например, ".pdf", ".docx"
         doc = await doc_repo.create(
             deal_id=uuid.UUID(deal_id),
@@ -411,9 +373,7 @@ async def _async_import(
             source_filetype=validation.filetype,
         )
 
-        # Определяем расширение для сохранения в MinIO:
-        # - если валидация знает исходное расширение — используем его;
-        # - иначе по умолчанию считаем, что это PDF.
+        # Определяем расширение для сохранения в MinIO
         ext = source_ext or ".pdf"
 
         artifact_path = ArtifactPath.original(tenant_id, deal_id, str(doc.id))
@@ -445,10 +405,10 @@ async def _async_import(
         decision: ExtractRoutingDecision = decide_extraction_strategy(validation.filetype)
 
         if decision.action == "extract" and decision.extractor_task:
-            # Сразу ставим extractor-задачу (сейчас только для PDF).
+            # Новый порядок для PDF: сначала строим primary_source, затем внутри него запустится extract.
             tasks_to_dispatch.append(
                 {
-                    "task_name": decision.extractor_task,
+                    "task_name": "workers.build_primary_language_source",
                     "kwargs": {
                         "document_version_id": str(doc_version.id),
                         "document_id": str(doc.id),
@@ -460,7 +420,7 @@ async def _async_import(
             )
         elif decision.action == "convert_then_extract" and decision.extractor_task:
             # DOC/DOCX: ставим задачу конвертации в PDF.
-            # Сам convert_to_pdf пока заглушка, но архитектура уже готова.
+            # Сам convert_to_pdf после успешной конвертации сам поставит extract_document.
             tasks_to_dispatch.append(
                 {
                     "task_name": decision.extractor_task,
@@ -479,7 +439,6 @@ async def _async_import(
                 filetype=validation.filetype,
                 reason=decision.reason,
             )
-
         else:
             # unsupported: честно отправляем в карантин с понятной причиной
             await doc_repo.set_quarantined(
@@ -556,7 +515,7 @@ async def _async_import(
         )
 
     # Транзакция закоммичена — можно публиковать downstream‑таски
-    from mas_queue.celery_app import celery_app as _celery  # локальный импорт, чтобы избежать циклов
+    from mas_queue.celery_app import celery_app as _celery  # локальный импорт
 
     for task in tasks_to_dispatch:
         task_name = task.get("task_name", "workers.extract_document")
@@ -580,3 +539,4 @@ def _get_content_type(filetype: str) -> str:
         "image": "image/png",
     }
     return content_types.get(filetype, "application/octet-stream")
+

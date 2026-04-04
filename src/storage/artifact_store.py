@@ -11,8 +11,10 @@ import io
 import json
 from urllib.parse import quote
 from datetime import timedelta
+
 from minio import Minio
 from minio.error import S3Error
+
 from .exports import ExportSuffix, build_export_filename
 
 from core.config import Settings, settings
@@ -47,6 +49,16 @@ class ArtifactPath:
         return f"tenants/{tenant_id}/deals/{deal_id}/originals/{document_id}_converted.pdf"
 
     @staticmethod
+    def primary_source(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Одноязычный исходный файл (source) под выбранный основной язык сделки.
+
+        Формируется на основе original/converted_pdf на стадии
+        build_primary_language_source и далее используется extract_worker.
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/originals/{document_id}_primary.pdf"
+
+    @staticmethod
     def layout_raw(tenant_id: str, deal_id: str, document_id: str) -> str:
         return f"tenants/{tenant_id}/deals/{deal_id}/layouts/{document_id}/raw.json"
 
@@ -63,6 +75,21 @@ class ArtifactPath:
     @staticmethod
     def clause_tree(tenant_id: str, deal_id: str, document_id: str) -> str:
         return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/clause_tree.json"
+
+    @staticmethod
+    def chunks(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Путь к canonical snapshot'у чанков для версии документа.
+
+        Для непрофессионального программиста:
+        - Здесь будет лежать один JSON-файл с уже посчитанными чанками
+          всех уровней (section / clause / subclause) для документа.
+        - Этим путём будут пользоваться:
+          * chunk_builder — чтобы записать снапшот;
+          * DocumentContentService / RetrievalEngine / CheckRunner — чтобы читать.
+        - Мы кладём чанки рядом со структурой (clause_tree) в каталоге structures.
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/chunks.json"
 
     @staticmethod
     def check_results(tenant_id: str, deal_id: str, run_id: str) -> str:
@@ -138,7 +165,6 @@ class ArtifactStore:
 
         self._endpoint = s.MINIO_ENDPOINT
         self._secure = s.MINIO_SECURE
-        
 
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist."""
@@ -237,7 +263,6 @@ class ArtifactStore:
                 raise PermanentError(f"Artifact not found: '{path}'")
             raise TransientError(f"Failed to get file: {e}")
 
-
     def get_http_url(self, path: str) -> str:
         """
         Вернуть HTTP/HTTPS URL для объекта в MinIO по s3://... или относительному пути.
@@ -253,7 +278,6 @@ class ArtifactStore:
 
         scheme = "https" if self._secure else "http"
         return f"{scheme}://{self._endpoint}/{self.bucket}/{object_name}"
-
 
     def get_presigned_get_url(self, path: str, expires_seconds: int = 3600) -> str:
         """
@@ -271,7 +295,6 @@ class ArtifactStore:
             object_name=clean_path,
             expires=expires,
         )
-
 
     def exists(self, path: str) -> bool:
         """Check if an object exists at the given path."""
@@ -315,4 +338,5 @@ class ArtifactStore:
         filename = build_export_filename(run_id, suffix, ext=ext)
         path = ArtifactPath.export(tenant_id, deal_id, run_id, filename)
         return self.put_file(path, data, content_type=content_type)
-
+    
+    

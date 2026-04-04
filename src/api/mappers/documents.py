@@ -52,6 +52,10 @@ def _compute_human_review_status(doc: Document) -> str:
 
     if status == DocumentStatus.QUARANTINE:
         return "Требует внимания юриста"
+    
+    if status == DocumentStatus.LANGUAGE_SELECTION_REQUIRED:
+        # Документ технически не в quarantine, но пайплайн остановлен до выбора языка.
+        return "Нужно выбрать основной язык"
 
     if status == DocumentStatus.COMPLETED:
         if doc.reviewed_by_person:
@@ -97,3 +101,5 @@ def map_documents_to_response(
     docs: Iterable[Document],
 ) -> List[DocumentResponse]:
     return [map_document_to_response(d) for d in docs]
+
+

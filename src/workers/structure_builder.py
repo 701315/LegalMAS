@@ -175,21 +175,40 @@ async def _build_structure_async(
     )
     # UoW зафиксирует изменения (commit) при выходе из db_uow в таске
 
-    # 6. Запуск следующего этапа (Классификация)
+    # 6. Запуск следующего этапа (Классификация) + построение чанков
     # Передаём в classify_document достаточный контекст:
     # - run_id (если есть),
     # - deal_id и tenant_id для корректного запуска run_deal_checks через классификатор.
     from mas_queue.celery_app import celery_app as _celery  # локальный импорт на случай циклов
 
-    _celery.send_task(
-        "workers.classify_document",
-        kwargs={
-            "document_id": str(doc.id),
-            "run_id": extra_args.get("run_id"),
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-        },
-    )
+    if not settings.DISABLE_DOWNSTREAM_TASKS:
+        # 6.1. Классификация
+        _celery.send_task(
+            "workers.classify_document",
+            kwargs={
+                "document_id": str(doc.id),
+                "run_id": extra_args.get("run_id"),
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
+        )
+
+        # 6.2. Построение чанков (snapshot) поверх уже готовой структуры.
+        #
+        # Важно:
+        # - chunk_builder ожидает document_version_id/document_id/deal_id/tenant_id/run_id;
+        # - snapshot не зависит от класса документа, только от layout + clause_tree,
+        #   поэтому переклассификация не требует пересборки чанков.
+        _celery.send_task(
+            "workers.build_chunks",
+            kwargs={
+                "document_version_id": str(v_id),
+                "document_id": str(doc.id),
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "run_id": extra_args.get("run_id"),
+            },
+        )
 
     return {
         "document_id": str(doc.id),

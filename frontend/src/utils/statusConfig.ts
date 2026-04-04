@@ -8,7 +8,11 @@
 //
 // Цвета условные — подстрой под свою дизайн-систему (primary/success/warning/error).
 
-import type { DocumentStatus, RunStatus, ProcessingErrorDetails } from "../types";
+import type {
+  DocumentStatus,
+  RunStatus,
+  ProcessingErrorDetails,
+} from "../types";
 
 // Цвет как простой string — дальше маппится на класс/токен дизайна.
 export type StatusColor = "default" | "info" | "success" | "warning" | "error";
@@ -16,6 +20,8 @@ export type StatusColor = "default" | "info" | "success" | "warning" | "error";
 export interface DocumentStatusConfig {
   label: string;
   color: StatusColor;
+  tooltip?: string;
+  description?: string;
 }
 
 export interface RunStatusConfig {
@@ -69,6 +75,14 @@ export const DOCUMENT_STATUS_CONFIG: Record<DocumentStatus, DocumentStatusConfig
     label: "Дубликат",
     color: "default",
   },
+  language_selection_required: {
+    label: "Нужно выбрать язык",
+    color: "warning",
+    tooltip:
+      "Загрузка документов завершена. Дальнейшая обработка для многоязычных документов остановлена до выбора основного языка проверки. По умолчанию выбран русский язык.",
+    description:
+      "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка — приведение к одноязычности по выбранному основному языку проверки, а также экстракция, санитизация, построение структуры, чанкинг и классификация — не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык.",
+  },
 };
 
 /** Маппинг статуса Run в подпись и цвет. */
@@ -115,9 +129,13 @@ const STAGE_LABELS: Record<string, string> = {
  *
  * Если stage неизвестен или отсутствует — возвращаем общий текст.
  */
-export function getErrorStageLabel(details?: ProcessingErrorDetails | null): string {
+export function getErrorStageLabel(
+  details?: ProcessingErrorDetails | null,
+): string {
   if (!details || !details.stage) {
     return "Неизвестная стадия";
   }
   return STAGE_LABELS[details.stage] ?? details.stage;
 }
+
+

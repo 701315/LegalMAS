@@ -595,28 +595,25 @@ async def set_deal_playbook(
 
 
 @router.patch(
-    "/{deal_id}/model-config",
+    "/{deal_id}/primary-language",
     response_model=DealResponse,
-    summary="Установить профиль модели (ModelConfig) для сделки",
+    summary="Установить основной язык сделки",
 )
-async def set_deal_model_config(
+async def set_deal_primary_language(
     deal_id: UUID,
-    payload: DealModelConfigUpdate,
+    payload: DealPrimaryLanguageUpdate,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
-    Привязывает конкретный профиль модели (ModelConfig) к сделке
-    и пишет событие в журнал аудита.
+    Устанавливает (или сбрасывает) основной язык сделки.
 
-    Логика выбора профиля для анализа далее такая:
-    - если у сделки указан model_config_id, используется он;
-    - иначе используется профиль, привязанный к PlaybookVersion;
-    - если нигде нет профиля, запуск анализа должен вернуть
-      понятную 409-ошибку, а не падать.
+    Правила:
+    - менять основной язык могут только роли admin/editor;
+    - если primary_language не null, он должен быть в Deal.languages;
+    - при нарушении правил возвращаем 400/403/404.
     """
-
-    # 1. Проверка прав в проекте: менять профиль могут admin/editor
+    # 1. Проверка прав: admin/editor
     await require_project_role(
         db=db,
         user=user,
@@ -625,56 +622,75 @@ async def set_deal_model_config(
     )
 
     deal_repo = DealRepository(db)
-    audit_repo = AuditRepository(db)
-    pb_repo = PlaybookRepository(db)
+    doc_repo = DocumentRepository(db)
+    dv_repo = DocumentVersionRepository(db)
 
     # 2. Загружаем сделку
     deal = await deal_repo.get_by_id(deal_id)
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    old_model_config_id = getattr(deal, "model_config_id", None)
-    new_model_config_id = payload.model_config_id
+    # 3. Валидация значения
+    new_lang = payload.primary_language
+    deal_languages = list(deal.languages or [])
 
-    # Если профиль не меняется — ничего не делаем и не логируем
-    if old_model_config_id == new_model_config_id:
-        return DealResponse.model_validate(deal)
-
-    # 3. Если запрошен конкретный профиль — проверяем, что он существует
-    model_config_name: str | None = None
-    if new_model_config_id is not None:
-        mc = await pb_repo.get_model_config(new_model_config_id)
-        if mc is None:
+    if new_lang is not None:
+        if not deal_languages:
             raise HTTPException(
-                status_code=404,
-                detail="ModelConfig not found",
+                status_code=400,
+                detail="Cannot set primary_language when deal has no languages",
             )
-        model_config_name = mc.name
+        if new_lang not in deal_languages:
+            raise HTTPException(
+                status_code=400,
+                detail="primary_language must be one of deal languages",
+            )
 
-    # 4. Обновляем ссылку на профиль модели в сделке
-    deal.model_config_id = new_model_config_id
+    # 4. Обновляем основной язык сделки
+    old_lang = deal.primary_language
+    deal.primary_language = new_lang
 
-    # 5. Логируем в аудит смену профиля
-    await audit_repo.log(
-        tenant_id=deal.tenant_id,
-        deal_id=deal.id,
-        action="SET_DEAL_MODEL_CONFIG",
-        actor=user.id,
-        actor_role=getattr(user, "role", None),
-        details={
-            "old_model_config_id": str(old_model_config_id)
-            if old_model_config_id
-            else None,
-            "new_model_config_id": str(new_model_config_id)
-            if new_model_config_id
-            else None,
-            "model_config_name": model_config_name,
-        },
-    )
+    # 5. Готовим список документов для рестарта (без вызова Celery пока)
+    restart_items: list[tuple[str, str]] = []
 
+    if new_lang is not None and new_lang != old_lang:
+        # Берём документы по сделке в статусе LANGUAGE_SELECTION_REQUIRED
+        docs_to_restart = await doc_repo.get_by_deal(
+            deal_id=deal_id,
+            status=DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+        )
+
+        for doc in docs_to_restart:
+            latest_version = await dv_repo.get_latest(doc.id)
+            if latest_version is None:
+                continue
+
+            # Переводим документ в PENDING через единый метод
+            await doc_repo.update_status(
+                doc.id,
+                DocumentStatus.PENDING.value,
+                processing_error_details=None,
+            )
+
+            restart_items.append((str(doc.id), str(latest_version.id)))
+
+    # 6. Фиксируем изменения в БД
     await db.flush()
     await db.commit()
     await db.refresh(deal)
+
+    # 7. После успешного коммита отправляем Celery-задания
+    for document_id_str, version_id_str in restart_items:
+        celery_app.send_task(
+            "workers.build_primary_language_source",
+            kwargs={
+                "document_version_id": version_id_str,
+                "document_id": document_id_str,
+                "deal_id": str(deal.id),
+                "tenant_id": str(deal.tenant_id),
+                "run_id": None,
+            },
+        )
 
     return DealResponse.model_validate(deal)
 
@@ -713,15 +729,12 @@ async def set_deal_primary_language(
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    # 3. Валидация значения: если язык задан, он должен быть в списке languages
+    # 3. Валидация new_lang — как у тебя уже написано
     new_lang = payload.primary_language
-
-    # Приводим список языков к списку строк для надёжности
     deal_languages = list(deal.languages or [])
 
     if new_lang is not None:
         if not deal_languages:
-            # В сделке ещё нет языков, а пользователь пытается выбрать основной
             raise HTTPException(
                 status_code=400,
                 detail="Cannot set primary_language when deal has no languages",
@@ -732,8 +745,49 @@ async def set_deal_primary_language(
                 detail="primary_language must be one of deal languages",
             )
 
-    # 4. Обновляем основной язык
+    # 4. Обновляем основной язык сделки
+    old_lang = deal.primary_language
     deal.primary_language = new_lang
+
+    # 5. Если язык реально изменился и не null — пробуем "разбудить" документы,
+    #    которые ранее остановились на LANGUAGE_SELECTION_REQUIRED.
+    if new_lang is not None and new_lang != old_lang:
+        doc_repo = DocumentRepository(db)
+        dv_repo = DocumentVersionRepository(db)
+
+        # Берём документы по сделке в статусе LANGUAGE_SELECTION_REQUIRED
+        docs_to_restart = await doc_repo.get_by_deal(
+            deal_id=deal_id,
+            status=DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+        )
+
+        for doc in docs_to_restart:
+            # Актуальная версия документа
+            latest_version = await dv_repo.get_latest(doc.id)
+            if latest_version is None:
+                continue
+
+            # Здесь мы не трогаем первичные артефакты напрямую:
+            # build_primary_language_source сам построит primary_source_ref
+            # и поставит PRIMARY_READY/запустит extract.
+
+            # Логически можно оставить статус LANGUAGE_SELECTION_REQUIRED
+            # до повторного прохода, но лучше перевести в PENDING, чтобы
+            # явно показать, что документ "в работе".
+            doc.status = DocumentStatus.PENDING.value
+
+            # Пере-запускаем build_primary_language_source.
+            # Имена kwargs и имя таски полностью совпадают с воркером.
+            celery_app.send_task(
+                "workers.build_primary_language_source",
+                kwargs={
+                    "document_version_id": str(latest_version.id),
+                    "document_id": str(doc.id),
+                    "deal_id": str(deal.id),
+                    "tenant_id": str(deal.tenant_id),
+                    "run_id": None,
+                },
+            )
 
     await db.flush()
     await db.commit()

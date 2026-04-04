@@ -216,10 +216,12 @@ def aggregate_results(
 
     Key = Tuple[str, str]  # (document_id, check_id)
 
-    def build_structured_values_index(rows: list[StructuredValueRow]) -> Dict[Key, List[StructuredValueRow]]:
-        index: Dict[Key, List[StructuredValueRow]] = defaultdict(list)
+    def build_structured_values_index(
+        rows: list[StructuredValueRow],
+    ) -> dict[tuple[str, str], list[StructuredValueRow]]:
+        index: dict[tuple[str, str], list[StructuredValueRow]] = defaultdict(list)
         for sv in rows:
-            key = (sv.document_id, sv.check_id)
+            key = (str(sv.document_id), str(sv.check_id))
             index[key].append(sv)
         return index
 

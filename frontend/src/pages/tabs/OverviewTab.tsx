@@ -19,7 +19,6 @@ import { useSSEProgress } from "../../hooks/useSSE";
 import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
 import type { ClassificationLevel } from "../../types";
 
-
 // Если используешь toast, раскомментируй:
 // import { toast } from "react-hot-toast";
 
@@ -148,8 +147,7 @@ const ClassificationQualityCard: React.FC<{
             {classReport.low_confidence_docs.slice(0, 5).map((doc) => (
               <div
                 key={doc.doc_id}
-                className="flex items-center justify-between
-                           text-xs bg-yellow-50 px-3 py-1.5 rounded"
+                className="flex items-center justify-between text-xs bg-yellow-50 px-3 py-1.5 rounded"
               >
                 <span className="truncate text-gray-700 max-w-[60%]">
                   {doc.filename}
@@ -316,7 +314,6 @@ const RunProgressCard: React.FC<{
                   </>
                 )}
 
-                {/* безопасный доступ к error_details.message без any */}
                 {(() => {
                   const details = run.error_details;
                   if (
@@ -328,8 +325,7 @@ const RunProgressCard: React.FC<{
                     return (
                       <>
                         {" "}
-                        Детали:{" "}
-                        {(details as { message: string }).message}
+                        Детали: {(details as { message: string }).message}
                       </>
                     );
                   }
@@ -390,6 +386,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const showReclassBanner =
     deal.has_pending_manual_reclassifications && !hasRestartedAfterReclass;
 
+  const documentLanguages = deal.languages ?? [];
+  const hasMultipleDocumentLanguages = documentLanguages.length > 1;
+  const selectedPrimaryLanguage = deal.primary_language ?? "";
+  const isAutoLanguage = !selectedPrimaryLanguage;
+
+  const shouldShowLanguageWarning =
+    hasMultipleDocumentLanguages && isAutoLanguage;
+
   const handleStart = () => {
     if (!canStartRun) {
       return;
@@ -400,6 +404,21 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       window.alert("Сначала выбери плейбук для сделки");
       navigate(`/projects/${deal.id}/playbook`);
       return;
+    }
+
+    if (hasMultipleDocumentLanguages && isAutoLanguage) {
+      const confirmed = window.confirm(
+        `Для этой сделки обнаружены документы на нескольких языках: ${documentLanguages.join(
+          ", ",
+        )}.\n\n` +
+          "Основной язык анализа не зафиксирован и будет использован русский язык по умолчанию.\n\n" +
+          "Если вы продолжите, дальнейшая обработка многоязычных документов (приведение к одноязычности, экстракция, санитизация, построение структуры, чанкинг и классификация) будет выполняться с опорой на русский язык.\n\n" +
+          "Подтвердить и запустить анализ?",
+      );
+
+      if (!confirmed) {
+        return;
+      }
     }
 
     const forceKey = `mas_dd_force_reclassify_${deal.id}`;
@@ -483,6 +502,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               </p>
             )}
           </div>
+
           <div className="flex flex-col items-stretch gap-2 md:items-end">
             {/* Выпадающий список режима проверок */}
             <div className="flex items-center gap-2 text-xs">
@@ -507,6 +527,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 <option value="doc_type_only">Только типы документов</option>
               </select>
             </div>
+
             {/* Кнопка запуска анализа */}
             <button
               type="button"
@@ -586,8 +607,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               {deal.languages && deal.languages.length > 0 ? (
                 <span>{deal.languages.join(", ")}</span>
               ) : (
-                // Если по каким‑то причинам список языков пуст,
-                // всё равно показываем, что по умолчанию считаем RU.
                 <span className="text-gray-500">RU (по умолчанию)</span>
               )}
             </div>
@@ -623,6 +642,23 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             <p className="text-[11px] text-gray-400">
               Основной язык влияет на распознавание структуры документов и работу моделей.
             </p>
+
+            {shouldShowLanguageWarning && (
+              <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-xs font-semibold text-amber-900">
+                  ⚠️ Для сделки обнаружены документы на нескольких языках:{" "}
+                  {documentLanguages.join(", ")}.
+                </p>
+                <p className="mt-1 text-xs leading-5 text-amber-800">
+                  Для многоязычных документов дальнейшая обработка —
+                  приведение к одноязычности по выбранному основному языку
+                  проверки, а также экстракция, санитизация, построение
+                  структуры, чанкинг и классификация — зависит от выбранного
+                  основного языка. По умолчанию будет использован русский язык.
+                  При необходимости выбери другой основной язык перед запуском анализа.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
