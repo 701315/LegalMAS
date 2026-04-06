@@ -71,7 +71,7 @@ class DocTypeCheckLoader:
         all_checks = global_checks + doc_type_checks
     """
 
-    MAX_CHECKS = getattr(settings, "DOC_TYPE_MAX_CHECKS_PER_DOC", 30)
+    MAX_CHECKS = getattr(settings, "DOC_TYPE_MAX_CHECKS_PER_DOC", 1000)
 
     def __init__(self, registry_dir: str | None = None) -> None:
         self._dir = Path(registry_dir or settings.CLASSIFIER_REGISTRY_PATH)
@@ -594,3 +594,6 @@ class DocTypeCheckLoader:
                 },
             )
             return None
+        
+
+        

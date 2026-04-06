@@ -5,7 +5,7 @@
 
 Назначение:
   - создать единый экземпляр Celery (celery_app) для всего проекта;
-  - настроить брокер, backend результатов, сериализацию, очереди и надёжность;
+  - настроить broker, backend результатов, сериализацию, очереди и надёжность;
   - подключить регистрацию всех задач через модуль workers.tasks.
 
 Все воркеры импортируют celery_app из этого файла и регистрируют задачи через
@@ -14,10 +14,11 @@
 Конфигурация очередей:
 
   high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
-  default        — основной пайплайн (extract, pii, structure, classify).
-                    x-max-priority=5.
-  llm_checks     — LLM-тяжёлые задачи (run_deal_checks). Без приоритетов,
-                    собственный time_limit/visibility_timeout.
+  default        — основной пайплайн и лёгкая оркестрация
+                   (extract, pii, structure, classify, scheduler/finalizer).
+                   x-max-priority=5.
+  heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
+                   Без приоритетов, отдельные soft/hard time limits.
   low_priority   — фоновые задачи (export, relations). x-max-priority=1.
 
 Политика надёжности (ключевые настройки):
@@ -25,23 +26,21 @@
   task_acks_late=True              — ACK только после успешного выполнения.
   worker_prefetch_multiplier=1     — воркер берёт ровно одну задачу за раз.
   task_reject_on_worker_lost=True  — при падении воркера задача возвращается.
-  task_soft_time_limit             — SIGTERM за 60 сек до hard limit.
-  task_time_limit                  — SIGKILL через заданное время.
-  visibility_timeout               — должен быть >= task_time_limit * 2,
-                                     иначе Redis может переотправить задачу
-                                     до завершения работы воркера.
+  task_soft_time_limit             — мягкий лимит времени, даёт шанс записать
+                                     TIMEOUT / error_details до hard kill.
+  task_time_limit                  — жёсткий лимит времени.
+  visibility_timeout               — должен быть существенно больше максимального
+                                     task_time_limit, иначе Redis может отдать
+                                     задачу повторно до завершения воркера.
 
-Важно: SoftTimeLimitExceeded нужно перехватывать в MASBaseTask (base_task.py),
-иначе задача может остаться в RUNNING без записи в DLQ.
+Важно:
+  - SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
+    иначе задача может остаться в RUNNING без корректного статуса в БД.
+  - Для heavy_llm рекомендуется отдельный Celery worker-процесс.
 
 Технический долг (актуальное):
-
-  - Изолировать engine/session factory в тестах:
-      * тесты должны использовать отдельный engine, а не тот же singleton,
-        что и продакшн-код (см. async_helpers.py).
-  - Покрыть run_async unit-тестами:
-      * протестировать ветки: нормальный loop, закрытый loop,
-        уже работающий loop.
+  - Изолировать engine/session factory в тестах.
+  - Покрыть run_async unit-тестами.
 """
 
 from urllib.parse import urlparse, urlunparse
@@ -50,6 +49,10 @@ from celery import Celery
 from kombu import Exchange, Queue
 
 from core.config import settings
+from core.logging import get_logger
+
+
+logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Экземпляр приложения
@@ -64,10 +67,11 @@ celery_app = Celery("mas_dd")
 
 def _make_result_backend(broker_url: str, db: int = 1) -> str:
     """
-    Строит URL для result backend, подставляя нужный номер Redis DB.
+    Построить URL для Celery result backend, подставив отдельную Redis DB.
 
-    Используем urlparse/urlunparse, корректно обрабатывает URL без
-    trailing /{db} (например redis://localhost:6379 без номера базы).
+    Почему так:
+    - broker и backend лучше держать в разных Redis DB;
+    - urlparse/urlunparse корректно работает и с URL без /{db}.
     """
     parsed = urlparse(broker_url)
     return urlunparse(parsed._replace(path=f"/{db}"))
@@ -76,130 +80,145 @@ def _make_result_backend(broker_url: str, db: int = 1) -> str:
 _result_backend = _make_result_backend(settings.REDIS_URL)
 
 # ---------------------------------------------------------------------------
+# Имена очередей
+# ---------------------------------------------------------------------------
+
+QUEUE_HIGH_PRIORITY = "high_priority"
+QUEUE_DEFAULT = "default"
+QUEUE_HEAVY_LLM = "heavy_llm"
+QUEUE_LOW_PRIORITY = "low_priority"
+
+# ---------------------------------------------------------------------------
+# Лимиты задач
+# ---------------------------------------------------------------------------
+
+# Глобальные лимиты — для большинства задач пайплайна.
+GLOBAL_TASK_SOFT_TIME_LIMIT_SEC = 1200
+GLOBAL_TASK_TIME_LIMIT_SEC = 1200
+
+# Heavy LLM — атомарная single-check задача.
+RUN_SINGLE_CHECK_SOFT_TIME_LIMIT_SEC = 2700
+RUN_SINGLE_CHECK_TIME_LIMIT_SEC = 3600
+
+# visibility_timeout должен быть больше максимального hard limit с запасом.
+BROKER_VISIBILITY_TIMEOUT_SEC = 7200
+
+# ---------------------------------------------------------------------------
 # Конфигурация
 # ---------------------------------------------------------------------------
 
 celery_app.conf.update(
-    # --- Брокер и backend ---
+    # --- Broker / backend ---
     broker_url=settings.REDIS_URL,
     result_backend=_result_backend,
 
-    # --- Сериализация: только JSON для безопасности и читаемости ---
+    # --- Явный список модулей с Celery tasks ---
+    include=[
+        "workers.build_primary_language_source",
+        "workers.check_runner_worker",
+        "workers.chunk_builder",
+        "workers.classifier",
+        "workers.convert_worker",
+        "workers.export_pending",
+        "workers.exporter",
+        "workers.extract_worker",
+        "workers.import_worker",
+        "workers.pii_sanitizer",
+        "workers.relations_worker",
+        "workers.run_orchestrator",
+        "workers.runner",
+        "workers.structure_builder",
+    ],
+
+    # --- Сериализация ---
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
 
-    # --- Часовой пояс ---
+    # --- Timezone ---
     timezone="UTC",
     enable_utc=True,
 
     # --- Надёжность доставки ---
-    task_acks_late=True,              # ACK после выполнения задачи, а не до
-    worker_prefetch_multiplier=1,     # Воркер берёт ровно одну задачу за раз
-    task_reject_on_worker_lost=True,  # При падении воркера задача переочерёдивается
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    task_reject_on_worker_lost=True,
 
     # --- Результаты ---
-    result_expires=3600,              # Результаты живут 1 час
-    task_track_started=True,          # Видно STARTED через AsyncResult
+    result_expires=3600,
+    task_track_started=True,
 
-    # --- Переподключение к брокеру при старте ---
+    # --- Подключение к брокеру ---
     broker_connection_retry_on_startup=True,
 
-    # --- Лимиты выполнения задач ---
-    #
-    # Глобальные лимиты — для большинства задач пайплайна (import, extract, pii, etc.):
-    #   - soft: 10 мин — SIGTERM, даёт время завершить текущую операцию.
-    #   - hard: 11 мин — SIGKILL, если soft не помог.
-    # Для llm_checks лимиты можно переопределить через task_annotations.
-    task_soft_time_limit=600,  # SIGTERM через 10 мин
-    task_time_limit=660,       # SIGKILL через 11 мин
+    # --- Глобальные лимиты выполнения ---
+    task_soft_time_limit=GLOBAL_TASK_SOFT_TIME_LIMIT_SEC,
+    task_time_limit=GLOBAL_TASK_TIME_LIMIT_SEC,
 
-    # --- Защита брокерного соединения ---
+    # --- Параметры транспорта Redis ---
     broker_transport_options={
-        # Для Redis: время, после которого невзятое сообщение считается
-        # «пропавшим» и возвращается в очередь. Должно быть >= максимального
-        # task_time_limit для всех очередей.
-        # Здесь 7200 с = 2 ч, перекрывает и глобальный лимит (660 с),
-        # и потенциальный LLM-лимит (до 3600 с) с запасом.
-        "visibility_timeout": 7200,
+        "visibility_timeout": BROKER_VISIBILITY_TIMEOUT_SEC,
         "socket_timeout": 30,
         "socket_connect_timeout": 10,
     },
 
-    # --- Управление памятью воркеров ---
-    # Перезапускать форк-процесс воркера после N задач.
+    # --- Управление жизненным циклом worker child process ---
     worker_max_tasks_per_child=200,
 
-    # --- Определение очередей ---
+    # --- Описание очередей ---
     task_queues=(
         Queue(
-            "high_priority",
-            Exchange("high_priority"),
-            routing_key="high_priority",
+            QUEUE_HIGH_PRIORITY,
+            Exchange(QUEUE_HIGH_PRIORITY),
+            routing_key=QUEUE_HIGH_PRIORITY,
             queue_arguments={"x-max-priority": 10},
         ),
         Queue(
-            "default",
-            Exchange("default"),
-            routing_key="default",
+            QUEUE_DEFAULT,
+            Exchange(QUEUE_DEFAULT),
+            routing_key=QUEUE_DEFAULT,
             queue_arguments={"x-max-priority": 5},
         ),
         Queue(
-            "low_priority",
-            Exchange("low_priority"),
-            routing_key="low_priority",
+            QUEUE_LOW_PRIORITY,
+            Exchange(QUEUE_LOW_PRIORITY),
+            routing_key=QUEUE_LOW_PRIORITY,
             queue_arguments={"x-max-priority": 1},
         ),
-        # LLM-очередь без приоритетов — задачи обрабатываются строго по FIFO.
         Queue(
-            "llm_checks",
-            Exchange("llm_checks"),
-            routing_key="llm_checks",
+            QUEUE_HEAVY_LLM,
+            Exchange(QUEUE_HEAVY_LLM),
+            routing_key=QUEUE_HEAVY_LLM,
         ),
     ),
 
     # --- Очередь по умолчанию ---
-    task_default_queue="default",
-    task_default_exchange="default",
-    task_default_routing_key="default",
+    task_default_queue=QUEUE_DEFAULT,
+    task_default_exchange=QUEUE_DEFAULT,
+    task_default_routing_key=QUEUE_DEFAULT,
 
     # --- Маршрутизация задач ---
     task_routes={
         "workers.run_deal_checks": {
-            "queue": "llm_checks",
-            "routing_key": "llm_checks",
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
+        "workers.run_single_check": {
+            "queue": QUEUE_HEAVY_LLM,
+            "routing_key": QUEUE_HEAVY_LLM,
+        },
+        "workers.finalize_run_if_ready": {
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
+    },
+
+    # --- Task-level overrides ---
+    task_annotations={
+        "workers.run_single_check": {
+            "soft_time_limit": RUN_SINGLE_CHECK_SOFT_TIME_LIMIT_SEC,
+            "time_limit": RUN_SINGLE_CHECK_TIME_LIMIT_SEC,
         },
     },
 )
 
-# ---------------------------------------------------------------------------
-# LLM-задачи: переопределение time limits (пример)
-# ---------------------------------------------------------------------------
-#
-# Пример для run_deal_checks (включить, когда будут понятны реальные SLA):
-#
-# celery_app.conf.update({
-#     "task_annotations": {
-#         "workers.run_deal_checks": {
-#             "soft_time_limit": 3540,  # SIGTERM за 60 сек до hard limit
-#             "time_limit": 3600,       # SIGKILL через 1 час
-#         }
-#     }
-# })
-
-# ---------------------------------------------------------------------------
-# Регистрация задач
-# ---------------------------------------------------------------------------
-
-try:
-    import workers.tasks  # noqa: F401
-except ImportError as e:
-    from core.logging import get_logger
-
-    logger = get_logger(__name__)
-    logger.warning(
-        "Failed to import workers.tasks during celery_app init",
-        error=str(e),
-    )
-
-    

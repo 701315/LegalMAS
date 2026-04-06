@@ -114,12 +114,13 @@ class MASBaseTask(Task):
         Обёртка вокруг выполнения задачи.
 
         Перехватывает исключения и маршрутизирует их:
-          Retry                  → перекидываем как есть (Celery расписал ретрай);
-          PermanentError         → on_failure (DLQ, без ретраев);
-          QuarantineError        → on_failure (quarantine, без ретраев);
-          SoftTimeLimitExceeded  → превращаем в PermanentError → on_failure (DLQ);
-          TransientError         → _handle_transient (retry / DLQ при исчерпании);
-          Exception              → считаем транзиентным → _handle_transient.
+        Retry                  → перекидываем как есть (Celery расписал ретрай);
+        PermanentError         → on_failure (DLQ, без ретраев);
+        QuarantineError        → on_failure (quarantine, без ретраев);
+        SoftTimeLimitExceeded  → превращаем в PermanentError → on_failure (DLQ);
+        TransientError         → _handle_transient (retry / DLQ при исчерпании);
+        Programming errors     → считаем permanent, без ретраев;
+        Exception              → считаем транзиентным → _handle_transient.
         """
         try:
             return self.run(*args, **kwargs)
@@ -128,17 +129,17 @@ class MASBaseTask(Task):
         except (PermanentError, QuarantineError):
             raise
         except SoftTimeLimitExceeded as exc:
-            # Задача превысила допустимое время выполнения.
-            # Ретраить бессмысленно — проблема не временная, а структурная
-            # (слишком большой документ, зависший LLM-вызов и т.п.).
-            # Превращаем в PermanentError, чтобы on_failure записал в DLQ.
             raise PermanentError(
                 f"Task '{self.name}' exceeded soft time limit"
+            ) from exc
+        except (AttributeError, TypeError, NotImplementedError, AssertionError) as exc:
+            raise PermanentError(
+                f"Task '{self.name}' failed with programming error: "
+                f"{type(exc).__name__}: {exc}"
             ) from exc
         except TransientError as exc:
             self._handle_transient(exc, kwargs)
         except Exception as exc:
-            # Любые неожиданные исключения считаем транзиентными.
             self._handle_transient(exc, kwargs)
 
     def _handle_transient(self, exc: Exception, kwargs: dict) -> None:

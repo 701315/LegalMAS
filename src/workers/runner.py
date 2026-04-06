@@ -33,7 +33,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.ops.metrics import METRICS
+from ops.metrics import METRICS
 from core.constants import DocumentStatus, RunStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger

@@ -206,8 +206,13 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
         result.errors.append(f"PDF parsing failed: {e}")
         logger.error("PDF extraction failed", error=str(e), document_id=document_id)
 
-    return result
+    # Дополнительная мягкая диагностика: формально валидный PDF без элементов
+    if result.page_count > 0 and not result.elements:
+        msg = "PDF extraction produced zero text elements"
+        result.errors.append(msg)
+        logger.warning(msg, document_id=document_id, pages=result.page_count)
 
+    return result
 
 
 # ─── Strategy detection ───────────────────────────────────────────────────────

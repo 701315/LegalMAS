@@ -1,0 +1,2128 @@
+{
+  "document_id": "12afe90c-026c-4191-b1fa-e5cd852aca1b",
+  "root": [
+    {
+      "clause_uid": "2",
+      "title": "ПРЕДМЕТ",
+      "level": 1,
+      "element_ids": [
+        "e847e7f32f1",
+        "e2ffd361325"
+      ],
+      "start_page": 2,
+      "end_page": 2,
+      "children": [
+        {
+          "clause_uid": "2.1",
+          "title": "In accordance with this Agreement, the 2.1 В соответствии с Договором,",
+          "level": 2,
+          "element_ids": [
+            "eb163ab3ca9",
+            "e813ddcb9ce",
+            "ed83bc8244c",
+            "e535b3d8b60",
+            "e129ef96035",
+            "e3cafaa8a97"
+          ],
+          "start_page": 5,
+          "end_page": 5,
+          "children": []
+        },
+        {
+          "clause_uid": "2.2",
+          "title": "The Real Estate shall be transferred to the 2.2 Объекты недвижимости",
+          "level": 2,
+          "element_ids": [
+            "ecf504f6b82",
+            "ebf644072f7",
+            "e36ce1a0f40",
+            "e975a7e9108",
+            "e32e2068629",
+            "ec6032531f0",
+            "e7b5ad9029f",
+            "ef28134ea46",
+            "e41bbdff90b",
+            "e45305c442a",
+            "e3d109b772f"
+          ],
+          "start_page": 5,
+          "end_page": 6,
+          "children": []
+        },
+        {
+          "clause_uid": "2.3",
+          "title": "For the avoidance of doubt, the Parties 2.3 Во избежание разночтений, Стороны",
+          "level": 2,
+          "element_ids": [
+            "e0299ebb44e",
+            "ef01a7f5c52",
+            "eefb6701394",
+            "e5a8d2bbfc0",
+            "e8b0475c4ae",
+            "e5e7ac42c0a",
+            "ee1bf00eee2",
+            "ed2833e4f50",
+            "e9818181129",
+            "ea9b718131a",
+            "e798b075f38",
+            "e4d14611fac",
+            "eb2245f47ed"
+          ],
+          "start_page": 6,
+          "end_page": 6,
+          "children": []
+        },
+        {
+          "clause_uid": "2.4",
+          "title": "The Seller shall be liable to the Buyer if 2.4 Продавец несет ответственность",
+          "level": 2,
+          "element_ids": [
+            "ef1b7d921fe",
+            "e2e18a761e1",
+            "ed07c4e5671",
+            "e85920a5db1",
+            "ee8a9b5d964",
+            "eab5d9c1273",
+            "e04893aa308",
+            "e4776c8c161"
+          ],
+          "start_page": 6,
+          "end_page": 6,
+          "children": []
+        },
+        {
+          "clause_uid": "2.5",
+          "title": "The Seller hereby confirms that it is the 2.5 Продавец подтверждает, что он",
+          "level": 2,
+          "element_ids": [
+            "e8f3781c3bf",
+            "e597e3da465",
+            "e0fc54e4460",
+            "e6ba4a6d252",
+            "e7a7926cdb2",
+            "e8cf337da9d",
+            "e7bf375373b",
+            "e377ba0fb1b",
+            "e2626563754",
+            "ec7c93248a3",
+            "ea2fb2e3a5e"
+          ],
+          "start_page": 6,
+          "end_page": 6,
+          "children": []
+        },
+        {
+          "clause_uid": "2.6",
+          "title": "When signing this Agreement, the Bank 2.6 Банк при подписании настоящего",
+          "level": 2,
+          "element_ids": [
+            "e11d0a44391",
+            "ee4bdc7f6f0",
+            "e73d664c24b",
+            "e355f88c3f1",
+            "e217ed38a85"
+          ],
+          "start_page": 6,
+          "end_page": 6,
+          "children": []
+        },
+        {
+          "clause_uid": "2.7",
+          "title": "Within 3 days after receiving the 2.7 Банк в течение 3-х дней с момента",
+          "level": 2,
+          "element_ids": [
+            "e70d2f1e1b8",
+            "e1742253665",
+            "eb33c2c457d",
+            "e61cedbc9f3",
+            "e243c3fa500",
+            "eead5282034",
+            "e742166ee95",
+            "e2ca4c55dc7",
+            "e4daa0a98e1"
+          ],
+          "start_page": 6,
+          "end_page": 6,
+          "children": []
+        },
+        {
+          "clause_uid": "2.8",
+          "title": "The Parties hereto confirm that they have 2.8 Стороны подтверждают, что они",
+          "level": 2,
+          "element_ids": [
+            "e09cabfb1f7",
+            "e61cbdda6b6",
+            "e63089a99cc",
+            "e54eccd0b2f",
+            "e479eedc752",
+            "ecaf05b8109",
+            "e5384443534",
+            "eb56fe15845",
+            "e995bf14d86",
+            "e7570579701",
+            "eaa133db312",
+            "e661cc36da3",
+            "e58727784fa",
+            "eab90039d17",
+            "ed855f58e59",
+            "e40d8d807c8"
+          ],
+          "start_page": 7,
+          "end_page": 7,
+          "children": []
+        },
+        {
+          "clause_uid": "2.1",
+          "title": "Cadastral Number: 78:36:0005503:3012 10.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e06da449af4",
+            "e18a7305194",
+            "e90c1e63c89",
+            "eb253c9d33e",
+            "e698b330985"
+          ],
+          "start_page": 18,
+          "end_page": 19,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "3",
+      "title": "ПОКУПНАЯ",
+      "level": 1,
+      "element_ids": [
+        "e629073ddbb",
+        "ec6128e2e10"
+      ],
+      "start_page": 2,
+      "end_page": 2,
+      "children": [
+        {
+          "clause_uid": "3.1",
+          "title": "The Purchase Price to be paid by the 3.1 Покупная цена, уплачиваемая",
+          "level": 2,
+          "element_ids": [
+            "e903bfd21ac",
+            "e5d268b70a5",
+            "e9423116725",
+            "e5a3ad9ce74",
+            "e25dce2b6d0",
+            "e96c0af8ec9",
+            "e43d7a32108"
+          ],
+          "start_page": 7,
+          "end_page": 7,
+          "children": []
+        },
+        {
+          "clause_uid": "3.2",
+          "title": "The breakdown of the Purchase Price has 3.2 Распределение Покупной цены",
+          "level": 2,
+          "element_ids": [
+            "ec85dbff617",
+            "e2a725ae3d3"
+          ],
+          "start_page": 7,
+          "end_page": 7,
+          "children": []
+        },
+        {
+          "clause_uid": "3.3",
+          "title": "The Purchase Price is fixed and not 3.3 Покупная цена является фиксированной",
+          "level": 2,
+          "element_ids": [
+            "e915f0756ac",
+            "e6c1106c2c7"
+          ],
+          "start_page": 7,
+          "end_page": 7,
+          "children": []
+        },
+        {
+          "clause_uid": "3.4",
+          "title": "The Buyer shall pay the Purchase Price in 3.4 Покупная цена оплачивается",
+          "level": 2,
+          "element_ids": [
+            "e369dd8b8b4",
+            "e3c222da6bc"
+          ],
+          "start_page": 7,
+          "end_page": 7,
+          "children": [
+            {
+              "clause_uid": "3.4.1",
+              "title": "by opening the Letters of Credit on the 3.4.1 путем открытия Аккредитивов на",
+              "level": 3,
+              "element_ids": [
+                "ec18f7be67e",
+                "edaed1462da",
+                "ecea339faa0"
+              ],
+              "start_page": 7,
+              "end_page": 7,
+              "children": []
+            },
+            {
+              "clause_uid": "3.4.2",
+              "title": "the Buyer shall pay the Russian ruble 3.4.2 1 000 000 (один миллион) евро",
+              "level": 3,
+              "element_ids": [
+                "e019e80bbb6",
+                "edd584ed9be",
+                "e64080764dd",
+                "e7e2c03f3a1",
+                "ef3643f2c3e",
+                "e69f8009853",
+                "e9aa05e42e4",
+                "eb449675040",
+                "e7c2c82f4ed",
+                "e2d3a3c7f71",
+                "e0a07b649eb",
+                "eb68f15a821",
+                "e1d77aa166c",
+                "ec8bf693e61",
+                "e9560ab5594",
+                "e0b3619fab4",
+                "e46284c7b66"
+              ],
+              "start_page": 7,
+              "end_page": 7,
+              "children": []
+            }
+          ]
+        },
+        {
+          "clause_uid": "3.5",
+          "title": "The Buyer shall pay the expenses 3.5 Расходы, связанные с открытием и",
+          "level": 2,
+          "element_ids": [
+            "e7e88092929",
+            "e88827f5abd",
+            "e0abc3bf7ee",
+            "eef99d83885",
+            "ea3c5ca95fb",
+            "e877d7b1b18"
+          ],
+          "start_page": 8,
+          "end_page": 8,
+          "children": []
+        },
+        {
+          "clause_uid": "3.6",
+          "title": "Immediately after the Letters of Credit are 3.6 Незамедлительно после",
+          "level": 2,
+          "element_ids": [
+            "e2c24ef7abc",
+            "e496dd30303",
+            "e227a6ab29b",
+            "ede7a105ef5"
+          ],
+          "start_page": 8,
+          "end_page": 8,
+          "children": []
+        },
+        {
+          "clause_uid": "3.7",
+          "title": "The Buyer shall pay the expenses for the 3.7 Расходы по государственной",
+          "level": 2,
+          "element_ids": [
+            "e47a841d5ae",
+            "ec875d12ef1",
+            "ed7c2bcb106",
+            "e26aa0e7bb5"
+          ],
+          "start_page": 8,
+          "end_page": 8,
+          "children": []
+        },
+        {
+          "clause_uid": "3.8",
+          "title": "If the transfer of title to the Real Estate 3.8 В случае если переход права",
+          "level": 2,
+          "element_ids": [
+            "eb57ff5ec14",
+            "ea3cbc4cc4c",
+            "eed83653d59",
+            "e86d20811e7",
+            "e8bf328d2c1",
+            "e29ddab06d2",
+            "eb2b2cf2084",
+            "e1d9fc9a59f",
+            "efd67074435",
+            "ec73f741db7",
+            "e8165dca975",
+            "e321470d0de",
+            "e717c5e755b",
+            "e5ea3784151",
+            "e6b7c8b3c94"
+          ],
+          "start_page": 8,
+          "end_page": 8,
+          "children": []
+        },
+        {
+          "clause_uid": "3.9",
+          "title": "The Seller shall send the monetary funds 3.9 Продавец обязуется направить",
+          "level": 2,
+          "element_ids": [
+            "ef65f0b2f6c",
+            "e576f97c64c",
+            "e262140a340",
+            "e7a85127f72",
+            "ef59bd0fda7",
+            "e1b58f94376",
+            "ed16042964e",
+            "e95e8666e84",
+            "ec4ca37b051",
+            "e5bb065c3d5"
+          ],
+          "start_page": 8,
+          "end_page": 8,
+          "children": []
+        },
+        {
+          "clause_uid": "3.1",
+          "title": "Cadastral Number: 78:36:0005503:3007 11.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e0287557ea5",
+            "ed1cfba3cef",
+            "e6e5601e98f",
+            "ebc7f7935fd",
+            "e319e62234c"
+          ],
+          "start_page": 19,
+          "end_page": 19,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "4",
+      "title": "ПОРЯДОК ПЕРЕДАЧИ ОБЪЕКТОВ",
+      "level": 1,
+      "element_ids": [
+        "e9d1c863f4f",
+        "e85bee104c2"
+      ],
+      "start_page": 2,
+      "end_page": 2,
+      "children": [
+        {
+          "clause_uid": "4.1",
+          "title": "The Real Estate shall be transferred from 4.1 Передача Объектов недвижимости",
+          "level": 2,
+          "element_ids": [
+            "e6de9b2852a",
+            "e0a1e15ec48",
+            "e6c81e93e8b",
+            "e58fb242821",
+            "ee6be27d489",
+            "e655527f37d",
+            "ef3da4d0a3d",
+            "e061f4fd448",
+            "e174ab0cd8f"
+          ],
+          "start_page": 8,
+          "end_page": 8,
+          "children": []
+        },
+        {
+          "clause_uid": "4.2",
+          "title": "Transfer Certificate shall be executed in 4.2 Акт составляется на русском и",
+          "level": 2,
+          "element_ids": [
+            "ef1102c148d",
+            "ec9c3a64976",
+            "e1218397710",
+            "e604f003425",
+            "eea6c7a3b1b",
+            "e6aa93e155d",
+            "e135dcea794"
+          ],
+          "start_page": 9,
+          "end_page": 9,
+          "children": []
+        },
+        {
+          "clause_uid": "4.3",
+          "title": "Upon signing Transfer Certificate, the 4.3 При подписании Акта Продавец",
+          "level": 2,
+          "element_ids": [
+            "ee9ef50931e",
+            "e534e531d98",
+            "e1b785dadcd",
+            "ef39ed08c6f",
+            "ea54c51d20b",
+            "e38870ad409",
+            "e3bec2ef631",
+            "efa60ab87f4",
+            "edb72bdd937",
+            "ebddac5135b",
+            "e1a1d026c3d",
+            "eaaae54f6c6",
+            "e8fe67681f6",
+            "e58f5b9e603"
+          ],
+          "start_page": 9,
+          "end_page": 9,
+          "children": []
+        },
+        {
+          "clause_uid": "4.4",
+          "title": "The Parties shall submit this Agreement 4.4 Стороны обязуются подать Договор",
+          "level": 2,
+          "element_ids": [
+            "e4e662ee6b0",
+            "e1640ff8713",
+            "eb0eab8cbdc",
+            "e78ef273326",
+            "e51ec679e90",
+            "e3d57fab42e",
+            "edddbb85f7c",
+            "e8f2c206757"
+          ],
+          "start_page": 9,
+          "end_page": 9,
+          "children": []
+        },
+        {
+          "clause_uid": "4.5",
+          "title": "All risks related to the Real Estate shall 4.5 Все риски в отношении Объектов",
+          "level": 2,
+          "element_ids": [
+            "e7d9c4899c5",
+            "e03740284b5",
+            "ecacc805bc1",
+            "e4b30b170f6",
+            "ef0e7b5b3d9"
+          ],
+          "start_page": 9,
+          "end_page": 9,
+          "children": []
+        },
+        {
+          "clause_uid": "4.6",
+          "title": "The Parties have agreed that the 4.6 Стороны пришли к соглашению, что",
+          "level": 2,
+          "element_ids": [
+            "ed46226a80a",
+            "eb2b8f0efa7",
+            "ec49302b2a6",
+            "eddde1158e7",
+            "e3e428958d7",
+            "eb978a3086e"
+          ],
+          "start_page": 9,
+          "end_page": 9,
+          "children": []
+        },
+        {
+          "clause_uid": "4.1",
+          "title": "Cadastral Number: 78:36:0005503:3014 12.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "ebd8995d890",
+            "e6dec135022",
+            "e2860d4ee16",
+            "e11fe00fe86",
+            "e2caa31f56a"
+          ],
+          "start_page": 19,
+          "end_page": 19,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "5",
+      "title": "ЗАЯВЛЕНИЯ И ГАРАНТИИ",
+      "level": 1,
+      "element_ids": [
+        "ee7d8ecc26f",
+        "ecc97b696a2"
+      ],
+      "start_page": 2,
+      "end_page": 2,
+      "children": [
+        {
+          "clause_uid": "5.1",
+          "title": "If the Buyer discovers that the Seller has 5.1 В том случае Покупателем будет",
+          "level": 2,
+          "element_ids": [
+            "ec70f17ef18",
+            "e8edd6e9a78",
+            "ea23bbac529",
+            "e65874d701c",
+            "e80a5cd0adc",
+            "e55a19e9556",
+            "e4778666ab7",
+            "e1c6575bb17",
+            "ef178ecafc8",
+            "e533453ffe3",
+            "eaba3633daa",
+            "e430f9e79af",
+            "efffbddd88c",
+            "e15f3bb5e15",
+            "e222e49613d",
+            "e0eca8e8251",
+            "e2706c76313",
+            "ede1997c54b"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.2",
+          "title": "The abovementioned (in Item 5.1) 5.2 Указанные выше (в п. 5.1.) последствия",
+          "level": 2,
+          "element_ids": [
+            "e069e179721",
+            "ec8d2cba24e",
+            "ea0450846fa",
+            "e0f27048c3d",
+            "ef67a138fbc",
+            "e69f8b2019d",
+            "eb88dd6fda2",
+            "ec744b03b27"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.3",
+          "title": "The Seller hereby warrants that the Seller 5.3 Продавец гарантирует, что",
+          "level": 2,
+          "element_ids": [
+            "eb0df8341aa",
+            "ee1ab0eaa9b",
+            "eb24a56d248",
+            "e528f972b01",
+            "e9e3342fa1c",
+            "e1f13e91a93",
+            "e31794a0328"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.4",
+          "title": "The Seller hereby warrants that the 5.4 Продавец гарантирует, что заключение",
+          "level": 2,
+          "element_ids": [
+            "e35b355bde9",
+            "e58e5118b61",
+            "e565f6232e2",
+            "eaaaa178610",
+            "e330e9b6f97",
+            "ef8bbcd5b7a"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.5",
+          "title": "The Seller hereby warrants that the Seller 5.5 Продавец гарантирует, что не",
+          "level": 2,
+          "element_ids": [
+            "e46f64ec3cf",
+            "e6a716a535a",
+            "e22a4fa362d",
+            "e18a3e7d58b",
+            "ef2274b668d",
+            "e22bd4a809f",
+            "ef48d6f37ae"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.6",
+          "title": "The Seller hereby warrants that the Seller 5.6 Продавец гарантирует, что не",
+          "level": 2,
+          "element_ids": [
+            "e1e61fe2ba5",
+            "e0834960ab1"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.7",
+          "title": "The Seller hereby warrants that no urban 5.7 Продавец гарантирует, что в",
+          "level": 2,
+          "element_ids": [
+            "e9bf7ad398f",
+            "e4001d2ebbd",
+            "eaf77ec1528",
+            "ee0f9273d2f",
+            "ed172eac129",
+            "ecb53b84a3a",
+            "e5fbe6687a2",
+            "e763ea2b78b"
+          ],
+          "start_page": 10,
+          "end_page": 10,
+          "children": []
+        },
+        {
+          "clause_uid": "5.8",
+          "title": "The Seller hereby warrants that all of the 5.8 Продавец гарантирует, что все",
+          "level": 2,
+          "element_ids": [
+            "e62da5b6ed2",
+            "e6f91b57036",
+            "e2cd2f13ed6",
+            "eb5532d80ce",
+            "e442e3a2a2e",
+            "e9bcdc134cb",
+            "ea7e149b4fa",
+            "e9ab4f10373",
+            "e34301a083c",
+            "eb4833e048e",
+            "e89dc915b37",
+            "e4b9af5cc73"
+          ],
+          "start_page": 11,
+          "end_page": 11,
+          "children": []
+        },
+        {
+          "clause_uid": "5.1",
+          "title": "Cadastral Number: 78:5503:4:40 13.1 Кадастровый номер: 78:5503:4:40",
+          "level": 2,
+          "element_ids": [
+            "eaf2949506d",
+            "e5a31a6d3a0",
+            "e32eab4fae1",
+            "e8f7eca6dde"
+          ],
+          "start_page": 20,
+          "end_page": 20,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "6",
+      "title": "ОТВЕТСТВЕННОСТЬ",
+      "level": 1,
+      "element_ids": [
+        "e4ebd1768a8",
+        "ef8efee5c28"
+      ],
+      "start_page": 2,
+      "end_page": 2,
+      "children": [
+        {
+          "clause_uid": "6.1",
+          "title": "The Parties shall be liable for not 6.1 Стороны несут ответственность за",
+          "level": 2,
+          "element_ids": [
+            "efc7f4dea2d",
+            "e82b1835f69",
+            "ead07d47a12",
+            "ea692b7fc2f"
+          ],
+          "start_page": 11,
+          "end_page": 11,
+          "children": []
+        },
+        {
+          "clause_uid": "6.2",
+          "title": "A Party which has committed a breach of 6.2 Сторона, допустившая нарушение",
+          "level": 2,
+          "element_ids": [
+            "e203de4704d",
+            "e9dcd85d076",
+            "eb168ffe485",
+            "e7e88092e72",
+            "e5b6726b885",
+            "e1f48166199",
+            "e3920e8b47e",
+            "e84777897fc"
+          ],
+          "start_page": 11,
+          "end_page": 11,
+          "children": []
+        },
+        {
+          "clause_uid": "6.3",
+          "title": "In the event that the Seller breaches the 6.3 В случае нарушения Продавцом",
+          "level": 2,
+          "element_ids": [
+            "e6c1d1425da",
+            "e4519fc537f",
+            "e35837a5cb9",
+            "ec98bd978b3",
+            "e1ea94f4e2d",
+            "e2599c68f8f",
+            "e5ede58516f",
+            "e99fa361970",
+            "e19f6a48c05"
+          ],
+          "start_page": 11,
+          "end_page": 11,
+          "children": [
+            {
+              "clause_uid": "6.3.1",
+              "title": "In the event that it is discovered that a 6.3.1 В случае выявления факта",
+              "level": 3,
+              "element_ids": [
+                "ebdf150468d",
+                "e4a605e741c",
+                "e5e2a5b45ef",
+                "e8a306fdddf",
+                "ec8d453cf2c",
+                "eba4d2828dc",
+                "e5387b56053",
+                "eb5976e1beb",
+                "e6c62c5bc37",
+                "e13fc65331d",
+                "ee70ac5b715",
+                "edc97f76445",
+                "ee1c58793d5",
+                "e4d6f7aa406",
+                "e12e9821e34",
+                "e81141a88c5",
+                "eb99dfed748",
+                "e91dece436f",
+                "edb3469851f",
+                "e84a69279d8",
+                "e1b87575ca4",
+                "e64cfa28483"
+              ],
+              "start_page": 12,
+              "end_page": 12,
+              "children": []
+            }
+          ]
+        },
+        {
+          "clause_uid": "6.4",
+          "title": "If any Party fails to perform the obligation 6.4 В случае если одна из Сторон не",
+          "level": 2,
+          "element_ids": [
+            "e539aab47c6",
+            "e63a9ac4199",
+            "e0f50f53536",
+            "e64ab5c0baa",
+            "e6810f4d9cc",
+            "edbb27d3e4c",
+            "ee1649c92c1",
+            "e3db10e202f",
+            "edcf519a5c5",
+            "ebe15b31913",
+            "e6352c21b73",
+            "ec70ba3c7d3",
+            "e38a61597e4",
+            "ef2f84fe75b",
+            "e2aa923112e",
+            "e3f02769c45",
+            "e38645dd7a6",
+            "e3e5cf817dd",
+            "eb15f68272a",
+            "eda08046f25",
+            "eeeb666aed5",
+            "e2661706a17",
+            "e1d4b991fed",
+            "e67ba2c547a",
+            "e370a37be7e",
+            "e4186d8a10d"
+          ],
+          "start_page": 12,
+          "end_page": 12,
+          "children": []
+        },
+        {
+          "clause_uid": "6.5",
+          "title": "If one of the Letters of Credit that meets 6.5 В случае если один из",
+          "level": 2,
+          "element_ids": [
+            "e38e1db1e96",
+            "e7100b12a04",
+            "e7f0db06113",
+            "eeb5126e955",
+            "ed099690ea5",
+            "e8893055361",
+            "ebbf6a247c9",
+            "ebec4818ce9",
+            "ee9cf5cb564",
+            "e97c3c25ba1",
+            "edc52ac762e"
+          ],
+          "start_page": 13,
+          "end_page": 13,
+          "children": []
+        },
+        {
+          "clause_uid": "6.6",
+          "title": "The Parties shall be free from liability for 6.6 Стороны освобождаются от",
+          "level": 2,
+          "element_ids": [
+            "eca4b03fc72",
+            "ea724eb93a4",
+            "e6aacd12227",
+            "e8d7fea122a",
+            "eb12458a730",
+            "e66cb8c4b4e",
+            "e0645c59d4a",
+            "e1e756b161f",
+            "e31471db04f",
+            "ec8c34e94f8",
+            "e5f0ad82fb7",
+            "ea1e8c0674c"
+          ],
+          "start_page": 13,
+          "end_page": 13,
+          "children": []
+        },
+        {
+          "clause_uid": "6.1",
+          "title": "Cadastral Number: 78:36:0005503:3016 14.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e213e383c04",
+            "ea901380469",
+            "e666b3bbd01",
+            "eb2f66e53d7",
+            "e05461b6659"
+          ],
+          "start_page": 20,
+          "end_page": 20,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "7",
+      "title": "ЗАКЛЮЧИТЕЛЬНЫЕ",
+      "level": 1,
+      "element_ids": [
+        "e298a6186e8",
+        "e2017282034"
+      ],
+      "start_page": 2,
+      "end_page": 2,
+      "children": [
+        {
+          "clause_uid": "7.1",
+          "title": "Law and Dispute Resolution 7.1 Законодательство и разрешение",
+          "level": 2,
+          "element_ids": [
+            "e2e5ebe8d8f",
+            "e99430d4241",
+            "eaa3891a0f1"
+          ],
+          "start_page": 13,
+          "end_page": 13,
+          "children": [
+            {
+              "clause_uid": "7.1.1",
+              "title": "The Parties’ relations connected with the 7.1.1 Отношения Сторон, связанные",
+              "level": 3,
+              "element_ids": [
+                "e842107b337",
+                "ea0c3b92c52",
+                "e2ab878dbbb",
+                "e694eecfc86",
+                "e4818f229c8"
+              ],
+              "start_page": 13,
+              "end_page": 13,
+              "children": []
+            },
+            {
+              "clause_uid": "7.1.2",
+              "title": "All disputes and disagreements arising 7.1.2 Все споры и разногласия,",
+              "level": 3,
+              "element_ids": [
+                "e1153610202",
+                "ed8f6b83248",
+                "e40512b4382",
+                "ed7ab027b84",
+                "eac0ee97036"
+              ],
+              "start_page": 13,
+              "end_page": 13,
+              "children": []
+            }
+          ]
+        },
+        {
+          "clause_uid": "7.2",
+          "title": "Notices 7.2 Уведомления",
+          "level": 2,
+          "element_ids": [
+            "ea72f5d3e16"
+          ],
+          "start_page": 13,
+          "end_page": 13,
+          "children": [
+            {
+              "clause_uid": "7.2.1",
+              "title": "Any notice, claim, and/or other 7.2.1 Любые уведомления, требования и (или)",
+              "level": 3,
+              "element_ids": [
+                "efee6a0b1f3",
+                "e0c4800c882",
+                "e3ca846ac7c",
+                "e5b54bd87aa",
+                "eaf5d5f6fe6",
+                "e30c73bfdda",
+                "eabe0862bd4",
+                "e7a23f28791",
+                "ee0fdcd465f",
+                "ee07e031b0b",
+                "e7a588b164f",
+                "ec68cbf7d1e",
+                "e5e672cec6b",
+                "e647b0ee787",
+                "e14a40fb16c",
+                "ec0d282b2fc",
+                "eaaaae651de",
+                "e9c9af282d7",
+                "e4568f5624a",
+                "eaa0930a5c1",
+                "e36a47aa762"
+              ],
+              "start_page": 13,
+              "end_page": 14,
+              "children": []
+            },
+            {
+              "clause_uid": "7.2.2",
+              "title": "In the event that there is a change in its 7.2.2 В случае изменения своих",
+              "level": 3,
+              "element_ids": [
+                "e684402ef1b",
+                "ef9e705e6b2",
+                "effc4729d8d",
+                "e4fb29ab5a5",
+                "e717ed95815",
+                "ea2da33cfe1",
+                "e369f1e250d",
+                "e0385f1adbe",
+                "ee9a4b208fc",
+                "eb8970d53ae",
+                "e72de24c7c3",
+                "eb8d37c026e",
+                "e736e9a1eb6",
+                "e5a86f42038",
+                "e76b008d34e",
+                "ef6d6308f3c",
+                "ebcb1c0def0",
+                "e85a3b84308",
+                "ec7c1c841a4",
+                "eb06c08e2e9"
+              ],
+              "start_page": 14,
+              "end_page": 14,
+              "children": []
+            }
+          ]
+        },
+        {
+          "clause_uid": "7.3",
+          "title": "Miscellaneous 7.3 Прочее",
+          "level": 2,
+          "element_ids": [
+            "e0874636a8e"
+          ],
+          "start_page": 14,
+          "end_page": 14,
+          "children": [
+            {
+              "clause_uid": "7.3.1",
+              "title": "This Agreement shall commence upon its 7.3.1 Договор вступает в силу в",
+              "level": 3,
+              "element_ids": [
+                "e61430274a7",
+                "ee6b028bc81",
+                "e1007aa37ec",
+                "ea31967b860"
+              ],
+              "start_page": 14,
+              "end_page": 14,
+              "children": []
+            },
+            {
+              "clause_uid": "7.3.2",
+              "title": "The Parties may at their mutual consent 7.3.2 Стороны по взаимному согласию",
+              "level": 3,
+              "element_ids": [
+                "e8864d975a4",
+                "e8f2a11ed46",
+                "e252b8a4bd2",
+                "e75e9527bf2"
+              ],
+              "start_page": 14,
+              "end_page": 14,
+              "children": []
+            },
+            {
+              "clause_uid": "7.3.3",
+              "title": "The Parties shall maintain the 7.3.3 В течение 7 (Семь) лет с момента",
+              "level": 3,
+              "element_ids": [
+                "e92dc8a1b9b",
+                "eccf81fb7dc",
+                "e7e097504a9",
+                "ea7d77c9513",
+                "ed1c87f1a04",
+                "ec610cab8e8",
+                "e0446a1d005",
+                "e32886317f3",
+                "ecc9679b81d",
+                "ef8091ab50e",
+                "ed95878d17f",
+                "eb55b72d444",
+                "e8691abe733",
+                "e359039e70d"
+              ],
+              "start_page": 14,
+              "end_page": 14,
+              "children": []
+            },
+            {
+              "clause_uid": "7.3.4",
+              "title": "This Agreement has been executed in six 7.3.4 Настоящий Договор составлен",
+              "level": 3,
+              "element_ids": [
+                "ece3833bbf2",
+                "e4cdedd5838",
+                "e08f63e5f7c",
+                "e116cd3ba81",
+                "ec51776bde2"
+              ],
+              "start_page": 14,
+              "end_page": 14,
+              "children": []
+            },
+            {
+              "clause_uid": "7.3.5",
+              "title": "This Agreement has been executed in the 7.3.5 Договор составлен на русском",
+              "level": 3,
+              "element_ids": [
+                "e73878f0470",
+                "e133caf7b11",
+                "ee729f1fc47",
+                "e259991c33a",
+                "ef41dd36cb4",
+                "efef3da1f33",
+                "e02d79166e5",
+                "eb93f34490e"
+              ],
+              "start_page": 15,
+              "end_page": 15,
+              "children": []
+            }
+          ]
+        },
+        {
+          "clause_uid": "7.1",
+          "title": "Cadastral Number: 78:36:0005503:3015 15.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e59395b4107",
+            "e3e028d746f",
+            "e0908b6668f",
+            "e54a6e1318f",
+            "e4a013acc7f"
+          ],
+          "start_page": 20,
+          "end_page": 21,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "8",
+      "title": "РЕКВИЗИТЫ И ПОДПИСИ",
+      "level": 1,
+      "element_ids": [
+        "eb32353549f",
+        "e98c1cf68c7",
+        "e33cfc10801",
+        "e91b6ed36e3",
+        "e6500f0d640",
+        "ee82b4764df",
+        "e4c5b2a2493",
+        "ee8e6890a78",
+        "eb99c0c7c63",
+        "e58a4775945",
+        "e630895da49",
+        "ed45486e7af",
+        "e2a485accca",
+        "ed039bbb704",
+        "ec46f8d8d0e",
+        "e8a8ba32213",
+        "e969128ae9a",
+        "e45cd9a9338",
+        "e11ac89c692",
+        "ea492c45e0f",
+        "e0e3b0fd289",
+        "e8af1380463",
+        "e1212913c9e",
+        "e25d008c955",
+        "e65420f7029",
+        "ed38fa9229d",
+        "e1dbec3bcee",
+        "e3c651153fd",
+        "ef73cc55578",
+        "e879224cb34",
+        "e6e6ba01625",
+        "e6c46ab3d7a",
+        "e38a4751b2b",
+        "e2ceabc8fc5",
+        "e72c59d1389",
+        "e1cd4d39f57",
+        "e398cb4beb0",
+        "ee30586b357",
+        "ea7df2357b2",
+        "e16cdf48d90",
+        "e624e2c7689",
+        "e985d5f3213",
+        "ea0e187b950",
+        "efe157caae0",
+        "ed771b6b582",
+        "e5faa2d74e5",
+        "ef43c5fc6ec",
+        "e4c5482fb62",
+        "e1b40d0d5b9",
+        "ec36575958c",
+        "e9d47b40361",
+        "e575bb6ba09",
+        "e2bd6c87a46",
+        "e7925371ac7",
+        "e5573cd978e",
+        "ee3715dd579",
+        "e7aa6b96e9d",
+        "e9bce1ddc0a",
+        "e9750b6fd77",
+        "e8b52196bc3",
+        "e04c3e4803e",
+        "ee4bf54181d",
+        "e58667dad8f",
+        "e81d435e100",
+        "eb226f2cd5d",
+        "e77ded91e66",
+        "e3a9aa5e906",
+        "e712476fd12",
+        "eabe7eb652f",
+        "ed631be2c8e",
+        "e1eff32c0a8",
+        "ea63195ccba",
+        "ebf161d1059",
+        "ebd9d7a4c05",
+        "e3157e4cd1e",
+        "e8950497a9e",
+        "e983b336604"
+      ],
+      "start_page": 2,
+      "end_page": 4,
+      "children": [
+        {
+          "clause_uid": "8.1",
+          "title": "Seller 8.1 Продавец:",
+          "level": 2,
+          "element_ids": [
+            "e20488170e5",
+            "e00a0debefa",
+            "e7c295015d6",
+            "eadbfa70799",
+            "e88f351fbdb",
+            "efa288142de",
+            "efdddf9b3f9",
+            "e52b23b3d4d",
+            "ede64083ca1",
+            "e2a534c88f0",
+            "e4a235e1a4f",
+            "e37e6fbcab8",
+            "e6cc495a650",
+            "ec2143b255a",
+            "eca92faa768",
+            "e8e9f512ad5",
+            "e16c5555aa6",
+            "e6bcced4297",
+            "e97c7658134",
+            "e96f0b60508",
+            "eb9907df919",
+            "eb60700d15c"
+          ],
+          "start_page": 15,
+          "end_page": 15,
+          "children": []
+        },
+        {
+          "clause_uid": "8.2",
+          "title": "Buyer 8.2 Покупатель:",
+          "level": 2,
+          "element_ids": [
+            "e165340c577",
+            "eae91d4ed08",
+            "e3b369508de",
+            "e46c9a73e7f",
+            "ea39034515d",
+            "eed5880cc5d",
+            "e7e972a86dc",
+            "edc7c0d847c",
+            "e4a6060f0f0",
+            "e3300c9cf1f",
+            "ebf2c50db71",
+            "e41098d7e8e",
+            "ec2838a1362",
+            "ed7ce45bed9",
+            "e0a1a2ed97c",
+            "e09bebfd1be",
+            "e03584dc307",
+            "ef1fa97081b"
+          ],
+          "start_page": 15,
+          "end_page": 15,
+          "children": []
+        },
+        {
+          "clause_uid": "8.3",
+          "title": "Bank 8.3 Банк:",
+          "level": 2,
+          "element_ids": [
+            "ecb48986098",
+            "ed84e12808c",
+            "e9ce98a2c7d",
+            "ee77956ad47",
+            "ec64ce61f17",
+            "ecb817f8fe6",
+            "e52d9efa8d0",
+            "e5b705804e3",
+            "edf39b679a1",
+            "e4471dcb79c",
+            "e870917a625",
+            "eb03330ed51",
+            "e29328fddff",
+            "e011c0f5a6f",
+            "e9b65f2cf7e",
+            "ec5c8dedf28",
+            "ebdc24c1169",
+            "eaaf650819f",
+            "edd2d7ce4b5",
+            "e6d18c4bf1d",
+            "e9d113527da",
+            "e0050a1b07f",
+            "e522837fae8",
+            "ea493cec68d",
+            "e26bc3e316b",
+            "e482626d2f3",
+            "e2c30b914b5",
+            "e47919017c3",
+            "e9639b38bac",
+            "e54e3bf3b9e",
+            "e06c833c949",
+            "e00e8b23b9c",
+            "e4aae7e2efa"
+          ],
+          "start_page": 16,
+          "end_page": 17,
+          "children": []
+        },
+        {
+          "clause_uid": "8.1",
+          "title": "Cadastral Number: 78:36:0005503:3021 16.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e3a4bc88439",
+            "e57d2a6c4d7",
+            "e6a2dcad3d2",
+            "e751a2f0e47",
+            "ec9f92e14c7",
+            "e7897e412b0",
+            "e064aa30e0c",
+            "e76db940e4e",
+            "e89d4263cb7",
+            "e1f8ba844d4",
+            "ed7c7f8f1af",
+            "e486ba16608",
+            "e8e28193620",
+            "e3f30f9c5e2",
+            "e9975bcb6ca",
+            "efa4cab091c",
+            "e590c1813ed",
+            "e6b65ca0b9a",
+            "ee75d76b471",
+            "e854d8341ce",
+            "e24d5bb02bb",
+            "e58de35d631",
+            "e215b8f4e2c",
+            "e59bbe3a62d",
+            "e5600815a95",
+            "e735d680288",
+            "eb2094e0024",
+            "e573ae78135",
+            "e21d66a912d",
+            "e83963ab02b",
+            "ea895d2606b",
+            "ec5b64a3e51",
+            "ee6db58ee93",
+            "e0f238a1b6b",
+            "ebf7856a0c4"
+          ],
+          "start_page": 21,
+          "end_page": 23,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "1.1",
+      "title": "“ Transfer Certificate ” means the transfer 1.1 « Акт » означает акт",
+      "level": 2,
+      "element_ids": [
+        "ef141ef4021",
+        "e33fb262a14",
+        "ee3359e5437",
+        "e3ee0a37396",
+        "ef53c59fbe8",
+        "e436a9fb7cc",
+        "e7806e902a3",
+        "e5b3659c30e"
+      ],
+      "start_page": 4,
+      "end_page": 4,
+      "children": []
+    },
+    {
+      "clause_uid": "1.2",
+      "title": "“ Letters of Credit ” means the letters of 1.2 « Аккредитивы » означает",
+      "level": 2,
+      "element_ids": [
+        "e37f5d069d2",
+        "e2fade713c0",
+        "ec629d2b3b9",
+        "e8ded300f05",
+        "e185a4c2bef"
+      ],
+      "start_page": 4,
+      "end_page": 4,
+      "children": []
+    },
+    {
+      "clause_uid": "1.3",
+      "title": "“ Bank ” means Public Joint Stock 1.3 « Банк » означает Публичное",
+      "level": 2,
+      "element_ids": [
+        "e9de95bc757",
+        "e51aac1b0c5",
+        "e3b15fa4547"
+      ],
+      "start_page": 4,
+      "end_page": 4,
+      "children": []
+    },
+    {
+      "clause_uid": "1.4",
+      "title": "“ Agreement ” means this Real Estate Sale 1.4 « Договор » означает настоящий",
+      "level": 2,
+      "element_ids": [
+        "e7e9c196546",
+        "e9be2752434",
+        "e225e83bf91",
+        "ead1ea2dfec",
+        "ebd92e9466d"
+      ],
+      "start_page": 4,
+      "end_page": 4,
+      "children": []
+    },
+    {
+      "clause_uid": "1.5",
+      "title": "“ Law ” means the current laws of the 1.5 « Законодательство » означает",
+      "level": 2,
+      "element_ids": [
+        "e97bda366c1",
+        "efae575b503",
+        "e835f7bba70"
+      ],
+      "start_page": 4,
+      "end_page": 4,
+      "children": []
+    },
+    {
+      "clause_uid": "1.6",
+      "title": "“ Land Plot ” means the land plot with 1.6 « Земельный участок » означает",
+      "level": 2,
+      "element_ids": [
+        "eff9199d092",
+        "efa5a9c9d63",
+        "e7d94012a44",
+        "e7e339a7d5a",
+        "e50508cc4db",
+        "e5f7d4f94d2",
+        "ede72b34347",
+        "e9ebbf02bd7"
+      ],
+      "start_page": 4,
+      "end_page": 4,
+      "children": []
+    },
+    {
+      "clause_uid": "1.7",
+      "title": "“ Creditor Indebtedness ” means the total 1.7 « Кредиторская задолженность »",
+      "level": 2,
+      "element_ids": [
+        "e51b9247a99",
+        "e809630213b",
+        "eaf5f76b382",
+        "e515ff09a31",
+        "eadd0bf5f0b",
+        "efb13ff4c77",
+        "eca0b987ab4",
+        "e96db9cbe60"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.8",
+      "title": "“ Real Estate ” means all of the real estate 1.8 « Объекты недвижимости »",
+      "level": 2,
+      "element_ids": [
+        "e12f64a8624",
+        "eb1e2b1f41b",
+        "eb874a5952c",
+        "e147b21dfec",
+        "e7b214f454f",
+        "eb1976096f8",
+        "e41d6486387"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.9",
+      "title": "“ Buyer ” means KFR Real Estate 1 1.9 « Покупатель » означает Общество с",
+      "level": 2,
+      "element_ids": [
+        "ec142ee25a0",
+        "ed878fde24a",
+        "ef0696d80eb"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.10",
+      "title": "“ Purchase Price ” means the price for the 1.10 « Покупная цена » означает",
+      "level": 2,
+      "element_ids": [
+        "e793576c50d",
+        "ef2de4f0b32",
+        "e52155ee2d8",
+        "e72f651ced9",
+        "e1c8baf76bc",
+        "e35b31c287e"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.11",
+      "title": "“ Seller ” means Griffin-Autoservice 1.11 « Продавец » означает Общество с",
+      "level": 2,
+      "element_ids": [
+        "e6012b2fd0e",
+        "ee5dcfde00f",
+        "e375e11734a"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.12",
+      "title": "“ Permission to Execute the Agreement ” 1.12 «Разрешение на заключение",
+      "level": 2,
+      "element_ids": [
+        "eae2278f0d6",
+        "ef92c2c89eb",
+        "ec35c96b359",
+        "e0dd31675da",
+        "eee5e682695",
+        "e3f96e1a89e"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.13",
+      "title": "“ Rosreestr ” means the agency 1.13 « Росреестр » означает орган,",
+      "level": 2,
+      "element_ids": [
+        "e5f7d2d20f5",
+        "e4a831cc2bc",
+        "e3ff4c5be06",
+        "e0e6949b310",
+        "e855e52a4b5"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "1.14",
+      "title": "“ Party ” or “ Parties ” means the Buyer 1.14 « Стороны » или « Сторона »",
+      "level": 2,
+      "element_ids": [
+        "e847341acaf",
+        "ebc6293a18f",
+        "eddb63d267d"
+      ],
+      "start_page": 5,
+      "end_page": 5,
+      "children": []
+    },
+    {
+      "clause_uid": "13",
+      "title": "Simonova Street, Saint Petersburg. Петербург, ADDRESS1",
+      "level": 1,
+      "element_ids": [
+        "e861df0e62f",
+        "e7791ae3a4e"
+      ],
+      "start_page": 7,
+      "end_page": 7,
+      "children": [
+        {
+          "clause_uid": "13.1",
+          "title": "Cadastral Number: 78:5503:4:40 21.1 Кадастровый номер: 78:5503:4:40",
+          "level": 2,
+          "element_ids": [
+            "e8a3fb67687",
+            "eb192f6981a",
+            "e50f8eea216",
+            "e360367b3a5"
+          ],
+          "start_page": 25,
+          "end_page": 26,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "50",
+      "title": "000 000 (пятьдесят",
+      "level": 1,
+      "element_ids": [
+        "e03ec4bc34b",
+        "e7006f1aa23"
+      ],
+      "start_page": 12,
+      "end_page": 12,
+      "children": []
+    },
+    {
+      "clause_uid": "15",
+      "title": "December 2014, St. Petersburg 15 декабря 2014 года, Санкт-Петербург",
+      "level": 1,
+      "element_ids": [
+        "eb3cd022670",
+        "e68be9d3d65",
+        "efb31aeac59",
+        "e0012a51195",
+        "e6f6018a316",
+        "e15bab0df47",
+        "e121acadaad",
+        "eda0595f5fa",
+        "e5858eb4112",
+        "eae3d5d67bd",
+        "e13d3bf5439",
+        "e62394c46eb"
+      ],
+      "start_page": 17,
+      "end_page": 17,
+      "children": [
+        {
+          "clause_uid": "15.1",
+          "title": "Cadastral Number: 78:36:0005503:3015 23.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "eded00502d9",
+            "ea399c7e3d8",
+            "e482e60cc17",
+            "e1c9bafff12",
+            "e57c2acde5a"
+          ],
+          "start_page": 26,
+          "end_page": 26,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "13",
+      "title": "Simonova Street, Saint Petersburg, нахождения: Россия, 194358, Санкт-",
+      "level": 1,
+      "element_ids": [
+        "ef1c72042f2",
+        "e8c16a6f5d7",
+        "e352800cbc5",
+        "e33ff5e0b2f",
+        "e757a86a70a",
+        "e03092d41fa",
+        "e25e16f8877",
+        "e44efe84672",
+        "ef8f6fb2972",
+        "e51020921d1",
+        "e0ee5e3e122",
+        "e9f423249af",
+        "e6b70b1a871",
+        "e88e7053194",
+        "e92233aa0ce",
+        "e062cbe5b8f",
+        "e7a9ce0793c",
+        "e92334b5b39",
+        "eb5306bdbf2",
+        "eb9d81351b0",
+        "ea751a488ed",
+        "ed96d05fa7d",
+        "ee1325d8cbb",
+        "e73190b8ae7",
+        "ebae3349b90",
+        "e67d1716d7e",
+        "ebd2da820e0",
+        "edd2fa144d9",
+        "eb052d2a817",
+        "e5aa5cfe65c",
+        "ef5aabe91ef",
+        "e3e082505d2",
+        "eac2f9f574d",
+        "e2fc50fe1a1",
+        "e7774a92459",
+        "e5777d40be6",
+        "e274419fe36",
+        "ebe91e6309f",
+        "ec4b958846d",
+        "e04840d51a0",
+        "e8a06a78764"
+      ],
+      "start_page": 17,
+      "end_page": 18,
+      "children": []
+    },
+    {
+      "clause_uid": "1",
+      "title": "Name of the Object: Land plot 9 Наименование объекта: земельный",
+      "level": 1,
+      "element_ids": [
+        "edb9fb3d002",
+        "ecaa7fedef4",
+        "ed0a3a9a396"
+      ],
+      "start_page": 18,
+      "end_page": 18,
+      "children": [
+        {
+          "clause_uid": "1.1",
+          "title": "Cadastral Number: 78:36:0005503:4 9.1 Кадастровый номер: 78:36:0005503:4",
+          "level": 2,
+          "element_ids": [
+            "ebd3170fd3f",
+            "e3263b8f7c4",
+            "e315022cfad",
+            "e6bc49ec335",
+            "e6b9ebe15b9"
+          ],
+          "start_page": 18,
+          "end_page": 18,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "2",
+      "title": "Name of the Object: Non-residential 10 Наименование объекта: нежилое здание",
+      "level": 1,
+      "element_ids": [
+        "e95007a6da0",
+        "e0de9984ebd",
+        "e9ae7802e40"
+      ],
+      "start_page": 18,
+      "end_page": 18,
+      "children": []
+    },
+    {
+      "clause_uid": "3",
+      "title": "Name of the Object: Non-residential 11 Наименование объекта: нежилое здание",
+      "level": 1,
+      "element_ids": [
+        "e7dfbedd5c8",
+        "eb9b046bbe9",
+        "efa44d17f82"
+      ],
+      "start_page": 19,
+      "end_page": 19,
+      "children": []
+    },
+    {
+      "clause_uid": "4",
+      "title": "Name of the Object: Non-residential 12 Наименование объекта: нежилое здание",
+      "level": 1,
+      "element_ids": [
+        "e2c2444207d",
+        "e664577051f",
+        "e829766505c"
+      ],
+      "start_page": 19,
+      "end_page": 19,
+      "children": []
+    },
+    {
+      "clause_uid": "5",
+      "title": "Name of the Object: Warehouse 13 Наименование объекта: склад",
+      "level": 1,
+      "element_ids": [
+        "e297c45c610"
+      ],
+      "start_page": 19,
+      "end_page": 19,
+      "children": []
+    },
+    {
+      "clause_uid": "6",
+      "title": "Name of the Object: Hangar 14 Наименование объекта: ангар",
+      "level": 1,
+      "element_ids": [
+        "e69b7fec6d8"
+      ],
+      "start_page": 20,
+      "end_page": 20,
+      "children": []
+    },
+    {
+      "clause_uid": "7",
+      "title": "Name of the Object: Non-residential 15 Наименование объекта: нежилое здание",
+      "level": 1,
+      "element_ids": [
+        "eea7917e609",
+        "ee9750b51f3",
+        "e0c7d3dacf4"
+      ],
+      "start_page": 20,
+      "end_page": 20,
+      "children": []
+    },
+    {
+      "clause_uid": "8",
+      "title": "Name of the Object: Store 16 Наименование объекта: магазин",
+      "level": 1,
+      "element_ids": [
+        "e140eda2c77"
+      ],
+      "start_page": 21,
+      "end_page": 21,
+      "children": []
+    },
+    {
+      "clause_uid": "9",
+      "title": "Name of the Object: Land plot 17 Наименование объекта: земельный",
+      "level": 1,
+      "element_ids": [
+        "e573e070370",
+        "e3dfc33f62a",
+        "e1460ce26af"
+      ],
+      "start_page": 23,
+      "end_page": 23,
+      "children": [
+        {
+          "clause_uid": "9.1",
+          "title": "Cadastral Number: 78:36:0005503:4 17.1 Кадастровый номер: 78:36:0005503:4",
+          "level": 2,
+          "element_ids": [
+            "ec8c7c145cd",
+            "e7bac7bbe9d",
+            "e8696a9c26b",
+            "eb21ef7d6c1",
+            "ea6632c8312"
+          ],
+          "start_page": 23,
+          "end_page": 23,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "10",
+      "title": "Name of the Object: Non-residential 18 Наименование объекта: нежилое",
+      "level": 1,
+      "element_ids": [
+        "eb15690128a",
+        "edc08449ef7"
+      ],
+      "start_page": 23,
+      "end_page": 23,
+      "children": [
+        {
+          "clause_uid": "10.1",
+          "title": "Cadastral Number: 78:36:0005503:3012 18.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e0f7c3b8404",
+            "e687318c7c1",
+            "e23bda4f457",
+            "e21adaf6dda",
+            "ecc6a680a12"
+          ],
+          "start_page": 23,
+          "end_page": 23,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "11",
+      "title": "Name of the Object: Non-residential 19 Наименование объекта: нежилое",
+      "level": 1,
+      "element_ids": [
+        "eb3c9697b51",
+        "ec0af5a3365"
+      ],
+      "start_page": 25,
+      "end_page": 25,
+      "children": [
+        {
+          "clause_uid": "11.1",
+          "title": "Cadastral Number: 78:36:0005503:3007 19.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e2aa386eaf6",
+            "e7bd84f257f",
+            "e867fc00460",
+            "e4eb1472e91",
+            "e55ce64849c"
+          ],
+          "start_page": 25,
+          "end_page": 25,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "12",
+      "title": "Name of the Object: Non-residential 20 Наименование объекта: нежилое",
+      "level": 1,
+      "element_ids": [
+        "ec294a1a543",
+        "efb0716bc95"
+      ],
+      "start_page": 25,
+      "end_page": 25,
+      "children": [
+        {
+          "clause_uid": "12.1",
+          "title": "Cadastral Number: 78:36:0005503:3014 20.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "ef02ee8f755",
+            "e80dcdb960c",
+            "eacb20fa9ad",
+            "ee6cb66ef62",
+            "eb83e766ca3"
+          ],
+          "start_page": 25,
+          "end_page": 25,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "13",
+      "title": "Name of the Object: Warehouse 21 Наименование объекта: склад",
+      "level": 1,
+      "element_ids": [
+        "e53f79882e4"
+      ],
+      "start_page": 25,
+      "end_page": 25,
+      "children": []
+    },
+    {
+      "clause_uid": "14",
+      "title": "Name of the Object: Hangar 22 Наименование объекта: ангар",
+      "level": 1,
+      "element_ids": [
+        "e6ea2e94586"
+      ],
+      "start_page": 26,
+      "end_page": 26,
+      "children": [
+        {
+          "clause_uid": "14.1",
+          "title": "Cadastral Number: 78:36:0005503:3016 22.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "e25ff760c6a",
+            "e8f1d938d65",
+            "e4ab0c30dc3",
+            "ebddf210cb7",
+            "e44fe1fa1b9"
+          ],
+          "start_page": 26,
+          "end_page": 26,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "15",
+      "title": "Name of the Object: Non-residential 23 Наименование объекта: нежилое",
+      "level": 1,
+      "element_ids": [
+        "e920a175745",
+        "ecca4d8f7ee"
+      ],
+      "start_page": 26,
+      "end_page": 26,
+      "children": []
+    },
+    {
+      "clause_uid": "16",
+      "title": "Name of the Object: Store 24 Наименование объекта: магазин",
+      "level": 1,
+      "element_ids": [
+        "ef06ab75e0f"
+      ],
+      "start_page": 27,
+      "end_page": 27,
+      "children": [
+        {
+          "clause_uid": "16.1",
+          "title": "Cadastral Number: 78:36:0005503:3021 24.1 Кадастровый номер:",
+          "level": 2,
+          "element_ids": [
+            "ea5bce3530d",
+            "e31eb36f88d",
+            "e1022e465d5",
+            "e51144fa163",
+            "e7f0414ea1c",
+            "e9083f6d7d1",
+            "efa13a7d5ad",
+            "ea6fd87d7eb",
+            "ebe46a88b41",
+            "ef24c7f513c",
+            "e3e7cc2a5a8",
+            "eba29a9619d",
+            "e85ecafa01f",
+            "e7a1d82e246",
+            "ec554457ff2",
+            "e3dbd3d8cca",
+            "e7e7e4aeb50",
+            "e85c14d5735",
+            "ef176a93758",
+            "e76fd89c8a1",
+            "eee49079417",
+            "e201eb1cc6a",
+            "e2988517538",
+            "e933872e395",
+            "e2ee6858983",
+            "e7125ab0f86",
+            "e9264aca502",
+            "efaab6ad1c0",
+            "ecde6148b0a",
+            "e47515a6e02",
+            "effee79b8f4",
+            "ed55ec2c565",
+            "ede12e9d692",
+            "e4c7eef2499",
+            "efaa5d00e19",
+            "ebbebb0bdb3",
+            "e1c03b4a35d",
+            "e52dc885de8",
+            "e0a4174a8eb",
+            "e3b5bc79287",
+            "e2e867e80f4",
+            "e41fc50916e",
+            "eded9211033",
+            "e321b1b00bc",
+            "e67cfbba4fe",
+            "e0362afc003",
+            "e0d6dc74fd8",
+            "e1822c439f6",
+            "e903876ad7d",
+            "ebd26605aa5",
+            "e2203e48a19",
+            "e33496d44f8",
+            "e8388dfa0bf",
+            "e22dac606be",
+            "e51a2a0e130",
+            "e0c42d46cab",
+            "ea6c756f6bb",
+            "e8ed47b0a85",
+            "e4bcf9463f6",
+            "e57beb0a52b",
+            "e706ccade67"
+          ],
+          "start_page": 27,
+          "end_page": 28,
+          "children": []
+        }
+      ]
+    },
+    {
+      "clause_uid": "358.5",
+      "title": "sq.m., cadastral number 78:36:0005503:3016,",
+      "level": 2,
+      "element_ids": [
+        "e4bacfdf2c4",
+        "e6009764351",
+        "e587437d2c8",
+        "e942620c1e3",
+        "eea3a23fbb7",
+        "ee98413233a",
+        "e394e70062e",
+        "e1edba31633",
+        "e1507b85a55",
+        "e99cbc9bdca"
+      ],
+      "start_page": 28,
+      "end_page": 29,
+      "children": []
+    },
+    {
+      "clause_uid": "380.2",
+      "title": "sq.m., cadastral number 78:36:0005503:3021, Building 7",
+      "level": 2,
+      "element_ids": [
+        "ed184729228",
+        "e6e4fbd296b",
+        "efe704a9f86",
+        "e97a957c97f"
+      ],
+      "start_page": 29,
+      "end_page": 29,
+      "children": []
+    }
+  ],
+  "references_index": [
+    {
+      "source": "5.2",
+      "target": "5.1",
+      "text": "п. 5.1"
+    }
+  ],
+  "structure_confidence": "HIGH",
+  "degraded": false
+}

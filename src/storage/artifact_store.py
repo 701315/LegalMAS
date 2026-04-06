@@ -11,6 +11,8 @@ import io
 import json
 from urllib.parse import quote
 from datetime import timedelta
+import threading
+from pathlib import Path
 
 from minio import Minio
 from minio.error import S3Error
@@ -166,6 +168,27 @@ class ArtifactStore:
         self._endpoint = s.MINIO_ENDPOINT
         self._secure = s.MINIO_SECURE
 
+        # Инициализация локальной папки-копии
+        self._local_copy_enabled = getattr(s, "ARTIFACT_LOCAL_COPY_ENABLED", False)
+        self._local_copy_dir = Path(s.ARTIFACT_LOCAL_COPY_DIR) if self._local_copy_enabled else None
+        if self._local_copy_dir:
+            self._local_copy_dir.mkdir(parents=True, exist_ok=True)
+
+    def _save_local_copy(self, path: str, data_bytes: bytes) -> None:
+        if not self._local_copy_dir:
+            return
+        try:
+            local_path = self._local_copy_dir / path
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            local_path.write_bytes(data_bytes)
+        except Exception as e:
+            # Debug-логирование: ошибка не критична, но полезно для диагностики
+            logger.debug(
+                "Failed to save local copy",
+                path=path,
+                error=str(e),
+            )
+
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist."""
         try:
@@ -193,6 +216,11 @@ class ArtifactStore:
             )
 
             uri = f"s3://{self.bucket}/{path}"
+
+            # 🆕 Фоновое копирование (daemon-поток не блокирует воркер)
+            if self._local_copy_enabled:
+                threading.Thread(target=self._save_local_copy, args=(path, json_bytes), daemon=True).start()
+
             logger.debug("Stored JSON artifact", path=path, size_bytes=len(json_bytes))
             return uri
         except S3Error as e:
@@ -225,15 +253,20 @@ class ArtifactStore:
     ) -> str:
         """Upload binary file to MinIO."""
         try:
+            # Сохраняем байты для локальной копии ДО создания stream
             if isinstance(file_data, bytes):
+                data_bytes = file_data
                 data_stream = io.BytesIO(file_data)
                 length = len(file_data)
             else:
+                # Для io.BytesIO: читаем данные для локальной копии
+                current_pos = file_data.tell()
+                file_data.seek(0, 2)
+                length = file_data.tell()
+                file_data.seek(0)  # сбрасываем в начало для MinIO
+                data_bytes = file_data.read()  # читаем для локальной копии
+                file_data.seek(current_pos)  # восстанавливаем позицию
                 data_stream = file_data
-                current_pos = data_stream.tell()
-                data_stream.seek(0, 2)
-                length = data_stream.tell()
-                data_stream.seek(current_pos)
 
             self.client.put_object(
                 bucket_name=self.bucket,
@@ -242,6 +275,15 @@ class ArtifactStore:
                 length=length,
                 content_type=content_type,
             )
+
+            # Фоновое копирование (только если есть байты)
+            if self._local_copy_enabled and data_bytes is not None:
+                threading.Thread(
+                    target=self._save_local_copy, 
+                    args=(path, data_bytes), 
+                    daemon=True
+                ).start()
+                
             return f"s3://{self.bucket}/{path}"
         except S3Error as e:
             raise TransientError(f"Failed to store file at '{path}': {e}")

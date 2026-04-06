@@ -19,7 +19,7 @@
 
 - Run — это «один запуск анализа» по сделке. По нему фронт показывает:
   - статус запуска (ожидает, выполняется, завершён, завершён с ошибками, упал);
-  - прогресс по документам (total_checks / completed_checks);
+  - прогресс по checks (total_checks / completed_checks — сколько проверок уже завершено);
   - агрегированную ошибку уровня Run (если пайплайн упал целиком).
 
 - Job — это отдельная задача внутри Run (например, import, extract, run_deal_checks).
@@ -36,6 +36,7 @@ from ..models.result import CheckResult
 from ..models.run import Job, Run
 from ..models.document import Document
 from core.constants import RunStatus
+from .result_repo import ResultRepository
 
 
 class RunRepository:
@@ -168,10 +169,10 @@ class RunRepository:
         Увеличить счётчик completed_checks на 1 и вернуть новое значение.
 
         Зачем это нужно:
-        - каждый раз, когда документ успешно доходит до стадии checks,
-          Runner вызывает этот метод;
+        - этот метод должен вызываться каждый раз, когда отдельная проверка (check)
+        по документу переходит в финальный статус (SUCCESS/FAILED/TIMEOUT);
         - фронт по полям total_checks / completed_checks показывает юристу прогресс
-          выполнения Run (например, «15 из 20 документов проверено»).
+        выполнения Run (например, «150 из 200 проверок завершено»).
         """
         stmt = (
             update(Run)
@@ -189,7 +190,7 @@ class RunRepository:
         Вернуть (total_checks, completed_checks) для Run.
 
         Используется для:
-        - понимания, все ли документы, запланированные в Run, дошли до стадии checks;
+        - понимания, все ли запланированные checks дошли до финального статуса;
         - принятия решения, можно ли финализировать Run (completed / completed_with_errors / failed).
         """
         result = await self.session.execute(
@@ -345,6 +346,108 @@ class RunRepository:
         return True
 
 
+    async def finalize_run_if_finished(self, run_id: uuid.UUID) -> Run | None:
+        """
+        Синхронизировать прогресс Run по фактическим CheckResult и,
+        если все materialized checks завершены, перевести Run в финальный статус.
+
+        Правила:
+        - если checks ещё не материализованы (total_checks == 0), Run не финализируем;
+        - если completed_checks < total_checks, Run остаётся RUNNING;
+        - если completed_checks == total_checks и нет FAILED/TIMEOUT checks -> COMPLETED;
+        - если completed_checks == total_checks и есть FAILED/TIMEOUT checks -> COMPLETED_WITH_ERRORS.
+        """
+        result_repo = ResultRepository(self.session)
+
+        total_checks = await result_repo.count_distinct_checks_for_run(run_id)
+        completed_checks = await result_repo.count_finished_checks_for_run(run_id)
+        has_failed_checks = await result_repo.has_failed_or_timed_out_checks(run_id)
+
+        values: dict = {
+            "total_checks": total_checks,
+            "completed_checks": completed_checks,
+            "has_errors": has_failed_checks,
+        }
+
+        # Если checks ещё не появились, просто синхронизируем прогресс.
+        # Финальный статус тут ставить нельзя.
+        if total_checks == 0:
+            run = await self.get_by_id(run_id)
+            if run is None:
+                return None
+
+            # Не трогаем terminal state, если он уже стоит.
+            if run.status in (
+                RunStatus.COMPLETED.value,
+                RunStatus.COMPLETED_WITH_ERRORS.value,
+                RunStatus.FAILED.value,
+            ):
+                return run
+
+            return await self.update_status(
+                run_id,
+                run.status if run.status else RunStatus.PENDING.value,
+                **values,
+            )
+
+        # Есть checks, но не все финальны -> run должен быть RUNNING.
+        if completed_checks < total_checks:
+            return await self.update_status(
+                run_id,
+                RunStatus.RUNNING.value,
+                **values,
+            )
+
+        # Все checks в terminal state -> выбираем финальный статус run.
+        final_status = (
+            RunStatus.COMPLETED_WITH_ERRORS.value
+            if has_failed_checks
+            else RunStatus.COMPLETED.value
+        )
+
+        return await self.update_status(
+            run_id,
+            final_status,
+            **values,
+        )
+
+    async def mark_run_failed(
+        self,
+        run_id: uuid.UUID,
+        message: str,
+        *,
+        error_details: dict | None = None,
+    ) -> Run | None:
+        """
+        Пометить Run как FAILED только в случае run-level/orchestrator-level ошибки.
+
+        Примеры:
+        - не удалось построить execution plan;
+        - критическая ошибка scheduler/dispatcher;
+        - инфраструктурная ошибка, из-за которой нельзя корректно финализировать run.
+        """
+        payload = dict(error_details or {})
+        payload.setdefault("message", message)
+        payload.setdefault("level", "run")
+        payload.setdefault("status", "failed")
+
+        current = await self.get_by_id(run_id)
+        if current is None:
+            return None
+
+        return await self.update_status(
+            run_id,
+            RunStatus.FAILED.value,
+            total_checks=current.total_checks or 0,
+            completed_checks=current.completed_checks or 0,
+            has_errors=True,
+            error_details=payload,
+        )
+
+
+
+
+
 class JobRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -399,3 +502,4 @@ class JobRepository:
         if job:
             await self.session.flush()
         return job
+

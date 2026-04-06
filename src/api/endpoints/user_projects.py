@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.session import get_db
-from src.api.deps.auth import get_current_user, CurrentUser
-from src.db.repositories.deal_repo import DealRepository
+from api.deps.auth import get_current_user, CurrentUser
+from db.repositories.deal_repo import DealRepository
 
 router = APIRouter(prefix="/api/v1/user", tags=["user-projects"])
 

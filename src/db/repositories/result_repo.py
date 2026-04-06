@@ -24,8 +24,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import Sequence
 from uuid import UUID
+from datetime import UTC
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, distinct, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.result import CheckResult
@@ -363,3 +364,194 @@ class ResultRepository:
             items.append(item)
 
         return items, total
+    
+
+    async def get_one(
+        self,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+        check_id: str,
+    ) -> CheckResult | None:
+        """Найти один результат по ключу (run, doc, check)."""
+        stmt = select(CheckResult).where(
+            CheckResult.run_id == run_id,
+            CheckResult.document_id == document_id,
+            CheckResult.check_id == check_id,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def upsert_single_check_result(
+        self,
+        *,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+        check_id: str,
+        check_name: str,
+        result: str,
+        severity: str,
+        value_text: str | None,
+        evidence_ref: str | None,
+        confidence: float | None,
+        detector_used: str | None,
+        quality_flags: dict | None,
+        structured_data: dict | None,
+        conditional_check_triggered: bool,
+        trigger_name: str | None,
+        origin: str | None,
+        playbook_version_id: uuid.UUID | None,
+        page: int | None,
+        clause_uid: str | None,
+        element_id: str | None,
+        bbox: dict | None,
+        execution_status: str,
+        error_details: dict | None = None,
+    ) -> CheckResult:
+        """
+        Создать или обновить результат одной проверки (идемпотентно по run/doc/check).
+        """
+        now = datetime.now(UTC)
+
+        existing = await self.get_one(run_id, document_id, check_id)
+
+        if existing is None:
+            cr = CheckResult(
+                run_id=run_id,
+                document_id=document_id,
+                check_id=check_id,
+                check_name=check_name,
+                result=result,
+                severity=severity,
+                value_text=value_text,
+                evidence_ref=evidence_ref,
+                confidence=confidence,
+                detector_used=detector_used,
+                quality_flags=quality_flags or {},
+                structured_data=structured_data,
+                conditional_check_triggered=conditional_check_triggered,
+                trigger_name=trigger_name,
+                origin=origin,
+                playbook_version_id=playbook_version_id,
+                page=page,
+                clause_uid=clause_uid,
+                element_id=element_id,
+                bbox=bbox,
+                execution_status=execution_status,
+                started_at=now if execution_status in ("RUNNING", "SUCCESS", "FAILED", "TIMEOUT") else None,
+                finished_at=now if execution_status in ("SUCCESS", "FAILED", "TIMEOUT") else None,
+                error_details=error_details,
+            )
+            self.session.add(cr)
+            await self.session.flush()
+            return cr
+
+        # Обновляем существующую запись (например, после partial failure/timeout)
+        existing.check_name = check_name
+        existing.result = result
+        existing.severity = severity
+        existing.value_text = value_text
+        existing.evidence_ref = evidence_ref
+        existing.confidence = confidence
+        existing.detector_used = detector_used
+        existing.quality_flags = quality_flags or {}
+        existing.structured_data = structured_data
+        existing.conditional_check_triggered = conditional_check_triggered
+        existing.trigger_name = trigger_name
+        existing.origin = origin
+        existing.playbook_version_id = playbook_version_id
+        existing.page = page
+        existing.clause_uid = clause_uid
+        existing.element_id = element_id
+        existing.bbox = bbox
+        existing.execution_status = execution_status
+        existing.error_details = error_details
+
+        # started_at не трогаем, если уже был старт; finished_at обновляем только для финальных статусов
+        if existing.started_at is None and execution_status in ("RUNNING", "SUCCESS", "FAILED", "TIMEOUT"):
+            existing.started_at = now
+        if execution_status in ("SUCCESS", "FAILED", "TIMEOUT"):
+            existing.finished_at = now
+
+        await self.session.flush()
+        return existing
+
+
+    async def count_distinct_checks_for_run(self, run_id: uuid.UUID) -> int:
+        """
+        Сколько уникальных пар (document_id, check_id) вообще есть в check_results для run.
+        Это наш фактически материализованный прогресс по checks.
+        """
+        stmt = select(func.count()).select_from(
+            select(
+                distinct(CheckResult.document_id),
+                CheckResult.check_id,
+            )
+            .where(CheckResult.run_id == run_id)
+            .subquery()
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
+    async def count_finished_checks_for_run(self, run_id: uuid.UUID) -> int:
+        """
+        Сколько уникальных пар (document_id, check_id) уже в финальном execution_status.
+        Финальные статусы: SUCCESS, FAILED, TIMEOUT.
+        """
+        stmt = select(func.count()).select_from(
+            select(
+                distinct(CheckResult.document_id),
+                CheckResult.check_id,
+            )
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResult.execution_status.in_(["SUCCESS", "FAILED", "TIMEOUT"]),
+            )
+            .subquery()
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
+    async def count_documents_fully_finished_for_run(self, run_id: uuid.UUID) -> int:
+        """
+        Сколько документов полностью завершили все свои checks.
+        Используем для метрик «прогресс по документам» (сколько документов имеют все checks в финальном статусе).
+        """
+        per_doc = (
+            select(
+                CheckResult.document_id,
+                func.count().label("total_cnt"),
+                func.sum(
+                    case(
+                        (
+                            CheckResult.execution_status.in_(["SUCCESS", "FAILED", "TIMEOUT"]),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("finished_cnt"),
+            )
+            .where(CheckResult.run_id == run_id)
+            .group_by(CheckResult.document_id)
+            .subquery()
+        )
+
+        stmt = select(func.count()).select_from(per_doc).where(
+            per_doc.c.total_cnt == per_doc.c.finished_cnt
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one() or 0)
+
+    async def has_failed_or_timed_out_checks(self, run_id: uuid.UUID) -> bool:
+        """
+        Есть ли по run хотя бы один check с FAILED или TIMEOUT.
+        """
+        stmt = (
+            select(CheckResult.id)
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResult.execution_status.in_(["FAILED", "TIMEOUT"]),
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None

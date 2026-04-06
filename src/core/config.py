@@ -117,7 +117,7 @@ class Settings(BaseSettings):
 
     # Общие настройки для всех провайдеров.
     # Время ожидания ответа от LLM в секундах.
-    LLM_TIMEOUT_SECONDS: int = 30
+    LLM_TIMEOUT_SECONDS: int = 3600
     # Температура выборки (0.0 — максимально детерминированный ответ).
     LLM_TEMPERATURE: float = 0.0
     # Максимальное количество токенов, которое модель может сгенерировать в ответе.
@@ -269,6 +269,15 @@ class Settings(BaseSettings):
     # Golden Dataset
     GOLDEN_DATASET_PATH: str = "golden_dataset"
 
+    # Локальное дублирование артефактов для отладки/аудита
+    ARTIFACT_LOCAL_COPY_ENABLED: bool = True
+    ARTIFACT_LOCAL_COPY_DIR: str = "/home/vladi/projects/LegalMAS/pipeline results"
+
+    # --- Celery worker runtime topology ---
+    CELERY_DEFAULT_WORKER_CONCURRENCY: int = 4
+    CELERY_HEAVY_WORKER_CONCURRENCY: int = 1
+
 
 # Singleton: one settings instance for the whole application
 settings = Settings()
+

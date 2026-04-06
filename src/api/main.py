@@ -17,7 +17,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.ops.instrument import setup_metrics
+from ops.instrument import setup_metrics
 
 # Здесь собираем все группы эндпоинтов (роутеры) в одном месте.
 # auth — это логин/авторизация (включая временный логин admin/admin).

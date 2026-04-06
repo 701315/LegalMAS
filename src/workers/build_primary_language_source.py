@@ -20,7 +20,7 @@ Build Primary Language Source Worker.
 - вызывается оркестратором или авто-пайплайном после import/convert_to_pdf;
 - по завершении (успех) документ должен перейти в статус PRIMARY_READY;
 - в DocumentVersion.primary_source_ref должна появиться S3‑ссылка на одноязычный PDF;
-- далее автоматически запускается workers.extract_document.
+- запуск последующих стадий (extract и далее) выполняется централизованным оркестратором.
 """
 
 import uuid
@@ -41,6 +41,7 @@ from services.document_language_pipeline import build_primary_language_layout
 from services.primary_pdf_builder import build_pdf_from_layout
 from services.quick_pdf_layout import build_quick_layout_from_pdf
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from services.run_orchestrator_trigger import retrigger_run_pipeline
 
 logger = get_logger(__name__)
 
@@ -68,7 +69,7 @@ def build_primary_language_source(
       или после convert_to_pdf;
     - по завершении (успех) документ должен перейти в статус PRIMARY_READY;
     - в DocumentVersion.primary_source_ref должна появиться S3-ссылка;
-    - далее автоматически запускается extract_document.
+    - запуск последующих стадий (extract и далее) выполняется централизованным оркестратором.
     """
 
     async def _wrapper() -> dict:
@@ -82,7 +83,40 @@ def build_primary_language_source(
                 run_id=run_id,
             )
 
-    return run_async(_wrapper())
+    try:
+        result = run_async(_wrapper())
+    except PermanentError as e:
+        # Поведение как и раньше: пусть ошибка поднимется в логах;
+        # документ в async‑ядре уже переведён в нужный статус/ошибку либо
+        # упадёт транзакция.
+        logger.error(
+            "Permanent error during primary language source build",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            error=str(e),
+        )
+        raise
+
+    # Успешно: документ уже PRIMARY_READY в рамках UoW, можно будить оркестратор.
+    if run_id:
+        logger.info(
+            "Primary language source build complete, retriggering run pipeline",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
+        retrigger_run_pipeline(
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+        )
+
+    return result
 
 
 async def _build_primary_language_source_async(
@@ -216,6 +250,20 @@ async def _build_primary_language_source_async(
         document_version_id=document_version_id,
     )
 
+    quick_meta = (quick_layout.get("metadata") or {}).get("quick_layout") or {}
+    if quick_meta.get("degraded"):
+        logger.warning(
+            "Primary source build: quick layout marked as degraded",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            degraded_reason=quick_meta.get("degraded_reason"),
+            total_chars=quick_meta.get("total_extracted_chars"),
+            valid_bbox_ratio=quick_meta.get("valid_bbox_ratio"),
+            usable_element_ratio=quick_meta.get("usable_element_ratio"),
+        )
+
     # 3. Строим одноязычный layout и обновляем языки сделки.
     primary_layout_result = await build_primary_language_layout(
         db=db,
@@ -229,6 +277,8 @@ async def _build_primary_language_source_async(
     decision = primary_layout_result.decision
     target_language = decision.target_language
 
+    language_filter_meta = (primary_layout.get("metadata") or {}).get("language_filter") or {}
+
     logger.info(
         "Primary source build: primary layout constructed",
         document_id=document_id,
@@ -236,9 +286,12 @@ async def _build_primary_language_source_async(
         deal_id=deal_id,
         tenant_id=tenant_id,
         target_language=target_language,
-        detected_languages=primary_layout_result.decision.detected_languages,
-        is_bilingual=primary_layout_result.decision.is_bilingual,
+        detected_languages=decision.detected_languages,
+        is_bilingual=decision.is_bilingual,
         requires_user_selection=decision.requires_user_selection,
+        language_filter_degraded=language_filter_meta.get("degraded"),
+        language_filter_degraded_reason=language_filter_meta.get("degraded_reason"),
+        element_retention_ratio=language_filter_meta.get("element_retention_ratio"),
     )
 
     # документ многоязычный, язык не выбран пользователем.
@@ -339,27 +392,6 @@ async def _build_primary_language_source_async(
         document_id_str=document_id,
     )
 
-    logger.info(
-        "Primary language source built (single-language PDF), scheduling extraction",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        source_ref=source_ref,
-        primary_source_ref=primary_source_ref,
-        target_language=target_language,
-        detected_languages=primary_layout_result.decision.detected_languages,
-    )
-
-    # 8. Запускаем следующий шаг пайплайна: extract_document.
-    _schedule_extract(
-        document_version_id=document_version_id,
-        document_id=document_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-    )
-
     return {
         "document_id": document_id,
         "document_version_id": document_version_id,
@@ -405,31 +437,3 @@ async def _mark_primary_ready(
             f"Document {document_id_str} not found during PRIMARY_READY status update"
         )
 
-
-def _schedule_extract(
-    document_version_id: str,
-    document_id: str,
-    deal_id: str,
-    tenant_id: str,
-    run_id: str | None,
-) -> None:
-    """
-    Поставить следующий шаг пайплайна: extract_document.
-    Отдельная функция делает код чище и уменьшает риск ошибиться в kwargs.
-    """
-    from mas_queue.celery_app import celery_app as _celery
-
-    _celery.send_task(
-        "workers.extract_document",
-        kwargs={
-            "document_version_id": document_version_id,
-            "document_id": document_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "run_id": run_id,
-        },
-    )
-
-
-
-    

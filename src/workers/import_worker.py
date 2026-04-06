@@ -4,29 +4,30 @@
 Import Worker — production.
 
 Назначение:
-- Первичный импорт файлов в систему и постановка задач на дальнейшую обработку.
-- Работает как первый этап пайплайна: import → extract → pii → structure → classify → run_deal_checks.
+- Первичный импорт файлов в систему.
+- Работает как первый этап пайплайна: import → …, но
+  НЕ запускает последующие стадии напрямую — только создаёт документы и версии.
 
 Основные функции:
   - Распаковка ZIP с сохранением структуры папок (folder_path).
   - Валидация файлов (расширение, размер, сигнатура / magic bytes).
   - Дедупликация по SHA‑256 внутри одной сделки.
-  - Идемпотентность через IdempotencyKey (возврат кэшированного результата при повторном вызове).
+  - Идемпотентность через IdempotencyKey.
   - Карантин для некорректных / повреждённых / неподдерживаемых файлов.
   - Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
   - Определение исходного формата файла (source_extension, source_filetype).
-  - Роутинг по типу файла через Extract Router:
-      * PDF → постановка задачи на build_primary_language_source (далее внутри него extract).
-      * DOC/DOCX → convert_to_pdf, который после конвертации ставит build_primary_language_source.
-      * другие типы → карантин с понятной причиной.
+  - Подготовка документов к дальнейшему пайплайну без прямого запуска downstream‑воркеров.
+  - Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
+  - Определение исходного формата файла (source_extension, source_filetype).
+  - (Больше не ставит downstream‑таски — дальнейшая обработка решается оркестратором.)
 
 Архитектура:
 - Внешняя Celery‑таска import_bundle — синхронная (def), её вызывает Celery.
 - Внутри таски один раз происходит переход sync → async через run_async.
 - Всё взаимодействие с БД и MinIO реализовано в _import_bundle_async() и _async_import()
-  под управлением db_uow(), без ручного управления event loop.
-- Сам Import Worker НЕ делает классификацию, он только честно сохраняет folder_path
-  и ставит downstream‑задачи на дальнейшие стадии пайплайна.
+  под управлением db_uow().
+- Import Worker не запускает последующие воркеры (build_primary_language_source, extract и т.д.).
+  Дальнейшие стадии запускаются через централизованный оркестратор по статусу документа.
 """
 
 import hashlib
@@ -108,17 +109,6 @@ def import_bundle(
 
     # Запускаем асинхронную часть через общий мост run_async
     result = run_async(_wrapper())
-
-    # На этом месте транзакция уже закоммичена.
-    imported_count = result.get("imported_count", 0)
-    if imported_count > 0:
-        celery_app.send_task(
-            "workers.build_relations",
-            kwargs={
-                "deal_id": deal_id,
-                "tenant_id": tenant_id,
-            },
-        )
 
     return result
 
@@ -263,7 +253,6 @@ async def _async_import(
     quarantine_ids: list[str] = []
     duplicate_count = 0
     skipped_count = 0
-    tasks_to_dispatch: list[dict] = []
 
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
@@ -404,39 +393,15 @@ async def _async_import(
         # 7. Решаем, что делать дальше по типу файла через централизованный роутер
         decision: ExtractRoutingDecision = decide_extraction_strategy(validation.filetype)
 
-        if decision.action == "extract" and decision.extractor_task:
-            # Новый порядок для PDF: сначала строим primary_source, затем внутри него запустится extract.
-            tasks_to_dispatch.append(
-                {
-                    "task_name": "workers.build_primary_language_source",
-                    "kwargs": {
-                        "document_version_id": str(doc_version.id),
-                        "document_id": str(doc.id),
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "run_id": run_id,
-                    },
-                }
-            )
-        elif decision.action == "convert_then_extract" and decision.extractor_task:
-            # DOC/DOCX: ставим задачу конвертации в PDF.
-            # Сам convert_to_pdf после успешной конвертации сам поставит extract_document.
-            tasks_to_dispatch.append(
-                {
-                    "task_name": decision.extractor_task,
-                    "kwargs": {
-                        "document_version_id": str(doc_version.id),
-                        "document_id": str(doc.id),
-                        "deal_id": deal_id,
-                        "tenant_id": tenant_id,
-                        "run_id": run_id,
-                    },
-                }
-            )
+        if decision.action in ("extract", "convert_then_extract") and decision.extractor_task:
+            # На этом этапе мы ничего не ставим в очередь.
+            # Документ остаётся в статусе PENDING — оркестратор позже решит, что запускать,
+            # исходя из source_filetype, origin_filetype и т.п.
             logger.info(
-                "File scheduled for conversion before extraction",
-                filename=filename,
+                "Document ready for analysis pipeline",
+                doc_id=str(doc.id),
                 filetype=validation.filetype,
+                decision_action=decision.action,
                 reason=decision.reason,
             )
         else:
@@ -512,17 +477,6 @@ async def _async_import(
             record.id,
             response_hash=response_hash,
             result=result,
-        )
-
-    # Транзакция закоммичена — можно публиковать downstream‑таски
-    from mas_queue.celery_app import celery_app as _celery  # локальный импорт
-
-    for task in tasks_to_dispatch:
-        task_name = task.get("task_name", "workers.extract_document")
-        task_kwargs = task.get("kwargs", task)
-        _celery.send_task(
-            task_name,
-            kwargs=task_kwargs,
         )
 
     return result

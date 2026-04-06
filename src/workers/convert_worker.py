@@ -5,7 +5,7 @@ Convert Worker.
 
 Назначение:
 - Конвертация исходных файлов (DOC/DOCX/и др.) в PDF, чтобы дальше использовать
-  существующий PDF‑пайплайн (workers.extract_document).
+  существующий PDF‑пайплайн.
 
 Сценарий работы:
   1) Import Worker сохраняет исходный файл (DOC/DOCX/...) в MinIO
@@ -18,15 +18,17 @@ Convert Worker.
       - конвертирует в PDF;
       - кладёт PDF в MinIO;
       - обновляет DocumentVersion.converted_pdf_ref ссылкой на PDF;
-      - после commit ставит задачу workers.build_primary_language_source.
+      - не запускает последующие стадии; дальнейший пайплайн решает оркестратор.
 
 Архитектура:
 - Внешняя Celery‑таска convert_to_pdf — синхронная (def), как и в других воркерах.
 - Внутри один раз выполняется переход sync → async через run_async.
 - Асинхронное ядро convert_to_pdf_async работает под db_uow() и использует AsyncSession.
-- ВАЖНО: публикация следующей Celery‑таски делается только после успешного commit,
-  чтобы downstream‑воркер всегда видел уже зафиксированный converted_pdf_ref.
+- ВАЖНО: этот воркер только выполняет конвертацию и обновляет converted_pdf_ref;
+  запуск последующих стадий (build_primary_language_source и далее) выполняется
+  централизованным оркестратором после успешного commit.
 """
+
 
 import uuid
 from typing import Optional
@@ -44,6 +46,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
 from storage.artifact_store import ArtifactStore, ArtifactPath
+from services.run_orchestrator_trigger import retrigger_run_pipeline
 
 logger = get_logger(__name__)
 
@@ -55,6 +58,7 @@ logger = get_logger(__name__)
     track_job=False,
     queue="default",
 )
+
 def convert_to_pdf(
     self,
     document_id: str,
@@ -71,8 +75,9 @@ def convert_to_pdf(
     - внутри один переход в async‑код через run_async.
 
     ВАЖНО:
-    - build_primary_language_source публикуется только после успешного commit UoW;
-    - это гарантирует, что следующий воркер увидит converted_pdf_ref в БД.
+    - этот воркер только выполняет конвертацию и обновляет converted_pdf_ref;
+    - запуск последующих стадий (build_primary_language_source и далее)
+      выполняется централизованным оркестратором после commit.
     """
 
     async def _wrapper() -> dict:
@@ -102,29 +107,30 @@ def convert_to_pdf(
                 run_id=run_id,
             )
         )
+        # тут оркестратор можно не ретриггерить — документ уже FAILED,
+        # он сам его отфильтрует; если хочешь, можно отдельно будить run
         return {
             "status": DocumentStatus.FAILED.value,
             "document_id": document_id,
             "error": str(e),
         }
 
-    logger.info(
-        "DOCX/DOC → PDF conversion committed, scheduling primary source build",
-        document_id=document_id,
-        document_version_id=document_version_id,
-        pdf_ref=result["pdf_ref"],
-    )
-
-    celery_app.send_task(
-        "workers.build_primary_language_source",
-        kwargs={
-            "document_version_id": document_version_id,
-            "document_id": document_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "run_id": run_id,
-        },
-    )
+    # После успешной конвертации будим оркестратор
+    if run_id:
+        logger.info(
+            "Conversion finished, retriggering run pipeline",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+        )
+        retrigger_run_pipeline(
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            # force_reclassify=False по умолчанию
+        )
 
     return result
 
@@ -146,8 +152,7 @@ async def convert_to_pdf_async(
     - Конвертируем в PDF (через внешний инструмент/сервис).
     - Заливаем PDF в MinIO по предсказуемому пути (ArtifactPath.converted_pdf).
     - Обновляем DocumentVersion.converted_pdf_ref.
-    - НЕ ставим следующую Celery‑таску здесь: это делает sync-обёртка
-      только после успешного commit UoW.
+    - НЕ ставим следующую Celery‑таску здесь — запуск следующих стадий решает оркестратор.
 
     В случае фатальной ошибки кидаем PermanentError — верхний уровень пометит документ FAILED.
     """

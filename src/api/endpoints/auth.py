@@ -24,7 +24,7 @@ from typing import TypedDict
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from src.api.deps.auth import CurrentUser
+from api.deps.auth import CurrentUser
 
 router = APIRouter(
     prefix="/api/v1/auth",

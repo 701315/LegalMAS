@@ -18,18 +18,17 @@ Primary PDF builder.
 Ограничения текущей версии:
 - рисуем только text elements;
 - tables отдельно не реконструируем как настоящие таблицы;
-- используем базовые встроенные шрифты ReportLab;
+- используем один Unicode-шрифт для всех языков;
 - не сохраняем оригинальные fontname/fontsize из PDF, если их нет в layout;
 - не вставляем изображения и графику из исходного документа.
 
-Это нормально для первого production-шагa варианта А:
-сначала получаем одноязычный PDF-конвейер, затем при необходимости улучшаем fidelity.
+Это первый production-шаг варианта A: сначала получаем одноязычный PDF-конвейер,
+затем при необходимости улучшаем fidelity.
 """
 
 from __future__ import annotations
 
 import io
-import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,6 +40,8 @@ logger = get_logger(__name__)
 try:
     from reportlab.lib.colors import black
     from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfbase.pdfmetrics import stringWidth
     from reportlab.pdfgen import canvas
 
@@ -53,8 +54,12 @@ DEFAULT_PAGE_SIZE = A4
 DEFAULT_PAGE_WIDTH = float(DEFAULT_PAGE_SIZE[0])
 DEFAULT_PAGE_HEIGHT = float(DEFAULT_PAGE_SIZE[1])
 
-DEFAULT_FONT_NAME = "Helvetica"
-DEFAULT_FONT_NAME_BOLD = "Helvetica-Bold"
+# Ожидаем, что эти шрифты доступны в контейнере.
+UNICODE_FONT_NAME = "DejaVuSans"
+UNICODE_FONT_BOLD_NAME = "DejaVuSans-Bold"
+
+DEFAULT_FONT_NAME = UNICODE_FONT_NAME
+DEFAULT_FONT_NAME_BOLD = UNICODE_FONT_BOLD_NAME
 DEFAULT_FONT_SIZE_TEXT = 10.0
 DEFAULT_FONT_SIZE_HEADING = 12.0
 
@@ -68,6 +73,13 @@ PAGE_MARGIN_RIGHT = 24.0
 PAGE_MARGIN_TOP = 24.0
 PAGE_MARGIN_BOTTOM = 24.0
 
+# Минимальный допустимый процент реально отрисованных элементов.
+# Если ниже — считаем layout деградированным и явно падаем.
+MIN_DRAWN_RATIO = 0.5
+
+# Опциональный debug-режим — рисовать рамки bbox
+DEBUG_DRAW_BBOX = False
+
 
 @dataclass
 class PrimaryPdfBuildStats:
@@ -77,9 +89,37 @@ class PrimaryPdfBuildStats:
     skipped_elements: int
 
 
-def build_pdf_from_layout(
-    layout: dict[str, Any],
-) -> bytes:
+def _register_unicode_fonts() -> None:
+    """
+    Зарегистрировать Unicode-шрифты для всех скриптов (латиница, кириллица и т.п.).
+
+    Ожидается, что соответствующие TTF-файлы есть в Docker-образе.
+    Например, для DejaVuSans это обычно:
+    /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+    /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+    """
+    if not REPORTLAB_AVAILABLE:
+        return
+
+    try:
+        pdfmetrics.registerFont(
+            TTFont(UNICODE_FONT_NAME, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+        )
+        pdfmetrics.registerFont(
+            TTFont(
+                UNICODE_FONT_BOLD_NAME,
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "primary_pdf_builder: failed to register unicode fonts",
+            error=str(exc),
+        )
+        raise PermanentError("primary_pdf_builder cannot register unicode fonts")
+
+
+def build_pdf_from_layout(layout: dict[str, Any]) -> bytes:
     """
     Построить PDF из одноязычного layout.
 
@@ -101,6 +141,8 @@ def build_pdf_from_layout(
         raise PermanentError(
             "primary_pdf_builder requires reportlab, but it is not installed"
         )
+
+    _register_unicode_fonts()
 
     elements = layout.get("elements") or []
     if not elements:
@@ -124,10 +166,7 @@ def build_pdf_from_layout(
         page_elements = pages.get(page_num, [])
         page_elements = sorted(
             page_elements,
-            key=lambda el: (
-                _safe_bbox(el)[1],
-                _safe_bbox(el)[0],
-            ),
+            key=_bbox_sort_key,
         )
 
         for el in page_elements:
@@ -165,6 +204,14 @@ def build_pdf_from_layout(
     if not pdf_bytes:
         raise PermanentError("Primary PDF builder produced empty PDF bytes")
 
+    if stats.element_count_in and (
+        stats.element_count_drawn / stats.element_count_in < MIN_DRAWN_RATIO
+    ):
+        raise PermanentError(
+            "Primary PDF builder drew only "
+            f"{stats.element_count_drawn}/{stats.element_count_in} elements"
+        )
+
     return pdf_bytes
 
 
@@ -186,9 +233,9 @@ def _resolve_page_count(layout: dict[str, Any], elements: list[dict[str, Any]]) 
     for el in elements:
         page = el.get("page", 1)
         try:
-            page = int(page)
-            if page > max_page:
-                max_page = page
+            page_int = int(page)
+            if page_int > max_page:
+                max_page = page_int
         except Exception:
             continue
 
@@ -199,7 +246,9 @@ def _group_elements_by_page(
     elements: list[dict[str, Any]],
     page_count: int,
 ) -> dict[int, list[dict[str, Any]]]:
-    grouped: dict[int, list[dict[str, Any]]] = {page_num: [] for page_num in range(1, page_count + 1)}
+    grouped: dict[int, list[dict[str, Any]]] = {
+        page_num: [] for page_num in range(1, page_count + 1)
+    }
 
     for el in elements:
         page = el.get("page", 1)
@@ -216,6 +265,12 @@ def _group_elements_by_page(
         grouped.setdefault(page_num, []).append(el)
 
     return grouped
+
+
+def _bbox_sort_key(element: dict[str, Any]) -> tuple[int, float, float]:
+    bbox = _safe_bbox(element)
+    page = _safe_int_page(element.get("page", 1))
+    return page, bbox[1], bbox[0]
 
 
 def _draw_element(pdf: canvas.Canvas, element: dict[str, Any]) -> bool:
@@ -263,7 +318,7 @@ def _draw_element(pdf: canvas.Canvas, element: dict[str, Any]) -> bool:
 
     pdf.setFont(font_name, estimated_font_size)
 
-    # ReportLab рисует от нижней точки, а bbox у нас в логике extract — top/bottom.
+    # ReportLab рисует от нижней точки, а bbox у нас — top/bottom.
     # Переводим в координаты canvas: (0,0) внизу страницы.
     canvas_top = DEFAULT_PAGE_HEIGHT - y_top
     canvas_bottom = DEFAULT_PAGE_HEIGHT - y_bottom
@@ -280,6 +335,18 @@ def _draw_element(pdf: canvas.Canvas, element: dict[str, Any]) -> bool:
 
     if not wrapped_lines:
         return False
+
+    if DEBUG_DRAW_BBOX:
+        pdf.setStrokeColorRGB(1, 0, 0)
+        pdf.rect(
+            x,
+            canvas_bottom,
+            usable_width,
+            canvas_top - canvas_bottom,
+            stroke=1,
+            fill=0,
+        )
+        pdf.setStrokeColorRGB(0, 0, 0)
 
     text_obj = pdf.beginText()
     text_obj.setTextOrigin(x, start_y)
@@ -441,6 +508,14 @@ def _safe_bbox(element: dict[str, Any]) -> list[float]:
         top, bottom = bottom, top
 
     return [x0, top, x1, bottom]
+
+
+def _safe_int_page(value: Any, default: int = 1) -> int:
+    try:
+        page = int(float(str(value).strip()))
+        return page if page > 0 else default
+    except Exception:
+        return default
 
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:

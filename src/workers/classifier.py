@@ -4,7 +4,7 @@
 Classifier Worker — каскадная классификация документов (Stage 6/7).
 
 Позиция в пайплайне:
-- import → extract → pii → structure → classify → run_deal_checks.
+- import → extract → pii → structure → chunked → classify → run_deal_checks.
 - На вход получает структурированный документ (есть text_layout_raw / sanitized).
 
 Что делает:
@@ -14,7 +14,7 @@ Classifier Worker — каскадная классификация докуме
   - doc_type, language, jurisdiction, classification_confidence,
     classification_level, classification_details, applicable_triggers.
 - Подбирает и привязывает подходящий playbook_version_id по сделке.
-- Обновляет статус документа: structured → classified.
+- Обновляет статус документа: chunked → classified.
 
 Архитектура:
 - Внешняя Celery‑таска classify_document — синхронная (def), её вызывает Celery.

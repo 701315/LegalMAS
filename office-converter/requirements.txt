@@ -1,3 +1,8 @@
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-python-multipart
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.8.2
+pydantic-settings==2.3.4
+starlette==0.38.2
+python-multipart==0.0.9
+prometheus-client==0.21.0
+pdfplumber==0.11.4

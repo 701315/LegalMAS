@@ -13,7 +13,7 @@ Defines all metrics for the MAS DD system, grouped by category:
 
 Usage in workers/API:
 
-    from src.ops.metrics import get_metrics, METRICS
+    from ops.metrics import get_metrics, METRICS
 
     metrics = get_metrics()
     metrics.checks_executed.labels(detector_type="rules", result="fail").inc()
@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING
 
 from prometheus_client import Counter, Gauge, Histogram, Info, CollectorRegistry
 
-from src.core.config import settings
+from core.config import settings
 
 _P = settings.METRICS_PREFIX  # e.g. "mas_dd"
 
@@ -371,7 +371,7 @@ def get_metrics() -> MetricsRegistry:
 
 
 # For compatibility with older code:
-# from src.ops.metrics import METRICS
+# from ops.metrics import METRICS
 # Now this is a lazy proxy, not an eagerly-created instance.
 if TYPE_CHECKING:
     METRICS: MetricsRegistry
@@ -385,7 +385,7 @@ else:
           create the MetricsRegistry singleton (if needed) and
           then return the requested metric.
         - This allows us to keep the old import style
-          (from src.ops.metrics import METRICS) without breaking code.
+          (from ops.metrics import METRICS) without breaking code.
         """
 
         def __getattr__(self, item: str):

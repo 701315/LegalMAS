@@ -21,10 +21,11 @@ import time
 
 import httpx
 
-from src.ops.metrics import METRICS
+from ops.metrics import METRICS
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+from engine.retrieval.tokenization import count_tokens  # для подсчёта prompt_tokens
 
 logger = get_logger(__name__)
 
@@ -65,6 +66,102 @@ class LLMClient:
         """Check if any LLM provider is configured."""
         return self.provider in ("openai", "ollama", "llamacpp")
 
+    def _compute_token_budget(
+        self,
+        prompt: str,
+        requested_max_tokens: int,
+    ) -> tuple[int, dict]:
+        """
+        Посчитать эффективный max_tokens с учётом общего лимита модели.
+
+        Инвариант:
+            prompt_tokens + effective_max_tokens + safety_margin <= model_limit
+
+        Термины:
+        - prompt_tokens: токены входного prompt
+        - reserved_output_tokens: максимум токенов, который можно отдать под ответ
+        после вычета prompt и safety_margin
+        - effective_max_tokens: фактически используемый max_tokens для вызова модели
+        """
+        model_limit = getattr(settings, "LLM_CONTEXT_LIMIT", None)
+        safety_margin = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
+        min_output_tokens = int(getattr(settings, "LLM_MIN_OUTPUT_TOKENS", 64))
+
+        diagnostics: dict[str, Any] = {
+            "model_limit": model_limit,
+            "requested_max_tokens": int(requested_max_tokens),
+            "effective_max_tokens": int(requested_max_tokens),
+            "prompt_tokens": None,
+            "reserved_output_tokens": None,
+            "available_for_output": None,  # backward-compatible alias
+            "safety_margin": safety_margin,
+            "min_output_tokens": min_output_tokens,
+            "budget_enforced": False,
+            "output_budget_reduced": False,
+        }
+
+        # Если лимит не задан — ведём себя как раньше.
+        if not isinstance(model_limit, int) or model_limit <= 0:
+            return int(requested_max_tokens), diagnostics
+
+        prompt_tokens = count_tokens(prompt)
+        diagnostics["prompt_tokens"] = int(prompt_tokens)
+
+        reserved_output_tokens = model_limit - prompt_tokens - safety_margin
+        diagnostics["reserved_output_tokens"] = int(reserved_output_tokens)
+        diagnostics["available_for_output"] = int(reserved_output_tokens)
+
+        if reserved_output_tokens <= 0:
+            logger.warning(
+                "LLMClient: prompt exceeds model context window",
+                provider=self.provider,
+                model_limit=model_limit,
+                prompt_tokens=prompt_tokens,
+                requested_max_tokens=int(requested_max_tokens),
+                reserved_output_tokens=int(reserved_output_tokens),
+                safety_margin=safety_margin,
+            )
+            raise PermanentError("LLM prompt exceeds model context limit")
+
+        if reserved_output_tokens < min_output_tokens:
+            logger.warning(
+                "LLMClient: insufficient output token budget",
+                provider=self.provider,
+                model_limit=model_limit,
+                prompt_tokens=prompt_tokens,
+                requested_max_tokens=int(requested_max_tokens),
+                reserved_output_tokens=int(reserved_output_tokens),
+                min_output_tokens=int(min_output_tokens),
+                safety_margin=safety_margin,
+            )
+            raise PermanentError("LLM prompt leaves insufficient output token budget")
+
+        effective_max_tokens = min(
+            int(requested_max_tokens),
+            int(reserved_output_tokens),
+        )
+
+        diagnostics["effective_max_tokens"] = int(effective_max_tokens)
+        diagnostics["budget_enforced"] = True
+        diagnostics["output_budget_reduced"] = (
+            int(effective_max_tokens) < int(requested_max_tokens)
+        )
+
+        logger.info(
+            "LLM token budget computed",
+            provider=self.provider,
+            model_limit=model_limit,
+            prompt_tokens=int(prompt_tokens),
+            requested_max_tokens=int(requested_max_tokens),
+            reserved_output_tokens=int(reserved_output_tokens),
+            effective_max_tokens=int(effective_max_tokens),
+            safety_margin=int(safety_margin),
+            min_output_tokens=int(min_output_tokens),
+            output_budget_reduced=diagnostics["output_budget_reduced"],
+        )
+
+        return effective_max_tokens, diagnostics
+
     def call(
         self,
         prompt: str,
@@ -86,7 +183,25 @@ class LLMClient:
             return None
 
         temp = temperature if temperature is not None else settings.LLM_TEMPERATURE
-        tokens = max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
+        requested_tokens = (
+            max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
+        )
+
+        # Жёсткий budget по токенам: prompt_tokens + max_tokens <= LLM_CONTEXT_LIMIT.
+        # Если лимит не задан — tokens остаётся как раньше.
+        try:
+            tokens, budget_info = self._compute_token_budget(
+                prompt=prompt,
+                requested_max_tokens=int(requested_tokens),
+            )
+        except PermanentError:
+            # Логируем отдельно и пробрасываем дальше.
+            logger.warning(
+                "LLM call aborted due to token budget violation",
+                provider=self.provider,
+                requested_max_tokens=int(requested_tokens),
+            )
+            raise
 
         logger.info(
             "LLM call",
@@ -95,6 +210,10 @@ class LLMClient:
             max_tokens=tokens,
             prompt_preview=prompt[:200],
             grammar_enabled=bool(grammar_path),
+            prompt_tokens=budget_info.get("prompt_tokens"),
+            reserved_output_tokens=budget_info.get("reserved_output_tokens"),
+            effective_max_tokens=budget_info.get("effective_max_tokens"),
+            token_budget=budget_info,
         )
 
         start_time = time.time()
@@ -109,7 +228,9 @@ class LLMClient:
                 # Пока grammar_path игнорируем для ollama
                 result = self._call_ollama(prompt, temp, tokens)
             elif self.provider == "llamacpp":
-                result = self._call_llamacpp(prompt, temp, tokens, grammar_path=grammar_path)
+                result = self._call_llamacpp(
+                    prompt, temp, tokens, grammar_path=grammar_path
+                )
             else:
                 logger.warning("Unknown LLM provider", provider=self.provider)
                 error_type_for_metrics = "unknown_provider"
@@ -270,8 +391,6 @@ class LLMClient:
             "error_type": last_error_type or "transient_error",
             "error_message": last_error_message,
         }
-
-
 
     # --- OpenAI-compatible provider ---
 
@@ -488,7 +607,10 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
         text_lower = text.lower()
         if any(w in text_lower for w in ["yes", "да", "found", "найден", "true"]):
             response.found = True
-        elif any(w in text_lower for w in ["no", "нет", "not found", "не найден", "false"]):
+        elif any(
+            w in text_lower
+            for w in ["no", "нет", "not found", "не найден", "false"]
+        ):
             response.found = False
         else:
             response.found = None  # Uncertain
@@ -535,3 +657,4 @@ def _extract_json(text: str) -> dict | None:
             pass
 
     return None
+

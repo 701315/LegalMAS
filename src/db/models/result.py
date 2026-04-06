@@ -149,6 +149,33 @@ class CheckResult(Base):
         comment="Версия плейбука, которой был выполнен этот check (для аудита)",
     )
 
+    # --- Execution status fields ---
+
+    execution_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="PENDING",
+        comment="Execution status of this check: PENDING, RUNNING, SUCCESS, FAILED, TIMEOUT",
+    )
+
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When this check execution started",
+    )
+
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When this check execution finished (any terminal state)",
+    )
+
+    error_details: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Error/timeout details for FAILED/TIMEOUT executions",
+    )
+
     # --- QC fields ---
 
     qc_status: Mapped[str] = mapped_column(
@@ -182,5 +209,12 @@ class CheckResult(Base):
             "idx_results_structured",
             "run_id",
             postgresql_where="structured_data IS NOT NULL",
+        ),
+        Index(
+            "uq_results_run_doc_check",
+            "run_id",
+            "document_id",
+            "check_id",
+            unique=True,
         ),
     )

@@ -37,6 +37,8 @@ import time
 import uuid
 from typing import Any, Optional, Tuple
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.config import settings
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
@@ -63,7 +65,7 @@ class CheckRunner:
     Ожидания:
     - doc.doc_type и doc.applicable_triggers уже заполнены классификатором.
     - DocumentContentService умеет отдавать чанки по документу:
-        один чанк = одна листовая клауза (пункт договора) с полным текстом.
+      один чанк = одна листовая клауза (пункт договора) с полным текстом.
 
     Архитектура:
     - async, работает через db_uow().
@@ -212,13 +214,10 @@ class CheckRunner:
                 summary["total_checks"] += checks_count
                 summary["failed_checks"] += failed_count
 
-                # ВАЖНО: после успешной обработки документа увеличиваем прогресс Run.
-                # Это даёт живой прогресс: "N из M документов проверено".
                 if self.run_repo is not None:
                     try:
                         await self.run_repo.increment_completed_checks(run_id)
                     except Exception as e:
-                        # Ошибка прогресса не должна ломать сами проверки.
                         logger.warning(
                             "CheckRunner: failed to increment completed_checks",
                             extra={
@@ -252,7 +251,6 @@ class CheckRunner:
                         "error": str(e),
                     },
                 )
-                # Не пробрасываем исключение, чтобы не падал весь run
 
         duration_sec = time.time() - start_time
         logger.info(
@@ -264,6 +262,637 @@ class CheckRunner:
         )
         return summary
 
+    async def plan_checks_for_run(
+        self,
+        *,
+        session: AsyncSession,
+        deal_id: uuid.UUID,
+        run_id: uuid.UUID,
+        playbook,
+    ) -> dict[str, Any]:
+        """
+        Только спланировать checks для Run, без выполнения LLM.
+
+        Возвращает:
+        {
+            "pairs": [{"doc_id": "...", "check_id": "..."}],
+            "processed_docs": int,
+            "total_checks": int,
+            "errors": int,
+        }
+        """
+        processed_docs = 0
+        total_checks = 0
+        errors = 0
+        pairs: list[dict[str, str]] = []
+
+        doc_repo = DocumentRepository(session)
+        docs = await doc_repo.list_by_deal_id(deal_id)
+
+        if len(docs) > MAX_DOCS_PER_RUN:
+            logger.warning(
+                "CheckRunner: too many documents for run planning, truncating",
+                extra={
+                    "deal_id": str(deal_id),
+                    "run_id": str(run_id),
+                    "docs_found": len(docs),
+                    "max_docs": MAX_DOCS_PER_RUN,
+                },
+            )
+            docs = docs[:MAX_DOCS_PER_RUN]
+
+        for doc in docs:
+            try:
+                (
+                    checks,
+                    mode,
+                    doc_type,
+                    applicable_triggers,
+                    global_checks,
+                    doc_type_checks,
+                ) = self._select_checks_for_document(doc, playbook)
+
+                logger.info(
+                    "CheckRunner: planned checks for document",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "deal_id": str(getattr(doc, "deal_id", "")),
+                        "run_id": str(run_id),
+                        "doc_type": doc_type,
+                        "triggers": applicable_triggers,
+                        "checks_mode": mode,
+                        "global_checks": len(global_checks),
+                        "doc_type_checks": len(doc_type_checks),
+                        "total_checks": len(checks),
+                    },
+                )
+
+                for check in checks:
+                    check_id = getattr(check, "id", None)
+                    if not check_id:
+                        continue
+
+                    pairs.append(
+                        {
+                            "doc_id": str(doc.id),
+                            "check_id": str(check_id),
+                        }
+                    )
+                    total_checks += 1
+
+                processed_docs += 1
+
+            except Exception as e:
+                errors += 1
+                logger.exception(
+                    "CheckRunner: failed to plan checks for document",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "deal_id": str(getattr(doc, "deal_id", "")),
+                        "run_id": str(run_id),
+                        "error": str(e),
+                    },
+                )
+
+                if errors >= MAX_ERRORS_PER_RUN:
+                    logger.error(
+                        "CheckRunner: too many errors during planning, stopping",
+                        extra={
+                            "deal_id": str(deal_id),
+                            "run_id": str(run_id),
+                            "errors": errors,
+                            "max_errors": MAX_ERRORS_PER_RUN,
+                        },
+                    )
+                    break
+
+        return {
+            "pairs": pairs,
+            "processed_docs": processed_docs,
+            "total_checks": total_checks,
+            "errors": errors,
+        }
+
+    def _get_document_profile(self, doc) -> tuple[str, list[str]]:
+        """
+        Вернуть профиль документа:
+        - doc_type
+        - applicable_triggers
+        """
+        doc_type = getattr(doc, "doc_type", "") or ""
+        raw_triggers = getattr(doc, "applicable_triggers", None) or []
+
+        if isinstance(raw_triggers, list):
+            applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
+        else:
+            applicable_triggers = []
+
+        return doc_type, applicable_triggers
+
+    def _select_checks_for_document(
+        self,
+        doc,
+        playbook,
+    ) -> tuple[list[Any], str, str, list[str], list[Any], list[Any]]:
+        """
+        Подобрать checks для документа по текущему checks_mode.
+
+        Возвращает:
+        - checks
+        - mode
+        - doc_type
+        - applicable_triggers
+        - global_checks
+        - doc_type_checks
+        """
+        doc_type, applicable_triggers = self._get_document_profile(doc)
+
+        global_checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
+        doc_type_checks = self.doc_type_loader.load_checks_for_doc(
+            doc_type=doc_type,
+            applicable_triggers=applicable_triggers,
+        )
+
+        mode = self.checks_mode
+        if mode == "global_only":
+            raw_checks = global_checks
+        elif mode == "doc_type_only":
+            raw_checks = doc_type_checks
+        else:
+            raw_checks = global_checks + doc_type_checks
+
+        seen_ids: set[str] = set()
+        checks: list[Any] = []
+        for check in raw_checks:
+            check_id = str(getattr(check, "id", ""))
+            if not check_id or check_id in seen_ids:
+                continue
+            seen_ids.add(check_id)
+            checks.append(check)
+
+        return (
+            checks,
+            mode,
+            doc_type,
+            applicable_triggers,
+            global_checks,
+            doc_type_checks,
+        )
+
+    def find_check_for_document(
+        self,
+        doc,
+        playbook,
+        check_id: str,
+    ):
+        """
+        Найти конкретный check по check_id среди checks,
+        которые реально применимы к данному документу.
+        """
+        (
+            checks,
+            mode,
+            doc_type,
+            applicable_triggers,
+            global_checks,
+            doc_type_checks,
+        ) = self._select_checks_for_document(doc, playbook)
+
+        target_check_id = str(check_id)
+
+        for check in checks:
+            current_check_id = str(getattr(check, "id", ""))
+            if current_check_id == target_check_id:
+                return check
+
+        logger.warning(
+            "CheckRunner: target check not applicable for document",
+            extra={
+                "doc_id": str(getattr(doc, "id", None)),
+                "deal_id": str(getattr(doc, "deal_id", "")),
+                "doc_type": doc_type,
+                "check_id": target_check_id,
+                "checks_mode": mode,
+                "applicable_triggers": applicable_triggers,
+                "global_checks": len(global_checks),
+                "doc_type_checks": len(doc_type_checks),
+                "total_checks": len(checks),
+            },
+        )
+        return None
+
+    async def _build_safe_chunks_for_checks(
+        self,
+        session: AsyncSession,
+        doc,
+        checks: list[Any],
+    ) -> list[dict]:
+        """
+        Собрать safe_chunks для одного документа и набора checks.
+
+        Это общий helper для:
+        - старого _run_checks_for_document(...)
+        - новой Celery-task run_single_check(...)
+        """
+        content_service = DocumentContentService(session=session)
+
+        all_levels: set[str] = set()
+        for chk in checks:
+            retr_cfg = getattr(chk, "retrieval", None)
+            if retr_cfg and getattr(retr_cfg, "levels", None):
+                try:
+                    all_levels.update(str(l).lower() for l in retr_cfg.levels)
+                except Exception:
+                    pass
+
+        if not all_levels:
+            levels_for_doc = ["subclause", "section"]
+        else:
+            preferred_order = ["subclause", "clause", "section"]
+            levels_for_doc = [
+                lvl for lvl in preferred_order if lvl in all_levels
+            ] or list(all_levels)
+
+        chunks = await content_service.get_retrieval_chunks_for_checks(
+            doc_id=doc.id,
+            levels=levels_for_doc,
+            target_tokens=300,
+            max_tokens=800,
+            overlap_ratio=0.15,
+        )
+
+        if len(chunks) > MAX_CHUNKS_PER_DOC:
+            logger.warning(
+                "CheckRunner: too many chunks for document, truncating",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "chunk_count": len(chunks),
+                    "max_chunks": MAX_CHUNKS_PER_DOC,
+                },
+            )
+            chunks = chunks[:MAX_CHUNKS_PER_DOC]
+
+        safe_chunks: list[dict] = []
+        for ch in chunks:
+            text = ch.get("text") or ""
+            if len(text) > MAX_CHUNK_TEXT_CHARS:
+                logger.warning(
+                    "CheckRunner: chunk text truncated",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "chunk_id": ch.get("id"),
+                        "orig_len": len(text),
+                        "max_len": MAX_CHUNK_TEXT_CHARS,
+                    },
+                )
+                text = text[:MAX_CHUNK_TEXT_CHARS]
+
+            safe_chunks.append(
+                {
+                    "id": ch.get("id"),
+                    "text": text,
+                    "metadata": ch.get("metadata") or {},
+                }
+            )
+
+        if not safe_chunks:
+            safe_chunks = [
+                {
+                    "id": f"{doc.id}:empty",
+                    "text": "",
+                    "metadata": {"doc_id": str(doc.id)},
+                }
+            ]
+
+        return safe_chunks
+
+    def _normalize_check_result(
+        self,
+        exec_result: dict,
+        check,
+    ) -> dict[str, Any]:
+        """
+        Нормализовать DTO от CheckExecutor под поля CheckResult.
+        """
+        reason = exec_result.get("reason")
+        evidence = exec_result.get("evidence") or ""
+        detector_method = exec_result.get("detector_method")
+        raw = exec_result.get("raw") or {}
+
+        value_text = reason or (evidence[:500] if evidence else None)
+        evidence_ref = evidence or None
+
+        quality_flags: dict = {}
+        if isinstance(raw, dict):
+            source = raw.get("source")
+            if source:
+                quality_flags["source"] = source
+
+            rules_conf = raw.get("rules_confidence")
+            if rules_conf is not None:
+                quality_flags["rules_confidence"] = rules_conf
+
+            llm_conf = raw.get("llm_confidence")
+            if llm_conf is not None:
+                quality_flags["llm_confidence"] = llm_conf
+
+            # Новые флаги по LLM (технические, но полезно видеть их в CheckResult):
+            llm_error_type = raw.get("llm_error_type")
+            if llm_error_type:
+                quality_flags["llm_error_type"] = llm_error_type
+
+            llm_required = raw.get("llm_required")
+            if llm_required is not None:
+                quality_flags["llm_required"] = bool(llm_required)
+
+            llm_degraded = raw.get("llm_degraded")
+            if llm_degraded is not None:
+                quality_flags["llm_degraded"] = bool(llm_degraded)
+
+            rules_llm_decision = raw.get("rules_llm_decision")
+            if rules_llm_decision:
+                quality_flags["rules_llm_decision"] = rules_llm_decision
+
+            quality_flags["raw"] = raw
+
+        structured_data_raw = exec_result.get("structured_data")
+
+        structured_data: dict[str, Any] | None = None
+        if isinstance(structured_data_raw, dict):
+            structured_data = {}
+            for field_name, field_val in structured_data_raw.items():
+                if isinstance(field_val, dict) and "value" in field_val:
+                    structured_data[field_name] = field_val
+                    continue
+
+                structured_data[field_name] = {
+                    "value": field_val,
+                }
+
+        if structured_data:
+            rf_payload = structured_data.get("red_flags")
+            red_from_struct: Any | None = None
+
+            if rf_payload is not None:
+                if isinstance(rf_payload, dict):
+                    red_from_struct = rf_payload.get("value")
+                else:
+                    red_from_struct = rf_payload
+
+            codes: list[str] = []
+            if red_from_struct:
+                if isinstance(red_from_struct, str):
+                    codes = [
+                        c.strip()
+                        for c in red_from_struct.split(",")
+                        if c and c.strip()
+                    ]
+                elif isinstance(red_from_struct, list):
+                    codes = [
+                        str(c).strip()
+                        for c in red_from_struct
+                        if str(c).strip()
+                    ]
+                else:
+                    codes = [str(red_from_struct).strip()]
+
+            if codes:
+                existing = quality_flags.get("red_flags")
+                if isinstance(existing, list):
+                    existing.extend(codes)
+                elif isinstance(existing, str):
+                    merged = [
+                        e.strip()
+                        for e in existing.split(",")
+                        if e and e.strip()
+                    ] + codes
+                    quality_flags["red_flags"] = merged
+                elif existing is None:
+                    quality_flags["red_flags"] = codes
+
+        conditional = getattr(check, "conditional", None) if check is not None else None
+        if isinstance(conditional, dict):
+            is_conditional = bool(conditional)
+            trigger_name = conditional.get("trigger")
+        else:
+            is_conditional = bool(conditional)
+            trigger_name = (
+                getattr(conditional, "trigger", None)
+                if conditional is not None
+                else None
+            )
+
+        check_origin = getattr(check, "origin", None) if check is not None else None
+
+        return {
+            "value_text": value_text,
+            "evidence_ref": evidence_ref,
+            "detector_used": detector_method,
+            "quality_flags": quality_flags or None,
+            "structured_data": structured_data,
+            "conditional_check_triggered": is_conditional,
+            "trigger_name": trigger_name,
+            "origin": check_origin,
+            "page": exec_result.get("page"),
+            "clause_uid": exec_result.get("clause_uid"),
+            "element_id": exec_result.get("element_id"),
+            "bbox": exec_result.get("bbox"),
+        }
+
+    async def _save_check_result(
+        self,
+        repo,
+        run_id: uuid.UUID,
+        doc,
+        check,
+        exec_result: dict,
+    ):
+        """
+        Сохранить результат одной проверки в check_results идемпотентно
+        по ключу (run_id, document_id, check_id).
+
+        В новой архитектуре одна пара (run, doc, check) должна иметь
+        одну материализованную запись, которая обновляется при retry /
+        rerun / timeout recovery.
+
+        ВАЖНО:
+        - здесь мы решаем, какой execution_status поставить:
+            * "SUCCESS"  — бизнес-результат корректен, даже если LLM деградировал,
+                            но rules были достаточно сильны;
+            * "TIMEOUT" / "FAILED_LLM" — если без LLM честный ответ невозможен,
+                            а LLM дал ошибку (Variant B);
+            * "FAILED"   — технические ошибки на уровне организации проверки.
+        """
+        normalized = self._normalize_check_result(exec_result, check)
+
+        # Технические флаги от CheckExecutor:
+        llm_error_type = exec_result.get("llm_error_type")
+        llm_required = bool(exec_result.get("llm_required") or False)
+        llm_degraded = bool(exec_result.get("llm_degraded") or False)
+        rules_llm_decision = exec_result.get("rules_llm_decision")
+
+        # По умолчанию считаем, что check исполнен успешно.
+        execution_status = "SUCCESS"
+        error_details: dict[str, Any] | None = None
+
+        # Если LLM был обязателен и есть ошибка — это не "честный" SUCCESS.
+        # Здесь мы не различаем конкретный тип LLM-ошибки детально, это можно
+        # сделать позже, если появится необходимость.
+        if llm_required and llm_error_type:
+            # Базово считаем это TIMEOUT/FAILED_LLM, в зависимости от типа ошибки.
+            if "timeout" in str(llm_error_type).lower():
+                execution_status = "TIMEOUT"
+            else:
+                execution_status = "FAILED_LLM"
+
+            error_details = {
+                "type": "llm_error",
+                "llm_error_type": llm_error_type,
+                "llm_required": llm_required,
+                "llm_degraded": llm_degraded,
+                "rules_llm_decision": rules_llm_decision,
+            }
+
+        # Если LLM не был критичен (rules дали достаточно сильный ответ),
+        # но была деградация, мы оставляем SUCCESS, но сохраняем тех. детали в quality_flags.
+        # Для этого нам достаточно того, что _normalize_check_result уже положил
+        # llm_* флаги внутрь quality_flags["raw"].
+
+        return await repo.upsert_single_check_result(
+            run_id=run_id,
+            document_id=doc.id,
+            check_id=exec_result["check_id"],
+            check_name=exec_result["check_name"],
+            result=exec_result["result"],
+            severity=exec_result["severity"],
+            value_text=normalized["value_text"],
+            evidence_ref=normalized["evidence_ref"],
+            confidence=exec_result.get("confidence"),
+            detector_used=normalized["detector_used"],
+            quality_flags=normalized["quality_flags"],
+            structured_data=normalized["structured_data"],
+            conditional_check_triggered=normalized["conditional_check_triggered"],
+            trigger_name=normalized["trigger_name"],
+            origin=normalized["origin"],
+            playbook_version_id=self.playbook_version_id,
+            page=normalized["page"],
+            clause_uid=normalized["clause_uid"],
+            element_id=normalized["element_id"],
+            bbox=normalized["bbox"],
+            execution_status=execution_status,
+            error_details=error_details,
+        )
+
+    async def execute_single_check(
+        self,
+        *,
+        session: AsyncSession,
+        repo,
+        doc,
+        run_id: uuid.UUID,
+        playbook,
+        check_id: str,
+        safe_chunks: list[dict] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Выполнить одну проверку (check_id) для одного документа и сохранить результат.
+
+        ВАЖНО:
+        - find_check_for_document(...) гарантирует, что мы не запустим check,
+          который не применим к этому документу (doc_type/triggers).
+        - safe_chunks можно передать снаружи (reuse между checks), либо
+          они будут собраны заново для одного check.
+        """
+        check = self.find_check_for_document(doc, playbook, check_id)
+        if check is None:
+            logger.warning(
+                "CheckRunner.execute_single_check: check not found or not applicable",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "deal_id": str(getattr(doc, "deal_id", "")),
+                    "run_id": str(run_id),
+                    "check_id": check_id,
+                },
+            )
+            exec_result: dict[str, Any] = {
+                "doc_id": str(getattr(doc, "id", None)),
+                "check_id": check_id,
+                "check_name": None,
+                "result": "unclear",
+                "severity": "unclear",
+                "confidence": None,
+                "detector_method": None,
+                "reason": "check_not_applicable",
+                "sources": [],
+                "location": None,
+                "raw": {
+                    "source": "check_runner",
+                    "error": "check_not_applicable_for_document",
+                },
+                "structured_data": None,
+                "page": None,
+                "clause_uid": None,
+                "element_id": None,
+                "bbox": None,
+            }
+
+            normalized = self._normalize_check_result(exec_result, check=None)
+
+            await repo.upsert_single_check_result(
+                run_id=run_id,
+                document_id=doc.id,
+                check_id=check_id,
+                check_name=exec_result["check_name"],
+                result=exec_result["result"],
+                severity=exec_result["severity"],
+                value_text=normalized["value_text"],
+                evidence_ref=normalized["evidence_ref"],
+                confidence=exec_result.get("confidence"),
+                detector_used=normalized["detector_used"],
+                quality_flags=normalized["quality_flags"],
+                structured_data=normalized["structured_data"],
+                conditional_check_triggered=normalized["conditional_check_triggered"],
+                trigger_name=normalized["trigger_name"],
+                origin=normalized["origin"],
+                playbook_version_id=self.playbook_version_id,
+                page=normalized["page"],
+                clause_uid=normalized["clause_uid"],
+                element_id=normalized["element_id"],
+                bbox=normalized["bbox"],
+                execution_status="FAILED",
+                error_details={
+                    "type": "check_not_applicable",
+                    "message": "check not found or not applicable for this document",
+                },
+            )
+
+            return {
+                "exec_result": exec_result,
+                "failed": False,
+            }
+
+        if safe_chunks is None:
+            safe_chunks = await self._build_safe_chunks_for_checks(
+                session=session,
+                doc=doc,
+                checks=[check],
+            )
+
+        exec_result = self.executor.execute(doc, check, safe_chunks)
+
+        await self._save_check_result(
+            repo=repo,
+            run_id=run_id,
+            doc=doc,
+            check=check,
+            exec_result=exec_result,
+        )
+
+        return {
+            "exec_result": exec_result,
+            "failed": exec_result.get("result") == "fail",
+        }
+
     async def _run_checks_for_document(
         self,
         doc,
@@ -273,31 +902,6 @@ class CheckRunner:
         """
         Выполнить все релевантные checks для одного документа в отдельном UoW.
 
-        Профиль документа:
-        - В начале метода мы читаем:
-            * doc_type  из doc.doc_type,
-            * applicable_triggers из doc.applicable_triggers.
-        - Эта пара (doc_type, applicable_triggers) считается «профилем документа».
-        - На основе этого профиля выбираются проверки:
-            * global_checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
-              — глобальные проверки из плейбука, которые зависят от триггеров;
-            * doc_type_checks = DocTypeCheckLoader.load_checks_for_doc(...)
-              — doc-type-специфичные проверки из YAML для данного doc_type,
-                отфильтрованные по required_triggers/triggers.any.
-
-        Иными словами:
-        - Если профиль документа меняется (другой doc_type или другой набор
-          applicable_triggers), то и набор checks для этого документа меняется.
-        - Это позволяет включать/выключать сценарии (ипотека, маткапитал,
-          наследование, сельхозземля и т.п.) через YAML-блоки trigger_definitions
-          и compliance_rules, не трогая сам CheckRunner.
-
-        Важно по реализации:
-        - Здесь мы создаём DocumentContentService на сессии текущего UoW,
-          чтобы читать layout/clause tree и собирать чанки.
-        - Чанки передаются в CheckExecutor, который сам делает retrieval
-          и вызывает детекторы (rules/LLM).
-
         Возвращает:
           (total_checks_for_doc, failed_checks_for_doc)
         """
@@ -305,15 +909,16 @@ class CheckRunner:
         failed_checks = 0
 
         async with db_uow() as uow:
-            repo = uow.check_results  # ResultRepository
+            repo = uow.check_results
 
-            # 1. Подготовка типов и триггеров
-            doc_type = getattr(doc, "doc_type", "") or ""
-            raw_triggers = getattr(doc, "applicable_triggers", None) or []
-            if isinstance(raw_triggers, list):
-                applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
-            else:
-                applicable_triggers = []
+            (
+                checks,
+                mode,
+                doc_type,
+                applicable_triggers,
+                global_checks,
+                doc_type_checks,
+            ) = self._select_checks_for_document(doc, playbook)
 
             logger.debug(
                 "CheckRunner: running checks for document",
@@ -326,21 +931,6 @@ class CheckRunner:
                     "checks_mode": self.checks_mode,
                 },
             )
-
-            # 2. Выбор checks: глобальные из плейбука + doc-type из YAML (в зависимости от режима)
-            global_checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
-            doc_type_checks = self.doc_type_loader.load_checks_for_doc(
-                doc_type=doc_type,
-                applicable_triggers=applicable_triggers,
-            )
-
-            mode = self.checks_mode
-            if mode == "global_only":
-                checks = global_checks
-            elif mode == "doc_type_only":
-                checks = doc_type_checks
-            else:  # "global_and_doc_type" по умолчанию
-                checks = global_checks + doc_type_checks
 
             logger.info(
                 "CheckRunner: checks selected for document",
@@ -371,7 +961,6 @@ class CheckRunner:
                 )
                 return 0, 0
 
-            # Диагностика пропущенных conditional-checks
             try:
                 for check in getattr(playbook, "checks", []):
                     if getattr(check, "doc_types", None) and doc_type not in check.doc_types:
@@ -410,241 +999,63 @@ class CheckRunner:
                     },
                 )
 
-            # 3. Получение чанков по документу
-            content_service = DocumentContentService(
+            safe_chunks = await self._build_safe_chunks_for_checks(
                 session=uow.session,
+                doc=doc,
+                checks=checks,
             )
 
-            # ВАЖНО:
-            # - Раньше мы брали один чанк = одна листовая клауза (get_chunks).
-            # - Теперь используем get_retrieval_chunks_for_checks, который:
-            #     * берёт leaf-клаузу как основу,
-            #     * режет длинные клаузы на под-чанки,
-            #     * может отдавать разный набор уровней (subclause/section/clause).
-            #
-            # Здесь мы больше не захардкоживаем уровни, а берём их из retrieval-конфига
-            # КАЖДОГО check'а. Но сами чанки считаем один раз на документ,
-            # а не заново для каждого check, поэтому:
-            #   1) сначала считаем "широкий" набор уровней для документа,
-            #   2) а уже CheckExecutor использует required_kind/rerank/context_k.
-            #
-            # Для простоты и обратной совместимости:
-            # - берём union уровней по всем checks документа,
-            # - если ни у кого levels не заданы — используем ["subclause", "section"].
-            all_levels: set[str] = set()
-            for chk in checks:
-                retr_cfg = getattr(chk, "retrieval", None)
-                if retr_cfg and getattr(retr_cfg, "levels", None):
-                    try:
-                        all_levels.update(str(l).lower() for l in retr_cfg.levels)
-                    except Exception:
-                        # На всякий случай не ломаемся на странных данных
-                        pass
-
-            if not all_levels:
-                # дефолт как было раньше
-                levels_for_doc = ["subclause", "section"]
-            else:
-                # фиксируем порядок: subclause, clause, section
-                preferred_order = ["subclause", "clause", "section"]
-                levels_for_doc = [
-                    lvl for lvl in preferred_order if lvl in all_levels
-                ] or list(all_levels)
-
-            chunks = await content_service.get_retrieval_chunks_for_checks(
-                doc_id=doc.id,
-                levels=levels_for_doc,
-                target_tokens=300,
-                max_tokens=800,
-                overlap_ratio=0.15,
-            )
-
-            if len(chunks) > MAX_CHUNKS_PER_DOC:
-                logger.warning(
-                    "CheckRunner: too many chunks for document, truncating",
-                    extra={
-                        "doc_id": str(getattr(doc, "id", None)),
-                        "run_id": str(run_id),
-                        "chunk_count": len(chunks),
-                        "max_chunks": MAX_CHUNKS_PER_DOC,
-                    },
-                )
-                chunks = chunks[:MAX_CHUNKS_PER_DOC]
-
-            # Ограничиваем длину текста в чанках
-            safe_chunks: list[dict] = []
-            for ch in chunks:
-                text = ch.get("text") or ""
-                if len(text) > MAX_CHUNK_TEXT_CHARS:
-                    logger.warning(
-                        "CheckRunner: chunk text truncated",
-                        extra={
-                            "doc_id": str(getattr(doc, "id", None)),
-                            "run_id": str(run_id),
-                            "chunk_id": ch.get("id"),
-                            "orig_len": len(text),
-                            "max_len": MAX_CHUNK_TEXT_CHARS,
-                        },
-                    )
-                    text = text[:MAX_CHUNK_TEXT_CHARS]
-
-                safe_chunks.append(
-                    {
-                        "id": ch.get("id"),
-                        "text": text,
-                        "metadata": ch.get("metadata") or {},
-                    }
-                )
-
-            if not safe_chunks:
-                safe_chunks = [
-                    {
-                        "id": f"{doc.id}:empty",
-                        "text": "",
-                        "metadata": {"doc_id": str(doc.id)},
-                    }
-                ]
-
-            # 4. Запуск checks по чанкам
             for check in checks:
-                exec_result = self.executor.execute(doc, check, safe_chunks)
+                outcome = await self._execute_single_check_internal(
+                    session=uow.session,
+                    repo=repo,
+                    doc=doc,
+                    run_id=run_id,
+                    check=check,
+                    safe_chunks=safe_chunks,
+                )
                 total_checks += 1
-
-                if exec_result.get("result") == "fail":
+                if outcome["failed"]:
                     failed_checks += 1
 
-                reason = exec_result.get("reason")
-                evidence = exec_result.get("evidence") or ""
-                detector_method = exec_result.get("detector_method")
-                raw = exec_result.get("raw") or {}
-
-                value_text = reason or (evidence[:500] if evidence else None)
-                evidence_ref = evidence or None
-
-                quality_flags: dict = {}
-
-                if isinstance(raw, dict):
-                    source = raw.get("source")
-                    if source:
-                        quality_flags["source"] = source
-
-                    rules_conf = raw.get("rules_confidence")
-                    if rules_conf is not None:
-                        quality_flags["rules_confidence"] = rules_conf
-
-                    llm_conf = raw.get("llm_confidence")
-                    if llm_conf is not None:
-                        quality_flags["llm_confidence"] = llm_conf
-
-                    quality_flags["raw"] = raw
-
-                # raw structured_data от CheckExecutor
-                structured_data_raw = exec_result.get("structured_data")
-
-                # Нормализация structured_data под контракт StructuredField:
-                # ожидаем формат {field_name: {value, unit?, source?, confidence?, found?, location?, qc?}}
-                structured_data: dict[str, Any] | None = None
-                if isinstance(structured_data_raw, dict):
-                    structured_data = {}
-                    for field_name, field_val in structured_data_raw.items():
-                        # Если уже новый формат (dict с ключом "value") — не трогаем
-                        if isinstance(field_val, dict) and "value" in field_val:
-                            structured_data[field_name] = field_val
-                            continue
-
-                        # Старый формат: поле = простое значение (строка/число и т.п.)
-                        structured_data[field_name] = {
-                            "value": field_val,
-                        }
-
-                # Универсальная поддержка red_flags из structured_data
-                if structured_data:
-                    rf_payload = structured_data.get("red_flags")
-                    red_from_struct: Any | None = None
-
-                    if rf_payload is not None:
-                        if isinstance(rf_payload, dict):
-                            red_from_struct = rf_payload.get("value")
-                        else:
-                            red_from_struct = rf_payload
-
-                    codes: list[str] = []
-                    if red_from_struct:
-                        if isinstance(red_from_struct, str):
-                            codes = [
-                                c.strip()
-                                for c in red_from_struct.split(",")
-                                if c and c.strip()
-                            ]
-                        elif isinstance(red_from_struct, list):
-                            codes = [
-                                str(c).strip()
-                                for c in red_from_struct
-                                if str(c).strip()
-                            ]
-                        else:
-                            codes = [str(red_from_struct).strip()]
-
-                    if codes:
-                        existing = quality_flags.get("red_flags")
-                        if isinstance(existing, list):
-                            existing.extend(codes)
-                        elif isinstance(existing, str):
-                            merged = [
-                                e.strip()
-                                for e in existing.split(",")
-                                if e and e.strip()
-                            ] + codes
-                            quality_flags["red_flags"] = merged
-                        elif existing is None:
-                            quality_flags["red_flags"] = codes
-
-                conditional = getattr(check, "conditional", None)
-                if isinstance(conditional, dict):
-                    is_conditional = bool(conditional)
-                    trigger_name = conditional.get("trigger")
-                else:
-                    is_conditional = bool(conditional)
-                    trigger_name = (
-                        getattr(conditional, "trigger", None)
-                        if conditional is not None
-                        else None
-                    )
-
-                check_origin = getattr(check, "origin", None)
-
-                page = exec_result.get("page")
-                clause_uid = exec_result.get("clause_uid")
-                element_id = exec_result.get("element_id")
-                bbox = exec_result.get("bbox")
-
-                await repo.create(
-                    run_id=run_id,
-                    document_id=doc.id,
-                    check_id=exec_result["check_id"],
-                    check_name=exec_result["check_name"],
-                    result=exec_result["result"],
-                    severity=exec_result["severity"],
-                    value_text=value_text,
-                    evidence_ref=evidence_ref,
-                    confidence=exec_result.get("confidence"),
-                    detector_used=detector_method,
-                    quality_flags=quality_flags or None,
-                    structured_data=structured_data,
-                    conditional_check_triggered=is_conditional,
-                    trigger_name=trigger_name,
-                    origin=check_origin,
-                    playbook_version_id=self.playbook_version_id,
-                    page=page,
-                    clause_uid=clause_uid,
-                    element_id=element_id,
-                    bbox=bbox,
-                )
-
-            # помечаем документ как полностью проверенный
             doc_repo = DocumentRepository(uow.session)
             await doc_repo.set_completed(doc.id)
-            # Коммит делает db_uow() при выходе из контекста
 
         return total_checks, failed_checks
+
+    async def _execute_single_check_internal(
+        self,
+        *,
+        session: AsyncSession,
+        repo,
+        doc,
+        run_id: uuid.UUID,
+        check,
+        safe_chunks: list[dict] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Внутренний helper для старого batched-режима (_run_checks_for_document),
+        чтобы не дублировать бизнес-логику.
+        """
+        if safe_chunks is None:
+            safe_chunks = await self._build_safe_chunks_for_checks(
+                session=session,
+                doc=doc,
+                checks=[check],
+            )
+
+        exec_result = self.executor.execute(doc, check, safe_chunks)
+        await self._save_check_result(
+            repo=repo,
+            run_id=run_id,
+            doc=doc,
+            check=check,
+            exec_result=exec_result,
+        )
+
+        return {
+            "exec_result": exec_result,
+            "failed": exec_result.get("result") == "fail",
+        }
+    
     

@@ -8,8 +8,7 @@ Chunk Builder Worker.
 - Построить canonical snapshot чанков (section / clause / subclause) через
   отдельный сервис ChunkSnapshotBuilder.
 - Сохранить snapshot в MinIO и обновить ссылку chunks_ref в DocumentVersion.
-- При необходимости обновить статус документа (structured -> chunked),
-  либо оставить STRUCTURED, если ты не хочешь вводить отдельный статус.
+- Обновить статус документа: STRUCTURED -> CHUNKED.
 - В будущем: запускать downstream-задачи, которым нужны готовые чанки.
 
 Архитектурный паттерн:
@@ -37,6 +36,7 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from services.run_orchestrator_trigger import retrigger_run_pipeline
 
 # ВАЖНО:
 # ChunkSnapshotBuilder мы создадим в отдельном модуле engine/content/chunk_snapshot_builder.py.
@@ -63,11 +63,6 @@ def build_chunks(
 ) -> dict:
     """
     Sync Celery entry point для построения чанков.
-
-    Для непрофессионального программиста:
-    - Celery вызывает ЭТУ функцию как обычную (синхронную).
-    - Внутри мы один раз "ныряем" в async-мир через run_async(_wrapper()).
-    - Все обращения к БД и MinIO происходят уже внутри _build_chunks_async().
     """
 
     async def _wrapper() -> dict:
@@ -82,12 +77,13 @@ def build_chunks(
                     uow=uow,
                 )
         except PermanentError as e:
-            # Если ошибка "постоянная" (например, нет layout или clause_tree),
-            # логируем её и переводим документ в FAILED со stage="chunking".
             logger.error(
                 "Permanent error during chunk building",
                 document_id=document_id,
                 version_id=document_version_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                run_id=run_id,
                 error=str(e),
             )
             async with db_uow() as uow_status:
@@ -103,7 +99,24 @@ def build_chunks(
                 "error": str(e),
             }
 
-    return run_async(_wrapper())
+    result = run_async(_wrapper())
+
+    if run_id and result.get("status") != DocumentStatus.FAILED.value:
+        logger.info(
+            "Chunk building finished, retriggering run pipeline",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
+        retrigger_run_pipeline(
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+        )
+
+    return result
 
 
 async def _build_chunks_async(
@@ -120,11 +133,11 @@ async def _build_chunks_async(
 
     Для непрофессионального программиста:
     - Здесь мы:
-      1) проверяем, что есть нужные артефакты (layout + clause_tree);
+      1) проверяем, что есть нужные артефакты (clause_tree);
       2) строим snapshot чанков через ChunkSnapshotBuilder;
       3) сохраняем JSON в MinIO;
       4) обновляем ссылку chunks_ref в DocumentVersion;
-      5) обновляем статус документа (опционально).
+      5) переводим документ в статус CHUNKED.
     """
 
     start = time.time()
@@ -146,13 +159,11 @@ async def _build_chunks_async(
         raise PermanentError(f"Document {d_id} not found")
 
     # Идемпотентность:
-    # Если у версии уже есть chunks_ref, можно:
-    # - либо сразу вернуть, не пересчитывая,
-    # - либо пересобирать принудительно (например, при смене логики chunking).
-    # Для простоты сейчас: если chunks_ref есть — просто логируем и выходим.
-    if getattr(version, "chunks_ref", None):
+    # Если у версии уже есть chunks_ref и документ уже CHUNKED,
+    # считаем, что стадия успешно выполнена.
+    if getattr(version, "chunks_ref", None) and doc.status == DocumentStatus.CHUNKED.value:
         logger.info(
-            "Chunks snapshot already exists for version, skipping rebuild",
+            "Chunks snapshot already exists and document is CHUNKED, skipping rebuild",
             document_id=str(doc.id),
             version_id=str(version.id),
             chunks_ref=version.chunks_ref,
@@ -164,20 +175,16 @@ async def _build_chunks_async(
             "skipped": True,
         }
 
-    # Проверяем, что структура уже построена (без clause_tree чанки не построить)
     if not getattr(version, "clause_tree_ref", None):
         raise PermanentError(
             f"Cannot build chunks: clause_tree_ref is missing for version {v_id}"
         )
 
     # 2. Построение snapshot чанков через отдельный сервис
-    # ChunkSnapshotBuilder повторяет логику DocumentContentService.get_hierarchical_chunks,
-    # но возвращает один JSON-объект для сохранения.
     snapshot_builder = ChunkSnapshotBuilder(store=store)
     snapshot = await snapshot_builder.build_snapshot(
         session=uow.session,
         doc_id=d_id,
-        # target_tokens / max_tokens / overlap_ratio можно вынести в настройки
         target_tokens=300,
         max_tokens=800,
         overlap_ratio=0.15,
@@ -197,35 +204,21 @@ async def _build_chunks_async(
         chunks_ref=chunks_ref,
     )
 
-    # 5. Обновляем статус документа при необходимости.
-    #
-    # Варианты:
-    # - если хочешь отдельный статус CHUNKED — можно добавить его в DocumentStatus
-    #   и использовать здесь;
-    # - либо оставить STRUCTURED, считая чанки частью "структурирования".
-    #
-    # Сейчас выберем второй вариант: если документ уже STRUCTURED,
-    # статус не меняем; если был STRUCTURED/CLASSIFIED/ANALYZING — тоже не трогаем.
-    if doc.status == DocumentStatus.STRUCTURED.value:
-        # Статус уже подходящий, просто очищаем ошибки (если были).
-        await doc_repo.update_status(
-            doc.id,
-            DocumentStatus.STRUCTURED.value,
-            processing_error_details=None,
-        )
+    # 5. Переводим документ в статус CHUNKED
+    await doc_repo.update_status(
+        doc.id,
+        DocumentStatus.CHUNKED.value,
+        processing_error_details=None,
+    )
 
     duration = round(time.time() - start, 2)
     logger.info(
-        "Chunks snapshot built and stored",
+        "Chunks snapshot built, stored and document marked as CHUNKED",
         document_id=str(doc.id),
         version_id=str(version.id),
         chunks_ref=chunks_ref,
         duration_seconds=duration,
     )
-
-    # 6. (Опционально) можно запустить downstream-задачу,
-    #    если есть что-то, что должно запускаться только при наличии чанков.
-    #    На первом шаге это не делаем, чтобы не менять поведение пайплайна.
 
     return {
         "document_id": str(doc.id),
@@ -245,11 +238,6 @@ async def _mark_failed(
     """
     Отдельный простой UoW для перевода документа в статус FAILED
     с заполнением processing_error_details, если чанки не смогли построиться.
-
-    Для непрофессионального программиста:
-    - Этот helper очень похож на _mark_failed в extract_worker/structure_builder.
-    - Мы фиксируем, что именно "chunking" сломался, чтобы фронт и логи
-      могли показать понятную причину.
     """
     doc_repo = DocumentRepository(uow.session)
     await doc_repo.set_failed(
@@ -259,6 +247,5 @@ async def _mark_failed(
         reason="chunking_error",
         run_id=run_id,
     )
-
 
     

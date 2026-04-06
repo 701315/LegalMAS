@@ -251,7 +251,8 @@ async def _load_text_snippets(
 ) -> list[dict]:
     """
     Load first ~2000 chars of layout text for each document.
-    Prefer sanitized layout, fallback to raw for legacy documents.
+    Prefer sanitized primary layout, fallback to primary layout
+    for legacy / not-yet-PII documents.
     """
     store = ArtifactStore()
     ver_repo = DocumentVersionRepository(db)
@@ -263,9 +264,10 @@ async def _load_text_snippets(
                 doc["text_first_2000"] = ""
                 continue
 
+            # новый unified‑контракт
             layout_ref = (
-                version.text_layout_sanitized_ref
-                or version.text_layout_raw_ref
+                getattr(version, "layout_primary_sanitized_ref", None)
+                or getattr(version, "layout_primary_ref", None)
             )
             if not layout_ref:
                 doc["text_first_2000"] = ""

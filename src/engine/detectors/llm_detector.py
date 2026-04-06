@@ -203,15 +203,31 @@ class LLMDetector:
         )
 
         if response is None:
-            # LLM не дал ответа даже после ретраев — возвращаем DetectionResult
-            # с описанием ошибки, чтобы верхний уровень мог показать "unclear".
+            error_type = error_details.get("error_type")
+            error_message = (error_details.get("error_message") or "").lower()
+
+            # Специализация для budget‑ошибок и недоступного провайдера
+            if error_type == "permanent_error":
+                if "context limit" in error_message or "token budget" in error_message:
+                    reason = "llm_token_budget_exceeded"
+                elif "insufficient output token budget" in error_message:
+                    reason = "llm_insufficient_output_budget"
+                else:
+                    reason = "llm_permanent_error"
+            elif error_type == "unavailable":
+                reason = "llm_unavailable"
+            elif error_type == "transient_error":
+                reason = "llm_transient_error"
+            else:
+                reason = "llm_call_failed"
+
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
                 confidence=0.0,
                 detector_type="llm",
                 details={
-                    "reason": "llm_call_failed",
+                    "reason": reason,
                     **error_details,
                 },
             )
@@ -305,13 +321,31 @@ class LLMDetector:
         )
 
         if response is None:
+            error_type = error_details.get("error_type")
+            error_message = (error_details.get("error_message") or "").lower()
+
+            # Специализация для budget‑ошибок и недоступного провайдера
+            if error_type == "permanent_error":
+                if "context limit" in error_message or "token budget" in error_message:
+                    reason = "llm_token_budget_exceeded"
+                elif "insufficient output token budget" in error_message:
+                    reason = "llm_insufficient_output_budget"
+                else:
+                    reason = "llm_permanent_error"
+            elif error_type == "unavailable":
+                reason = "llm_unavailable"
+            elif error_type == "transient_error":
+                reason = "llm_transient_error"
+            else:
+                reason = "llm_call_failed"
+
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
                 confidence=0.0,
                 detector_type="llm",
                 details={
-                    "reason": "llm_call_failed",
+                    "reason": reason,
                     **error_details,
                 },
             )
@@ -349,8 +383,10 @@ class LLMDetector:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-                # None здесь означает, что клиент сам решил "ничего не делать"
-                # (например, провайдер выключен). Это не ошибка, просто отсутствие ответа.
+                # None здесь означает, что LLMClient вернул "пустой" ответ
+                # (например, провайдер выключен на уровне конфигурации),
+                # но без исключения. Для детектора это эквивалентно
+                # отсутствию ответа от LLM.
                 return response, {
                     "llm_attempts": attempts,
                     "error_type": None,

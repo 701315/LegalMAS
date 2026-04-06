@@ -24,7 +24,7 @@ import uuid
 from typing import Any, Dict, List, Mapping
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.ops.metrics import METRICS
+from ops.metrics import METRICS
 from sqlalchemy import select
 from core.logging import get_logger
 from db.models.result import CheckResult

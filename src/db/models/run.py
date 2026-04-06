@@ -198,3 +198,4 @@ class Job(Base):
     )
 
     __table_args__ = (Index("idx_jobs_run_status", "run_id", "status"),)
+

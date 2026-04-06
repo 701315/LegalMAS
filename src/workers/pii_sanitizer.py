@@ -8,8 +8,8 @@ PII Sanitizer Worker.
 - Найти PII‑сущности по политике (triggers + YAML‑конфиг типа документа).
 - Заменить чувствительные данные токенами, зашифровать mapping и сохранить его.
 - Сохранить sanitized‑layout и PII‑mapping в MinIO.
-- Обновить статус документа: extracted -> sanitized.
-- Запустить следующий этап пайплайна: workers.build_structure.
+- Обновить статус документа: EXTRACTED -> SANITIZED.
+- Запуск последующих стадий (structure и далее) выполняется централизованным оркестратором.
 
 Архитектурные принципы:
 - Celery‑таска синхронная (def) + async‑ядро (PIISanitizer.sanitize) под db_uow().
@@ -43,6 +43,7 @@ from services.pii_tokenizer import PIIPolicy, PIITokenizer
 from classifiers.yaml_registry import YAMLRegistry
 from core.constants import DocumentStatus
 from storage.artifact_store import ArtifactStore, ArtifactPath
+from services.run_orchestrator_trigger import retrigger_run_pipeline
 
 logger = get_logger(__name__)
 
@@ -362,6 +363,9 @@ class PIISanitizer:
 def sanitize_document(
     self,
     document_version_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None = None,
 ) -> dict:
     """
     Синхронная Celery‑таска санитизации документа.
@@ -371,48 +375,29 @@ def sanitize_document(
       - запускает асинхронную санитизацию через PIISanitizer.sanitize;
       - при ошибке открывает второй, маленький UnitOfWork только для записи
         статуса (FAILED / QUARANTINE) + processing_error_details;
-      - при успехе ставит задачу следующего этапа (Structure Builder).
+      - при успехе только обновляет статус до SANITIZED.
+      - запуск следующего этапа (Structure Builder) выполняется оркестратором.
     """
     version_uuid = uuid.UUID(document_version_id)
 
     async def _run() -> dict:
-        # Основной UnitOfWork для санитизации
         async with db_uow() as uow_main:
             store = ArtifactStore(settings)
             sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
 
             try:
                 result = await sanitizer.sanitize(version_uuid)
-
-                # Успех → ставим следующую стадию (build_structure)
-                if (
-                    not result.get("skipped")
-                    and not settings.DISABLE_DOWNSTREAM_TASKS
-                ):
-                    from mas_queue.celery_app import celery_app as _celery  # на случай циклов импорта
-
-                    logger.info(
-                        "Scheduling build_structure after PII",
-                        document_version_id=document_version_id,
-                    )
-
-                    _celery.send_task(
-                        "workers.build_structure",
-                        kwargs={
-                            "document_version_id": document_version_id,
-                            # run_id можно добавить при необходимости
-                        },
-                    )
-
                 return result
 
             except PermanentError as e:
                 logger.error(
                     "Permanent error during PII sanitization",
                     document_version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
                     error=str(e),
                 )
-                # Отдельный UoW только для записи статуса FAILED + деталей
                 async with db_uow() as uow_status:
                     await _mark_failed(
                         uow_status,
@@ -428,9 +413,11 @@ def sanitize_document(
                 logger.error(
                     "Quarantine error during PII sanitization",
                     document_version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
                     error=str(e),
                 )
-                # Отдельный UoW только для записи статуса QUARANTINE + деталей
                 async with db_uow() as uow_status:
                     await _mark_quarantine(
                         uow_status,
@@ -443,7 +430,27 @@ def sanitize_document(
                 }
 
     # Переход в async‑мир через общий мост run_async
-    return run_async(_run())
+    result = run_async(_run())
+
+    # Успешная санитизация → документ уже SANITIZED, можно будить оркестратор
+    if run_id and result.get("status") not in {
+        DocumentStatus.FAILED.value,
+        DocumentStatus.QUARANTINE.value,
+    }:
+        logger.info(
+            "PII sanitization finished, retriggering run pipeline",
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
+        retrigger_run_pipeline(
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+        )
+
+    return result
 
 
 async def _mark_failed(

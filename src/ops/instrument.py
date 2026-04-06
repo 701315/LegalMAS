@@ -14,9 +14,9 @@ Call setup_metrics(app) once in src/api/main.py.
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from src.core.config import settings
-from src.core.logging import get_logger
-from src.ops.metrics import get_metrics
+from core.config import settings
+from core.logging import get_logger
+from ops.metrics import get_metrics
 
 logger = get_logger(__name__)
 

@@ -14,7 +14,7 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - Строит структуру text_layout_raw (элементы и таблицы) и сохраняет её в MinIO.
 - layout_primary сейчас совпадает с text_layout_raw (языковая нормализация выполняется до extract).
 - При низком качестве извлечения или ошибках отправляет документ в карантин.
-- При успехе обновляет статус документа до EXTRACTED и запускает PII‑санитизацию.
+- При успехе обновляет статус документа до EXTRACTED; запуск PII‑санитизации делает оркестратор.
 """
 
 import time
@@ -22,7 +22,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.ops.metrics import METRICS
+from ops.metrics import METRICS
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError
@@ -42,6 +42,8 @@ from services.extraction_quality import (
     ExtractionQualityPolicy,
     evaluate_extraction_quality,
 )
+from services.run_orchestrator_trigger import retrigger_run_pipeline
+
 logger = get_logger(__name__)
 
 
@@ -91,6 +93,7 @@ def extract_document(
                         document_uuid=uuid.UUID(document_id),
                         message=str(e),
                         run_id=uuid.UUID(run_id) if run_id else None,
+                        error=e,
                     )
                 return {
                     "status": DocumentStatus.FAILED.value,
@@ -117,7 +120,29 @@ def extract_document(
                     "error": str(e),
                 }
 
-    return run_async(_wrapper())
+    result = run_async(_wrapper())
+
+    # Успешный путь: документ уже переведён в EXTRACTED внутри update_extraction_result
+    # Можно будить оркестратор для следующей стадии (PII).
+    if run_id and result.get("status") not in {
+        DocumentStatus.FAILED.value,
+        DocumentStatus.QUARANTINE.value,
+    }:
+        logger.info(
+            "Extraction finished, retriggering run pipeline",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+        )
+        retrigger_run_pipeline(
+            run_id=run_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+        )
+
+    return result
 
 
 async def _extract_document_async(
@@ -133,6 +158,7 @@ async def _extract_document_async(
 
     Предполагается, что к этому моменту build_primary_language_source уже подготовил
     одноязычный PDF и записал его в primary_source_ref.
+    fallback на converted_pdf_ref/original_ref — это запасной сценарий, а не норма
     """
 
     logger.info(
@@ -315,16 +341,6 @@ async def _extract_document_async(
 
     if extraction.avg_ocr_confidence is not None and extraction.strategy in ("ocr", "hybrid"):
         METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
-
-    if not settings.DISABLE_DOWNSTREAM_TASKS:
-        from mas_queue.celery_app import celery_app as _celery
-
-        _celery.send_task(
-            "pii.sanitize_document",
-            kwargs={
-                "document_version_id": document_version_id,
-            },
-        )
 
     return {
         "document_id": document_id,

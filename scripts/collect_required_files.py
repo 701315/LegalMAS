@@ -12,9 +12,13 @@ PROJECT_ROOT = "/home/vladi/projects/LegalMAS"
 OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_files_dump.txt"
 
 FILES = [
-    "/home/vladi/projects/LegalMAS/src/services/deal_language_service.py",
-    "/home/vladi/projects/LegalMAS/src/services/layout_language_filter.py",
+    "src/workers/build_primary_language_source.py",
+    "src/workers/extract_worker.py",
+    "src/workers/pii_sanitizer.py",
+    "src/db/models/document.py",
+    "src/services/primary_pdf_builder.py",
 ]
+
 # ===================================
 
 

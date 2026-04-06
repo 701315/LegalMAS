@@ -1,3 +1,5 @@
+# src/engine/content/document_content_service.py
+
 """
 DocumentContentService v3: тонкий фасад над clause tree + layout.
 
