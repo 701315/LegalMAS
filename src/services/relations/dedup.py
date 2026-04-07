@@ -1,14 +1,34 @@
-"""
-Exact Dedup Service.
+# src/services/relations/dedup.py
 
-Finds documents with identical content (same SHA256 hash)
-within a single deal. When duplicates are found:
-- The first document (by creation date) is kept as original
-- All others are counted as duplicates
-- A "version" relation is created between them
-
-This runs BEFORE relation detection and family building.
 """
+Exact deduplication of documents within a single deal.
+
+Сервис ищет документы с идентичным содержимым по `sha256_file` и
+формирует результат дедупликации до запуска relation detection
+и family building.
+
+Как работает:
+- группирует документы по SHA256-хэшу файла;
+- в каждой группе с одинаковым хэшем сортирует документы по `created_at`;
+- первый документ в группе считается оригиналом (kept),
+  остальные — точными дубликатами;
+- собирает DedupResult:
+  total_documents, exact_duplicates, duplicate_groups,
+  kept_doc_ids, marked_doc_ids;
+- для каждого дубликата создаёт DetectedRelation c:
+  relation_type="version", confidence=1.0,
+  method=RelationDetectionMethod.EXACT_HASH,
+  source_doc_id=duplicate, target_doc_id=original.
+
+Назначение:
+- убрать точные копии из дальнейшего анализа как отдельные сущности;
+- сохранить формальную связь duplicate → original для downstream‑логики;
+- дать relation/family processing уже очищенный и размеченный набор документов.
+
+Главная точка входа:
+- find_duplicates(documents) -> tuple[DedupResult, list[DetectedRelation]]
+"""
+
 
 from collections import defaultdict
 

@@ -1,16 +1,52 @@
 # src/services/export/aggregator.py
 
 """
-Aggregator Service.
+Export Aggregator Service.
 
-Collects all check results for a deal run and produces:
-1. SeverityCounts
-2. TopRisks — with structured_data and conditional trigger info
-3. DDRequests — text from YAML dd_request_templates, with addressee
-4. ExportRows — flat list with classification metadata
-5. ConditionalCheckRows — only triggered conditional checks
-6. StructuredValueRows — extracted amounts, dates, entities
-7. DocTypeSummaries — per-type breakdown with classification quality
+Собирает результаты проверок (checks) по одному deal run и подготавливает
+агрегированный срез для экспорта: сводки по серьёзности, топ‑риски,
+DD‑запросы, плоские строки экспорта, условные проверки и извлечённые
+структурированные значения.
+
+Основная функция:
+- aggregate_results(deal_id, deal_name, run_id, check_results, documents) →
+  AggregatedResults, где:
+  1) severity_counts (SeverityCounts) — количество fail/pass/unclear
+     по уровням серьёзности (critical/high/medium);
+  2) rows (list[ExportRow]) — плоский список строк экспорта с:
+     документом, check_id/name, result/severity, evidence_snippet, page,
+     clause_uid, confidence, detector_used, quality_flags, qc_status,
+     classification_level/confidence, origin, structured_data_preview и
+     флагами условных проверок (conditional_check_triggered, trigger_name);
+  3) top_risks (list[TopRisk]) — топ N (EXPORT_TOP_RISKS_COUNT) fail‑рисков,
+     отсортированных по важности (critical/high/medium, затем по confidence),
+     с вложенным structured_data и метаданными conditional checks;
+  4) dd_requests (list[DDRequest]) — сформированные текстовые DD‑запросы
+     из YAML‑шаблонов (dd_request_templates), сгруппированные по check_id,
+     с дедупликацией по dedup_key и специальной пометкой
+     `[ТРЕБУЕТ УТОЧНЕНИЯ]` для unclear‑critical/high;
+  5) conditional_rows (list[ConditionalCheckRow]) — отдельный лист для
+     сработавших условных проверок (если EXPORT_CONDITIONAL_CHECKS_SHEET включён);
+  6) structured_value_rows (list[StructuredValueRow]) — нормализованные
+     извлечённые значения из structured_data (amount/date/entity/text) для
+     дальнейшего анализа/экспорта;
+  7) doc_type_summaries (list[DocTypeSummary]) — сводки по типу документа:
+     количество документов, уникальных проверок, распределение по severities,
+     pass/unclear, средняя и низкая confidence классификации, количество
+     сработавших conditional checks.
+
+Дополнительно считает:
+- quarantine_count — количество документов в статусе quarantine;
+- degraded_count — число документов, где в quality_flags присутствует
+  признак деградированной структуры (structure_degraded);
+- evidence_validity_rate — доля fail‑проверок high/critical с непустым
+  evidence_snippet;
+- conditional_checks_total / conditional_checks_triggered — статистику
+  по условным проверкам.
+
+Используется export‑пайплайном для подготовки всех табличных
+представлений, на основе которых далее строятся Excel/CSV‑экспорты
+и DD‑репорты.
 """
 
 import hashlib

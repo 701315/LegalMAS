@@ -1,23 +1,33 @@
 # src/services/relations/family_builder.py
 
 """
-Family Builder Service.
+Builds document families from detected междокументные связи.
 
-Groups related documents into families:
-- Each family has one master document (SPA, SHA, Loan, etc.)
-- Related documents: appendices, amendments, drafts, counterparts
-- Uses BFS traversal to collect all connected documents
-- Max family size and max hops limits prevent runaway grouping
+Сервис группирует связанные документы сделки в FamilyGroup, где у каждой
+семьи есть master-документ (например, SPA, SHA, Loan Agreement), а остальные
+участники семьи — приложения, amendments, drafts, counterparts и другие
+связанные документы.
 
-The family is used by the Runner to provide cross-document context
-when checking conditions (e.g., appendix modifies a clause in master).
+Как работает:
+- загружает список master doc types из YAMLRegistry, а если он недоступен —
+  использует settings.FAMILY_MASTER_DOC_TYPES;
+- выбирает master-кандидатов среди documents: документы с master doc_type,
+  которые не выступают source в relation_type == "master";
+- сортирует master-кандидатов по приоритету classification_level
+  (например, L3 > L2 > L1 > L0), чтобы сначала строить семьи вокруг
+  наиболее качественно классифицированных документов;
+- строит неориентированный граф relations и для каждого master запускает BFS,
+  собирая все достижимые документы с ограничениями RELATIONS_MAX_HOPS и
+  RELATIONS_MAX_FAMILY_SIZE;
+- формирует FamilyGroup с master_doc_id, member_doc_ids, relations и
+  classification metadata master-документа;
+- документы, не попавшие ни в одну семью, остаются orphan и в результат
+  не включаются.
 
-Algorithm:
-1. Find master candidates (documents with master doc_types and no
-   incoming "master" relations)
-2. For each master: BFS through all relations (max N hops)
-3. Collect all reachable documents into one family
-4. Handle orphans (documents not in any family)
+Назначение:
+- семьи используются downstream в Runner, чтобы учитывать cross-document context
+  при проверках, когда связанные документы уточняют, изменяют или дополняют
+  master-документ.
 """
 
 from collections import defaultdict, deque

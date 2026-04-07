@@ -1,4 +1,5 @@
 # src/db/repositories/project_role_repo.py
+
 """
 Репозиторий для работы с ролями участников проектов (сделок).
 

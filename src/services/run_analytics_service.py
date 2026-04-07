@@ -1,5 +1,25 @@
 # src/services/run_analytics_service.py
 
+"""
+Аналитика качества классификации для Run.
+
+Сервис RunAnalyticsService строит сводный отчёт по результатам
+классификации документов в рамках одного run_id и возвращает его
+в виде схемы ClassificationReportResponse для API.
+
+Метод build_classification_report:
+- получает Run и связанные с ним документы, по которым есть результаты;
+- агрегирует статистику по уровням классификации (L0–L4, LMANUAL),
+  количеству low-confidence документов и документам с неизвестным типом;
+- считает покрытие триггеров (applicable_triggers) по документам;
+- формирует отсортированный список документов с низкой уверенностью
+  и список документов с типом Generic/Unknown/None.
+
+Используется эндпоинтом GET /api/v1/runs/{run_id}/classification_report
+в api.endpoints.runs для отдачи отчёта по качеству классификации Run.
+"""
+
+
 import uuid
 from typing import Any
 

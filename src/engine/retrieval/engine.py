@@ -1,6 +1,7 @@
 # src/engine/retrieval/engine.py
 
-"""Stage 8 Retrieval: BM25 + embeddings + metadata weighting.
+"""
+Retrieval: BM25 + embeddings + metadata weighting.
 
 Гибридный поиск:
 - BM25 по токенизированным чанкам,

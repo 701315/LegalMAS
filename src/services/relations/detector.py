@@ -1,19 +1,40 @@
+# src/services/relations/detector.py
+
 """
 Relation Detector Service.
 
-Finds relationships between documents using two methods:
+Ищет связи между документами сделки по имени файла и по тексту и возвращает
+список DetectedRelation, который затем используется FamilyBuilder для
+формирования document families.
 
-1. Filename-based detection:
-   - Pattern matching: "Appendix 1 to SPA" → appendix relation to SPA
-   - Version detection: "SPA_v1.pdf", "SPA_v2.pdf" → version relation
-   - Fuzzy name similarity: similar names might be related
+Методы детекции:
+1) По имени файла (filename-based):
+   - шаблоны приложений: "Приложение 1 к Договору...", "Appendix 1 to SPA" → relation_type="appendix";
+   - шаблоны доп. соглашений: "Доп. соглашение №1 к договору...", "Amendment No.1 to Share Purchase Agreement" → "amendment";
+   - версии: "SPA_v1.pdf", "SPA_v2.pdf" → цепочки relation_type="version" между соседними версиями;
+   - черновики: "SPA_draft.pdf", "SPA_проект.pdf" → relation_type="draft" к финальной версии;
+   - экземпляры/counterparts: "SPA_counterpart1.pdf" → relation_type="counterpart" к базовому файлу;
+   - fuzzy‑совпадения имён (thefuzz) с порогом RELATIONS_FILENAME_SIMILARITY_THRESHOLD.
 
-2. Text-based detection:
-   - References in document text: "к Договору от 01.01.2024 №123"
-   - "является неотъемлемой частью" → appendix relation
+2) По тексту (text-based):
+   - русские формулировки вида «является неотъемлемой частью Договора…»
+     → relation_type="appendix";
+   - «в дополнение к Договору…», ссылки вида «к Договору от 01.01.2024 №123»
+     → relation_type="amendment";
+   - английские эквиваленты ("forms an integral part of the Agreement", "pursuant to the agreement dated …")
+     также учитываются для appendix/amendment.
 
-Both methods produce DetectedRelation objects that are later
-used by the Family Builder to group documents.
+Процесс:
+- detect_all_relations(documents) для списка документов (id, filename, folder_path,
+  text_first_2000, doc_type, classification_level) по флагам settings.RELATIONS_FILENAME_ENABLED
+  и settings.RELATIONS_TEXT_ENABLED запускает оба канала детекции;
+- все найденные DetectedRelation агрегируются и проходят _deduplicate_relations():
+  для каждой пары (source_doc_id, target_doc_id) остаётся только связь
+  с максимальной confidence, даже если она найдена разными методами.
+
+Детектор не принимает решения о master/семьях — он лишь строит
+граф кандидатов связей, который затем используется FamilyBuilder
+для группировки документов в семьи.
 """
 
 import re

@@ -26,10 +26,10 @@ Build Primary Language Source Worker.
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from core.exceptions import PermanentError, TransientError
 
 from core.config import settings
 from core.constants import DocumentStatus
-from core.exceptions import PermanentError
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -67,9 +67,12 @@ def build_primary_language_source(
     Контракт:
     - вызывается оркестратором или auto-pipeline для документов после import
       или после convert_to_pdf;
-    - по завершении (успех) документ должен перейти в статус PRIMARY_READY;
-    - в DocumentVersion.primary_source_ref должна появиться S3-ссылка;
-    - запуск последующих стадий (extract и далее) выполняется централизованным оркестратором.
+    - по завершении (успех) документ должен перейти в статус PRIMARY_READY
+      ИЛИ в LANGUAGE_SELECTION_REQUIRED, если нужен выбор языка пользователем;
+    - в DocumentVersion.primary_source_ref должна появиться S3-ссылка,
+      если построен одноязычный PDF;
+    - запуск последующих стадий (extract и далее) выполняется централизованным
+      оркестратором, но только после подтверждённого commit одноязычного source.
     """
 
     async def _wrapper() -> dict:
@@ -85,10 +88,8 @@ def build_primary_language_source(
 
     try:
         result = run_async(_wrapper())
+
     except PermanentError as e:
-        # Поведение как и раньше: пусть ошибка поднимется в логах;
-        # документ в async‑ядре уже переведён в нужный статус/ошибку либо
-        # упадёт транзакция.
         logger.error(
             "Permanent error during primary language source build",
             document_id=document_id,
@@ -100,21 +101,69 @@ def build_primary_language_source(
         )
         raise
 
-    # Успешно: документ уже PRIMARY_READY в рамках UoW, можно будить оркестратор.
-    if run_id:
-        logger.info(
-            "Primary language source build complete, retriggering run pipeline",
+    except TransientError as e:
+        logger.warning(
+            "Transient error during primary language source build; task should be retried",
             document_id=document_id,
             document_version_id=document_version_id,
             deal_id=deal_id,
             tenant_id=tenant_id,
             run_id=run_id,
+            error=str(e),
+        )
+        raise
+
+    committed = bool(result.get("committed"))
+    requires_user_selection = bool(result.get("requires_user_selection"))
+    target_language = result.get("target_language")
+    primary_source_ref = result.get("primary_source_ref")
+
+    # Ветка 1: пайплайн осознанно остановлен до выбора языка пользователем.
+    if requires_user_selection:
+        logger.info(
+            "Primary language source build paused: user language selection required",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            detected_languages=result.get("detected_languages"),
+        )
+        return result
+
+    # Ветка 2: построен одноязычный PDF и состояние гарантированно закоммичено.
+    if run_id and committed:
+        logger.info(
+            "Primary language source build committed, retriggering run pipeline",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            run_id=run_id,
+            target_language=target_language,
+            primary_source_ref=primary_source_ref,
         )
         retrigger_run_pipeline(
             run_id=run_id,
             deal_id=deal_id,
             tenant_id=tenant_id,
         )
+        return result
+
+    # Ветка 3: функция завершилась без retrigger.
+    # Это не ошибка, но важно видеть такое поведение в логах.
+    logger.info(
+        "Primary language source build completed without pipeline retrigger",
+        document_id=document_id,
+        document_version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        run_id=run_id,
+        committed=committed,
+        requires_user_selection=requires_user_selection,
+        target_language=target_language,
+        primary_source_ref=primary_source_ref,
+    )
 
     return result
 
@@ -206,10 +255,10 @@ async def _build_primary_language_source_async(
     # можно было бы его переиспользовать. В варианте А мы хотим гарантированно
     # получить одноязычный PDF через новый pipeline, поэтому сейчас не
     # делаем early-return, а всегда перестраиваем primary_source.
-    # При желании сюда можно добавить флаг force_rebuild.
     if existing_primary_ref:
         logger.info(
-            "Primary source build: existing primary_source_ref present, rebuilding to enforce single-language PDF",
+            "Primary source build: existing primary_source_ref present, "
+            "rebuilding to enforce single-language PDF",
             document_id=document_id,
             version_id=document_version_id,
             existing_primary_source_ref=existing_primary_ref,
@@ -294,9 +343,8 @@ async def _build_primary_language_source_async(
         element_retention_ratio=language_filter_meta.get("element_retention_ratio"),
     )
 
-    # документ многоязычный, язык не выбран пользователем.
+    # Документ многоязычный, язык не выбран пользователем — останавливаемся.
     if decision.requires_user_selection and target_language is None:
-        # Здесь не строим PDF и не запускаем extract.
         updated_doc = await doc_repo.update_status(
             doc_uuid,
             DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
@@ -316,6 +364,7 @@ async def _build_primary_language_source_async(
             detected_languages=decision.detected_languages,
         )
 
+        # Для этой ветки commit произойдёт в db_uow снаружи.
         return {
             "document_id": document_id,
             "document_version_id": document_version_id,
@@ -326,6 +375,7 @@ async def _build_primary_language_source_async(
             "target_language": None,
             "detected_languages": decision.detected_languages,
             "requires_user_selection": True,
+            "committed": False,
         }
 
     # 4. Собираем одноязычный PDF из primary_layout.
@@ -386,10 +436,42 @@ async def _build_primary_language_source_async(
         )
 
     # 7. Переводим документ в статус PRIMARY_READY.
-    await _mark_primary_ready(
-        doc_repo=doc_repo,
-        document_id=doc_uuid,
-        document_id_str=document_id,
+    updated_doc = await doc_repo.update_status(
+        doc_uuid,
+        DocumentStatus.PRIMARY_READY.value,
+        processing_error_details=None,
+    )
+    if not updated_doc:
+        raise PermanentError(
+            f"Document {document_id} not found during PRIMARY_READY status update"
+        )
+
+    # 8. Жёстко синхронизируем состояние перед возвратом:
+    #    убеждаемся, что primary_source_ref действительно виден из БД.
+    await db.flush()
+
+    refreshed_version = await ver_repo.get_by_id(version_uuid)
+    if not refreshed_version or not getattr(refreshed_version, "primary_source_ref", None):
+        # Это именно временная несогласованность, а не бизнес‑ошибка.
+        raise TransientError(
+            f"primary_source_ref is not visible after flush for version {document_version_id}"
+        )
+
+    if refreshed_version.primary_source_ref != primary_source_ref:
+        raise TransientError(
+            f"primary_source_ref mismatch after flush for version {document_version_id}"
+        )
+
+    await db.commit()
+
+    logger.info(
+        "Primary source build committed successfully",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        tenant_id=tenant_id,
+        primary_source_ref=primary_source_ref,
+        status=DocumentStatus.PRIMARY_READY.value,
     )
 
     return {
@@ -401,6 +483,8 @@ async def _build_primary_language_source_async(
         "primary_source_ref": primary_source_ref,
         "target_language": target_language,
         "detected_languages": primary_layout_result.decision.detected_languages,
+        "requires_user_selection": False,
+        "committed": True,
     }
 
 
@@ -417,23 +501,4 @@ def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
         )
     return s3_ref.replace(prefix, "", 1)
 
-
-async def _mark_primary_ready(
-    doc_repo: DocumentRepository,
-    document_id: uuid.UUID,
-    document_id_str: str,
-) -> None:
-    """
-    Перевести документ в статус PRIMARY_READY.
-    Отдельная функция нужна, чтобы не дублировать проверку update_status.
-    """
-    updated_doc = await doc_repo.update_status(
-        document_id,
-        DocumentStatus.PRIMARY_READY.value,
-        processing_error_details=None,
-    )
-    if not updated_doc:
-        raise PermanentError(
-            f"Document {document_id_str} not found during PRIMARY_READY status update"
-        )
 

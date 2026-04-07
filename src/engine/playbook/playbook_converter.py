@@ -1,10 +1,6 @@
 # src/engine/playbook/playbook_converter.py
 
 """
-playbook_converter.py
-
-Назначение файла
-----------------
 Этот модуль отвечает за преобразование YAML-плейбука в внутренние
 питоновские объекты CheckDefinition, с которыми дальше работает движок.
 

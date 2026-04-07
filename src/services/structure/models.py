@@ -1,7 +1,24 @@
 # src/services/structure/models.py
 
 """
-Clause tree data models.
+Data models for document clause tree.
+
+Описывает результирующую структуру, которую строит Structure Builder
+по layout документа и которую далее используют API и viewer.
+
+Модели:
+- ClauseNode — узел дерева (секция/пункт/подпункт) с:
+  clause_uid ("1", "1.1", "II", "A"), заголовком, уровнем, диапазоном страниц,
+  списком element_ids из layout и рекурсивным списком children.
+- CrossReference — перекрёстная ссылка между пунктами
+  (source_clause_uid → target_clause_uid с текстом ссылки, например "см. п. 3.2").
+- ClauseTree — корневая структура дерева документа:
+  document_id, список корневых ClauseNode, индекс cross‑references и флаги
+  качества (structure_confidence: LOW|MEDIUM|HIGH, degraded).
+
+Метод ClauseTree.to_dict() сериализует дерево в JSON‑совместный dict,
+который сохраняется как clause_tree_ref и отдаётся через API
+для UI‑просмотра структуры документа.
 """
 
 from dataclasses import dataclass, field

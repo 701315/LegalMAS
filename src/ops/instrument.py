@@ -1,14 +1,26 @@
 # src/ops/instrument.py
 
 """
-Instrumentation — connects Prometheus metrics to FastAPI.
+FastAPI instrumentation setup for Prometheus metrics.
 
-Sets up:
-1. Auto HTTP metrics (request count, latency, status codes)
-2. /metrics endpoint for Prometheus scraping
-3. Build info metric
+Подключает HTTP‑инструментацию к FastAPI приложению и публикует endpoint
+`/metrics` для scrape со стороны Prometheus.
 
-Call setup_metrics(app) once in src/api/main.py.
+Что делает setup_metrics(app):
+- проверяет `settings.METRICS_ENABLED`; если метрики отключены,
+  просто логирует это и ничего не настраивает;
+- подключает `prometheus_fastapi_instrumentator`, чтобы автоматически
+  собирать HTTP‑метрики по запросам:
+  количество запросов, latency и группировку по status code;
+- исключает `/health` и `/metrics` из автосбора, чтобы уменьшить шум;
+- публикует `GET /metrics`, который отдаёт все зарегистрированные
+  метрики в формате Prometheus;
+- записывает build info через `get_metrics().build_info.info(...)`
+  с версией приложения и окружением (`settings.ENVIRONMENT`).
+
+Назначение:
+- быть единственной точкой интеграции между FastAPI и registry из `ops.metrics`;
+- вызываться один раз при старте API, обычно в `src/api/main.py`.
 """
 
 from fastapi import FastAPI

@@ -1,4 +1,5 @@
 # src/api/endpoints/auth.py
+
 """
 Эндпоинты авторизации / аутентификации для FastAPI (dev-режим).
 

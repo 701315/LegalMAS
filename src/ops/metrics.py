@@ -1,35 +1,53 @@
+# src/ops/metrics.py
+
 """
-Prometheus Metrics Registry.
+Prometheus metrics registry for the MAS DD system.
 
-Defines all metrics for the MAS DD system, grouped by category:
+Описывает и регистрирует все метрики приложения (качество, производительность,
+надёжность, сигналы миграции, классификация, build info, LLM) в отдельном
+CollectorRegistry и предоставляет singleton‑доступ к ним.
 
-1. QUALITY metrics — measure accuracy of analysis
-2. PERFORMANCE metrics — measure speed of processing
-3. RELIABILITY metrics — measure system health
-4. MIGRATION SIGNALS — track when Graph DB migration needed
-5. CLASSIFICATION metrics — quality of document classification
-6. BUILD INFO — build metadata
-7. LLM metrics — latency / errors / tokens for LLM calls
+Группы метрик:
+1) QUALITY — качество анализа:
+   - evidence_validity_rate, retrieval_hit_rate_at_5,
+     check_precision_critical, check_recall_critical,
+     unclear_rate_critical, regression_f1_current.
+2) PERFORMANCE — скорость пайплайна:
+   - extraction_duration / extraction_pages,
+     runner_check_duration_seconds / checks_executed / checks_per_minute,
+     export_duration, relation_traversal_latency,
+     deal_checks_duration_seconds.
+3) RELIABILITY — здоровье системы:
+   - circuit_breaker_state / circuit_breaker_open_seconds,
+     dlq_size, import_fail, cloud_fallback, quarantine,
+     extraction_ocr_confidence.
+4) MIGRATION SIGNALS — когда пора думать о Graph DB:
+   - relation_traversal_depth_p95, relation_edges_per_deal,
+     cross_doc_queries_qps.
+5) CLASSIFICATION — качество HybridClassifier:
+   - classification_accuracy, yaml_coverage_rate, low_confidence_rate,
+     classification_duration (по источнику решения),
+     classification_level_total, reclassification_total.
+6) BUILD INFO:
+   - build_info (теги версии, окружение, дата сборки и т.п.).
+7) LLM — работа LLM‑провайдеров:
+   - llm_request_duration_seconds, llm_requests_total, llm_tokens_total.
 
-Usage in workers/API:
+Архитектура:
+- все метрики регистрируются в процесс‑локальном CollectorRegistry
+  (не в глобальном), чтобы избежать ошибок "Duplicated timeseries"
+  в многопроцессной среде (Celery/воркеры);
+- MetricsRegistry создаётся один раз на процесс и возвращается через
+  get_metrics();
+- для обратной совместимости доступен ленивый прокси METRICS, который
+  прозрачно создаёт singleton при первом обращении
+  (старый стиль: `from ops.metrics import METRICS`).
 
-    from ops.metrics import get_metrics, METRICS
-
-    metrics = get_metrics()
-    metrics.checks_executed.labels(detector_type="rules", result="fail").inc()
-    metrics.check_duration.labels(detector_type="rules").observe(0.45)
-
-    # Старый стиль (совместимость):
-    METRICS.checks_executed.labels(detector_type="rules", result="fail").inc()
-
-All metric names use the prefix from settings (default: "mas_dd").
-
-IMPORTANT:
-- Metrics are registered in a dedicated CollectorRegistry instance, not the
-  global default one, to avoid "Duplicated timeseries in CollectorRegistry"
-  in multiprocess / Celery environments.
-- MetricsRegistry is a strict singleton per process, created lazily via
-  get_metrics().
+Пример использования:
+- metrics = get_metrics()
+  metrics.checks_executed.labels(detector_type="rules", result="fail").inc()
+  metrics.check_duration.labels(detector_type="rules").observe(0.45)
+- METRICS.checks_executed.labels(...).inc() — старый совместимый стиль.
 """
 
 from __future__ import annotations

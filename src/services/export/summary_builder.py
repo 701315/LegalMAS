@@ -1,6 +1,5 @@
 # src/services/export/summary_builder.py
 
-
 """
 Построитель Excel-отчёта Deal Summary по результатам одного Run.
 

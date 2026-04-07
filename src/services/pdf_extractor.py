@@ -3,26 +3,32 @@
 """
 PDF Extraction Service.
 
-Supports three strategies:
-  - text:   pdfplumber for native-text PDFs (fast, high quality)
-  - ocr:    Tesseract for scanned PDFs (slower, confidence-dependent)
-  - hybrid: mix of text and OCR for partially scanned PDFs
+Отвечает за извлечение текстовой разметки и таблиц из PDF и построение
+структуры textlayoutraw, которая затем используется всеми downstream‑стадиями.
 
-Produces textlayoutraw — a list of elements (text blocks) with:
-  - element_id  (deterministic, SHA-256 based)
-  - type        (heading | text | listitem | table_cell)
-  - text        (content)
-  - page        (1-based)
-  - bbox        [x0, top, x1, bottom]
-  - confidence  (1.0 for pdfplumber, 0–1 for OCR)
-  - strategy    (text | ocr)
+Поддерживает три стратегии постраничной обработки:
+  - text   : pdfplumber для нативных PDF с текстовым слоем (быстро, качественно)
+  - ocr    : Tesseract для сканов (медленнее, качество зависит от OCR)
+  - hybrid : сочетание text и ocr для смешанных документов (частично сканы)
 
-Downstream consumers:
-  - PII Sanitizer    (Stage 5): iterates elements
-  - Structure Builder (Stage 6): uses element.type for clause detection
-  - Classifier L2    (Stage 6): reads first 1500 chars from elements
-  - Classifier L3    (Stage 6): embeds first 1000 chars
-  - Runner / Retrieval (Stage 8): BM25 + embeddings over elements
+Результат extract_pdf(...) — ExtractionResult с:
+  - elements        : список Element (текстовые блоки, уже сгруппированные по строкам)
+  - tables          : список TableData (сырые таблицы)
+  - page_count      : число страниц
+  - strategy        : общий режим (text | ocr | hybrid)
+  - page_strategies : стратегия по каждой странице
+  - ocr_confidences : средняя уверенность OCR по страницам
+  - errors          : диагностические сообщения
+
+Функция build_text_layout_raw(...) конвертирует ExtractionResult в JSON‑формат
+textlayoutraw, который далее используют:
+  - PII Sanitizer      (Stage 5)  — итерируется по elements для детекции/токенизации PII;
+  - Structure Builder  (Stage 6)  — опирается на element.type (heading/text/listitem)
+                                   для поиска границ клауз и проставления clause_uid;
+  - Classifier L2/L3   (Stage 6)  — читает первые N символов из elements для
+                                   keyword/semantic классификации;
+  - Runner / Retrieval (Stage 8)  — строит BM25 и эмбеддинги по elements
+                                   и использует element_id для ссылок на доказательства.
 """
 
 import time

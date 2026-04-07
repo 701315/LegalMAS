@@ -1,3 +1,5 @@
+# src/workers/pii_sanitizer.py
+
 """
 PII Sanitizer Worker.
 
@@ -177,11 +179,13 @@ class PIISanitizer:
             )
 
             return {
+                "status": DocumentStatus.SANITIZED.value,
                 "document_id": str(doc.id),
                 "entities_detected": stats["detected"],
                 "entities_tokenized": stats["tokenized"],
                 "entities_preserved": stats["preserved"],
                 "skipped": False,
+                "committed": True,
             }
 
         except PIIEncryptionError as e:
@@ -433,10 +437,7 @@ def sanitize_document(
     result = run_async(_run())
 
     # Успешная санитизация → документ уже SANITIZED, можно будить оркестратор
-    if run_id and result.get("status") not in {
-        DocumentStatus.FAILED.value,
-        DocumentStatus.QUARANTINE.value,
-    }:
+    if run_id and result.get("committed") is True:
         logger.info(
             "PII sanitization finished, retriggering run pipeline",
             document_version_id=document_version_id,

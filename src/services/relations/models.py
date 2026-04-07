@@ -1,17 +1,30 @@
 # src/services/relations/models.py
 
 """
-Relations & Family Data Models.
+Service-layer data models for document relations, deduplication and family grouping.
 
-Defines service-level models for document relationships:
-- RelationDetectionMethod: enum for detection methods
-- DetectedRelation: a candidate relation found by detector
-- DedupResult: result of deduplication check
-- FamilyGroup: a group of related documents with master
-- RelationsReport: summary of all detected relations for a deal
+Описывает прикладные модели, которыми сервисы детекции связей оперируют
+до сохранения в БД. Это не ORM-модели, а transport/domain-структуры для
+обнаружения дубликатов, междокументных связей и построения document families.
 
-These are NOT ORM models — they are used by the service layer
-and then persisted through repositories.
+Модели:
+- RelationDetectionMethod — способ, которым была найдена связь:
+  exact_hash, filename_pattern, filename_similarity, text_reference, manual.
+- DetectedRelation — кандидат на связь между документами
+  (source_doc_id → target_doc_id) с relation_type, confidence, evidence_text и методом детекции.
+- DedupResult — результат дедупликации по сделке:
+  число документов, exact-duplicates по SHA256, duplicate_groups,
+  kept_doc_ids и marked_doc_ids.
+- FamilyGroup — группа связанных документов вокруг master-документа:
+  master_doc_id, master_doc_type, member_doc_ids, relations и metadata
+  классификации master-документа (classification_level, yaml_available,
+  applicable_triggers).
+- RelationsReport — сводный результат обработки сделки:
+  dedup_result, число найденных связей, число созданных family groups,
+  список семей и ошибки.
+
+Модели используются сервисным слоем relations/family processing и затем
+сериализуются через to_dict() или сохраняются через repositories.
 """
 
 from dataclasses import dataclass, field

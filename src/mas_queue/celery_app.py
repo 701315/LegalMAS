@@ -126,7 +126,6 @@ celery_app.conf.update(
         "workers.pii_sanitizer",
         "workers.relations_worker",
         "workers.run_orchestrator",
-        "workers.runner",
         "workers.structure_builder",
     ],
 

@@ -17,76 +17,69 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from ops.instrument import setup_metrics
 
-# Здесь собираем все группы эндпоинтов (роутеры) в одном месте.
-# auth — это логин/авторизация (включая временный логин admin/admin).
 from .endpoints import (
-    auth,        # <--- добавили auth
-    runner,
-    classifier,
-    documents,
-    deal_review,
-    runs,
-    results,
     admin,
+    auth,
+    classifier,
+    deal_review,
     deals,
-    requests,
-    user_projects,
-    project_members,
-    playbooks,
-    playbook_runs,
-    model_configs,
-    document_types,
     document_chunk_exports,
+    document_pipeline_view,
+    document_types,
+    model_configs,
+    playbook_runs,
+    playbooks,
+    project_members,
+    requests,
+    results,
+    runner,
+    runs,
+    user_projects,
 )
+from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
 
 
-# Создаём экземпляр приложения FastAPI.
 app = FastAPI(
     title="LegalMAS API",
     version="0.1.0",
 )
 
-# Prometheus metrics (экспорт /metrics, http-метрики и build_info).
-# Важно: вызываем один раз при старте приложения.
 setup_metrics(app)
 
-# Разрешённые origin для фронтенда (Vite dev‑сервер).
-# Если фронтенд будет доступен с других доменов — дописываем их сюда.
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
-# CORS — до/вместе с остальными middleware.
-# Это нужно, чтобы браузер разрешал фронтенду обращаться к API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,      # конкретные origin вместо "*"
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],        # разрешаем все методы (GET, POST, OPTIONS и т.д.)
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Middleware аудита (логирование действий).
 app.add_middleware(AuditMiddleware)
 
-# Роутеры (группы эндпоинтов).
-# prefix="/api/v1" означает, что все маршруты внутри будут начинаться с /api/v1.
-
-# Авторизация / логин (временно: admin/admin, см. src/api/endpoints/auth.py).
+# Авторизация / логин.
 app.include_router(auth.router)
 
 # Runner / запуск проверок.
 app.include_router(runner.router, prefix="/api/v1")
 
-# Классификация документов (через Celery-воркер).
+# Классификация документов.
 app.include_router(classifier.router, prefix="/api/v1")
 
-# Документы (загрузка, статус и т.д.).
-app.include_router(documents.router, prefix="/api/v1")
+# Документы (новый агрегирующий router из src/api/endpoints/documents/router.py).
+app.include_router(documents_router, prefix="/api/v1")
+
+# Документы (pipeline view по стадиям обработки) — пока остаётся отдельным,
+# так как модуль находится вне пакета src/api/endpoints/documents/.
+app.include_router(document_pipeline_view.router, prefix="/api/v1")
 
 # Обзор сделки.
 app.include_router(deal_review.router, prefix="/api/v1")
@@ -110,7 +103,7 @@ app.include_router(requests.requests_router, prefix="/api/v1")
 # Сделки (deals) по конкретному пользователю.
 app.include_router(user_projects.router)
 
-# Пользователи
+# Пользователи / участники проектов.
 app.include_router(project_members.router, prefix="/api/v1")
 
 # Плейбуки (playbooks / global_checks / bundles).
@@ -125,6 +118,6 @@ app.include_router(playbook_runs.router, prefix="/api/v1")
 # Конфигурации моделей (ModelConfig) для выбора модели на UI.
 app.include_router(model_configs.router, prefix="/api/v1")
 
-# Документы (debug‑экспорт чанков).
+# Документы (debug-экспорт чанков).
 app.include_router(document_chunk_exports.router, prefix="/api/v1")
 

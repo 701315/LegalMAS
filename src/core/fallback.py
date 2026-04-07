@@ -1,3 +1,5 @@
+# src/core/fallback.py
+
 """
 Fallback Chain — tries multiple providers in order of preference.
 

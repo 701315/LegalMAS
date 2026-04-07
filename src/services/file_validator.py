@@ -3,22 +3,32 @@
 """
 File Validation Service.
 
-Checks files before import:
-  - Extension whitelist
-  - File size limits
-  - Magic bytes verification (is the file really what the extension claims?)
-  - Zero-length detection
-  - Hidden/system file detection
+Отвечает за первичную проверку файлов перед импортом и загрузкой в MinIO,
+чтобы в пайплайн не попали подозрительные, пустые или неподдерживаемые
+форматы.
 
-Used by Import Worker (Stage 3) to gate files before MinIO upload.
+Проверки:
+  - extension whitelist (settings.IMPORT_ALLOWED_EXTENSIONS);
+  - размер файла (IMPORT_MAX_FILE_SIZE_MB);
+  - magic bytes (соответствие содержимого заявленному типу);
+  - нулевая длина;
+  - скрытые/системные файлы (__MACOSX, .DS_Store, Thumbs.db и т.п.).
 
-NOTE on folder_path routing:
-  Document.folder_path (preserved from ZIP structure) is used downstream
-  by the L1 Rule-Based Classifier (Stage 6) via folder_patterns in the
-  YAML registry (playbooks/document_types/registry.yaml).
-  Example: "02. Contracts/SPA/" → boosts classification to contract1.1spa.
-  This service does NOT perform routing — it only validates files.
-  Routing signals are preserved via folder_path in Import Worker.
+Использование:
+  - Import Worker (Stage 3) вызывает validate_file(...) для каждого файла
+    из ZIP/папки и по результату:
+      * SKIP — игнорирует скрытые/системные файлы;
+      * QUARANTINE — помечает файл как проблемный и не отправляет в MinIO;
+      * VALID — определяет internal filetype (pdf/docx/doc/xlsx/image/unknown),
+        который дальше влияет на роутинг:
+          - can_process_directly(filetype) → сразу в Extractor (Stage 4, PDF);
+          - needs_conversion(filetype) → через конвертацию в PDF;
+          - is_spreadsheet/is_image → отдельные ветки.
+
+Важно:
+  - сервис НЕ делает бизнес-роутинг по folder_path; он только валидирует файлы.
+    folder_path сохраняется Import Worker’ом как сигнал для L1 Rule-Based
+    Classifier (Stage 6) через YAML registry (folder_patterns).
 """
 
 import os

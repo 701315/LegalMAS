@@ -1,3 +1,25 @@
+# src/api/endpoints/user_projects.py
+
+"""
+User projects API.
+
+Эндпоинты:
+- GET /api/v1/user/{user_id}/projects — вернуть список «проектов» (сделок),
+  к которым пользователь имеет доступ, с ролью и базовыми метаданными.
+
+На данный момент:
+- список берётся как первые N сделок из DealRepository без реальной фильтрации
+  по membership/tenant;
+- роль пользователя захардкожена как "admin" для всех проектов;
+- проверка user_id против current_user.id пока заглушена и не даёт 403.
+
+Модель UserProject описывает минимальный DTO для фронта:
+- deal_id, deal_name;
+- role (admin/editor/viewer);
+- created_at;
+- contact_person из metadata_ сделки (если есть).
+"""
+
 from typing import Literal
 
 from fastapi import APIRouter, Depends

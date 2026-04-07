@@ -1,15 +1,31 @@
 # src/services/structure/builder.py
 
 """
-Structure Builder: parses text_layout_raw elements into a clause tree.
+Structure Builder: из text_layout_raw строит дерево клауз (clause tree).
 
-Supports:
-  - Numeric: 1., 1.1, 1.1.1, 1.1 (без точки после номера)
-  - Roman: I, II, III, IV (level 1 only)
-  - Alphabetic: A., B., a), b) (level 2)
-  - Cross-reference detection: см. п. X.X, Art. X
-  - TOC detection: автоматическое подавление блока оглавления
-  - Degraded mode: flat chunks when coverage < 60%
+Берёт плоский список elements (text_layout_raw/layout_primary) и пытается
+выделить заголовки пунктов/подпунктов, привязать к ним элементы и собрать
+иерархию секций для документа.
+
+Возможности:
+- поддержка форматов заголовков:
+  * числовые: 1., 1.1, 1.1.1, 1.1 (без точки после номера),
+  * римские: I, II, III, IV (уровень 1),
+  * буквенные: A., B., a), б) (уровень 2);
+- подавление оглавления (TOC): обнаруживает и вырезает блок "Содержание"/
+  "Table of contents" на первых страницах, чтобы его строки не попадали
+  в дерево как реальные разделы;
+- поиск перекрёстных ссылок: "см. п. 3.2", "Art. 5" и т.п. с привязкой
+  source_clause_uid → target_clause_uid;
+- degraded‑режим: если coverage заголовков по элементам < STRUCTURE_MIN_CLAUSE_COVERAGE,
+  вместо дерева создаёт плоские Chunk‑узлы фиксированного размера
+  (STRUCTURE_DEGRADED_CHUNK_TOKENS) с пометкой degraded=True.
+
+Главная точка входа:
+- StructureBuilder.build(document_id, elements) →
+  ClauseTree (root: список ClauseNode, references_index: список CrossReference,
+  structure_confidence: LOW/MEDIUM/HIGH, degraded: bool), который сохраняется
+  как clause_tree_ref и используется API/viewer для показа структуры документа.
 """
 
 import re

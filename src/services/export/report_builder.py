@@ -1,6 +1,5 @@
 # src/services/export/report_builder.py
 
-
 """
 Построитель Word‑отчёта по результатам юридического DD‑анализа (DD Report).
 

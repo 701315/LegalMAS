@@ -17,6 +17,7 @@ import {
   Upload,
 } from "lucide-react";
 import type { DocumentTypeOption } from "../../api/documentTypes";
+import { DocumentPipelinePanel } from "./pipeline/DocumentPipelinePanel";
 
 import {
   DOCUMENT_STATUS_CONFIG,
@@ -89,6 +90,7 @@ export interface StructuredDataView {
  * чистый view-компонент DocumentDetails.
  */
 export interface DocumentDetailsViewProps {
+  documentId: string;
   dealId: string;
 
   // Основные данные документа
@@ -98,14 +100,11 @@ export interface DocumentDetailsViewProps {
   structuredData: StructuredDataView | null;
 
   // Список доступных типов документов для ручной переклассификации.
-  // Заполняется контейнером из API /document-types.
   availableDocTypes: DocumentTypeOption[];
 
-  // Начальное значение для поля "Новый тип документа" в форме
-  // переклассификации (обычно это текущий doc_type документа).
   initialDocType?: string;
 
-  // Состояния загрузки / ошибок (минимум для этого этапа)
+  // Состояния загрузки / ошибок
   isLoading: boolean;
   notFound: boolean;
   error?: string | null;
@@ -126,33 +125,7 @@ export interface DocumentDetailsViewProps {
 
   onNavigateToGrid?: (dealId: string, docName: string) => void;
 
-  // Заглушка под будущую replace-логику
   onReplaceFile?: (file: File) => Promise<void> | void;
-
-  // Наличие layout-артефактов (multi-lang raw и PII-sanitized).
-  //
-  // Для непрофессионального программиста:
-  // - rawLayoutAvailable == true, если в backend есть ссылка на "сырой"
-  //   текстовый макет после extract (до PII).
-  // - sanitizedLayoutAvailable == true, если есть санитизированный макет
-  //   после PII-очистки.
-  // - Сейчас мы их только показываем в виде индикаторов. Позже сюда можно
-  //   добавить кнопки открытия / diff-режим.
-  rawLayoutAvailable: boolean;
-  sanitizedLayoutAvailable: boolean;
-
-  // Колбэк для открытия debug-модалки с JSON layout'ами.
-  onOpenLayoutDebug?: () => void;
-
-  // Открытие документа, собранного из чанков (Markdown-представление).
-  //
-  // Для непрофессионального пользователя:
-  // - по этой ссылке откроется специальный .md-файл,
-  //   где документ показан как последовательность чанков,
-  //   с заголовками и пояснениями.
-  canOpenChunkView?: boolean;
-  chunkViewUrl?: string | null;
-  onOpenChunkView?: () => void;
 }
 
 // =============================================================
@@ -160,6 +133,7 @@ export interface DocumentDetailsViewProps {
 // =============================================================
 
 export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
+  documentId,
   dealId,
   doc,
   classification,
@@ -182,12 +156,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   onReplaceFile,
   availableDocTypes,
   initialDocType,
-  rawLayoutAvailable,
-  sanitizedLayoutAvailable,
-  onOpenLayoutDebug,
-  canOpenChunkView,
-  chunkViewUrl,
-  onOpenChunkView,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -688,108 +656,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
       {/* ========== Информационный блок по документу ========== */}
       <Section title="Информационный блок по документу">
-        <p className="text-xs text-gray-500 mb-2">
-          Здесь можно проверить, построены ли сырые и санитизированные
-          текстовые макеты документа (для отладки PII и пайплайна), а также
-          просмотреть документ в виде чанков для ручной проверки границ.
-        </p>
-
-        <div className="flex flex-col gap-2 text-xs">
-          {/* Raw */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-gray-400">Raw-макет (после extract)</span>
-              <span className="text-[11px] text-gray-400">
-                JSON-структура, как её отдал extract-воркер.
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {rawLayoutAvailable ? (
-                <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                  доступен
-                </span>
-              ) : (
-                <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
-                  нет данных
-                </span>
-              )}
-
-              {rawLayoutAvailable && onOpenLayoutDebug && (
-                <button
-                  type="button"
-                  onClick={onOpenLayoutDebug}
-                  className="px-2 py-0.5 border rounded text-[11px] text-gray-700 hover:bg-gray-50"
-                >
-                  Посмотреть
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Sanitized */}
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-gray-400">
-                Sanitized-макет (после PII)
-              </span>
-              <span className="text-[11px] text-gray-400">
-                JSON после PII-санитизации (без персональных данных).
-              </span>
-
-              {!sanitizedLayoutAvailable && (
-                <span className="mt-1 text-[11px] text-gray-400">
-                  Санитизированный макет появится после успешного прохождения PII
-                  (статус документа SANITIZED и далее).
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {sanitizedLayoutAvailable ? (
-                <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                  доступен
-                </span>
-              ) : (
-                <span className="px-1.5 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200">
-                  нет данных
-                </span>
-              )}
-
-              {sanitizedLayoutAvailable && onOpenLayoutDebug && (
-                <button
-                  type="button"
-                  onClick={onOpenLayoutDebug}
-                  className="px-2 py-0.5 border rounded text-[11px] text-gray-700 hover:bg-gray-50"
-                >
-                  Посмотреть
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Chanked */}
-          {canOpenChunkView && chunkViewUrl && onOpenChunkView && (
-            <div className="flex items-center justify-between border-t pt-2 mt-1">
-              <div className="flex flex-col">
-                <span className="text-gray-400">
-                  Chanked-макет (для проверок)
-                </span>
-                <span className="text-[11px] text-gray-400">
-                  Линейный просмотр документа по чанкам, как его «видит»
-                  система чанкинга.
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onOpenChunkView}
-                  className="px-2 py-0.5 border rounded text-[11px] text-gray-700 hover:bg-gray-50"
-                >
-                  Посмотреть
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <DocumentPipelinePanel documentId={documentId} />
       </Section>
 
       {/* ========== Действия ========== */}

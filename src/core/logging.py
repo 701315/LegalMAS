@@ -1,3 +1,5 @@
+# src/core/logging.py
+
 """
 Structured logging setup using structlog.
 

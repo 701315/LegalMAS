@@ -1,3 +1,5 @@
+# src/db/models/calibration.py
+
 """
 ClassificationCalibration model — stores calibration data for confidence scores.
 Used to adjust raw classifier confidence to real-world accuracy.

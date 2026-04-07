@@ -1,3 +1,33 @@
+# src/db/repositories/check_result_repo.py
+
+"""
+Repository for persisting and querying check_results.
+
+Инкапсулирует запись результатов проверок (checks) в таблицу CheckResult
+и выборку результатов для одного документа или всей сделки в рамках
+конкретного run_id.
+
+Методы:
+- create(...):
+  создаёт новую запись CheckResult по именованным параметрам, которые
+  приходят из CheckRunner (run_id, document_id, check_id/name, result,
+  severity, value_text, evidence_ref, confidence, detector_used,
+  quality_flags, structured_data, conditional_check_triggered,
+  trigger_name, origin, playbook_version_id, page, clause_uid,
+  element_id, bbox); добавляет объект в сессию, делает flush/refresh
+  и возвращает свежий ORM‑инстанс.
+- for_doc(run_id, document_id) -> list[CheckResult]:
+  возвращает все результаты по одному документу в рамках указанного run,
+  отсортированные по check_id (для удобного группирования по чекам).
+- for_deal(run_id, document_ids) -> list[CheckResult]:
+  возвращает все результаты для списка документов сделки в рамках одного run;
+  при пустом списке document_ids сразу возвращает [].
+
+Назначение:
+- быть тонким слоем доступа к check_results поверх AsyncSession,
+  чтобы сервисы/Runner не работали с сырыми SQL/ORM деталями напрямую.
+"""
+
 import uuid
 from typing import Any
 

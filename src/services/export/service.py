@@ -1,5 +1,36 @@
 # src/services/export/service.py
 
+"""
+Export service for processing Export records and generating output files.
+
+Сервис запускает экспорт для уже созданной записи `Export`, переводит её
+по жизненному циклу статусов и сохраняет ссылки на сгенерированные файлы.
+
+Основные функции:
+- run_export_for_record(export, db, tenant_id):
+  - переводит запись Export в статус `processing`;
+  - вызывает `export_core(...)`, который строит экспортные файлы и возвращает refs;
+  - обновляет поля записи Export:
+    `status`, `file_ref`, `file_refs` (и при необходимости `file_size_bytes`);
+  - при успехе ставит `status="completed"`;
+  - при ошибке логирует исключение, ставит `status="failed"` и возвращает пустой результат;
+  - не делает commit — это ответственность вызывающего кода.
+
+- process_one_pending_export(db, tenant_id):
+  - выбирает одну самую раннюю запись Export со статусом `pending`;
+  - обрабатывает её через `run_export_for_record(...)`;
+  - коммитит изменения в БД;
+  - возвращает `True`, если запись была найдена и обработана,
+    иначе `False`.
+
+Назначение:
+- быть тонким orchestration-слоем вокруг `export_core`,
+  который управляет статусами Export и сохранением refs в БД;
+- использоваться воркером/джобой, которая последовательно обрабатывает
+  pending-экспорты из очереди.
+"""
+
+
 from __future__ import annotations
 
 from typing import Any, Dict

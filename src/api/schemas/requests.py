@@ -1,3 +1,5 @@
+# src/api/schemas/requests.py
+
 """
 Pydantic-схемы для DD-запросов (Request List).
 """

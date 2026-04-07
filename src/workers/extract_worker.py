@@ -8,8 +8,7 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - На вход получает одноязычный документ (PDF) и создаёт артефакты text_layout_raw и layout_primary.
 
 Что делает воркер:
-- Читает исходный PDF из MinIO (приоритетно по ссылке primary_source_ref, затем converted_pdf_ref
-  или original_ref из DocumentVersion).
+- Читает PDF из MinIO строго по ссылке primary_source_ref из DocumentVersion.
 - Определяет стратегию извлечения (native text / OCR / гибрид).
 - Строит структуру text_layout_raw (элементы и таблицы) и сохраняет её в MinIO.
 - layout_primary сейчас совпадает с text_layout_raw (языковая нормализация выполняется до extract).
@@ -17,32 +16,34 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - При успехе обновляет статус документа до EXTRACTED; запуск PII‑санитизации делает оркестратор.
 """
 
+from __future__ import annotations
+
 import time
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops.metrics import METRICS
 from core.config import settings
 from core.constants import DocumentStatus
-from core.exceptions import PermanentError, QuarantineError
+from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import get_logger
 from db.repositories import DocumentRepository, DocumentVersionRepository
-from db.uow import db_uow, UnitOfWork
+from db.uow import UnitOfWork, db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
+from ops.metrics import METRICS
+from services.extraction_quality import (
+    ExtractionQualityPolicy,
+    evaluate_extraction_quality,
+)
 from services.pdf_extractor import (
     ExtractionResult,
     build_text_layout_raw,
     extract_pdf,
 )
-from storage.artifact_store import ArtifactPath, ArtifactStore
-from services.extraction_quality import (
-    ExtractionQualityPolicy,
-    evaluate_extraction_quality,
-)
 from services.run_orchestrator_trigger import retrigger_run_pipeline
+from storage.artifact_store import ArtifactPath, ArtifactStore
 
 logger = get_logger(__name__)
 
@@ -80,11 +81,27 @@ def extract_document(
                     db=uow.session,
                     run_id=run_id,
                 )
+
+            except TransientError as e:
+                logger.warning(
+                    "Transient error during extraction; task should be retried",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
+                    error=str(e),
+                )
+                raise
+
             except PermanentError as e:
                 logger.error(
                     "Permanent error during extraction",
                     document_id=document_id,
                     version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
                     error=str(e),
                 )
                 async with db_uow() as uow_status:
@@ -99,12 +116,17 @@ def extract_document(
                     "status": DocumentStatus.FAILED.value,
                     "document_id": document_id,
                     "error": str(e),
+                    "committed": False,
                 }
+
             except QuarantineError as e:
                 logger.error(
                     "Quarantine error during extraction",
                     document_id=document_id,
                     version_id=document_version_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
                     error=str(e),
                 )
                 async with db_uow() as uow_status:
@@ -118,23 +140,21 @@ def extract_document(
                     "status": DocumentStatus.QUARANTINE.value,
                     "document_id": document_id,
                     "error": str(e),
+                    "committed": False,
                 }
 
     result = run_async(_wrapper())
 
-    # Успешный путь: документ уже переведён в EXTRACTED внутри update_extraction_result
-    # Можно будить оркестратор для следующей стадии (PII).
-    if run_id and result.get("status") not in {
-        DocumentStatus.FAILED.value,
-        DocumentStatus.QUARANTINE.value,
-    }:
+    if run_id and result.get("committed") is True:
         logger.info(
-            "Extraction finished, retriggering run pipeline",
+            "Extraction committed, retriggering run pipeline",
             document_id=document_id,
             document_version_id=document_version_id,
             deal_id=deal_id,
             tenant_id=tenant_id,
             run_id=run_id,
+            layout_primary_ref=result.get("layout_primary_ref"),
+            raw_ref=result.get("raw_ref"),
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -156,9 +176,10 @@ async def _extract_document_async(
     """
     Основная бизнес-логика извлечения текста и таблиц из PDF.
 
-    Предполагается, что к этому моменту build_primary_language_source уже подготовил
-    одноязычный PDF и записал его в primary_source_ref.
-    fallback на converted_pdf_ref/original_ref — это запасной сценарий, а не норма
+    Контракт стадии:
+    - extract работает только с primary_source_ref;
+    - fallback на converted_pdf_ref/original_ref в активном pipeline запрещён;
+    - downstream retrigger допустим только после commit артефактов extract.
     """
 
     logger.info(
@@ -172,9 +193,13 @@ async def _extract_document_async(
     start_time = time.time()
     store = ArtifactStore(settings)
 
-    # 1. Чтение PDF из MinIO с учётом primary_source_ref / converted_pdf_ref / original_ref
+    # 1. Чтение исходного PDF строго по primary_source_ref
     try:
-        pdf_ref = await get_pdf_source_ref(document_version_id, db)
+        pdf_ref = await get_pdf_source_ref(
+            document_version_id=document_version_id,
+            db=db,
+            require_primary=True,
+        )
         logger.info(
             "Extract: pdf_ref resolved",
             document_id=document_id,
@@ -185,10 +210,11 @@ async def _extract_document_async(
         if not pdf_ref:
             raise PermanentError(
                 f"No PDF source ref for version {document_version_id} "
-                f"(none of primary_source_ref, converted_pdf_ref, original_ref is set)"
+                f"(primary_source_ref is required for extract stage)",
+                details={"stage": "extract", "kind": "missing_pdf_ref"},
             )
 
-        s3_path = pdf_ref.replace(f"s3://{store.bucket}/", "")
+        s3_path = _s3_ref_to_store_path(pdf_ref, store.bucket)
         logger.info(
             "Extract: reading PDF from store",
             document_id=document_id,
@@ -203,6 +229,13 @@ async def _extract_document_async(
             version_id=document_version_id,
             size=len(pdf_bytes),
         )
+
+    except TransientError:
+        raise
+
+    except PermanentError:
+        raise
+
     except Exception as e:
         logger.exception(
             "Extract: failed to read PDF from store",
@@ -215,7 +248,7 @@ async def _extract_document_async(
             details={"stage": "extract", "kind": "storage_read_error"},
         )
 
-    # 2. Extract (native/OCR/hybrid + tables)
+    # 2. Извлечение текста/таблиц
     try:
         extraction: ExtractionResult = extract_pdf(pdf_bytes, document_id)
         logger.info(
@@ -234,9 +267,12 @@ async def _extract_document_async(
             version_id=document_version_id,
             error=str(e),
         )
-        raise PermanentError(f"extract_pdf failed: {e}")
+        raise PermanentError(
+            f"extract_pdf failed: {e}",
+            details={"stage": "extract", "kind": "pdf_parse_error"},
+        )
 
-    # 3. Extraction quality policy
+    # 3. Политика качества извлечения
     quality_decision = evaluate_extraction_quality(
         extraction,
         policy=ExtractionQualityPolicy(
@@ -257,7 +293,15 @@ async def _extract_document_async(
     )
 
     if quality_decision.outcome == "failed":
-        raise PermanentError(quality_decision.message)
+        raise PermanentError(
+            quality_decision.message,
+            details={
+                "stage": "extract",
+                "kind": "quality_failed",
+                "reason": quality_decision.reason,
+                "details": quality_decision.details,
+            },
+        )
 
     if quality_decision.outcome == "quarantine":
         METRICS.quarantine.labels(
@@ -270,26 +314,23 @@ async def _extract_document_async(
             details=quality_decision.details,
         )
 
-    # 4. Build text_layout_raw JSON (clause_uid = null at this stage)
+    # 4. Построение layout-артефактов
     text_layout_raw = build_text_layout_raw(
         extraction,
         document_id=document_id,
         document_version_id=document_version_id,
     )
 
-    # Вариант А: языковая нормализация выполняется на шаге build_primary_language_source.
-    # Здесь мы не определяем языки и не фильтруем layout.
-    # Для downstream-совместимости layout_primary = text_layout_raw.
     layout_primary = text_layout_raw
 
-    # 5. Upload to MinIO
+    # 5. Сохранение артефактов в storage
     raw_path = ArtifactPath.layout_raw(tenant_id, deal_id, document_id)
     raw_ref = store.put_json(raw_path, text_layout_raw)
 
     primary_path = ArtifactPath.layout_primary(tenant_id, deal_id, document_id)
     primary_ref = store.put_json(primary_path, layout_primary)
 
-    # 6. Update DB
+    # 6. Фиксация результатов в БД
     await update_extraction_result(
         document_version_id=document_version_id,
         document_id=document_id,
@@ -305,6 +346,54 @@ async def _extract_document_async(
         db=db,
     )
 
+    # Важный production-подход:
+    # граница успешной записи — commit(), а не проверка "видно ли ref сразу после flush".
+    await db.commit()
+
+    # Мягкая post-commit верификация для диагностики — без исключений.
+    try:
+        ver_repo = DocumentVersionRepository(db)
+        refreshed_version = await ver_repo.get_by_id(uuid.UUID(document_version_id))
+        refreshed_layout_primary_ref = (
+            getattr(refreshed_version, "layout_primary_ref", None)
+            if refreshed_version
+            else None
+        )
+        refreshed_raw_ref = (
+            getattr(refreshed_version, "raw_ref", None)
+            if refreshed_version
+            else None
+        )
+
+        if not refreshed_version:
+            logger.warning(
+                "Extract: document version not visible immediately after commit; "
+                "next orchestrator pass will validate downstream refs",
+                document_id=document_id,
+                version_id=document_version_id,
+                run_id=run_id,
+            )
+        elif refreshed_layout_primary_ref != primary_ref or refreshed_raw_ref != raw_ref:
+            logger.warning(
+                "Extract: refs differ on immediate post-commit read; "
+                "keeping committed result and relying on orchestrator guards",
+                document_id=document_id,
+                version_id=document_version_id,
+                expected_layout_primary_ref=primary_ref,
+                actual_layout_primary_ref=refreshed_layout_primary_ref,
+                expected_raw_ref=raw_ref,
+                actual_raw_ref=refreshed_raw_ref,
+                run_id=run_id,
+            )
+    except Exception as e:
+        logger.warning(
+            "Extract: post-commit readback failed; committed result kept",
+            document_id=document_id,
+            version_id=document_version_id,
+            run_id=run_id,
+            error=str(e),
+        )
+
     duration = time.time() - start_time
 
     page_strategies = extraction.page_strategies or {}
@@ -312,7 +401,7 @@ async def _extract_document_async(
     ocr_rate = round(ocr_page_count / max(extraction.page_count or 0, 1), 3)
 
     logger.info(
-        "Extraction complete",
+        "Extraction committed successfully",
         document_id=document_id,
         version_id=document_version_id,
         deal_id=deal_id,
@@ -322,6 +411,8 @@ async def _extract_document_async(
         tables=len(extraction.tables),
         pages=extraction.page_count,
         strategy=extraction.strategy,
+        raw_ref=raw_ref,
+        layout_primary_ref=primary_ref,
         ocr_confidence=(
             round(extraction.avg_ocr_confidence, 3)
             if extraction.avg_ocr_confidence is not None
@@ -329,6 +420,7 @@ async def _extract_document_async(
         ),
         ocr_rate=ocr_rate,
         duration_seconds=round(duration, 2),
+        status=DocumentStatus.EXTRACTED.value,
     )
 
     METRICS.extraction_duration.labels(
@@ -343,39 +435,58 @@ async def _extract_document_async(
         METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
 
     return {
+        "status": DocumentStatus.EXTRACTED.value,
         "document_id": document_id,
+        "document_version_id": document_version_id,
         "elements": len(extraction.elements),
         "tables": len(extraction.tables),
         "pages": extraction.page_count,
         "strategy": extraction.strategy,
         "duration_seconds": round(duration, 2),
+        "raw_ref": raw_ref,
+        "layout_primary_ref": primary_ref,
+        "committed": True,
     }
 
 
 async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
+    *,
+    require_primary: bool = False,
 ) -> str | None:
     """
-    Получить ссылку на PDF-источник для извлечения.
+    Получить ссылку на PDF-источник для extract.
 
-    Новый приоритет:
-    - если у версии есть primary_source_ref (одноязычный source) — используем его;
-    - иначе, если есть converted_pdf_ref (DOCX/DOC → PDF) — используем его;
-    - иначе используем original_ref (исходный PDF).
+    Активный pipeline:
+    - extract должен читать только primary_source_ref.
+
+    Legacy fallback (только если require_primary=False):
+    - converted_pdf_ref;
+    - original_ref.
     """
     repo = DocumentVersionRepository(db)
     version = await repo.get_by_id(uuid.UUID(document_version_id))
     if not version:
         return None
 
-    if getattr(version, "primary_source_ref", None):
-        return version.primary_source_ref
+    primary_ref = getattr(version, "primary_source_ref", None)
+    converted_ref = getattr(version, "converted_pdf_ref", None)
+    original_ref = getattr(version, "original_ref", None)
 
-    if getattr(version, "converted_pdf_ref", None):
-        return version.converted_pdf_ref
+    if primary_ref:
+        return primary_ref
 
-    return version.original_ref
+    if require_primary:
+        raise TransientError(
+            f"primary_source_ref is missing for version {document_version_id} "
+            f"while extract requires primary-only source"
+        )
+
+    if converted_ref:
+        return converted_ref
+
+    return original_ref
 
 
 async def update_extraction_result(
@@ -408,21 +519,23 @@ async def update_extraction_result(
     normalized_strategy = (strategy or "text").lower()
 
     if origin_filetype:
-        if origin_filetype == "pdf":
+        origin_filetype_norm = str(origin_filetype).lower()
+
+        if origin_filetype_norm == "pdf":
             if normalized_strategy == "text":
                 pipeline_strategy = "pdf_native"
             elif normalized_strategy == "ocr":
                 pipeline_strategy = "pdf_ocr"
             elif normalized_strategy == "hybrid":
                 pipeline_strategy = "pdf_hybrid"
-        elif origin_filetype == "docx":
+
+        elif origin_filetype_norm in {"doc", "docx"}:
             if normalized_strategy == "text":
                 pipeline_strategy = "docx_via_pdf_native"
             elif normalized_strategy == "ocr":
                 pipeline_strategy = "docx_via_pdf_ocr"
             elif normalized_strategy == "hybrid":
                 pipeline_strategy = "docx_via_pdf_hybrid"
-
 
     await ver_repo.update_refs(
         version_uuid,
@@ -433,12 +546,17 @@ async def update_extraction_result(
         pipeline_strategy=pipeline_strategy,
     )
 
-    await doc_repo.update_status(
+    updated_doc = await doc_repo.update_status(
         uuid.UUID(document_id),
         DocumentStatus.EXTRACTED.value,
         page_count=page_count,
         processing_error_details=None,
     )
+    if not updated_doc:
+        raise PermanentError(
+            f"Document {document_id} not found during EXTRACTED status update",
+            details={"stage": "extract", "kind": "document_not_found"},
+        )
 
 
 async def _mark_failed(
@@ -479,4 +597,20 @@ async def _mark_quarantine(
         reason=reason,
         run_id=run_id,
     )
-    
+
+
+def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
+    """
+    Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
+    Если ссылка не начинается с s3://<bucket>/, возвращаем ошибку явно.
+    """
+    prefix = f"s3://{bucket}/"
+    if not s3_ref or not s3_ref.startswith(prefix):
+        raise PermanentError(
+            f"Invalid S3 ref for bucket '{bucket}': {s3_ref}",
+            details={"stage": "extract", "kind": "invalid_pdf_ref"},
+        )
+    return s3_ref.replace(prefix, "", 1)
+
+
+

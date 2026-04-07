@@ -24,6 +24,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import RunStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger
 from db.repositories import PlaybookRepository, RunRepository
@@ -45,6 +46,10 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict[str, 
     Если первую задачу не удалось поставить в очередь,
     исключение пробрасывается наружу — API не должен отвечать "started",
     если фактический запуск не произошёл.
+
+    Дополнительно:
+    - если enqueue первой задачи не удался, уже созданный Run помечается как FAILED,
+      чтобы в БД не оставался "висячий" запуск без реального старта.
     """
     logger.info(
         "Pipeline start requested",
@@ -53,10 +58,8 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict[str, 
         source_path=source_path,
     )
 
-    # 1. Создаём Run в async-уровне
     run_id = run_async(create_run_async(deal_id=deal_id, tenant_id=tenant_id))
 
-    # 2. Ставим первую задачу пайплайна в очередь
     try:
         celery_app.send_task(
             "workers.import_bundle",
@@ -77,6 +80,27 @@ def start_pipeline(deal_id: str, tenant_id: str, source_path: str) -> dict[str, 
             task_name="workers.import_bundle",
             error=str(e),
         )
+
+        try:
+            run_async(
+                mark_run_enqueue_failed_async(
+                    run_id=run_id,
+                    message=(
+                        "Run was created, but failed to enqueue "
+                        "workers.import_bundle"
+                    ),
+                    enqueue_error=str(e),
+                )
+            )
+        except Exception as mark_error:
+            logger.exception(
+                "Failed to mark run as FAILED after enqueue error",
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                run_id=run_id,
+                error=str(mark_error),
+            )
+
         raise PermanentError(
             f"Run {run_id} was created, but failed to enqueue workers.import_bundle"
         ) from e
@@ -130,9 +154,7 @@ async def _create_run(*, deal_id: str, tenant_id: str) -> str:
                 deal_id=deal_id,
                 tenant_id=tenant_id,
             )
-            raise PermanentError(
-                "No playbook found for deal and no global default"
-            )
+            raise PermanentError("No playbook found for deal and no global default")
 
         run = await run_repo.create(
             deal_id=deal_uuid,
@@ -158,3 +180,48 @@ async def _create_run(*, deal_id: str, tenant_id: str) -> str:
         )
 
         return str(run.id)
+
+
+async def mark_run_enqueue_failed_async(
+    *,
+    run_id: str,
+    message: str,
+    enqueue_error: str,
+) -> None:
+    """
+    Пометить Run как FAILED, если старт пайплайна не дошёл до первой очереди задач.
+
+    Этот helper вызывается только в compensating-path:
+    - Run уже создан;
+    - workers.import_bundle не удалось enqueue;
+    - нужно зафиксировать run в терминальном состоянии FAILED.
+    """
+    async with db_uow() as uow:
+        db: AsyncSession = uow.session
+        run_repo = RunRepository(db)
+
+        await run_repo.update_status(
+            uuid.UUID(run_id),
+            RunStatus.FAILED.value,
+            error_details={
+                "stage": "orchestrator",
+                "type": "queue_error",
+                "reason": "enqueue_failed",
+                "message": message,
+                "details": {
+                    "task_name": "workers.import_bundle",
+                    "enqueue_error": enqueue_error,
+                },
+            },
+        )
+
+        logger.info(
+            "Run marked as FAILED after enqueue error",
+            run_id=run_id,
+            failed_stage="orchestrator",
+            failed_reason="enqueue_failed",
+            task_name="workers.import_bundle",
+        )
+
+
+        

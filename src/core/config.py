@@ -269,10 +269,6 @@ class Settings(BaseSettings):
     # Golden Dataset
     GOLDEN_DATASET_PATH: str = "golden_dataset"
 
-    # Локальное дублирование артефактов для отладки/аудита
-    ARTIFACT_LOCAL_COPY_ENABLED: bool = True
-    ARTIFACT_LOCAL_COPY_DIR: str = "/home/vladi/projects/LegalMAS/pipeline results"
-
     # --- Celery worker runtime topology ---
     CELERY_DEFAULT_WORKER_CONCURRENCY: int = 4
     CELERY_HEAVY_WORKER_CONCURRENCY: int = 1

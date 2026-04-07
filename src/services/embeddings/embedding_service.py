@@ -1,5 +1,34 @@
 # src/services/embeddings/embedding_service.py
 
+"""
+Singleton service for text embeddings used by retrieval in the Runner.
+
+Сервис инкапсулирует загрузку SentenceTransformer‑модели и предоставляет
+единый глобальный объект для кодирования текстов в dense embeddings.
+
+Как работает:
+- при первом создании проверяет `settings.RUNNER_EMBEDDINGS_ENABLED`;
+  если эмбеддинги выключены, инициализируется в disabled‑режиме
+  (`model=None`) и все попытки encode(...) приводят к RuntimeError;
+- если эмбеддинги включены, создаёт cache directory
+  `RUNNER_EMBEDDINGS_CACHE_DIR` и загружает модель
+  `RUNNER_EMBEDDINGS_MODEL` через `SentenceTransformer`;
+- использует singleton‑паттерн (`__new__`) чтобы модель загружалась
+  только один раз на процесс и переиспользовалась всеми вызовами.
+
+Публичный API:
+- encode(texts: list[str]) -> np.ndarray:
+  возвращает эмбеддинги для списка текстов без progress bar;
+- embedding_dim -> int:
+  размерность эмбеддингов текущей модели, либо 0 если сервис отключён.
+
+Назначение:
+- использоваться Runner/retrieval‑слоем для semantic search,
+  ранжирования и сопоставления текстовых чанков по смыслу.
+- global singleton `embedding_service` служит стандартной точкой доступа
+  к модели во всём приложении.
+"""
+
 from pathlib import Path
 
 import numpy as np

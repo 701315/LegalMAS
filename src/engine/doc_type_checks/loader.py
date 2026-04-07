@@ -1,7 +1,5 @@
 # src/engine/doc_type_checks/loader.py
 
-from __future__ import annotations
-
 """
 DocTypeCheckLoader — загружает специфические checks из YAML-инструкции типа документа.
 
@@ -23,6 +21,8 @@ DocTypeCheckLoader — загружает специфические checks из
   - _build_check_from_v8, _build_check_from_doc_type, _build_compliance_check
     используют _build_rules_config() вместо прямого RulesConfig(...).
 """
+
+from __future__ import annotations
 
 import re
 from pathlib import Path

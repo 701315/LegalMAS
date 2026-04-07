@@ -14,7 +14,6 @@ import {
   useReclassifyDocument,
   useDocumentPdfUrl,
   useSetDocumentReviewed,
-  useDocumentChunkViewUrl,
 } from "../../api/documents";
 import {
   useDocumentDetailsState,
@@ -36,9 +35,6 @@ import type {
   DocumentFamilyView,
   StructuredDataView,
 } from "./DocumentDetails";
-
-import { LayoutDebugModal } from "./LayoutDebugModal";
-import { DocumentChunksModal } from "./DocumentChunksModal";
 
 interface Props {
   docId: string;
@@ -66,7 +62,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   onNavigateToGrid,
 }) => {
   // --- Стейт документа (детали + классификация) ---
-  const detailsState = useDocumentDetailsState(docId); // DocumentDetailsState
+  const detailsState = useDocumentDetailsState(docId);
 
   // --- Structured-data (извлечённые значения) ---
   const structuredState = useStructuredDataState(docId);
@@ -78,9 +74,6 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   // --- Дополнительные данные (DTO-хуки) ---
   const { data: familyDto } = useDocumentFamily(docId);
   const { data: pdfData } = useDocumentPdfUrl(docId);
-  const { data: chunkViewData } = useDocumentChunkViewUrl(docId); 
-  console.log("chunkViewData:", chunkViewData);
-
 
   // --- Права доступа по сделке ---
   const {
@@ -93,29 +86,20 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const canOpenPdf = canDownloadDocuments;
   const canReclassify = canReclassifyDocuments;
 
-  // Можно ли показывать кнопку «документ в формате чанка».
-  // Логика простая: если пользователь может скачивать документы,
-  // он же может открыть и debug‑представление документа.
-  const canOpenChunkView = canDownloadDocuments;
-
-
   // --- Мутации ---
   const reclassifyMutation = useReclassifyDocument(docId);
   const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
   // --- Адаптация стейтов к view-модели ---
 
-  // Детали документа и классификация — из нормализованного стейта
   const doc: Document | null = detailsState.doc;
   const classification: DocumentDetailsViewClassification | null =
     detailsState.classification;
 
-  // Семейство документов — по-прежнему отдельным запросом
   const family: DocumentFamilyView | null = adaptFamily(
     familyDto as DocumentFamilyDto | undefined,
   );
 
-  // Structured-data: маппим из StructuredDataState в view-тип
   let structuredData: StructuredDataView | null = null;
   if (!structuredState.isLoading && structuredState.total > 0 && doc) {
     structuredData = {
@@ -126,22 +110,8 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       total_extracted: structuredState.total,
     };
   }
+
   const structuredNotAvailable = structuredState.notAvailable;
-
-  // Для непрофессионального программиста:
-  // - Здесь мы просто смотрим, отдал ли backend ссылки на layout'ы.
-  // - Если поле есть и не равно null/пустой строке, считаем, что макет доступен.
-  const rawLayoutAvailable =
-    !!doc && !!doc.text_layout_raw_ref && doc.text_layout_raw_ref.trim() !== "";
-  const sanitizedLayoutAvailable =
-    !!doc &&
-    (
-      !!doc.layout_primary_sanitized_ref?.trim() ||
-      !!doc.text_layout_sanitized_ref?.trim()      // fallback для legacy
-    );
-
-  const [showLayoutDebug, setShowLayoutDebug] = React.useState(false);
-  const [showChunksModal, setShowChunksModal] = React.useState(false);
 
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
@@ -152,67 +122,41 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   };
 
   const handleReplaceFile = async (file: File) => {
-    // TODO: сюда позже будет подключён useReplaceDocument
     console.warn("Replace file not implemented yet", file.name);
   };
 
   const isLoading = detailsState.isLoading;
 
   return (
-    <>
-      <DocumentDetailsView
-        dealId={dealId}
-        doc={doc}
-        classification={classification}
-        family={family}
-        structuredData={structuredData}
-        structuredNotAvailable={structuredNotAvailable}
-        isLoading={isLoading}
-        notFound={detailsState.notFound}
-        error={detailsState.error}
-        canDownload={canDownload}
-        canOpenPdf={canOpenPdf}
-        canReclassify={canReclassify}
-        pdfUrl={pdfData?.url ?? null}
-        onSetReviewed={handleSetReviewed}
-        isSetReviewedPending={setReviewedMutation.isPending}
-        onReclassify={handleReclassify}
-        isReclassifyPending={reclassifyMutation.isPending}
-        lastReclassifyResult={
-          reclassifyMutation.isSuccess
-            ? reclassifyMutation.data ?? undefined
-            : undefined
-        }
-        onNavigateToGrid={onNavigateToGrid}
-        onReplaceFile={handleReplaceFile}
-        availableDocTypes={availableDocTypes}
-        initialDocType={doc?.doc_type ?? ""}
-        // Новые флаги наличия layout'ов — view сможет по ним отрисовать кнопки/иконки.
-        rawLayoutAvailable={rawLayoutAvailable}
-        sanitizedLayoutAvailable={sanitizedLayoutAvailable}
-        // Колбэк для открытия debug-модалки
-        onOpenLayoutDebug={() => setShowLayoutDebug(true)}
-        canOpenChunkView={canOpenChunkView}
-        chunkViewUrl={chunkViewData?.url ?? null}
-        onOpenChunkView={
-          canOpenChunkView && chunkViewData?.url
-            ? () => setShowChunksModal(true)
-            : undefined
-        }
-      />
-
-      <LayoutDebugModal
-        docId={docId}
-        isOpen={showLayoutDebug}
-        onClose={() => setShowLayoutDebug(false)}
-      />
-      <DocumentChunksModal
-        isOpen={showChunksModal}
-        onClose={() => setShowChunksModal(false)}
-        chunkViewUrl={chunkViewData?.url ?? null}
-        docName={doc?.filename ?? ""}
-      />
-    </>
+    <DocumentDetailsView
+      documentId={docId}
+      dealId={dealId}
+      doc={doc}
+      classification={classification}
+      family={family}
+      structuredData={structuredData}
+      structuredNotAvailable={structuredNotAvailable}
+      isLoading={isLoading}
+      notFound={detailsState.notFound}
+      error={detailsState.error}
+      canDownload={canDownload}
+      canOpenPdf={canOpenPdf}
+      canReclassify={canReclassify}
+      pdfUrl={pdfData?.url ?? null}
+      onSetReviewed={handleSetReviewed}
+      isSetReviewedPending={setReviewedMutation.isPending}
+      onReclassify={handleReclassify}
+      isReclassifyPending={reclassifyMutation.isPending}
+      lastReclassifyResult={
+        reclassifyMutation.isSuccess
+          ? reclassifyMutation.data ?? undefined
+          : undefined
+      }
+      onNavigateToGrid={onNavigateToGrid}
+      onReplaceFile={handleReplaceFile}
+      availableDocTypes={availableDocTypes}
+      initialDocType={doc?.doc_type ?? ""}
+    />
   );
 };
 

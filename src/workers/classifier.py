@@ -5,7 +5,7 @@ Classifier Worker — каскадная классификация докуме
 
 Позиция в пайплайне:
 - import → extract → pii → structure → chunked → classify → run_deal_checks.
-- На вход получает структурированный документ (есть text_layout_raw / sanitized).
+- На вход получает структурированный документ (есть chunked / structure artifacts).
 
 Что делает:
 - Запускает 3‑уровневый каскад классификации + L4-fallback внутри HybridClassifier:
@@ -21,73 +21,88 @@ Classifier Worker — каскадная классификация докуме
 - Внутри один раз выполняется переход sync → async через run_async
   в _classify_document_async.
 - Вся работа с БД выполняется под db_uow().
-- Экземпляр HybridClassifier (_get_classifier) кэшируется на процесс воркера,
-  чтобы тяжёлые модели L3/L4 инициализировались один раз.
+- Экземпляр HybridClassifier кэшируется на процесс воркера только если
+  его можно безопасно перепривязать к текущему UoW / AsyncSession.
 """
+
+from __future__ import annotations
 
 import time
 import uuid
 
-from ops.metrics import get_metrics
-from services.run_checks_auto_starter import maybe_start_run_checks
-
 from classifiers.stage8.hybrid_classifier import HybridClassifier
-from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
-from db.uow import db_uow, UnitOfWork
+from db.uow import UnitOfWork, db_uow
 from engine.content.document_content_service import (
-    DocumentContentService,
     ClauseTreeStorageClient,
+    DocumentContentService,
 )
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
+from ops.metrics import get_metrics
+from services.run_checks_auto_starter import maybe_start_run_checks
 
 logger = get_logger(__name__)
 
-# Кэшируем экземпляр классификатора и контент‑сервиса
-# в рамках процесса воркера.
-#
-# Для непрофессионального программиста:
-# - Эти объекты создаются только один раз на процесс.
-# - Это экономит время: тяжёлые модели инициализируются один раз,
-#   а не для каждого документа.
 _classifier_instance: HybridClassifier | None = None
-_content_service_instance: DocumentContentService | None = None
+
+
+def _bind_classifier_runtime(
+    classifier: HybridClassifier,
+    *,
+    uow: UnitOfWork,
+) -> HybridClassifier:
+    """
+    Перепривязать runtime-зависимости классификатора к текущему UoW/Session.
+
+    Важно:
+    - нельзя держать в singleton'е DocumentContentService с первой попавшейся
+      AsyncSession, потому что эта сессия будет закрыта после завершения UoW;
+    - поэтому на каждый вызов создаём fresh DocumentContentService на текущей
+      session и, если возможно, подменяем classifier.uow / classifier.content_service.
+    """
+    content_service = DocumentContentService(
+        session=uow.session,
+        storage_client=ClauseTreeStorageClient(),
+    )
+
+    if hasattr(classifier, "uow"):
+        classifier.uow = uow
+
+    if hasattr(classifier, "content_service"):
+        classifier.content_service = content_service
+
+    return classifier
 
 
 def _get_classifier(uow: UnitOfWork) -> HybridClassifier:
     """
-    Lazy singleton: инициализирует HybridClassifier один раз на процесс.
+    Lazy singleton для тяжёлой части классификатора.
 
-    Для непрофессионального программиста:
-    - Эта функция создаёт объект HybridClassifier только при первом вызове.
-    - Все последующие вызовы будут переиспользовать уже созданный объект.
+    Правило:
+    - singleton допустим только для process-level кэша модели;
+    - runtime-зависимости (UoW, AsyncSession, content_service) должны
+      перепривязываться на каждый вызов.
     """
-    global _classifier_instance, _content_service_instance
+    global _classifier_instance
 
     if _classifier_instance is None:
-        # content_service используется HybridClassifier для получения header/snippet
-        # из clause tree. Теперь он требует:
-        # - session: AsyncSession — для доступа к версиям документа;
-        # - storage_client: клиент для чтения JSON из хранилища.
-        if _content_service_instance is None:
-            _content_service_instance = DocumentContentService(
-                session=uow.session,
-                storage_client=ClauseTreeStorageClient(),
-            )
-
         _classifier_instance = HybridClassifier(
             uow=uow,
-            content_service=_content_service_instance,
+            content_service=DocumentContentService(
+                session=uow.session,
+                storage_client=ClauseTreeStorageClient(),
+            ),
         )
+        return _classifier_instance
 
-    return _classifier_instance
+    return _bind_classifier_runtime(_classifier_instance, uow=uow)
 
 
 @celery_app.task(
@@ -114,10 +129,6 @@ def classify_document(self, document_id: str, **kwargs) -> dict:
 async def _classify_document_async(task, document_id: str, extra_args: dict) -> dict:
     """
     Асинхронное ядро классификации одного документа.
-
-    Для непрофессионального программиста:
-    - Здесь вся основная логика.
-    - Функция работает с БД, классификатором и обновляет документ.
     """
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
@@ -128,6 +139,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
 
     playbook = None
     classification_result: dict | None = None
+    classification_requires_review: bool | None = None
 
     try:
         async with db_uow() as uow:
@@ -135,38 +147,51 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             ver_repo = DocumentVersionRepository(uow.session)
             playbook_repo = PlaybookRepository(uow.session)
 
-            # 1. Загрузка документа и версии
             doc = await doc_repo.get_by_id(doc_uuid)
             if not doc:
                 raise PermanentError(f"Document {document_id} not found")
 
-            # Идемпотентность: если документ уже классифицирован или в анализе — пропускаем
             if doc.status in (
                 DocumentStatus.CLASSIFIED.value,
                 DocumentStatus.ANALYZING.value,
             ):
-                logger.info("Already classified, skipping", document_id=document_id)
-                return {"document_id": document_id, "skipped": True}
+                logger.info(
+                    "Already classified or analyzing, skipping",
+                    document_id=document_id,
+                    status=doc.status,
+                )
+                return {
+                    "document_id": document_id,
+                    "status": doc.status,
+                    "skipped": True,
+                }
+
+            allowed_statuses = {
+                DocumentStatus.CHUNKED.value,
+                DocumentStatus.COMPLETED.value,
+            }
+            if doc.status not in allowed_statuses:
+                logger.warning(
+                    "Document in unexpected status for classification, skipping",
+                    document_id=document_id,
+                    status=doc.status,
+                    allowed_statuses=sorted(allowed_statuses),
+                )
+                return {
+                    "document_id": document_id,
+                    "status": doc.status,
+                    "skipped": True,
+                    "reason": "unexpected_status",
+                }
 
             version = await ver_repo.get_latest(doc.id)
             if not version:
-                raise PermanentError(
-                    f"No version found for document {document_id}"
-                )
+                raise PermanentError(f"No version found for document {document_id}")
 
-            # 2. Запуск HybridClassifier (L1–L3 + L4 внутри)
             classifier = _get_classifier(uow)
             classification_result = await classifier.classify_document(str(doc.id))
 
-
-            # Формат classification_result:
-            # - см. HybridClassifier.classify_document и FinalClassification в classifiers/base.py.
-            # - финальные поля (final_type, final_confidence, level, language, jurisdiction,
-            #   applicable_triggers, details) считаются стабильным контрактом.
-            # - details содержит JSON-структуру с L1/L2/L3/L4, голосованием и зоной уверенности.
-            # Ожидаемый формат classification_result см. в hybrid_classifier.py.
             raw_final_type = classification_result.get("final_type") or "UNKNOWN"
-
             final_conf = float(classification_result.get("final_confidence") or 0.0)
             level = classification_result.get("level")
             language = classification_result.get("language")
@@ -176,19 +201,10 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             )
             details = classification_result.get("details", {}) or {}
 
-            # Флаг "нужна ручная проверка" приходит из HybridClassifier.
-            # Для непрофессионального программиста:
-            # - сам классификатор уже решил, попадает ли документ в зоны
-            #   confident / low / unknown.
-            # - если зона low или unknown, он ставит requires_manual_review=True.
-            # - здесь мы только читаем этот флаг и сохраняем его в БД.
             classification_requires_review = bool(
                 details.get("requires_manual_review", False)
             )
 
-            # Нормализация типа документа:
-            # - "UNKNOWN" не пишем в doc_type, вместо этого используем None.
-            #   Это важно, чтобы "UNKNOWN" не воспринимался как реальный тип.
             final_type: str | None
             if isinstance(raw_final_type, str) and raw_final_type.upper() == "UNKNOWN":
                 final_type = None
@@ -197,17 +213,11 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             else:
                 final_type = None
 
-            # Нормализация уровня:
-            # - если тип не определён (final_type is None),
-            #   то уровень тоже считаем не определённым.
             if final_type is None:
                 level = None
 
-            # 3. Маршрутизация на плейбук (deal-level PlaybookVersion)
-            # Берём playbook, привязанный к сделке, или глобальный default.
             playbook = await playbook_repo.get_for_deal(doc.deal_id)
 
-            # 4. Атомарное сохранение результатов классификации
             await doc_repo.update_classification(
                 doc_id=doc.id,
                 doc_type=final_type,
@@ -221,45 +231,33 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                 playbook_version_id=playbook.id if playbook else None,
             )
 
-            # --- Метрики классификации ---
-            # ВАЖНО: ошибки при обновлении метрик не должны ломать бизнес-логику.
-            #
-            # Для непрофессионального программиста:
-            # - Время классификации (duration) уже измеряется внутри HybridClassifier
-            #   с разными "источниками" решения (source="copied", "l2_strong", "l4" и т.п.).
-            # - Здесь, в воркере, мы считаем только агрегат:
-            #   сколько документов попало в каждый уровень (L1/L2/L3/L4/HYBRID/UNKNOWN)
-            #   и с каким финальным типом.
             try:
                 metrics.classification_level_distribution.labels(
                     level=level or "UNKNOWN",
                     doc_type=final_type or "UNKNOWN",
                 ).inc()
             except Exception:
-                logger.exception("classify_document: failed to update classification metrics")
+                logger.exception(
+                    "classify_document: failed to update classification metrics"
+                )
 
-            # 5. Обновляем статус документа на CLASSIFIED
-            await doc_repo.update_status(
+            updated_doc = await doc_repo.update_status(
                 doc.id,
                 DocumentStatus.CLASSIFIED.value,
                 processing_error_details=None,
             )
+            if not updated_doc:
+                raise PermanentError(
+                    f"Document {document_id} not found during CLASSIFIED status update"
+                )
 
-            # 6. Проверяем, не пора ли запускать run_deal_checks для этого Run.
-            # Для непрофессионального программиста:
-            # - maybe_start_run_checks сам найдёт Run по run_id,
-            #   возьмёт из него deal_id и проверит все документы сделки.
-            # - Если все "живые" документы уже CLASSIFIED/COMPLETED,
-            #   он один раз поставит задачу workers.run_deal_checks.
             if run_uuid is not None:
                 await maybe_start_run_checks(
                     db=uow.session,
                     run_id=run_uuid,
                 )
-            # UoW зафиксирует транзакцию (commit)
 
     except PermanentError as e:
-        # Обновляем статус документа на FAILED в отдельном простом UoW
         logger.error(
             "Permanent error during classification",
             document_id=document_id,
@@ -272,27 +270,32 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                 message=str(e),
                 run_id=run_uuid,
             )
-        return {"status": DocumentStatus.FAILED.value, "error": str(e)}
-
-    # Важно: здесь больше НЕТ запуска per-document checks.
-    # Все проверки по сделке будет запускать отдельный воркер run_deal_checks
-    # после того, как авто-стартер решит, что все документы классифицированы.
+        return {
+            "document_id": document_id,
+            "status": DocumentStatus.FAILED.value,
+            "error": str(e),
+        }
 
     duration_ms = int((time.time() - start_time) * 1000)
+
     return {
         "document_id": document_id,
+        "status": DocumentStatus.CLASSIFIED.value,
         "doctype": classification_result.get("final_type")
         if classification_result
         else None,
         "confidence": classification_result.get("final_confidence")
         if classification_result
         else 0.0,
-        "language": classification_result.get("language") if classification_result else None,
-        "jurisdiction": classification_result.get("jurisdiction") if classification_result else None,
+        "language": classification_result.get("language")
+        if classification_result
+        else None,
+        "jurisdiction": classification_result.get("jurisdiction")
+        if classification_result
+        else None,
         "playbook_found": playbook is not None,
         "duration_ms": duration_ms,
-        # Для внешнего кода: подсказка, нужен ли manual review.
-        "classification_requires_review": classification_requires_review if classification_result else None,
+        "classification_requires_review": classification_requires_review,
     }
 
 
@@ -306,10 +309,6 @@ async def _mark_failed(
     """
     Отдельный простой UoW для перевода документа в статус FAILED
     с заполнением processing_error_details.
-
-    Для непрофессионального программиста:
-    - Эта функция просто помечает документ как неуспешно обработанный.
-    - Причина и сообщение сохраняются в базе для диагностики.
     """
     repo = DocumentRepository(uow.session)
     await repo.set_failed(
@@ -320,3 +319,4 @@ async def _mark_failed(
         run_id=run_id,
     )
 
+    

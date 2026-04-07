@@ -12,11 +12,22 @@ PROJECT_ROOT = "/home/vladi/projects/LegalMAS"
 OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_files_dump.txt"
 
 FILES = [
-    "src/workers/build_primary_language_source.py",
-    "src/workers/extract_worker.py",
-    "src/workers/pii_sanitizer.py",
-    "src/db/models/document.py",
+    "src/engine/content/chunk_exporter.py",
+    "src/engine/content/chunk_snapshot_builder.py",
+    "src/engine/content/chunking.py",
+    "src/engine/content/clause_tree_builder.py",
+    "src/engine/content/document_content_service.py",
+    "src/engine/checks_runner.py",
+    "src/engine/runner.py",
+    "src/services/deal_language_service.py",
+    "src/services/document_language_pipeline.py",
+    "src/services/extraction_quality.py",
+    "src/services/layout_language_filter.py",
+    "src/services/pdf_extractor.py",
     "src/services/primary_pdf_builder.py",
+    "src/services/quick_pdf_layout.py",
+    "src/workers/build_primary_language_source.py",
+    "src/workers/convert_worker.py",
 ]
 
 # ===================================

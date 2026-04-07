@@ -3,75 +3,32 @@
 """
 Layout language filter.
 
-Фильтрует layout (text_layout_raw) до одного целевого языка.
+Отвечает за приведение text_layout_raw к одноязычному layout_primary для
+целевого языка ("ru" или "en"), чтобы downstream‑стадии работали только
+с одной языковой версией документа.
 
 Два режима работы:
-- Простой (monolingual или короткий документ): посимвольная детекция скрипта,
-  оставляем элементы целевого языка + нейтральные короткие блоки.
-- Структурный (bilingual, >= 10 элементов): StructuralAnalyzer группирует
-  параллельные блоки по вертикальной позиции и номерам пунктов,
-  затем из каждой пары выбирается нужный язык.
+- Простой (монолингвальный или короткий документ): посимвольная детекция
+  скрипта, оставляются элементы целевого языка + короткие нейтральные блоки
+  (цифры, подписи, номера пунктов).
+- Структурный (bilingual, >= 10 элементов): _StructuralAnalyzer группирует
+  параллельные блоки по странице и вертикальной позиции, выравнивает их по
+  номерам пунктов и из каждой пары/группы выбирает представление на нужном
+  языке, при этом может дополнительно проставить clause_uid/parent_clause_uid.
 
-Форматы:
+Контракты:
+- Вход: text_layout_raw (document_id, document_version_id, elements, tables, metadata),
+  где elements — плоский список блоков с element_id, text, type, page, bbox и
+  опциональными clause_uid/parent_clause_uid.
+- Выход: layout_primary с теми же elements/tables, но отфильтрованными по языку
+  и дополненным блоком metadata.language_filter (target_language, режим,
+  retention‑метрики, degraded/degraded_reason).
 
-  ВХОД (text_layout_raw):
-  {
-    "document_id": str,
-    "document_version_id": str,
-    "elements": [
-      {
-        "element_id": str,         # обязательно
-        "text": str,               # обязательно
-        "type": str,               # "text" | "heading" | "table" | ...
-        "page": int,
-        "bbox": [x0, y0, x1, y1],
-        "clause_uid": str | None,      # может отсутствовать на этой стадии
-        ...                            # любые другие поля — сохраняются as-is
-      }
-    ],
-    "tables": [...],
-    "metadata": {...}
-  }
-
-  ВЫХОД (layout_primary):
-  {
-    "document_id": str,
-    "document_version_id": str,
-    "elements": [
-      {
-        # Все поля оригинального элемента сохранены.
-        # Добавлены/обновлены:
-        "clause_uid": str | None,          # если структурный анализ нашёл номер
-        "parent_clause_uid": str | None,   # если блок является телом пункта
-      }
-    ],
-    "tables": [...],
-    "metadata": {
-      "language_filter": {
-        "target_language": str,
-        "bilingual_mode": bool,
-        "structural_filter_used": bool,
-        "elements_before": int,
-        "elements_after": int,
-        "chars_before": int,
-        "chars_after": int,
-        "element_retention_ratio": float,
-        "char_retention_ratio": float,
-        "degraded": bool,
-        "degraded_reason": str | None,
-      },
-      "element_count": int,
-      ...  # остальные поля metadata сохранены
-    }
-  }
-
-  Downstream (structure_builder) ожидает из elements:
-  - element_id (str)
-  - text (str)
-  - page (int)
-  - type (str) — для распознавания heading
-  - clause_uid — подсказка для построения дерева (необязательно)
-  - parent_clause_uid — подсказка для построения дерева (необязательно)
+Главная точка входа:
+- filter_layout_to_language(layout, target_language, context) — выбирает режим
+  (простой/структурный), считает качество фильтрации и пишет diagnostics в metadata;
+- удобные алиасы filter_layout_to_ru / filter_layout_to_en используются
+  в пайплайне перед структурированием и классификацией.
 """
 
 from __future__ import annotations
@@ -872,22 +829,38 @@ def filter_layout_to_language(
         return result
 
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
+        logger.error(
             "filter_layout_to_language: structural filter failed, falling back to simple filter",
             document_id=doc_id,
-            target=target,
+            target_language=target,
             error=str(exc),
             traceback=traceback.format_exc(),
         )
+
         result = _simple_filter(layout, target, elements, tables, is_bilingual=True)
+
+        # Явно помечаем degraded и добавляем причину fallback-а в metadata
+        lf = ((result.get("metadata") or {}).get("language_filter") or {})
+        lf["degraded"] = True
+
+        fallback_reason = "structural_filter_exception_fallback_to_simple"
+        prev_reason = lf.get("degraded_reason")
+        if prev_reason:
+            if fallback_reason not in str(prev_reason):
+                lf["degraded_reason"] = f"{prev_reason};{fallback_reason}"
+        else:
+            lf["degraded_reason"] = fallback_reason
+
+        result.setdefault("metadata", {})["language_filter"] = lf
+
         logger.info(
             "filter_layout_to_language: simple fallback applied after structural failure",
             document_id=doc_id,
-            target=target,
+            target_language=target,
             elements_in=len(elements),
             elements_out=len(result.get("elements") or []),
-            degraded=result.get("metadata", {}).get("language_filter", {}).get("degraded", False),
-            degraded_reason=result.get("metadata", {}).get("language_filter", {}).get("degraded_reason"),
+            degraded=lf.get("degraded", False),
+            degraded_reason=lf.get("degraded_reason"),
         )
         return result
 

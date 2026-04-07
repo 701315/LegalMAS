@@ -1,12 +1,12 @@
 # src/engine/triggers/detector.py
 
 """
-Trigger detector: использует Stage 7 relations/families и YAML trigger_definitions.
+Trigger detector: использует relations/families и YAML trigger_definitions.
 
 Назначение:
 - Определить, какие триггеры ДЕЙСТВИТЕЛЬНО сработали для конкретного документа.
 - Работает на основе:
-  1) Семейных связей документа (Stage 7 relations/families, RunnerRepository).
+  1) Семейных связей документа (relations/families, RunnerRepository).
   2) Текстового содержимого документа (чанки через DocumentContentService).
   3) YAML-инструкций по типу документа (trigger_definitions в DocumentTypeConfig).
 

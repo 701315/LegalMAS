@@ -1,3 +1,5 @@
+# src/workers/run_orchestrator.py
+
 """
 Run Orchestrator Worker.
 
@@ -10,13 +12,13 @@ Run Orchestrator Worker.
   тем же run_id.
 
 Актуальная последовательность стадий:
-- PENDING          -> workers.convert_to_pdf (для конвертируемых типов без PDF)
-                     -> workers.build_primary_language_source
-- PRIMARY_READY    -> workers.extract_document
-- EXTRACTED        -> pii.sanitize_document
-- SANITIZED        -> workers.build_structure
-- STRUCTURED       -> workers.build_chunks
-- CHUNKED          -> workers.classify_document
+- PENDING           -> workers.convert_to_pdf (для конвертируемых типов без PDF)
+                      -> workers.build_primary_language_source
+- PRIMARY_READY     -> workers.extract_document
+- EXTRACTED         -> pii.sanitize_document
+- SANITIZED         -> workers.build_structure
+- STRUCTURED        -> workers.build_chunks
+- CHUNKED           -> workers.classify_document
 - CLASSIFIED/COMPLETED -> reuse или reclassify по стратегии Run
 
 Ключевой принцип:
@@ -27,6 +29,8 @@ Run Orchestrator Worker.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,7 +48,6 @@ from services.run_checks_auto_starter import maybe_start_run_checks
 
 logger = get_logger(__name__)
 
-# Типы файлов, которые поддерживает LibreOffice-конвертер (office-converter)
 CONVERTIBLE_TO_PDF: set[str] = {
     "doc",
     "docx",
@@ -60,6 +63,14 @@ CONVERTIBLE_TO_PDF: set[str] = {
     "html",
     "htm",
 }
+
+
+@dataclass(slots=True)
+class TaskPlan:
+    task_name: str
+    kwargs: dict[str, Any]
+    reason: str
+    stage: str
 
 
 @celery_app.task(
@@ -155,16 +166,14 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
+            "documents_with_plan": 0,
         }
 
-    # Обработка статуса Run: первый запуск vs re-entry vs терминальные состояния
     current_status = run_obj.status
 
     if current_status == RunStatus.PENDING.value:
-        # Первый вход — пытаемся атомарно стартовать Run
         started = await run_repo.try_start_run(run_uuid)
         if not started:
-            # Перечитываем Run, чтобы понять текущий статус
             run_obj = await run_repo.get_by_id(run_uuid)
             current_status = run_obj.status if run_obj else None
             if current_status not in {RunStatus.RUNNING.value}:
@@ -178,6 +187,7 @@ async def _start_run_pipeline_async(
                     "tenant_id": tenant_id,
                     "documents_total": 0,
                     "tasks_scheduled": 0,
+                    "documents_with_plan": 0,
                 }
             logger.info(
                 "Run transitioned to RUNNING concurrently, continuing orchestration",
@@ -185,7 +195,6 @@ async def _start_run_pipeline_async(
             )
 
     elif current_status == RunStatus.RUNNING.value:
-        # Нормальный re-entry во время идущего Run
         logger.info(
             "Run already RUNNING, continuing orchestration pass",
             extra={"run_id": run_id},
@@ -196,7 +205,6 @@ async def _start_run_pipeline_async(
         RunStatus.FAILED.value,
         RunStatus.CANCELLED.value,
     }:
-        # Терминальные состояния — оркестратор больше не вмешивается
         logger.info(
             "Run already in terminal status, skipping orchestration",
             extra={"run_id": run_id, "status": current_status},
@@ -207,9 +215,10 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
+            "documents_with_plan": 0,
         }
+
     else:
-        # Неподдерживаемый/неизвестный статус
         logger.warning(
             "Run in unsupported status for orchestration, skipping",
             extra={"run_id": run_id, "status": current_status},
@@ -220,6 +229,7 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
+            "documents_with_plan": 0,
         }
 
     pipeline_strategy = getattr(run_obj, "pipeline_strategy", "REUSE_STRUCTURE")
@@ -253,6 +263,7 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
+            "documents_with_plan": 0,
         }
 
     deal_id_str = str(deal_uuid)
@@ -262,6 +273,10 @@ async def _start_run_pipeline_async(
             tenant_id_str = str(run_obj.deal.tenant_id)
         else:
             tenant_id_str = deal_id_str
+            logger.warning(
+                "tenant_id is missing, falling back to deal_id string",
+                extra={"run_id": run_id, "deal_id": deal_id_str, "tenant_id": tenant_id_str},
+            )
     else:
         tenant_id_str = tenant_id
 
@@ -278,9 +293,11 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id_str,
             "documents_total": 0,
             "tasks_scheduled": 0,
+            "documents_with_plan": 0,
         }
 
     tasks_scheduled = 0
+    documents_with_plan = 0
 
     for doc in docs:
         doc_id_str = str(doc.id)
@@ -298,247 +315,44 @@ async def _start_run_pipeline_async(
             },
         )
 
-        # PENDING -> convert_to_pdf (для конвертируемых типов без PDF)
-        #         -> build_primary_language_source
-        if status == DocumentStatus.PENDING.value:
-            if not version:
-                logger.warning(
-                    "Document has PENDING status but no version, skipping next stage",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
+        plan = _build_document_task_plan(
+            doc=doc,
+            version=version,
+            status=status,
+            run_id=run_id,
+            deal_id_str=deal_id_str,
+            tenant_id_str=tenant_id_str,
+            is_full_rerun=is_full_rerun,
+            force_reclassify=force_reclassify,
+        )
 
-            origin_filetype = str(getattr(version, "origin_filetype", "") or "").lower()
-            has_converted_pdf = bool(getattr(version, "converted_pdf_ref", None))
-
-            # Сначала конвертация в PDF, если тип поддерживается и PDF ещё нет
-            if origin_filetype in CONVERTIBLE_TO_PDF and not has_converted_pdf:
-                logger.info(
-                    "PENDING document requires conversion to PDF before primary source build",
-                    extra={
-                        "document_id": doc_id_str,
-                        "document_version_id": str(version.id),
-                        "origin_filetype": origin_filetype,
-                        "run_id": run_id,
-                    },
-                )
-                celery_app.send_task(
-                    "workers.convert_to_pdf",
-                    kwargs={
-                        "document_version_id": str(version.id),
-                        "document_id": doc_id_str,
-                        "deal_id": deal_id_str,
-                        "tenant_id": tenant_id_str,
-                        "run_id": run_id,
-                    },
-                )
-                tasks_scheduled += 1
-                continue
-
-            # Если это уже PDF или для конвертируемого типа уже есть converted_pdf_ref,
-            # можно строить primary language source
+        if not plan:
             logger.info(
-                "PENDING document ready for primary source build",
+                "No next task scheduled for document",
                 extra={
+                    "run_id": run_id,
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
-                    "origin_filetype": origin_filetype,
-                    "has_converted_pdf": has_converted_pdf,
-                    "run_id": run_id,
+                    "status": status,
                 },
             )
-            celery_app.send_task(
-                "workers.build_primary_language_source",
-                kwargs={
-                    "document_version_id": str(version.id),
-                    "document_id": doc_id_str,
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                    "run_id": run_id,
-                },
-            )
-            tasks_scheduled += 1
             continue
 
-        # PRIMARY_READY -> extract_document
-        if status == DocumentStatus.PRIMARY_READY.value:
-            if not version:
-                logger.warning(
-                    "PRIMARY_READY document without version, skipping extract",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            celery_app.send_task(
-                "workers.extract_document",
-                kwargs={
-                    "document_version_id": str(version.id),
-                    "document_id": doc_id_str,
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                    "run_id": run_id,
-                },
-            )
-            tasks_scheduled += 1
-            continue
-
-        # EXTRACTED -> pii.sanitize_document
-        if status == DocumentStatus.EXTRACTED.value:
-            if not version or not getattr(version, "layout_primary_ref", None):
-                logger.warning(
-                    "EXTRACTED document without layout_primary_ref, skipping pii",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            celery_app.send_task(
-                "pii.sanitize_document",
-                kwargs={
-                    "document_version_id": str(version.id),
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                    "run_id": run_id,
-                },
-            )
-            tasks_scheduled += 1
-            continue
-
-        # SANITIZED -> build_structure
-        if status == DocumentStatus.SANITIZED.value:
-            if not version:
-                logger.warning(
-                    "SANITIZED document without version, skipping structure",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            has_sanitized = bool(getattr(version, "layout_primary_sanitized_ref", None))
-            has_primary = bool(getattr(version, "layout_primary_ref", None))
-
-            if not has_sanitized and not has_primary:
-                logger.warning(
-                    "SANITIZED document without layout_primary_sanitized_ref or layout_primary_ref, skipping structure",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            if not has_sanitized and has_primary:
-                logger.warning(
-                    "SANITIZED document without sanitized layout, "
-                    "falling back to layout_primary_ref for structure building",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-
-            celery_app.send_task(
-                "workers.build_structure",
-                kwargs={
-                    "document_version_id": str(version.id),
-                    "run_id": run_id,
-                },
-            )
-            tasks_scheduled += 1
-            continue
-
-        # STRUCTURED -> build_chunks
-        if status == DocumentStatus.STRUCTURED.value:
-            if not version:
-                logger.warning(
-                    "STRUCTURED document without version, skipping",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            has_clause_tree = bool(getattr(version, "clause_tree_ref", None))
-            if not has_clause_tree:
-                logger.warning(
-                    "STRUCTURED document without clause_tree_ref, cannot continue",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            celery_app.send_task(
-                "workers.build_chunks",
-                kwargs={
-                    "document_version_id": str(version.id),
-                    "document_id": doc_id_str,
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                    "run_id": run_id,
-                },
-            )
-            tasks_scheduled += 1
-            continue
-
-        # CHUNKED -> classify_document
-        if status == DocumentStatus.CHUNKED.value:
-            if not version:
-                logger.warning(
-                    "CHUNKED document without version, skipping classify",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-                continue
-
-            celery_app.send_task(
-                "workers.classify_document",
-                kwargs={
-                    "document_id": doc_id_str,
-                    "run_id": run_id,
-                    "deal_id": deal_id_str,
-                    "tenant_id": tenant_id_str,
-                },
-            )
-            tasks_scheduled += 1
-            continue
-
-        # CLASSIFIED: reuse или reclassify
-        if status == DocumentStatus.CLASSIFIED.value:
-            if is_full_rerun or force_reclassify:
-                celery_app.send_task(
-                    "workers.classify_document",
-                    kwargs={
-                        "document_id": doc_id_str,
-                        "run_id": run_id,
-                        "deal_id": deal_id_str,
-                        "tenant_id": tenant_id_str,
-                    },
-                )
-                tasks_scheduled += 1
-            else:
-                logger.info(
-                    "Document already classified, reusing classification for this run",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-            continue
-
-        # COMPLETED: reuse или reclassify по стратегии
-        if status == DocumentStatus.COMPLETED.value:
-            if is_full_rerun or force_reclassify:
-                celery_app.send_task(
-                    "workers.classify_document",
-                    kwargs={
-                        "document_id": doc_id_str,
-                        "run_id": run_id,
-                        "deal_id": deal_id_str,
-                        "tenant_id": tenant_id_str,
-                    },
-                )
-                tasks_scheduled += 1
-            else:
-                logger.info(
-                    "Document already completed, reusing for this run",
-                    extra={"document_id": doc_id_str, "run_id": run_id},
-                )
-            continue
-
-        # FAILED / QUARANTINE / DUPLICATE / DELETED / ANALYZING и прочие терминальные/неподдерживаемые
         logger.info(
-            "Document in unsupported or terminal status for run pipeline, skipping",
+            "Scheduling next document stage",
             extra={
-                "document_id": doc_id_str,
-                "status": status,
                 "run_id": run_id,
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id) if version else None,
+                "status": status,
+                "task_name": plan.task_name,
+                "stage": plan.stage,
+                "reason": plan.reason,
             },
         )
+
+        _send_task(plan)
+        tasks_scheduled += 1
+        documents_with_plan += 1
 
     logger.info(
         "Run pipeline documents evaluation complete",
@@ -548,10 +362,10 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id_str,
             "documents_total": len(docs),
             "tasks_scheduled": tasks_scheduled,
+            "documents_with_plan": documents_with_plan,
         },
     )
 
-    # Даём сигнал авто-стартеру checks
     await maybe_start_run_checks(db=db, run_id=run_uuid)
 
     logger.info(
@@ -562,6 +376,7 @@ async def _start_run_pipeline_async(
             "tenant_id": tenant_id_str,
             "documents_total": len(docs),
             "tasks_scheduled": tasks_scheduled,
+            "documents_with_plan": documents_with_plan,
         },
     )
 
@@ -571,5 +386,350 @@ async def _start_run_pipeline_async(
         "tenant_id": tenant_id_str,
         "documents_total": len(docs),
         "tasks_scheduled": tasks_scheduled,
+        "documents_with_plan": documents_with_plan,
     }
 
+
+def _build_document_task_plan(
+    *,
+    doc,
+    version,
+    status: str,
+    run_id: str,
+    deal_id_str: str,
+    tenant_id_str: str,
+    is_full_rerun: bool,
+    force_reclassify: bool,
+) -> TaskPlan | None:
+    doc_id_str = str(doc.id)
+
+    if status == DocumentStatus.PENDING.value:
+        if not version:
+            logger.warning(
+                "Document has PENDING status but no version, skipping next stage",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        origin_filetype = str(getattr(version, "origin_filetype", "") or "").lower()
+        has_converted_pdf = bool(getattr(version, "converted_pdf_ref", None))
+        original_ref = getattr(version, "original_ref", None)
+
+        if origin_filetype in CONVERTIBLE_TO_PDF and not has_converted_pdf:
+            logger.info(
+                "PENDING document requires office-to-PDF conversion before primary source build",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "origin_filetype": origin_filetype,
+                    "has_converted_pdf": has_converted_pdf,
+                    "original_ref": original_ref,
+                    "run_id": run_id,
+                },
+            )
+            return TaskPlan(
+                task_name="workers.convert_to_pdf",
+                stage="convert_to_pdf",
+                reason="convertible_type_without_converted_pdf",
+                kwargs={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                    "run_id": run_id,
+                },
+            )
+
+        source_kind = "converted_pdf_ref" if has_converted_pdf else "original_ref"
+        logger.info(
+            "PENDING document ready for primary source build",
+            extra={
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id),
+                "origin_filetype": origin_filetype,
+                "has_converted_pdf": has_converted_pdf,
+                "source_kind": source_kind,
+                "run_id": run_id,
+            },
+        )
+        return TaskPlan(
+            task_name="workers.build_primary_language_source",
+            stage="build_primary_language_source",
+            reason="pending_document_has_pdf_source",
+            kwargs={
+                "document_version_id": str(version.id),
+                "document_id": doc_id_str,
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+                "run_id": run_id,
+            },
+        )
+
+    if status == DocumentStatus.PRIMARY_READY.value:
+        if not version:
+            logger.warning(
+                "PRIMARY_READY document without version, skipping extract",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        primary_ref = getattr(version, "primary_source_ref", None)
+        if not primary_ref:
+            logger.warning(
+                "PRIMARY_READY document without primary_source_ref, waiting for primary source commit",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "run_id": run_id,
+                },
+            )
+            return None
+
+        logger.info(
+            "PRIMARY_READY document ready for extract",
+            extra={
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id),
+                "primary_source_ref": primary_ref,
+                "run_id": run_id,
+            },
+        )
+        return TaskPlan(
+            task_name="workers.extract_document",
+            stage="extract_document",
+            reason="primary_source_is_ready",
+            kwargs={
+                "document_version_id": str(version.id),
+                "document_id": doc_id_str,
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+                "run_id": run_id,
+            },
+        )
+
+    if status == DocumentStatus.EXTRACTED.value:
+        if not version:
+            logger.warning(
+                "EXTRACTED document without version, skipping pii",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        layout_primary_ref = getattr(version, "layout_primary_ref", None)
+        if not layout_primary_ref:
+            logger.warning(
+                "EXTRACTED document without layout_primary_ref, waiting for extract commit",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "run_id": run_id,
+                },
+            )
+            return None
+
+        logger.info(
+            "EXTRACTED document ready for PII sanitization",
+            extra={
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id),
+                "layout_primary_ref": layout_primary_ref,
+                "run_id": run_id,
+            },
+        )
+        return TaskPlan(
+            task_name="pii.sanitize_document",
+            stage="sanitize_document",
+            reason="layout_primary_ready",
+            kwargs={
+                "document_version_id": str(version.id),
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+                "run_id": run_id,
+            },
+        )
+
+    if status == DocumentStatus.SANITIZED.value:
+        if not version:
+            logger.warning(
+                "SANITIZED document without version, skipping structure",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        layout_primary_sanitized_ref = getattr(version, "layout_primary_sanitized_ref", None)
+        if not layout_primary_sanitized_ref:
+            logger.warning(
+                "SANITIZED document without layout_primary_sanitized_ref, waiting for PII commit",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "run_id": run_id,
+                },
+            )
+            return None
+
+        logger.info(
+            "SANITIZED document ready for structure build",
+            extra={
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id),
+                "layout_primary_sanitized_ref": layout_primary_sanitized_ref,
+                "run_id": run_id,
+            },
+        )
+        return TaskPlan(
+            task_name="workers.build_structure",
+            stage="build_structure",
+            reason="sanitized_layout_ready",
+            kwargs={
+                "document_version_id": str(version.id),
+                "run_id": run_id,
+            },
+        )
+
+    if status == DocumentStatus.STRUCTURED.value:
+        if not version:
+            logger.warning(
+                "STRUCTURED document without version, skipping chunks",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        clause_tree_ref = getattr(version, "clause_tree_ref", None)
+        if not clause_tree_ref:
+            logger.warning(
+                "STRUCTURED document without clause_tree_ref, cannot continue",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "run_id": run_id,
+                },
+            )
+            return None
+
+        logger.info(
+            "STRUCTURED document ready for chunk build",
+            extra={
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id),
+                "clause_tree_ref": clause_tree_ref,
+                "run_id": run_id,
+            },
+        )
+        return TaskPlan(
+            task_name="workers.build_chunks",
+            stage="build_chunks",
+            reason="structure_ready",
+            kwargs={
+                "document_version_id": str(version.id),
+                "document_id": doc_id_str,
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+                "run_id": run_id,
+            },
+        )
+
+    if status == DocumentStatus.CHUNKED.value:
+        if not version:
+            logger.warning(
+                "CHUNKED document without version, skipping classify",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        logger.info(
+            "CHUNKED document ready for classification",
+            extra={
+                "document_id": doc_id_str,
+                "document_version_id": str(version.id),
+                "run_id": run_id,
+            },
+        )
+        return TaskPlan(
+            task_name="workers.classify_document",
+            stage="classify_document",
+            reason="chunk_snapshot_ready",
+            kwargs={
+                "document_id": doc_id_str,
+                "run_id": run_id,
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+            },
+        )
+
+    if status == DocumentStatus.CLASSIFIED.value:
+        if is_full_rerun or force_reclassify:
+            logger.info(
+                "CLASSIFIED document scheduled for reclassification",
+                extra={
+                    "document_id": doc_id_str,
+                    "run_id": run_id,
+                    "is_full_rerun": is_full_rerun,
+                    "force_reclassify": force_reclassify,
+                },
+            )
+            return TaskPlan(
+                task_name="workers.classify_document",
+                stage="classify_document",
+                reason="reclassify_requested",
+                kwargs={
+                    "document_id": doc_id_str,
+                    "run_id": run_id,
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                },
+            )
+
+        logger.info(
+            "Document already classified, reusing classification for this run",
+            extra={"document_id": doc_id_str, "run_id": run_id},
+        )
+        return None
+
+    if status == DocumentStatus.COMPLETED.value:
+        if is_full_rerun or force_reclassify:
+            logger.info(
+                "COMPLETED document scheduled for reclassification",
+                extra={
+                    "document_id": doc_id_str,
+                    "run_id": run_id,
+                    "is_full_rerun": is_full_rerun,
+                    "force_reclassify": force_reclassify,
+                },
+            )
+            return TaskPlan(
+                task_name="workers.classify_document",
+                stage="classify_document",
+                reason="rerun_reclassification_requested",
+                kwargs={
+                    "document_id": doc_id_str,
+                    "run_id": run_id,
+                    "deal_id": deal_id_str,
+                    "tenant_id": tenant_id_str,
+                },
+            )
+
+        logger.info(
+            "Document already completed, reusing for this run",
+            extra={"document_id": doc_id_str, "run_id": run_id},
+        )
+        return None
+
+    logger.info(
+        "Document in unsupported or terminal status for run pipeline, skipping",
+        extra={
+            "document_id": doc_id_str,
+            "status": status,
+            "run_id": run_id,
+        },
+    )
+    return None
+
+
+def _send_task(plan: TaskPlan) -> None:
+    celery_app.send_task(
+        plan.task_name,
+        kwargs=plan.kwargs,
+    )
+
+    

@@ -1,5 +1,21 @@
 # src/api/schemas/project_members.py
 
+"""
+Pydantic схемы для управления участниками проекта (project members).
+
+Используются в API-слое для:
+- приёма данных при создании/обновлении участника проекта;
+- возврата участника в ответах (ORM → Pydantic через from_attributes);
+- типизации роли участника через ProjectRole из слоя БД.
+
+Модели:
+- ProjectMemberBase — общие поля участника (name, login, role);
+- ProjectMemberResponse — модель ответа API с member_id и created_at;
+- CreateProjectMember — payload для создания участника, включает password;
+- UpdateProjectMember — частичное обновление участника (все поля опциональны).
+"""
+
+
 from __future__ import annotations
 
 from datetime import datetime

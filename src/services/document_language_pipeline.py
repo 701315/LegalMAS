@@ -19,6 +19,13 @@ Document language pipeline service.
 
 То есть это чистый слой бизнес-логики для этапа:
 build_primary_language_source -> language analysis -> primary layout -> PDF builder.
+
+Дополнительный контракт для downstream:
+- decision.pipeline_mode = "PRIMARY_ONLY_DOWNSTREAM"
+  (показывает, что downstream обязан работать только по primary_source_ref /
+   производным от него layout’ам).
+- primary_layout.metadata.language_filter.contract_version = 1
+- primary_layout.metadata.language_filter.downstream_requires_primary_source = True
 """
 
 from __future__ import annotations
@@ -72,6 +79,11 @@ class DocumentLanguageDecision:
     requires_user_selection:
     - True, если документ многоязычный и нельзя безопасно выбрать язык автоматически
       без явного решения пользователя.
+
+    pipeline_mode:
+    - режим пайплайна для downstream.
+      "PRIMARY_ONLY_DOWNSTREAM" означает, что все последующие стадии обязаны
+      работать только с primary_source_ref / primary layout.
     """
 
     detected_languages: list[str]
@@ -82,6 +94,7 @@ class DocumentLanguageDecision:
     deal_primary_language_after: str | None
     deal_languages_after: list[str]
     requires_user_selection: bool
+    pipeline_mode: str = "PRIMARY_ONLY_DOWNSTREAM"
 
 
 @dataclass
@@ -119,23 +132,20 @@ async def analyze_document_languages(
     1. Определяем detected_languages по layout.
        Если детект не вернул ничего — считаем ["ru"] как conservative fallback.
 
-    2. Обновляем Deal.languages через update_deal_languages, чтобы список языков
-       сделки всегда отражал реальный набор языков документов по сделке.
+    2. Обновляем Deal.languages через update_deal_languages.
 
     3. Решаем, есть ли безопасный target_language:
 
        - Если документ одноязычный (len(detected_languages) == 1),
-         этот язык можно выбрать автоматически:
-           target_language = detected[0]
-           requires_user_selection = False
+         target_language = detected[0], requires_user_selection = False.
 
        - Если документ многоязычный (>= 2 языка):
-         * Если у сделки уже есть primary_language, и он реально найден
-           в detected_languages, уважаем этот выбор:
-             target_language = deal.primary_language
+         * Если у сделки уже есть primary_language, и он найден в detected_languages:
+             target_language = deal.primary_language,
              requires_user_selection = False
-         * Иначе target_language = None,
-           requires_user_selection = True (нужен выбор пользователя).
+         * Иначе:
+             target_language = None,
+             requires_user_selection = True.
 
     4. Если вообще ничего не найдено (pathological case),
        detected_languages уже приведён к ["ru"], target_language = "ru",
@@ -183,6 +193,7 @@ async def analyze_document_languages(
         deal_primary_language_after=deal_primary_after,
         deal_languages_after=deal_languages_after,
         requires_user_selection=requires_user_selection,
+        pipeline_mode="PRIMARY_ONLY_DOWNSTREAM",
     )
 
     logger.info(
@@ -196,6 +207,7 @@ async def analyze_document_languages(
         deal_primary_language_after=decision.deal_primary_language_after,
         deal_languages_after=decision.deal_languages_after,
         requires_user_selection=decision.requires_user_selection,
+        pipeline_mode=decision.pipeline_mode,
     )
 
     return decision
@@ -216,17 +228,11 @@ async def build_primary_language_layout(
     2. обновляет языки сделки;
     3. если target_language определён — фильтрует layout до одного языка.
 
-    Варианты поведения:
-
-    - Если decision.target_language задан:
-        * фильтруем layout к этому языку;
-        * если фильтрация дала пустой результат, безопасно возвращаем raw layout
-          с пометкой fallback_used=True.
-
-    - Если decision.target_language == None и requires_user_selection == True:
-        * не фильтруем layout;
-        * возвращаем исходный layout с metadata, чтобы выше по стеку можно было
-          поставить документ в статус LANGUAGE_SELECTION_REQUIRED и запросить выбор языка у пользователя.
+    Дополнительный контракт:
+    - primary_layout.metadata.language_filter содержит:
+        * contract_version = 1
+        * downstream_requires_primary_source = True
+        * target_language, is_bilingual, requires_user_selection, fallback_used.
     """
     decision = await analyze_document_languages(
         db=db,
@@ -234,7 +240,6 @@ async def build_primary_language_layout(
         layout=layout,
     )
 
-    # Нет target_language и требуется выбор пользователя — ничего не режем.
     if decision.target_language is None and decision.requires_user_selection:
         logger.info(
             "Primary layout not built: user primary language selection required",
@@ -243,7 +248,7 @@ async def build_primary_language_layout(
             document_id=document_id,
             detected_languages=decision.detected_languages,
         )
-        primary_layout = _attach_language_pipeline_metadata(
+        primary_layout = _attach_language_metadata(
             layout=layout,
             decision=decision,
             fallback_used=False,
@@ -261,7 +266,6 @@ async def build_primary_language_layout(
         "is_bilingual": decision.is_bilingual,
     }
 
-    # На этом этапе target_language гарантированно не None.
     primary_layout = filter_layout_to_language(
         layout,
         decision.target_language,
@@ -276,13 +280,13 @@ async def build_primary_language_layout(
             target_language=decision.target_language,
             detected_languages=decision.detected_languages,
         )
-        primary_layout = _attach_language_pipeline_metadata(
+        primary_layout = _attach_language_metadata(
             layout=layout,
             decision=decision,
             fallback_used=True,
         )
     else:
-        primary_layout = _attach_language_pipeline_metadata(
+        primary_layout = _attach_language_metadata(
             layout=primary_layout,
             decision=decision,
             fallback_used=False,
@@ -305,12 +309,10 @@ def _select_target_language(
     Правила:
 
     - Если detected_languages пустой:
-        * считаем pathological case, но для устойчивости:
-          target_language = "ru", requires_user_selection = False.
+        target_language = "ru", requires_user_selection = False.
 
     - Если документ одноязычный (len(detected) == 1):
-        * этот язык безопасно выбрать автоматически:
-          target_language = detected[0], requires_user_selection = False.
+        target_language = detected[0], requires_user_selection = False.
 
     - Если документ многоязычный (len(detected) >= 2):
         * если deal_primary_language задан и входит в detected:
@@ -318,7 +320,7 @@ def _select_target_language(
             requires_user_selection = False;
         * иначе:
             target_language = None,
-            requires_user_selection = True (нужно решение пользователя).
+            requires_user_selection = True.
     """
     detected = _normalize_lang_list(detected_languages)
     deal_primary = _normalize_lang(deal_primary_language)
@@ -335,24 +337,19 @@ def _select_target_language(
     return None, True
 
 
-def _attach_language_pipeline_metadata(
+def _attach_language_metadata(
     layout: dict[str, Any],
     decision: DocumentLanguageDecision,
     fallback_used: bool,
 ) -> dict[str, Any]:
     """
-    Добавить в metadata следы работы language pipeline.
-
-    Это полезно для диагностики:
-    - какие языки нашли;
-    - какой язык выбрали (или не выбрали);
-    - требуется ли выбор пользователя;
-    - был ли fallback на raw layout.
+    Добавить в metadata следы работы language pipeline + формальный контракт
+    для downstream в language_filter.
     """
     result = dict(layout)
     metadata = dict(result.get("metadata") or {})
-    language_pipeline = dict(metadata.get("language_pipeline") or {})
 
+    language_pipeline = dict(metadata.get("language_pipeline") or {})
     language_pipeline.update(
         {
             "detected_languages": decision.detected_languages,
@@ -364,10 +361,24 @@ def _attach_language_pipeline_metadata(
             "deal_primary_language_after": decision.deal_primary_language_after,
             "deal_languages_after": decision.deal_languages_after,
             "requires_user_selection": decision.requires_user_selection,
+            "pipeline_mode": decision.pipeline_mode,
         }
     )
-
     metadata["language_pipeline"] = language_pipeline
+
+    language_filter = dict(metadata.get("language_filter") or {})
+    language_filter.update(
+        {
+            "contract_version": 1,
+            "downstream_requires_primary_source": True,
+            "target_language": decision.target_language,
+            "is_bilingual": decision.is_bilingual,
+            "requires_user_selection": decision.requires_user_selection,
+            "fallback_used": fallback_used,
+        }
+    )
+    metadata["language_filter"] = language_filter
+
     result["metadata"] = metadata
     return result
 
@@ -387,7 +398,9 @@ def _normalize_lang(value: str | None) -> str | None:
     return lang
 
 
-def _normalize_lang_list(values: list[str] | tuple[str, ...] | set[str] | None) -> list[str]:
+def _normalize_lang_list(
+    values: list[str] | tuple[str, ...] | set[str] | None,
+) -> list[str]:
     """
     Нормализовать список языков:
     - lower();
@@ -406,5 +419,4 @@ def _normalize_lang_list(values: list[str] | tuple[str, ...] | set[str] | None) 
             normalized.add(lang)
 
     return sorted(normalized)
-
 

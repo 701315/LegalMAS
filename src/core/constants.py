@@ -185,9 +185,3 @@ CLASSIFICATION_THRESHOLDS = {
     "uncertain_threshold": 0.50,
 }
 
-
-# NOTE: TriggerType удален.
-# Триггеры определяются динамически на основе YAML-файлов инструкций.
-# и генерируются в src/core/generated_trigger_types.py
-
-

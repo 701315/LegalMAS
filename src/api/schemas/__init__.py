@@ -1,3 +1,5 @@
+# src/api/schemas/__init__.py
+
 """
 Пакет со схемами (Pydantic-моделями) для API.
 

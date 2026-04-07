@@ -1,10 +1,28 @@
+# src/services/pii_tokenizer.py
+
 """
 PII Tokenizer.
 
+Отвечает за токенизацию PII-сущностей в тексте и построение политики
+обработки на основе applicable_triggers, YAML‑конфига и настроек.
+
 Стратегии:
-  TOKENIZE  → PERSON1, PHONE1, ...
-  PRESERVE  → оставить как есть (ИНН, ОГРН, кадастр)
-  ROLE_MAP  → заменить имя на роль стороны договора (SELLER/BUYER/LESSOR/...)
+  TOKENIZE  → заменить сущность на стабильный токен (PERSON1, PHONE1, EMAIL1 ...)
+  PRESERVE  → оставить как есть (номера, которые нужны LLM в оригинале:
+              ИНН, ОГРН, кадастровый номер и т.п.)
+  ROLE_MAP  → для имён сторон договора пытаться заменить имя на роль
+              (SELLER/BUYER/LESSOR/...), используя словарь ролей
+
+Основные компоненты:
+- PIIPolicy — описывает, какие типы PII токенизировать/сохранять/маппить в роль
+  и какой словарь ролей использовать (кастомный из YAML или дефолтный).
+- TokenizationResult — результат токенизации (sanitized_text, mapping токен→оригинал,
+  счётчики по стратегиям).
+- PIITokenizer.tokenize(...) — применяет политику к списку сущностей и строит
+  заанонимизированный текст + mapping.
+- PIITokenizer.build_policy_from_triggers(...) — собирает PIIPolicy из
+  applicable_triggers документа, флага preserve_party_roles и словаря ролей
+  из YAML (DocumentTypeConfig.party_role_keywords).
 """
 
 from dataclasses import dataclass, field

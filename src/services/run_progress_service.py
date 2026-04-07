@@ -1,5 +1,24 @@
 # src/services/run_progress_service.py
 
+"""
+Streaming-прогресс для Run (SSE).
+
+Сервис отвечает за периодический опрос строки Run в БД и генерацию событий
+прогресса для фронтенда в формате Server-Sent Events (SSE).
+
+Функция subscribe_run_progress:
+- раз в poll_interval секунд читает Run по run_id;
+- при изменении статуса или счётчиков (completed_checks / total_checks)
+  эмитит RunProgressEvent;
+- после перехода Run в финальный статус (completed / completed_with_errors / failed)
+  отдаёт последнее событие и завершает поток.
+
+Используется endpoint'ом GET /api/v1/runs/{run_id}/events, который оборачивает
+subscribe_run_progress в StreamingResponse с media_type="text/event-stream".
+Фронтенд подписывается на этот поток через EventSource и показывает живой
+прогресс выполнения проверки (Run) пользователю.
+"""
+
 from __future__ import annotations
 
 import asyncio
