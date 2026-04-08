@@ -35,7 +35,7 @@ from typing import Any
 
 from core.config import settings
 from core.constants import DocumentStatus
-from core.exceptions import PermanentError, TransientError
+from core.exceptions import PermanentError, TransientError, QuarantineError
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -72,6 +72,7 @@ def build_chunks(
     - выполняет только свою стадию chunking;
     - при PermanentError переводит документ в FAILED;
     - при TransientError отдаёт управление retry-механизму;
+    - при QuarantineError переводит документ в карантин по стадии chunking;
     - при успехе будит оркестратор только после commit.
     """
 
@@ -98,6 +99,36 @@ def build_chunks(
                 error=str(e),
             )
             raise
+
+        except QuarantineError as e:
+            # Мягкий карантин: документ не FAILED, но chunking дальше не идёт.
+            logger.warning(
+                "Quarantine during chunk building",
+                document_id=document_id,
+                document_version_id=document_version_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                run_id=run_id,
+                reason=getattr(e, "reason", None),
+                error=str(e),
+            )
+            async with db_uow() as uow_status:
+                await _mark_quarantined(
+                    uow=uow_status,
+                    document_uuid=uuid.UUID(document_id),
+                    message=str(e),
+                    reason=getattr(e, "reason", "emptychunks"),
+                    run_id=uuid.UUID(run_id) if run_id else None,
+                )
+            return {
+                "status": DocumentStatus.QUARANTINE.value,
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "quarantined": True,
+                "quarantine_reason": getattr(e, "reason", "emptychunks"),
+                "error": str(e),
+                "committed": False,
+            }
 
         except PermanentError as e:
             logger.error(
@@ -242,10 +273,39 @@ async def _build_chunks_async(
             details={"stage": "chunking", "kind": "snapshot_builder_error"},
         )
 
+    # Разбираем source-info из snapshot (используется и в логах, и ниже).
     source_info = snapshot.get("source") or {}
     layout_ref = source_info.get("layout_ref")
     layout_kind = source_info.get("layout_kind")
     snapshot_clause_tree_ref = source_info.get("clause_tree_ref")
+
+    # После успешной сборки snapshot проверяем, что в нём есть реально
+    # пригодные для анализа чанки. Пустой snapshot (без clause/subclause)
+    # трактуем как "нет анализируемого контента" и отправляем в карантин.
+    chunks = snapshot.get("chunks") or {}
+    clause_chunks = chunks.get("clause") or []
+    subclause_chunks = chunks.get("subclause") or []
+
+    if not clause_chunks and not subclause_chunks:
+        logger.warning(
+            "ChunkSnapshotBuilder produced empty snapshot (no clause/subclause chunks)",
+            extra={
+                "document_id": str(doc.id),
+                "document_version_id": str(version.id),
+                "clause_tree_ref": clause_tree_ref,
+                "layout_ref": layout_ref,
+            },
+        )
+        raise QuarantineError(
+            "No usable chunks built from clause tree and layout",
+            document_id=str(doc.id),
+            reason="emptychunks",
+            details={
+                "document_version_id": str(version.id),
+                "clause_tree_ref": clause_tree_ref,
+                "layout_ref": layout_ref,
+            },
+        )
 
     if not layout_ref or not layout_kind:
         logger.warning(
@@ -347,6 +407,31 @@ async def _build_chunks_async(
     }
 
 
+async def _mark_quarantined(
+    uow: UnitOfWork,
+    document_uuid: uuid.UUID,
+    *,
+    message: str,
+    reason: str,
+    run_id: uuid.UUID | None,
+) -> None:
+    """
+    Перевести документ в карантин на стадии chunking.
+
+    Используем отдельный helper, чтобы не путать с FAILED:
+    - статус документа остаётся прежним,
+      а подробности попадают в таблицу карантина.
+    """
+    doc_repo = DocumentRepository(uow.session)
+    await doc_repo.set_quarantined(
+        document_uuid,
+        stage="chunking",
+        message=message,
+        reason=reason,
+        run_id=run_id,
+    )
+
+
 async def _mark_failed(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
@@ -366,5 +451,3 @@ async def _mark_failed(
         run_id=run_id,
     )
 
-
-    

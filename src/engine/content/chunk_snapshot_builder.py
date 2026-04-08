@@ -135,6 +135,36 @@ class ChunkSnapshotBuilder:
                 },
             )
 
+            # ВАЖНО: дальше строить snapshot бессмысленно — нет ни одной клаузы.
+            # Возвращаем пустой skeleton, чтобы воркер на следующем шаге
+            # мог принять решение (в т.ч. отправить документ в карантин).
+            empty_snapshot: dict[str, Any] = {
+                "schema_version": 1,
+                "doc_id": str(doc.id),
+                "document_version_id": str(version.id),
+                "built_at": datetime.now(tz=timezone.utc).isoformat(),
+                "source": {
+                    "layout_ref": layout_ref,
+                    "layout_kind": (
+                        "layout_primary_sanitized_ref"
+                        if getattr(version, "layout_primary_sanitized_ref", None)
+                        else "layout_primary_ref"
+                    ),
+                    "clause_tree_ref": clause_tree_ref,
+                },
+                "params": {
+                    "target_tokens": target_tokens,
+                    "max_tokens": max_tokens,
+                    "overlap_ratio": overlap_ratio,
+                },
+                "chunks": {
+                    "section": [],
+                    "clause": [],
+                    "subclause": [],
+                },
+            }
+            return empty_snapshot
+
         # 4.1. Извлекаем общее число страниц из layout.metadata.
         layout_meta = layout.get("metadata") or {}
         total_pages = _extract_total_pages(layout_meta)
@@ -155,6 +185,43 @@ class ChunkSnapshotBuilder:
             overlap_ratio=overlap_ratio,
             total_pages=total_pages,
         )
+
+        if not sized_chunks:
+            logger.warning(
+                "ChunkSnapshotBuilder: no sized chunks built from leaf chunks",
+                extra={
+                    "doc_id": str(doc_id),
+                    "clause_tree_ref": clause_tree_ref,
+                    "layout_ref": layout_ref,
+                    "leaf_chunk_count": len(leaf_chunks),
+                },
+            )
+            empty_snapshot: dict[str, Any] = {
+                "schema_version": 1,
+                "doc_id": str(doc.id),
+                "document_version_id": str(version.id),
+                "built_at": datetime.now(tz=timezone.utc).isoformat(),
+                "source": {
+                    "layout_ref": layout_ref,
+                    "layout_kind": (
+                        "layout_primary_sanitized_ref"
+                        if getattr(version, "layout_primary_sanitized_ref", None)
+                        else "layout_primary_ref"
+                    ),
+                    "clause_tree_ref": clause_tree_ref,
+                },
+                "params": {
+                    "target_tokens": target_tokens,
+                    "max_tokens": max_tokens,
+                    "overlap_ratio": overlap_ratio,
+                },
+                "chunks": {
+                    "section": [],
+                    "clause": [],
+                    "subclause": [],
+                },
+            }
+            return empty_snapshot
 
         # 6. Приводим leaf‑чанки к "нормальному" виду и добавляем им summary.
         clause_chunks = _ensure_clause_metadata(doc_id, leaf_chunks)

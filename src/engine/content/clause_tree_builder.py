@@ -12,9 +12,12 @@ Clause tree → клауза-чанки.
 """
 
 from __future__ import annotations
+from core.logging import get_logger
 
 import uuid
 from typing import Any, Dict, List
+
+logger = get_logger(__name__)
 
 
 class ClauseTreeBuilder:
@@ -101,6 +104,11 @@ class ClauseTreeBuilder:
         """
         root_children = cls.extract_root_children(tree)
         if not root_children:
+            logger.info(
+                "Clause leaf chunks skipped: empty root",
+                document_id=str(doc_id),
+                layout_elements=len(layout.get("elements") or []),
+            )
             return []
 
         element_index = cls.build_element_index(layout)
@@ -114,6 +122,14 @@ class ClauseTreeBuilder:
                 out=chunks,
                 path_titles=[],
             )
+
+        logger.info(
+            "Clause leaf chunks built",
+            document_id=str(doc_id),
+            total_chunks=len(chunks),
+            tree_root_nodes=len(root_children),
+            layout_elements=len(layout.get("elements") or []),
+        )
 
         return chunks
 

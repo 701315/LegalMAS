@@ -55,7 +55,8 @@ _NEUTRAL_MAX_CHARS = 40
 # Минимальная длина текста для структурного анализа (чтобы не анализировать мусор)
 _STRUCT_MIN_TEXT_LEN = 5
 # Y-допуск при группировке параллельных блоков (пиксели/pt PDF)
-_Y_TOLERANCE = 8.0
+# Было 8.0 — этого часто не хватает для реальных двуколоночных договоров.
+_Y_TOLERANCE = 20.0
 # Минимальный размер документа для включения структурного анализа
 _STRUCTURAL_MIN_ELEMENTS = 10
 
@@ -181,6 +182,53 @@ def _should_keep_neutral(text: str) -> bool:
     """
     return _count_chars(text) <= _NEUTRAL_MAX_CHARS
 
+def _sanitize_text_to_script(text: str, target_lang: str) -> str:
+    """
+    Очистить текст элемента под целевой язык.
+
+    Идея:
+    - Оставляем буквы целевого алфавита (кириллица для ru, латиница для en),
+      а также цифры, пробелы и базовую пунктуацию.
+    - Это убирает "хвосты" второго языка в строках типа
+      "SALE AGREEMENT ДОГОВОР КУПЛИ-ПРОДАЖИ".
+    - Мы не трогаем структуру документа, только содержимое текста.
+    """
+    if not text:
+        return ""
+
+    target = (target_lang or "").lower()
+
+    # Диапазоны Unicode для кириллицы и латиницы
+    allowed_ranges = {
+        "ru": [(0x0400, 0x04FF), (0x0500, 0x052F)],  # основная и доп. кириллица
+        "en": [
+            (0x0041, 0x005A),  # A-Z
+            (0x0061, 0x007A),  # a-z
+            (0x00C0, 0x00FF),  # Latin-1 supplement (умляуты и т.п.)
+        ],
+    }
+
+    allowed = allowed_ranges.get(target)
+    # Если язык неизвестен, ничего не чистим
+    if not allowed:
+        return text
+
+    cleaned_chars: list[str] = []
+    for ch in text:
+        code = ord(ch)
+
+        # Буквы целевого алфавита
+        is_target_letter = any(start <= code <= end for start, end in allowed)
+
+        # "Нейтральные" символы: цифры, пробелы, базовая пунктуация
+        is_digit = ch.isdigit()
+        is_space = ch.isspace()
+        is_punct = ch in ".,;:!?()[]{}-–—/\\"
+
+        if is_target_letter or is_digit or is_space or is_punct:
+            cleaned_chars.append(ch)
+
+    return "".join(cleaned_chars).strip()
 
 def _safe_int_page(value: Any, default: int = 1) -> int:
     try:
@@ -332,13 +380,23 @@ class _StructBlock:
     def get_for_language(self, lang: str) -> Optional[_StructElement]:
         """
         Вернуть элемент для целевого языка.
-        Fallback: если нужного языка нет, берём другой/нейтральный.
+
+        ВАЖНО:
+        - Для 'ru' возвращаем ТОЛЬКО ru_element.
+        - Для 'en' возвращаем ТОЛЬКО en_element.
+        - Если нужного языка нет в блоке, возвращаем None,
+          чтобы этот блок был пропущен для данного языка.
+        - Fallback на другой/нейтральный элемент оставляем только
+          для нестандартных значений lang (не 'ru'/'en').
         """
         lang = (lang or "").lower()
+
         if lang == "ru":
-            return self.ru_element or self.en_element
+            return self.ru_element  # Без подстановки en_element
         if lang == "en":
-            return self.en_element or self.ru_element
+            return self.en_element  # Без подстановки ru_element
+
+        # Для "other"/legacy кейсов можно вернуть любой доступный
         return self.ru_element or self.en_element
 
     @property
@@ -653,7 +711,11 @@ def _simple_filter(
         if dedupe_key in seen_ids:
             continue
         seen_ids.add(dedupe_key)
-        filtered.append(el)
+
+        # Делаем копию элемента и очищаем текст под целевой язык
+        el_copy = dict(el)
+        el_copy["text"] = _sanitize_text_to_script(text, target)
+        filtered.append(el_copy)
 
     filtered.sort(key=_bbox_sort_key)
 
@@ -705,8 +767,15 @@ def _structural_filter(
         if not chosen:
             continue
 
+        # НОВАЯ ПРОВЕРКА:
+        # Если язык выбранного элемента явно отличается от целевого
+        # и он не "нейтральный", такой элемент пропускаем.
+        if chosen.detected_lang not in (target, "other"):
+            continue
+
         out = dict(chosen.original)
-        out["text"] = chosen.text
+        # Очищаем текст под целевой язык, чтобы убрать хвосты второго языка
+        out["text"] = _sanitize_text_to_script(chosen.text, target)
 
         if block.is_heading and block.block_id:
             out["clause_uid"] = block.block_id

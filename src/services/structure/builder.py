@@ -130,12 +130,18 @@ class StructureBuilder:
         toc_end_idx = self._find_toc_end(elements)
         body_elements = elements[toc_end_idx:]
 
+        missing_element_ids = sum(
+            1 for el in body_elements
+            if not str(el.get("element_id") or "").strip()
+        )
+
         if not body_elements:
             # На случай если весь документ был ошибочно принят за оглавление
             body_elements = elements
             toc_end_idx = 0
 
         headings: list[tuple] = []
+
         for i, el in enumerate(body_elements):
             text = el.get("text", "")
             parsed = _parse_element_as_heading(text)
@@ -143,23 +149,25 @@ class StructureBuilder:
                 uid, title = parsed
                 headings.append((i, uid, title, el.get("page", 1)))
 
+        logger.info(
+            "Structure build diagnostics",
+            document_id=document_id,
+            total_elements=len(elements),
+            body_elements=len(body_elements),
+            headings_found=len(headings),
+            missing_element_ids=missing_element_ids,
+            layout_degraded=layout_degraded,
+            layout_degraded_reason=layout_degraded_reason,
+        )
+
         if not headings:
             return self._degraded_tree(document_id, body_elements)
 
         coverage = self._calculate_coverage(headings, body_elements)
-        confidence, degraded = self._confidence_and_mode(coverage)
-
-        # Если уже на стадии language filter layout был помечен как degraded,
-        # а coverage здесь не выглядит идеально, усиливаем решение в сторону degraded.
-        if layout_degraded and not degraded and coverage < 0.8:
-            logger.info(
-                "Structure: forcing degraded mode due to degraded primary layout",
-                document_id=document_id,
-                coverage=round(coverage, 3),
-                layout_degraded_reason=layout_degraded_reason,
-            )
-            degraded = True
-            confidence = "LOW"
+        confidence, degraded = self._confidence_and_mode(
+            coverage,
+            layout_degraded=layout_degraded,
+        )
 
         if degraded:
             logger.info(
@@ -301,10 +309,9 @@ class StructureBuilder:
             next_elem_i = (
                 headings[h_idx + 1][0] if h_idx + 1 < len(headings) else len(elements)
             )
-            element_ids = [
-                elements[j].get("element_id", f"e{j:04d}")
-                for j in range(elem_i, next_elem_i)
-            ]
+            element_ids: list[str] = []
+            for j in range(elem_i, next_elem_i):
+                element_ids.append(self._stable_element_id(elements[j], j))
             end_page = (
                 elements[next_elem_i - 1].get("page", page)
                 if next_elem_i > elem_i
@@ -345,6 +352,30 @@ class StructureBuilder:
             return parent if parent in nodes else None
         return None
 
+    def _stable_element_id(self, element: dict, fallback_index: int) -> str:
+        """
+        Вернуть стабильный element_id для элемента.
+
+        Правила:
+        - если element_id уже есть, используем его как есть;
+        - если нет, генерируем детерминированный fallback из позиции элемента,
+          чтобы один и тот же layout давал один и тот же id;
+        - fallback нужен как защитный механизм, но в идеале сюда
+          вообще не должны попадать элементы без element_id.
+        """
+        element_id = str(element.get("element_id") or "").strip()
+        if element_id:
+            return element_id
+
+        page = element.get("page", 1)
+        bbox = element.get("bbox") or [0, 0, 0, 0]
+        text = (element.get("text") or "").strip()
+
+        x0 = bbox[0] if len(bbox) > 0 else 0
+        top = bbox[1] if len(bbox) > 1 else 0
+
+        return f"fallback:{page}:{x0}:{top}:{fallback_index}:{text[:32]}"
+
     def _calculate_coverage(self, headings: list, elements: list) -> float:
         if not elements:
             return 0.0
@@ -357,11 +388,23 @@ class StructureBuilder:
                 assigned.add(j)
         return len(assigned) / len(elements)
 
-    def _confidence_and_mode(self, coverage: float) -> tuple[str, bool]:
+    def _confidence_and_mode(
+        self,
+        coverage: float,
+        *,
+        layout_degraded: bool = False,
+    ) -> tuple[str, bool]:
         threshold = settings.STRUCTURE_MIN_CLAUSE_COVERAGE
+
+        # Если layout уже был деградирован после language filter,
+        # немного смягчаем нижний порог, потому что часть элементов
+        # могла быть удалена корректно, а не из-за плохой структуры.
+        if layout_degraded:
+            threshold *= 0.7
+
         if coverage < threshold:
             return "LOW", True
-        elif coverage < 0.80:
+        if coverage < 0.80:
             return "MEDIUM", False
         return "HIGH", False
 
@@ -408,7 +451,7 @@ class StructureBuilder:
         current_start_page: int | None = None
         last_page: int = elements[0].get("page", 1) if elements else 1
 
-        for el in elements:
+        for idx, el in enumerate(elements):
             text = el.get("text", "")
             tokens = len(text.split())
             page = el.get("page", 1)
@@ -431,7 +474,7 @@ class StructureBuilder:
                 current_tokens = 0
                 current_start_page = None
 
-            current_ids.append(el.get("element_id", f"e{chunk_idx:04d}"))
+            current_ids.append(self._stable_element_id(el, idx))
             current_tokens += tokens
             if current_start_page is None:
                 current_start_page = page

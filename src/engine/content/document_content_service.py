@@ -396,23 +396,17 @@ class DocumentContentService:
         version = await self._get_latest_version(doc_id)
         if not version:
             logger.warning(
-                "DocumentContentService.get_chunks: no latest version, returning empty fallback chunk",
+                "DocumentContentService.get_chunks: no latest version, returning empty list",
                 extra={"doc_id": str(doc_id)},
             )
-            return [
-                {
-                    "id": f"{doc_id}:full",
-                    "text": "",
-                    "metadata": {"doc_id": str(doc_id)},
-                }
-            ]
+            return []
 
         tree = await self._load_clause_tree(version)
         layout = await self._load_layout(version)
 
         if not tree or not layout:
             logger.warning(
-                "DocumentContentService.get_chunks: missing clause tree or layout, returning empty fallback chunk",
+                "DocumentContentService.get_chunks: missing clause tree or layout, returning empty list",
                 extra={
                     "doc_id": str(doc_id),
                     "has_tree": bool(tree),
@@ -422,13 +416,7 @@ class DocumentContentService:
                     "layout_primary_sanitized_ref": getattr(version, "layout_primary_sanitized_ref", None),
                 },
             )
-            return [
-                {
-                    "id": f"{doc_id}:full",
-                    "text": "",
-                    "metadata": {"doc_id": str(doc_id)},
-                }
-            ]
+            return []
 
         leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
@@ -436,21 +424,9 @@ class DocumentContentService:
             layout=layout,
         )
 
-        from core.logging import get_logger as _get_logger
-        _logger = _get_logger(__name__)
-        if str(doc_id) == "7012e86f-89a2-46b3-ac1a-55afa3c989c4":
-            _logger.info(
-                "DEBUG chunk 8 sample",
-                layout_ref=getattr(version, "layout_primary_sanitized_ref", None)
-                        or getattr(version, "layout_primary_ref", None)
-                        or getattr(version, "text_layout_sanitized_ref", None)
-                        or getattr(version, "text_layout_raw_ref", None),
-                chunk_8_text=(leaf_chunks[7].get("text") if len(leaf_chunks) > 7 else None),
-            )
-
         if not leaf_chunks:
             logger.warning(
-                "DocumentContentService.get_chunks: clause tree produced no leaf chunks, returning empty fallback chunk",
+                "DocumentContentService.get_chunks: clause tree produced no leaf chunks, returning empty list",
                 extra={
                     "doc_id": str(doc_id),
                     "clause_tree_ref": getattr(version, "clause_tree_ref", None),
@@ -458,13 +434,7 @@ class DocumentContentService:
                     "layout_primary_sanitized_ref": getattr(version, "layout_primary_sanitized_ref", None),
                 },
             )
-            return [
-                {
-                    "id": f"{doc_id}:full",
-                    "text": "",
-                    "metadata": {"doc_id": str(doc_id)},
-                }
-            ]
+            return []
 
         # Пытаемся достать общее число страниц из layout.metadata
         total_pages: int | None = None
@@ -857,16 +827,10 @@ class DocumentContentService:
 
         if not sized:
             logger.warning(
-                "DocumentContentService.get_sized_chunks: no sized chunks built, returning empty fallback chunk",
+                "DocumentContentService.get_sized_chunks: no sized chunks built, returning empty list",
                 extra={"doc_id": str(doc_id)},
             )
-            return [
-                {
-                    "id": f"{doc_id}:full",
-                    "text": "",
-                    "metadata": {"doc_id": str(doc_id)},
-                }
-            ]
+            return []
 
         return sized
 
