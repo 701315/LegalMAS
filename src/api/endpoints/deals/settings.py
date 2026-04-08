@@ -1,0 +1,226 @@
+# src/api/endpoints/deals/settings.py
+
+from uuid import UUID
+
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
+from api.schemas.deals import DealResponse
+from core.constants import DocumentStatus
+from db.models.playbook import PlaybookVersion
+from db.repositories.audit_repo import AuditRepository
+from db.repositories.deal_repo import DealRepository
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.session import get_db
+from mas_queue.celery_app import celery_app
+
+router = APIRouter()
+
+
+class DealPlaybookUpdate(BaseModel):
+    """
+    Тело запроса для обновления playbook сделки.
+
+    Передаём ID версии плейбука, которая должна использоваться
+    по умолчанию при запуске анализа для этой сделки.
+    """
+
+    playbook_version_id: UUID
+
+
+class DealModelConfigUpdate(BaseModel):
+    """
+    Тело запроса для обновления профиля модели (ModelConfig) для сделки.
+
+    Здесь мы храним явный выбор профиля на уровне проекта.
+    Если поле model_config_id = null, то специальный профиль
+    для сделки сбрасывается, и при запуске анализа будет
+    использован профиль, привязанный к PlaybookVersion.
+    """
+
+    model_config_id: UUID | None
+
+
+class DealPrimaryLanguageUpdate(BaseModel):
+    """
+    Тело запроса для установки основного языка сделки.
+
+    Правила:
+    - primary_language должен входить в список languages сделки;
+    - если передан null, основной язык сбрасывается.
+    """
+
+    primary_language: str | None
+
+
+@router.patch(
+    "/{deal_id}/playbook",
+    response_model=DealResponse,
+    summary="Установить playbook для сделки",
+)
+async def set_deal_playbook(
+    deal_id: UUID,
+    payload: DealPlaybookUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Привязывает конкретную версию playbook (PlaybookVersion) к сделке
+    и пишет событие в журнал аудита.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal_repo = DealRepository(db)
+    audit_repo = AuditRepository(db)
+
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    old_playbook_version_id = deal.playbook_version_id
+    new_playbook_version_id = payload.playbook_version_id
+
+    if old_playbook_version_id == new_playbook_version_id:
+        return DealResponse.model_validate(deal)
+
+    result = await db.execute(
+        sa.select(PlaybookVersion).where(
+            PlaybookVersion.id == new_playbook_version_id
+        )
+    )
+    pv = result.scalar_one_or_none()
+    if pv is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Playbook version not found",
+        )
+
+    deal.playbook_version_id = new_playbook_version_id
+
+    await audit_repo.log(
+        tenant_id=deal.tenant_id,
+        deal_id=deal.id,
+        action="SET_DEAL_PLAYBOOK",
+        actor=user.id,
+        actor_role=getattr(user, "role", None),
+        details={
+            "old_playbook_version_id": str(old_playbook_version_id)
+            if old_playbook_version_id
+            else None,
+            "new_playbook_version_id": str(new_playbook_version_id),
+            "playbook_id": str(pv.playbook_id)
+            if getattr(pv, "playbook_id", None)
+            else None,
+            "playbook_name": getattr(pv, "name", None),
+            "semver": getattr(pv, "semver", None),
+        },
+    )
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    return DealResponse.model_validate(deal)
+
+
+@router.patch(
+    "/{deal_id}/primary-language",
+    response_model=DealResponse,
+    summary="Установить основной язык сделки",
+)
+async def set_deal_primary_language(
+    deal_id: UUID,
+    payload: DealPrimaryLanguageUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Устанавливает (или сбрасывает) основной язык сделки.
+
+    Правила:
+    - менять основной язык могут только роли admin/editor;
+    - если primary_language не null, он должен быть в Deal.languages;
+    - при нарушении правил возвращаем 400/403/404.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=deal_id,
+        allowed_roles=("admin", "editor"),
+    )
+
+    deal_repo = DealRepository(db)
+    doc_repo = DocumentRepository(db)
+    dv_repo = DocumentVersionRepository(db)
+
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    new_lang = payload.primary_language
+    deal_languages = list(deal.languages or [])
+
+    if new_lang is not None:
+        if not deal_languages:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot set primary_language when deal has no languages",
+            )
+        if new_lang not in deal_languages:
+            raise HTTPException(
+                status_code=400,
+                detail="primary_language must be one of deal languages",
+            )
+
+    old_lang = deal.primary_language
+    deal.primary_language = new_lang
+
+    restart_items: list[tuple[str, str]] = []
+
+    if new_lang is not None and new_lang != old_lang:
+        docs_to_restart = await doc_repo.get_by_deal(
+            deal_id=deal_id,
+            status=DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+        )
+
+        for doc in docs_to_restart:
+            latest_version = await dv_repo.get_latest(doc.id)
+            if latest_version is None:
+                continue
+
+            await doc_repo.update_status(
+                doc.id,
+                DocumentStatus.PENDING.value,
+                processing_error_details=None,
+            )
+
+            restart_items.append((str(doc.id), str(latest_version.id)))
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    for document_id_str, version_id_str in restart_items:
+        celery_app.send_task(
+            "workers.build_primary_language_source",
+            kwargs={
+                "document_version_id": version_id_str,
+                "document_id": document_id_str,
+                "deal_id": str(deal.id),
+                "tenant_id": str(deal.tenant_id),
+                "run_id": None,
+            },
+        )
+
+    return DealResponse.model_validate(deal)
+

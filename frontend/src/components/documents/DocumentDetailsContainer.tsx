@@ -24,12 +24,11 @@ import { useDocumentTypes } from "../../api/documentTypes";
 
 import type {
   Document,
-  DocumentFamily as DocumentFamilyDto,
   ReclassifyInput,
 } from "../../types";
 
 import { DocumentDetails as DocumentDetailsView } from "./DocumentDetails";
-
+import { adaptFamilyFromDto } from "../../api/documents.viewAdapters";
 import type {
   DocumentDetailsViewClassification,
   DocumentFamilyView,
@@ -41,19 +40,6 @@ interface Props {
   dealId: string;
   /** Опциональный callback для навигации в DD Grid с фильтром по документу. */
   onNavigateToGrid?: (dealId: string, docName: string) => void;
-}
-
-// Вспомогательный адаптер семейства документов (DTO -> view-тип)
-function adaptFamily(
-  family: DocumentFamilyDto | undefined,
-): DocumentFamilyView | null {
-  if (!family) return null;
-  return {
-    master: family.master,
-    appendices: family.appendices,
-    amendments: family.amendments,
-    versions: family.versions,
-  };
 }
 
 export const DocumentDetailsContainer: React.FC<Props> = ({
@@ -96,9 +82,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const classification: DocumentDetailsViewClassification | null =
     detailsState.classification;
 
-  const family: DocumentFamilyView | null = adaptFamily(
-    familyDto as DocumentFamilyDto | undefined,
-  );
+  const family: DocumentFamilyView | null = adaptFamilyFromDto(familyDto);
 
   let structuredData: StructuredDataView | null = null;
   if (!structuredState.isLoading && structuredState.total > 0 && doc) {

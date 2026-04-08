@@ -5,9 +5,11 @@
 
 import type {
   DocumentDetail,
-  DocumentFamily as DocumentFamilyDto,
+  DocumentFamilyDto,
   StructuredDataResult,
 } from "../types";
+
+
 import type {
   DocumentDetailsViewClassification,
   DocumentFamilyView,
@@ -49,11 +51,20 @@ export function adaptFamilyFromDto(
   family: DocumentFamilyDto | undefined,
 ): DocumentFamilyView | null {
   if (!family) return null;
+
   return {
-    master: family.master,
-    appendices: family.appendices,
-    amendments: family.amendments,
-    versions: family.versions,
+    // основной документ семьи — это master_document из backend'а
+    master: family.master_document ?? null,
+
+    // пока backend не делит связанные документы на типы связей,
+    // кладём всех related_documents в appendices.
+    // Позже, когда появятся типизированные relations, здесь можно
+    // разбить их на appendices / amendments / versions по relation_type.
+    appendices: family.related_documents ?? [],
+
+    // временно пустые списки, заранее подготовленные под будущую логику
+    amendments: [],
+    versions: [],
   };
 }
 

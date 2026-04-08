@@ -129,6 +129,64 @@ export interface DocumentDetailsViewProps {
 }
 
 // =============================================================
+// Вспомогательные функции для structured data
+// =============================================================
+
+/**
+ * Человекочитаемые заголовки для групп структурированных данных.
+ * Ключ — check_id или check_name из backend, значение — короткий русскоязычный заголовок.
+ */
+const STRUCTURED_CHECK_TITLES: Record<string, string> = {
+  // Примеры, под которые хорошо ложится текущий вывод:
+  // ключи можно синхронизировать с реальными check_id / check_name,
+  // когда они стабилизируются на backend.
+  "overall_risk": "Общий уровень риска",
+  "confidentiality": "Конфиденциальность",
+  "governing_law": "Применимое право и подсудность",
+  "authority_and_approvals": "Полномочия и корпоративные одобрения",
+  "price_and_payment": "Цена и порядок оплаты",
+  "real_estate_core": "Основные параметры объекта недвижимости",
+};
+
+/**
+ * Возвращает краткий заголовок группы по check_name/check_id.
+ * Если заранее известного заголовка нет, показывает сам check_name.
+ */
+function getStructuredGroupTitle(checkName: string): string {
+  const key = checkName.trim();
+  if (STRUCTURED_CHECK_TITLES[key]) {
+    return STRUCTURED_CHECK_TITLES[key];
+  }
+  // Базовый вариант: используем название проверки как есть.
+  return checkName || "Другие параметры";
+}
+
+/**
+ * Группировка извлечённых значений по проверке (check_name/check_id).
+ * На выходе: { "Название проверки": [ ExtractedValue, ... ], ... }
+ */
+function groupExtractedValuesByCheck(
+  structured: StructuredDataView | null,
+): Record<string, StructuredDataResult["extracted_values"]> {
+  if (!structured || !structured.extracted_values.length) {
+    return {};
+  }
+
+  return structured.extracted_values.reduce<
+    Record<string, StructuredDataResult["extracted_values"]>
+  >((acc, val) => {
+    const rawKey = val.check_name || val.check_id || "other";
+    const groupKey = getStructuredGroupTitle(rawKey);
+
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(val);
+    return acc;
+  }, {});
+}
+
+// =============================================================
 // View-компонент (чистый UI)
 // =============================================================
 
@@ -631,21 +689,40 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             или обновите страницу после завершения проверки.
           </p>
         ) : structuredData && structuredData.extracted_values.length > 0 ? (
-          <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
-            {structuredData.extracted_values.map((val, idx) => (
-              <div
-                key={`${val.check_id}-${val.field_name}-${idx}`}
-                className="flex justify-between text-xs py-0.5 border-b border-gray-100 last:border-0"
-              >
-                <span className="text-gray-400">
-                  {val.field_name.replace(/_/g, " ")}
-                </span>
-                <span className="text-gray-700 font-medium text-right">
-                  {val.field_value}
-                </span>
+          (() => {
+            const groups = groupExtractedValuesByCheck(structuredData);
+            const groupEntries = Object.entries(groups);
+
+            return (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {groupEntries.map(([groupTitle, values]) => (
+                  <div
+                    key={groupTitle}
+                    className="bg-gray-50 rounded border border-gray-100 p-2"
+                  >
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      {groupTitle}
+                    </p>
+                    <div className="space-y-0.5">
+                      {values.map((val, idx) => (
+                        <div
+                          key={`${val.check_id}-${val.field_name}-${idx}`}
+                          className="flex justify-between text-[11px] py-0.5 border-b border-gray-100 last:border-0"
+                        >
+                          <span className="text-gray-400">
+                            {val.field_name.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-gray-700 font-medium text-right">
+                            {val.field_value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()
         ) : (
           <p className="text-xs text-gray-400">
             Структурированные данные находятся в обработке. Обновите страницу
@@ -661,7 +738,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
       {/* ========== Действия ========== */}
       <Section title="Действия">
-        <div className="flex flex-col gap-2">
+        <div className="flex флекс-col gap-2">
           {pdfUrl && canOpenPdf && (
             <a
               href={pdfUrl}
@@ -808,3 +885,4 @@ const FamilyRow: React.FC<FamilyRowProps> = ({ icon, label, doc }) => (
 );
 
 export default DocumentDetails;
+

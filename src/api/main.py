@@ -25,7 +25,6 @@ from .endpoints import (
     auth,
     classifier,
     deal_review,
-    deals,
     document_chunk_exports,
     document_pipeline_view,
     document_types,
@@ -41,6 +40,7 @@ from .endpoints import (
 )
 from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
+from .endpoints.deals.router import router as deals_router
 
 
 app = FastAPI(
@@ -94,7 +94,7 @@ app.include_router(results.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 
 # Сделки (deals).
-app.include_router(deals.router, prefix="/api/v1")
+app.include_router(deals_router, prefix="/api/v1")
 
 # DD-запросы и связанные эндпоинты.
 app.include_router(requests.router, prefix="/api/v1")

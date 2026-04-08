@@ -9,7 +9,7 @@ import client from "./client";
 import type {
   Document,
   DocumentDetail,
-  DocumentFamily,
+  DocumentFamilyDto,
   PaginatedResponse,
   ReclassifyInput,
   ReclassifyResult,
@@ -124,7 +124,7 @@ export const documentApi = {
 
   getFamily: (docId: string) =>
     client
-      .get<DocumentFamily>(`/api/v1/documents/${docId}/family`)
+      .get<DocumentFamilyDto>(`/api/v1/documents/${docId}/family`)
       .then((response) => response.data),
 
   /**
