@@ -302,16 +302,29 @@ class StructureBuilder:
         headings: list,
         elements: list,
     ) -> tuple[list[ClauseNode], list[CrossReference]]:
+        """
+        Построить дерево клауз.
+
+        ВАЖНО: теперь мы заполняем:
+        - own_element_ids: элементы, относящиеся только к самому пункту
+          (от заголовка до следующего заголовка);
+        - subtree_element_ids: own_element_ids + элементы всех дочерних пунктов.
+        """
         nodes: dict[str, ClauseNode] = {}
         root: list[ClauseNode] = []
 
+        # 1. Первый проход: создаём узлы и заполняем own_element_ids (через legacy element_ids).
         for h_idx, (elem_i, uid, title, page) in enumerate(headings):
             next_elem_i = (
                 headings[h_idx + 1][0] if h_idx + 1 < len(headings) else len(elements)
             )
+
+            # Собираем элементы, которые относятся к ЭТОМУ заголовку:
+            # от его позиции до позиции следующего заголовка.
             element_ids: list[str] = []
             for j in range(elem_i, next_elem_i):
                 element_ids.append(self._stable_element_id(elements[j], j))
+
             end_page = (
                 elements[next_elem_i - 1].get("page", page)
                 if next_elem_i > elem_i
@@ -322,15 +335,18 @@ class StructureBuilder:
                 clause_uid=uid,
                 title=title,
                 level=_level_from_uid(uid),
-                element_ids=element_ids,
+                # ВАЖНО:
+                # передаём element_ids — внутри ClauseNode это запишется в own_element_ids
+                # через legacy-сеттер, который мы добавили в models.py
+                own_element_ids=element_ids,
                 start_page=page,
                 end_page=end_page,
             )
 
-            # Если uid уже существует в nodes — это дубль (например, два "1" в документе
-            # после некорректного парсинга). Сохраняем только первый встреченный,
-            # последующие дубли добавляем в root как отдельные узлы без регистрации
-            # в nodes, чтобы они не ломали привязку дочерних узлов.
+            # Если uid уже существует в nodes — это дубль (например, два "1" в документе).
+            # Для стабильности структуры:
+            # - первый встретившийся uid сохраняем в nodes (для привязки детей),
+            # - последующие дубли добавляем только в root, не регистрируя в nodes.
             if uid not in nodes:
                 nodes[uid] = node
 
@@ -340,10 +356,36 @@ class StructureBuilder:
             else:
                 root.append(node)
 
+        # 2. Второй проход: снизу вверх заполняем subtree_element_ids.
+        # Для непрофессионального программиста:
+        # - subtree_element_ids = own_element_ids + всё поддерево.
+        # - мы делаем простой обратный обход по uid'ам, начиная с более "глубоких".
+        #   Это работает, потому что level определяется по количеству точек в uid.
+        if nodes:
+            # Сортируем uid'ы так, чтобы более глубокие уровни шли первыми.
+            # Пример порядка: "3.1.2" (level 3), "3.1" (level 2), "3" (level 1).
+            sorted_uids = sorted(
+                nodes.keys(),
+                key=lambda u: _level_from_uid(u),
+                reverse=True,
+            )
+
+            for uid in sorted_uids:
+                node = nodes[uid]
+
+                # Базовый случай: если у узла ещё не задан subtree_element_ids,
+                # и при этом у него есть own_element_ids — используем их как базу.
+                if not node.subtree_element_ids:
+                    node.subtree_element_ids = list(node.own_element_ids or [])
+
+                # Если у узла есть дети — добавляем их subtree_element_ids.
+                if node.children:
+                    for child in node.children:
+                        if child.subtree_element_ids:
+                            node.subtree_element_ids.extend(child.subtree_element_ids)
+
         references = self._extract_references(elements, nodes)
         return root, references
-
-    # --- Остальные методы без изменений ---
 
     def _find_parent_uid(self, uid: str, nodes: dict) -> str | None:
         parts = uid.rsplit(".", 1)
@@ -464,7 +506,7 @@ class StructureBuilder:
                         clause_uid=str(chunk_idx),
                         title=f"Chunk {chunk_idx}",
                         level=1,
-                        element_ids=current_ids,
+                        own_element_ids=current_ids,
                         start_page=start_page,
                         end_page=end_page,
                     )
@@ -486,7 +528,7 @@ class StructureBuilder:
                     clause_uid=str(chunk_idx),
                     title=f"Chunk {chunk_idx}",
                     level=1,
-                    element_ids=current_ids,
+                    own_element_ids=current_ids,
                     start_page=current_start_page or last_page,
                     end_page=last_page,
                 )

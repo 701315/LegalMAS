@@ -24,11 +24,11 @@ PDF Extraction Service.
 textlayoutraw, который далее используют:
   - PII Sanitizer      (Stage 5)  — итерируется по elements для детекции/токенизации PII;
   - Structure Builder  (Stage 6)  — опирается на element.type (heading/text/listitem)
-                                   для поиска границ клауз и проставления clause_uid;
+                                    для поиска границ клауз и проставления clause_uid;
   - Classifier L2/L3   (Stage 6)  — читает первые N символов из elements для
-                                   keyword/semantic классификации;
+                                    keyword/semantic классификации;
   - Runner / Retrieval (Stage 8)  — строит BM25 и эмбеддинги по elements
-                                   и использует element_id для ссылок на доказательства.
+                                    и использует element_id для ссылок на доказательства.
 """
 
 import time
@@ -121,6 +121,50 @@ def is_ocr_available() -> bool:
     return OCR_AVAILABLE and settings.EXTRACTION_OCR_ENABLED
 
 
+def _is_debug_enabled_for_doc(document_id: str) -> bool:
+    enabled = bool(getattr(settings, "EXTRACTION_DEBUG_LOG", False))
+    if not enabled:
+        return False
+
+    debug_doc_id = getattr(settings, "EXTRACTION_DEBUG_DOC_ID", None)
+    return debug_doc_id in (None, "", document_id)
+
+
+def _safe_preview(text: str, limit: int = 200) -> str:
+    if not text:
+        return ""
+    return text[:limit].replace("\n", " ").replace("\r", " ")
+
+
+def _safe_page_metrics(page: Any) -> dict[str, Any]:
+    width = height = None
+    images_count = None
+    chars_count = None
+    try:
+        width = float(page.width) if getattr(page, "width", None) is not None else None
+    except Exception:
+        width = None
+    try:
+        height = float(page.height) if getattr(page, "height", None) is not None else None
+    except Exception:
+        height = None
+    try:
+        images_count = len(page.images) if hasattr(page, "images") and page.images is not None else 0
+    except Exception:
+        images_count = None
+    try:
+        chars_count = len(page.chars) if hasattr(page, "chars") and page.chars is not None else 0
+    except Exception:
+        chars_count = None
+
+    return {
+        "width": width,
+        "height": height,
+        "images_count": images_count,
+        "chars_count": chars_count,
+    }
+
+
 # ─── Main entry point ─────────────────────────────────────────────────────────
 
 
@@ -133,9 +177,19 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
     start_time = time.time()
     hard_timeout = getattr(settings, "EXTRACTION_HARD_TIMEOUT_SECONDS", 120)
 
+    debug_this_doc = _is_debug_enabled_for_doc(document_id)
+
     try:
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             result.page_count = len(pdf.pages)
+
+            if debug_this_doc:
+                logger.debug(
+                    "Extract: opened PDF",
+                    document_id=document_id,
+                    page_count=result.page_count,
+                    pdf_size=len(pdf_bytes),
+                )
 
             if result.page_count == 0:
                 result.errors.append("PDF has 0 pages")
@@ -148,11 +202,13 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                 )
                 return result
 
-            text_pages = ocr_pages = 0
+            text_pages = 0
+            ocr_pages = 0
+            empty_pages = 0
 
             for page_num, page in enumerate(pdf.pages, start=1):
-                # жёсткий таймаут на весь документ
-                if time.time() - start_time > hard_timeout:
+                elapsed = time.time() - start_time
+                if elapsed > hard_timeout:
                     msg = (
                         f"Extraction hard timeout after {hard_timeout} seconds "
                         f"on page {page_num}"
@@ -161,39 +217,130 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                     result.errors.append(msg)
                     break
 
+                page_metrics = _safe_page_metrics(page)
+
+                page_text_raw = ""
+                page_text_error = None
+                try:
+                    page_text_raw = page.extract_text() or ""
+                except Exception as e:
+                    page_text_error = str(e)
+                    page_text_raw = ""
+
+                page_text = page_text_raw.strip()
+                page_text_len = len(page_text)
+
+                if debug_this_doc:
+                    logger.debug(
+                        "Extract: page pre-scan",
+                        document_id=document_id,
+                        page=page_num,
+                        elapsed_seconds=round(elapsed, 3),
+                        text_len=page_text_len,
+                        text_preview=_safe_preview(page_text, 300),
+                        extract_text_error=page_text_error,
+                        **page_metrics,
+                    )
+
                 logger.debug(
                     "Extract: starting page",
                     document_id=document_id,
                     page=page_num,
                 )
 
-                strategy = _detect_page_strategy(page)
+                strategy = _detect_page_strategy_with_text(page, page_text, page_text_len)
                 result.page_strategies[page_num] = strategy.value
+
+                if debug_this_doc:
+                    logger.debug(
+                        "Extract: page strategy decided",
+                        document_id=document_id,
+                        page=page_num,
+                        strategy=strategy.value,
+                        text_len=page_text_len,
+                        min_text_threshold=getattr(settings, "EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE", None),
+                        images_count=page_metrics.get("images_count"),
+                        chars_count=page_metrics.get("chars_count"),
+                    )
+
+                page_element_count = 0
+                page_table_count = 0
 
                 if strategy == PageStrategy.TEXT:
                     page_elements = _extract_text_page(
-                        page, document_id, page_num, element_index
+                        page=page,
+                        document_id=document_id,
+                        page_num=page_num,
+                        start_index=element_index,
+                        debug_this_doc=debug_this_doc,
+                        page_text_len=page_text_len,
+                        page_text_preview=_safe_preview(page_text, 300),
                     )
                     result.elements.extend(page_elements)
-                    element_index += len(page_elements)
+                    page_element_count = len(page_elements)
+                    element_index += page_element_count
                     text_pages += 1
 
                 elif strategy == PageStrategy.OCR:
                     if is_ocr_available():
                         page_elements, page_conf = _extract_ocr_page(
-                            pdf_bytes, page_num, document_id, element_index
+                            pdf_bytes=pdf_bytes,
+                            page_num=page_num,
+                            document_id=document_id,
+                            start_index=element_index,
+                            debug_this_doc=debug_this_doc,
                         )
                         result.elements.extend(page_elements)
-                        element_index += len(page_elements)
+                        page_element_count = len(page_elements)
+                        element_index += page_element_count
                         result.ocr_confidences.append(page_conf)
                         ocr_pages += 1
+
+                        if debug_this_doc:
+                            logger.debug(
+                                "Extract: OCR page processed",
+                                document_id=document_id,
+                                page=page_num,
+                                elements=page_element_count,
+                                avg_conf=round(page_conf, 4),
+                                first_element_preview=_safe_preview(page_elements[0].text, 200) if page_elements else "",
+                                last_element_preview=_safe_preview(page_elements[-1].text, 200) if page_elements else "",
+                            )
                     else:
-                        result.errors.append(
-                            f"Page {page_num}: OCR required but Tesseract not available"
+                        msg = f"Page {page_num}: OCR required but Tesseract not available"
+                        result.errors.append(msg)
+                        logger.warning(
+                            "Extract: OCR required but Tesseract unavailable",
+                            document_id=document_id,
+                            page=page_num,
                         )
 
-                page_tables = _extract_tables(page, page_num)
+                else:
+                    empty_pages += 1
+                    if debug_this_doc:
+                        logger.debug(
+                            "Extract: page classified as EMPTY",
+                            document_id=document_id,
+                            page=page_num,
+                            text_len=page_text_len,
+                            text_preview=_safe_preview(page_text, 200),
+                        )
+
+                page_tables = _extract_tables(page, page_num, debug_this_doc=debug_this_doc, document_id=document_id)
+                page_table_count = len(page_tables)
                 result.tables.extend(page_tables)
+
+                if debug_this_doc:
+                    logger.debug(
+                        "Extract: page completed",
+                        document_id=document_id,
+                        page=page_num,
+                        strategy=strategy.value,
+                        page_elements=page_element_count,
+                        page_tables=page_table_count,
+                        cumulative_elements=len(result.elements),
+                        cumulative_tables=len(result.tables),
+                    )
 
             if ocr_pages > 0 and text_pages > 0:
                 result.strategy = "hybrid"
@@ -208,11 +355,27 @@ def extract_pdf(pdf_bytes: bytes, document_id: str) -> ExtractionResult:
                 else 1.0
             )
 
+            if debug_this_doc:
+                logger.info(
+                    "Extract: document summary",
+                    document_id=document_id,
+                    page_count=result.page_count,
+                    total_elements=len(result.elements),
+                    total_tables=len(result.tables),
+                    strategy=result.strategy,
+                    text_pages=text_pages,
+                    ocr_pages=ocr_pages,
+                    empty_pages=empty_pages,
+                    avg_ocr_confidence=round(result.avg_ocr_confidence, 4)
+                    if result.avg_ocr_confidence is not None
+                    else None,
+                    errors=result.errors,
+                )
+
     except Exception as e:
         result.errors.append(f"PDF parsing failed: {e}")
         logger.error("PDF extraction failed", error=str(e), document_id=document_id)
 
-    # Дополнительная мягкая диагностика: формально валидный PDF без элементов
     if result.page_count > 0 and not result.elements:
         msg = "PDF extraction produced zero text elements"
         result.errors.append(msg)
@@ -236,7 +399,23 @@ def _detect_page_strategy(page: Any) -> PageStrategy:
         if len(text) >= settings.EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE:
             return PageStrategy.TEXT
         elif len(text) > 0:
-            # Small amount of text — likely headers/footers on a scan
+            if hasattr(page, "images") and page.images:
+                return PageStrategy.OCR
+            return PageStrategy.EMPTY
+        else:
+            return PageStrategy.OCR
+    except Exception:
+        return PageStrategy.OCR
+
+
+def _detect_page_strategy_with_text(page: Any, text: str, text_len: int) -> PageStrategy:
+    """
+    Version of strategy detection that reuses already extracted page text.
+    """
+    try:
+        if text_len >= settings.EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE:
+            return PageStrategy.TEXT
+        elif text_len > 0:
             if hasattr(page, "images") and page.images:
                 return PageStrategy.OCR
             return PageStrategy.EMPTY
@@ -249,28 +428,92 @@ def _detect_page_strategy(page: Any) -> PageStrategy:
 # ─── Text extraction (pdfplumber) ─────────────────────────────────────────────
 
 
-def _extract_text_page(page: Any, document_id: str, page_num: int, start_index: int) -> list:
+def _extract_text_page(
+    page: Any,
+    document_id: str,
+    page_num: int,
+    start_index: int,
+    debug_this_doc: bool = False,
+    page_text_len: int | None = None,
+    page_text_preview: str | None = None,
+) -> list:
     """
     Extract text elements from a page using pdfplumber word grouping.
     Returns list[Element].
     """
     elements = []
+    words = []
+    extract_words_error = None
+
     try:
         words = page.extract_words(
             keep_blank_chars=False,
             extra_attrs=["fontname", "size"],
         )
-    except Exception:
+    except Exception as e:
+        extract_words_error = str(e)
         words = []
 
+    if debug_this_doc:
+        first_word = words[0] if words else None
+        last_word = words[-1] if words else None
+        logger.debug(
+            "Extract: text page words snapshot",
+            document_id=document_id,
+            page=page_num,
+            page_text_len=page_text_len,
+            page_text_preview=page_text_preview,
+            words_count=len(words),
+            extract_words_error=extract_words_error,
+            first_word_text=(first_word.get("text") if first_word else None),
+            first_word_bbox=(
+                [first_word.get("x0"), first_word.get("top"), first_word.get("x1"), first_word.get("bottom")]
+                if first_word
+                else None
+            ),
+            last_word_text=(last_word.get("text") if last_word else None),
+            last_word_bbox=(
+                [last_word.get("x0"), last_word.get("top"), last_word.get("x1"), last_word.get("bottom")]
+                if last_word
+                else None
+            ),
+        )
+
     if not words:
+        if debug_this_doc:
+            logger.warning(
+                "Extract: text page returned no words",
+                document_id=document_id,
+                page=page_num,
+                page_text_len=page_text_len,
+                page_text_preview=page_text_preview,
+            )
         return elements
 
     lines = _group_words_into_lines(words)
+
+    if debug_this_doc:
+        first_line_text = lines[0][0] if lines else ""
+        last_line_text = lines[-1][0] if lines else ""
+        first_line_bbox = lines[0][1] if lines else None
+        last_line_bbox = lines[-1][1] if lines else None
+
+        logger.debug(
+            "Extract: grouped lines snapshot",
+            document_id=document_id,
+            page=page_num,
+            lines_count=len(lines),
+            first_line_preview=_safe_preview(first_line_text, 200),
+            first_line_bbox=first_line_bbox,
+            last_line_preview=_safe_preview(last_line_text, 200),
+            last_line_bbox=last_line_bbox,
+        )
+
     for i, (line_text, line_bbox, font_info) in enumerate(lines):
         stripped = line_text.strip()
         if not stripped:
             continue
+
         elem_id = make_element_id(document_id, page_num, start_index + i)
         elem_type = _classify_element_type(stripped, font_info)
         elements.append(
@@ -284,13 +527,37 @@ def _extract_text_page(page: Any, document_id: str, page_num: int, start_index: 
                 strategy="text",
             )
         )
+
+    if debug_this_doc:
+        heading_count = sum(1 for e in elements if e.type == "heading")
+        listitem_count = sum(1 for e in elements if e.type == "listitem")
+        text_count = sum(1 for e in elements if e.type == "text")
+
+        logger.debug(
+            "Extract: text page elements built",
+            document_id=document_id,
+            page=page_num,
+            elements_count=len(elements),
+            heading_count=heading_count,
+            listitem_count=listitem_count,
+            text_count=text_count,
+            first_element_preview=_safe_preview(elements[0].text, 200) if elements else "",
+            last_element_preview=_safe_preview(elements[-1].text, 200) if elements else "",
+        )
+
     return elements
 
 
 # ─── OCR extraction (Tesseract) ───────────────────────────────────────────────
 
 
-def _extract_ocr_page(pdf_bytes: bytes, page_num: int, document_id: str, start_index: int) -> tuple:
+def _extract_ocr_page(
+    pdf_bytes: bytes,
+    page_num: int,
+    document_id: str,
+    start_index: int,
+    debug_this_doc: bool = False,
+) -> tuple:
     """
     Extract text from a scanned page via Tesseract.
     Returns (list[Element], avg_confidence).
@@ -306,6 +573,13 @@ def _extract_ocr_page(pdf_bytes: bytes, page_num: int, document_id: str, start_i
             last_page=page_num,
         )
         if not images:
+            if debug_this_doc:
+                logger.warning(
+                    "OCR: no images produced for page",
+                    document_id=document_id,
+                    page=page_num,
+                    dpi=settings.EXTRACTION_OCR_DPI,
+                )
             return elements, 0.0
 
         image = images[0]
@@ -314,6 +588,20 @@ def _extract_ocr_page(pdf_bytes: bytes, page_num: int, document_id: str, start_i
             lang="rus+eng",
             output_type=pytesseract.Output.DICT,
         )
+
+        if debug_this_doc:
+            total_ocr_items = len(ocr_data.get("text", []))
+            non_empty_ocr_words = sum(
+                1 for t in (ocr_data.get("text", []) or []) if str(t).strip()
+            )
+            logger.debug(
+                "OCR: image_to_data snapshot",
+                document_id=document_id,
+                page=page_num,
+                dpi=settings.EXTRACTION_OCR_DPI,
+                total_items=total_ocr_items,
+                non_empty_words=non_empty_ocr_words,
+            )
 
         current_line_words = []
         current_line_num = -1
@@ -354,7 +642,6 @@ def _extract_ocr_page(pdf_bytes: bytes, page_num: int, document_id: str, start_i
                 }
             )
 
-        # Last line
         if current_line_words:
             elem, conf = _build_ocr_element(
                 current_line_words,
@@ -370,6 +657,18 @@ def _extract_ocr_page(pdf_bytes: bytes, page_num: int, document_id: str, start_i
         logger.warning("OCR extraction failed for page", page=page_num, error=str(e))
 
     avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+
+    if debug_this_doc:
+        logger.debug(
+            "OCR: page elements built",
+            document_id=document_id,
+            page=page_num,
+            elements_count=len(elements),
+            avg_conf=round(avg_conf, 4),
+            first_element_preview=_safe_preview(elements[0].text, 200) if elements else "",
+            last_element_preview=_safe_preview(elements[-1].text, 200) if elements else "",
+        )
+
     return elements, avg_conf
 
 
@@ -377,6 +676,7 @@ def _build_ocr_element(words: list, document_id: str, page_num: int, element_ind
     """Build an Element from a list of OCR words on the same line."""
     if not words:
         return None, 0.0
+
     text = " ".join(w["text"] for w in words).strip()
     if not text:
         return None, 0.0
@@ -390,13 +690,14 @@ def _build_ocr_element(words: list, document_id: str, page_num: int, element_ind
     ]
     elem_id = make_element_id(document_id, page_num, element_index)
     elem_type = _classify_element_type(text)
+
     return Element(
         element_id=elem_id,
         type=elem_type,
         text=text,
         page=page_num,
         bbox=[round(v, 2) for v in bbox],
-        confidence=round(avg_conf / 100.0, 3),  # Tesseract → 0–1
+        confidence=round(avg_conf / 100.0, 3),
         strategy="ocr",
     ), avg_conf / 100.0
 
@@ -404,18 +705,35 @@ def _build_ocr_element(words: list, document_id: str, page_num: int, element_ind
 # ─── Table extraction ─────────────────────────────────────────────────────────
 
 
-def _extract_tables(page: Any, page_num: int) -> list:
+def _extract_tables(
+    page: Any,
+    page_num: int,
+    debug_this_doc: bool = False,
+    document_id: str | None = None,
+) -> list:
     """Extract tables from a page using pdfplumber."""
     tables = []
     try:
         page_tables = page.extract_tables()
-        for table in page_tables:
+        for idx, table in enumerate(page_tables):
             if table and any(any(cell for cell in row) for row in table):
                 clean_rows = [
                     [cell.strip() if isinstance(cell, str) else cell for cell in row]
                     for row in table
                 ]
                 tables.append(TableData(page=page_num, rows=clean_rows))
+
+                if debug_this_doc:
+                    row_count = len(clean_rows)
+                    col_count = max((len(r) for r in clean_rows), default=0)
+                    logger.debug(
+                        "Extract: table extracted",
+                        document_id=document_id,
+                        page=page_num,
+                        table_index=idx,
+                        rows=row_count,
+                        cols=col_count,
+                    )
     except Exception as e:
         logger.debug("Table extraction failed", page=page_num, error=str(e))
     return tables
@@ -431,6 +749,7 @@ def _group_words_into_lines(words: list) -> list:
     """
     if not words:
         return []
+
     sorted_words = sorted(words, key=lambda w: (round(w["top"], 1), w["x0"]))
     lines = []
     current_line = [sorted_words[0]]
@@ -447,6 +766,7 @@ def _group_words_into_lines(words: list) -> list:
 
     if current_line:
         lines.append(_finalize_line(current_line))
+
     return lines
 
 
@@ -482,38 +802,27 @@ def _classify_element_type(text: str, font_info: dict = None) -> str:
       4. Large font (≥14) : heading
       5. Bold font        : heading (if short)
       6. Default          : text
-
-    NOTE: These types are directly consumed by:
-      - Structure Builder (Stage 6): regex matches on element.type == "heading"
-        to detect clause boundaries and build clause_uid hierarchy
-      - Classifier L2 (Stage 6): scans first 1500 chars;
-        "heading" type helps detect document title
     """
     import re
 
     font_info = font_info or {}
     stripped = text.strip()
 
-    # 1. Numeric headings: "1.", "1.1.", "1.1.1.", "12."
     if re.match(r"^\d{1,2}(\.\d{1,2})*\.?\s+.{1,}", stripped):
         return "heading"
 
-    # 2. All-caps short text (likely a section title)
     if len(stripped) <= 80 and stripped.isupper() and len(stripped) >= 3:
         return "heading"
 
-    # 3. List items
     if re.match(r"^[–\-•◦]\s+", stripped):
         return "listitem"
     if re.match(r"^\d{1,2}[)\s]\s+", stripped):
         return "listitem"
 
-    # 4. Large font size → heading
     font_size = font_info.get("size", 0)
     if isinstance(font_size, int | float) and font_size >= 14 and len(stripped) <= 100:
         return "heading"
 
-    # 5. Bold font → heading (if reasonably short)
     font_name = font_info.get("fontname", "")
     if isinstance(font_name, str) and "bold" in font_name.lower() and len(stripped) <= 100:
         return "heading"
@@ -531,39 +840,6 @@ def build_text_layout_raw(
 ) -> dict:
     """
     Convert ExtractionResult into the textlayoutraw JSON format.
-
-    Schema:
-      {
-        "document_version_id": str,
-        "document_id": str,
-        "elements": [
-          {
-            "element_id":  str,      # deterministic, used by Structure Builder
-            "type":        str,      # heading|text|listitem — used by Classifier/Runner
-            "text":        str,
-            "page":        int,
-            "bbox":        [x0, top, x1, bottom],
-            "confidence":  float,
-            "clause_uid":  null      # filled by Structure Builder (Stage 6)
-          }, ...
-        ],
-        "tables": [...],
-        "metadata": {
-          "pages":           int,
-          "strategy":        str,
-          "ocr_rate":        float,
-          "avg_ocr_confidence": float,
-          "element_count":   int,
-          "table_count":     int,
-          "page_strategies": dict,
-          "errors":          list
-        }
-      }
-
-    IMPORTANT: clause_uid is intentionally null at extraction time.
-    Structure Builder (Stage 6) sets it after building the clause tree.
-    Classifier (Stage 6) and Runner (Stage 8) rely on populated clause_uid
-    for evidence citation and conditional check routing.
     """
     elements_json = [
         {
@@ -573,13 +849,12 @@ def build_text_layout_raw(
             "page": e.page,
             "bbox": e.bbox,
             "confidence": e.confidence,
-            "clause_uid": None,  # set by Structure Builder (Stage 6)
+            "clause_uid": None,
         }
         for e in extraction.elements
     ]
 
     tables_json = [{"page": t.page, "rows": t.rows} for t in extraction.tables]
-
     ocr_page_count = sum(1 for s in extraction.page_strategies.values() if s == "ocr")
 
     return {
@@ -598,4 +873,3 @@ def build_text_layout_raw(
             "errors": extraction.errors,
         },
     }
-

@@ -29,12 +29,15 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-from api.schemas.document_pipeline_view import DocumentPipelineViewResponseDTO
+from api.schemas.document_pipeline_view import (
+    DocumentPipelineViewResponseDTO,
+    StageViewMode,
+)
 from core.exceptions import PermanentError, TransientError
 from db.repositories.document_repo import DocumentRepository
 from db.session import get_db
@@ -55,12 +58,24 @@ router = APIRouter(
 )
 async def get_document_pipeline_view(
     doc_id: UUID,
+    view_mode: StageViewMode = Query(
+        StageViewMode.canonical,
+        description=(
+            "Режим представления стадий пайплайна:\n"
+            "- canonical — показывается точный результат этапов;\n"
+            "- friendly — показывается более удобный для чтения вид "
+            "(может использовать данные соседних этапов)."
+        ),
+    ),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
     """
     Вернуть агрегированное представление стадий обработки документа:
     SOURCE → PRIMARY → EXTRACT → PII → STRUCTURE → CHUNKS.
+
+    Параметр `view_mode` управляет тем, как будут отображены отдельные стадии
+    для UI. По умолчанию используется режим canonical.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
@@ -80,7 +95,11 @@ async def get_document_pipeline_view(
     service = DocumentPipelineViewService(db)
 
     try:
-        return await service.build(doc_id)
+        return await service.build(
+            document_id=doc_id,
+            view_mode=view_mode,
+        )
+
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -103,6 +122,7 @@ async def get_document_pipeline_view(
                 "doc_id": str(doc_id),
                 "deal_id": str(doc.deal_id),
                 "user_id": str(user.id),
+                "view_mode": view_mode.value,
                 "error": str(e),
             },
         )
@@ -110,7 +130,4 @@ async def get_document_pipeline_view(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Pipeline view temporarily unavailable",
         )
-    
-
-
     

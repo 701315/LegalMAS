@@ -1,5 +1,7 @@
 # src/api/schemas/document_pipeline_view.py
 
+# src/api/schemas/document_pipeline_view.py
+
 """
 Pydantic DTO-схемы для представления пайплайна обработки документа
 в UI (Document Pipeline View).
@@ -18,6 +20,12 @@ Pydantic DTO-схемы для представления пайплайна о�
   типизированные превью различных артефактов;
 - PipelineStageViewDTO — одна стадия пайплайна с метаданными и превью;
 - DocumentPipelineViewResponseDTO — ответ API с состоянием всех стадий для одного документа.
+
+Дополнительно:
+- StageViewMode — режим представления стадии для UI;
+- StageProvenanceDTO — информация о происхождении данных в текущем представлении;
+- StageRepresentationDTO — пояснение, является ли текущий вид каноническим
+  или это более удобное производное представление.
 """
 
 from __future__ import annotations
@@ -50,6 +58,24 @@ class PipelineStageKind(str, Enum):
     chunks = "chunks"
 
 
+class StageViewMode(str, Enum):
+    """
+    Режим отображения стадии в UI.
+
+    canonical:
+        Показывается точный результат этого этапа без дополнительных
+        производных представлений.
+
+    friendly:
+        Показывается более удобный для чтения вид. Он может использовать
+        данные соседних стадий, но при этом должен быть явно помечен как
+        производный режим.
+    """
+
+    canonical = "canonical"
+    friendly = "friendly"
+
+
 class StageMetaDTO(BaseModel):
     page_count: int | None = None
     element_count: int | None = None
@@ -57,6 +83,58 @@ class StageMetaDTO(BaseModel):
     section_count: int | None = None
     source_file_name: str | None = None
     mime_type: str | None = None
+    text_enriched: bool | None = None
+
+
+class StageProvenanceDTO(BaseModel):
+    """
+    Информация о происхождении данных в текущем представлении стадии.
+
+    primary_source_stage:
+        Какая стадия является главным источником правды для этого представления.
+
+    derived_from_stages:
+        Какие дополнительные стадии были использованы для обогащения
+        или построения "удобного вида".
+
+    preview_source_label:
+        Короткая человекочитаемая подпись для UI.
+        Пример: "Текстовое превью из CHUNKS".
+    """
+
+    primary_source_stage: PipelineStageCode | None = None
+    derived_from_stages: list[PipelineStageCode] = Field(default_factory=list)
+    preview_source_label: str | None = None
+
+
+class StageRepresentationDTO(BaseModel):
+    """
+    Описание текущего режима представления стадии.
+
+    view_mode:
+        Технический режим представления ("canonical" или "friendly").
+
+    is_canonical:
+        Явный флаг для фронта. Нужен, чтобы UI не вычислял это сам.
+
+    label:
+        Короткая подпись режима для пользователя.
+        Примеры:
+        - "Результат этапа"
+        - "Удобный вид"
+
+    description:
+        Короткое пояснение, что именно показывается на экране.
+
+    provenance:
+        Источник данных для текущего представления.
+    """
+
+    view_mode: StageViewMode = StageViewMode.canonical
+    is_canonical: bool = True
+    label: str = "Результат этапа"
+    description: str | None = None
+    provenance: StageProvenanceDTO = Field(default_factory=StageProvenanceDTO)
 
 
 class PdfPreviewDTO(BaseModel):
@@ -78,11 +156,23 @@ class LayoutPreviewDTO(BaseModel):
 
 
 class StructureSectionPreviewDTO(BaseModel):
+    # Это стабильный технический идентификатор узла для UI.
+    # Он нужен для React keys, выбора секции и другой UI-логики.
     id: str
+
+    # Это доменный идентификатор клаузы документа.
+    # Он нужен для связи structure -> canonical chunks -> checks/results.
+    clause_uid: str | None = None
+
     title: str
     level: int = 1
     page_from: int | None = None
     page_to: int | None = None
+
+    # Это текст для показа в STRUCTURE-view.
+    # В canonical-режиме это должен быть текст самого stage STRUCTURE
+    # (или пустая строка, если stage его не породил).
+    # В friendly-режиме это поле может быть обогащено из CHUNKS.
     text_preview: str = ""
 
 
@@ -126,9 +216,22 @@ class PipelineStageViewDTO(BaseModel):
     meta: StageMetaDTO = Field(default_factory=StageMetaDTO)
     preview: PipelinePreviewDTO | None = None
 
+    # Объясняет, в каком режиме показана стадия
+    # и откуда взялись данные текущего представления.
+    representation: StageRepresentationDTO = Field(
+        default_factory=StageRepresentationDTO
+    )
+
 
 class DocumentPipelineViewResponseDTO(BaseModel):
     document_id: str
     document_version_id: str
     document_status: str
+
+    # Общий режим, в котором был собран ответ.
+    # Это удобно фронту, чтобы инициализировать переключатель.
+    view_mode: StageViewMode
+
     stages: list[PipelineStageViewDTO] = Field(default_factory=list)
+
+    

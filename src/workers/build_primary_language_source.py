@@ -343,6 +343,96 @@ async def _build_primary_language_source_async(
         element_retention_ratio=language_filter_meta.get("element_retention_ratio"),
     )
 
+    # ── монолингвальный документ ─────────────────────────
+    if not decision.is_bilingual:
+        logger.info(
+            "Primary source build: monolingual document, reusing original PDF as primary_source_ref",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            target_language=target_language,
+            detected_languages=decision.detected_languages,
+        )
+
+        # 5. Сохраняем исходный PDF как primary_source_ref
+        primary_path = ArtifactPath.primary_source(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=document_id,
+        )
+        try:
+            primary_source_ref = store.put_file(
+                primary_path,
+                pdf_bytes,  # ← исходные байты, НЕ primary_pdf_bytes
+                content_type="application/pdf",
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to store primary source PDF (monolingual reuse)",
+                document_id=document_id,
+                version_id=document_version_id,
+                path=primary_path,
+                error=str(e),
+            )
+            raise PermanentError(f"Failed to store primary source PDF: {e}")
+
+        updated_version = await ver_repo.update_refs(
+            version_id=version_uuid,
+            primary_source_ref=primary_source_ref,
+        )
+        if not updated_version:
+            raise PermanentError(
+                f"Failed to update primary_source_ref for version {document_version_id}"
+            )
+
+        updated_doc = await doc_repo.update_status(
+            doc_uuid,
+            DocumentStatus.PRIMARY_READY.value,
+            processing_error_details=None,
+        )
+        if not updated_doc:
+            raise PermanentError(
+                f"Document {document_id} not found during PRIMARY_READY status update"
+            )
+
+        await db.flush()
+        refreshed_version = await ver_repo.get_by_id(version_uuid)
+        if not refreshed_version or not getattr(refreshed_version, "primary_source_ref", None):
+            raise TransientError(
+                f"primary_source_ref is not visible after flush for version {document_version_id}"
+            )
+
+        if refreshed_version.primary_source_ref != primary_source_ref:
+            raise TransientError(
+                f"primary_source_ref mismatch after flush for version {document_version_id}"
+            )
+
+        await db.commit()
+
+        logger.info(
+            "Primary source build committed successfully (monolingual reuse)",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            primary_source_ref=primary_source_ref,
+            status=DocumentStatus.PRIMARY_READY.value,
+        )
+
+        return {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "source_ref": source_ref,
+            "primary_source_ref": primary_source_ref,
+            "target_language": target_language,
+            "detected_languages": decision.detected_languages,
+            "requires_user_selection": False,
+            "committed": True,
+        }
+
     # Документ многоязычный, язык не выбран пользователем — останавливаемся.
     if decision.requires_user_selection and target_language is None:
         updated_doc = await doc_repo.update_status(
@@ -392,6 +482,15 @@ async def _build_primary_language_source_async(
             error=str(e),
         )
         raise PermanentError(f"Failed to build primary PDF from layout: {e}")
+
+    if not primary_pdf_bytes or len(primary_pdf_bytes) < 700:
+        raise PermanentError(
+            f"build_pdf_from_layout returned empty or malformed PDF "
+            f"(size={len(primary_pdf_bytes) if primary_pdf_bytes else 0}) "
+            f"for version {document_version_id}. "
+            "Possible cause: language filter removed all elements."
+        )
+
 
     # 5. Сохраняем одноязычный PDF как primary_source_ref.
     primary_path = ArtifactPath.primary_source(

@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     EXTRACTION_MAX_PAGES: int = 500
     EXTRACTION_OCR_ENABLED: bool = True
     EXTRACTION_HARD_TIMEOUT_SECONDS: int = 300
+    EXTRACTION_DEBUG_LOG: bool = False
+    EXTRACTION_DEBUG_DOC_ID: str | None = None
 
     # --- Office → PDF Converter (DOC/DOCX) ---
     DOCX_CONVERTER_URL: str | None = None
@@ -272,6 +274,8 @@ class Settings(BaseSettings):
     # --- Celery worker runtime topology ---
     CELERY_DEFAULT_WORKER_CONCURRENCY: int = 4
     CELERY_HEAVY_WORKER_CONCURRENCY: int = 1
+
+
 
 
 # Singleton: one settings instance for the whole application

@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 # Порог доли символов нужного скрипта для однозначной классификации
 _SCRIPT_DOMINANCE = 0.70
 # Минимальное число символов скрипта для классификации (защита от "A" -> "en")
-_SCRIPT_MIN_CHARS = 3
+_SCRIPT_MIN_CHARS = 5
 # Нейтральный блок (цифры, пунктуация) включается только если короткий
 _NEUTRAL_MAX_CHARS = 40
 # Минимальная длина текста для структурного анализа (чтобы не анализировать мусор)
@@ -66,6 +66,35 @@ _MIN_CHAR_RETENTION_RATIO = 0.50
 
 # Дополнительные эвристики очистки
 _MAX_REPEATED_SYMBOL_RUN = 6
+
+
+# Добавить константу и функцию в layout_language_filter.py
+# (рядом с другими константами вверху файла)
+
+_STRUCTURED_DATA_RE = re.compile(
+    r"(?:"
+    r"\d{6,}"                                                   # ИНН, ОГРН, БИК, счета
+    r"|[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"     # email
+    r"|\+?[\d\s\-\(\)]{7,}"                                    # телефоны
+    r"|[A-Z]{2,6}[\s\-]?\d{3,}"                               # SWIFT, BIC, KPP
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _is_structured_data(text: str) -> bool:
+    """
+    Проверить, является ли текст структурированными данными (реквизиты,
+    email, счета, коды), которые нужно сохранять независимо от скрипта.
+
+    Такие элементы не являются "вторым языком" в билингвальном документе —
+    они содержат латиницу по техническим причинам (стандарты, форматы),
+    а не потому что написаны на английском.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        return False
+    return bool(_STRUCTURED_DATA_RE.search(stripped))
 
 # ---------------------------------------------------------------------------
 # Детекция скрипта
@@ -617,6 +646,7 @@ class _StructuralAnalyzer:
 def _assess_quality(
     original: List[Dict[str, Any]],
     selected: List[Dict[str, Any]],
+    is_bilingual: bool = False,  # ← новый аргумент
 ) -> Dict[str, Any]:
     e_b = len(original)
     e_a = len(selected)
@@ -628,18 +658,24 @@ def _assess_quality(
 
     degraded_reasons: List[str] = []
 
+    # Абсолютные провалы — проверяем всегда, для любого документа
     if e_b > 0 and e_a == 0:
         degraded_reasons.append("no_elements_after_filter")
     if c_b > 0 and c_a == 0:
         degraded_reasons.append("no_chars_after_filter")
-    if e_b >= _STRUCTURAL_MIN_ELEMENTS and element_retention_ratio < _MIN_ELEMENT_RETENTION_RATIO:
-        degraded_reasons.append(
-            f"low_element_retention_ratio:{element_retention_ratio:.3f}"
-        )
-    if c_b > 0 and char_retention_ratio < _MIN_CHAR_RETENTION_RATIO:
-        degraded_reasons.append(
-            f"low_char_retention_ratio:{char_retention_ratio:.3f}"
-        )
+
+    # Пороги retention применяем ТОЛЬКО для билингвальных документов.
+    # Для монолингвальных фильтр не применяется (Баг 1), поэтому
+    # низкий retention здесь означает баг фильтра, а не норму.
+    if is_bilingual:
+        if e_b >= _STRUCTURAL_MIN_ELEMENTS and element_retention_ratio < _MIN_ELEMENT_RETENTION_RATIO:
+            degraded_reasons.append(
+                f"low_element_retention_ratio:{element_retention_ratio:.3f}"
+            )
+        if c_b > 0 and char_retention_ratio < _MIN_CHAR_RETENTION_RATIO:
+            degraded_reasons.append(
+                f"low_char_retention_ratio:{char_retention_ratio:.3f}"
+            )
 
     degraded = bool(degraded_reasons)
 
@@ -699,10 +735,15 @@ def _simple_filter(
         lang = _detect_script(text)
 
         keep = False
+        is_structured = False  # ← новый флаг
+
         if lang == target:
             keep = True
         elif lang == "other" and _should_keep_neutral(text):
             keep = True
+        elif _is_structured_data(text):  # ← ПРАВКА: реквизиты сохраняем всегда
+            keep = True
+            is_structured = True
 
         if not keep:
             continue
@@ -712,14 +753,17 @@ def _simple_filter(
             continue
         seen_ids.add(dedupe_key)
 
-        # Делаем копию элемента и очищаем текст под целевой язык
+        # Делаем копию элемента и очищаем текст под целевой язык.
+        # ПРАВКА: структурированные данные (email, счета, коды) не санитизируем —
+        # _sanitize_text_to_script удалит латиницу и уничтожит реквизиты.
         el_copy = dict(el)
-        el_copy["text"] = _sanitize_text_to_script(text, target)
+        if not is_structured:
+            el_copy["text"] = _sanitize_text_to_script(text, target)
         filtered.append(el_copy)
 
     filtered.sort(key=_bbox_sort_key)
 
-    quality = _assess_quality(elements, filtered)
+    quality = _assess_quality(elements, filtered, is_bilingual=is_bilingual)
     metadata = _build_metadata(
         layout,
         target,
@@ -735,7 +779,6 @@ def _simple_filter(
         "tables": tables,
         "metadata": metadata,
     }
-
 
 # ---------------------------------------------------------------------------
 # Структурный фильтр (билингвальный режим)
@@ -775,7 +818,8 @@ def _structural_filter(
 
         out = dict(chosen.original)
         # Очищаем текст под целевой язык, чтобы убрать хвосты второго языка
-        out["text"] = _sanitize_text_to_script(chosen.text, target)
+        if not _is_structured_data(chosen.text):
+            out["text"] = _sanitize_text_to_script(chosen.text, target)
 
         if block.is_heading and block.block_id:
             out["clause_uid"] = block.block_id
@@ -792,7 +836,7 @@ def _structural_filter(
 
     selected_elements.sort(key=_bbox_sort_key)
 
-    quality = _assess_quality(elements, selected_elements)
+    quality = _assess_quality(elements, selected_elements, is_bilingual=True)
     metadata = _build_metadata(
         layout,
         target,
@@ -855,7 +899,7 @@ def filter_layout_to_language(
             "metadata": _build_metadata(
                 layout,
                 target,
-                _assess_quality([], []),
+                _assess_quality([], [], is_bilingual=False),
                 is_bilingual=False,
                 structural_filter_used=False,
             ),

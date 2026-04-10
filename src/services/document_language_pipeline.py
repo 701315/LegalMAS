@@ -123,34 +123,8 @@ async def analyze_document_languages(
     deal_id: uuid.UUID,
     layout: dict[str, Any],
 ) -> DocumentLanguageDecision:
-    """
-    Определить языки документа, обновить языки сделки и принять решение,
-    можно ли выбрать target_language автоматически либо требуется выбор пользователя.
+    # ... весь код до detected_languages без изменений ...
 
-    Логика:
-
-    1. Определяем detected_languages по layout.
-       Если детект не вернул ничего — считаем ["ru"] как conservative fallback.
-
-    2. Обновляем Deal.languages через update_deal_languages.
-
-    3. Решаем, есть ли безопасный target_language:
-
-       - Если документ одноязычный (len(detected_languages) == 1),
-         target_language = detected[0], requires_user_selection = False.
-
-       - Если документ многоязычный (>= 2 языка):
-         * Если у сделки уже есть primary_language, и он найден в detected_languages:
-             target_language = deal.primary_language,
-             requires_user_selection = False
-         * Иначе:
-             target_language = None,
-             requires_user_selection = True.
-
-    4. Если вообще ничего не найдено (pathological case),
-       detected_languages уже приведён к ["ru"], target_language = "ru",
-       requires_user_selection = False.
-    """
     deal_repo = DealRepository(db)
     deal_before = await deal_repo.get_by_id(deal_id)
 
@@ -184,10 +158,29 @@ async def analyze_document_languages(
         deal_primary_language=deal_primary_after or deal_primary_before,
     )
 
+    # ── ПРАВКА ──────────────────────────────────────────────────────────────
+    # Считаем реальное соотношение скриптов по тексту layout.
+    # len(detected_languages) >= 2 недостаточно для билингвального вывода —
+    # detect_languages_in_layout возвращает ["en", "ru"] даже для русского
+    # договора с email/реквизитами, где латиница занимает 2-8% букв.
+    # Порог 15% для каждого скрипта отсекает технические вхождения латиницы.
+    _all_text = " ".join(
+        el.get("text", "") for el in (layout.get("elements") or [])
+    )
+    _cyr = sum(1 for c in _all_text if "\u0400" <= c <= "\u04FF")
+    _lat = sum(1 for c in _all_text if "a" <= c.lower() <= "z")
+    _total_letters = _cyr + _lat
+    _lat_ratio = _lat / _total_letters if _total_letters > 0 else 0.0
+    _is_bilingual = (
+        len(detected_languages) >= 2
+        and _lat_ratio >= 0.15
+        and (1.0 - _lat_ratio) >= 0.15
+    )
+
     decision = DocumentLanguageDecision(
         detected_languages=detected_languages,
         target_language=target_language,
-        is_bilingual=len(detected_languages) >= 2,
+        is_bilingual=_is_bilingual,                  # ← было: len(detected_languages) >= 2
         deal_primary_language_before=deal_primary_before,
         deal_languages_before=deal_languages_before,
         deal_primary_language_after=deal_primary_after,
@@ -202,6 +195,7 @@ async def analyze_document_languages(
         detected_languages=decision.detected_languages,
         target_language=decision.target_language,
         is_bilingual=decision.is_bilingual,
+        lat_ratio=round(_lat_ratio, 3),              # ← добавить для диагностики
         deal_primary_language_before=decision.deal_primary_language_before,
         deal_languages_before=decision.deal_languages_before,
         deal_primary_language_after=decision.deal_primary_language_after,
@@ -240,6 +234,7 @@ async def build_primary_language_layout(
         layout=layout,
     )
 
+    # Ветка 1: билингвальный документ, язык ещё не выбран пользователем.
     if decision.target_language is None and decision.requires_user_selection:
         logger.info(
             "Primary layout not built: user primary language selection required",
@@ -259,6 +254,38 @@ async def build_primary_language_layout(
             raw_layout=layout,
         )
 
+    # ── ПРАВКА ──────────────────────────────────────────────────────────────
+    # Ветка 2: монолингвальный документ — языковой фильтр НЕ применяем.
+    #
+    # Причина: filter_layout_to_language отбрасывает элементы, у которых
+    # скрипт отличается от target (latin ≠ "ru"). Для монолингвального
+    # русского документа это уничтожает реквизиты, email, банковские счета
+    # и любые строки с латиницей — теряется до 60-70% контента.
+    #
+    # Фильтр нужен только для настоящих билингвальных документов,
+    # где параллельно идут русский и английский блоки.
+    # ────────────────────────────────────────────────────────────────────────
+    if not decision.is_bilingual:
+        logger.info(
+            "Primary layout: monolingual document, language filter skipped",
+            deal_id=str(deal_id),
+            tenant_id=tenant_id,
+            document_id=document_id,
+            target_language=decision.target_language,
+            detected_languages=decision.detected_languages,
+        )
+        primary_layout = _attach_language_metadata(
+            layout=layout,
+            decision=decision,
+            fallback_used=False,
+        )
+        return PrimaryLanguageLayoutResult(
+            decision=decision,
+            primary_layout=primary_layout,
+            raw_layout=layout,
+        )
+
+    # Ветка 3: билингвальный документ с уже выбранным языком — фильтруем.
     filter_context = {
         "deal_id": str(deal_id),
         "tenant_id": tenant_id,

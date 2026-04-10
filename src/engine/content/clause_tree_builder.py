@@ -11,11 +11,14 @@ Clause tree → клауза-чанки.
   * индекса элементов layout.
 """
 
+
 from __future__ import annotations
-from core.logging import get_logger
 
 import uuid
 from typing import Any, Dict, List
+
+from core.logging import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -202,6 +205,11 @@ class ClauseTreeBuilder:
                 #   пустой чанк создавать не нужно.
                 return
 
+            # добавляем явный заголовок клаузы в текст чанка.
+            if clause_uid and node_title:
+                heading_line = f"{clause_uid} {node_title}".strip()
+                full_text = f"{heading_line}\n\n{full_text}"
+
             start_page = min(pages) if pages else node.get("start_page")
             end_page = max(pages) if pages else node.get("end_page")
 
@@ -234,5 +242,3 @@ class ClauseTreeBuilder:
                 out=out,
                 path_titles=current_path,
             )
-
-            

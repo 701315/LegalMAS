@@ -32,9 +32,41 @@ function buildMetaLine(stage: PipelineStageViewDTO): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function buildRepresentationHint(stage: PipelineStageViewDTO): string | null {
+  const representation = stage.representation;
+  if (!representation) return null;
+
+  const parts: string[] = [];
+
+  if (representation.label) {
+    parts.push(representation.label);
+  }
+
+  const provenance = representation.provenance;
+  if (provenance?.preview_source_label) {
+    parts.push(provenance.preview_source_label);
+  } else if (
+    provenance?.derived_from_stages &&
+    provenance.derived_from_stages.length > 0
+  ) {
+    parts.push(`derived: ${provenance.derived_from_stages.join(", ")}`);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function getViewModeBadgeClass(isCanonical: boolean): string {
+  if (isCanonical) {
+    return "bg-gray-100 text-gray-700 border border-gray-200";
+  }
+
+  return "bg-blue-50 text-blue-700 border border-blue-200";
+}
+
 export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
   const canOpen = stage.available && stage.status === "ready";
   const metaLine = buildMetaLine(stage);
+  const representationHint = buildRepresentationHint(stage);
 
   return (
     <div className="flex items-start justify-between gap-3 border border-gray-100 rounded-lg p-3 bg-white">
@@ -43,13 +75,39 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             {stage.code}
           </span>
+
           <StatusBadge status={stage.status} />
+
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${getViewModeBadgeClass(
+              stage.representation.is_canonical,
+            )}`}
+            title={stage.representation.description ?? undefined}
+          >
+            {stage.representation.view_mode}
+          </span>
+
+          <span
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-gray-50 text-gray-600 border border-gray-200"
+            title={stage.representation.description ?? undefined}
+          >
+            {stage.representation.label}
+          </span>
         </div>
 
         <p className="mt-1 text-sm font-medium text-gray-900">{stage.title}</p>
         <p className="mt-1 text-xs text-gray-500 leading-5">
           {stage.description}
         </p>
+
+        {representationHint && (
+          <p
+            className="mt-2 text-[11px] text-blue-700"
+            title={stage.representation.description ?? undefined}
+          >
+            {representationHint}
+          </p>
+        )}
 
         {metaLine && (
           <p className="mt-2 text-[11px] text-gray-400">{metaLine}</p>
@@ -76,4 +134,3 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
 };
 
 export default PipelineStageRow;
-

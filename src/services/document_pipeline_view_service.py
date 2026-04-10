@@ -47,14 +47,22 @@ from api.schemas.document_pipeline_view import (
     PipelineStageStatus,
     PipelineStageViewDTO,
     StageMetaDTO,
+    StageProvenanceDTO,
+    StageRepresentationDTO,
+    StageViewMode,
     StructurePreviewDTO,
     StructureSectionPreviewDTO,
 )
+
 from core.exceptions import PermanentError, TransientError
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from engine.content.document_content_service import DocumentContentService
 from storage.artifact_store import ArtifactStore
+from engine.content.chunk_snapshot_reader import ChunkSnapshotReader
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class DocumentPipelineViewService:
@@ -65,7 +73,25 @@ class DocumentPipelineViewService:
         self.content_service = DocumentContentService(session=session)
         self.store = ArtifactStore()
 
-    async def build(self, document_id: UUID) -> DocumentPipelineViewResponseDTO:
+    async def build(
+        self,
+        document_id: UUID,
+        view_mode: StageViewMode = StageViewMode.canonical,
+    ) -> DocumentPipelineViewResponseDTO:
+        """
+        Собирает срез пайплайна по документу.
+
+        Параметр view_mode управляет только тем, как отображаются отдельные стадии
+        (например, STRUCTURE / CHUNKS) для фронта:
+
+        - "canonical" — показывается чистый результат этапа без дополнительных
+          обогащений;
+        - "friendly" — показывается более удобное для чтения представление
+          (может использовать данные соседних этапов).
+
+        Важно: сама бизнес-логика пайплайна от этого параметра не зависит,
+        меняется только представление данных для UI.
+        """
         doc = await self.doc_repo.get_by_id(document_id)
         if not doc:
             raise ValueError("Document not found")
@@ -74,22 +100,69 @@ class DocumentPipelineViewService:
         if not version:
             raise ValueError("DocumentVersion not found")
 
+        # view_mode уже валидный enum из FastAPI, можно использовать его напрямую
+        mode_enum = view_mode
+
+        # Пока режим влияет только на STRUCTURE/CHUNKS. Остальные стадии
+        # всегда возвращаются в каноническом виде.
+        structure_stage = await self._build_structure_stage(
+            doc=doc,
+            version=version,
+            view_mode=mode_enum,
+        )
+
+        chunks_stage = await self._build_chunks_stage(
+            doc=doc,
+            version=version,
+            view_mode=mode_enum,
+        )
+
         stages: list[PipelineStageViewDTO] = [
-            self._build_source_stage(doc, version),
-            self._build_primary_stage(doc, version),
-            self._build_extract_stage(doc, version),
-            self._build_pii_stage(doc, version),
-            self._build_structure_stage(doc, version),
-            await self._build_chunks_stage(doc, version),
+            self._with_representation(
+                self._build_source_stage(doc, version),
+                stage_code=PipelineStageCode.SOURCE,
+                view_mode=mode_enum,
+                friendly_supported=False,
+                canonical_description="Показывается исходный документ, который поступил в пайплайн.",
+                friendly_description="Показывается тот же исходный документ в режиме удобного просмотра.",
+            ),
+            self._with_representation(
+                self._build_primary_stage(doc, version),
+                stage_code=PipelineStageCode.PRIMARY,
+                view_mode=mode_enum,
+                friendly_supported=False,
+                canonical_description="Показывается результат этапа PRIMARY: одноязычный source.",
+                friendly_description="Показывается тот же результат PRIMARY в режиме удобного просмотра.",
+            ),
+            self._with_representation(
+                self._build_extract_stage(doc, version),
+                stage_code=PipelineStageCode.EXTRACT,
+                view_mode=mode_enum,
+                friendly_supported=False,
+                canonical_description="Показывается layout, полученный на этапе EXTRACT.",
+                friendly_description="Показывается тот же layout EXTRACT в режиме удобного просмотра.",
+            ),
+            self._with_representation(
+                self._build_pii_stage(doc, version),
+                stage_code=PipelineStageCode.PII,
+                view_mode=mode_enum,
+                friendly_supported=False,
+                canonical_description="Показывается layout после PII-санитизации.",
+                friendly_description="Показывается тот же sanitized layout в режиме удобного просмотра.",
+            ),
+            # STRUCTURE и CHUNKS возвращаются уже с representation внутри самих методов
+            structure_stage,
+            chunks_stage,
         ]
 
         return DocumentPipelineViewResponseDTO(
             document_id=str(doc.id),
             document_version_id=str(version.id),
             document_status=doc.status,
+            view_mode=mode_enum,
             stages=stages,
         )
-
+    
     def _base_meta(self, doc) -> StageMetaDTO:
         return StageMetaDTO(
             page_count=doc.page_count,
@@ -106,6 +179,103 @@ class DocumentPipelineViewService:
             if artifact_ref
             else PipelineStageStatus.pending
         )
+
+    def _stage_representation(
+        self,
+        *,
+        stage_code: PipelineStageCode,
+        view_mode: StageViewMode,
+        friendly_supported: bool = False,
+        friendly_description: str | None = None,
+        canonical_description: str | None = None,
+        derived_from_stages: list[PipelineStageCode] | None = None,
+        preview_source_label: str | None = None,
+    ) -> StageRepresentationDTO:
+        """
+        Строит единое описание режима представления стадии для UI.
+
+        Логика:
+        - canonical: всегда "Результат этапа";
+        - friendly:
+            - если у стадии реально есть отдельный friendly-режим,
+              помечаем её как производное представление;
+            - если friendly пока не поддержан, используем тот же результат,
+              но явно говорим, что это "удобный просмотр" без других источников.
+        """
+        derived = derived_from_stages or []
+
+        if view_mode == StageViewMode.canonical:
+            return StageRepresentationDTO(
+                view_mode=view_mode,
+                is_canonical=True,
+                label="Результат этапа",
+                description=canonical_description
+                or "Показывается точный результат этого этапа.",
+                provenance=StageProvenanceDTO(
+                    primary_source_stage=stage_code,
+                    derived_from_stages=[],
+                    preview_source_label=None,
+                ),
+            )
+
+        if friendly_supported:
+            return StageRepresentationDTO(
+                view_mode=view_mode,
+                is_canonical=False,
+                label="Удобный вид",
+                description=friendly_description
+                or "Показывается более удобное для чтения представление.",
+                provenance=StageProvenanceDTO(
+                    primary_source_stage=stage_code,
+                    derived_from_stages=derived,
+                    preview_source_label=preview_source_label,
+                ),
+            )
+
+        return StageRepresentationDTO(
+            view_mode=view_mode,
+            is_canonical=False,
+            label="Удобный вид",
+            description=(
+                friendly_description
+                or "Для этого этапа пока используется тот же результат, "
+                   "но в режиме удобного просмотра."
+            ),
+            provenance=StageProvenanceDTO(
+                primary_source_stage=stage_code,
+                derived_from_stages=[],
+                preview_source_label=None,
+            ),
+        )
+
+    def _with_representation(
+        self,
+        stage: PipelineStageViewDTO,
+        *,
+        stage_code: PipelineStageCode,
+        view_mode: StageViewMode,
+        friendly_supported: bool = False,
+        friendly_description: str | None = None,
+        canonical_description: str | None = None,
+        derived_from_stages: list[PipelineStageCode] | None = None,
+        preview_source_label: str | None = None,
+    ) -> PipelineStageViewDTO:
+        """
+        Возвращает ту же стадию, но с заполненным полем representation.
+
+        Это отдельный helper, чтобы не дублировать конструирование
+        StageRepresentationDTO в каждом _build_*_stage.
+        """
+        stage.representation = self._stage_representation(
+            stage_code=stage_code,
+            view_mode=view_mode,
+            friendly_supported=friendly_supported,
+            friendly_description=friendly_description,
+            canonical_description=canonical_description,
+            derived_from_stages=derived_from_stages,
+            preview_source_label=preview_source_label,
+        )
+        return stage
 
     def _build_source_stage(self, doc, version) -> PipelineStageViewDTO:
         artifact_ref = version.converted_pdf_ref or version.original_ref
@@ -407,57 +577,130 @@ class DocumentPipelineViewService:
             preview=preview,
         )
 
-    def _build_structure_stage(self, doc, version) -> PipelineStageViewDTO:
+    async def _build_structure_stage(
+        self,
+        doc,
+        version,
+        view_mode: StageViewMode = StageViewMode.canonical,
+    ) -> PipelineStageViewDTO:
         artifact_ref = version.clause_tree_ref
 
         if not artifact_ref:
-            return PipelineStageViewDTO(
-                code=PipelineStageCode.STRUCTURE,
-                title="STRUCTURE: дерево документа",
-                description="Структурированное дерево секций, пунктов и подпунктов документа.",
-                available=False,
-                kind=PipelineStageKind.structure,
-                status=PipelineStageStatus.pending,
-                artifact_ref=None,
-                meta=self._base_meta(doc),
-                preview=None,
+            return self._with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.STRUCTURE,
+                    title="STRUCTURE: дерево документа",
+                    description="Структурированное дерево секций, пунктов и подпунктов документа.",
+                    available=False,
+                    kind=PipelineStageKind.structure,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=None,
+                    meta=self._base_meta(doc),
+                    preview=None,
+                ),
+                stage_code=PipelineStageCode.STRUCTURE,
+                view_mode=view_mode,
+                friendly_supported=True,
+                canonical_description=(
+                    "Показывается чистый результат этапа STRUCTURE: "
+                    "дерево секций и пунктов без обогащения текстом из CHUNKS."
+                ),
+                friendly_description=(
+                    "Показывается удобное для чтения представление дерева STRUCTURE. "
+                    "Отдельное friendly-представление применяется, когда артефакт доступен."
+                ),
+                derived_from_stages=[PipelineStageCode.CHUNKS],
+                preview_source_label="Текстовое превью из CHUNKS",
             )
 
         try:
             payload = self.store.get_json(artifact_ref)
         except PermanentError:
-            return PipelineStageViewDTO(
-                code=PipelineStageCode.STRUCTURE,
-                title="STRUCTURE: дерево документа",
-                description="Артефакт clause tree ожидается, но отсутствует в сторедже.",
-                available=False,
-                kind=PipelineStageKind.structure,
-                status=PipelineStageStatus.missing,
-                artifact_ref=artifact_ref,
-                meta=self._base_meta(doc),
-                preview=None,
+            return self._with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.STRUCTURE,
+                    title="STRUCTURE: дерево документа",
+                    description="Артефакт clause tree ожидается, но отсутствует в сторедже.",
+                    available=False,
+                    kind=PipelineStageKind.structure,
+                    status=PipelineStageStatus.missing,
+                    artifact_ref=artifact_ref,
+                    meta=self._base_meta(doc),
+                    preview=None,
+                ),
+                stage_code=PipelineStageCode.STRUCTURE,
+                view_mode=view_mode,
+                friendly_supported=True,
+                canonical_description=(
+                    "Показывается чистый результат этапа STRUCTURE: "
+                    "дерево секций и пунктов без обогащения текстом из CHUNKS."
+                ),
+                friendly_description=(
+                    "Показывается удобное для чтения представление дерева STRUCTURE. "
+                    "Отдельное friendly-представление применяется, когда артефакт доступен."
+                ),
+                derived_from_stages=[PipelineStageCode.CHUNKS],
+                preview_source_label="Текстовое превью из CHUNKS",
             )
         except TransientError:
-            return PipelineStageViewDTO(
-                code=PipelineStageCode.STRUCTURE,
-                title="STRUCTURE: дерево документа",
-                description="Структурированный артефакт временно недоступен.",
-                available=False,
-                kind=PipelineStageKind.structure,
-                status=PipelineStageStatus.pending,
-                artifact_ref=artifact_ref,
-                meta=self._base_meta(doc),
-                preview=None,
+            return self._with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.STRUCTURE,
+                    title="STRUCTURE: дерево документа",
+                    description="Структурированный артефакт временно недоступен.",
+                    available=False,
+                    kind=PipelineStageKind.structure,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=artifact_ref,
+                    meta=self._base_meta(doc),
+                    preview=None,
+                ),
+                stage_code=PipelineStageCode.STRUCTURE,
+                view_mode=view_mode,
+                friendly_supported=True,
+                canonical_description=(
+                    "Показывается чистый результат этапа STRUCTURE: "
+                    "дерево секций и пунктов без обогащения текстом из CHUNKS."
+                ),
+                friendly_description=(
+                    "Показывается удобное для чтения представление дерева STRUCTURE. "
+                    "Отдельное friendly-представление применяется, когда артефакт доступен."
+                ),
+                derived_from_stages=[PipelineStageCode.CHUNKS],
+                preview_source_label="Текстовое превью из CHUNKS",
             )
 
         sections: list[StructureSectionPreviewDTO] = []
 
-        if isinstance(payload, dict):
-            self._flatten_clause_tree(payload, sections, level=1)
-        elif isinstance(payload, list):
-            for idx, node in enumerate(payload, start=1):
-                if isinstance(node, dict):
-                    self._flatten_clause_tree(node, sections, level=1, fallback_index=idx)
+        root_nodes = self._iter_structure_root_nodes(payload)
+        for idx, node in enumerate(root_nodes):
+            # path_indices начинается с одного числа — позиции корневого узла.
+            self._flatten_clause_tree(
+                node,
+                sections,
+                level=1,
+                path_indices=[idx],
+            )
+
+        # По умолчанию считаем, что enrichment не выполнялся.
+        text_enriched = False
+
+        # В режиме "friendly" обогащаем секции полным текстом из chunk snapshot.
+        # В режиме "canonical" оставляем только текст из clause tree.
+        if view_mode == StageViewMode.friendly:
+            try:
+                text_enriched = await self._enrich_structure_with_text(
+                    doc_id=doc.id,
+                    sections=sections,
+                )
+            except Exception as e:
+                logger.warning(
+                    "PIPELINE_VIEW STRUCTURE: text enrichment failed, using clause-tree text only",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "error": str(e),
+                    },
+                )
 
         preview = StructurePreviewDTO(
             type="structure",
@@ -467,8 +710,21 @@ class DocumentPipelineViewService:
 
         meta = self._base_meta(doc)
         meta.section_count = len(sections)
+        meta.text_enriched = text_enriched
 
-        return PipelineStageViewDTO(
+        logger.info(
+            "PIPELINE_VIEW STRUCTURE",
+            extra={
+                "doc_id": str(doc.id),
+                "clause_tree_ref": artifact_ref,
+                "sections_len": len(sections),
+                "payload_type": type(payload).__name__,
+                "text_enriched": text_enriched,
+                "view_mode": view_mode.value,
+            },
+        )
+
+        stage = PipelineStageViewDTO(
             code=PipelineStageCode.STRUCTURE,
             title="STRUCTURE: дерево документа",
             description="Структурированное дерево секций, пунктов и подпунктов документа.",
@@ -480,56 +736,245 @@ class DocumentPipelineViewService:
             preview=preview,
         )
 
+        return self._with_representation(
+            stage,
+            stage_code=PipelineStageCode.STRUCTURE,
+            view_mode=view_mode,
+            friendly_supported=True,
+            canonical_description=(
+                "Показывается чистый результат этапа STRUCTURE: "
+                "дерево секций и пунктов без обогащения текстом из CHUNKS."
+            ),
+            friendly_description=(
+                "Показывается удобное для чтения представление дерева STRUCTURE, "
+                "обогащённое текстом из canonical snapshot CHUNKS."
+            ),
+            derived_from_stages=[PipelineStageCode.CHUNKS],
+            preview_source_label="Текстовое превью из CHUNKS",
+        )
+    
     def _flatten_clause_tree(
         self,
         node: dict[str, Any],
         acc: list[StructureSectionPreviewDTO],
         *,
         level: int,
-        fallback_index: int | None = None,
+        path_indices: list[int],
     ) -> None:
-        node_id = (
+        """
+        Преобразует один узел clause tree в плоскую секцию для STRUCTURE‑view
+        и рекурсивно обрабатывает его дочерние узлы.
+
+        Важно:
+        - id секции строится детерминированно из clause_uid и пути в дереве:
+          "<clause_uid or 'noid'>#<path_str>";
+        - clause_uid прокидывается явно в DTO;
+        - text_preview берётся из node["text"], если он есть, и может быть
+          затем переопределён enrichment'ом из chunk snapshot.
+        """
+        # Пытаемся вытащить clause_uid из разных вариантов поля.
+        clause_uid = (
             node.get("clauseUid")
             or node.get("clause_uid")
-            or node.get("id")
-            or node.get("uid")
-            or f"section_{fallback_index or len(acc) + 1}"
+            or None
         )
+
         title = (
             node.get("title")
             or node.get("label")
             or node.get("name")
             or "Untitled section"
         )
-        page_from = node.get("startPage") or node.get("page_from")
-        page_to = node.get("endPage") or node.get("page_to") or page_from
+
+        page_from = (
+            node.get("startPage")
+            or node.get("start_page")
+            or node.get("page_from")
+        )
+        page_to = (
+            node.get("endPage")
+            or node.get("end_page")
+            or node.get("page_to")
+            or page_from
+        )
+
         text = node.get("text") or ""
         if not isinstance(text, str):
             text = str(text)
 
+        # Строим строку пути в дереве по индексам детей.
+        # Например, [0, 1, 3] -> "0.1.3".
+        path_str = ".".join(str(i) for i in path_indices) if path_indices else "0"
+
+        # Базовая часть id — clause_uid или "noid", если он отсутствует.
+        base_id = clause_uid or "noid"
+        node_id = f"{base_id}#{path_str}"
+
         acc.append(
             StructureSectionPreviewDTO(
-                id=str(node_id),
+                id=node_id,
                 title=str(title),
                 level=int(node.get("level") or level),
                 page_from=page_from if isinstance(page_from, int) else None,
                 page_to=page_to if isinstance(page_to, int) else None,
                 text_preview=text[:500],
+                clause_uid=str(clause_uid) if clause_uid is not None else None,
             )
         )
 
+        # Рекурсивно обрабатываем дочерние узлы, добавляя индекс к пути.
         children = node.get("children") or []
         if isinstance(children, list):
-            for idx, child in enumerate(children, start=1):
+            for idx, child in enumerate(children):
                 if isinstance(child, dict):
                     self._flatten_clause_tree(
                         child,
                         acc,
                         level=level + 1,
-                        fallback_index=idx,
+                        path_indices=path_indices + [idx],
                     )
 
-    async def _build_chunks_stage(self, doc, version) -> PipelineStageViewDTO:
+    def _iter_structure_root_nodes(
+        self,
+        payload: Any,
+    ) -> list[dict[str, Any]]:
+        """
+        Нормализованный доступ к корневым узлам clause tree для STRUCTURE‑view.
+
+        Поддерживаем форматы:
+        - {"root": [ {...}, {...} ]}
+        - {"root": { "children": [ {...}, ... ] }}
+        - [ {...}, {...} ]
+        - fallback: одиночный dict как один узел.
+        """
+        nodes: list[dict[str, Any]] = []
+
+        if isinstance(payload, dict):
+            raw_root = payload.get("root")
+
+            if isinstance(raw_root, list):
+                nodes = [n for n in raw_root if isinstance(n, dict)]
+            elif isinstance(raw_root, dict):
+                children = raw_root.get("children")
+                if isinstance(children, list):
+                    nodes = [n for n in children if isinstance(n, dict)]
+            else:
+                # fallback: воспринимаем payload как один узел дерева
+                nodes = [payload]
+
+        elif isinstance(payload, list):
+            nodes = [n for n in payload if isinstance(n, dict)]
+
+        return nodes
+
+
+    async def _enrich_structure_with_text(
+        self,
+        doc_id: UUID,
+        sections: list[StructureSectionPreviewDTO],
+    ) -> bool:
+        """
+        Обогащает STRUCTURE sections полным текстом из canonical chunk snapshot.
+
+        Новый принцип:
+        - основной режим: clause-centric — матчим чанки по metadata.clause_uid;
+        - если у секции нет clause_uid или по нему не найдено чанков,
+          секция остаётся с текстом из clause tree;
+        - page-based пересечение больше не используется как основной механизм.
+
+        Возвращает:
+        - True: snapshot прочитан и хотя бы одна секция была обогащена;
+        - False: snapshot недоступен/пуст или enrichment не удался.
+        """
+        if not sections:
+            return False
+
+        reader = ChunkSnapshotReader(
+            session=self.session,
+            artifact_store=self.store,
+        )
+
+        clause_chunks = await reader.load(
+            doc_id=doc_id,
+            levels=["clause"],
+        )
+        if not clause_chunks:
+            # Нет snapshot или в нём нет clause-чанков — enrichment невозможен.
+            return False
+
+        # Строим индекс чанков по clause_uid.
+        chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for ch in clause_chunks:
+            meta = ch.get("metadata") or {}
+            uid = (
+                meta.get("clause_uid")
+                or ch.get("clause_uid")
+                or None
+            )
+            if not uid:
+                continue
+            chunks_by_uid[str(uid)].append(ch)
+
+        # Детерминированная сортировка чанков внутри каждого uid:
+        # сначала по position_ratio, потом по start_page, потом по id.
+        def _chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
+            meta = ch.get("metadata") or {}
+            pos = meta.get("position_ratio")
+            start_page = meta.get("start_page")
+            chunk_id = str(ch.get("id") or "")
+            return (
+                float(pos) if isinstance(pos, (int, float)) else 1.0,
+                start_page if isinstance(start_page, int) else 10**9,
+                chunk_id,
+            )
+
+        for uid, items in chunks_by_uid.items():
+            items.sort(key=_chunk_sort_key)
+
+        enriched_any = False
+
+        for section in sections:
+            # Если у секции нет clause_uid — нечего связывать с чанками.
+            if not section.clause_uid:
+                continue
+
+            uid = section.clause_uid
+            chunks = chunks_by_uid.get(uid)
+            if not chunks:
+                # Для этой клаузы нет чанков в snapshot.
+                continue
+
+            parts: list[str] = []
+            seen_ids: set[str] = set()
+
+            for ch in chunks:
+                chunk_id = str(ch.get("id") or "")
+                if chunk_id and chunk_id in seen_ids:
+                    continue
+
+                text = (ch.get("text") or "").strip()
+                if not text:
+                    continue
+
+                parts.append(text)
+                if chunk_id:
+                    seen_ids.add(chunk_id)
+
+            full_text = "\n\n".join(parts).strip()
+            if full_text:
+                # Перезаписываем text_preview полным каноническим текстом клаузы.
+                section.text_preview = full_text
+                enriched_any = True
+
+        return enriched_any
+
+
+    async def _build_chunks_stage(
+        self,
+        doc,
+        version,
+        view_mode: StageViewMode = StageViewMode.canonical,
+    ) -> PipelineStageViewDTO:
         artifact_ref = version.chunks_ref
         raw_snapshot: dict[str, Any] | list[Any] | None = None
         chunks: list[ChunkPreviewDTO] = []
@@ -540,28 +985,52 @@ class DocumentPipelineViewService:
                 raw_snapshot = snapshot
                 chunks = self._extract_chunks_from_snapshot(snapshot)
             except PermanentError:
-                return PipelineStageViewDTO(
-                    code=PipelineStageCode.CHUNKS,
-                    title="CHUNKS: materialized chunks",
-                    description="Snapshot чанков ожидается, но отсутствует в сторедже.",
-                    available=False,
-                    kind=PipelineStageKind.chunks,
-                    status=PipelineStageStatus.missing,
-                    artifact_ref=artifact_ref,
-                    meta=self._base_meta(doc),
-                    preview=None,
+                return self._with_representation(
+                    PipelineStageViewDTO(
+                        code=PipelineStageCode.CHUNKS,
+                        title="CHUNKS: materialized chunks",
+                        description="Snapshot чанков ожидается, но отсутствует в сторедже.",
+                        available=False,
+                        kind=PipelineStageKind.chunks,
+                        status=PipelineStageStatus.missing,
+                        artifact_ref=artifact_ref,
+                        meta=self._base_meta(doc),
+                        preview=None,
+                    ),
+                    stage_code=PipelineStageCode.CHUNKS,
+                    view_mode=view_mode,
+                    friendly_supported=False,
+                    canonical_description=(
+                        "Показывается результат этапа CHUNKS: материализованные чанки документа."
+                    ),
+                    friendly_description=(
+                        "Показывается тот же набор чанков в режиме удобного просмотра. "
+                        "Отдельное friendly-представление для CHUNKS пока не реализовано."
+                    ),
                 )
             except TransientError:
-                return PipelineStageViewDTO(
-                    code=PipelineStageCode.CHUNKS,
-                    title="CHUNKS: materialized chunks",
-                    description="Snapshot чанков временно недоступен.",
-                    available=False,
-                    kind=PipelineStageKind.chunks,
-                    status=PipelineStageStatus.pending,
-                    artifact_ref=artifact_ref,
-                    meta=self._base_meta(doc),
-                    preview=None,
+                return self._with_representation(
+                    PipelineStageViewDTO(
+                        code=PipelineStageCode.CHUNKS,
+                        title="CHUNKS: materialized chunks",
+                        description="Snapshot чанков временно недоступен.",
+                        available=False,
+                        kind=PipelineStageKind.chunks,
+                        status=PipelineStageStatus.pending,
+                        artifact_ref=artifact_ref,
+                        meta=self._base_meta(doc),
+                        preview=None,
+                    ),
+                    stage_code=PipelineStageCode.CHUNKS,
+                    view_mode=view_mode,
+                    friendly_supported=False,
+                    canonical_description=(
+                        "Показывается результат этапа CHUNKS: материализованные чанки документа."
+                    ),
+                    friendly_description=(
+                        "Показывается тот же набор чанков в режиме удобного просмотра. "
+                        "Отдельное friendly-представление для CHUNKS пока не реализовано."
+                    ),
                 )
 
         if not chunks:
@@ -571,16 +1040,28 @@ class DocumentPipelineViewService:
         if not chunks:
             meta = self._base_meta(doc)
             meta.chunk_count = 0
-            return PipelineStageViewDTO(
-                code=PipelineStageCode.CHUNKS,
-                title="CHUNKS: materialized chunks",
-                description="Чанки для документа пока недоступны.",
-                available=False,
-                kind=PipelineStageKind.chunks,
-                status=PipelineStageStatus.pending,
-                artifact_ref=artifact_ref,
-                meta=meta,
-                preview=None,
+            return self._with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description="Чанки для документа пока недоступны.",
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=artifact_ref,
+                    meta=meta,
+                    preview=None,
+                ),
+                stage_code=PipelineStageCode.CHUNKS,
+                view_mode=view_mode,
+                friendly_supported=False,
+                canonical_description=(
+                    "Показывается результат этапа CHUNKS: материализованные чанки документа."
+                ),
+                friendly_description=(
+                    "Показывается тот же набор чанков в режиме удобного просмотра. "
+                    "Отдельное friendly-представление для CHUNKS пока не реализовано."
+                ),
             )
 
         reconstructed_text = "\n\n".join(
@@ -597,7 +1078,19 @@ class DocumentPipelineViewService:
         meta = self._base_meta(doc)
         meta.chunk_count = len(chunks)
 
-        return PipelineStageViewDTO(
+        # На данном этапе view_mode не влияет на содержимое CHUNKS,
+        # но параметр прокинут для совместимости и будущих расширений.
+        logger.info(
+            "PIPELINE_VIEW CHUNKS",
+            extra={
+                "doc_id": str(doc.id),
+                "chunks_ref": artifact_ref,
+                "chunk_count": len(chunks),
+                "view_mode": view_mode.value,
+            },
+        )
+
+        stage = PipelineStageViewDTO(
             code=PipelineStageCode.CHUNKS,
             title="CHUNKS: materialized chunks",
             description="Материализованный snapshot чанков документа для retrieval, checks и viewer.",
@@ -607,6 +1100,20 @@ class DocumentPipelineViewService:
             artifact_ref=artifact_ref,
             meta=meta,
             preview=preview,
+        )
+
+        return self._with_representation(
+            stage,
+            stage_code=PipelineStageCode.CHUNKS,
+            view_mode=view_mode,
+            friendly_supported=False,
+            canonical_description=(
+                "Показывается результат этапа CHUNKS: материализованные чанки документа."
+            ),
+            friendly_description=(
+                "Показывается тот же набор чанков в режиме удобного просмотра. "
+                "Отдельное friendly-представление для CHUNKS пока не реализовано."
+            ),
         )
 
     async def _load_chunks_fallback(self, doc_id: UUID) -> list[ChunkPreviewDTO]:
@@ -672,7 +1179,21 @@ class DocumentPipelineViewService:
         result: list[ChunkPreviewDTO] = []
 
         if isinstance(snapshot, dict):
-            items = snapshot.get("chunks") or []
+            raw = snapshot.get("chunks") or snapshot
+
+            # Форматы:
+            # 1) "chunks": [ {...}, {...} ]
+            # 2) "chunks": { "section": [...], "clause": [...], "subclause": [...] }
+            if isinstance(raw, list):
+                items = raw
+            elif isinstance(raw, dict):
+                items: list[dict[str, Any]] = []
+                for lvl_items in raw.values():
+                    if isinstance(lvl_items, list):
+                        items.extend(lvl_items)
+            else:
+                return result
+
         elif isinstance(snapshot, list):
             items = snapshot
         else:

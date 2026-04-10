@@ -46,6 +46,8 @@ from engine.content.chunking import (
     split_text_to_sized_chunks,
 )
 from core.logging import get_logger
+from engine.content.chunk_snapshot_reader import ChunkSnapshotReader
+
 
 logger = get_logger(__name__)
 
@@ -239,69 +241,11 @@ class DocumentContentService:
         doc_id: uuid.UUID,
         levels: list[str],
     ) -> list[dict[str, Any]]:
-        """
-        Попробовать прочитать чанки из готового snapshot'а по ссылке chunks_ref.
-
-        Для непрофессионального программиста:
-        - chunk_builder уже мог построить и сохранить snapshot чанков (JSON) в MinIO;
-        - в DocumentVersion есть поле chunks_ref со ссылкой вида s3://bucket/path;
-        - здесь мы:
-          1) читаем snapshot через ArtifactStore.get_json;
-          2) берём из него нужные уровни (section/clause/subclause);
-          3) приводим каждый элемент к виду {id, text, metadata}.
-        """
-        version = await self._get_latest_version(doc_id)
-        if not version or not getattr(version, "chunks_ref", None):
-            return []
-
-        chunks_ref = version.chunks_ref
-
-        try:
-            # В snapshot структура вида:
-            # {
-            #   "schema_version": 1,
-            #   "doc_id": "...",
-            #   "chunks": {
-            #       "section": [...],
-            #       "clause": [...],
-            #       "subclause": [...]
-            #   }
-            # }
-            snapshot = self._artifact_store.get_json(chunks_ref)
-        except Exception as e:
-            logger.warning(
-                "DocumentContentService: failed to load chunk snapshot, falling back to on-the-fly",
-                doc_id=str(doc_id),
-                chunks_ref=chunks_ref,
-                error=str(e),
-            )
-            return []
-
-        chunks_by_level = snapshot.get("chunks") or {}
-        if not isinstance(chunks_by_level, dict):
-            return []
-
-        level_set = {lvl.lower() for lvl in levels}
-        out: list[dict[str, Any]] = []
-
-        for lvl, items in chunks_by_level.items():
-            if lvl.lower() not in level_set or not isinstance(items, list):
-                continue
-            for ch in items:
-                if not isinstance(ch, dict):
-                    continue
-                text = (ch.get("text") or "").strip()
-                if not text:
-                    continue
-                out.append(
-                    {
-                        "id": ch.get("id"),
-                        "text": text,
-                        "metadata": ch.get("metadata") or {},
-                    }
-                )
-
-        return out
+        reader = ChunkSnapshotReader(
+            session=self.session,
+            artifact_store=self._artifact_store,
+        )
+        return await reader.load(doc_id=doc_id, levels=levels)
 
     # -------------------------------------------------------------------------
     # Публичные методы

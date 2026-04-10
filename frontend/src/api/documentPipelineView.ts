@@ -5,15 +5,23 @@
 // =============================================================
 
 import client from "./client";
-import type { DocumentPipelineViewResponseDTO } from "../types";
+import type {
+  DocumentPipelineViewResponseDTO,
+  StageViewMode,
+} from "../types";
 
 export async function getDocumentPipelineView(
   documentId: string,
   signal?: AbortSignal,
+  viewMode?: StageViewMode,
 ): Promise<DocumentPipelineViewResponseDTO> {
   const { data } = await client.get<DocumentPipelineViewResponseDTO>(
     `/api/v1/documents/${documentId}/pipeline-view`,
-    { signal },
+    {
+      signal,
+      params: viewMode ? { view_mode: viewMode } : undefined,
+    },
   );
   return data;
 }
+

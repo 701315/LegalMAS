@@ -2,6 +2,7 @@ import React from "react";
 import type {
   DocumentPipelineViewResponseDTO,
   PipelineStageViewDTO,
+  StageViewMode,
 } from "../../../types";
 import { getDocumentPipelineView } from "../../../api/documentPipelineView";
 import { PipelineStageRow } from "./PipelineStageRow";
@@ -35,6 +36,8 @@ export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
   const [selectedStage, setSelectedStage] =
     React.useState<PipelineStageViewDTO | null>(null);
 
+  const [viewMode, setViewMode] = React.useState<StageViewMode>("canonical");
+
   React.useEffect(() => {
     const controller = new AbortController();
 
@@ -56,6 +59,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
         const result = await getDocumentPipelineView(
           documentId,
           controller.signal,
+          viewMode,
         );
 
         setData(result);
@@ -77,7 +81,9 @@ export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
     return () => {
       controller.abort();
     };
-  }, [documentId]);
+  }, [documentId, viewMode]);
+
+  const effectiveViewMode: StageViewMode | null = data?.view_mode ?? null;
 
   return (
     <>
@@ -87,10 +93,47 @@ export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
             SOURCE → PRIMARY → EXTRACT → PII → STRUCTURE → CHUNKS
           </p>
           <p className="text-xs text-gray-400">
-            Здесь отображается путь документа по стадиям обработки — от исходного
-            PDF до структуры и чанков.
+            Здесь отображается путь документа по стадиям обработки — от
+            исходного PDF до структуры и чанков.
           </p>
         </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-gray-500">
+            Режим представления пайплайна:
+          </div>
+
+          <div className="inline-flex rounded border border-gray-200 bg-gray-50 p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("canonical")}
+              className={`px-2 py-1 rounded ${
+                viewMode === "canonical"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              canonical
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("friendly")}
+              className={`px-2 py-1 rounded ${
+                viewMode === "friendly"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              friendly
+            </button>
+          </div>
+        </div>
+
+        {effectiveViewMode && (
+          <p className="text-[11px] text-gray-400">
+            Текущий режим (по данным сервера): {effectiveViewMode}
+          </p>
+        )}
 
         {loading && (
           <div className="text-sm text-gray-500">
@@ -132,5 +175,4 @@ export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
 };
 
 export default DocumentPipelinePanel;
-
 
