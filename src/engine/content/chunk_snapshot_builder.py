@@ -25,7 +25,7 @@ ChunkSnapshotBuilder — единый сервис для построения s
 """
 
 from __future__ import annotations
-
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -124,6 +124,15 @@ class ChunkSnapshotBuilder:
             tree=clause_tree,
             layout=layout,
         )
+
+        # Нормализуем текст clause-чанков, чтобы убрать дубли заголовков.
+        for ch in leaf_chunks:
+            meta = ch.get("metadata") or {}
+            ch["text"] = _normalize_clause_chunk_text(
+                text=ch.get("text") or "",
+                clause_uid=str(meta.get("clause_uid")) if meta.get("clause_uid") is not None else None,
+                title=meta.get("title"),
+            )
 
         if not leaf_chunks:
             logger.warning(
@@ -227,6 +236,23 @@ class ChunkSnapshotBuilder:
         clause_chunks = _ensure_clause_metadata(doc_id, leaf_chunks)
         clause_chunks_with_summary = _add_summary(clause_chunks)
 
+        invalid_clause_chunks = [
+            ch
+            for ch in clause_chunks_with_summary
+            if not ((ch.get("metadata") or {}).get("clause_uid"))
+        ]
+
+        logger.info(
+            "ChunkSnapshotBuilder: clause chunk quality stats",
+            extra={
+                "doc_id": str(doc.id),
+                "clause_count": len(clause_chunks_with_summary),
+                "invalid_clause_uid_count": len(invalid_clause_chunks),
+                "subclause_count": len(sized_chunks),
+                "section_count": len(section_chunks),
+            },
+        )
+
         # 7. Строим section‑чанки на основе clause‑чанков.
         #
         # build_section_chunks_from_clauses ожидает список dict с полями id/text/metadata.
@@ -272,6 +298,58 @@ class ChunkSnapshotBuilder:
 # Вспомогательные функции: полностью совместимы с текущим DocumentContentService
 # ---------------------------------------------------------------------------
 
+def _normalize_clause_chunk_text(
+    text: str,
+    clause_uid: str | None,
+    title: str | None,
+) -> str:
+    """
+    Нормализует текст clause-чанка:
+    - убирает дубль заголовка, если он уже есть в самом тексте;
+    - гарантирует единственную строку вида "<uid> <title>" в начале, если uid/title заданы.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+
+    lines = [line.strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+
+    if not lines:
+        return ""
+
+    if clause_uid and title:
+        expected_heading = f"{clause_uid} {title}".strip()
+
+        normalized: list[str] = []
+        seen_heading = False
+
+        for line in lines:
+            compact = re.sub(r"\s+", " ", line).strip().rstrip(".")
+            expected_compact = re.sub(r"\s+", " ", expected_heading).strip().rstrip(".")
+
+            if compact == expected_compact:
+                if seen_heading:
+                    # второй такой же заголовок — выкидываем
+                    continue
+                seen_heading = True
+                normalized.append(expected_heading)
+                continue
+
+            normalized.append(line)
+
+        lines = normalized
+
+        # Если заголовка в начале нет — добавим его.
+        if lines:
+            first_compact = re.sub(r"\s+", " ", lines[0]).strip().rstrip(".")
+            expected_compact = re.sub(r"\s+", " ", expected_heading).strip().rstrip(".")
+            if first_compact != expected_compact:
+                lines.insert(0, expected_heading)
+        else:
+            lines = [expected_heading]
+
+    return "\n\n".join(lines).strip()
 
 def _extract_total_pages(layout_meta: dict) -> int | None:
     """

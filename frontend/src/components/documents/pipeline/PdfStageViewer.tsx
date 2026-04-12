@@ -5,6 +5,17 @@ interface Props {
   stage: PipelineStageViewDTO;
 }
 
+/**
+ * PdfStageViewer
+ *
+ * Показывает PDF-артефакт стадии:
+ * - если есть inline_url — в iframe;
+ * - если нет — сообщение, что встроенный просмотр недоступен;
+ * - всегда оставляет ссылку "Открыть в новой вкладке", если есть download_url.
+ *
+ * Название/описание стадии рендерятся в шапке модалки,
+ * поэтому здесь они не дублируются.
+ */
 export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
   const preview = stage.preview as PdfPreviewDTO | null | undefined;
 
@@ -19,9 +30,9 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
   return (
     <div className="h-full flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900">{stage.title}</h3>
-          <p className="text-xs text-gray-500">{stage.description}</p>
+        <div className="text-xs text-gray-500">
+          {/* Небольшая подсказка вместо повторения title/description */}
+          Исходный PDF этого этапа.
         </div>
 
         {preview.download_url && (

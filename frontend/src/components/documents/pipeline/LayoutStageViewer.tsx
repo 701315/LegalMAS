@@ -5,6 +5,16 @@ interface Props {
   stage: PipelineStageViewDTO;
 }
 
+/**
+ * LayoutStageViewer
+ *
+ * Показывает layout-артефакт в двух вкладках:
+ * - Просмотр: страницы и извлечённый текст;
+ * - JSON: сырой payload артефакта.
+ *
+ * Название и описание стадии уже показаны в шапке модалки,
+ * поэтому здесь мы не дублируем их повторно.
+ */
 export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
   const preview = stage.preview as LayoutPreviewDTO | null | undefined;
   const [tab, setTab] = React.useState<"view" | "json">("view");
@@ -21,11 +31,6 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
 
   return (
     <div className="h-full flex flex-col gap-3">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900">{stage.title}</h3>
-        <p className="text-xs text-gray-500">{stage.description}</p>
-      </div>
-
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -38,6 +43,7 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
         >
           Просмотр
         </button>
+
         <button
           type="button"
           onClick={() => setTab("json")}
@@ -67,13 +73,16 @@ export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
                     Элементов: {page.element_count}
                   </p>
                 </div>
+
                 <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-gray-700 font-sans">
                   {page.text || "—"}
                 </pre>
               </div>
             ))
           ) : (
-            <div className="text-sm text-gray-500">Нет страниц для отображения.</div>
+            <div className="text-sm text-gray-500">
+              Нет страниц для отображения.
+            </div>
           )}
         </div>
       ) : (

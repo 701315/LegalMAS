@@ -7,6 +7,8 @@
 import client from "./client";
 import type {
   DocumentPipelineViewResponseDTO,
+  PipelineStageViewDTO,
+  PipelineStageCode,
   StageViewMode,
 } from "../types";
 
@@ -23,5 +25,17 @@ export async function getDocumentPipelineView(
     },
   );
   return data;
+}
+
+// Новый хелпер: грузит весь pipeline, возвращает только нужную стадию.
+// Используется внутри modal при переключении view_mode.
+export async function getStageView(
+  documentId: string,
+  stageCode: PipelineStageCode,
+  viewMode: StageViewMode,
+  signal?: AbortSignal,
+): Promise<PipelineStageViewDTO | null> {
+  const data = await getDocumentPipelineView(documentId, signal, viewMode);
+  return data.stages.find((s) => s.code === stageCode) ?? null;
 }
 

@@ -1,6 +1,5 @@
 # src/api/schemas/document_pipeline_view.py
 
-# src/api/schemas/document_pipeline_view.py
 
 """
 Pydantic DTO-схемы для представления пайплайна обработки документа
@@ -27,6 +26,7 @@ Pydantic DTO-схемы для представления пайплайна о�
 - StageRepresentationDTO — пояснение, является ли текущий вид каноническим
   или это более удобное производное представление.
 """
+
 
 from __future__ import annotations
 
@@ -83,6 +83,8 @@ class StageMetaDTO(BaseModel):
     section_count: int | None = None
     source_file_name: str | None = None
     mime_type: str | None = None
+    # Флаг, который показывает, обогащён ли STRUCTURE-текст секций
+    # данными из canonical snapshot CHUNKS (friendly-режим).
     text_enriched: bool | None = None
 
 
@@ -155,13 +157,61 @@ class LayoutPreviewDTO(BaseModel):
     raw_json: dict[str, Any] | list[Any] | None = None
 
 
+class SectionSourceMappingDTO(BaseModel):
+    """
+    Привязка секции STRUCTURE к исходному текстовому слою документа.
+
+    Это не про friendly-текст, а про то, откуда эта секция "вырезана":
+    - из каких чанков;
+    - на каких страницах;
+    - с какой текстовой цитатой, чтобы фронт мог подсветить оригинал.
+    """
+
+    # Какой текстовый слой считать "источником" для правой колонки
+    # (PRIMARY pdf, EXTRACT layout/text, CHUNKS текстовые чанки).
+    source_stage: PipelineStageCode = PipelineStageCode.CHUNKS
+
+    # Fallback-привязка по страницам (если нет более точной).
+    page_from: int | None = None
+    page_to: int | None = None
+
+    # Ссылки на чанки (если секция построена по clause_uid).
+    chunk_indices: list[int] = Field(default_factory=list)
+
+    # Опциональная текстовая цитата для поиска/подсветки в исходном тексте.
+    # Например, первый абзац секции или характерный фрагмент.
+    match_text: str | None = None
+
+    # Как именно был получен anchor:
+    # - "chunk_refs": из clause_uid -> chunks
+    # - "text_quote": из исходного текста
+    # - "page_window": только по страницам
+    match_strategy: Literal["chunk_refs", "text_quote", "page_window"] = "chunk_refs"
+
+
 class StructureSectionPreviewDTO(BaseModel):
-    # Это стабильный технический идентификатор узла для UI.
-    # Он нужен для React keys, выбора секции и другой UI-логики.
+    """
+    Представление одной секции/пункта документа для STRUCTURE-view.
+
+    Важно:
+    - canonical-STRUCTURE хранит "structure_text" — исходный текст из clause tree;
+    - friendly-STRUCTURE может дополнительно заполнять "enriched_text"
+      за счёт canonical CHUNKS;
+    - text_preview — UI-ориентированное поле для краткого отображения,
+      которое остаётся для совместимости:
+
+        canonical:
+            text_preview = structure_text
+        friendly:
+            text_preview = enriched_text (если он есть) иначе structure_text
+    """
+
+    # Стабильный технический идентификатор узла для UI.
+    # Нужен для React keys, выбора секции и другой UI-логики.
     id: str
 
-    # Это доменный идентификатор клаузы документа.
-    # Он нужен для связи structure -> canonical chunks -> checks/results.
+    # Доменный идентификатор клаузы документа.
+    # Нужен для связи structure -> canonical chunks -> checks/results.
     clause_uid: str | None = None
 
     title: str
@@ -169,11 +219,28 @@ class StructureSectionPreviewDTO(BaseModel):
     page_from: int | None = None
     page_to: int | None = None
 
-    # Это текст для показа в STRUCTURE-view.
-    # В canonical-режиме это должен быть текст самого stage STRUCTURE
-    # (или пустая строка, если stage его не породил).
-    # В friendly-режиме это поле может быть обогащено из CHUNKS.
+    # 1) Чистый текст из clause tree (STRUCTURE stage).
+    #    Этот текст задаётся на этапе _flatten_clause_tree и
+    #    не должен перезаписываться enrichment-логикой.
+    structure_text: str = ""
+
+    # 2) Обогащённый текст секции из canonical snapshot CHUNKS
+    #    (friendly-STRUCTURE и/или наследование от дочерних секций).
+    #    Если enrichment не сработал, остаётся пустым.
+    enriched_text: str = ""
+
+    # 3) UI-ориентированное поле для краткого отображения текста секции.
+    #
+    # canonical:
+    #   text_preview = structure_text
+    # friendly:
+    #   text_preview = enriched_text (если он есть) иначе structure_text.
+    #
+    # Это поле оставлено для совместимости со старым фронтом и внешними клиентами.
     text_preview: str = ""
+
+    # Привязка секции к исходному тексту (страницы, чанки, цитата).
+    source_mapping: SectionSourceMappingDTO | None = None
 
 
 class StructurePreviewDTO(BaseModel):
@@ -219,7 +286,7 @@ class PipelineStageViewDTO(BaseModel):
     # Объясняет, в каком режиме показана стадия
     # и откуда взялись данные текущего представления.
     representation: StageRepresentationDTO = Field(
-        default_factory=StageRepresentationDTO
+        default_factory=StageRepresentationDTO,
     )
 
 
@@ -233,5 +300,4 @@ class DocumentPipelineViewResponseDTO(BaseModel):
     view_mode: StageViewMode
 
     stages: list[PipelineStageViewDTO] = Field(default_factory=list)
-
     

@@ -83,6 +83,27 @@ export interface LayoutPreviewDTO {
   raw_json?: JsonValue | null;
 }
 
+/**
+ * Привязка секции STRUCTURE к исходному текстовому слою документа.
+ * Используется для source-pane справа:
+ * - какие чанки соответствуют секции;
+ * - по каким страницам искать;
+ * - какую цитату можно подсветить.
+ */
+export type SectionSourceMatchStrategy =
+  | "chunk_refs"
+  | "text_quote"
+  | "page_window";
+
+export interface SectionSourceMappingDTO {
+  source_stage: PipelineStageCode;
+  page_from?: number | null;
+  page_to?: number | null;
+  chunk_indices: number[];
+  match_text?: string | null;
+  match_strategy: SectionSourceMatchStrategy;
+}
+
 export interface StructureSectionPreviewDTO {
   id: string;
 
@@ -95,10 +116,34 @@ export interface StructureSectionPreviewDTO {
   page_from?: number | null;
   page_to?: number | null;
 
-  // Текст для показа в STRUCTURE-view.
-  // В canonical это текст stage STRUCTURE.
-  // В friendly может быть обогащён из CHUNKS.
+  // Канонический текст секции из STRUCTURE / clause tree.
+  // Это исходный текст самой секции, каким его сформировал backend
+  // на этапе построения структуры документа.
+  //
+  // В canonical-view именно это поле считается главным источником текста.
+  structure_text?: string | null;
+
+  // Обогащённый текст секции.
+  // Обычно backend собирает его из CHUNKS, если для секции удалось
+  // найти связанный текст по clause_uid или через наследование от детей.
+  //
+  // В friendly-view именно это поле предпочтительно для показа.
+  enriched_text?: string | null;
+
+  // UI-совместимое поле для показа текста секции.
+  //
+  // Смысл такой:
+  // - canonical: обычно равно structure_text;
+  // - friendly: обычно равно enriched_text, а если его нет —
+  //   fallback на structure_text.
+  //
+  // Поле оставляем для обратной совместимости со старым фронтом
+  // и на случай, если backend ещё не обновлён полностью.
   text_preview?: string | null;
+
+  // Связь секции с исходным текстовым слоем.
+  // Нужна для правой панели, подсветки и навигации по CHUNKS.
+  source_mapping?: SectionSourceMappingDTO | null;
 }
 
 export interface StructurePreviewDTO {
@@ -155,4 +200,3 @@ export interface DocumentPipelineViewResponseDTO {
 
   stages: PipelineStageViewDTO[];
 }
-

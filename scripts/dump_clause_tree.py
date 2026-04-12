@@ -1,48 +1,88 @@
 # scripts/dump_clause_tree.py
+# scripts/dump_clause_tree.py
+# cd ~/projects/LegalMAS
+# PYTHONPATH=./src python scripts/dump_clause_tree.py
 
+
+import sys
 import asyncio
 import json
 from pathlib import Path
 from uuid import UUID
 
-from db.uow import db_uow
-from db.repositories.document_version_repo import DocumentVersionRepository
-from engine.content.document_content_service import DocumentContentService
+# Чтобы работало при запуске из корня репозитория:
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
-DOCUMENT_ID = UUID("f4c739be-4976-4bec-a3cc-a5194eb43fdd")
+from db.uow import db_uow
+from api.schemas.document_pipeline_view import PipelineStageCode, StageViewMode
+from services.document_pipeline_view_service import DocumentPipelineViewService
+
+
+DOC_ID = "be76f4a4-85e1-49ac-ad8c-a78fd25e7252"
 
 
 async def main() -> None:
-    print("starting dump_clause_tree")
-
     async with db_uow() as uow:
-        ver_repo = DocumentVersionRepository(uow.session)
-        version = await ver_repo.get_latest(DOCUMENT_ID)
-        if not version:
-            raise RuntimeError(f"No latest DocumentVersion for doc {DOCUMENT_ID}")
+        service = DocumentPipelineViewService(uow.session)
 
-        clause_tree_ref = getattr(version, "clause_tree_ref", None)
-        if not clause_tree_ref:
-            raise RuntimeError(
-                f"No clause_tree_ref for version {version.id} of doc {DOCUMENT_ID}"
-            )
+        # Вызов позиционно, чтобы не зависеть от имён параметров build()
+        response = await service.build(
+            UUID(DOC_ID),
+            StageViewMode.friendly,
+        )
 
-        print(f"version_id={version.id}")
-        print(f"clause_tree_ref={clause_tree_ref}")
+        data = response.model_dump(mode="json")
 
-        content = DocumentContentService(uow.session)
-        store = content._artifact_store
-        clause_tree = store.get_json(clause_tree_ref)
+        structure_stage = next(
+            (s for s in data["stages"] if s["code"] == PipelineStageCode.STRUCTURE.value),
+            None,
+        )
 
-    out_dir = Path("output")
-    out_dir.mkdir(parents=True, exist_ok=True)
+        # На всякий случай поддерживаем оба варианта ключа
+        view_mode_value = data["viewmode"] if "viewmode" in data else data.get("view_mode")
+        print("view_mode:", view_mode_value)
+        print("structure available:", structure_stage["available"] if structure_stage else None)
 
-    out_path = out_dir / "clause_tree.json"
-    with out_path.open("w", encoding="utf-8") as f:
-        json.dump(clause_tree, f, ensure_ascii=False, indent=2)
+        if not structure_stage or not structure_stage.get("preview"):
+            print("No structure preview")
+            return
 
-    print(f"written to {out_path.resolve()}")
+        preview = structure_stage["preview"]
+        sections = preview.get("sections") or []
+
+        print("sections_len:", len(sections))
+
+        interesting: list[dict] = []
+        for s in sections:
+            uid = s.get("clause_uid")
+            title = (s.get("title") or "").strip()
+
+            if uid in {"2.2", "2.2.5", "2.2.11", "2.2.12"} or title.startswith(
+                ("2.2", "2.2.5", "2.2.11", "2.2.12")
+            ):
+                interesting.append(
+                    {
+                        "id": s.get("id"),
+                        "title": s.get("title"),
+                        "level": s.get("level"),
+                        "clause_uid": s.get("clause_uid"),
+                        "page_from": s.get("page_from"),
+                        "page_to": s.get("page_to"),
+                        "text_preview": s.get("text_preview"),
+                        "source_mapping": s.get("source_mapping"),
+                    }
+                )
+
+        print(json.dumps(interesting, ensure_ascii=False, indent=2))
+
+        out = PROJECT_ROOT / "pipeline_view_friendly.json"
+        out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"saved: {out.resolve()}")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+

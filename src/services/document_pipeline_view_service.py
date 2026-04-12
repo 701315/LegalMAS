@@ -52,6 +52,7 @@ from api.schemas.document_pipeline_view import (
     StageViewMode,
     StructurePreviewDTO,
     StructureSectionPreviewDTO,
+    SectionSourceMappingDTO,
 )
 
 from core.exceptions import PermanentError, TransientError
@@ -537,10 +538,13 @@ class DocumentPipelineViewService:
         for el in elements:
             if not isinstance(el, dict):
                 continue
+
             page = el.get("page")
             text = el.get("text") or ""
+
             if not isinstance(page, int):
                 continue
+
             count_by_page[page] += 1
             if text:
                 by_page[page].append(str(text))
@@ -551,7 +555,7 @@ class DocumentPipelineViewService:
             pages.append(
                 LayoutPagePreviewDTO(
                     page=page_num,
-                    text="\n".join(by_page.get(page_num, []))[:4000],
+                    text="\n".join(by_page.get(page_num, [])),
                     element_count=count_by_page.get(page_num, 0),
                 )
             )
@@ -576,6 +580,258 @@ class DocumentPipelineViewService:
             meta=meta,
             preview=preview,
         )
+
+    def _extract_clause_tree_text(self, node: dict[str, Any]) -> str:
+        """
+        Достаёт canonical текст секции из clause tree с поддержкой нескольких ключей.
+
+        Важно:
+        - это source of truth для canonical STRUCTURE-view;
+        - не зависит от CHUNKS;
+        - должен быть безопасным для разных форматов tree.to_dict().
+        """
+        candidates = [
+            node.get("text"),
+            node.get("content"),
+            node.get("body"),
+            node.get("clauseText"),
+            node.get("normalized_text"),
+            node.get("raw_text"),
+        ]
+
+        for value in candidates:
+            if isinstance(value, str):
+                text = value.strip()
+                if text:
+                    return text
+            elif value is not None:
+                text = str(value).strip()
+                if text:
+                    return text
+
+        return ""
+
+
+    async def _attach_structure_source_mapping(
+        self,
+        doc_id: UUID,
+        sections: list[StructureSectionPreviewDTO],
+    ) -> bool:
+        """
+        Привязывает STRUCTURE-секции к canonical clause-chunks по clause_uid.
+
+        Инварианты:
+        - используем только snapshot уровня "clause";
+        - mapping строится только по clause_uid, без fuzzy/text fallback;
+        - page_from/page_to берём из реально связанных чанков, а не из секции;
+        - chunk_indices всегда дедуплицированы и отсортированы;
+        - match_text — короткий preview, а не весь текст клаузы.
+        """
+        if not sections:
+            return False
+
+        reader = ChunkSnapshotReader(
+            session=self.session,
+            artifact_store=self.store,
+        )
+
+        clause_chunks = await reader.load(
+            doc_id=doc_id,
+            levels=["clause"],
+        )
+        if not clause_chunks:
+            return False
+
+        def _normalize_uid(value: Any) -> str | None:
+            if value is None:
+                return None
+            uid = str(value).strip()
+            return uid or None
+
+        chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+        for raw_idx, ch in enumerate(clause_chunks):
+            meta = ch.get("metadata") or {}
+            uid = _normalize_uid(meta.get("clause_uid") or ch.get("clause_uid"))
+            if not uid:
+                continue
+
+            # индекс в snapshot-е, нужен для chunk_indices
+            ch["_pipeline_index"] = raw_idx
+            chunks_by_uid[uid].append(ch)
+
+        def _chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
+            meta = ch.get("metadata") or {}
+            pos = meta.get("position_ratio")
+            start_page = meta.get("start_page")
+            chunk_id = str(ch.get("id") or "")
+            return (
+                float(pos) if isinstance(pos, (int, float)) else 1.0,
+                int(start_page) if isinstance(start_page, int) else 10**9,
+                chunk_id,
+            )
+
+        for items in chunks_by_uid.values():
+            items.sort(key=_chunk_sort_key)
+
+        mapped_any = False
+
+        for section in sections:
+            section_uid = _normalize_uid(section.clause_uid)
+            if not section_uid:
+                continue
+
+            chunks = chunks_by_uid.get(section_uid)
+            if not chunks:
+                # полезно залогировать, если хочешь проще отлавливать дырки:
+                # logger.debug("No clause chunks for section", extra={"doc_id": str(doc_id), "clause_uid": section_uid})
+                continue
+
+            chunk_indices: list[int] = []
+            parts: list[str] = []
+            seen_chunk_ids: set[str] = set()
+            page_values: list[int] = []
+
+            for ch in chunks:
+                chunk_id = str(ch.get("id") or "").strip()
+                if chunk_id and chunk_id in seen_chunk_ids:
+                    continue
+
+                text = (ch.get("text") or "").strip()
+                if not text:
+                    continue
+
+                parts.append(text)
+
+                if chunk_id:
+                    seen_chunk_ids.add(chunk_id)
+
+                raw_idx = ch.get("_pipeline_index")
+                if isinstance(raw_idx, int):
+                    chunk_indices.append(raw_idx)
+
+                meta = ch.get("metadata") or {}
+                start_page = meta.get("start_page")
+                end_page = meta.get("end_page")
+
+                if isinstance(start_page, int):
+                    page_values.append(start_page)
+                if isinstance(end_page, int):
+                    page_values.append(end_page)
+
+            unique_indices = sorted(set(chunk_indices))
+            if not unique_indices:
+                continue
+
+            full_text = "\n\n".join(parts).strip()
+            if not full_text:
+                continue
+
+            # Короткий preview вместо полного текста
+            match_text = full_text[:400]
+
+            # ВАЖНО: не перетираем уже существующий mapping, если он был
+            # заполнен более "богатой" логикой (например, после enrich).
+            if not section.source_mapping or not section.source_mapping.chunk_indices:
+                section.source_mapping = SectionSourceMappingDTO(
+                    source_stage=PipelineStageCode.CHUNKS,
+                    page_from=min(page_values) if page_values else section.page_from,
+                    page_to=max(page_values) if page_values else section.page_to,
+                    chunk_indices=unique_indices,
+                    match_text=match_text,
+                    match_strategy="chunk_refs",
+                )
+                mapped_any = True
+
+        return mapped_any
+
+    def _inherit_structure_from_children(
+        self,
+        sections: list[StructureSectionPreviewDTO],
+    ) -> None:
+        """
+        Обогащает "групповые" секции (типа 6.1), у которых нет собственного enriched_text
+        и source_mapping, за счёт их дочерних пунктов.
+
+        Логика:
+        - если у родителя нет enriched_text и/или source_mapping;
+        - у дочерних секций есть enriched_text (или хотя бы structure_text) и/или mapping;
+        - в родителя агрегируется:
+          - enriched_text = конкатенация enriched_text детей (fallback: structure_text);
+          - source_mapping:
+              - chunk_indices = объединение индексов детей (без дубликатов);
+              - match_text = тот же агрегированный текст;
+              - match_strategy = "chunk_refs".
+        """
+        if not sections:
+            return
+
+        # Быстрый доступ: clause_uid -> секция.
+        section_by_uid: dict[str, StructureSectionPreviewDTO] = {}
+        for s in sections:
+            if s.clause_uid:
+                section_by_uid[s.clause_uid] = s
+
+        # Собираем детей по родительскому uid: "6.1.1" -> parent "6.1".
+        children_by_parent_uid: dict[str, list[StructureSectionPreviewDTO]] = defaultdict(list)
+        for s in sections:
+            uid = s.clause_uid
+            if not uid:
+                continue
+            parts = uid.split(".")
+            if len(parts) <= 1:
+                continue  # верхний уровень (1, 2, 3, ...)
+            parent_uid = ".".join(parts[:-1])
+            children_by_parent_uid[parent_uid].append(s)
+
+        for parent_uid, child_sections in children_by_parent_uid.items():
+            parent = section_by_uid.get(parent_uid)
+            if not parent:
+                continue
+
+            has_enriched_text = bool(parent.enriched_text and parent.enriched_text.strip())
+            has_mapping = parent.source_mapping is not None
+
+            # Если у родителя уже есть и enriched_text, и mapping — не трогаем.
+            if has_enriched_text and has_mapping:
+                continue
+
+            child_texts: list[str] = []
+            all_indices: list[int] = []
+
+            for child in child_sections:
+                # Для агрегата в первую очередь используем enriched_text детей,
+                # если его нет — fallback на structure_text.
+                if child.enriched_text and child.enriched_text.strip():
+                    child_texts.append(child.enriched_text.strip())
+                elif child.structure_text and child.structure_text.strip():
+                    child_texts.append(child.structure_text.strip())
+
+                if child.source_mapping and child.source_mapping.chunk_indices:
+                    all_indices.extend(child.source_mapping.chunk_indices)
+
+            if not child_texts and not all_indices:
+                # У детей тоже нечего наследовать.
+                continue
+
+            aggregated_text = "\n\n".join(child_texts).strip() if child_texts else None
+
+            # Если у родителя не было enriched_text — подставляем агрегированный.
+            if not has_enriched_text and aggregated_text:
+                parent.enriched_text = aggregated_text
+
+            # Если не было mapping — создаём агрегированный.
+            if not has_mapping and all_indices:
+                unique_indices = sorted(set(all_indices))
+                parent.source_mapping = SectionSourceMappingDTO(
+                    source_stage=PipelineStageCode.CHUNKS,
+                    page_from=parent.page_from,
+                    page_to=parent.page_to,
+                    chunk_indices=unique_indices,
+                    match_text=aggregated_text,
+                    match_strategy="chunk_refs",
+                )
+
 
     async def _build_structure_stage(
         self,
@@ -674,7 +930,6 @@ class DocumentPipelineViewService:
 
         root_nodes = self._iter_structure_root_nodes(payload)
         for idx, node in enumerate(root_nodes):
-            # path_indices начинается с одного числа — позиции корневого узла.
             self._flatten_clause_tree(
                 node,
                 sections,
@@ -682,11 +937,26 @@ class DocumentPipelineViewService:
                 path_indices=[idx],
             )
 
-        # По умолчанию считаем, что enrichment не выполнялся.
         text_enriched = False
+        source_mapped = False
 
-        # В режиме "friendly" обогащаем секции полным текстом из chunk snapshot.
-        # В режиме "canonical" оставляем только текст из clause tree.
+        # source_mapping нужен и для canonical, и для friendly:
+        try:
+            source_mapped = await self._attach_structure_source_mapping(
+                doc_id=doc.id,
+                sections=sections,
+            )
+        except Exception as e:
+            logger.warning(
+                "PIPELINE_VIEW STRUCTURE: source mapping attach failed",
+                extra={
+                    "doc_id": str(doc.id),
+                    "error": str(e),
+                },
+            )
+
+        # Обогащаем текст секций из canonical chunk snapshot только в friendly-режиме.
+        # Canonical должен сохранять собственный text_preview из clause tree.
         if view_mode == StageViewMode.friendly:
             try:
                 text_enriched = await self._enrich_structure_with_text(
@@ -701,6 +971,32 @@ class DocumentPipelineViewService:
                         "error": str(e),
                     },
                 )
+
+        # После source_mapping и text_enriched наследуем данные для "групповых" секций
+        # вроде 6.1, у которых нет собственного текста и mapping.
+        try:
+            self._inherit_structure_from_children(sections)
+        except Exception as e:
+            logger.warning(
+                "PIPELINE_VIEW STRUCTURE: inherit from children failed",
+                extra={
+                    "doc_id": str(doc.id),
+                    "error": str(e),
+                },
+            )
+
+        # После всех обогащений приводим text_preview к единой семантике
+        # в зависимости от view_mode:
+        #
+        # canonical:
+        #   text_preview = structure_text
+        # friendly:
+        #   text_preview = enriched_text (если есть) иначе structure_text.
+        for s in sections:
+            if view_mode == StageViewMode.canonical:
+                s.text_preview = s.structure_text or ""
+            else:
+                s.text_preview = (s.enriched_text or s.structure_text or "").strip()
 
         preview = StructurePreviewDTO(
             type="structure",
@@ -720,6 +1016,7 @@ class DocumentPipelineViewService:
                 "sections_len": len(sections),
                 "payload_type": type(payload).__name__,
                 "text_enriched": text_enriched,
+                "source_mapped": source_mapped,
                 "view_mode": view_mode.value,
             },
         )
@@ -762,77 +1059,108 @@ class DocumentPipelineViewService:
         path_indices: list[int],
     ) -> None:
         """
-        Преобразует один узел clause tree в плоскую секцию для STRUCTURE‑view
+        Преобразует один узел clause tree в плоскую секцию для STRUCTURE-view
         и рекурсивно обрабатывает его дочерние узлы.
 
         Важно:
         - id секции строится детерминированно из clause_uid и пути в дереве:
-          "<clause_uid or 'noid'>#<path_str>";
+        "<clause_uid or 'noid'>#<path_str>";
         - clause_uid прокидывается явно в DTO;
-        - text_preview берётся из node["text"], если он есть, и может быть
-          затем переопределён enrichment'ом из chunk snapshot.
+        - structure_text = text из clause tree;
+        - text_preview в canonical = structure_text (friendly переопределит).
         """
-        # Пытаемся вытащить clause_uid из разных вариантов поля.
-        clause_uid = (
-            node.get("clauseUid")
-            or node.get("clause_uid")
-            or None
+
+        def _normalize_uid(value: Any) -> str | None:
+            if value is None:
+                return None
+            uid = str(value).strip()
+            return uid or None
+
+        def _normalize_title(value: Any) -> str:
+            if value is None:
+                return "Untitled section"
+            title = str(value).strip()
+            return title or "Untitled section"
+
+        def _normalize_int(value: Any) -> int | None:
+            if value is None:
+                return None
+            if isinstance(value, int):
+                return value
+            try:
+                return int(str(value).strip())
+            except (TypeError, ValueError):
+                return None
+
+        clause_uid = _normalize_uid(
+            node.get("clauseUid") or node.get("clause_uid")
         )
 
-        title = (
+        title = _normalize_title(
             node.get("title")
             or node.get("label")
             or node.get("name")
-            or "Untitled section"
         )
 
-        page_from = (
+        page_from = _normalize_int(
             node.get("startPage")
             or node.get("start_page")
             or node.get("page_from")
         )
-        page_to = (
+        page_to = _normalize_int(
             node.get("endPage")
             or node.get("end_page")
             or node.get("page_to")
-            or page_from
         )
 
-        text = node.get("text") or ""
-        if not isinstance(text, str):
-            text = str(text)
+        if page_from is not None and page_to is None:
+            page_to = page_from
+        if page_to is not None and page_from is None:
+            page_from = page_to
+        if (
+            page_from is not None
+            and page_to is not None
+            and page_to < page_from
+        ):
+            page_from, page_to = page_to, page_from
 
-        # Строим строку пути в дереве по индексам детей.
-        # Например, [0, 1, 3] -> "0.1.3".
+        text = self._extract_clause_tree_text(node)
+
+        node_level = _normalize_int(node.get("level"))
+        effective_level = node_level if node_level is not None else level
+
         path_str = ".".join(str(i) for i in path_indices) if path_indices else "0"
-
-        # Базовая часть id — clause_uid или "noid", если он отсутствует.
         base_id = clause_uid or "noid"
         node_id = f"{base_id}#{path_str}"
 
         acc.append(
             StructureSectionPreviewDTO(
                 id=node_id,
-                title=str(title),
-                level=int(node.get("level") or level),
-                page_from=page_from if isinstance(page_from, int) else None,
-                page_to=page_to if isinstance(page_to, int) else None,
-                text_preview=text[:500],
-                clause_uid=str(clause_uid) if clause_uid is not None else None,
+                title=title,
+                level=effective_level,
+                page_from=page_from,
+                page_to=page_to,
+                structure_text=text,
+                enriched_text="",
+                text_preview=text,
+                clause_uid=clause_uid,
             )
         )
 
-        # Рекурсивно обрабатываем дочерние узлы, добавляя индекс к пути.
-        children = node.get("children") or []
-        if isinstance(children, list):
-            for idx, child in enumerate(children):
-                if isinstance(child, dict):
-                    self._flatten_clause_tree(
-                        child,
-                        acc,
-                        level=level + 1,
-                        path_indices=path_indices + [idx],
-                    )
+        children = node.get("children")
+        if not isinstance(children, list):
+            return
+
+        for idx, child in enumerate(children):
+            if not isinstance(child, dict):
+                continue
+
+            self._flatten_clause_tree(
+                child,
+                acc,
+                level=effective_level + 1,
+                path_indices=path_indices + [idx],
+            )
 
     def _iter_structure_root_nodes(
         self,
@@ -874,17 +1202,14 @@ class DocumentPipelineViewService:
         sections: list[StructureSectionPreviewDTO],
     ) -> bool:
         """
-        Обогащает STRUCTURE sections полным текстом из canonical chunk snapshot.
+        Обогащает STRUCTURE-секции canonical текстом из snapshot уровня "clause".
 
-        Новый принцип:
-        - основной режим: clause-centric — матчим чанки по metadata.clause_uid;
-        - если у секции нет clause_uid или по нему не найдено чанков,
-          секция остаётся с текстом из clause tree;
-        - page-based пересечение больше не используется как основной механизм.
-
-        Возвращает:
-        - True: snapshot прочитан и хотя бы одна секция была обогащена;
-        - False: snapshot недоступен/пуст или enrichment не удался.
+        Инварианты:
+        - enrichment идёт только по clause_uid;
+        - structure_text остаётся source of truth из clause tree;
+        - enriched_text = текст из clause-level chunks;
+        - source_mapping отражает только реально связанные clause chunks;
+        - никаких fuzzy/text fallback здесь нет.
         """
         if not sections:
             return False
@@ -899,24 +1224,25 @@ class DocumentPipelineViewService:
             levels=["clause"],
         )
         if not clause_chunks:
-            # Нет snapshot или в нём нет clause-чанков — enrichment невозможен.
             return False
 
-        # Строим индекс чанков по clause_uid.
+        def _normalize_uid(value: Any) -> str | None:
+            if value is None:
+                return None
+            uid = str(value).strip()
+            return uid or None
+
         chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for ch in clause_chunks:
+
+        for raw_idx, ch in enumerate(clause_chunks):
             meta = ch.get("metadata") or {}
-            uid = (
-                meta.get("clause_uid")
-                or ch.get("clause_uid")
-                or None
-            )
+            uid = _normalize_uid(meta.get("clause_uid") or ch.get("clause_uid"))
             if not uid:
                 continue
-            chunks_by_uid[str(uid)].append(ch)
 
-        # Детерминированная сортировка чанков внутри каждого uid:
-        # сначала по position_ratio, потом по start_page, потом по id.
+            ch["_pipeline_index"] = raw_idx
+            chunks_by_uid[uid].append(ch)
+
         def _chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
             meta = ch.get("metadata") or {}
             pos = meta.get("position_ratio")
@@ -924,31 +1250,31 @@ class DocumentPipelineViewService:
             chunk_id = str(ch.get("id") or "")
             return (
                 float(pos) if isinstance(pos, (int, float)) else 1.0,
-                start_page if isinstance(start_page, int) else 10**9,
+                int(start_page) if isinstance(start_page, int) else 10**9,
                 chunk_id,
             )
 
-        for uid, items in chunks_by_uid.items():
+        for items in chunks_by_uid.values():
             items.sort(key=_chunk_sort_key)
 
         enriched_any = False
 
         for section in sections:
-            # Если у секции нет clause_uid — нечего связывать с чанками.
-            if not section.clause_uid:
+            section_uid = _normalize_uid(section.clause_uid)
+            if not section_uid:
                 continue
 
-            uid = section.clause_uid
-            chunks = chunks_by_uid.get(uid)
+            chunks = chunks_by_uid.get(section_uid)
             if not chunks:
-                # Для этой клаузы нет чанков в snapshot.
                 continue
 
             parts: list[str] = []
             seen_ids: set[str] = set()
+            chunk_indices: list[int] = []
+            page_values: list[int] = []
 
             for ch in chunks:
-                chunk_id = str(ch.get("id") or "")
+                chunk_id = str(ch.get("id") or "").strip()
                 if chunk_id and chunk_id in seen_ids:
                     continue
 
@@ -957,14 +1283,48 @@ class DocumentPipelineViewService:
                     continue
 
                 parts.append(text)
+
                 if chunk_id:
                     seen_ids.add(chunk_id)
 
+                raw_idx = ch.get("_pipeline_index")
+                if isinstance(raw_idx, int):
+                    chunk_indices.append(raw_idx)
+
+                meta = ch.get("metadata") or {}
+                start_page = meta.get("start_page")
+                end_page = meta.get("end_page")
+
+                if isinstance(start_page, int):
+                    page_values.append(start_page)
+                if isinstance(end_page, int):
+                    page_values.append(end_page)
+
             full_text = "\n\n".join(parts).strip()
-            if full_text:
-                # Перезаписываем text_preview полным каноническим текстом клаузы.
-                section.text_preview = full_text
-                enriched_any = True
+            if not full_text:
+                continue
+
+            unique_indices = sorted(set(chunk_indices))
+
+            # enriched_text — это "friendly" текст из canonical clause snapshot
+            section.enriched_text = full_text
+
+            # Для текущего UI friendly-preview должен показывать enriched_text.
+            section.text_preview = full_text
+
+            # source_mapping создаём только если реально есть индексы snapshot'а.
+            if unique_indices:
+                match_text = full_text[:400]
+                section.source_mapping = SectionSourceMappingDTO(
+                    source_stage=PipelineStageCode.CHUNKS,
+                    page_from=min(page_values) if page_values else section.page_from,
+                    page_to=max(page_values) if page_values else section.page_to,
+                    chunk_indices=unique_indices,
+                    match_text=match_text,
+                    match_strategy="chunk_refs",
+                )
+
+            enriched_any = True
 
         return enriched_any
 

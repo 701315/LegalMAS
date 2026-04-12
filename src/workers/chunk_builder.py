@@ -223,21 +223,46 @@ async def _build_chunks_async(
             details={"stage": "chunking", "kind": "document_not_found"},
         )
 
-    if (
-        getattr(version, "chunks_ref", None)
-        and doc.status == DocumentStatus.CHUNKED.value
-    ):
+    existing_chunks_ref = getattr(version, "chunks_ref", None)
+
+    existing_schema_version: int | None = None
+    if existing_chunks_ref:
+        try:
+            existing_snapshot = store.get_json(existing_chunks_ref)
+            if isinstance(existing_snapshot, dict):
+                existing_schema_version = existing_snapshot.get("schema_version")
+        except Exception as e:
+            logger.warning(
+                "Failed to load existing chunk snapshot for version, will rebuild",
+                document_id=str(doc.id),
+                document_version_id=str(version.id),
+                chunks_ref=existing_chunks_ref,
+                error=str(e),
+            )
+
+    # На будущее: можно прокинуть force_rebuild из Celery kwargs.
+    force_rebuild = False  # пока выключено, включите при необходимости
+
+    needs_rebuild = (
+        force_rebuild
+        or not existing_chunks_ref
+        or doc.status != DocumentStatus.CHUNKED.value
+        or existing_schema_version != 1  # текущая целевая версия схемы
+    )
+
+    if not needs_rebuild:
         logger.info(
-            "Chunks snapshot already exists and document is CHUNKED, skipping rebuild",
+            "Chunks snapshot already exists with expected schema_version, skipping rebuild",
             document_id=str(doc.id),
             document_version_id=str(version.id),
-            chunks_ref=version.chunks_ref,
+            chunks_ref=existing_chunks_ref,
+            schema_version=existing_schema_version,
         )
         return {
             "status": DocumentStatus.CHUNKED.value,
             "document_id": str(doc.id),
             "document_version_id": str(version.id),
-            "chunks_ref": version.chunks_ref,
+            "chunks_ref": existing_chunks_ref,
             "skipped": True,
             "committed": False,
         }

@@ -154,16 +154,30 @@ class ClauseTreeBuilder:
         - находим соответствующие элементы в layout,
         - склеиваем их текст в одном чанке.
         """
+
+        def _normalize_uid(value: Any) -> str | None:
+            if value is None:
+                return None
+            uid = str(value).strip()
+            return uid or None
+
+        def _normalize_title(value: Any) -> str | None:
+            if value is None:
+                return None
+            title = str(value).strip()
+            return title or None
+
         # path_titles — это "хлебные крошки" из заголовков от корня до текущего узла.
         current_path: List[str] = list(path_titles or [])
-        node_title = node.get("title")
+        node_title_raw = node.get("title")
+        node_title = _normalize_title(node_title_raw)
         if node_title:
             current_path.append(node_title)
 
         children = node.get("children") or []
 
         if not children:
-            clause_uid = node.get("clause_uid")
+            clause_uid = _normalize_uid(node.get("clause_uid"))
             element_ids: List[str] = node.get("element_ids") or []
 
             # Собираем текст клаузы из элементов layout.
@@ -185,30 +199,26 @@ class ClauseTreeBuilder:
                 if isinstance(page, int):
                     pages.append(page)
 
-                # Если элемент на новой странице — добавляем пустую строку
-                # как явный разделитель, чтобы модели видели разрыв страниц.
+                # Явный разделитель при смене страницы
                 if last_page is not None and page is not None and page != last_page:
                     texts.append("")
 
                 texts.append(text)
                 last_page = page
 
-            # Склеиваем блоки через двойной перевод строки, чтобы сохранить структуру.
-            # Пустые строки, добавленные при смене страницы, превратятся в лишние
-            # пустые абзацы, что удобно для LLM.
             full_text = "\n\n".join(texts).strip()
 
             if not full_text:
-                # Для непрофессионального программиста:
-                # - если после фильтрации / санитизации в этой листовой клаузе
-                #   не осталось ни одного непустого текстового элемента,
-                #   пустой чанк создавать не нужно.
                 return
 
-            # добавляем явный заголовок клаузы в текст чанка.
+            # УСЛОВНОЕ добавление заголовка, чтобы не дублировать его,
+            # если layout уже содержит строку "uid title" в начале.
             if clause_uid and node_title:
                 heading_line = f"{clause_uid} {node_title}".strip()
-                full_text = f"{heading_line}\n\n{full_text}"
+                full_text_compact = " ".join(full_text.split()).strip().rstrip(".")
+                heading_compact = " ".join(heading_line.split()).strip().rstrip(".")
+                if not full_text_compact.startswith(heading_compact):
+                    full_text = f"{heading_line}\n\n{full_text}"
 
             start_page = min(pages) if pages else node.get("start_page")
             end_page = max(pages) if pages else node.get("end_page")
@@ -216,7 +226,7 @@ class ClauseTreeBuilder:
             metadata = {
                 "doc_id": str(doc_id),
                 "clause_uid": clause_uid,
-                "title": node.get("title"),
+                "title": node_title,
                 "level": node.get("level"),
                 "path_titles": current_path,
                 "start_page": start_page,
@@ -226,7 +236,7 @@ class ClauseTreeBuilder:
 
             out.append(
                 {
-                    "id": f"{doc_id}:{clause_uid}",
+                    "id": f"{doc_id}:{clause_uid or 'full'}",
                     "text": full_text,
                     "metadata": metadata,
                 }
@@ -235,6 +245,8 @@ class ClauseTreeBuilder:
 
         # Если у узла есть дети — спускаемся ниже по дереву.
         for child in children:
+            if not isinstance(child, dict):
+                continue
             cls._collect_leaf_chunks(
                 doc_id=doc_id,
                 node=child,
@@ -242,3 +254,6 @@ class ClauseTreeBuilder:
                 out=out,
                 path_titles=current_path,
             )
+
+
+            
