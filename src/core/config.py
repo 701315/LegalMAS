@@ -148,6 +148,15 @@ class Settings(BaseSettings):
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
 
+    # Structure LLM Refiner
+    STRUCTURE_ENABLE_LLM_REFINER: bool = True
+    STRUCTURE_LLM_PROVIDER: str = "llamacpp"
+    STRUCTURE_LLM_MODEL: str = "..."
+    STRUCTURE_LLM_TIMEOUT_SECONDS: int = 20
+    STRUCTURE_LLM_MAX_AMBIGUOUS_PER_DOC: int = 8
+    STRUCTURE_LLM_MIN_CONFIDENCE: float = 0.80
+    STRUCTURE_LLM_MAX_CONTEXT_CHARS: int = 1200
+    STRUCTURE_LLM_SHADOW_MODE: bool = False
 
     # --- Dedup & Relations (Stage 7) ---
     DEDUP_EXACT_ENABLED: bool = True

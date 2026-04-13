@@ -628,7 +628,21 @@ class DocumentPipelineViewService:
         - match_text — короткий preview, а не весь текст клаузы.
         """
         if not sections:
+            logger.debug(
+                "Structure source mapping skipped: no sections",
+                extra={
+                    "doc_id": str(doc_id),
+                },
+            )
             return False
+
+        logger.info(
+            "Structure source mapping started",
+            extra={
+                "doc_id": str(doc_id),
+                "sections_count": len(sections),
+            },
+        )
 
         reader = ChunkSnapshotReader(
             session=self.session,
@@ -640,7 +654,23 @@ class DocumentPipelineViewService:
             levels=["clause"],
         )
         if not clause_chunks:
+            logger.warning(
+                "Structure source mapping skipped: no clause chunks loaded from snapshot",
+                extra={
+                    "doc_id": str(doc_id),
+                    "sections_count": len(sections),
+                },
+            )
             return False
+
+        logger.info(
+            "Structure source mapping: clause chunks loaded",
+            extra={
+                "doc_id": str(doc_id),
+                "sections_count": len(sections),
+                "clause_chunks_count": len(clause_chunks),
+            },
+        )
 
         def _normalize_uid(value: Any) -> str | None:
             if value is None:
@@ -650,15 +680,33 @@ class DocumentPipelineViewService:
 
         chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
+        chunk_without_uid_count = 0
+        duplicate_uid_chunk_count = 0
+
         for raw_idx, ch in enumerate(clause_chunks):
             meta = ch.get("metadata") or {}
             uid = _normalize_uid(meta.get("clause_uid") or ch.get("clause_uid"))
             if not uid:
+                chunk_without_uid_count += 1
                 continue
 
-            # индекс в snapshot-е, нужен для chunk_indices
             ch["_pipeline_index"] = raw_idx
+
+            if chunks_by_uid.get(uid):
+                duplicate_uid_chunk_count += 1
+
             chunks_by_uid[uid].append(ch)
+
+        logger.info(
+            "Structure source mapping: chunk index by clause_uid built",
+            extra={
+                "doc_id": str(doc_id),
+                "clause_chunks_count": len(clause_chunks),
+                "uids_count": len(chunks_by_uid),
+                "chunks_without_uid_count": chunk_without_uid_count,
+                "duplicate_uid_chunk_count": duplicate_uid_chunk_count,
+            },
+        )
 
         def _chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
             meta = ch.get("metadata") or {}
@@ -676,15 +724,39 @@ class DocumentPipelineViewService:
 
         mapped_any = False
 
+        sections_without_uid_count = 0
+        sections_without_chunk_match_count = 0
+        sections_skipped_existing_mapping_count = 0
+        sections_with_empty_full_text_count = 0
+        sections_mapped_count = 0
+        total_attached_chunk_refs = 0
+
         for section in sections:
             section_uid = _normalize_uid(section.clause_uid)
             if not section_uid:
+                sections_without_uid_count += 1
+                logger.debug(
+                    "Structure source mapping: section skipped because clause_uid is empty",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "title": getattr(section, "title", None),
+                        "page_from": getattr(section, "page_from", None),
+                        "page_to": getattr(section, "page_to", None),
+                    },
+                )
                 continue
 
             chunks = chunks_by_uid.get(section_uid)
             if not chunks:
-                # полезно залогировать, если хочешь проще отлавливать дырки:
-                # logger.debug("No clause chunks for section", extra={"doc_id": str(doc_id), "clause_uid": section_uid})
+                sections_without_chunk_match_count += 1
+                logger.debug(
+                    "Structure source mapping: no clause chunks found for section clause_uid",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                    },
+                )
                 continue
 
             chunk_indices: list[int] = []
@@ -692,13 +764,18 @@ class DocumentPipelineViewService:
             seen_chunk_ids: set[str] = set()
             page_values: list[int] = []
 
+            empty_text_chunk_count = 0
+            duplicate_chunk_id_skipped_count = 0
+
             for ch in chunks:
                 chunk_id = str(ch.get("id") or "").strip()
                 if chunk_id and chunk_id in seen_chunk_ids:
+                    duplicate_chunk_id_skipped_count += 1
                     continue
 
                 text = (ch.get("text") or "").strip()
                 if not text:
+                    empty_text_chunk_count += 1
                     continue
 
                 parts.append(text)
@@ -721,17 +798,37 @@ class DocumentPipelineViewService:
 
             unique_indices = sorted(set(chunk_indices))
             if not unique_indices:
+                logger.debug(
+                    "Structure source mapping: section skipped because unique_indices is empty",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "chunks_found": len(chunks),
+                        "empty_text_chunk_count": empty_text_chunk_count,
+                        "duplicate_chunk_id_skipped_count": duplicate_chunk_id_skipped_count,
+                    },
+                )
                 continue
 
             full_text = "\n\n".join(parts).strip()
             if not full_text:
+                sections_with_empty_full_text_count += 1
+                logger.debug(
+                    "Structure source mapping: section skipped because concatenated full_text is empty",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "chunks_found": len(chunks),
+                        "unique_indices_count": len(unique_indices),
+                        "empty_text_chunk_count": empty_text_chunk_count,
+                    },
+                )
                 continue
 
-            # Короткий preview вместо полного текста
             match_text = full_text[:400]
 
-            # ВАЖНО: не перетираем уже существующий mapping, если он был
-            # заполнен более "богатой" логикой (например, после enrich).
             if not section.source_mapping or not section.source_mapping.chunk_indices:
                 section.source_mapping = SectionSourceMappingDTO(
                     source_stage=PipelineStageCode.CHUNKS,
@@ -742,6 +839,51 @@ class DocumentPipelineViewService:
                     match_strategy="chunk_refs",
                 )
                 mapped_any = True
+                sections_mapped_count += 1
+                total_attached_chunk_refs += len(unique_indices)
+
+                logger.debug(
+                    "Structure source mapping attached",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "chunk_indices_count": len(unique_indices),
+                        "page_from": min(page_values) if page_values else section.page_from,
+                        "page_to": max(page_values) if page_values else section.page_to,
+                        "chunks_found": len(chunks),
+                        "empty_text_chunk_count": empty_text_chunk_count,
+                        "duplicate_chunk_id_skipped_count": duplicate_chunk_id_skipped_count,
+                    },
+                )
+            else:
+                sections_skipped_existing_mapping_count += 1
+                logger.debug(
+                    "Structure source mapping preserved existing mapping",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "existing_chunk_indices_count": len(section.source_mapping.chunk_indices or []),
+                        "candidate_chunk_indices_count": len(unique_indices),
+                    },
+                )
+
+        logger.info(
+            "Structure source mapping finished",
+            extra={
+                "doc_id": str(doc_id),
+                "sections_count": len(sections),
+                "clause_chunks_count": len(clause_chunks),
+                "mapped_any": mapped_any,
+                "sections_mapped_count": sections_mapped_count,
+                "sections_without_uid_count": sections_without_uid_count,
+                "sections_without_chunk_match_count": sections_without_chunk_match_count,
+                "sections_skipped_existing_mapping_count": sections_skipped_existing_mapping_count,
+                "sections_with_empty_full_text_count": sections_with_empty_full_text_count,
+                "total_attached_chunk_refs": total_attached_chunk_refs,
+            },
+        )
 
         return mapped_any
 
@@ -1212,7 +1354,21 @@ class DocumentPipelineViewService:
         - никаких fuzzy/text fallback здесь нет.
         """
         if not sections:
+            logger.debug(
+                "Structure text enrichment skipped: no sections",
+                extra={
+                    "doc_id": str(doc_id),
+                },
+            )
             return False
+
+        logger.info(
+            "Structure text enrichment started",
+            extra={
+                "doc_id": str(doc_id),
+                "sections_count": len(sections),
+            },
+        )
 
         reader = ChunkSnapshotReader(
             session=self.session,
@@ -1224,7 +1380,23 @@ class DocumentPipelineViewService:
             levels=["clause"],
         )
         if not clause_chunks:
+            logger.warning(
+                "Structure text enrichment skipped: no clause chunks loaded from snapshot",
+                extra={
+                    "doc_id": str(doc_id),
+                    "sections_count": len(sections),
+                },
+            )
             return False
+
+        logger.info(
+            "Structure text enrichment: clause chunks loaded",
+            extra={
+                "doc_id": str(doc_id),
+                "sections_count": len(sections),
+                "clause_chunks_count": len(clause_chunks),
+            },
+        )
 
         def _normalize_uid(value: Any) -> str | None:
             if value is None:
@@ -1234,14 +1406,33 @@ class DocumentPipelineViewService:
 
         chunks_by_uid: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
+        chunk_without_uid_count = 0
+        duplicate_uid_chunk_count = 0
+
         for raw_idx, ch in enumerate(clause_chunks):
             meta = ch.get("metadata") or {}
             uid = _normalize_uid(meta.get("clause_uid") or ch.get("clause_uid"))
             if not uid:
+                chunk_without_uid_count += 1
                 continue
 
             ch["_pipeline_index"] = raw_idx
+
+            if chunks_by_uid.get(uid):
+                duplicate_uid_chunk_count += 1
+
             chunks_by_uid[uid].append(ch)
+
+        logger.info(
+            "Structure text enrichment: chunk index by clause_uid built",
+            extra={
+                "doc_id": str(doc_id),
+                "clause_chunks_count": len(clause_chunks),
+                "uids_count": len(chunks_by_uid),
+                "chunks_without_uid_count": chunk_without_uid_count,
+                "duplicate_uid_chunk_count": duplicate_uid_chunk_count,
+            },
+        )
 
         def _chunk_sort_key(ch: dict[str, Any]) -> tuple[float, int, str]:
             meta = ch.get("metadata") or {}
@@ -1259,13 +1450,41 @@ class DocumentPipelineViewService:
 
         enriched_any = False
 
+        sections_without_uid_count = 0
+        sections_without_chunk_match_count = 0
+        sections_with_empty_full_text_count = 0
+        sections_enriched_count = 0
+        sections_with_mapping_count = 0
+        sections_overwrote_existing_enriched_text_count = 0
+        sections_overwrote_existing_source_mapping_count = 0
+        total_enriched_chars = 0
+
         for section in sections:
             section_uid = _normalize_uid(section.clause_uid)
             if not section_uid:
+                sections_without_uid_count += 1
+                logger.debug(
+                    "Structure text enrichment: section skipped because clause_uid is empty",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "title": getattr(section, "title", None),
+                        "page_from": getattr(section, "page_from", None),
+                        "page_to": getattr(section, "page_to", None),
+                    },
+                )
                 continue
 
             chunks = chunks_by_uid.get(section_uid)
             if not chunks:
+                sections_without_chunk_match_count += 1
+                logger.debug(
+                    "Structure text enrichment: no clause chunks found for section clause_uid",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                    },
+                )
                 continue
 
             parts: list[str] = []
@@ -1273,13 +1492,18 @@ class DocumentPipelineViewService:
             chunk_indices: list[int] = []
             page_values: list[int] = []
 
+            empty_text_chunk_count = 0
+            duplicate_chunk_id_skipped_count = 0
+
             for ch in chunks:
                 chunk_id = str(ch.get("id") or "").strip()
                 if chunk_id and chunk_id in seen_ids:
+                    duplicate_chunk_id_skipped_count += 1
                     continue
 
                 text = (ch.get("text") or "").strip()
                 if not text:
+                    empty_text_chunk_count += 1
                     continue
 
                 parts.append(text)
@@ -1302,19 +1526,70 @@ class DocumentPipelineViewService:
 
             full_text = "\n\n".join(parts).strip()
             if not full_text:
+                sections_with_empty_full_text_count += 1
+                logger.debug(
+                    "Structure text enrichment: section skipped because concatenated full_text is empty",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "chunks_found": len(chunks),
+                        "empty_text_chunk_count": empty_text_chunk_count,
+                        "duplicate_chunk_id_skipped_count": duplicate_chunk_id_skipped_count,
+                    },
+                )
                 continue
 
             unique_indices = sorted(set(chunk_indices))
 
-            # enriched_text — это "friendly" текст из canonical clause snapshot
-            section.enriched_text = full_text
+            old_enriched_text = getattr(section, "enriched_text", None)
+            old_text_preview = getattr(section, "text_preview", None)
+            old_source_mapping = getattr(section, "source_mapping", None)
 
-            # Для текущего UI friendly-preview должен показывать enriched_text.
+            if old_enriched_text:
+                sections_overwrote_existing_enriched_text_count += 1
+                logger.debug(
+                    "Structure text enrichment: existing enriched_text will be overwritten",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "old_enriched_text_len": len(old_enriched_text),
+                        "new_enriched_text_len": len(full_text),
+                    },
+                )
+
+            section.enriched_text = full_text
             section.text_preview = full_text
 
-            # source_mapping создаём только если реально есть индексы snapshot'а.
+            if old_text_preview and old_text_preview != full_text:
+                logger.debug(
+                    "Structure text enrichment: text_preview replaced with canonical enriched_text",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": section_uid,
+                        "title": getattr(section, "title", None),
+                        "old_text_preview_len": len(old_text_preview),
+                        "new_text_preview_len": len(full_text),
+                    },
+                )
+
             if unique_indices:
                 match_text = full_text[:400]
+
+                if old_source_mapping and getattr(old_source_mapping, "chunk_indices", None):
+                    sections_overwrote_existing_source_mapping_count += 1
+                    logger.debug(
+                        "Structure text enrichment: existing source_mapping will be overwritten",
+                        extra={
+                            "doc_id": str(doc_id),
+                            "clause_uid": section_uid,
+                            "title": getattr(section, "title", None),
+                            "old_chunk_indices_count": len(old_source_mapping.chunk_indices or []),
+                            "new_chunk_indices_count": len(unique_indices),
+                        },
+                    )
+
                 section.source_mapping = SectionSourceMappingDTO(
                     source_stage=PipelineStageCode.CHUNKS,
                     page_from=min(page_values) if page_values else section.page_from,
@@ -1323,11 +1598,47 @@ class DocumentPipelineViewService:
                     match_text=match_text,
                     match_strategy="chunk_refs",
                 )
+                sections_with_mapping_count += 1
 
             enriched_any = True
+            sections_enriched_count += 1
+            total_enriched_chars += len(full_text)
+
+            logger.debug(
+                "Structure text enrichment applied",
+                extra={
+                    "doc_id": str(doc_id),
+                    "clause_uid": section_uid,
+                    "title": getattr(section, "title", None),
+                    "chunks_found": len(chunks),
+                    "chunk_indices_count": len(unique_indices),
+                    "enriched_text_len": len(full_text),
+                    "page_from": min(page_values) if page_values else section.page_from,
+                    "page_to": max(page_values) if page_values else section.page_to,
+                    "empty_text_chunk_count": empty_text_chunk_count,
+                    "duplicate_chunk_id_skipped_count": duplicate_chunk_id_skipped_count,
+                },
+            )
+
+        logger.info(
+            "Structure text enrichment finished",
+            extra={
+                "doc_id": str(doc_id),
+                "sections_count": len(sections),
+                "clause_chunks_count": len(clause_chunks),
+                "enriched_any": enriched_any,
+                "sections_enriched_count": sections_enriched_count,
+                "sections_with_mapping_count": sections_with_mapping_count,
+                "sections_without_uid_count": sections_without_uid_count,
+                "sections_without_chunk_match_count": sections_without_chunk_match_count,
+                "sections_with_empty_full_text_count": sections_with_empty_full_text_count,
+                "sections_overwrote_existing_enriched_text_count": sections_overwrote_existing_enriched_text_count,
+                "sections_overwrote_existing_source_mapping_count": sections_overwrote_existing_source_mapping_count,
+                "total_enriched_chars": total_enriched_chars,
+            },
+        )
 
         return enriched_any
-
 
     async def _build_chunks_stage(
         self,

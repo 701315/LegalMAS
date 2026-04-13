@@ -3,15 +3,24 @@
 # Определяем команду sleep в зависимости от ОС
 ifeq ($(OS),Windows_NT)
     SLEEP = powershell -Command "Start-Sleep -s"
+    # На Windows используем простой sleep как fallback
+    WAIT_PG = $(SLEEP) 15
 else
     SLEEP = sleep
+    # На Linux/Mac используем pg_isready для точного ожидания
+    WAIT_PG = until docker exec mas_dd_postgres pg_isready -U postgres > /dev/null 2>&1; do \
+        echo "  PostgreSQL is starting up, waiting..."; \
+        sleep 2; \
+    done
 endif
 
 # Поднять все сервисы (PostgreSQL, Redis, MinIO)
 up:
 	docker compose up -d
-	@echo "Waiting for services to be ready..."
-	@$(SLEEP) 3
+	@echo "Waiting for PostgreSQL to be ready..."
+	@$(WAIT_PG)
+	@echo "Waiting for Redis..."
+	@$(SLEEP) 1
 	@echo "Services are up. PostgreSQL: localhost:5432, Redis: localhost:6379, MinIO: localhost:9000 (console: localhost:9001)"
 	PYTHONPATH=src uvicorn api.main:app --reload --port 8000
 
@@ -111,3 +120,4 @@ result = t.tokenize(text, entities, policy, context_window=text[:100]); \
 print('Sanitized:', result.sanitized_text); \
 print('Mapping:', result.mapping); \
 print('Stats:', result.entities_tokenized, result.entities_role_mapped)"
+

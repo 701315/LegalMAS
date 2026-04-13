@@ -25,8 +25,10 @@ ChunkSnapshotBuilder — единый сервис для построения s
 """
 
 from __future__ import annotations
+
 import re
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
@@ -69,7 +71,6 @@ class ChunkSnapshotBuilder:
     """
 
     def __init__(self, store: ArtifactStore | None = None) -> None:
-        # ArtifactStore умеет читать/писать JSON в MinIO.
         self.store = store or ArtifactStore()
 
     async def build_snapshot(
@@ -81,7 +82,16 @@ class ChunkSnapshotBuilder:
         max_tokens: int = 800,
         overlap_ratio: float = 0.15,
     ) -> dict[str, Any]:
-        # 1. Загружаем документ и его последнюю версию из БД.
+        logger.info(
+            "ChunkSnapshotBuilder: build_snapshot start",
+            extra={
+                "doc_id": str(doc_id),
+                "target_tokens": target_tokens,
+                "max_tokens": max_tokens,
+                "overlap_ratio": overlap_ratio,
+            },
+        )
+
         doc_repo = DocumentRepository(session)
         ver_repo = DocumentVersionRepository(session)
 
@@ -93,11 +103,6 @@ class ChunkSnapshotBuilder:
         if not version:
             raise PermanentError(f"DocumentVersion for doc {doc_id} not found")
 
-        # 2. Определяем, какой layout использовать.
-        #
-        # Приоритет:
-        #   1) layout_primary_sanitized_ref — основной layout после PII;
-        #   2) layout_primary_ref — fallback, если PII ещё не прошёл.
         layout_ref = (
             getattr(version, "layout_primary_sanitized_ref", None)
             or getattr(version, "layout_primary_ref", None)
@@ -108,84 +113,208 @@ class ChunkSnapshotBuilder:
                 f"(layout_primary_sanitized_ref/layout_primary_ref missing)"
             )
 
+        layout_kind = (
+            "layout_primary_sanitized_ref"
+            if getattr(version, "layout_primary_sanitized_ref", None)
+            else "layout_primary_ref"
+        )
+
         clause_tree_ref = getattr(version, "clause_tree_ref", None)
         if not clause_tree_ref:
             raise PermanentError(
                 f"No clause_tree_ref for doc {doc_id}, structure must be built first"
             )
 
-        # 3. Читаем layout и clause_tree из MinIO.
+        logger.info(
+            "ChunkSnapshotBuilder: source refs resolved",
+            extra={
+                "doc_id": str(doc_id),
+                "document_version_id": str(version.id),
+                "layout_ref": layout_ref,
+                "layout_kind": layout_kind,
+                "clause_tree_ref": clause_tree_ref,
+            },
+        )
+
         layout = self.store.get_json(layout_ref)
         clause_tree = self.store.get_json(clause_tree_ref)
 
-        # 4. Строим leaf‑чанки по клаузам (как get_chunks в DocumentContentService).
+        layout_meta = layout.get("metadata") or {}
+        clause_root = clause_tree.get("root") or []
+
+        logger.debug(
+            "ChunkSnapshotBuilder: source artifacts loaded",
+            extra={
+                "doc_id": str(doc_id),
+                "document_version_id": str(version.id),
+                "layout_has_metadata": isinstance(layout_meta, dict),
+                "layout_metadata_keys": sorted(layout_meta.keys()) if isinstance(layout_meta, dict) else [],
+                "clause_tree_root_count": len(clause_root) if isinstance(clause_root, list) else 0,
+                "clause_tree_has_references_index": isinstance(clause_tree.get("references_index"), list),
+                "clause_tree_structure_confidence": clause_tree.get("structure_confidence"),
+                "clause_tree_degraded": clause_tree.get("degraded"),
+            },
+        )
+
+        if not clause_root:
+            logger.warning(
+                "ChunkSnapshotBuilder: clause tree root is empty",
+                extra={
+                    "doc_id": str(doc_id),
+                    "document_version_id": str(version.id),
+                    "clause_tree_ref": clause_tree_ref,
+                    "layout_ref": layout_ref,
+                },
+            )
+
         leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
             tree=clause_tree,
             layout=layout,
         )
 
-        # Нормализуем текст clause-чанков, чтобы убрать дубли заголовков.
+        leaf_with_uid = sum(
+            1 for ch in leaf_chunks if (ch.get("metadata") or {}).get("clause_uid")
+        )
+        leaf_without_uid = len(leaf_chunks) - leaf_with_uid
+        leaf_empty_text = sum(1 for ch in leaf_chunks if not (ch.get("text") or "").strip())
+
+        logger.info(
+            "ChunkSnapshotBuilder: leaf chunks built",
+            extra={
+                "doc_id": str(doc_id),
+                "document_version_id": str(version.id),
+                "leaf_count": len(leaf_chunks),
+                "leaf_with_clause_uid": leaf_with_uid,
+                "leaf_without_clause_uid": leaf_without_uid,
+                "leaf_empty_text_count": leaf_empty_text,
+            },
+        )
+
+        sample_leaf_uids = [
+            str((ch.get("metadata") or {}).get("clause_uid"))
+            for ch in leaf_chunks[:10]
+            if (ch.get("metadata") or {}).get("clause_uid") is not None
+        ]
+        if sample_leaf_uids:
+            logger.debug(
+                "ChunkSnapshotBuilder: sample leaf clause uids",
+                extra={
+                    "doc_id": str(doc_id),
+                    "sample_clause_uids": sample_leaf_uids,
+                },
+            )
+
         for ch in leaf_chunks:
             meta = ch.get("metadata") or {}
-            ch["text"] = _normalize_clause_chunk_text(
-                text=ch.get("text") or "",
+            if str(meta.get("clause_uid")) == "1.1":
+                logger.debug(
+                    "ChunkSnapshotBuilder: raw leaf chunk before normalization",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": meta.get("clause_uid"),
+                        "raw_text_preview": (ch.get("text") or "")[:500],
+                        "raw_text_len": len(ch.get("text") or ""),
+                    },
+                )
+                break
+
+        normalized_changed_count = 0
+        normalized_to_empty_count = 0
+
+        for ch in leaf_chunks:
+            meta = ch.get("metadata") or {}
+            before = ch.get("text") or ""
+            after = _normalize_clause_chunk_text(
+                text=before,
                 clause_uid=str(meta.get("clause_uid")) if meta.get("clause_uid") is not None else None,
                 title=meta.get("title"),
             )
+            if before != after:
+                normalized_changed_count += 1
+            if before.strip() and not after.strip():
+                normalized_to_empty_count += 1
+                logger.warning(
+                    "ChunkSnapshotBuilder: normalization produced empty clause text",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "clause_uid": meta.get("clause_uid"),
+                        "title": meta.get("title"),
+                        "before_len": len(before),
+                    },
+                )
+            ch["text"] = after
+
+        logger.info(
+            "ChunkSnapshotBuilder: clause text normalization stats",
+            extra={
+                "doc_id": str(doc_id),
+                "normalized_changed_count": normalized_changed_count,
+                "normalized_to_empty_count": normalized_to_empty_count,
+                "leaf_count": len(leaf_chunks),
+            },
+        )
 
         if not leaf_chunks:
             logger.warning(
                 "ChunkSnapshotBuilder: clause tree produced no leaf chunks",
                 extra={
                     "doc_id": str(doc_id),
+                    "document_version_id": str(version.id),
                     "clause_tree_ref": clause_tree_ref,
                     "layout_ref": layout_ref,
                 },
             )
+            return _build_empty_snapshot(
+                doc_id=str(doc.id),
+                document_version_id=str(version.id),
+                layout_ref=layout_ref,
+                layout_kind=layout_kind,
+                clause_tree_ref=clause_tree_ref,
+                target_tokens=target_tokens,
+                max_tokens=max_tokens,
+                overlap_ratio=overlap_ratio,
+            )
 
-            # ВАЖНО: дальше строить snapshot бессмысленно — нет ни одной клаузы.
-            # Возвращаем пустой skeleton, чтобы воркер на следующем шаге
-            # мог принять решение (в т.ч. отправить документ в карантин).
-            empty_snapshot: dict[str, Any] = {
-                "schema_version": 1,
-                "doc_id": str(doc.id),
-                "document_version_id": str(version.id),
-                "built_at": datetime.now(tz=timezone.utc).isoformat(),
-                "source": {
-                    "layout_ref": layout_ref,
-                    "layout_kind": (
-                        "layout_primary_sanitized_ref"
-                        if getattr(version, "layout_primary_sanitized_ref", None)
-                        else "layout_primary_ref"
-                    ),
-                    "clause_tree_ref": clause_tree_ref,
-                },
-                "params": {
-                    "target_tokens": target_tokens,
-                    "max_tokens": max_tokens,
-                    "overlap_ratio": overlap_ratio,
-                },
-                "chunks": {
-                    "section": [],
-                    "clause": [],
-                    "subclause": [],
-                },
-            }
-            return empty_snapshot
-
-        # 4.1. Извлекаем общее число страниц из layout.metadata.
-        layout_meta = layout.get("metadata") or {}
         total_pages = _extract_total_pages(layout_meta)
 
-        # 4.2. Пробрасываем информацию о language_filter / degraded из layout в метаданные чанков.
+        logger.debug(
+            "ChunkSnapshotBuilder: layout metadata extracted",
+            extra={
+                "doc_id": str(doc_id),
+                "document_version_id": str(version.id),
+                "total_pages": total_pages,
+                "has_language_filter": bool((layout_meta.get("language_filter") or {}))
+                if isinstance(layout_meta, dict)
+                else False,
+            },
+        )
+
         _propagate_language_filter(leaf_chunks, layout_meta)
 
-        # 4.3. Добавляем position_ratio (позиция чанка в документе).
+        language_filter_count = sum(
+            1 for ch in leaf_chunks if (ch.get("metadata") or {}).get("language_filter")
+        )
+
         if total_pages:
             _add_position_ratio(leaf_chunks, total_pages)
 
-        # 5. Строим sized subclause‑чанки (по логике get_sized_chunks).
+        position_ratio_count = sum(
+            1 for ch in leaf_chunks if (ch.get("metadata") or {}).get("position_ratio") is not None
+        )
+
+        logger.info(
+            "ChunkSnapshotBuilder: metadata propagation stats",
+            extra={
+                "doc_id": str(doc_id),
+                "document_version_id": str(version.id),
+                "leaf_count": len(leaf_chunks),
+                "language_filter_count": language_filter_count,
+                "position_ratio_count": position_ratio_count,
+                "total_pages": total_pages,
+            },
+        )
+
         sized_chunks = _build_sized_chunks_from_leaf(
             doc_id=doc_id,
             leaf_chunks=leaf_chunks,
@@ -200,41 +329,143 @@ class ChunkSnapshotBuilder:
                 "ChunkSnapshotBuilder: no sized chunks built from leaf chunks",
                 extra={
                     "doc_id": str(doc_id),
+                    "document_version_id": str(version.id),
                     "clause_tree_ref": clause_tree_ref,
                     "layout_ref": layout_ref,
                     "leaf_chunk_count": len(leaf_chunks),
                 },
             )
-            empty_snapshot: dict[str, Any] = {
-                "schema_version": 1,
-                "doc_id": str(doc.id),
-                "document_version_id": str(version.id),
-                "built_at": datetime.now(tz=timezone.utc).isoformat(),
-                "source": {
-                    "layout_ref": layout_ref,
-                    "layout_kind": (
-                        "layout_primary_sanitized_ref"
-                        if getattr(version, "layout_primary_sanitized_ref", None)
-                        else "layout_primary_ref"
-                    ),
-                    "clause_tree_ref": clause_tree_ref,
-                },
-                "params": {
-                    "target_tokens": target_tokens,
-                    "max_tokens": max_tokens,
-                    "overlap_ratio": overlap_ratio,
-                },
-                "chunks": {
-                    "section": [],
-                    "clause": [],
-                    "subclause": [],
-                },
-            }
-            return empty_snapshot
+            return _build_empty_snapshot(
+                doc_id=str(doc.id),
+                document_version_id=str(version.id),
+                layout_ref=layout_ref,
+                layout_kind=layout_kind,
+                clause_tree_ref=clause_tree_ref,
+                target_tokens=target_tokens,
+                max_tokens=max_tokens,
+                overlap_ratio=overlap_ratio,
+            )
 
-        # 6. Приводим leaf‑чанки к "нормальному" виду и добавляем им summary.
         clause_chunks = _ensure_clause_metadata(doc_id, leaf_chunks)
         clause_chunks_with_summary = _add_summary(clause_chunks)
+
+        subclause_chunks_with_summary = _add_summary(sized_chunks)
+
+        clause_uid_counter = Counter(
+            str((ch.get("metadata") or {}).get("clause_uid"))
+            for ch in clause_chunks_with_summary
+            if (ch.get("metadata") or {}).get("clause_uid") is not None
+        )
+        duplicate_clause_uids = {k: v for k, v in clause_uid_counter.items() if v > 1}
+
+        if duplicate_clause_uids:
+            logger.warning(
+                "ChunkSnapshotBuilder: duplicate clause_uids detected in clause chunks",
+                extra={
+                    "doc_id": str(doc_id),
+                    "document_version_id": str(version.id),
+                    "duplicate_clause_uids": duplicate_clause_uids,
+                },
+            )
+
+        clause_kind_counter = Counter(
+            (ch.get("metadata") or {}).get("kind") for ch in clause_chunks_with_summary
+        )
+        subclause_kind_counter = Counter(
+            (ch.get("metadata") or {}).get("kind") for ch in subclause_chunks_with_summary
+        )
+
+        logger.info(
+            "ChunkSnapshotBuilder: clause/subclause stats",
+            extra={
+                "doc_id": str(doc_id),
+                "document_version_id": str(version.id),
+                "clause_count": len(clause_chunks_with_summary),
+                "subclause_count": len(subclause_chunks_with_summary),
+                "clause_kind_distribution": dict(clause_kind_counter),
+                "subclause_kind_distribution": dict(subclause_kind_counter),
+                "duplicate_clause_uid_count": len(duplicate_clause_uids),
+            },
+        )
+
+        try:
+            section_chunks = ClauseTreeBuilder.build_section_chunks(
+                doc_id=doc_id,
+                tree=clause_tree,
+                layout=layout,
+            )
+
+            if not isinstance(section_chunks, list):
+                logger.warning(
+                    "ChunkSnapshotBuilder: section chunk builder returned non-list, fallback to legacy section builder",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "document_version_id": str(version.id),
+                        "returned_type": type(section_chunks).__name__,
+                    },
+                )
+                section_chunks = []
+
+        except Exception as e:
+            logger.warning(
+                "ChunkSnapshotBuilder: failed to build ClauseTree-based section chunks, will try legacy fallback",
+                extra={
+                    "doc_id": str(doc.id),
+                    "document_version_id": str(version.id),
+                    "error": str(e),
+                },
+            )
+            section_chunks = []
+
+        if not section_chunks:
+            try:
+                legacy_section_chunks = build_section_chunks_from_clauses(
+                    doc_id=str(doc_id),
+                    clause_chunks=clause_chunks_with_summary,
+                    max_tokens=1200,
+                )
+
+                if isinstance(legacy_section_chunks, list) and legacy_section_chunks:
+                    logger.warning(
+                        "ChunkSnapshotBuilder: using legacy build_section_chunks_from_clauses fallback",
+                        extra={
+                            "doc_id": str(doc.id),
+                            "document_version_id": str(version.id),
+                            "legacy_sections_count": len(legacy_section_chunks),
+                        },
+                    )
+                    section_chunks = legacy_section_chunks
+                else:
+                    section_chunks = []
+
+            except Exception as e:
+                logger.warning(
+                    "ChunkSnapshotBuilder: failed to build legacy section chunks, continuing without sections",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "document_version_id": str(version.id),
+                        "error": str(e),
+                    },
+                )
+                section_chunks = []
+
+        section_without_clause_uid = sum(
+            1 for ch in section_chunks if not ((ch.get("metadata") or {}).get("clause_uid"))
+        )
+        section_empty_element_ids = sum(
+            1 for ch in section_chunks if not ((ch.get("metadata") or {}).get("element_ids") or [])
+        )
+
+        logger.info(
+            "ChunkSnapshotBuilder: section stats",
+            extra={
+                "doc_id": str(doc.id),
+                "document_version_id": str(version.id),
+                "section_count": len(section_chunks),
+                "section_without_clause_uid_count": section_without_clause_uid,
+                "section_empty_element_ids_count": section_empty_element_ids,
+            },
+        )
 
         invalid_clause_chunks = [
             ch
@@ -242,30 +473,34 @@ class ChunkSnapshotBuilder:
             if not ((ch.get("metadata") or {}).get("clause_uid"))
         ]
 
+        clause_empty_element_ids = sum(
+            1 for ch in clause_chunks_with_summary
+            if not ((ch.get("metadata") or {}).get("element_ids") or [])
+        )
+        clause_missing_section_title = sum(
+            1 for ch in clause_chunks_with_summary
+            if not ((ch.get("metadata") or {}).get("section_title"))
+        )
+        subclause_empty_element_ids = sum(
+            1 for ch in subclause_chunks_with_summary
+            if not ((ch.get("metadata") or {}).get("element_ids") or [])
+        )
+
         logger.info(
-            "ChunkSnapshotBuilder: clause chunk quality stats",
+            "ChunkSnapshotBuilder: chunk quality stats",
             extra={
                 "doc_id": str(doc.id),
+                "document_version_id": str(version.id),
                 "clause_count": len(clause_chunks_with_summary),
                 "invalid_clause_uid_count": len(invalid_clause_chunks),
-                "subclause_count": len(sized_chunks),
+                "clause_empty_element_ids_count": clause_empty_element_ids,
+                "clause_missing_section_title_count": clause_missing_section_title,
+                "subclause_count": len(subclause_chunks_with_summary),
+                "subclause_empty_element_ids_count": subclause_empty_element_ids,
                 "section_count": len(section_chunks),
             },
         )
 
-        # 7. Строим section‑чанки на основе clause‑чанков.
-        #
-        # build_section_chunks_from_clauses ожидает список dict с полями id/text/metadata.
-        section_chunks = build_section_chunks_from_clauses(
-            doc_id=str(doc_id),
-            clause_chunks=clause_chunks_with_summary,
-            max_tokens=1200,
-        )
-
-        # 8. Добавляем summary к subclause‑чанкам.
-        subclause_chunks_with_summary = _add_summary(sized_chunks)
-
-        # 9. Собираем финальный snapshot.
         snapshot: dict[str, Any] = {
             "schema_version": 1,
             "doc_id": str(doc.id),
@@ -273,11 +508,7 @@ class ChunkSnapshotBuilder:
             "built_at": datetime.now(tz=timezone.utc).isoformat(),
             "source": {
                 "layout_ref": layout_ref,
-                "layout_kind": (
-                    "layout_primary_sanitized_ref"
-                    if getattr(version, "layout_primary_sanitized_ref", None)
-                    else "layout_primary_ref"
-                ),
+                "layout_kind": layout_kind,
                 "clause_tree_ref": clause_tree_ref,
             },
             "params": {
@@ -291,6 +522,22 @@ class ChunkSnapshotBuilder:
                 "subclause": subclause_chunks_with_summary,
             },
         }
+
+        logger.info(
+            "ChunkSnapshotBuilder: build_snapshot done",
+            extra={
+                "doc_id": str(doc.id),
+                "document_version_id": str(version.id),
+                "layout_ref": layout_ref,
+                "layout_kind": layout_kind,
+                "clause_tree_ref": clause_tree_ref,
+                "clause_count": len(clause_chunks_with_summary),
+                "subclause_count": len(subclause_chunks_with_summary),
+                "section_count": len(section_chunks),
+                "schema_version": snapshot["schema_version"],
+            },
+        )
+
         return snapshot
 
 
@@ -298,66 +545,141 @@ class ChunkSnapshotBuilder:
 # Вспомогательные функции: полностью совместимы с текущим DocumentContentService
 # ---------------------------------------------------------------------------
 
+
+def _build_empty_snapshot(
+    *,
+    doc_id: str,
+    document_version_id: str,
+    layout_ref: str,
+    layout_kind: str,
+    clause_tree_ref: str,
+    target_tokens: int,
+    max_tokens: int,
+    overlap_ratio: float,
+) -> dict[str, Any]:
+    logger.warning(
+        "ChunkSnapshotBuilder: building empty snapshot",
+        extra={
+            "doc_id": doc_id,
+            "document_version_id": document_version_id,
+            "layout_ref": layout_ref,
+            "layout_kind": layout_kind,
+            "clause_tree_ref": clause_tree_ref,
+            "target_tokens": target_tokens,
+            "max_tokens": max_tokens,
+            "overlap_ratio": overlap_ratio,
+        },
+    )
+    return {
+        "schema_version": 1,
+        "doc_id": doc_id,
+        "document_version_id": document_version_id,
+        "built_at": datetime.now(tz=timezone.utc).isoformat(),
+        "source": {
+            "layout_ref": layout_ref,
+            "layout_kind": layout_kind,
+            "clause_tree_ref": clause_tree_ref,
+        },
+        "params": {
+            "target_tokens": target_tokens,
+            "max_tokens": max_tokens,
+            "overlap_ratio": overlap_ratio,
+        },
+        "chunks": {
+            "section": [],
+            "clause": [],
+            "subclause": [],
+        },
+    }
+
+
 def _normalize_clause_chunk_text(
     text: str,
     clause_uid: str | None,
     title: str | None,
 ) -> str:
     """
-    Нормализует текст clause-чанка:
-    - убирает дубль заголовка, если он уже есть в самом тексте;
-    - гарантирует единственную строку вида "<uid> <title>" в начале, если uid/title заданы.
+    Нормализует текст clause-чанка как ТЕЛО клаузы.
+
+    Новый контракт:
+    - заголовок ("<uid> <title>") не должен жить в chunk.text;
+    - chunk.text содержит только body;
+    - функция не добавляет заголовок и не реконструирует его;
+    - функция выполняет только санитарную очистку текста;
+    - как мягкий legacy-guard, если первая строка выглядит как heading,
+      она удаляется.
     """
-    text = (text or "").strip()
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     if not text:
         return ""
 
-    lines = [line.strip() for line in text.splitlines()]
-    lines = [line for line in lines if line]
+    lines = [line.strip() for line in text.split("\n")]
 
-    if not lines:
+    cleaned: list[str] = []
+    prev_empty = True
+    for line in lines:
+        if not line:
+            if prev_empty:
+                continue
+            cleaned.append("")
+            prev_empty = True
+            continue
+
+        cleaned.append(line)
+        prev_empty = False
+
+    if not cleaned:
         return ""
 
-    if clause_uid and title:
-        expected_heading = f"{clause_uid} {title}".strip()
+    uid = (clause_uid or "").strip()
+    normalized_title = (title or "").strip()
 
-        normalized: list[str] = []
-        seen_heading = False
+    if uid:
+        first_line = cleaned[0]
+        first_compact = re.sub(r"\s+", " ", first_line).strip().rstrip(".")
+        uid_prefix = re.sub(r"\s+", " ", uid).strip().rstrip(".")
 
-        for line in lines:
-            compact = re.sub(r"\s+", " ", line).strip().rstrip(".")
-            expected_compact = re.sub(r"\s+", " ", expected_heading).strip().rstrip(".")
+        looks_like_uid_heading = (
+            first_compact == uid_prefix
+            or first_compact.startswith(uid_prefix + " ")
+        )
 
-            if compact == expected_compact:
-                if seen_heading:
-                    # второй такой же заголовок — выкидываем
-                    continue
-                seen_heading = True
-                normalized.append(expected_heading)
+        if looks_like_uid_heading:
+            if normalized_title:
+                expected_heading = f"{uid} {normalized_title}".strip()
+                expected_compact = re.sub(r"\s+", " ", expected_heading).strip().rstrip(".")
+
+                if first_compact == expected_compact or first_compact.startswith(uid_prefix + " "):
+                    cleaned = cleaned[1:]
+            else:
+                cleaned = cleaned[1:]
+
+    while cleaned and not cleaned[0]:
+        cleaned.pop(0)
+    while cleaned and not cleaned[-1]:
+        cleaned.pop()
+
+    if not cleaned:
+        return ""
+
+    normalized: list[str] = []
+    prev_empty = True
+    for line in cleaned:
+        if not line:
+            if prev_empty:
                 continue
-
-            normalized.append(line)
-
-        lines = normalized
-
-        # Если заголовка в начале нет — добавим его.
-        if lines:
-            first_compact = re.sub(r"\s+", " ", lines[0]).strip().rstrip(".")
-            expected_compact = re.sub(r"\s+", " ", expected_heading).strip().rstrip(".")
-            if first_compact != expected_compact:
-                lines.insert(0, expected_heading)
+            normalized.append("")
+            prev_empty = True
         else:
-            lines = [expected_heading]
+            normalized.append(line)
+            prev_empty = False
 
-    return "\n\n".join(lines).strip()
+    return "\n\n".join(normalized).strip()
+
 
 def _extract_total_pages(layout_meta: dict) -> int | None:
     """
     Попытаться достать общее число страниц из metadata layout.
-
-    Для непрофессионального программиста:
-    - layout.metadata может содержать разные ключи: page_count, pages, num_pages...
-    - мы пробуем несколько вариантов и возвращаем первое подходящее число > 0.
     """
     if not isinstance(layout_meta, dict):
         return None
@@ -371,12 +693,6 @@ def _extract_total_pages(layout_meta: dict) -> int | None:
 def _propagate_language_filter(leaf_chunks: list[dict], layout_meta: dict) -> None:
     """
     Перенести информацию о language_filter из layout в каждый чанк.
-
-    Для непрофессионального программиста:
-    - layout.metadata.language_filter содержит:
-      target_language, degraded, degraded_reason и др.
-    - Здесь мы аккуратно добавляем эти поля в metadata каждого чанка,
-      не перетирая уже существующие значения.
     """
     lf_meta = (layout_meta.get("language_filter") or {}) if isinstance(layout_meta, dict) else {}
     lf_degraded = lf_meta.get("degraded")
@@ -384,11 +700,18 @@ def _propagate_language_filter(leaf_chunks: list[dict], layout_meta: dict) -> No
     lf_target_lang = lf_meta.get("target_language")
 
     if lf_degraded is None and lf_target_lang is None:
+        logger.debug(
+            "ChunkSnapshotBuilder: no language_filter data to propagate",
+        )
         return
+
+    updated_count = 0
 
     for ch in leaf_chunks:
         meta = ch.get("metadata") or {}
         lf = dict(meta.get("language_filter") or {})
+        before = dict(lf)
+
         if lf_target_lang is not None and "target_language" not in lf:
             lf["target_language"] = lf_target_lang
         if lf_degraded is not None and "degraded" not in lf:
@@ -398,6 +721,18 @@ def _propagate_language_filter(leaf_chunks: list[dict], layout_meta: dict) -> No
         if lf:
             meta["language_filter"] = lf
             ch["metadata"] = meta
+            if lf != before:
+                updated_count += 1
+
+    logger.debug(
+        "ChunkSnapshotBuilder: language_filter propagated",
+        extra={
+            "leaf_count": len(leaf_chunks),
+            "updated_count": updated_count,
+            "target_language": lf_target_lang,
+            "degraded": bool(lf_degraded) if lf_degraded is not None else None,
+        },
+    )
 
 
 def _calc_position_ratio(
@@ -407,14 +742,6 @@ def _calc_position_ratio(
 ) -> float | None:
     """
     Посчитать нормализованную позицию чанка в документе.
-
-    Для непрофессионального программиста:
-    - Если знаем страницу(ы) чанка и общее число страниц,
-      считаем "середину" чанка и делим на длину документа.
-    - Получаем число от 0.0 до 1.0:
-        ~0.0  — начало документа,
-        ~0.5  — середина,
-        ~1.0  — конец.
     """
     if not total_pages or total_pages <= 0:
         return None
@@ -438,6 +765,9 @@ def _calc_position_ratio(
 
 def _add_position_ratio(leaf_chunks: list[dict], total_pages: int) -> None:
     """Добавить поле position_ratio во все листовые чанки, если можем его посчитать."""
+    updated_count = 0
+    skipped_count = 0
+
     for ch in leaf_chunks:
         meta = ch.get("metadata") or {}
         start_page = meta.get("start_page")
@@ -446,6 +776,19 @@ def _add_position_ratio(leaf_chunks: list[dict], total_pages: int) -> None:
         if pos is not None:
             meta["position_ratio"] = pos
             ch["metadata"] = meta
+            updated_count += 1
+        else:
+            skipped_count += 1
+
+    logger.debug(
+        "ChunkSnapshotBuilder: position_ratio added",
+        extra={
+            "leaf_count": len(leaf_chunks),
+            "updated_count": updated_count,
+            "skipped_count": skipped_count,
+            "total_pages": total_pages,
+        },
+    )
 
 
 def _build_sized_chunks_from_leaf(
@@ -458,38 +801,50 @@ def _build_sized_chunks_from_leaf(
     total_pages: int | None,
 ) -> list[dict]:
     """
-    Построить нормализованные subclause‑чанки поверх листовых клауз.
-
-    Логика 1:1 с DocumentContentService.get_sized_chunks, только вынесена
-    в чистую функцию и сразу проставляет kind="clause"/"subclause",
-    а также section_title для retrieval metadata.
+    Построить нормализованные subclause-чанки поверх листовых клауз.
     """
-    SHORT_CLAUSE_MAX_TOKENS = int(target_tokens * 0.9)   # ~270 при target=300
-    LONG_CLAUSE_MIN_TOKENS = int(max_tokens * 1.2)       # ~960 при max=800
+    SHORT_CLAUSE_MAX_TOKENS = int(target_tokens * 0.9)
+    LONG_CLAUSE_MIN_TOKENS = int(max_tokens * 1.2)
+
+    logger.debug(
+        "ChunkSnapshotBuilder: sized chunks build start",
+        extra={
+            "doc_id": str(doc_id),
+            "leaf_count": len(leaf_chunks),
+            "target_tokens": target_tokens,
+            "max_tokens": max_tokens,
+            "overlap_ratio": overlap_ratio,
+            "short_clause_max_tokens": SHORT_CLAUSE_MAX_TOKENS,
+            "long_clause_min_tokens": LONG_CLAUSE_MIN_TOKENS,
+        },
+    )
 
     sized: list[dict] = []
+
+    short_count = 0
+    medium_count = 0
+    long_count = 0
+    split_long_count = 0
+    long_fallback_whole_count = 0
+    skipped_empty_leaf_count = 0
 
     for base in leaf_chunks:
         text = base.get("text") or ""
         metadata = base.get("metadata") or {}
 
         if not text.strip():
+            skipped_empty_leaf_count += 1
             continue
 
         clause_uid = metadata.get("clause_uid")
         level = metadata.get("level")
         path_titles = metadata.get("path_titles") or []
+        section_title = metadata.get("section_title")
         start_page = metadata.get("start_page")
         end_page = metadata.get("end_page")
         element_ids = metadata.get("element_ids") or []
 
         clause_token_count = count_tokens(text)
-
-        # section_title:
-        # - для clause/subclause используем верхний заголовок раздела,
-        #   если path_titles заполнен;
-        # - если path_titles пуст, section_title не ставим.
-        section_title = path_titles[0] if path_titles else None
 
         if "position_ratio" in metadata:
             position_ratio = metadata.get("position_ratio")
@@ -515,7 +870,7 @@ def _build_sized_chunks_from_leaf(
                 "position_ratio": position_ratio,
             }
 
-            if section_title is not None:
+            if section_title:
                 chunk_meta["section_title"] = section_title
 
             sized.append(
@@ -526,17 +881,18 @@ def _build_sized_chunks_from_leaf(
                 }
             )
 
-        # 1) Короткие клаузы: вообще не режем.
         if clause_token_count <= SHORT_CLAUSE_MAX_TOKENS:
+            short_count += 1
             _append_whole()
             continue
 
-        # 2) Средние клаузы: тоже не режем, чтобы сохранить одну "юридическую мысль".
         if SHORT_CLAUSE_MAX_TOKENS < clause_token_count < LONG_CLAUSE_MIN_TOKENS:
+            medium_count += 1
             _append_whole()
             continue
 
-        # 3) Только очень длинные клаузы режем на под‑чанки.
+        long_count += 1
+
         sub_texts = split_text_to_sized_chunks(
             text=text,
             target_tokens=target_tokens,
@@ -545,8 +901,11 @@ def _build_sized_chunks_from_leaf(
         )
 
         if not sub_texts:
+            long_fallback_whole_count += 1
             _append_whole()
             continue
+
+        split_long_count += 1
 
         for sub_idx, sub_text in enumerate(sub_texts):
             if not sub_text.strip():
@@ -569,7 +928,7 @@ def _build_sized_chunks_from_leaf(
                 "position_ratio": position_ratio,
             }
 
-            if section_title is not None:
+            if section_title:
                 sub_meta["section_title"] = section_title
 
             sized.append(
@@ -583,7 +942,28 @@ def _build_sized_chunks_from_leaf(
     if not sized:
         logger.warning(
             "ChunkSnapshotBuilder: no sized chunks built, subclause list will be empty",
+            extra={
+                "doc_id": str(doc_id),
+                "leaf_count": len(leaf_chunks),
+            },
         )
+        return sized
+
+    logger.info(
+        "ChunkSnapshotBuilder: sized chunks built",
+        extra={
+            "doc_id": str(doc_id),
+            "leaf_count": len(leaf_chunks),
+            "sized_count": len(sized),
+            "short_clause_count": short_count,
+            "medium_clause_count": medium_count,
+            "long_clause_count": long_count,
+            "split_long_count": split_long_count,
+            "long_fallback_whole_count": long_fallback_whole_count,
+            "skipped_empty_leaf_count": skipped_empty_leaf_count,
+        },
+    )
+
     return sized
 
 
@@ -593,19 +973,29 @@ def _ensure_clause_metadata(doc_id: uuid.UUID, leaf_chunks: list[dict]) -> list[
     - гарантировать doc_id, kind, token_count, section_title.
     """
     out: list[dict] = []
+    dropped_empty_text = 0
+    added_section_title_count = 0
+    added_doc_id_count = 0
+    added_kind_count = 0
+    added_token_count_count = 0
 
     for ch in leaf_chunks:
         text = (ch.get("text") or "").strip()
         meta = ch.get("metadata") or {}
 
         if not text:
+            dropped_empty_text += 1
             continue
 
         path_titles = meta.get("path_titles") or []
-
-        # Для clause‑чанка section_title = верхний заголовок раздела,
-        # если он известен.
         section_title = path_titles[0] if path_titles else None
+
+        if "doc_id" not in meta:
+            added_doc_id_count += 1
+        if "kind" not in meta:
+            added_kind_count += 1
+        if "token_count" not in meta:
+            added_token_count_count += 1
 
         meta.setdefault("doc_id", str(doc_id))
         meta.setdefault("kind", "clause")
@@ -613,6 +1003,7 @@ def _ensure_clause_metadata(doc_id: uuid.UUID, leaf_chunks: list[dict]) -> list[
 
         if section_title is not None and "section_title" not in meta:
             meta["section_title"] = section_title
+            added_section_title_count += 1
 
         out.append(
             {
@@ -622,27 +1013,58 @@ def _ensure_clause_metadata(doc_id: uuid.UUID, leaf_chunks: list[dict]) -> list[
             }
         )
 
+    logger.debug(
+        "ChunkSnapshotBuilder: clause metadata ensured",
+        extra={
+            "doc_id": str(doc_id),
+            "input_count": len(leaf_chunks),
+            "output_count": len(out),
+            "dropped_empty_text_count": dropped_empty_text,
+            "added_doc_id_count": added_doc_id_count,
+            "added_kind_count": added_kind_count,
+            "added_token_count_count": added_token_count_count,
+            "added_section_title_count": added_section_title_count,
+        },
+    )
+
     return out
 
 
 def _add_summary(chunks: list[dict]) -> list[dict]:
     """
     Добавить summary в metadata каждого чанка, если его ещё нет.
-
-    Для непрофессионального программиста:
-    - summary — это короткое текстовое описание чанка:
-      "Payment / Payment Terms: The Lessee shall ..."
-    - Оно строится на основе заголовков path_titles и самого текста чанка.
     """
     out: list[dict] = []
+    added_summary_count = 0
+    existing_summary_count = 0
+    empty_text_count = 0
+
     for ch in chunks:
         text = ch.get("text") or ""
         meta = ch.get("metadata") or {}
+
+        if not text.strip():
+            empty_text_count += 1
+
         if not meta.get("summary"):
             path_titles = meta.get("path_titles") or []
             meta["summary"] = build_chunk_summary(path_titles, text)
             ch["metadata"] = meta
-        out.append(ch)
-    return out
+            added_summary_count += 1
+        else:
+            existing_summary_count += 1
 
+        out.append(ch)
+
+    logger.debug(
+        "ChunkSnapshotBuilder: summaries added",
+        extra={
+            "chunk_count": len(chunks),
+            "added_summary_count": added_summary_count,
+            "existing_summary_count": existing_summary_count,
+            "empty_text_count": empty_text_count,
+        },
+    )
+
+    return out
 
