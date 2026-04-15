@@ -294,6 +294,7 @@ async def rebuild_playbook_and_rerun(
         environment_hash=None,
         profile=deal.profile,
         checks_mode=checks_mode,
+        checks_scope=payload.checks_scope.model_dump() if payload.checks_scope else None,
     )
 
     # 9. Запускаем оркестратор пайплайна для этого Run

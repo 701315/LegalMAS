@@ -38,6 +38,7 @@ from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
 from mas_queue.async_helpers import run_async
@@ -126,6 +127,7 @@ def build_structure(
             tenant_id=tenant_id,
             run_id=run_id,
             clause_tree_ref=result.get("clause_tree_ref"),
+            file_graph_ref=result.get("file_graph_ref"),
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -148,11 +150,12 @@ async def _build_structure_async(
     Делает только свою стадию:
     1) загружает DocumentVersion и Document;
     2) читает layout по sanitization-first контракту;
-    3) строит clause_tree;
-    4) сохраняет clause_tree в хранилище;
-    5) обновляет clause_tree_ref и статус документа;
-    6) делает flush -> verify -> commit;
-    7) возвращает committed=True только после commit.
+    3) строит clause_tree / file_graph (под флагом);
+    4) сохраняет артефакты в хранилище;
+    5) materialize'ит DocumentSegment в БД (под флагом);
+    6) обновляет refs в DocumentVersion и статус документа;
+    7) делает flush -> verify -> commit;
+    8) возвращает committed=True только после commit.
     """
     _ = extra_args
 
@@ -163,6 +166,7 @@ async def _build_structure_async(
 
     ver_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
+    seg_repo = DocumentSegmentRepository(uow.session)
 
     version = await ver_repo.get_by_id(v_id)
     if not version:
@@ -199,6 +203,13 @@ async def _build_structure_async(
 
     allow_legacy_layout_fallback = bool(
         getattr(settings, "ALLOW_LEGACY_LAYOUT_FALLBACK", False)
+    )
+
+    store_file_graph = bool(
+        getattr(settings, "STRUCTURE_STORE_FILE_GRAPH", False)
+    )
+    store_segment_trees = bool(
+        getattr(settings, "STRUCTURE_STORE_SEGMENT_TREES", True)
     )
 
     sanitized_layout_ref = getattr(version, "layout_primary_sanitized_ref", None)
@@ -252,12 +263,113 @@ async def _build_structure_async(
             details={"stage": "structure", "kind": "empty_layout"},
         )
 
+    if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+        tenant_id = str(doc.deal.tenant_id)
+    else:
+        tenant_id = str(doc.deal_id)
+
+    deal_id = str(doc.deal_id)
+
     builder = StructureBuilder()
+
+    file_graph_ref: str | None = None
+    segments_count: int | None = None
+    clause_tree = None
+    segment_rows_to_create: list[dict[str, Any]] = []
+
     try:
-        clause_tree = builder.build(
-            document_id=str(doc.id),
-            elements=elements,
-        )
+        if store_file_graph:
+            file_result = builder.build_file_structure(
+                document_id=str(doc.id),
+                elements=elements,
+                document_version_id=str(v_id),
+            )
+
+            clause_tree = file_result.primary_tree
+
+            file_graph_path = ArtifactPath.file_graph(
+                tenant_id=tenant_id,
+                deal_id=deal_id,
+                document_id=str(doc.id),
+            )
+            file_graph_ref = store.put_json(
+                file_graph_path,
+                file_result.file_graph.to_dict(),
+            )
+
+            graph_segments = getattr(file_result.file_graph, "segments", []) or []
+            segments_count = len(graph_segments)
+
+            segment_tree_ref_by_id: dict[str, str] = {}
+
+            if store_segment_trees:
+                for segment_result in getattr(file_result, "segments", []) or []:
+                    segment_tree = getattr(segment_result, "clause_tree", None)
+                    segment_id = getattr(segment_result, "segment_id", None)
+
+                    if not segment_tree or not segment_id:
+                        continue
+
+                    segment_tree_path = ArtifactPath.segment_clause_tree(
+                        tenant_id=tenant_id,
+                        deal_id=deal_id,
+                        document_id=str(doc.id),
+                        segment_id=segment_id,
+                    )
+                    segment_tree_ref = store.put_json(
+                        segment_tree_path,
+                        segment_tree.to_dict(),
+                    )
+                    segment_tree_ref_by_id[str(segment_id)] = segment_tree_ref
+
+            for index, seg in enumerate(graph_segments):
+                seg_id = str(getattr(seg, "segment_id", "") or "")
+                seg_order = int(getattr(seg, "segment_order", index) or index)
+                seg_type = str(getattr(seg, "segment_type", "unknown") or "unknown")
+                seg_title = getattr(seg, "segment_title", None)
+                page_start = int(getattr(seg, "page_start", 1) or 1)
+                page_end = int(getattr(seg, "page_end", page_start) or page_start)
+                is_primary = bool(getattr(seg, "is_primary", seg_order == 0))
+                confidence = str(getattr(seg, "confidence", "MEDIUM") or "MEDIUM")
+
+                segment_meta = getattr(seg, "segment_meta", None)
+                if segment_meta is None:
+                    segment_meta = getattr(seg, "meta", None)
+
+                if not seg_id:
+                    raise PermanentError(
+                        f"FileGraph segment has empty segment_id for version {v_id}",
+                        details={
+                            "stage": "structure",
+                            "kind": "invalid_file_graph_segment",
+                            "segment_order": seg_order,
+                        },
+                    )
+
+                segment_rows_to_create.append(
+                    {
+                        "document_version_id": v_id,
+                        "document_id": doc.id,
+                        "segment_id": seg_id,
+                        "segment_order": seg_order,
+                        "segment_type": seg_type,
+                        "segment_title": seg_title,
+                        "page_start": page_start,
+                        "page_end": page_end,
+                        "is_primary": is_primary,
+                        "confidence": confidence,
+                        "segment_clause_tree_ref": segment_tree_ref_by_id.get(seg_id),
+                        "segment_chunks_ref": None,
+                        "segment_meta": segment_meta,
+                    }
+                )
+
+        else:
+            clause_tree = builder.build(
+                document_id=str(doc.id),
+                elements=elements,
+            )
+
     except Exception as e:
         logger.exception(
             "Failed to build clause tree",
@@ -265,18 +377,12 @@ async def _build_structure_async(
             document_version_id=str(v_id),
             layout_ref=layout_ref,
             error=str(e),
+            store_file_graph=store_file_graph,
         )
         raise PermanentError(
             f"Failed to build clause tree: {e}",
             details={"stage": "structure", "kind": "structure_build_error"},
         )
-
-    if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
-        tenant_id = str(doc.deal.tenant_id)
-    else:
-        tenant_id = str(doc.deal_id)
-
-    deal_id = str(doc.deal_id)
 
     clause_tree_path = ArtifactPath.clause_tree(
         tenant_id=tenant_id,
@@ -299,13 +405,37 @@ async def _build_structure_async(
             details={"stage": "structure", "kind": "clause_tree_store_error"},
         )
 
+    if store_file_graph:
+        try:
+            await seg_repo.replace_segments(
+                document_version_id=v_id,
+                items=segment_rows_to_create,
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to replace document segments for structure result",
+                document_id=str(doc.id),
+                document_version_id=str(v_id),
+                segments_count=len(segment_rows_to_create),
+                error=str(e),
+            )
+            raise PermanentError(
+                f"Failed to persist document segments: {e}",
+                details={
+                    "stage": "structure",
+                    "kind": "document_segments_persist_error",
+                },
+            )
+
     updated_version = await ver_repo.update_refs(
         version_id=v_id,
         clause_tree_ref=clause_tree_ref,
+        file_graph_ref=file_graph_ref,
+        segments_count=segments_count,
     )
     if not updated_version:
         raise PermanentError(
-            f"Failed to update clause_tree_ref for version {v_id}",
+            f"Failed to update structure refs for version {v_id}",
             details={"stage": "structure", "kind": "version_update_failed"},
         )
 
@@ -323,17 +453,12 @@ async def _build_structure_async(
     await uow.session.flush()
 
     refreshed_version = await ver_repo.get_by_id(v_id)
-    refreshed_clause_tree_ref = (
-        getattr(refreshed_version, "clause_tree_ref", None)
-        if refreshed_version
-        else None
-    )
-
     if not refreshed_version:
         raise TransientError(
             f"DocumentVersion {v_id} is not visible after flush"
         )
 
+    refreshed_clause_tree_ref = getattr(refreshed_version, "clause_tree_ref", None)
     if not refreshed_clause_tree_ref:
         raise TransientError(
             f"clause_tree_ref is not visible after flush for version {v_id}"
@@ -344,6 +469,34 @@ async def _build_structure_async(
             f"clause_tree_ref mismatch after flush for version {v_id}"
         )
 
+    refreshed_file_graph_ref = getattr(refreshed_version, "file_graph_ref", None)
+    if file_graph_ref and not refreshed_file_graph_ref:
+        raise TransientError(
+            f"file_graph_ref is not visible after flush for version {v_id}"
+        )
+
+    if file_graph_ref and refreshed_file_graph_ref != file_graph_ref:
+        raise TransientError(
+            f"file_graph_ref mismatch after flush for version {v_id}"
+        )
+
+    if store_file_graph:
+        persisted_segments = await seg_repo.list_by_version(v_id)
+
+        if len(persisted_segments) != len(segment_rows_to_create):
+            raise TransientError(
+                "document_segments count mismatch after flush "
+                f"for version {v_id}: expected={len(segment_rows_to_create)}, "
+                f"actual={len(persisted_segments)}"
+            )
+
+        persisted_primary_count = sum(1 for s in persisted_segments if s.is_primary)
+        if persisted_segments and persisted_primary_count != 1:
+            raise TransientError(
+                "document_segments primary invariant violated after flush "
+                f"for version {v_id}: primary_count={persisted_primary_count}"
+            )
+
     await uow.session.commit()
 
     duration = round(time.time() - start, 2)
@@ -353,6 +506,9 @@ async def _build_structure_async(
         document_id=str(doc.id),
         document_version_id=str(v_id),
         clause_tree_ref=clause_tree_ref,
+        file_graph_ref=file_graph_ref,
+        segments_count=segments_count,
+        materialized_segments=len(segment_rows_to_create) if store_file_graph else 0,
         layout_source=layout_source,
         layout_ref=layout_ref,
         confidence=getattr(clause_tree, "structure_confidence", None),
@@ -366,6 +522,9 @@ async def _build_structure_async(
         "document_id": str(doc.id),
         "document_version_id": str(v_id),
         "clause_tree_ref": clause_tree_ref,
+        "file_graph_ref": file_graph_ref,
+        "segments_count": segments_count,
+        "materialized_segments": len(segment_rows_to_create) if store_file_graph else 0,
         "layout_ref": layout_ref,
         "layout_source": layout_source,
         "confidence": getattr(clause_tree, "structure_confidence", None),
@@ -404,5 +563,6 @@ async def _mark_failed(
         reason="structure_error",
         run_id=None,
     )
+
 
     

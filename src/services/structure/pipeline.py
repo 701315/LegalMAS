@@ -10,6 +10,12 @@
   4. Coverage + confidence
   5. Hierarchy + crossrefs
   6. Degraded fallback при низком качестве
+
+Multi-document расширение (v2):
+  build_file_structure() — новая точка входа для multi-doc режима.
+  При STRUCTURE_ENABLE_SEGMENTATION=False (дефолт) возвращает FileStructureResult
+  с одним сегментом = весь файл (полная backward compatibility).
+  build_structure() — legacy точка входа, не изменена.
 """
 
 from __future__ import annotations
@@ -31,27 +37,39 @@ from services.structure.hierarchy_builder import (
     build_clause_hierarchy,
 )
 from services.structure.crossrefs import extract_references
-from services.structure.models import ClauseNode, ClauseTree, CrossReference
+from services.structure.models import (
+    ClauseNode,
+    ClauseTree,
+    CrossReference,
+    SegmentDocument,
+    FileGraph,
+    FileStructureResult,
+    SEGMENT_TYPE_UNKNOWN,
+    make_segment_id,
+)
 from services.structure.heading_features import (
     has_letters,
     looks_like_toc_line,
 )
 from services.structure.heading_builder import build_heading_candidates
-
+from services.structure.segmenter import segment_elements
+from services.structure.file_graph_builder import build_file_graph
 
 logger = get_logger(__name__)
 
 _TOC_MAX_PAGES = 5
 
-_TOC_MARKERS = frozenset([
-    "table of contents",
-    "contents",
-    "содержание",
-    "оглавление",
-])
-
+_TOC_MARKERS = frozenset(
+    [
+        "table of contents",
+        "contents",
+        "содержание",
+        "оглавление",
+    ]
+)
 
 # ── Утилиты ──────────────────────────────────────────────────────────────────
+
 
 def _log_timing(label: str, start: float, **extra: Any) -> None:
     elapsed = time.perf_counter() - start
@@ -79,8 +97,8 @@ def _stable_element_id(element: dict[str, Any], fallback_index: int) -> str:
 
     return f"fallback:{page}:{x0}:{top}:{fallback_index}:{text[:32]}"
 
-
 # ── TOC-детекция ─────────────────────────────────────────────────────────────
+
 
 def _find_toc_end(elements: list[dict]) -> int:
     """
@@ -207,8 +225,8 @@ def _find_toc_end(elements: list[dict]) -> int:
     logger.debug("STRUCTURE toc_not_detected")
     return 0
 
-
 # ── Coverage и quality ───────────────────────────────────────────────────────
+
 
 def _calculate_coverage(
     headings: list[HeadingCandidate],
@@ -254,8 +272,6 @@ def _calculate_heading_quality(
 
     good_count = 0
     for h in headings:
-        # Используем scorer вместо дублирующих вызовов
-        # is_garbage_heading_title / is_bad_heading_title / has_letters.
         result = score_heading_candidate(
             uid=h.uid,
             title=h.title,
@@ -290,8 +306,8 @@ def _confidence_and_mode(
         return "MEDIUM", False
     return "HIGH", False
 
-
 # ── Degraded fallback ─────────────────────────────────────────────────────────
+
 
 def _degraded_tree(
     document_id: str,
@@ -392,54 +408,56 @@ def _degraded_tree(
         references_index=[],
         structure_confidence="LOW",
         degraded=True,
-        # nodes_index пустой при degraded — деградированные чанки не индексируются
         nodes_index={},
     )
 
+# ── Внутреннее ядро: один сегмент → ClauseTree ───────────────────────────────
 
-# ── Главная функция ───────────────────────────────────────────────────────────
 
-def build_structure(
+def _build_single_segment_tree(
     document_id: str,
-    elements: list[dict] | None,
+    elements: list[dict],
+    *,
+    segment_id: str | None = None,
+    segment_type: str | None = None,
+    segment_title: str | None = None,
+    segment_page_range: tuple[int, int] | None = None,
+    segment_order: int | None = None,
+    is_primary_segment: bool = False,
+    log_prefix: str = "STRUCTURE",
 ) -> ClauseTree:
     """
-    Главная функция пайплайна: document_id + elements → ClauseTree.
+    Строит ClauseTree для одного набора elements (одного сегмента или всего файла).
+
+    Для непрофессионального программиста:
+    Это внутренняя функция — "сердце" пайплайна. Она принимает список
+    элементов layout (уже нарезанных под один логический документ) и
+    возвращает готовое дерево ClauseTree.
+
+    В legacy-режиме (build_structure) вызывается один раз на весь файл.
+    В multi-doc режиме (build_file_structure) вызывается отдельно для каждого
+    сегмента с соответствующими segment_* параметрами.
     """
     build_started = time.perf_counter()
 
-    if not document_id:
-        logger.warning("STRUCTURE build: empty document_id, using placeholder")
-        document_id = "<unknown>"
+    # ── Стадия 1: TOC-детекция ───────────────────────────────────────────────
+    t_toc = time.perf_counter()
+    toc_end_idx = _find_toc_end(elements)
+    _log_timing(
+        f"{log_prefix} toc_detection",
+        t_toc,
+        document_id=document_id,
+        segment_id=segment_id,
+    )
 
-    if elements is None or not isinstance(elements, list):
-        logger.error(
-            "STRUCTURE build: invalid elements, degraded fallback",
-            extra={
-                "document_id": document_id,
-                "elements_is_none": elements is None,
-                "elements_type": None if elements is None else type(elements).__name__,
-            },
-        )
-        result = _degraded_tree(document_id, elements or [])
-        _log_timing("build_total", build_started, document_id=document_id, degraded=True)
-        return result
+    body_elements = elements[toc_end_idx:] or elements
+    if not body_elements:
+        body_elements = elements
+        toc_end_idx = 0
 
-    # Очищаем не-dict элементы
-    clean_elements: list[dict] = []
-    for i, el in enumerate(elements):
-        if isinstance(el, dict):
-            clean_elements.append(el)
-        else:
-            logger.warning(
-                "STRUCTURE build: non-dict element skipped",
-                extra={
-                    "document_id": document_id,
-                    "element_index": i,
-                    "element_type": type(el).__name__,
-                },
-            )
-    elements = clean_elements
+    missing_element_ids = sum(
+        1 for el in body_elements if not str(el.get("element_id") or "").strip()
+    )
 
     # Проверяем признак деградации layout
     layout_degraded = False
@@ -452,38 +470,43 @@ def build_structure(
             layout_degraded_reason = lf.get("degraded_reason")
             break
 
-    # ── Стадия 1: TOC-детекция ───────────────────────────────────────────────
-    t_toc = time.perf_counter()
-    toc_end_idx = _find_toc_end(elements)
-    _log_timing("toc_detection", t_toc, document_id=document_id)
-
-    body_elements = elements[toc_end_idx:] or elements
-    if not body_elements:
-        body_elements = elements
-        toc_end_idx = 0
-
-    missing_element_ids = sum(
-        1 for el in body_elements
-        if not str(el.get("element_id") or "").strip()
-    )
-
     # ── Стадия 2: Heading candidates ─────────────────────────────────────────
     t_headings = time.perf_counter()
     headings = build_heading_candidates(body_elements, document_id=document_id)
     _log_timing(
-        "heading_collection",
+        f"{log_prefix} heading_collection",
         t_headings,
         document_id=document_id,
+        segment_id=segment_id,
         headings_found=len(headings),
     )
 
     if not headings:
         result = _degraded_tree(document_id, body_elements)
-        _log_timing("build_total", build_started, document_id=document_id, degraded=True)
+        # Проставляем segment-поля даже в degrade — downstream знает,
+        # к какому сегменту относится это дерево
+        _apply_segment_fields(
+            result,
+            segment_id=segment_id,
+            segment_type=segment_type,
+            segment_title=segment_title,
+            segment_page_range=segment_page_range,
+            segment_order=segment_order,
+            is_primary_segment=is_primary_segment,
+        )
+        _log_timing(
+            f"{log_prefix} build_total",
+            build_started,
+            document_id=document_id,
+            segment_id=segment_id,
+            degraded=True,
+        )
         return result
 
     # ── Стадия 3: Coverage + confidence ──────────────────────────────────────
-    good_headings_count, total_headings, good_headings_ratio = _calculate_heading_quality(headings)
+    good_headings_count, total_headings, good_headings_ratio = _calculate_heading_quality(
+        headings
+    )
     coverage = _calculate_coverage(headings, body_elements)
     confidence, degraded = _confidence_and_mode(
         coverage,
@@ -493,9 +516,11 @@ def build_structure(
     )
 
     logger.info(
-        "Structure build diagnostics",
+        f"{log_prefix} build diagnostics",
         extra={
             "document_id": document_id,
+            "segment_id": segment_id,
+            "segment_type": segment_type,
             "total_elements": len(elements),
             "body_elements": len(body_elements),
             "headings_found": len(headings),
@@ -512,9 +537,10 @@ def build_structure(
 
     if degraded:
         logger.info(
-            "Structure degraded: low coverage or poor headings",
+            f"{log_prefix} degraded: low coverage or poor headings",
             extra={
                 "document_id": document_id,
+                "segment_id": segment_id,
                 "coverage": round(coverage, 3),
                 "good_headings_count": good_headings_count,
                 "good_headings_ratio": round(good_headings_ratio, 3),
@@ -522,7 +548,22 @@ def build_structure(
             },
         )
         result = _degraded_tree(document_id, body_elements, coverage)
-        _log_timing("build_total", build_started, document_id=document_id, degraded=True)
+        _apply_segment_fields(
+            result,
+            segment_id=segment_id,
+            segment_type=segment_type,
+            segment_title=segment_title,
+            segment_page_range=segment_page_range,
+            segment_order=segment_order,
+            is_primary_segment=is_primary_segment,
+        )
+        _log_timing(
+            f"{log_prefix} build_total",
+            build_started,
+            document_id=document_id,
+            segment_id=segment_id,
+            degraded=True,
+        )
         return result
 
     # ── Стадия 4: Hierarchy + crossrefs ──────────────────────────────────────
@@ -542,16 +583,15 @@ def build_structure(
         stable_element_id_resolver=_stable_element_id,
     )
     _log_timing(
-        "tree_build",
+        f"{log_prefix} tree_build",
         t_tree,
         document_id=document_id,
+        segment_id=segment_id,
         root_nodes=len(root_nodes),
         references=len(references),
     )
 
     # ── Финал: собираем ClauseTree ────────────────────────────────────────────
-    # nodes_index передаём явно — downstream (чанкер, API) получает
-    # быстрый доступ к любому узлу по uid без рекурсивного обхода дерева.
     result = ClauseTree(
         document_id=document_id,
         root=root_nodes,
@@ -561,13 +601,334 @@ def build_structure(
         nodes_index=nodes,
     )
 
+    # Проставляем segment-поля если заданы
+    _apply_segment_fields(
+        result,
+        segment_id=segment_id,
+        segment_type=segment_type,
+        segment_title=segment_title,
+        segment_page_range=segment_page_range,
+        segment_order=segment_order,
+        is_primary_segment=is_primary_segment,
+    )
+
     _log_timing(
-        "build_total",
+        f"{log_prefix} build_total",
         build_started,
         document_id=document_id,
+        segment_id=segment_id,
         degraded=False,
         confidence=confidence,
     )
     return result
 
+
+def _apply_segment_fields(
+    tree: ClauseTree,
+    *,
+    segment_id: str | None,
+    segment_type: str | None,
+    segment_title: str | None,
+    segment_page_range: tuple[int, int] | None,
+    segment_order: int | None,
+    is_primary_segment: bool,
+) -> None:
+    """
+    Проставляет segment-поля в уже построенный ClauseTree.
+
+    Для непрофессионального программиста:
+    Это вспомогательная функция — она нужна чтобы не дублировать
+    одни и те же 6 строк присвоения в каждой ветке кода (degraded / normal).
+    Изменяет tree на месте (in-place), ничего не возвращает.
+
+    Если все аргументы None / False — tree остаётся в legacy-формате v1.
+    Если segment_id задан — tree переключается в v2 формат.
+    """
+    if segment_id is not None:
+        tree.segment_id = segment_id
+        tree.schema_version = "2.0"
+    if segment_type is not None:
+        tree.segment_type = segment_type
+    if segment_title is not None:
+        tree.segment_title = segment_title
+    if segment_page_range is not None:
+        tree.segment_page_range = segment_page_range
+    if segment_order is not None:
+        tree.segment_order = segment_order
+    tree.is_primary_segment = is_primary_segment
+
+# ── Legacy точка входа (не изменена по контракту) ─────────────────────────────
+
+
+def build_structure(
+    document_id: str,
+    elements: list[dict] | None,
+) -> ClauseTree:
+    """
+    Главная функция пайплайна: document_id + elements → ClauseTree.
+
+    КОНТРАКТ НЕ МЕНЯЕТСЯ. Worker вызывает именно эту функцию.
+    Внутри теперь делегирует в _build_single_segment_tree() —
+    чистый refactor, поведение идентично предыдущей версии.
+    """
+    if not document_id:
+        logger.warning("STRUCTURE build: empty document_id, using placeholder")
+        document_id = "<unknown>"
+
+    if elements is None or not isinstance(elements, list):
+        logger.error(
+            "STRUCTURE build: invalid elements, degraded fallback",
+            extra={
+                "document_id": document_id,
+                "elements_is_none": elements is None,
+                "elements_type": None if elements is None else type(elements).__name__,
+            },
+        )
+        return _degraded_tree(document_id, elements or [])
+
+    # Очищаем не-dict элементы
+    clean_elements: list[dict] = []
+    for i, el in enumerate(elements):
+        if isinstance(el, dict):
+            clean_elements.append(el)
+        else:
+            logger.warning(
+                "STRUCTURE build: non-dict element skipped",
+                extra={
+                    "document_id": document_id,
+                    "element_index": i,
+                    "element_type": type(el).__name__,
+                },
+            )
+    elements = clean_elements
+
+    # Делегируем в _build_single_segment_tree без segment_* параметров —
+    # это legacy-вызов, tree будет в v1 формате (segment_id=None).
+    return _build_single_segment_tree(
+        document_id=document_id,
+        elements=elements,
+        log_prefix="STRUCTURE",
+    )
+
+# ── Новая точка входа: multi-document (v2) ────────────────────────────────────
+
+
+def _make_single_segment_list(
+    *,
+    document_id: str,
+    elements: list[dict],
+) -> list[SegmentDocument]:
+    """
+    Вспомогательная функция: возвращает список из одного SegmentDocument,
+    который покрывает весь файл.
+
+    Используется:
+    - когда сегментация выключена (флаг False);
+    - когда segmenter дал пустой или странный результат;
+    - когда segmenter упал с ошибкой.
+    """
+    if elements:
+        pages = [el.get("page", 1) for el in elements if isinstance(el.get("page"), int)]
+        if pages:
+            page_start = min(pages)
+            page_end = max(pages)
+        else:
+            page_start = page_end = 1
+    else:
+        page_start = page_end = 1
+
+    single_segment = SegmentDocument(
+        segment_id=make_segment_id(document_id, segment_order=0),
+        document_id=document_id,
+        document_version_id=None,
+        segment_order=0,
+        segment_type=SEGMENT_TYPE_UNKNOWN,
+        segment_title=None,
+        page_start=page_start,
+        page_end=page_end,
+        element_start=0,
+        element_end=len(elements),
+        confidence="HIGH",
+        is_primary=True,
+    )
+    return [single_segment]
+
+
+def build_file_structure(
+    document_id: str,
+    elements: list[dict] | None,
+    *,
+    document_version_id: str | None = None,
+) -> FileStructureResult:
+    """
+    Новая точка входа для multi-document режима.
+
+    Поведение:
+    - STRUCTURE_ENABLE_SEGMENTATION=False (дефолт):
+      * консервативный режим: один сегмент = весь файл (как раньше).
+    - STRUCTURE_ENABLE_SEGMENTATION=True:
+      * пытаемся нарезать файл на несколько логических документов через segmenter;
+      * при любой ошибке или "сомнительном" результате — fallback к одному сегменту.
+
+    В обоих режимах:
+    - primary_tree всегда совпадает по содержанию с legacy build_structure(...),
+      только дополнен segment_* полями;
+    - FileStructureResult.file_graph является единственным каноническим
+      источником информации о сегментах.
+    """
+    if not document_id:
+        logger.warning("STRUCTURE build_file_structure: empty document_id, using placeholder")
+        document_id = "<unknown>"
+
+    # Валидация elements
+    if elements is None or not isinstance(elements, list):
+        logger.error(
+            "STRUCTURE build_file_structure: invalid elements, degraded fallback",
+            extra={"document_id": document_id},
+        )
+        elements = []
+
+    clean_elements: list[dict] = [el for el in elements if isinstance(el, dict)]
+    if len(clean_elements) < len(elements):
+        logger.warning(
+            "STRUCTURE build_file_structure: non-dict elements removed",
+            extra={
+                "document_id": document_id,
+                "removed": len(elements) - len(clean_elements),
+            },
+        )
+
+    # Если вообще нет элементов — строим деградированное single-tree и single-segment
+    if not clean_elements:
+        single_segment = SegmentDocument(
+            segment_id=make_segment_id(document_id, segment_order=0),
+            document_id=document_id,
+            document_version_id=document_version_id,
+            segment_order=0,
+            segment_type=SEGMENT_TYPE_UNKNOWN,
+            segment_title=None,
+            page_start=1,
+            page_end=1,
+            element_start=0,
+            element_end=0,
+            confidence="HIGH",
+            is_primary=True,
+        )
+        primary_tree = _build_single_segment_tree(
+            document_id=document_id,
+            elements=[],
+            segment_id=single_segment.segment_id,
+            segment_type=single_segment.segment_type,
+            segment_title=single_segment.segment_title,
+            segment_page_range=(single_segment.page_start, single_segment.page_end),
+            segment_order=single_segment.segment_order,
+            is_primary_segment=True,
+            log_prefix="STRUCTURE[seg=0]",
+        )
+        # Для непрофессионального программиста:
+        # Здесь мы явно создаём список из одного дерева,
+        # чтобы передать его в builder файла-графа.
+        segment_trees = [primary_tree]
+        file_graph = build_file_graph(
+            document_id=document_id,
+            document_version_id=document_version_id,
+            segments=[single_segment],
+            segment_trees=segment_trees,
+        )
+        return FileStructureResult(
+            primary_tree=primary_tree,
+            segment_trees=segment_trees,
+            file_graph=file_graph,
+        )
+
+    segmentation_enabled = bool(
+        getattr(settings, "STRUCTURE_ENABLE_SEGMENTATION", False)
+    )
+
+    # Определяем список SegmentDocument
+    if segmentation_enabled:
+        try:
+            segments = segment_elements(document_id=document_id, elements=clean_elements)
+        except Exception as e:
+            logger.exception(
+                "STRUCTURE build_file_structure: segmenter crashed, falling back to single segment",
+                extra={
+                    "document_id": document_id,
+                    "elements_count": len(clean_elements),
+                    "error": str(e),
+                },
+            )
+            segments = _make_single_segment_list(
+                document_id=document_id,
+                elements=clean_elements,
+            )
+    else:
+        segments = _make_single_segment_list(
+            document_id=document_id,
+            elements=clean_elements,
+        )
+
+    # На всякий случай: защита от пустого списка сегментов
+    if not segments:
+        segments = _make_single_segment_list(
+            document_id=document_id,
+            elements=clean_elements,
+        )
+
+    # Проставляем document_version_id внутрь сегментов
+    for seg in segments:
+        seg.document_version_id = document_version_id
+
+    # Строим деревья для каждого сегмента
+    segment_trees: list[ClauseTree] = []
+    for seg in segments:
+        slice_ = clean_elements[seg.element_start : seg.element_end]
+        tree = _build_single_segment_tree(
+            document_id=document_id,
+            elements=slice_,
+            segment_id=seg.segment_id,
+            segment_type=seg.segment_type,
+            segment_title=seg.segment_title,
+            segment_page_range=(seg.page_start, seg.page_end),
+            segment_order=seg.segment_order,
+            is_primary_segment=seg.is_primary,
+            log_prefix=f"STRUCTURE[seg={seg.segment_order}]",
+        )
+        segment_trees.append(tree)
+
+    # Собираем FileGraph через единый builder
+    file_graph = build_file_graph(
+        document_id=document_id,
+        document_version_id=document_version_id,
+        segments=segments,
+        segment_trees=segment_trees,
+    )
+
+    # Находим primary_tree по primary_segment_id
+    if file_graph.primary_segment_id:
+        primary_tree = next(
+            (t for t in segment_trees if t.segment_id == file_graph.primary_segment_id),
+            segment_trees[0],
+        )
+    else:
+        primary_tree = segment_trees[0]
+
+    logger.info(
+        "STRUCTURE build_file_structure completed",
+        extra={
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "segments_count": len(segments),
+            "segment_types": [s.segment_type for s in segments],
+            "primary_segment_id": file_graph.primary_segment_id,
+            "degraded": file_graph.degraded,
+            "segmentation_enabled": segmentation_enabled,
+        },
+    )
+
+    return FileStructureResult(
+        primary_tree=primary_tree,
+        segment_trees=segment_trees,
+        file_graph=file_graph,
+    )
 

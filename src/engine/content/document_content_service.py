@@ -1,7 +1,11 @@
 # src/engine/content/document_content_service.py
 
 """
-DocumentContentService v3: тонкий фасад над clause tree + layout.
+DocumentContentService v3: фасад над чанками и (legacy) clause tree + layout.
+
+- Для checks приоритетно читаем готовые snapshot'ы чанков (CHUNKS v2 / legacy).
+- Clause tree + layout используем как fallback / для вспомогательных задач
+  (header/snippet, on-the-fly построение чанков).
 
 Простыми словами:
 
@@ -46,8 +50,10 @@ from engine.content.chunking import (
     split_text_to_sized_chunks,
 )
 from core.logging import get_logger
-from engine.content.chunk_snapshot_reader import ChunkSnapshotReader
-
+from engine.content.chunk_snapshot_reader import (
+    ChunkSnapshotReader,
+    ChunkCorpusReaderV2,
+)
 
 logger = get_logger(__name__)
 
@@ -151,7 +157,7 @@ class DocumentContentService:
         self.documents = DocumentRepository(session)
         self.storage = storage_client or ClauseTreeStorageClient()
         self.layout_storage = layout_client or LayoutStorageClient()
-        # Внутренний ArtifactStore для чтения snapshot'ов чанков (chunks_ref).
+        # Внутренний ArtifactStore для чтения snapshot'ов чанков (legacy и v2).
         self._artifact_store = ArtifactStore()
 
     # -------------------------------------------------------------------------
@@ -168,9 +174,10 @@ class DocumentContentService:
 
     async def _load_clause_tree(self, version: DocumentVersion) -> Optional[Dict[str, Any]]:
         """
-        Загрузить clause tree JSON по DocumentVersion.
-
-        Если ссылки нет — вернёт None.
+        ВАЖНО:
+        - Это legacy-путь (CHUNKS v1), используется для:
+        * документов без готовых snapshot'ов чанков;
+        * вспомогательных задач (debug, header/snippet и т.п.).
         """
         if not version.clause_tree_ref:
             return None
@@ -233,7 +240,7 @@ class DocumentContentService:
         return ratio
 
     # -------------------------------------------------------------------------
-    # Внутренний helper: загрузка чанков из snapshot'а (chunks_ref)
+    # Внутренний helper: загрузка чанков из snapshot'а (legacy + v2)
     # -------------------------------------------------------------------------
 
     async def _load_chunks_from_snapshot(
@@ -241,11 +248,54 @@ class DocumentContentService:
         doc_id: uuid.UUID,
         levels: list[str],
     ) -> list[dict[str, Any]]:
-        reader = ChunkSnapshotReader(
+        """
+        Попробовать прочитать чанки из сохранённых snapshot'ов.
+
+        ВАЖНО:
+        - Сначала пробуем CHUNKS v2 (segment-aware, manifest + segment snapshots).
+        - Если v2-артефактов нет или они невалидны, пытаемся прочитать legacy snapshot.
+        - Если и legacy нет, вернём пустой список.
+        """
+        # 1. Пробуем v2-reader (file manifest + segment snapshots).
+        v2_reader = ChunkCorpusReaderV2(
             session=self.session,
             artifact_store=self._artifact_store,
         )
-        return await reader.load(doc_id=doc_id, levels=levels)
+        try:
+            v2_chunks = await v2_reader.load(doc_id=doc_id, levels=levels)
+        except Exception as e:
+            logger.warning(
+                "DocumentContentService._load_chunks_from_snapshot: v2 reader failed, will try legacy",
+                extra={
+                    "doc_id": str(doc_id),
+                    "levels": levels,
+                    "error": str(e),
+                },
+            )
+            v2_chunks = []
+
+        if v2_chunks:
+            return v2_chunks
+
+        # 2. Fallback: legacy snapshot (один JSON на весь документ).
+        legacy_reader = ChunkSnapshotReader(
+            session=self.session,
+            artifact_store=self._artifact_store,
+        )
+        try:
+            legacy_chunks = await legacy_reader.load(doc_id=doc_id, levels=levels)
+        except Exception as e:
+            logger.warning(
+                "DocumentContentService._load_chunks_from_snapshot: legacy reader failed",
+                extra={
+                    "doc_id": str(doc_id),
+                    "levels": levels,
+                    "error": str(e),
+                },
+            )
+            legacy_chunks = []
+
+        return legacy_chunks
 
     # -------------------------------------------------------------------------
     # Публичные методы
@@ -333,6 +383,11 @@ class DocumentContentService:
         - если clause tree отсутствует или layout недоступен, вернуть один
           "пустой" чанк, чтобы пайплайн не падал.
 
+        ВАЖНО:
+        - Это legacy-путь (CHUNKS v1), используется для:
+        * документов без готовых snapshot'ов чанков;
+        * вспомогательных задач (debug, header/snippet и т.п.).
+
         Для непрофессионального программиста:
         - "чанк" = кусок текста договора, обычно один пункт,
           который дальше анализируют на риски.
@@ -357,7 +412,9 @@ class DocumentContentService:
                     "has_layout": bool(layout),
                     "clause_tree_ref": getattr(version, "clause_tree_ref", None),
                     "layout_primary_ref": getattr(version, "layout_primary_ref", None),
-                    "layout_primary_sanitized_ref": getattr(version, "layout_primary_sanitized_ref", None),
+                    "layout_primary_sanitized_ref": getattr(
+                        version, "layout_primary_sanitized_ref", None
+                    ),
                 },
             )
             return []
@@ -375,7 +432,9 @@ class DocumentContentService:
                     "doc_id": str(doc_id),
                     "clause_tree_ref": getattr(version, "clause_tree_ref", None),
                     "layout_primary_ref": getattr(version, "layout_primary_ref", None),
-                    "layout_primary_sanitized_ref": getattr(version, "layout_primary_sanitized_ref", None),
+                    "layout_primary_sanitized_ref": getattr(
+                        version, "layout_primary_sanitized_ref", None
+                    ),
                 },
             )
             return []
@@ -436,6 +495,11 @@ class DocumentContentService:
           для L2 классификатора;
         - snippet_text: текст первых нескольких листовых клауз —
           для L3 (эмбеддинги) и L4 (LLM).
+
+        ВАЖНО:
+        - Это legacy-путь (CHUNKS v1), используется для:
+        * документов без готовых snapshot'ов чанков;
+        * вспомогательных задач (debug, header/snippet и т.п.).
 
         Важно:
         - snippet собирается по тем же правилам, что и чанки:
@@ -636,6 +700,11 @@ class DocumentContentService:
           примерно около target_tokens, но не больше max_tokens;
         - небольшое перекрытие (overlap_ratio) нужно, чтобы смысл не терялся
           на стыках чанков: часть текста повторяется в соседнем чанке.
+
+        ВАЖНО:
+        - Это legacy-путь (CHUNKS v1), используется для:
+        * документов без готовых snapshot'ов чанков;
+        * вспомогательных задач (debug, header/snippet и т.п.).
 
         На выходе:
         - возвращается список словарей с полями:
@@ -854,14 +923,14 @@ class DocumentContentService:
         - section: крупные разделы.
 
         ВАЖНО:
-        - Сначала пробуем читать чанки из snapshot'а по chunks_ref;
+        - Сначала пробуем читать чанки из snapshot'а;
         - Если snapshot отсутствует или повреждён — падаем обратно
           на on-the-fly расчёт через get_hierarchical_chunks.
         """
         if levels is None:
             levels = ["subclause", "section"]
 
-        # 1. Пытаемся прочитать чанки из snapshot'а (если chunks_ref есть).
+        # 1. Пытаемся прочитать чанки из snapshot'а (v2 или legacy).
         snapshot_chunks = await self._load_chunks_from_snapshot(doc_id, levels)
         if snapshot_chunks:
             return snapshot_chunks
@@ -893,6 +962,8 @@ class DocumentContentService:
                 )
 
         return chunks
+    
+    
     
 
     

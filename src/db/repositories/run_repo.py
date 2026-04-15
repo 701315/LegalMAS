@@ -18,24 +18,24 @@
 Как это влияет на работу системы и UX юриста:
 
 - Run — это «один запуск анализа» по сделке. По нему фронт показывает:
-  - статус запуска (ожидает, выполняется, завершён, завершён с ошибками, упал);
-  - прогресс по checks (total_checks / completed_checks — сколько проверок уже завершено);
-  - агрегированную ошибку уровня Run (если пайплайн упал целиком).
+  - статус запуска;
+  - прогресс по checks (total_checks / completed_checks);
+  - агрегированную ошибку уровня Run.
 
-- Job — это отдельная задача внутри Run (например, import, extract, run_deal_checks).
-  Эти записи удобны для операционной поддержки и диагностики, но обычно не показываются напрямую юристу.
+- Job — это отдельная задача внутри Run.
+  Эти записи полезны для операционной поддержки и диагностики.
 """
 
 import uuid
 from datetime import UTC, datetime, timezone
 
-from sqlalchemy import select, update, desc
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import RunStatus
+from ..models.document import Document
 from ..models.result import CheckResult
 from ..models.run import Job, Run
-from ..models.document import Document
-from core.constants import RunStatus
 from .result_repo import ResultRepository
 
 
@@ -53,6 +53,7 @@ class RunRepository:
         profile: str = "full",
         pipeline_strategy: str = "REUSE_STRUCTURE",
         checks_mode: str = "global_and_doc_type",
+        checks_scope: dict | None = None,
     ) -> Run:
         """
         Создать новый запуск анализа (Run) для сделки.
@@ -62,10 +63,10 @@ class RunRepository:
         - в дальнейшем именно по этому Run будут считаться прогресс и статусы.
 
         Важно:
-        - pipeline_strategy описывает, как этот запуск будет использовать уже
-          существующие артефакты (layout, clause_tree, classification);
-        - checks_mode определяет, по какому набору проверок будет идти анализ
-          (например, полный прогон или укороченный).
+        - pipeline_strategy описывает, как запуск использует существующие артефакты;
+        - checks_mode определяет общий режим проверок;
+        - checks_scope определяет область документа, по которой запускать checks
+          (например, только primary, только appendices, или оба типа сегментов).
         """
         run = Run(
             deal_id=deal_id,
@@ -76,6 +77,7 @@ class RunRepository:
             profile=profile,
             pipeline_strategy=pipeline_strategy,
             checks_mode=checks_mode,
+            checks_scope=checks_scope,
         )
         self.session.add(run)
         await self.session.flush()
@@ -95,30 +97,20 @@ class RunRepository:
         """
         return await self.get_by_id(run_id)
 
-
     async def update_status(self, run_id: uuid.UUID, status: str, **kwargs) -> Run | None:
         """
         Обновить статус Run и дополнительные поля.
 
         Основная идея:
-        - это единая точка смены статуса Run (pending, running, completed,
-          completed_with_errors, failed и т.п.);
-        - здесь же аккуратно заполняются started_at / completed_at, если вызывающий
-          их не передал явно.
-
-        Примеры использования:
-        - оркестратор ставит Run в "running" и заполняет total_checks;
-        - Runner, когда все документы обработаны, ставит "completed" или
-          "completed_with_errors";
-        - при критическом сбое (MinIO, БД, конфигурация) Run помечается "failed"
-          и может получить error_details с агрегированным описанием проблемы.
+        - это единая точка смены статуса Run;
+        - здесь же аккуратно заполняются started_at / completed_at,
+          если вызывающий их не передал явно.
         """
 
         def _to_naive_utc(dt: datetime | None) -> datetime | None:
             """
-            Вспомогательная функция:
-            - принимает datetime с таймзоной или без;
-            - приводит к naive UTC (без tzinfo), чтобы единообразно хранить в БД.
+            Привести datetime к naive UTC (без tzinfo), чтобы хранение в БД
+            было единообразным.
             """
             if dt is None:
                 return None
@@ -128,17 +120,14 @@ class RunRepository:
 
         values: dict = {"status": status}
 
-        # если вызывающий явно передал started_at/completed_at — нормализуем
         if "started_at" in kwargs and kwargs["started_at"] is not None:
             values["started_at"] = _to_naive_utc(kwargs["started_at"])
         if "completed_at" in kwargs and kwargs["completed_at"] is not None:
             values["completed_at"] = _to_naive_utc(kwargs["completed_at"])
 
-        # автозаполнение, если не передали
         if status == RunStatus.RUNNING.value and "started_at" not in values:
-            # now(UTC) → naive UTC
             values["started_at"] = datetime.now(UTC).replace(tzinfo=None)
-        # Важно: completed_with_errors — такой же "завершённый" Run, как completed/failed.
+
         if status in (
             RunStatus.COMPLETED.value,
             RunStatus.COMPLETED_WITH_ERRORS.value,
@@ -146,7 +135,6 @@ class RunRepository:
         ) and "completed_at" not in values:
             values["completed_at"] = datetime.now(UTC).replace(tzinfo=None)
 
-        # остальные kwargs (total_checks, completed_checks, error_details и т.п.)
         for k, v in kwargs.items():
             if k in ("started_at", "completed_at"):
                 continue
@@ -167,12 +155,6 @@ class RunRepository:
     async def increment_completed_checks(self, run_id: uuid.UUID) -> int:
         """
         Увеличить счётчик completed_checks на 1 и вернуть новое значение.
-
-        Зачем это нужно:
-        - этот метод должен вызываться каждый раз, когда отдельная проверка (check)
-        по документу переходит в финальный статус (SUCCESS/FAILED/TIMEOUT);
-        - фронт по полям total_checks / completed_checks показывает юристу прогресс
-        выполнения Run (например, «150 из 200 проверок завершено»).
         """
         stmt = (
             update(Run)
@@ -188,10 +170,6 @@ class RunRepository:
     async def get_counts(self, run_id: uuid.UUID) -> tuple[int, int]:
         """
         Вернуть (total_checks, completed_checks) для Run.
-
-        Используется для:
-        - понимания, все ли запланированные checks дошли до финального статуса;
-        - принятия решения, можно ли финализировать Run (completed / completed_with_errors / failed).
         """
         result = await self.session.execute(
             select(Run.total_checks, Run.completed_checks).where(Run.id == run_id)
@@ -206,11 +184,6 @@ class RunRepository:
     async def get_document_ids_for_run(self, run_id: uuid.UUID) -> list[uuid.UUID]:
         """
         Вернуть уникальные document_id, для которых есть CheckResult с данным run_id.
-
-        Зачем это нужно:
-        - при построении отчётов (DD grid, summary) мы хотим выбирать только те документы,
-          которые реально участвовали в данном Run;
-        - это фильтр «по факту наличия результатов checks» для конкретного запуска.
         """
         subq = (
             select(CheckResult.document_id)
@@ -222,11 +195,7 @@ class RunRepository:
 
     async def get_latest_for_deal(self, deal_id: uuid.UUID) -> Run | None:
         """
-        Вернуть последний Run для сделки по дате создания/ID.
-
-        Используется, например, при ручной переклассификации:
-        - чтобы понять, какой Run по сделке был последним;
-        - при необходимости переиспользовать его конфигурацию (playbook, model_config).
+        Вернуть последний Run для сделки по дате создания.
         """
         stmt = (
             select(Run)
@@ -239,9 +208,7 @@ class RunRepository:
 
     async def get_by_deal(self, deal_id: uuid.UUID) -> list[Run]:
         """
-        Вернуть все Run'ы для указанной сделки, отсортированные по дате создания (новые сначала).
-
-        Для фронта это основа для страницы «История запусков анализа по сделке».
+        Вернуть все Run'ы для сделки, новые сначала.
         """
         stmt = (
             select(Run)
@@ -253,15 +220,8 @@ class RunRepository:
 
     async def get_classification_stats_for_run(self, run_id: uuid.UUID) -> dict:
         """
-        Посчитать статистику классификации по всем документам,
-        которые проверялись в этом Run.
-
-        Это нужно для:
-        - быстрой оценки качества классификации по Run;
-        - построения «шапки» отчёта: сколько документов попало в L0/L1/L2/L3/L4,
-          сколько низкоуверенных, сколько с неизвестным типом.
+        Посчитать статистику классификации по документам, участвовавшим в Run.
         """
-        # все document_id, участвовавшие в Run
         subq = (
             select(CheckResult.document_id)
             .where(CheckResult.run_id == run_id)
@@ -297,7 +257,7 @@ class RunRepository:
             "L2": "l2_keyword",
             "L3": "l3_semantic",
             "L4": "l4_llm",
-            "LMANUAL": "l4_llm",  # ручная разметка считаем как максимальный уровень
+            "LMANUAL": "l4_llm",
         }
 
         for level, confidence, doc_type in rows:
@@ -313,16 +273,9 @@ class RunRepository:
 
         return stats
 
-
     async def try_start_run(self, run_id: uuid.UUID) -> bool:
         """
         Атомарно перевести Run из PENDING в RUNNING.
-
-        Для непрофессионального программиста:
-        - Этот метод делает один запрос к базе:
-          "если Run ещё в статусе 'pending', поставь ему статус 'running'".
-        - Если Run уже кто‑то запустил (он не в pending),
-          метод вернёт False, и мы поймём, что повторно запускать пайплайн не нужно.
         """
         stmt = (
             update(Run)
@@ -333,10 +286,8 @@ class RunRepository:
         result = await self.session.execute(stmt)
         row = result.scalar_one_or_none()
         if not row:
-            # Ничего не поменяли — Run уже не в PENDING.
             return False
 
-        # Дополнительно, по аналогии с update_status, можем проставить started_at.
         await self.session.execute(
             update(Run)
             .where(Run.id == run_id)
@@ -345,17 +296,10 @@ class RunRepository:
         await self.session.flush()
         return True
 
-
     async def finalize_run_if_finished(self, run_id: uuid.UUID) -> Run | None:
         """
-        Синхронизировать прогресс Run по фактическим CheckResult и,
-        если все materialized checks завершены, перевести Run в финальный статус.
-
-        Правила:
-        - если checks ещё не материализованы (total_checks == 0), Run не финализируем;
-        - если completed_checks < total_checks, Run остаётся RUNNING;
-        - если completed_checks == total_checks и нет FAILED/TIMEOUT checks -> COMPLETED;
-        - если completed_checks == total_checks и есть FAILED/TIMEOUT checks -> COMPLETED_WITH_ERRORS.
+        Синхронизировать прогресс Run по CheckResult и, если все checks завершены,
+        перевести Run в финальный статус.
         """
         result_repo = ResultRepository(self.session)
 
@@ -369,14 +313,11 @@ class RunRepository:
             "has_errors": has_failed_checks,
         }
 
-        # Если checks ещё не появились, просто синхронизируем прогресс.
-        # Финальный статус тут ставить нельзя.
         if total_checks == 0:
             run = await self.get_by_id(run_id)
             if run is None:
                 return None
 
-            # Не трогаем terminal state, если он уже стоит.
             if run.status in (
                 RunStatus.COMPLETED.value,
                 RunStatus.COMPLETED_WITH_ERRORS.value,
@@ -390,7 +331,6 @@ class RunRepository:
                 **values,
             )
 
-        # Есть checks, но не все финальны -> run должен быть RUNNING.
         if completed_checks < total_checks:
             return await self.update_status(
                 run_id,
@@ -398,7 +338,6 @@ class RunRepository:
                 **values,
             )
 
-        # Все checks в terminal state -> выбираем финальный статус run.
         final_status = (
             RunStatus.COMPLETED_WITH_ERRORS.value
             if has_failed_checks
@@ -420,11 +359,6 @@ class RunRepository:
     ) -> Run | None:
         """
         Пометить Run как FAILED только в случае run-level/orchestrator-level ошибки.
-
-        Примеры:
-        - не удалось построить execution plan;
-        - критическая ошибка scheduler/dispatcher;
-        - инфраструктурная ошибка, из-за которой нельзя корректно финализировать run.
         """
         payload = dict(error_details or {})
         payload.setdefault("message", message)
@@ -445,9 +379,6 @@ class RunRepository:
         )
 
 
-
-
-
 class JobRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -460,13 +391,6 @@ class JobRepository:
     ) -> Job:
         """
         Создать новую запись о задаче (Job) внутри Run.
-
-        Пример:
-        - одна задача import для конкретного файла;
-        - одна задача extract для документа;
-        - одна задача проверки (checks) в рамках Run (например, run_deal_checks).
-
-        Эти записи полезны для операторов и для отладки пайплайна.
         """
         job = Job(
             run_id=run_id,
@@ -480,15 +404,6 @@ class JobRepository:
     async def update_status(self, job_id: uuid.UUID, status: str, **kwargs) -> Job | None:
         """
         Обновить статус Job.
-
-        Логика:
-        - при переводе в "running" проставляем started_at (если вызывающий не передал его сам);
-        - при переводе в один из финальных статусов ("completed", "failed", "dlq")
-          проставляем finished_at.
-
-        Это помогает в эксплуатации:
-        - видеть, когда задача стартовала и когда завершилась;
-        - считать длительность выполнения отдельных стадий пайплайна.
         """
         values = {"status": status, **kwargs}
         if status == "running" and "started_at" not in kwargs:
@@ -502,4 +417,4 @@ class JobRepository:
         if job:
             await self.session.flush()
         return job
-
+    

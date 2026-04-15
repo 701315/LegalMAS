@@ -1,33 +1,23 @@
 # src/workers/chunk_builder.py
 
+from __future__ import annotations
+
 """
 Chunk Builder Worker.
 
 Назначение:
-- Построить canonical snapshot чанков (section / clause / subclause)
-  через единый сервис ChunkSnapshotBuilder.
-- Сохранить snapshot в MinIO и обновить ссылку chunks_ref в DocumentVersion.
+- В legacy-режиме: построить canonical snapshot чанков (section / clause / subclause)
+  через ChunkSnapshotBuilder и сохранить его в chunks_ref (schema_version=1).
+- В v2-режиме: построить per-segment chunk snapshots через SegmentChunkBuilderV2,
+  сохранить их в MinIO, обновить segment_chunks_ref в DocumentSegment и
+  сохранить file-level chunks_manifest_v2_ref в DocumentVersion.
 - Обновить статус документа: STRUCTURED -> CHUNKED.
-- В будущем: запускать downstream-задачи, которым нужны готовые чанки.
+- Запустить downstream-орchestrator только после committed=True.
 
 Позиция в пайплайне:
 - import -> convert -> build_primary_language_source -> extract -> pii
   -> structure -> chunking -> classify/checks/...
-
-Контракт стадии:
-- Источник чанков — только canonical downstream-артефакты:
-  * layout_primary_sanitized_ref / layout_primary_ref (определяется внутри ChunkSnapshotBuilder),
-  * clause_tree_ref.
-- В самом воркере нет собственных layout-fallback’ов; они централизованы
-  в ChunkSnapshotBuilder.
-- В нормальном боевом режиме layout_kind=layout_primary_sanitized_ref;
-  fallback на layout_primary_ref допускается только через feature flag
-  в ChunkSnapshotBuilder.
-- retrigger downstream допустим только после подтверждённого commit
-  результатов chunking (committed=True).
 """
-
-from __future__ import annotations
 
 import time
 import uuid
@@ -35,12 +25,19 @@ from typing import Any
 
 from core.config import settings
 from core.constants import DocumentStatus
-from core.exceptions import PermanentError, TransientError, QuarantineError
+from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
 from engine.content.chunk_snapshot_builder import ChunkSnapshotBuilder
+from engine.content.segment_chunk_builder_v2 import (
+    FileChunkManifestV2,
+    FileChunkManifestSegmentV2,
+    SegmentChunkBuilderV2,
+    SegmentChunkSnapshotV2,
+)
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -79,14 +76,27 @@ def build_chunks(
     async def _wrapper() -> dict:
         try:
             async with db_uow() as uow:
-                return await _build_chunks_async(
-                    document_version_id=document_version_id,
-                    document_id=document_id,
-                    deal_id=deal_id,
-                    tenant_id=tenant_id,
-                    run_id=run_id,
-                    uow=uow,
-                )
+                # TODO: завести feature flag / setting вместо захардкоженного False.
+                use_v2 = settings.CHUNKS_V2_ENABLED
+
+                if use_v2:
+                    return await _build_chunks_v2_async(
+                        document_version_id=document_version_id,
+                        document_id=document_id,
+                        deal_id=deal_id,
+                        tenant_id=tenant_id,
+                        run_id=run_id,
+                        uow=uow,
+                    )
+                else:
+                    return await _build_chunks_legacy_async(
+                        document_version_id=document_version_id,
+                        document_id=document_id,
+                        deal_id=deal_id,
+                        tenant_id=tenant_id,
+                        run_id=run_id,
+                        uow=uow,
+                    )
 
         except TransientError as e:
             logger.warning(
@@ -101,7 +111,6 @@ def build_chunks(
             raise
 
         except QuarantineError as e:
-            # Мягкий карантин: документ не FAILED, но chunking дальше не идёт.
             logger.warning(
                 "Quarantine during chunk building",
                 document_id=document_id,
@@ -168,6 +177,7 @@ def build_chunks(
             chunks_ref=result.get("chunks_ref"),
             layout_kind=result.get("layout_kind"),
             layout_ref=result.get("layout_ref"),
+            chunks_manifest_v2_ref=result.get("chunks_manifest_v2_ref"),
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -178,7 +188,7 @@ def build_chunks(
     return result
 
 
-async def _build_chunks_async(
+async def _build_chunks_legacy_async(
     *,
     document_version_id: str,
     document_id: str,
@@ -188,16 +198,7 @@ async def _build_chunks_async(
     uow: UnitOfWork,
 ) -> dict:
     """
-    Асинхронная логика построения чанков.
-
-    Шаги:
-    1) загружаем Document и DocumentVersion;
-    2) проверяем, что есть clause_tree_ref (structure уже выполнен);
-    3) строим snapshot чанков через ChunkSnapshotBuilder;
-    4) сохраняем snapshot в MinIO;
-    5) обновляем chunks_ref в DocumentVersion и статус документа -> CHUNKED;
-    6) flush -> verify -> commit;
-    7) возвращаем committed=True только после успешного commit.
+    Текущая legacy-логика построения чанков (schema_version=1, один snapshot на файл).
     """
 
     start = time.time()
@@ -240,14 +241,13 @@ async def _build_chunks_async(
                 error=str(e),
             )
 
-    # На будущее: можно прокинуть force_rebuild из Celery kwargs.
-    force_rebuild = False  # пока выключено, включите при необходимости
+    force_rebuild = False  # TODO: прокинуть из Celery kwargs при необходимости.
 
     needs_rebuild = (
         force_rebuild
         or not existing_chunks_ref
         or doc.status != DocumentStatus.CHUNKED.value
-        or existing_schema_version != 1  # текущая целевая версия схемы
+        or existing_schema_version != 1
     )
 
     if not needs_rebuild:
@@ -298,15 +298,11 @@ async def _build_chunks_async(
             details={"stage": "chunking", "kind": "snapshot_builder_error"},
         )
 
-    # Разбираем source-info из snapshot (используется и в логах, и ниже).
     source_info = snapshot.get("source") or {}
     layout_ref = source_info.get("layout_ref")
     layout_kind = source_info.get("layout_kind")
     snapshot_clause_tree_ref = source_info.get("clause_tree_ref")
 
-    # После успешной сборки snapshot проверяем, что в нём есть реально
-    # пригодные для анализа чанки. Пустой snapshot (без clause/subclause)
-    # трактуем как "нет анализируемого контента" и отправляем в карантин.
     chunks = snapshot.get("chunks") or {}
     clause_chunks = chunks.get("clause") or []
     subclause_chunks = chunks.get("subclause") or []
@@ -406,7 +402,7 @@ async def _build_chunks_async(
     duration = round(time.time() - start, 2)
 
     logger.info(
-        "Chunks snapshot built and committed successfully",
+        "Chunks snapshot (legacy) built and committed successfully",
         document_id=str(doc.id),
         document_version_id=str(v_id),
         chunks_ref=chunks_ref,
@@ -432,6 +428,235 @@ async def _build_chunks_async(
     }
 
 
+async def _build_chunks_v2_async(
+    *,
+    document_version_id: str,
+    document_id: str,
+    deal_id: str,
+    tenant_id: str,
+    run_id: str | None,
+    uow: UnitOfWork,
+) -> dict:
+    """
+    Новая v2-логика построения чанков:
+    - строим per-segment snapshots и file-level manifest через SegmentChunkBuilderV2;
+    - сохраняем segment_chunks и manifest в MinIO;
+    - обновляем segment_chunks_ref и chunks_manifest_v2_ref в БД;
+    - статус документа -> CHUNKED.
+    """
+
+    start = time.time()
+    store = ArtifactStore(settings)
+
+    ver_repo = DocumentVersionRepository(uow.session)
+    doc_repo = DocumentRepository(uow.session)
+    seg_repo = DocumentSegmentRepository(uow.session)
+
+    v_id = uuid.UUID(document_version_id)
+    d_id = uuid.UUID(document_id)
+
+    version = await ver_repo.get_by_id(v_id)
+    if not version:
+        raise PermanentError(
+            f"DocumentVersion {v_id} not found",
+            details={"stage": "chunking_v2", "kind": "version_not_found"},
+        )
+
+    doc = await doc_repo.get_by_id(d_id)
+    if not doc:
+        raise PermanentError(
+            f"Document {d_id} not found",
+            details={"stage": "chunking_v2", "kind": "document_not_found"},
+        )
+
+    segments = await seg_repo.list_by_version(v_id)
+    if not segments:
+        raise PermanentError(
+            f"No DocumentSegment rows found for version {v_id}",
+            details={"stage": "chunking_v2", "kind": "segments_missing"},
+        )
+
+    builder_v2 = SegmentChunkBuilderV2(store=store)
+
+    try:
+        file_manifest, segment_snapshots = await builder_v2.build_for_version(
+            session=uow.session,
+            document_version_id=v_id,
+            target_tokens=300,
+            max_tokens=800,
+            overlap_ratio=0.15,
+        )
+    except PermanentError:
+        raise
+    except Exception as e:
+        logger.exception(
+            "SegmentChunkBuilderV2 failed",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            error=str(e),
+        )
+        raise PermanentError(
+            f"SegmentChunkBuilderV2 failed: {e}",
+            details={"stage": "chunking_v2", "kind": "segment_builder_error"},
+        )
+
+    if not segment_snapshots:
+        logger.warning(
+            "SegmentChunkBuilderV2 produced no segment snapshots",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+        )
+        raise QuarantineError(
+            "No usable segment chunks built",
+            document_id=str(doc.id),
+            reason="emptysegments",
+            details={
+                "document_version_id": str(version.id),
+            },
+        )
+
+    # 1. Сохраняем per-segment snapshots в MinIO и обновляем segment_chunks_ref.
+    segments_by_id = {s.segment_id: s for s in segments}
+    manifest_segments: dict[str, FileChunkManifestSegmentV2] = {
+        s.segment_id: s for s in file_manifest.segments
+    }
+
+    for snapshot in segment_snapshots:
+        seg = segments_by_id.get(snapshot.segment_id)
+        if seg is None:
+            raise PermanentError(
+                f"Internal error: no DocumentSegment row for snapshot.segment_id={snapshot.segment_id}",
+                details={"stage": "chunking_v2", "kind": "segment_not_found_for_snapshot"},
+            )
+
+        chunk_path = ArtifactPath.segment_chunks(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            document_id=str(doc.id),
+            segment_id=snapshot.segment_id,
+        )
+
+        try:
+            segment_chunks_ref = store.put_json(chunk_path, snapshot.to_dict())
+        except Exception as e:
+            logger.exception(
+                "Failed to store segment chunk snapshot",
+                document_id=str(doc.id),
+                document_version_id=str(v_id),
+                segment_id=snapshot.segment_id,
+                chunks_path=chunk_path,
+                error=str(e),
+            )
+            raise PermanentError(
+                f"Failed to store segment chunk snapshot: {e}",
+                details={"stage": "chunking_v2", "kind": "segment_chunks_store_error"},
+            )
+
+        # обновляем в БД segment_chunks_ref
+        seg.segment_chunks_ref = segment_chunks_ref  # локально в объекте
+        # и прокидываем в manifest
+        manifest_segment = manifest_segments.get(snapshot.segment_id)
+        if manifest_segment is not None:
+            manifest_segment.segment_chunks_ref = segment_chunks_ref
+
+    # 2. Перезаписываем DocumentSegment rows одним replace (atomic pattern).
+    await seg_repo.replace_segments(
+        document_version_id=v_id,
+        items=list(segments),
+    )
+
+    # 3. Сохраняем file-level manifest в MinIO.
+    manifest_path = ArtifactPath.chunks_manifest_v2(
+        tenant_id=tenant_id,
+        deal_id=deal_id,
+        document_id=str(doc.id),
+    )
+
+    try:
+        chunks_manifest_v2_ref = store.put_json(manifest_path, file_manifest.to_dict())
+    except Exception as e:
+        logger.exception(
+            "Failed to store file chunk manifest v2",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            manifest_path=manifest_path,
+            error=str(e),
+        )
+        raise PermanentError(
+            f"Failed to store file chunk manifest v2: {e}",
+            details={"stage": "chunking_v2", "kind": "manifest_store_error"},
+        )
+
+    # 4. Обновляем DocumentVersion: записываем ссылку на v2 manifest.
+    # ВАЖНО: здесь предполагается, что в DocumentVersion есть поле chunks_manifest_v2_ref
+    # и в репозитории есть метод update_refs_v2 или расширенный update_refs.
+    updated_version = await ver_repo.update_refs(
+        version_id=v_id,
+        # legacy chunks_ref можно оставить как есть, либо None.
+        chunks_manifest_v2_ref=chunks_manifest_v2_ref,  # type: ignore[arg-type]
+    )
+    if not updated_version:
+        raise PermanentError(
+            f"Failed to update chunks_manifest_v2_ref for version {v_id}",
+            details={"stage": "chunking_v2", "kind": "version_update_failed"},
+        )
+
+    updated_doc = await doc_repo.update_status(
+        doc.id,
+        DocumentStatus.CHUNKED.value,
+        processing_error_details=None,
+    )
+    if not updated_doc:
+        raise PermanentError(
+            f"Failed to update document status to CHUNKED for doc {doc.id}",
+            details={"stage": "chunking_v2", "kind": "document_status_update_failed"},
+        )
+
+    await uow.session.flush()
+
+    refreshed_version = await ver_repo.get_by_id(v_id)
+    if not refreshed_version:
+        raise TransientError(
+            f"DocumentVersion {v_id} is not visible after flush (v2)"
+        )
+
+    refreshed_manifest_ref = getattr(refreshed_version, "chunks_manifest_v2_ref", None)
+    if not refreshed_manifest_ref:
+        raise TransientError(
+            f"chunks_manifest_v2_ref is not visible after flush for version {v_id}"
+        )
+
+    if refreshed_manifest_ref != chunks_manifest_v2_ref:
+        raise TransientError(
+            f"chunks_manifest_v2_ref mismatch after flush for version {v_id}"
+        )
+
+    await uow.session.commit()
+
+    duration = round(time.time() - start, 2)
+
+    logger.info(
+        "Segment chunks and file manifest v2 built and committed successfully",
+        document_id=str(doc.id),
+        document_version_id=str(v_id),
+        chunks_manifest_v2_ref=chunks_manifest_v2_ref,
+        segments_count=len(segment_snapshots),
+        duration_seconds=duration,
+        status=DocumentStatus.CHUNKED.value,
+    )
+
+    # Для backward-совместимости можно продолжать возвращать chunks_ref=None.
+    return {
+        "status": DocumentStatus.CHUNKED.value,
+        "document_id": str(doc.id),
+        "document_version_id": str(v_id),
+        "chunks_ref": None,
+        "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+        "duration_seconds": duration,
+        "committed": True,
+    }
+
+
 async def _mark_quarantined(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
@@ -442,10 +667,6 @@ async def _mark_quarantined(
 ) -> None:
     """
     Перевести документ в карантин на стадии chunking.
-
-    Используем отдельный helper, чтобы не путать с FAILED:
-    - статус документа остаётся прежним,
-      а подробности попадают в таблицу карантина.
     """
     doc_repo = DocumentRepository(uow.session)
     await doc_repo.set_quarantined(
@@ -476,3 +697,4 @@ async def _mark_failed(
         run_id=run_id,
     )
 
+    

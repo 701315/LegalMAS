@@ -3,23 +3,17 @@
 """
 Repository for DocumentVersion CRUD operations.
 
-Для непрофессионального программиста:
+...
 
-- Этот репозиторий — единственная "официальная точка", через которую стадии
-  пайплайна должны обновлять ссылки на артефакты DocumentVersion.
 - Здесь мы храним не только legacy refs (raw/sanitized), но и новые refs
   для одноязычного пайплайна:
   - layout_primary_ref;
   - layout_primary_sanitized_ref;
-  - chunks_ref — snapshot чанков для retrieval/checks.
-- Благодаря этому downstream-стадии (PII, structure, content service, checks)
-  могут брать нужный layout/структуры/чанки из БД, а не вычислять путь в MinIO вручную.
-
-Важно:
-- Значение None в update_refs() означает "это поле не обновляем".
-- То есть этот метод НЕ используется для очистки ссылок.
-- Если когда-нибудь понадобится явно очищать ref, лучше сделать для этого
-  отдельный метод, чтобы не было двусмысленности.
+  - file_graph_ref, segments_count — структура файла (v2);
+  - chunks_manifest_v2_ref — file-level манифест чанков (CHUNKS v2);
+  - segment_chunks_ref — ссылки на чанки сегментов лежат в DocumentSegment.
+- Поле chunks_ref считается LEGACY и используется только старым кодом
+  (ChunkSnapshotReader v1, старый Retrieval/CheckRunner).
 """
 
 import uuid
@@ -71,6 +65,35 @@ class DocumentVersionRepository:
         )
         return result.scalar_one_or_none()
 
+    async def update_chunks_v2_ref(
+        self,
+        version_id: uuid.UUID,
+        chunks_manifest_v2_ref: str,
+    ) -> DocumentVersion | None:
+        """
+        Update only CHUNKS v2 file-level manifest reference.
+
+        Используется CHUNKS v2 worker-ом после успешной записи
+        chunks_manifest_v2.json в artifact storage.
+        """
+        return await self.update_refs(
+            version_id=version_id,
+            chunks_manifest_v2_ref=chunks_manifest_v2_ref,
+        )
+
+    async def update_chunks_legacy_ref(
+        self,
+        version_id: uuid.UUID,
+        chunks_ref: str,
+    ) -> DocumentVersion | None:
+        """
+        Update only legacy chunks_ref.
+        """
+        return await self.update_refs(
+            version_id=version_id,
+            chunks_ref=chunks_ref,
+        )
+
     async def update_refs(
         self,
         version_id: uuid.UUID,
@@ -85,6 +108,9 @@ class DocumentVersionRepository:
         converted_pdf_ref: str | None = None,
         primary_source_ref: str | None = None,
         chunks_ref: str | None = None,
+        file_graph_ref: str | None = None,
+        segments_count: int | None = None,
+        chunks_manifest_v2_ref: str | None = None,
     ) -> DocumentVersion | None:
         """
         Update artifact references and processing metadata on a document version.
@@ -100,21 +126,26 @@ class DocumentVersionRepository:
         - pii_sanitizer:
             sanitized_ref, layout_primary_sanitized_ref
         - structure_builder:
-            clause_tree_ref
+            clause_tree_ref, file_graph_ref, segments_count
         - chunk_builder:
-            chunks_ref
+            chunks_ref (LEGACY), chunks_manifest_v2_ref (v2)
+        - chunks_ref и chunks_manifest_v2_ref обновляются независимо:
+          * legacy path может писать только chunks_ref;
+          * v2 path может писать только chunks_manifest_v2_ref;
+          * transitional dual-write режим может писать оба поля.
 
         Важно:
         - raw_ref / sanitized_ref оставляем для backward compatibility;
         - layout_primary_ref / layout_primary_sanitized_ref — это новый основной
           контракт для одноязычного downstream-пайплайна;
         - primary_source_ref — одноязычный source (PDF) до extract;
-        - chunks_ref — materialized snapshot чанков (section/clause/subclause)
-          для Retrieval/CheckRunner;
+        - chunks_ref — LEGACY snapshot чанков (section/clause/subclause)
+          для старого Retrieval/CheckRunner;
+        - chunks_manifest_v2_ref — новый file-level манифест чанков (CHUNKS v2);
         - None означает "не обновлять это поле";
         - если version_id не найден, метод возвращает None.
         """
-        values: dict[str, str | float] = {}
+        values: dict[str, str | float | int] = {}
 
         if raw_ref is not None:
             values["text_layout_raw_ref"] = raw_ref
@@ -148,6 +179,15 @@ class DocumentVersionRepository:
 
         if chunks_ref is not None:
             values["chunks_ref"] = chunks_ref
+
+        if file_graph_ref is not None:
+            values["file_graph_ref"] = file_graph_ref
+
+        if segments_count is not None:
+            values["segments_count"] = segments_count
+
+        if chunks_manifest_v2_ref is not None:
+            values["chunks_manifest_v2_ref"] = chunks_manifest_v2_ref
 
         if not values:
             return await self.get_by_id(version_id)

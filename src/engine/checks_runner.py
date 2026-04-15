@@ -88,6 +88,7 @@ class CheckRunner:
         playbook_version_id: uuid.UUID | None = None,
         checks_mode: str = "global_and_doc_type",
         run_repo: Optional[RunRepository] = None,
+        checks_scope: dict[str, Any] | None = None,
     ) -> None:
         """
         llm_client — клиент для LLM.
@@ -104,9 +105,14 @@ class CheckRunner:
 
         run_repo:
             Репозиторий для сущности Run.
-            Нужен, чтобы после каждого успешно обработанного документа
-            увеличивать счётчик completed_checks и показывать живой прогресс.
-            Если не передан, прогресс Run трогать не будем.
+
+        checks_scope:
+            Сегментный scope для фильтрации чанков перед анализом.
+            Примеры:
+            - {"scope_preset": "primary_only"}
+            - {"scope_preset": "appendices_only"}
+            - {"scope_preset": "primary_and_appendices"}
+            - {"include_primary": True, "include_segment_types": ["appendix"]}
         """
         self.llm_client = llm_client
         self.executor = CheckExecutor(llm_client)
@@ -114,6 +120,7 @@ class CheckRunner:
         self.doc_type_loader = DocTypeCheckLoader()
         self.checks_mode = checks_mode
         self.run_repo = run_repo
+        self.checks_scope = checks_scope or {}
 
     async def run_deal_checks(
         self,
@@ -389,6 +396,90 @@ class CheckRunner:
 
         return doc_type, applicable_triggers
 
+    def _resolve_scope_flags(self) -> tuple[bool, set[str]]:
+        """
+        Определить, какие сегменты включать в corpus чанков.
+
+        Возвращает:
+        - include_primary: включать ли primary-сегмент;
+        - include_types: множество segment_type, которые надо включить.
+
+        Поддерживаемые пресеты:
+        - primary_only
+        - appendices_only
+        - primary_and_appendices
+
+        Если scope не задан, по умолчанию включаем:
+        - primary
+        - appendix
+        """
+        scope = self.checks_scope or {}
+        preset = str(scope.get("scope_preset") or "").strip().lower()
+
+        if preset == "primary_only":
+            return True, set()
+
+        if preset == "appendices_only":
+            return False, {"appendix"}
+
+        if preset == "primary_and_appendices":
+            return True, {"appendix"}
+
+        include_primary = bool(scope.get("include_primary", True))
+        include_types_raw = scope.get("include_segment_types") or []
+        include_types = {
+            str(t).strip().lower()
+            for t in include_types_raw
+            if str(t).strip()
+        }
+
+        if not scope:
+            return True, {"appendix"}
+
+        return include_primary, include_types
+
+
+    def _filter_chunks_by_scope(
+        self,
+        chunks: list[dict],
+        *,
+        include_primary: bool,
+        include_types: set[str],
+    ) -> list[dict]:
+        """
+        Отфильтровать чанки по segment-aware metadata.
+
+        Ожидаемые поля в metadata:
+        - segment_type
+        - is_primary_segment (предпочтительно)
+        или fallback: is_primary
+        """
+        if not chunks:
+            return []
+
+        filtered: list[dict] = []
+
+        for ch in chunks:
+            meta = ch.get("metadata") or {}
+
+            seg_type = str(meta.get("segment_type") or "").strip().lower()
+
+            if "is_primary_segment" in meta:
+                is_primary = bool(meta.get("is_primary_segment"))
+            else:
+                is_primary = bool(meta.get("is_primary"))
+
+            if is_primary and include_primary:
+                filtered.append(ch)
+                continue
+
+            if seg_type and seg_type in include_types:
+                filtered.append(ch)
+                continue
+
+        return filtered
+
+
     def _select_checks_for_document(
         self,
         doc,
@@ -519,6 +610,14 @@ class CheckRunner:
             target_tokens=300,
             max_tokens=800,
             overlap_ratio=0.15,
+        )
+
+        include_primary, include_types = self._resolve_scope_flags()
+
+        chunks = self._filter_chunks_by_scope(
+            chunks,
+            include_primary=include_primary,
+            include_types=include_types,
         )
 
         if len(chunks) > MAX_CHUNKS_PER_DOC:
@@ -684,6 +783,41 @@ class CheckRunner:
 
         check_origin = getattr(check, "origin", None) if check is not None else None
 
+        # Попытка вытащить segment-aware информацию (если она есть).
+        # ВАЖНО: этот код не ломает старые результаты, если сегменты ещё не прокинуты.
+        segment_id = None
+        segment_type = None
+        segment_title = None
+        segment_order = None
+        is_primary_segment = None
+
+        # 1) Пытаемся взять из exec_result["raw"]["segment_provenance"],
+        #    если детектор/верхний слой уже положили туда эти поля.
+        raw_segment = None
+        if isinstance(exec_result.get("raw"), dict):
+            raw_segment = exec_result["raw"].get("segment_provenance")
+
+        if isinstance(raw_segment, dict):
+            segment_id = raw_segment.get("segment_id") or None
+            segment_type = raw_segment.get("segment_type") or None
+            segment_title = raw_segment.get("segment_title") or None
+            try:
+                # segment_order может прийти строкой — аккуратно приводим к int.
+                if raw_segment.get("segment_order") is not None:
+                    segment_order = int(raw_segment.get("segment_order"))
+            except (TypeError, ValueError):
+                segment_order = None
+            is_primary_segment = raw_segment.get("is_primary_segment")
+            if isinstance(is_primary_segment, str):
+                # Нормализуем строковые значения "true"/"false".
+                is_primary_segment = is_primary_segment.strip().lower() in ("1", "true", "yes")
+
+        # 2) Если в raw ничего нет, можно в будущем добавить fallback:
+        #    посмотреть на exec_result["sources"] и попытаться достать
+        #    segment_* из metadata первого источника.
+        #    Сейчас оставляем это как расширяемую точку, чтобы не плодить
+        #    хрупкие привязки к формату sources.
+
         return {
             "value_text": value_text,
             "evidence_ref": evidence_ref,
@@ -697,6 +831,12 @@ class CheckRunner:
             "clause_uid": exec_result.get("clause_uid"),
             "element_id": exec_result.get("element_id"),
             "bbox": exec_result.get("bbox"),
+            # Новые поля для segment-aware provenance:
+            "segment_id": segment_id,
+            "segment_type": segment_type,
+            "segment_title": segment_title,
+            "segment_order": segment_order,
+            "is_primary_segment": is_primary_segment,
         }
 
     async def _save_check_result(
@@ -779,6 +919,12 @@ class CheckRunner:
             clause_uid=normalized["clause_uid"],
             element_id=normalized["element_id"],
             bbox=normalized["bbox"],
+            # Новые поля для segment-aware provenance:
+            segment_id=normalized.get("segment_id"),
+            segment_type=normalized.get("segment_type"),
+            segment_title=normalized.get("segment_title"),
+            segment_order=normalized.get("segment_order"),
+            is_primary_segment=normalized.get("is_primary_segment"),
             execution_status=execution_status,
             error_details=error_details,
         )
@@ -859,6 +1005,11 @@ class CheckRunner:
                 clause_uid=normalized["clause_uid"],
                 element_id=normalized["element_id"],
                 bbox=normalized["bbox"],
+                segment_id=normalized.get("segment_id"),
+                segment_type=normalized.get("segment_type"),
+                segment_title=normalized.get("segment_title"),
+                segment_order=normalized.get("segment_order"),
+                is_primary_segment=normalized.get("is_primary_segment"),
                 execution_status="FAILED",
                 error_details={
                     "type": "check_not_applicable",

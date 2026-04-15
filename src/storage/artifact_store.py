@@ -16,11 +16,14 @@ from datetime import timedelta
 from minio import Minio
 from minio.error import S3Error
 
+
 from .exports import ExportSuffix, build_export_filename
+
 
 from core.config import Settings, settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -78,19 +81,141 @@ class ArtifactPath:
         return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/clause_tree.json"
 
     @staticmethod
-    def chunks(tenant_id: str, deal_id: str, document_id: str) -> str:
+    def file_graph(tenant_id: str, deal_id: str, document_id: str) -> str:
         """
-        Путь к canonical snapshot'у чанков для версии документа.
+        Путь к файловому графу (FileGraph) — метаданные всех логических
+        сегментов внутри одного физического файла и связи между ними.
 
         Для непрофессионального программиста:
-        - Здесь будет лежать один JSON-файл с уже посчитанными чанками
-          всех уровней (section / clause / subclause) для документа.
-        - Этим путём будут пользоваться:
-          * chunk_builder — чтобы записать снапшот;
-          * DocumentContentService / RetrievalEngine / CheckRunner — чтобы читать.
-        - Мы кладём чанки рядом со структурой (clause_tree) в каталоге structures.
+        Когда один PDF содержит несколько документов (договор + приложения),
+        file_graph.json описывает их список: какой тип, какие страницы,
+        какой segment_id у каждого. CHUNKS читают этот файл чтобы понять,
+        какие segment_clause_tree_*.json нужно загрузить.
+
+        Лежит рядом с clause_tree.json в том же каталоге structures/.
+
+        Пример пути:
+        tenants/abc/deals/xyz/structures/{document_id}/file_graph.json
+        """
+        return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/file_graph.json"
+
+    @staticmethod
+    def segment_clause_tree(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        segment_id: str,
+    ) -> str:
+        """
+        Путь к дереву одного логического сегмента (один из нескольких документов в файле).
+
+        Для непрофессионального программиста:
+        Если файл содержит договор + приложение + акт — для каждого из них
+        строится отдельное ClauseTree и сохраняется по отдельному пути.
+        Имя файла содержит segment_id (первые 8 символов UUID) — это делает
+        имя коротким, но всё ещё уникальным внутри одного document_id.
+
+        clause_tree.json (legacy) — всегда указывает на primary-сегмент,
+        чтобы старый код (CHUNKS v1, API) продолжал работать без изменений.
+
+        Пример пути (segment_id = "550e8400-e29b-41d4-a716-446655440000"):
+        tenants/abc/deals/xyz/structures/{document_id}/segment_550e8400.json
+
+        Аргументы:
+        - tenant_id:   ID тенанта
+        - deal_id:     ID сделки
+        - document_id: ID физического файла
+        - segment_id:  полный UUID сегмента (make_segment_id из models.py)
+        """
+        # Берём первые 8 символов UUID для читаемого имени файла.
+        # Коллизии внутри одного document_id практически исключены:
+        # uuid5 детерминирован и уникален по (document_id, segment_order).
+        short_id = segment_id[:8]
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/segment_{short_id}.json"
+        )
+
+    @staticmethod
+    def chunks(tenant_id: str, deal_id: str, document_id: str) -> str:
+        """
+        Legacy путь к snapshot'у чанков для документа (CHUNKS v1).
+
+        Важно:
+        - Этот путь используется только старым кодом, который ожидает один
+          chunks.json на весь файл и не знает про логические сегменты.
+        - Новая архитектура CHUNKS v2 НЕ должна писать сюда данные.
+          Вместо этого:
+            * per-segment чанки пишутся в segment_chunks(...),
+            * file-level manifest чанков — в chunks_manifest_v2(...).
+
+        Схема пути (v1):
+        tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/chunks.json
         """
         return f"tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/chunks.json"
+
+
+    @staticmethod
+    def chunks_manifest_v2(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+    ) -> str:
+        """
+        Путь к file-level манифесту чанков (CHUNKS v2).
+
+        Для непрофессионального программиста:
+        - Это один JSON-файл, который описывает ВЕСЬ набор чанков по файлу,
+          но сам текст чанков лежит в отдельных файлах по сегментам.
+        - В манифесте:
+            * список сегментов,
+            * для каждого сегмента ссылка на segment_chunks(...),
+            * summary-метаданные (сколько чанков, какой primary-сегмент и т.п.).
+        - Downstream (retrieval, checks, LLM) должен начинать чтение именно
+          с этого файла, а не с legacy chunks.json.
+
+        Пример пути:
+        tenants/{tenant_id}/deals/{deal_id}/structures/{document_id}/chunks_manifest_v2.json
+        """
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/chunks_manifest_v2.json"
+        )
+
+
+
+    @staticmethod
+    def segment_chunks(
+        tenant_id: str,
+        deal_id: str,
+        document_id: str,
+        segment_id: str,
+    ) -> str:
+        """
+        Путь к чанкам одного логического сегмента.
+
+        Для непрофессионального программиста:
+        В новом (v2) режиме чанки строятся отдельно для каждого сегмента,
+        а не для всего файла целиком. Это значит что чанки договора и чанки
+        приложения хранятся в разных файлах и никогда не смешиваются.
+
+        chunks.json (legacy) — всегда указывает на чанки primary-сегмента,
+        чтобы старый код (CheckRunner v1) продолжал работать без изменений.
+
+        Пример пути (segment_id = "550e8400-e29b-41d4-a716-446655440000"):
+        tenants/abc/deals/xyz/structures/{document_id}/chunks_550e8400.json
+
+        Аргументы:
+        - tenant_id:   ID тенанта
+        - deal_id:     ID сделки
+        - document_id: ID физического файла
+        - segment_id:  полный UUID сегмента (make_segment_id из models.py)
+        """
+        short_id = segment_id[:8]
+        return (
+            f"tenants/{tenant_id}/deals/{deal_id}/structures/"
+            f"{document_id}/chunks_{short_id}.json"
+        )
 
     @staticmethod
     def check_results(tenant_id: str, deal_id: str, run_id: str) -> str:
@@ -141,7 +266,7 @@ class ArtifactPath:
     @staticmethod
     def layout_primary_sanitized(tenant_id: str, deal_id: str, document_id: str) -> str:
         """
-        Одноязычный layout после PII-сатнитизации.
+        Одноязычный layout после PII-санитизации.
 
         Структура аналогична layout_primary, но все PII-токены уже заменены.
         """
@@ -166,7 +291,6 @@ class ArtifactStore:
 
         self._endpoint = s.MINIO_ENDPOINT
         self._secure = s.MINIO_SECURE
-
 
     def _ensure_bucket(self) -> None:
         """Create bucket if it does not exist."""
@@ -228,17 +352,15 @@ class ArtifactStore:
     ) -> str:
         """Upload binary file to MinIO."""
         try:
-            # Сохраняем байты для локальной копии ДО создания stream
             if isinstance(file_data, bytes):
                 data_stream = io.BytesIO(file_data)
                 length = len(file_data)
             else:
-                # Для io.BytesIO: читаем данные для локальной копии
                 current_pos = file_data.tell()
                 file_data.seek(0, 2)
                 length = file_data.tell()
-                file_data.seek(0)  # сбрасываем в начало для MinIO
-                file_data.seek(current_pos)  # восстанавливаем позицию
+                file_data.seek(0)
+                file_data.seek(current_pos)
                 data_stream = file_data
 
             self.client.put_object(
@@ -248,7 +370,7 @@ class ArtifactStore:
                 length=length,
                 content_type=content_type,
             )
-                
+
             return f"s3://{self.bucket}/{path}"
         except S3Error as e:
             raise TransientError(f"Failed to store file at '{path}': {e}")
@@ -277,12 +399,8 @@ class ArtifactStore:
         На dev-стенде этого достаточно, чтобы браузер смог открыть/скачать файл.
         При желании можно заменить реализацию на presigned URL.
         """
-        # убрать префикс s3://bucket/ если он есть
         clean_path = path.replace(f"s3://{self.bucket}/", "")
-
-        # URL-encode object name, чтобы пробелы и спецсимволы не ломали ссылку
         object_name = quote(clean_path)
-
         scheme = "https" if self._secure else "http"
         return f"{scheme}://{self._endpoint}/{self.bucket}/{object_name}"
 
@@ -293,10 +411,7 @@ class ArtifactStore:
         path может быть как s3://bucket/..., так и относительным путём.
         """
         clean_path = path.replace(f"s3://{self.bucket}/", "")
-
-        # Minio ждет именно timedelta, а не int
         expires = timedelta(seconds=expires_seconds)
-
         return self.client.presigned_get_object(
             bucket_name=self.bucket,
             object_name=clean_path,
@@ -345,5 +460,4 @@ class ArtifactStore:
         filename = build_export_filename(run_id, suffix, ext=ext)
         path = ArtifactPath.export(tenant_id, deal_id, run_id, filename)
         return self.put_file(path, data, content_type=content_type)
-    
     

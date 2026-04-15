@@ -99,6 +99,15 @@ class Settings(BaseSettings):
     STRUCTURE_MIN_CLAUSE_COVERAGE: float = 0.60
     STRUCTURE_DEGRADED_CHUNK_TOKENS: int = 500
     STRUCTURE_MAX_CLAUSE_TITLE_LEN: int = 100
+    STRUCTURE_ENABLE_SEGMENTATION: bool = False  # feature-flag для multi-doc pipeline
+    STRUCTURE_STORE_FILE_GRAPH: bool = False      # включить сохранение file_graph + segment trees
+    STRUCTURE_STORE_SEGMENT_TREES: bool = True    # сохранять segment_* trees (если STORE_FILE_GRAPH=True)
+
+    # --- Chunks / CHUNKS v2 (Stage 6.5) ---
+    # Управляет тем, какой режим chunking используется:
+    # - False: legacy CHUNKS v1 (один chunks.json на файл, schema_version=1);
+    # - True: CHUNKS v2 (per-segment snapshots + file-level manifest).
+    CHUNKS_V2_ENABLED: bool = False
 
     # --- Classifier (Stage 6) ---
     CLASSIFIER_L1_WEIGHT: float = 0.20  # L1 — слабый hint, не финальный вердикт

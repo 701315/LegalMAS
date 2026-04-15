@@ -1,9 +1,15 @@
 # src/engine/content/chunk_snapshot_builder.py
 
 """
-ChunkSnapshotBuilder — единый сервис для построения snapshot'а чанков.
+ChunkSnapshotBuilder — единый сервис для построения snapshot'а чанков (LEGACY, v1).
 
 Простыми словами для непрофессионального программиста:
+
+Ограничения (важно для новой архитектуры):
+- Этот builder работает только с одним clause_tree_ref на весь документ.
+- Он не знает ничего про FileGraph и DocumentSegment.
+- CHUNKS v2 (segment-aware) будут реализованы в отдельном модуле и НЕ должны
+  использовать этот класс, только переиспользовать его вспомогательные функции.
 
 - В MinIO у нас уже есть:
   * layout (layout_primary / layout_primary_sanitized) — список маленьких кусочков текста;
@@ -52,22 +58,19 @@ logger = get_logger(__name__)
 
 class ChunkSnapshotBuilder:
     """
-    Сервис построения canonical snapshot'а чанков для документа.
+    LEGACY: сервис построения canonical snapshot'а чанков для документа
+    в режиме "один clause_tree_ref на весь файл".
 
     Для непрофессионального программиста:
-    - На вход даём:
-      * session (подключение к БД),
-      * doc_id (UUID документа),
-      * параметры chunking (размер, максимум, overlap).
-    - Внутри:
-      1) читаем из БД последнюю версию документа;
-      2) по ссылкам version.layout_primary*_ref и version.clause_tree_ref
-         читаем layout и clause_tree из MinIO;
-      3) строим:
-         - leaf clause chunks (как get_chunks в DocumentContentService),
-         - sized subclause chunks (как get_sized_chunks),
-         - section‑чанки (как get_hierarchical_chunks → build_section_chunks_from_clauses);
-      4) собираем всё это в один dict (snapshot) и возвращаем его.
+    - Этот класс:
+      * читает layout_primary(_sanitized) и clause_tree_ref;
+      * строит чанки по ВЕСЕМУ документу, не деля его на сегменты;
+      * возвращает snapshot schema_version=1.
+
+    Ограничения:
+    - Не умеет работать с несколькими логическими документами внутри файла.
+    - Новая архитектура CHUNKS v2 должна использовать FileGraph + DocumentSegment
+      и жить в отдельном builder-е (segment_chunk_builder_v2.py).
     """
 
     def __init__(self, store: ArtifactStore | None = None) -> None:
@@ -542,7 +545,12 @@ class ChunkSnapshotBuilder:
 
 
 # ---------------------------------------------------------------------------
-# Вспомогательные функции: полностью совместимы с текущим DocumentContentService
+# Вспомогательные функции для работы с чанками.
+# ВАЖНО:
+# - Эти функции НЕ привязаны к clause_tree_ref и могут использоваться
+#   в новой архитектуре CHUNKS v2 (segment-aware).
+# - Новый код должен импортировать их как утилиты, а не использовать
+#   ChunkSnapshotBuilder целиком.
 # ---------------------------------------------------------------------------
 
 

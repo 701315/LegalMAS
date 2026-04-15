@@ -119,6 +119,8 @@ def run_deal_checks(
                     }
 
                 checks_mode = getattr(run_obj, "checks_mode", "global_and_doc_type")
+                checks_scope = getattr(run_obj, "checks_scope", None)
+
 
                 pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
                 if pb_version is None:
@@ -126,7 +128,9 @@ def run_deal_checks(
                         f"PlaybookVersion not found: {run_obj.playbook_version_id}"
                     )
 
+
                 playbook = load_playbook_from_version(pb_version)
+
 
                 logger.info(
                     "Run deal checks scheduler: playbook loaded",
@@ -135,14 +139,17 @@ def run_deal_checks(
                         "deal_id": deal_id,
                         "playbook_version_id": str(run_obj.playbook_version_id),
                         "checks_mode": checks_mode,
+                        "checks_scope": checks_scope,
                     },
                 )
+
 
                 runner = CheckRunner(
                     llm_client=llm_client,
                     playbook_version_id=run_obj.playbook_version_id,
                     checks_mode=checks_mode,
                     run_repo=run_repo,
+                    checks_scope=checks_scope,
                 )
 
                 plan = await runner.plan_checks_for_run(
@@ -350,11 +357,14 @@ def run_single_check(
                         "reason": "already_success",
                     }
 
+                checks_scope = getattr(run_obj, "checks_scope", None)
+
                 runner = CheckRunner(
                     llm_client=llm_client,
                     playbook_version_id=effective_pb_version_id,
                     checks_mode=effective_checks_mode,
                     run_repo=run_repo,
+                    checks_scope=checks_scope,
                 )
 
                 outcome = await runner.execute_single_check(

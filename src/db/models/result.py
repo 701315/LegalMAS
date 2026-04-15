@@ -142,6 +142,35 @@ class CheckResult(Base):
         comment="Bounding box of evidence in document coordinates (for viewer highlight)",
     )
 
+    segment_id: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Logical segment identifier within a multi-document physical file",
+    )
+
+    segment_type: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Logical segment type: contract, appendix, annex, amendment, invoice, act, etc.",
+    )
+
+    segment_title: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Human-readable title of the logical segment",
+    )
+
+    segment_order: Mapped[int | None] = mapped_column(
+        nullable=True,
+        comment="Order of the logical segment within the physical file",
+    )
+
+    is_primary_segment: Mapped[bool | None] = mapped_column(
+        Boolean,
+        nullable=True,
+        comment="True if the finding belongs to the primary logical segment of the file",
+    )
+
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("playbook_versions.id", ondelete="SET NULL"),
@@ -208,7 +237,14 @@ class CheckResult(Base):
         Index(
             "idx_results_structured",
             "run_id",
-            postgresql_where="structured_data IS NOT NULL",
+            postgresql_where=(structured_data.isnot(None)),
+        ),
+        Index("idx_results_run_segment", "run_id", "segment_id"),
+        Index(
+            "idx_results_run_primary_segment",
+            "run_id",
+            "is_primary_segment",
+            postgresql_where=(is_primary_segment.isnot(None)),
         ),
         Index(
             "uq_results_run_doc_check",
@@ -218,3 +254,6 @@ class CheckResult(Base):
             unique=True,
         ),
     )
+
+
+    

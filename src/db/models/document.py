@@ -300,9 +300,13 @@ class DocumentVersion(Base):
         String(1000),
         nullable=True,
         comment=(
-            "S3 URI to clause tree JSON. "
-            "В v2 режиме указывает на дерево primary-сегмента. "
-            "Backward-compatible: старый код читает это поле без изменений."
+            "LEGACY: S3 URI to clause tree JSON (single-document / primary segment).\n"
+            "\n"
+            "В v2 режиме это поле считается устаревшим и используется только\n"
+            "для обратной совместимости со старым кодом (STRUCTURE/CHUNKS v1).\n"
+            "Новая архитектура STRUCTURE/CHUNKS v2 должна опираться на:\n"
+            "- file_graph_ref\n"
+            "- DocumentSegment.segment_clause_tree_ref\n"
         ),
     )
 
@@ -310,10 +314,15 @@ class DocumentVersion(Base):
         String(1000),
         nullable=True,
         comment=(
-            "S3 URI to canonical chunk snapshot JSON "
-            "(section/clause/subclause) for this version. "
-            "В v2 режиме указывает на чанки primary-сегмента. "
-            "Backward-compatible: старый код читает это поле без изменений."
+            "LEGACY: S3 URI to canonical chunk snapshot JSON "
+            "(section/clause/subclause) for this version.\n"
+            "\n"
+            "В v2 режиме это поле считается устаревшим и используется только\n"
+            "для обратной совместимости со старым кодом (ChunkSnapshotReader v1,\n"
+            "старый RetrievalEngine/CheckRunner).\n"
+            "Новая архитектура CHUNKS v2 должна использовать:\n"
+            "- DocumentSegment.segment_chunks_ref (чанки по сегментам)\n"
+            "- chunks_manifest_v2_ref (file-level манифест чанков)\n"
         ),
     )
 
@@ -329,10 +338,27 @@ class DocumentVersion(Base):
             "S3 URI to file_graph.json — граф файла: список логических сегментов "
             "(SegmentDocument) и связи между ними (CrossDocumentLink). "
             "NULL означает legacy-режим (один сегмент = весь файл). "
-            "Заполняется workers.build_structure при STRUCTURE_ENABLE_SEGMENTATION=True "
-            "или в stub-режиме (всегда, начиная с Sprint 3). "
-            "CHUNKS читают этот ref чтобы определить какие segment_clause_tree_*.json "
-            "нужно загрузить."
+            "Заполняется workers.build_structure.\n"
+            "\n"
+            "CHUNKS v2 читают этот ref чтобы определить, какие "
+            "segment_clause_tree_*.json и DocumentSegment нужно загрузить."
+        ),
+    )
+
+    chunks_manifest_v2_ref: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment=(
+            "S3 URI to chunks_manifest_v2.json — file-level манифест чанков.\n"
+            "\n"
+            "Для непрофессионального программиста:\n"
+            "- Это один JSON-файл, который описывает весь набор чанков по файлу,\n"
+            "  но сами тексты чанков лежат по ссылкам segment_chunks_ref "
+            "в таблице DocumentSegment.\n"
+            "- retrieval/checks/LLM должны начинать чтение именно с этого файла,\n"
+            "  а не с legacy chunks_ref.\n"
+            "\n"
+            "NULL означает, что CHUNKS v2 ещё не отработали для этой версии."
         ),
     )
 
@@ -391,6 +417,12 @@ class DocumentVersion(Base):
             "idx_docver_file_graph_ref",
             "document_id",
             postgresql_where="file_graph_ref IS NOT NULL",
+        ),
+        # Быстрый поиск версий у которых есть chunks_manifest_v2 (CHUNKS v2 завершён)
+        Index(
+            "idx_docver_chunks_manifest_v2_ref",
+            "document_id",
+            postgresql_where="chunks_manifest_v2_ref IS NOT NULL",
         ),
     )
 

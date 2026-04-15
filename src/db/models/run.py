@@ -2,8 +2,15 @@
 
 """
 Run and Job models.
-Run — a complete analysis execution against a deal/bundle.
-Job — a single task within a run (one document, one processing step).
+
+Run — один полный запуск анализа по сделке / набору документов.
+Job — одна фоновая задача внутри Run (например, import, extract, classify, run_deal_checks).
+
+Почему это важно:
+- Run хранит конфигурацию и итоговый статус всего запуска;
+- Job хранит статус отдельных фоновых операций внутри запуска;
+- фронтенд обычно работает в первую очередь с Run, потому что именно он отражает
+  "общий прогресс анализа" для юриста.
 """
 
 import uuid
@@ -39,10 +46,10 @@ class Run(Base):
         nullable=False,
     )
 
-    model_config_id: Mapped[uuid.UUID] = mapped_column(
+    model_config_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("model_configs.id"),
-        nullable=False,
+        nullable=True,
     )
 
     environment_hash: Mapped[str | None] = mapped_column(
@@ -58,11 +65,6 @@ class Run(Base):
         comment="core, full, max",
     )
 
-    # Новый атрибут: режим, в котором выполняются проверки в этом Run
-    # Значения:
-    #   - global_only          — только глобальный плейбук;
-    #   - doc_type_only        — только риски по типам документов;
-    #   - global_and_doc_type  — оба слоя вместе (режим по умолчанию).
     checks_mode: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -70,6 +72,16 @@ class Run(Base):
         comment=(
             "Режим проверок для этого Run: "
             "global_only / doc_type_only / global_and_doc_type"
+        ),
+    )
+
+    checks_scope: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Сегментный scope для checks в этом Run. "
+            "Например: {'scope_preset': 'primary_only'} "
+            "или {'include_primary': true, 'include_segment_types': ['appendix']}"
         ),
     )
 
@@ -104,7 +116,7 @@ class Run(Base):
     has_errors: Mapped[bool] = mapped_column(
         nullable=False,
         default=False,
-        comment="True, если есть документы в FAILED/QUARANTINE для этого Run",
+        comment="True, если в рамках этого Run есть ошибки или проблемные документы",
     )
 
     failed_docs_count: Mapped[int] = mapped_column(
@@ -197,5 +209,8 @@ class Job(Base):
         default=0,
     )
 
-    __table_args__ = (Index("idx_jobs_run_status", "run_id", "status"),)
+    __table_args__ = (
+        Index("idx_jobs_run_status", "run_id", "status"),
+    )
 
+    

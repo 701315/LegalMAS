@@ -194,6 +194,11 @@ class ResultRepository:
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
+                "segment_id": cr.segment_id,
+                "segment_type": cr.segment_type,
+                "segment_title": cr.segment_title,
+                "segment_order": cr.segment_order,
+                "is_primary_segment": cr.is_primary_segment,
             }
 
             out.append(item)
@@ -359,6 +364,11 @@ class ResultRepository:
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
+                "segment_id": cr.segment_id,
+                "segment_type": cr.segment_type,
+                "segment_title": cr.segment_title,
+                "segment_order": cr.segment_order,
+                "is_primary_segment": cr.is_primary_segment,
             }
 
             items.append(item)
@@ -404,6 +414,12 @@ class ResultRepository:
         clause_uid: str | None,
         element_id: str | None,
         bbox: dict | None,
+        # новые поля сегмента
+        segment_id: str | None = None,
+        segment_type: str | None = None,
+        segment_title: str | None = None,
+        segment_order: int | None = None,
+        is_primary_segment: bool | None = None,
         execution_status: str,
         error_details: dict | None = None,
     ) -> CheckResult:
@@ -436,6 +452,12 @@ class ResultRepository:
                 clause_uid=clause_uid,
                 element_id=element_id,
                 bbox=bbox,
+                # новые поля segment-aware provenance:
+                segment_id=segment_id,
+                segment_type=segment_type,
+                segment_title=segment_title,
+                segment_order=segment_order,
+                is_primary_segment=is_primary_segment,
                 execution_status=execution_status,
                 started_at=now if execution_status in ("RUNNING", "SUCCESS", "FAILED", "TIMEOUT") else None,
                 finished_at=now if execution_status in ("SUCCESS", "FAILED", "TIMEOUT") else None,
@@ -463,6 +485,12 @@ class ResultRepository:
         existing.clause_uid = clause_uid
         existing.element_id = element_id
         existing.bbox = bbox
+        # новые поля:
+        existing.segment_id = segment_id
+        existing.segment_type = segment_type
+        existing.segment_title = segment_title
+        existing.segment_order = segment_order
+        existing.is_primary_segment = is_primary_segment
         existing.execution_status = execution_status
         existing.error_details = error_details
 
