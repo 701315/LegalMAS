@@ -1,5 +1,7 @@
 # src/db/models/deal_member.py
 
+# src/db/models/deal_member.py
+
 """
 ORM-модель участника сделки (проекта).
 
@@ -25,8 +27,8 @@ from sqlalchemy import String, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from db.base import Base
-from db.models.deal import Deal
+from ..base import Base
+from .deal import Deal
 from core.roles import ProjectRole  # Literal["admin", "editor", "viewer"]
 
 
@@ -46,8 +48,6 @@ class DealMember(Base):
         index=True,
     )
 
-    # Пока нет полноценной user-модели, оставляем строковый идентификатор,
-    # который соответствует login/идентификатору пользователя.
     user_id: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
@@ -81,3 +81,4 @@ class DealMember(Base):
     __table_args__ = (
         UniqueConstraint("deal_id", "user_id", name="uq_deal_members_deal_user"),
     )
+    
