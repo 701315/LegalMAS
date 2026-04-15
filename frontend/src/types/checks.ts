@@ -74,6 +74,11 @@ export interface StructuredField {
     start_page?: number | null;
     end_page?: number | null;
     path_titles?: string[] | null;
+
+    // v2-расширение (если backend их отдаёт)
+    segment_id?: string | null;
+    chunk_id?: string | null;
+    chunk_index?: number | null;
   } | null;
   // "pending" | "accepted" | "rejected" | "auto_accepted"
   qc?: {
@@ -96,12 +101,22 @@ export interface Evidence {
   id: string;
   result_id: string;
   document_id: string;
+
   // Краткий фрагмент текста (для списка / быстрого просмотра)
-  snippet?: string;
+  snippet?: string | null;
+
   // Полная цитата или более длинный фрагмент
-  quote?: string;
+  quote?: string | null;
+
   // Страница документа, если backend её отдаёт
-  page?: number;
+  page?: number | null;
+
+  // Привязка к clause tree / STRUCTURE
+  clause_uid?: string | null;
+
+  // Технические детали evidence / structured payload от backend
+  structured_data?: Record<string, unknown> | null;
+
   // Дополнительные произвольные поля (для расширений backend-а)
   [key: string]: unknown;
 }

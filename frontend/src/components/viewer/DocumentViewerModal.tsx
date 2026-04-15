@@ -167,13 +167,36 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   const pageWidth = (containerWidth ?? 900) * initialScale;
 
   // Ищем "активный" чанк по clauseUid из location (если есть)
-  const activeChunkIndex =
-    location?.clauseUid && sizedChunks
-      ? sizedChunks.findIndex((ch) =>
-          ch.clauseUids?.includes(location.clauseUid!),
-        )
-      : -1;
+  const activeChunkIndex = React.useMemo(() => {
+    if (!sizedChunks || sizedChunks.length === 0 || !location) {
+      return -1;
+    }
 
+    // 1) Прямое попадание по chunkId (если есть)
+    if (location.chunkId) {
+      const idx = sizedChunks.findIndex((ch) => ch.id === location.chunkId);
+      if (idx >= 0) return idx;
+    }
+
+    // 2) Попадание по chunkIndex (если есть)
+    if (
+      typeof location.chunkIndex === "number" &&
+      location.chunkIndex >= 0 &&
+      location.chunkIndex < sizedChunks.length
+    ) {
+      return location.chunkIndex;
+    }
+
+    // 3) Попадание по clauseUid (как раньше)
+    if (location.clauseUid) {
+      const idx = sizedChunks.findIndex((ch) =>
+        ch.clauseUids?.includes(location.clauseUid!),
+      );
+      if (idx >= 0) return idx;
+    }
+
+    return -1;
+  }, [location, sizedChunks]);
 
   // Карта elementId -> индекс чанка (без useMemo)
   const elementToChunkIndex = (() => {

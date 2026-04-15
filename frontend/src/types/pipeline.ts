@@ -35,15 +35,12 @@ export interface StageMetaDTO {
 
 export interface StageProvenanceDTO {
   // Основной источник правды для текущего представления.
-  // Например, для STRUCTURE friendly это всё ещё "STRUCTURE",
-  // а CHUNKS может быть указан в derived_from_stages.
   primary_source_stage?: PipelineStageCode | null;
 
   // Дополнительные стадии, использованные для derived/friendly view.
   derived_from_stages: PipelineStageCode[];
 
   // Короткая подпись для UI.
-  // Пример: "Текстовое превью из CHUNKS".
   preview_source_label?: string | null;
 }
 
@@ -55,7 +52,6 @@ export interface StageRepresentationDTO {
   is_canonical: boolean;
 
   // Короткая подпись режима.
-  // Примеры: "Результат этапа", "Удобный вид".
   label: string;
 
   // Человеко-понятное описание текущего представления.
@@ -83,6 +79,26 @@ export interface LayoutPreviewDTO {
   raw_json?: JsonValue | null;
 }
 
+/* ============================================================
+ * SEGMENTS / REFS
+ * ============================================================ */
+
+export interface PipelineSegmentDTO {
+  segment_id: string;
+  segment_type: string;
+  segment_title?: string | null;
+  segment_order: number;
+  is_primary: boolean;
+  page_from?: number | null;
+  page_to?: number | null;
+}
+
+export interface ChunkRefDTO {
+  segment_id: string;
+  chunk_index?: number | null;
+  chunk_id?: string | null;
+}
+
 /**
  * Привязка секции STRUCTURE к исходному текстовому слою документа.
  * Используется для source-pane справа:
@@ -99,7 +115,14 @@ export interface SectionSourceMappingDTO {
   source_stage: PipelineStageCode;
   page_from?: number | null;
   page_to?: number | null;
+
+  // legacy
   chunk_indices: number[];
+
+  // v2 canonical
+  chunk_refs: ChunkRefDTO[];
+  segment_id?: string | null;
+
   match_text?: string | null;
   match_strategy: SectionSourceMatchStrategy;
 }
@@ -116,53 +139,78 @@ export interface StructureSectionPreviewDTO {
   page_from?: number | null;
   page_to?: number | null;
 
+  // v2 segment provenance
+  segment_id?: string | null;
+  segment_type?: string | null;
+  segment_title?: string | null;
+  segment_order?: number | null;
+  is_primary_segment?: boolean | null;
+
   // Канонический текст секции из STRUCTURE / clause tree.
-  // Это исходный текст самой секции, каким его сформировал backend
-  // на этапе построения структуры документа.
-  //
-  // В canonical-view именно это поле считается главным источником текста.
   structure_text?: string | null;
 
   // Обогащённый текст секции.
-  // Обычно backend собирает его из CHUNKS, если для секции удалось
-  // найти связанный текст по clause_uid или через наследование от детей.
-  //
-  // В friendly-view именно это поле предпочтительно для показа.
   enriched_text?: string | null;
 
   // UI-совместимое поле для показа текста секции.
-  //
-  // Смысл такой:
-  // - canonical: обычно равно structure_text;
-  // - friendly: обычно равно enriched_text, а если его нет —
-  //   fallback на structure_text.
-  //
-  // Поле оставляем для обратной совместимости со старым фронтом
-  // и на случай, если backend ещё не обновлён полностью.
   text_preview?: string | null;
 
   // Связь секции с исходным текстовым слоем.
-  // Нужна для правой панели, подсветки и навигации по CHUNKS.
   source_mapping?: SectionSourceMappingDTO | null;
+}
+
+export interface StructureSegmentPreviewDTO {
+  segment: PipelineSegmentDTO;
+  sections: StructureSectionPreviewDTO[];
+  raw_json?: JsonValue | null;
 }
 
 export interface StructurePreviewDTO {
   type: "structure";
+
+  // legacy flattened view
   sections: StructureSectionPreviewDTO[];
+
+  // v2 canonical view
+  segments: StructureSegmentPreviewDTO[];
+
   raw_json?: JsonValue | null;
 }
 
 export interface ChunkPreviewDTO {
   index: number;
-  clause_uid?: string | null;
-  page_from?: number | null;
-  page_to?: number | null;
+  clause_uid: string;
+  page_from: number | null;
+  page_to: number | null;
   text: string;
+
+  // v2 segment provenance
+  segment_id?: string | null;
+  segment_type?: string | null;
+  segment_title?: string | null;
+  segment_order?: number | null;
+  is_primary_segment?: boolean | null;
+
+  // optional stable ids/provenance
+  chunk_id?: string | null;
+}
+
+export interface ChunksSegmentPreviewDTO {
+  segment: PipelineSegmentDTO;
+  chunks: ChunkPreviewDTO[];
+  reconstructed_text: string;
+  raw_json?: JsonValue | null;
 }
 
 export interface ChunksPreviewDTO {
   type: "chunks";
+
+  // legacy flattened view
   chunks: ChunkPreviewDTO[];
+
+  // v2 canonical view
+  segments: ChunksSegmentPreviewDTO[];
+
   reconstructed_text?: string | null;
   raw_json?: JsonValue | null;
 }
@@ -200,3 +248,5 @@ export interface DocumentPipelineViewResponseDTO {
 
   stages: PipelineStageViewDTO[];
 }
+
+

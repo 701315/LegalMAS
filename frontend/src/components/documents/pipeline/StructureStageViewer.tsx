@@ -11,6 +11,15 @@ interface Props {
   chunksStage: PipelineStageViewDTO | null;
 }
 
+interface SegmentSectionGroup {
+  segmentId: string;
+  label: string;
+  segmentType: string | null;
+  isPrimary: boolean;
+  order: number | null;
+  sections: StructureSectionPreviewDTO[];
+}
+
 function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
 }
@@ -27,9 +36,13 @@ function isCanonicalStructureView(stage: PipelineStageViewDTO): boolean {
 
 function formatPageRange(section: StructureSectionPreviewDTO): string | null {
   const from =
-    typeof section.page_from === "number" ? section.page_from : section.page_from ?? null;
+    typeof section.page_from === "number"
+      ? section.page_from
+      : section.page_from ?? null;
   const to =
-    typeof section.page_to === "number" ? section.page_to : section.page_to ?? null;
+    typeof section.page_to === "number"
+      ? section.page_to
+      : section.page_to ?? null;
 
   if (from == null && to == null) return null;
   if (from != null && to != null) {
@@ -94,13 +107,28 @@ function getSectionLabel(section: StructureSectionPreviewDTO): string {
 }
 
 function getSectionMetaLine(section: StructureSectionPreviewDTO): string {
-  return [
-    `Уровень ${section.level ?? 1}`,
-    formatPageRange(section),
-    section.clause_uid ? `clause_uid: ${section.clause_uid}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const parts: string[] = [];
+
+  parts.push(`Уровень ${section.level ?? 1}`);
+
+  const pages = formatPageRange(section);
+  if (pages) {
+    parts.push(pages);
+  }
+
+  if (section.clause_uid) {
+    parts.push(`clause_uid: ${section.clause_uid}`);
+  }
+
+  if (section.segment_type) {
+    parts.push(
+      `segment: ${section.segment_type}${
+        section.is_primary_segment ? " (PRIMARY)" : ""
+      }`,
+    );
+  }
+
+  return parts.join(" · ");
 }
 
 /**
@@ -119,6 +147,60 @@ function getSectionNavDescription(section: StructureSectionPreviewDTO): string {
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
 }
 
+function groupSectionsBySegment(
+  preview: StructurePreviewDTO,
+): SegmentSectionGroup[] {
+  if (!Array.isArray(preview.segments) || preview.segments.length === 0) {
+    return [];
+  }
+
+  const result: SegmentSectionGroup[] = [];
+
+  for (const seg of preview.segments) {
+    if (
+      !seg ||
+      !seg.segment ||
+      !Array.isArray(seg.sections) ||
+      seg.sections.length === 0
+    ) {
+      continue;
+    }
+
+    const s = seg.segment;
+    const segmentId = s.segment_id;
+    const title = s.segment_title ?? "(без заголовка)";
+    const type = s.segment_type ?? "primary";
+    const order =
+      typeof s.segment_order === "number" ? s.segment_order : null;
+    const isPrimary = !!s.is_primary;
+
+    const labelParts: string[] = [];
+    if (order != null) labelParts.push(`#${order}`);
+    labelParts.push(title);
+    labelParts.push(type);
+    if (isPrimary) labelParts.push("PRIMARY");
+
+    result.push({
+      segmentId,
+      label: labelParts.join(" · "),
+      segmentType: s.segment_type ?? null,
+      isPrimary,
+      order,
+      sections: seg.sections,
+    });
+  }
+
+  result.sort((a, b) => {
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    const ao = a.order ?? 0;
+    const bo = b.order ?? 0;
+    return ao - bo;
+  });
+
+  return result;
+}
+
 export const StructureStageViewer: React.FC<Props> = ({
   structureStage,
   chunksStage,
@@ -134,7 +216,25 @@ export const StructureStageViewer: React.FC<Props> = ({
   }
 
   const isCanonical = isCanonicalStructureView(structureStage);
-  const sections = preview.sections ?? [];
+
+  const segmentGroups = React.useMemo(
+    () => groupSectionsBySegment(preview),
+    [preview],
+  );
+
+  const hasSegmentGroups = segmentGroups.length > 0;
+
+  const sections: StructureSectionPreviewDTO[] = React.useMemo(() => {
+    if (hasSegmentGroups) {
+      const all: StructureSectionPreviewDTO[] = [];
+      for (const group of segmentGroups) {
+        all.push(...group.sections);
+      }
+      return all;
+    }
+    return preview.sections ?? [];
+  }, [hasSegmentGroups, segmentGroups, preview.sections]);
+
   const sectionCount = structureStage.meta?.section_count ?? sections.length;
 
   const [activeSectionId, setActiveSectionId] = React.useState<string | null>(
@@ -169,22 +269,47 @@ export const StructureStageViewer: React.FC<Props> = ({
             Структура документа
           </p>
           {sectionCount > 0 && (
-            <p className="mt-1 text-[11px] text-gray-400">Секций: {sectionCount}</p>
+            <p className="mt-1 text-[11px] text-gray-400">
+              Секций: {sectionCount}
+            </p>
           )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-1 py-2">
           {sections.length > 0 ? (
-            <div className="space-y-1">
-              {sections.map((section) => (
-                <SectionNavItem
-                  key={section.id}
-                  section={section}
-                  isActive={section.id === activeSectionId}
-                  onSelect={() => setActiveSectionId(section.id)}
-                />
-              ))}
-            </div>
+            hasSegmentGroups ? (
+              <div className="space-y-2">
+                {segmentGroups.map((group) => (
+                  <div key={group.segmentId}>
+                    <div className="flex items-center justify-between px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                      <span className="truncate">{group.label}</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      {group.sections.map((section) => (
+                        <SectionNavItem
+                          key={section.id}
+                          section={section}
+                          isActive={section.id === activeSectionId}
+                          onSelect={() => setActiveSectionId(section.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {sections.map((section) => (
+                  <SectionNavItem
+                    key={section.id}
+                    section={section}
+                    isActive={section.id === activeSectionId}
+                    onSelect={() => setActiveSectionId(section.id)}
+                  />
+                ))}
+              </div>
+            )
           ) : (
             <div className="px-3 py-2 text-sm text-gray-500">
               В STRUCTURE пока нет секций.
@@ -212,6 +337,11 @@ export const StructureStageViewer: React.FC<Props> = ({
           <CanonicalJsonPanel
             sections={sections}
             activeSectionId={activeSectionId}
+            sourceLabel={
+              hasSegmentGroups
+                ? "Здесь показывается текущий объект секции из preview.segments[].sections[]."
+                : "Здесь показывается текущий объект секции из preview.sections[]."
+            }
           />
         ) : chunksStage ? (
           <ChunksStageViewer
@@ -254,14 +384,24 @@ const SectionNavItem: React.FC<{
         isActive ? "bg-blue-50 text-blue-800" : "text-gray-700 hover:bg-gray-50",
       )}
       style={{ paddingLeft: `${8 + indent * 12}px`, paddingRight: "8px" }}
-      title={[section.clause_uid ? `clause_uid: ${section.clause_uid}` : null, pageRange]
+      title={[
+        section.clause_uid ? `clause_uid: ${section.clause_uid}` : null,
+        pageRange,
+        section.segment_type
+          ? `segment: ${section.segment_type}${
+              section.is_primary_segment ? " (PRIMARY)" : ""
+            }`
+          : null,
+      ]
         .filter(Boolean)
         .join(" · ")}
     >
       <div className="min-w-0 flex-1">
         <div className="truncate">{title}</div>
         {preview ? (
-          <div className="mt-0.5 truncate text-[11px] text-gray-400">{preview}</div>
+          <div className="mt-0.5 truncate text-[11px] text-gray-400">
+            {preview}
+          </div>
         ) : null}
       </div>
 
@@ -330,7 +470,9 @@ const CanonicalSectionPanel: React.FC<{
             {getSectionLabel(section)}
           </p>
 
-          <p className="mt-1 text-[11px] text-gray-400">{getSectionMetaLine(section)}</p>
+          <p className="mt-1 text-[11px] text-gray-400">
+            {getSectionMetaLine(section)}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -343,6 +485,13 @@ const CanonicalSectionPanel: React.FC<{
               Нет привязки к CHUNKS для этой секции
             </span>
           )}
+
+          {section.segment_type ? (
+            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+              {section.segment_type}
+              {section.is_primary_segment ? " · PRIMARY" : ""}
+            </span>
+          ) : null}
         </div>
 
         <div className="rounded-md bg-gray-50 px-3 py-3">
@@ -375,6 +524,51 @@ const CanonicalSectionPanel: React.FC<{
                 Страницы
               </dt>
               <dd>{pageRange ?? "—"}</dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+                Segment ID
+              </dt>
+              <dd>{section.segment_id || "—"}</dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+                Segment Type
+              </dt>
+              <dd>{section.segment_type || "—"}</dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+                Segment Title
+              </dt>
+              <dd>{section.segment_title || "—"}</dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+                Segment Order
+              </dt>
+              <dd>
+                {typeof section.segment_order === "number"
+                  ? section.segment_order
+                  : "—"}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+                Primary Segment
+              </dt>
+              <dd>
+                {typeof section.is_primary_segment === "boolean"
+                  ? section.is_primary_segment
+                    ? "true"
+                    : "false"
+                  : "—"}
+              </dd>
             </div>
           </dl>
         </div>
@@ -450,7 +644,9 @@ const FriendlySectionPanel: React.FC<{
             {getSectionLabel(section)}
           </p>
 
-          <p className="mt-1 text-[11px] text-gray-400">{getSectionMetaLine(section)}</p>
+          <p className="mt-1 text-[11px] text-gray-400">
+            {getSectionMetaLine(section)}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -463,6 +659,13 @@ const FriendlySectionPanel: React.FC<{
               Нет привязки к CHUNKS для этой секции
             </span>
           )}
+
+          {section.segment_type ? (
+            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+              {section.segment_type}
+              {section.is_primary_segment ? " · PRIMARY" : ""}
+            </span>
+          ) : null}
         </div>
 
         {previewText ? (
@@ -486,7 +689,8 @@ const FriendlySectionPanel: React.FC<{
 const CanonicalJsonPanel: React.FC<{
   sections: StructureSectionPreviewDTO[];
   activeSectionId: string | null;
-}> = ({ sections, activeSectionId }) => {
+  sourceLabel: string;
+}> = ({ sections, activeSectionId, sourceLabel }) => {
   if (!sections.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-gray-500">
@@ -514,9 +718,7 @@ const CanonicalJsonPanel: React.FC<{
         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           JSON узла
         </p>
-        <p className="mt-1 text-xs text-gray-400">
-          Здесь показывается текущий объект секции из <code>preview.sections[]</code>.
-        </p>
+        <p className="mt-1 text-xs text-gray-400">{sourceLabel}</p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-md bg-gray-950 p-3">

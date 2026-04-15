@@ -12,11 +12,15 @@ import type { Evidence } from "../types";
  * Берём всё из базового Evidence и добавляем пару полезных полей.
  */
 export interface EvidenceDetail extends Evidence {
-  // Тип документа, к которому относится результат (может быть неизвестен).
   doc_type?: string;
-
-  // Ссылка на YAML-инструкцию / rule-set (для продвинутой отладки).
   yaml_instruction_ref?: string;
+
+  clause_uid?: string | null;
+  structured_data?: Record<string, unknown> | null;
+
+  segment_id?: string | null;
+  chunk_id?: string | null;
+  chunk_index?: number | null;
 }
 
 /**

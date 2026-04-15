@@ -39,6 +39,16 @@ interface ChunkGroup {
   items: ChunkPreviewDTO[];
 }
 
+interface SegmentGroup {
+  segmentId: string;
+  label: string;
+  description: string;
+  segmentType: string | null;
+  isPrimary: boolean;
+  order: number | null;
+  items: ChunkPreviewDTO[];
+}
+
 function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
 }
@@ -86,6 +96,14 @@ function chunkMetaLine(chunk: ChunkPreviewDTO): string {
 
   if (chunk.clause_uid) {
     parts.push(`clause_uid: ${chunk.clause_uid}`);
+  }
+
+  if (chunk.segment_type) {
+    parts.push(
+      `segment: ${chunk.segment_type}${
+        chunk.is_primary_segment ? " (PRIMARY)" : ""
+      }`,
+    );
   }
 
   return parts.length ? parts.join(" · ") : "Без метаданных";
@@ -237,6 +255,56 @@ function groupChunks(chunks: ChunkPreviewDTO[]): ChunkGroup[] {
   return result;
 }
 
+/* ===== ГРУППИРОВКА CHUNKS ПО СЕГМЕНТАМ (v2) ===== */
+
+function groupChunksBySegment(preview: ChunksPreviewDTO | null): SegmentGroup[] {
+  if (!preview || !Array.isArray(preview.segments) || preview.segments.length === 0) {
+    return [];
+  }
+
+  const result: SegmentGroup[] = [];
+
+  for (const seg of preview.segments) {
+    if (!seg || !seg.segment || !Array.isArray(seg.chunks) || seg.chunks.length === 0) {
+      continue;
+    }
+
+    const s = seg.segment;
+    const segmentId = s.segment_id;
+    const title = s.segment_title || "(без заголовка)";
+    const type = s.segment_type || "primary";
+    const order = typeof s.segment_order === "number" ? s.segment_order : null;
+    const isPrimary = !!s.is_primary;
+
+    const labelParts: string[] = [];
+    if (order != null) labelParts.push(`#${order}`);
+    labelParts.push(title);
+    labelParts.push(type);
+    if (isPrimary) labelParts.push("PRIMARY");
+
+    result.push({
+      segmentId,
+      label: labelParts.join(" · "),
+      description: `Сегмент ${segmentId}`,
+      segmentType: s.segment_type ?? null,
+      isPrimary,
+      order,
+      items: seg.chunks.filter(Boolean),
+    });
+  }
+
+  // Сортируем сегменты: primary выше, затем по order
+  result.sort((a, b) => {
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    const ao = a.order ?? 0;
+    const bo = b.order ?? 0;
+    return ao - bo;
+  });
+
+  return result;
+}
+
 export const ChunksStageViewer: React.FC<Props> = ({
   stage,
   highlightedChunkIndices = [],
@@ -250,10 +318,26 @@ export const ChunksStageViewer: React.FC<Props> = ({
   const isSourcePaneMode =
     highlightedChunkIndices.length > 0 || traceLabel != null;
 
-  const allChunks = useMemo<ChunkPreviewDTO[]>(
-    () => (preview?.chunks ?? []).filter(Boolean),
-    [preview],
-  );
+  const allChunks = useMemo<ChunkPreviewDTO[]>(() => {
+    if (!preview) return [];
+
+    // v2 segment-aware corpus: соберём чанки из всех сегментов
+    if (Array.isArray(preview.segments) && preview.segments.length > 0) {
+      const fromSegments: ChunkPreviewDTO[] = [];
+      for (const seg of preview.segments) {
+        if (!seg || !Array.isArray(seg.chunks)) continue;
+        for (const ch of seg.chunks) {
+          if (ch) fromSegments.push(ch);
+        }
+      }
+      if (fromSegments.length > 0) {
+        return fromSegments;
+      }
+    }
+
+    // legacy fallback: плоский список chunks
+    return (preview.chunks ?? []).filter(Boolean);
+  }, [preview]);
 
   const hasChunks = allChunks.length > 0;
 
@@ -261,6 +345,13 @@ export const ChunksStageViewer: React.FC<Props> = ({
     () => groupChunks(allChunks),
     [allChunks],
   );
+
+  const segmentGroups = useMemo<SegmentGroup[]>(
+    () => groupChunksBySegment(preview),
+    [preview],
+  );
+
+  const hasSegmentGroups = segmentGroups.length > 0;
 
   const highlightedSet = useMemo(
     () => new Set<number>(highlightedChunkIndices),
@@ -281,8 +372,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
   const inlineHighlightRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const snapshotRef = useRef<HTMLDivElement | null>(null);
 
-  // Состояние развёрнутости групп в левой колонке
-  const [expandedGroups, setExpandedGroups] = useState<Record<ChunkGroupKey, boolean>>({
+  // Состояние развёрнутости групп в левой колонке (legacy depth-группы)
+  const [expandedGroups, setExpandedGroups] = useState<
+    Record<ChunkGroupKey, boolean>
+  >({
     sections: false,
     clauses: true,
     subclauses: false,
@@ -290,6 +383,18 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   const toggleGroup = (key: ChunkGroupKey) => {
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Состояние развёрнутости сегментов (v2)
+  const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  const toggleSegment = (segmentId: string) => {
+    setExpandedSegments((prev) => ({
+      ...prev,
+      [segmentId]: !prev[segmentId],
+    }));
   };
 
   // Инициализация выбранного чанка
@@ -343,7 +448,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
     const raw = preview?.reconstructed_text;
     if (typeof raw === "string" && raw.trim()) return raw;
     return fallbackReconstructedText(allChunks);
-  }, [preview?.reconstructed_text, allChunks]);
+  }, [preview, allChunks]);
 
   const renderSegments = useMemo<RenderSegment[]>(() => {
     if (!hasChunks) return [];
@@ -367,9 +472,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   const highlightedSnapshot = useMemo(
     () =>
-      preview
-        ? buildHighlightedSnapshot(preview, selectedChunk)
-        : { __html: "" },
+      preview ? buildHighlightedSnapshot(preview, selectedChunk) : { __html: "" },
     [preview, selectedChunk],
   );
 
@@ -503,91 +606,170 @@ export const ChunksStageViewer: React.FC<Props> = ({
   /* CANONICAL CHUNKS VIEW */
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[25%_30%_45%]">
-      {/* Левая колонка: список чанков с группировкой */}
+      {/* Левая колонка: список чанков, приоритет — сегменты v2 */}
       <aside className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white">
         <div className="border-b bg-gray-50 px-3 py-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             CHUNKS
           </p>
           <p className="mt-1 text-[11px] text-gray-400">
-            Материализованные чанки этапа, сгруппированные по уровню.
+            Материализованные чанки этапа, сгруппированные по сегментам или
+            уровню.
           </p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
           {hasChunks ? (
             <div className="divide-y divide-gray-100">
-              {chunkGroups.map((group) => {
-                const isExpanded = expandedGroups[group.key];
-                const count = group.items.length;
+              {hasSegmentGroups
+                ? segmentGroups.map((group) => {
+                    const isExpanded =
+                      expandedSegments[group.segmentId] ?? true;
+                    const count = group.items.length;
+                    if (count === 0) return null;
 
-                if (count === 0) {
-                  return null;
-                }
-
-                return (
-                  <div key={group.key}>
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(group.key)}
-                      className="flex w-full items-center justify-between gap-2 bg-gray-50 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span
-                          className={cx(
-                            "inline-flex h-4 w-4 items-center justify-center rounded border border-gray-300 bg-white text-[9px] leading-none text-gray-600",
-                          )}
+                    return (
+                      <div key={group.segmentId}>
+                        <button
+                          type="button"
+                          onClick={() => toggleSegment(group.segmentId)}
+                          className="flex w-full items-center justify-between gap-2 bg-gray-50 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500"
                         >
-                          {isExpanded ? "−" : "+"}
-                        </span>
-                        {group.label}
-                      </span>
-                      <span className="text-[10px] font-normal text-gray-400">
-                        {count}
-                      </span>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="border-t border-gray-100">
-                        {group.items.map((chunk) => {
-                          const isSelected =
-                            selectedIndex === chunk.index;
-
-                          return (
-                            <button
-                              key={chunk.index}
-                              ref={(el) => {
-                                if (el) {
-                                  listItemRefs.current.set(chunk.index, el);
-                                } else {
-                                  listItemRefs.current.delete(chunk.index);
-                                }
-                              }}
-                              type="button"
-                              onClick={() => setSelectedIndex(chunk.index)}
+                          <span className="flex items-center gap-2">
+                            <span
                               className={cx(
-                                "w-full px-3 py-2 text-left text-xs transition-colors",
-                                isSelected
-                                  ? "bg-blue-50"
-                                  : "bg-white hover:bg-gray-50",
+                                "inline-flex h-4 w-4 items-center justify-center rounded border border-gray-300 bg-white text-[9px] leading-none text-gray-600",
                               )}
-                              aria-pressed={isSelected}
-                              title={chunkMetaLine(chunk)}
                             >
-                              <div className="text-sm font-medium text-gray-800">
-                                {chunkTitle(chunk)}
-                              </div>
-                              <div className="mt-0.5 text-[11px] text-gray-400">
-                                {chunkMetaLine(chunk)}
-                              </div>
-                            </button>
-                          );
-                        })}
+                              {isExpanded ? "−" : "+"}
+                            </span>
+                            {group.label}
+                          </span>
+                          <span className="text-[10px] font-normal text-gray-400">
+                            {count}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-gray-100">
+                            {group.items.map((chunk) => {
+                              const isSelected = selectedIndex === chunk.index;
+                              return (
+                                <button
+                                  key={chunk.index}
+                                  ref={(el) => {
+                                    if (el) {
+                                      listItemRefs.current.set(
+                                        chunk.index,
+                                        el,
+                                      );
+                                    } else {
+                                      listItemRefs.current.delete(chunk.index);
+                                    }
+                                  }}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedIndex(chunk.index)
+                                  }
+                                  className={cx(
+                                    "w-full px-3 py-2 text-left text-xs transition-colors",
+                                    isSelected
+                                      ? "bg-blue-50"
+                                      : "bg-white hover:bg-gray-50",
+                                  )}
+                                  aria-pressed={isSelected}
+                                  title={chunkMetaLine(chunk)}
+                                >
+                                  <div className="text-sm font-medium text-gray-800">
+                                    {chunkTitle(chunk)}
+                                  </div>
+                                  <div className="mt-0.5 text-[11px] text-gray-400">
+                                    {chunkMetaLine(chunk)}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })
+                : chunkGroups.map((group) => {
+                    const isExpanded = expandedGroups[group.key];
+                    const count = group.items.length;
+
+                    if (count === 0) {
+                      return null;
+                    }
+
+                    return (
+                      <div key={group.key}>
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.key)}
+                          className="flex w-full items-center justify-between gap-2 bg-gray-50 px-3 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={cx(
+                                "inline-flex h-4 w-4 items-center justify-center rounded border border-gray-300 bg-white text-[9px] leading-none text-gray-600",
+                              )}
+                            >
+                              {isExpanded ? "−" : "+"}
+                            </span>
+                            {group.label}
+                          </span>
+                          <span className="text-[10px] font-normal text-gray-400">
+                            {count}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-gray-100">
+                            {group.items.map((chunk) => {
+                              const isSelected =
+                                selectedIndex === chunk.index;
+
+                              return (
+                                <button
+                                  key={chunk.index}
+                                  ref={(el) => {
+                                    if (el) {
+                                      listItemRefs.current.set(
+                                        chunk.index,
+                                        el,
+                                      );
+                                    } else {
+                                      listItemRefs.current.delete(chunk.index);
+                                    }
+                                  }}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedIndex(chunk.index)
+                                  }
+                                  className={cx(
+                                    "w-full px-3 py-2 text-left text-xs transition-colors",
+                                    isSelected
+                                      ? "bg-blue-50"
+                                      : "bg-white hover:bg-gray-50",
+                                  )}
+                                  aria-pressed={isSelected}
+                                  title={chunkMetaLine(chunk)}
+                                >
+                                  <div className="text-sm font-medium text-gray-800">
+                                    {chunkTitle(chunk)}
+                                  </div>
+                                  <div className="mt-0.5 text-[11px] text-gray-400">
+                                    {chunkMetaLine(chunk)}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
             </div>
           ) : (
             <div className="px-3 py-3 text-sm text-gray-500">
@@ -634,6 +816,13 @@ export const ChunksStageViewer: React.FC<Props> = ({
                     {pageLabel(selectedChunk) !== "—" && (
                       <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1">
                         pages: {pageLabel(selectedChunk)}
+                      </span>
+                    )}
+
+                    {selectedChunk.segment_type && (
+                      <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1">
+                        segment: {selectedChunk.segment_type}
+                        {selectedChunk.is_primary_segment ? " (PRIMARY)" : ""}
                       </span>
                     )}
 
@@ -748,5 +937,6 @@ export const ChunksStageViewer: React.FC<Props> = ({
 };
 
 export default ChunksStageViewer;
+
 
 

@@ -12,11 +12,12 @@ import type {
   QCStatus,
   OpenViewerAtFn,
   StructuredField,
-  Evidence,
 } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { useEvidence } from "../../api/evidence";
+import type { EvidenceDetail } from "../../api/evidence";
+
 
 interface EvidencePanelProps {
   result: CheckResult;
@@ -36,12 +37,8 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
 }) => {
   const { data: evidence, isLoading, error } = useEvidence(result.id);
 
-  // evidence приходит как массив Evidence | undefined (по сигнатуре хука),
-  // но нас интересует один основной объект. Берём первый.
-  const evidenceObj: Evidence | undefined =
-    Array.isArray(evidence) && evidence.length > 0
-      ? evidence[0]
-      : (evidence as Evidence | undefined);
+  // evidence уже один объект, а не массив
+  const evidenceObj: EvidenceDetail | undefined = evidence ?? undefined;
 
   const snippet =
     evidenceObj?.quote ||
@@ -50,19 +47,14 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
     "(нет фрагмента текста)";
 
   const page = evidenceObj?.page;
-  const clauseUid =
-    (evidenceObj as Evidence & {
-      clause_uid?: string;
-    })?.clause_uid;
+  const clauseUid = evidenceObj?.clause_uid ?? null;
 
-  // structured_data из evidence: типизуем как обычный объект для JSON.stringify.
-  // Здесь это может быть любая структура, поэтому используем Record<string, unknown>.
-  const evidenceDetails =
-    ((evidenceObj as unknown as {
-      structured_data?: Record<string, unknown>;
-    })?.structured_data ?? undefined) || undefined;
+  const evidenceDetails = evidenceObj?.structured_data ?? undefined;
 
-  const hasEvidenceDetails = !!evidenceDetails;
+  const hasEvidenceDetails =
+    !!evidenceDetails &&
+    typeof evidenceDetails === "object" &&
+    Object.keys(evidenceDetails).length > 0;
 
   const qcStatus = result.qc_status;
   const isPendingQc = qcStatus === "pending";
@@ -76,10 +68,18 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   };
 
   const handleViewOriginal = () => {
-    // TODO: открыть viewer для исходного документа по document_id
-    // Сейчас просто логируем для отладки.
-    // В проде сюда подставляется реальное открытие viewer'а.
-    console.log("Просмотр исходного документа", result.document_id);
+    if (!onOpenAtLocation) return;
+
+    onOpenAtLocation({
+      documentId: result.document_id,
+      page: evidenceObj?.page ?? null,
+      clauseUid: clauseUid ?? null,
+      elementId: null,
+
+      segmentId: evidenceObj?.segment_id ?? null,
+      chunkId: evidenceObj?.chunk_id ?? null,
+      chunkIndex: evidenceObj?.chunk_index ?? null,
+    });
   };
 
   const qualitySummary = React.useMemo(() => {
@@ -161,6 +161,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
       page: field.location.page ?? field.location.start_page ?? null,
       clauseUid: field.location.clause_uid ?? null,
       elementId: field.location.element_id ?? null,
+
+      segmentId: field.location.segment_id ?? null,
+      chunkId: field.location.chunk_id ?? null,
+      chunkIndex: field.location.chunk_index ?? null,
     });
   };
 

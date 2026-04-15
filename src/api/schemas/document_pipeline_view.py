@@ -157,6 +157,22 @@ class LayoutPreviewDTO(BaseModel):
     raw_json: dict[str, Any] | list[Any] | None = None
 
 
+class PipelineSegmentDTO(BaseModel):
+    segment_id: str
+    segment_type: str
+    segment_title: str | None = None
+    segment_order: int
+    is_primary: bool = False
+    page_from: int | None = None
+    page_to: int | None = None
+
+
+class ChunkRefDTO(BaseModel):
+    segment_id: str
+    chunk_index: int | None = None
+    chunk_id: str | None = None
+
+
 class SectionSourceMappingDTO(BaseModel):
     """
     Привязка секции STRUCTURE к исходному текстовому слою документа.
@@ -175,8 +191,12 @@ class SectionSourceMappingDTO(BaseModel):
     page_from: int | None = None
     page_to: int | None = None
 
-    # Ссылки на чанки (если секция построена по clause_uid).
+    # legacy
     chunk_indices: list[int] = Field(default_factory=list)
+
+    # v2 canonical
+    chunk_refs: list[ChunkRefDTO] = Field(default_factory=list)
+    segment_id: str | None = None
 
     # Опциональная текстовая цитата для поиска/подсветки в исходном тексте.
     # Например, первый абзац секции или характерный фрагмент.
@@ -219,6 +239,13 @@ class StructureSectionPreviewDTO(BaseModel):
     page_from: int | None = None
     page_to: int | None = None
 
+    # v2 segment provenance
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
     # 1) Чистый текст из clause tree (STRUCTURE stage).
     #    Этот текст задаётся на этапе _flatten_clause_tree и
     #    не должен перезаписываться enrichment-логикой.
@@ -243,9 +270,20 @@ class StructureSectionPreviewDTO(BaseModel):
     source_mapping: SectionSourceMappingDTO | None = None
 
 
+class StructureSegmentPreviewDTO(BaseModel):
+    segment: PipelineSegmentDTO
+    sections: list[StructureSectionPreviewDTO] = Field(default_factory=list)
+    raw_json: dict[str, Any] | list[Any] | None = None
+
+
 class StructurePreviewDTO(BaseModel):
     type: Literal["structure"] = "structure"
+    # legacy flattened view
     sections: list[StructureSectionPreviewDTO] = Field(default_factory=list)
+
+    # v2 canonical view
+    segments: list[StructureSegmentPreviewDTO] = Field(default_factory=list)
+    
     raw_json: dict[str, Any] | list[Any] | None = None
 
 
@@ -256,10 +294,31 @@ class ChunkPreviewDTO(BaseModel):
     page_to: int | None = None
     text: str
 
+    # v2 segment provenance
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
+    # optional stable ids/provenance
+    chunk_id: str | None = None
+
+
+class ChunksSegmentPreviewDTO(BaseModel):
+    segment: PipelineSegmentDTO
+    chunks: list[ChunkPreviewDTO] = Field(default_factory=list)
+    reconstructed_text: str = ""
+    raw_json: dict[str, Any] | list[Any] | None = None
+
 
 class ChunksPreviewDTO(BaseModel):
     type: Literal["chunks"] = "chunks"
+    # legacy flattened view
     chunks: list[ChunkPreviewDTO] = Field(default_factory=list)
+
+    # v2 canonical view
+    segments: list[ChunksSegmentPreviewDTO] = Field(default_factory=list)
     reconstructed_text: str = ""
     raw_json: dict[str, Any] | list[Any] | None = None
 
@@ -300,4 +359,6 @@ class DocumentPipelineViewResponseDTO(BaseModel):
     view_mode: StageViewMode
 
     stages: list[PipelineStageViewDTO] = Field(default_factory=list)
-    
+
+
+

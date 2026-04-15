@@ -216,6 +216,11 @@ export type OpenViewerAtPayload = {
   page?: number | null;
   clauseUid?: string | null;
   elementId?: string | null;
+
+  // v2: навигация по сегментам / чанкам
+  segmentId?: string | null;
+  chunkId?: string | null;
+  chunkIndex?: number | null;
 };
 
 export type OpenViewerAtFn = (payload: OpenViewerAtPayload) => void;
