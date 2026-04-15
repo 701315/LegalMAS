@@ -6,16 +6,15 @@ Scoring / decision слой для heading detection.
 Задача этого модуля:
 - принимать raw heading hypothesis (uid, title, raw_text);
 - использовать feature/predicate слой из heading_features.py;
-- возвращать структурированное решение:
-  accepted / rejected / ambiguous;
+- возвращать структурированное решение: accepted / rejected / ambiguous;
 - сохранять explainability: score + accept_reasons + reject_reasons.
 
 ВАЖНО:
 - Это НЕ слой построения дерева.
 - Это НЕ regex parser.
 - Это НЕ LLM-refiner.
-- Это deterministic decision layer между parse_raw_heading(...) и
-  дальнейшей сборкой ClauseTree.
+- Это deterministic decision layer между parse_raw_heading(...)
+  и дальнейшей сборкой ClauseTree.
 """
 
 from __future__ import annotations
@@ -46,10 +45,8 @@ class CandidateStatus(str, Enum):
 
     - ACCEPTED  — уверенно принимаем как заголовок;
     - REJECTED  — уверенно отклоняем;
-    - AMBIGUOUS — пограничный случай, который можно позже досмотреть
-      дополнительными эвристиками или LLM-refiner.
+    - AMBIGUOUS — пограничный случай (можно досмотреть LLM-refiner'ом).
     """
-
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     AMBIGUOUS = "ambiguous"
@@ -60,13 +57,11 @@ class HeadingScoreResult:
     """
     Результат scoring-слоя.
 
-    Для непрофессионального программиста:
-    - status — основное решение;
-    - score  — условный балл доверия 0.0 .. 1.0;
-    - accept_reasons / reject_reasons — объяснение решения;
-    - primary_reason — короткая причина для логов и совместимости.
+    - status         — основное решение (ACCEPTED / REJECTED / AMBIGUOUS);
+    - score          — балл доверия 0.0..1.0;
+    - primary_reason — короткая причина для логов;
+    - accept_reasons / reject_reasons — полное объяснение решения.
     """
-
     status: CandidateStatus
     score: float
     primary_reason: str
@@ -95,16 +90,14 @@ def _is_strict_numeric_uid(uid: str) -> bool:
 
 def _is_effectively_empty_title(title: str) -> bool:
     """
-    Случаи вроде "", " ", "-", "--", ",", ".", ", ,", "- -"
-    считаем пустыми/пунктуационными и не считаем заголовком.
+    Строки вроде "", " ", "-", "--", ",", ".", ", ,", "- -"
+    считаем пустыми/пунктуационными — это не заголовок.
     """
     if not title:
         return True
-
     stripped = normalize_spaces(title).strip()
     if not stripped:
         return True
-
     cleaned = re.sub(r"[\s\.,;:!?()\[\]{}\-–—_+/\\|\"'`~№]+", "", stripped)
     return not cleaned
 
@@ -117,86 +110,89 @@ def score_heading_candidate(
     """
     Основной deterministic scorer для heading candidate.
 
-    Принципы:
-    - сначала нормализуем вход;
-    - затем как можно раньше отсекаем явный мусор;
-    - потом проверяем plausibility uid;
-    - и только после этого принимаем / помечаем как ambiguous.
+    Порядок проверок (важен — не менять без понимания последствий):
+    1. Нормализация входных данных
+    2. TOC-строки
+    3. Пустой uid / пустой title
+    4. Effectively empty title (только пунктуация)
+    5. Слишком короткий небуквенный title
+    6. Нет букв совсем
+    7. Мусорный / плохой title (garbage / bad)
+    8. Вычисление uid_kind / numeric_uid / level
+    9. Plausibility uid формата
+    10. digit_uid без текстового title (после plausibility — чтобы причина была точной)
+    11. Похоже на body-предложение
+    12. Финальное решение по типу uid и уровню вложенности
     """
 
+    # ── 1. Нормализация ──────────────────────────────────────────────────────
     raw_text = normalize_spaces(raw_text)
-    title = _normalize_title(title)
+
+    # uid нормализуем и сразу считаем level, чтобы передать его в _normalize_title
     uid = normalize_spaces(uid)
+    level = level_from_uid(uid) if uid else 1
+
+    # теперь можем корректно нормализовать title с учётом глубины
+    title = _normalize_title(title, uid_depth=level)
 
     accept_reasons: list[str] = []
     reject_reasons: list[str] = []
 
-    # TOC-подобные строки не считаем heading candidate
+    # ── 2. TOC-строки ────────────────────────────────────────────────────────
+    # Строки вида "1. Definitions .......... 4" — оглавление, не заголовок
     if looks_like_toc_line(raw_text):
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.0,
             primary_reason="toc_like_line",
-            accept_reasons=[],
             reject_reasons=["toc_like_line"],
         )
 
-    # Пустой uid или пустой title сразу отбрасываем
+    # ── 3. Пустой uid / пустой title ─────────────────────────────────────────
     if not uid or not title:
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.0,
             primary_reason="empty_uid_or_title",
-            accept_reasons=[],
             reject_reasons=["empty_uid_or_title"],
         )
 
-    # Title, состоящий только из пробелов/пунктуации — тоже мусор
+    # ── 4. Title только из пунктуации/пробелов ───────────────────────────────
+    # Ловит: "-", "--", ", ,", "- -", "..."
     if _is_effectively_empty_title(title):
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.0,
             primary_reason="empty_or_punct_only_title",
-            accept_reasons=[],
             reject_reasons=["empty_or_punct_only_title"],
         )
 
-    # Очень короткий небуквенный title — почти гарантированный мусор
+    # ── 5. Слишком короткий небуквенный title ────────────────────────────────
     if len(title) <= 2 and not has_letters(title):
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.0,
             primary_reason="too_short_non_textual_title",
-            accept_reasons=[],
             reject_reasons=["too_short_non_textual_title"],
         )
 
-    # Если букв нет совсем, это не заголовок
+    # ── 6. Нет букв совсем ───────────────────────────────────────────────────
     if not has_letters(title):
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.05,
             primary_reason="title_without_letters",
-            accept_reasons=[],
             reject_reasons=["title_without_letters"],
         )
 
-    if digit_uid_without_textual_title(uid, title):
-        return HeadingScoreResult(
-            status=CandidateStatus.REJECTED,
-            score=0.05,
-            primary_reason="digit_uid_without_textual_title",
-            accept_reasons=accept_reasons.copy(),
-            reject_reasons=["digit_uid_without_textual_title"],
-        )
-
-    # Явный мусор / плохой title
+    # ── 7. Мусорный / плохой title ───────────────────────────────────────────
+    # ВАЖНО: эти проверки идут ДО вычисления uid_kind и plausibility.
+    # Смысл: мусорный title дисквалифицирует кандидата независимо от uid.
     if is_garbage_heading_title(title):
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.0,
             primary_reason="garbage_heading_title",
-            accept_reasons=[],
             reject_reasons=["garbage_heading_title"],
         )
 
@@ -205,22 +201,22 @@ def score_heading_candidate(
             status=CandidateStatus.REJECTED,
             score=0.05,
             primary_reason="bad_heading_title",
-            accept_reasons=[],
             reject_reasons=["bad_heading_title"],
         )
 
+    # ── 8. Вычисляем свойства uid ────────────────────────────────────────────
+    # Вычисляем только после мусорного фильтра, чтобы не тратить ресурсы на мусор
     uid_kind = classify_uid_kind(uid)
     numeric_uid = _is_strict_numeric_uid(uid)
-    level = level_from_uid(uid) if uid else 1
 
-    # Проверка plausibility формата uid
+    # ── 9. Plausibility uid формата ──────────────────────────────────────────
+    # Отсекаем нереалистичные uid: 0.0.9999, 999.999.999 и т.п.
     if numeric_uid:
         if not uid_is_plausible(uid):
             return HeadingScoreResult(
                 status=CandidateStatus.REJECTED,
                 score=0.05,
                 primary_reason="implausible_numeric_uid",
-                accept_reasons=[],
                 reject_reasons=["implausible_numeric_uid"],
             )
         accept_reasons.append("plausible_numeric_uid")
@@ -236,11 +232,25 @@ def score_heading_candidate(
             status=CandidateStatus.REJECTED,
             score=0.05,
             primary_reason="unsupported_uid_format",
-            accept_reasons=[],
             reject_reasons=["unsupported_uid_format"],
         )
 
-    # Похоже на обычное предложение из body, а не на заголовок
+    # ── 10. digit_uid без текстового title ───────────────────────────────────
+    # Проверяем ПОСЛЕ plausibility: если uid нереалистичен, причина уже выдана выше.
+    # Ловит: uid "1" с title "42 700" или "3.2.1" с title "1234"
+    if digit_uid_without_textual_title(uid, title):
+        return HeadingScoreResult(
+            status=CandidateStatus.REJECTED,
+            score=0.05,
+            primary_reason="digit_uid_without_textual_title",
+            accept_reasons=accept_reasons.copy(),
+            reject_reasons=["digit_uid_without_textual_title"],
+        )
+
+    # ── 11. Похоже на body-предложение ───────────────────────────────────────
+    # Ловит длинные фразы с глаголами и знаками конца предложения.
+    # Для numeric uid уровня 2+ — спорный случай, помечаем AMBIGUOUS,
+    # чтобы LLM-refiner мог досмотреть.
     if looks_like_body_sentence_title(uid, title):
         if numeric_uid and level >= 2:
             return HeadingScoreResult(
@@ -250,7 +260,6 @@ def score_heading_candidate(
                 accept_reasons=accept_reasons.copy(),
                 reject_reasons=["body_like_sentence_title"],
             )
-
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.10,
@@ -259,9 +268,11 @@ def score_heading_candidate(
             reject_reasons=["body_like_sentence_title"],
         )
 
-    # Финальное решение по типу uid и глубине
+    # ── 12. Финальное решение по типу uid и уровню вложенности ───────────────
+
     if numeric_uid:
         if level == 1:
+            # Пример: "1.", "2.", "10." — корневые разделы
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
                 score=0.95,
@@ -271,6 +282,7 @@ def score_heading_candidate(
             )
 
         if level == 2:
+            # Пример: "1.1", "2.3", "10.5" — подразделы
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
                 score=0.90,
@@ -279,16 +291,30 @@ def score_heading_candidate(
                 reject_reasons=reject_reasons,
             )
 
-        if level >= 3:
+        if level == 3:
+            # Пример: "1.1.1", "2.3.4" — клаузы третьего уровня.
+            # Это самые важные leaf-узлы для risk-анализа — принимаем уверенно.
+            # (Было AMBIGUOUS 0.70 — исправлено: эти пункты нужны как leaf-клаузы)
             return HeadingScoreResult(
-                status=CandidateStatus.AMBIGUOUS,
-                score=0.70,
-                primary_reason="deep_numeric_heading",
-                accept_reasons=accept_reasons + ["deep_numeric_heading"],
+                status=CandidateStatus.ACCEPTED,
+                score=0.85,
+                primary_reason="accepted",
+                accept_reasons=accept_reasons + ["deep_numeric_heading_l3"],
                 reject_reasons=reject_reasons,
             )
 
+        # level >= 4: очень глубокая вложенность — принимаем осторожно
+        # Пример: "1.1.1.1", "2.3.4.5" — редко встречается, помечаем AMBIGUOUS
+        return HeadingScoreResult(
+            status=CandidateStatus.AMBIGUOUS,
+            score=0.65,
+            primary_reason="very_deep_numeric_heading",
+            accept_reasons=accept_reasons + ["very_deep_numeric_heading"],
+            reject_reasons=reject_reasons,
+        )
+
     if uid_kind == "roman":
+        # Пример: "I.", "II.", "III." — романские заголовки
         return HeadingScoreResult(
             status=CandidateStatus.ACCEPTED,
             score=0.82,
@@ -298,6 +324,7 @@ def score_heading_candidate(
         )
 
     if uid_kind == "alpha":
+        # Пример: "A.", "B.", "C." — буквенные подпункты
         return HeadingScoreResult(
             status=CandidateStatus.AMBIGUOUS,
             score=0.60,
@@ -306,6 +333,7 @@ def score_heading_candidate(
             reject_reasons=reject_reasons,
         )
 
+    # Всё остальное — неопределённо
     return HeadingScoreResult(
         status=CandidateStatus.AMBIGUOUS,
         score=0.50,
@@ -323,12 +351,10 @@ def validate_heading_candidate_with_reason(
     """
     Legacy-compatible bridge.
 
-    Правило ПОКА (жёсткий режим для чистки мусора):
-    - ACCEPTED  -> (True, primary_reason)
-    - AMBIGUOUS -> (False, primary_reason)
-    - REJECTED  -> (False, primary_reason)
-
-    Позже можно будет вернуть AMBIGUOUS через feature-flag.
+    Правило (жёсткий режим):
+    - ACCEPTED  → (True, primary_reason)
+    - AMBIGUOUS → (False, primary_reason)
+    - REJECTED  → (False, primary_reason)
     """
     result = score_heading_candidate(uid, title, raw_text)
     if result.is_accepted:
@@ -341,9 +367,7 @@ def validate_heading_candidate(
     title: str,
     raw_text: str,
 ) -> bool:
-    """
-    Старый бинарный интерфейс.
-    """
+    """Старый бинарный интерфейс."""
     ok, _ = validate_heading_candidate_with_reason(uid, title, raw_text)
     return ok
 

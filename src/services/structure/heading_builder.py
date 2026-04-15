@@ -19,28 +19,22 @@ from services.structure.heading_scoring import (
 )
 from services.structure.hierarchy_builder import HeadingCandidate, level_from_uid
 
+
 logger = get_logger(__name__)
 
-def _is_plausible_heading_title(title: str) -> bool:
-    t = normalize_spaces(title or "")
-    if not t:
-        return False
-    if len(t) < 3:
-        return False
-    letters = sum(ch.isalpha() for ch in t)
-    if letters == 0:
-        return False
-    # доля букв хотя бы 40%
-    if letters / len(t) < 0.4:
-        return False
-    return True
+
+# _is_plausible_heading_title УДАЛЕНА — её логика полностью покрыта
+# score_heading_candidate через is_garbage_heading_title / is_bad_heading_title / has_letters.
+# Оставлять два фильтра с разными правилами опасно: кандидат мог отклоняться
+# здесь по слабому критерию, не доходя до scorer'а с правильной причиной.
+
 
 def _status_to_decision(status: CandidateStatus | str | None) -> str:
     """
     Приводит статус deterministic scorer к строковому decision-формату:
-    - accepted
-    - rejected
-    - ambiguous
+    - "accepted"
+    - "rejected"
+    - "ambiguous"
     """
     if status == CandidateStatus.ACCEPTED:
         return "accepted"
@@ -76,11 +70,19 @@ def _select_best_candidates_by_uid(
     document_id: str,
 ) -> list[ScoredHeadingCandidate]:
     """
-    Для каждого uid выбираем лучший кандидат:
-    - сначала по score;
-    - при равном score — по длине title (короче лучше).
+    Для каждого uid оставляем одного лучшего кандидата.
+
+    Приоритет выбора:
+    1. Статус: accepted > ambiguous > rejected
+       (не берём rejected, если есть хоть один accepted/ambiguous для того же uid)
+    2. Score (чем выше — тем лучше)
+    3. При равном score — больше букв в title
+    4. При равном числе букв — длиннее title
     """
     best_by_uid: dict[str, ScoredHeadingCandidate] = {}
+
+    # Вес статуса: accepted — самый желанный
+    _status_weight = {"accepted": 2, "ambiguous": 1, "rejected": 0}
 
     for cand in candidates:
         uid = normalize_spaces(str(getattr(cand, "uid", "") or ""))
@@ -92,23 +94,27 @@ def _select_best_candidates_by_uid(
             best_by_uid[uid] = cand
             continue
 
+        cand_weight = _status_weight.get(cand.decision, 0)
+        exist_weight = _status_weight.get(existing.decision, 0)
+
         better = existing
-        if cand.score > existing.score:
+
+        if cand_weight > exist_weight:
+            # accepted всегда выигрывает у rejected
             better = cand
-        elif cand.score == existing.score:
-
-            cand_t = normalize_spaces(cand.title or "")
-            exist_t = normalize_spaces(existing.title or "")
-
-            cand_letters = sum(ch.isalpha() for ch in cand_t)
-            exist_letters = sum(ch.isalpha() for ch in exist_t)
-
-            if cand_letters > exist_letters:
+        elif cand_weight == exist_weight:
+            if cand.score > existing.score:
                 better = cand
-            elif cand_letters == exist_letters and len(cand_t) > len(exist_t):
-                better = cand
+            elif cand.score == existing.score:
+                cand_t = normalize_spaces(cand.title or "")
+                exist_t = normalize_spaces(existing.title or "")
+                cand_letters = sum(ch.isalpha() for ch in cand_t)
+                exist_letters = sum(ch.isalpha() for ch in exist_t)
+                if cand_letters > exist_letters:
+                    better = cand
+                elif cand_letters == exist_letters and len(cand_t) > len(exist_t):
+                    better = cand
 
-        # залогируем того, кто проиграл выбор
         loser = cand if better is existing else existing
         logger.debug(
             "STRUCTURE heading_candidate_duplicate_uid_skipped",
@@ -133,6 +139,10 @@ def collect_scored_heading_candidates(
     """
     Извлекает raw heading-кандидаты из layout-элементов, прогоняет их через
     deterministic scorer и возвращает список ScoredHeadingCandidate.
+
+    Важно: возвращаем ВСЕ решения scorer'а (accepted / ambiguous / rejected).
+    Фильтрация по статусу — только в build_heading_candidates.
+    Это даёт полную картину в логах и корректную работу _select_best_candidates_by_uid.
     """
     scored_candidates: list[ScoredHeadingCandidate] = []
     reject_stats: Counter[str] = Counter()
@@ -149,16 +159,13 @@ def collect_scored_heading_candidates(
 
         parsed = parse_raw_heading(raw_text)
         if parsed is None:
-            # строка не похожа на заголовок
+            # строка не распознана как заголовок регулярным парсером — пропускаем
             continue
 
-        # ожидаем кортеж (uid, title) из heading_patterns
         parsed_uid, parsed_title = parsed
-
         parsed_uid = normalize_spaces(str(parsed_uid or ""))
         parsed_title = normalize_spaces(str(parsed_title or ""))
 
-        # логируем именно результат парсера, до всякого скоринга
         logger.debug(
             "STRUCTURE parse_raw_heading_result",
             extra={
@@ -171,31 +178,16 @@ def collect_scored_heading_candidates(
         )
 
         if not parsed_uid:
-            # без uid структура бессмысленна
+            # uid обязателен для построения дерева
             continue
 
-        # новый блок – отсекаем явный мусор вроде ",", "-", "."
-        if not _is_plausible_heading_title(parsed_title):
-            reject_stats["badheadingtitle"] += 1
-            logger.debug(
-                "STRUCTURE heading_candidate_rejected",
-                extra={
-                    "document_id": document_id,
-                    "elem_i": elem_i,
-                    "uid": parsed_uid,
-                    "title": parsed_title,
-                    "reason": "badheadingtitle",
-                    "raw_text_sample": raw_text[:160],
-                    "page": int(element.get("page") or 0),
-                },
-            )
-            continue
-
-        # Фикс: для чисто нумерованных uid считаем uid/title каноническими
+        # Для чисто нумерованных uid (1, 1.2, 3.1.4) считаем uid/title каноническими
         freeze_structural_fields = _is_strict_numeric_uid(parsed_uid)
 
         page = int(element.get("page") or 0)
 
+        # Единственная точка оценки кандидата — scorer.
+        # Он сам проверяет наличие букв, мусорные title, plausibility uid и т.д.
         score_result = score_heading_candidate(
             uid=parsed_uid,
             title=parsed_title,
@@ -214,7 +206,6 @@ def collect_scored_heading_candidates(
             "freeze_structural_fields": freeze_structural_fields,
         }
 
-        # ВАЖНО: uid/title берём ТОЛЬКО из парсера
         candidate = ScoredHeadingCandidate(
             elem_i=elem_i,
             page=page,
@@ -256,8 +247,8 @@ def collect_scored_heading_candidates(
             },
         )
 
-    # На этом этапе уже выберем лучших кандидатов по uid,
-    # чтобы дальше дерево строилось из максимально "человеческих" шапок.
+    # Выбираем лучшего кандидата для каждого uid из всех решений scorer'а.
+    # accepted побеждает ambiguous, ambiguous побеждает rejected.
     scored_candidates = _select_best_candidates_by_uid(
         scored_candidates,
         document_id=document_id,
@@ -274,11 +265,11 @@ def filter_heading_sequence(
     """
     Финальная очистка accepted heading candidates перед hierarchy assembly.
 
-    Текущие правила:
-    - пустой uid отбрасываем;
-    - uid с невалидной структурой отбрасываем;
-    - duplicate uid оставляем только в первом появлении;
-    - исходный порядок документа сохраняем.
+    Правила:
+    - пустой uid → пропускаем;
+    - uid с невалидной структурой → пропускаем;
+    - дублирующий uid → оставляем только первое появление;
+    - порядок документа сохраняется.
     """
     if not candidates:
         logger.debug(
@@ -346,10 +337,10 @@ def build_heading_candidates(
 ) -> list[HeadingCandidate]:
     """
     Полный heading-building flow:
-    1. parse + deterministic scoring,
-    2. optional LLM refinement for ambiguous items,
-    3. projection accepted -> HeadingCandidate,
-    4. duplicate/noise filtering.
+    1. parse + deterministic scoring (все решения, включая rejected);
+    2. optional LLM refinement для ambiguous;
+    3. фильтрация: берём только accepted;
+    4. финальная очистка дубликатов.
     """
     scored_candidates = collect_scored_heading_candidates(
         elements,
@@ -387,6 +378,7 @@ def build_heading_candidates(
     accepted_candidates: list[HeadingCandidate] = []
 
     for scored in scored_candidates:
+        # Берём только accepted — единственная точка фильтрации по статусу
         if getattr(scored, "decision", None) != "accepted":
             continue
 

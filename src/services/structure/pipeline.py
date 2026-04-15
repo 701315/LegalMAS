@@ -3,25 +3,28 @@
 """
 Структурный пайплайн: elements -> ClauseTree.
 
-Задача:
-- собрать воедино все стадии:
-  * валидация входа
-  * TOC-детекция
-  * heading candidates (parse + scoring + filter)
-  * coverage + confidence
-  * hierarchy + crossrefs
-  * degraded fallback
-- оставить builder.StructureBuilder тонким фасадом.
+Стадии:
+  1. Валидация входа
+  2. TOC-детекция
+  3. Heading candidates (parse + scoring + filter)
+  4. Coverage + confidence
+  5. Hierarchy + crossrefs
+  6. Degraded fallback при низком качестве
 """
 
 from __future__ import annotations
 
 import time
-from typing import Any, Tuple, List
+from typing import Any
+
 from core.config import settings
 from core.logging import get_logger
 from services.structure.heading_patterns import parse_raw_heading, normalize_spaces
-from services.structure.heading_scoring import validate_heading_candidate
+from services.structure.heading_scoring import (
+    validate_heading_candidate,
+    score_heading_candidate,
+    CandidateStatus,
+)
 from services.structure.hierarchy_builder import (
     HeadingCandidate,
     level_from_uid,
@@ -30,13 +33,11 @@ from services.structure.hierarchy_builder import (
 from services.structure.crossrefs import extract_references
 from services.structure.models import ClauseNode, ClauseTree, CrossReference
 from services.structure.heading_features import (
-    has_letters, 
-    is_bad_heading_title, 
-    is_garbage_heading_title, 
+    has_letters,
     looks_like_toc_line,
 )
 from services.structure.heading_builder import build_heading_candidates
-from services.structure.heading_llm_refiner import refine_ambiguous_candidates
+
 
 logger = get_logger(__name__)
 
@@ -49,6 +50,9 @@ _TOC_MARKERS = frozenset([
     "оглавление",
 ])
 
+
+# ── Утилиты ──────────────────────────────────────────────────────────────────
+
 def _log_timing(label: str, start: float, **extra: Any) -> None:
     elapsed = time.perf_counter() - start
     logger.info(
@@ -59,7 +63,9 @@ def _log_timing(label: str, start: float, **extra: Any) -> None:
 
 def _stable_element_id(element: dict[str, Any], fallback_index: int) -> str:
     """
-    Стабильный element_id, повторяет логику StructureBuilder._stable_element_id.
+    Стабильный element_id.
+    Если у элемента есть собственный element_id — используем его.
+    Иначе строим детерминированный fallback по странице, координатам и тексту.
     """
     element_id = str(element.get("element_id") or "").strip()
     if element_id:
@@ -68,14 +74,19 @@ def _stable_element_id(element: dict[str, Any], fallback_index: int) -> str:
     page = element.get("page", 1)
     bbox = element.get("bbox") or [0, 0, 0, 0]
     text = normalize_spaces(element.get("text", ""))
-
     x0 = bbox[0] if len(bbox) > 0 else 0
     top = bbox[1] if len(bbox) > 1 else 0
 
     return f"fallback:{page}:{x0}:{top}:{fallback_index}:{text[:32]}"
 
 
+# ── TOC-детекция ─────────────────────────────────────────────────────────────
+
 def _find_toc_end(elements: list[dict]) -> int:
+    """
+    Возвращает индекс первого элемента после оглавления.
+    Если оглавление не найдено — возвращает 0.
+    """
     if not elements:
         return 0
 
@@ -86,7 +97,6 @@ def _find_toc_end(elements: list[dict]) -> int:
     for i, el in enumerate(elements):
         if el.get("page", 1) > page_threshold:
             break
-
         text_lower = normalize_spaces(el.get("text", "")).lower()
         if text_lower in _TOC_MARKERS:
             toc_start_idx = i
@@ -198,18 +208,25 @@ def _find_toc_end(elements: list[dict]) -> int:
     return 0
 
 
+# ── Coverage и quality ───────────────────────────────────────────────────────
+
 def _calculate_coverage(
     headings: list[HeadingCandidate],
     elements: list[dict],
 ) -> float:
+    """
+    Доля элементов layout, покрытых заголовками (от 0.0 до 1.0).
+    """
     if not elements:
         return 0.0
 
-    assigned = set()
+    assigned: set[int] = set()
     for h_idx, heading in enumerate(headings):
         elem_i = heading.elem_i
         next_elem_i = (
-            headings[h_idx + 1].elem_i if h_idx + 1 < len(headings) else len(elements)
+            headings[h_idx + 1].elem_i
+            if h_idx + 1 < len(headings)
+            else len(elements)
         )
         for j in range(elem_i, next_elem_i):
             assigned.add(j)
@@ -221,34 +238,31 @@ def _calculate_heading_quality(
     headings: list[HeadingCandidate],
 ) -> tuple[int, int, float]:
     """
-    Оценка качества заголовков.
+    Оценка качества заголовков через scorer.
+
+    Используем score_heading_candidate как единую точку правды —
+    это гарантирует, что логика «хороший/плохой заголовок» не дублируется.
 
     Возвращает:
-    - good_count: сколько заголовков выглядят осмысленными;
-    - total: всего заголовков;
-    - ratio: доля хороших заголовков (0.0..1.0).
+    - good_count:  заголовков, которые scorer принял (ACCEPTED);
+    - total:       всего заголовков;
+    - ratio:       доля принятых (0.0..1.0).
     """
     total = len(headings)
     if not total:
         return 0, 0, 0.0
 
     good_count = 0
-
     for h in headings:
-        title = (h.title or "").strip()
-
-        # Совсем пустые или без букв — точно плохие
-        if not title or not has_letters(title):
-            continue
-
-        # Явно мусорные и явно плохие — пропускаем
-        if is_garbage_heading_title(title):
-            continue
-        if is_bad_heading_title(title):
-            continue
-
-        # Всё остальное считаем "условно хорошим"
-        good_count += 1
+        # Используем scorer вместо дублирующих вызовов
+        # is_garbage_heading_title / is_bad_heading_title / has_letters.
+        result = score_heading_candidate(
+            uid=h.uid,
+            title=h.title,
+            raw_text="",  # raw_text здесь не нужен — title уже нормализован
+        )
+        if result.status == CandidateStatus.ACCEPTED:
+            good_count += 1
 
     ratio = good_count / total if total else 0.0
     return good_count, total, ratio
@@ -266,7 +280,7 @@ def _confidence_and_mode(
     if layout_degraded:
         threshold *= 0.7
 
-    # Новый safety-net: если почти все заголовки мусорные — считаем LOW+degraded
+    # Safety-net: слишком мало хороших заголовков — смысла строить дерево нет
     if good_headings_count < 3 or good_headings_ratio < 0.3:
         return "LOW", True
 
@@ -277,13 +291,21 @@ def _confidence_and_mode(
     return "HIGH", False
 
 
+# ── Degraded fallback ─────────────────────────────────────────────────────────
+
 def _degraded_tree(
     document_id: str,
     elements: list[dict],
     coverage: float = 0.0,
 ) -> ClauseTree:
+    """
+    Строит технический ClauseTree из равномерных чанков по токенам.
+    Используется когда структуру документа восстановить не удалось.
+    node_kind для чанков не нужен — они leaf по дефолту.
+    """
     chunks: list[ClauseNode] = []
     current_ids: list[str] = []
+    current_text_parts: list[str] = []
     current_tokens = 0
     chunk_idx = 1
     max_tokens = settings.STRUCTURE_DEGRADED_CHUNK_TOKENS
@@ -300,57 +322,21 @@ def _degraded_tree(
         },
     )
 
-    for idx, el in enumerate(elements):
-        text = el.get("text", "")
-        tokens = len(text.split())
-        page = el.get("page", 1)
-
-        if current_tokens + tokens > max_tokens and current_ids:
-            start_page = current_start_page or last_page
-            end_page = last_page
-            chunks.append(
-                ClauseNode(
-                    clause_uid=str(chunk_idx),
-                    title=f"Chunk {chunk_idx}",
-                    level=1,
-                    own_element_ids=current_ids,
-                    subtree_element_ids=list(current_ids),
-                    start_page=start_page,
-                    end_page=end_page,
-                )
-            )
-            logger.debug(
-                "STRUCTURE degraded_chunk_built",
-                extra={
-                    "document_id": document_id,
-                    "chunk_uid": str(chunk_idx),
-                    "element_ids_count": len(current_ids),
-                    "start_page": start_page,
-                    "end_page": end_page,
-                    "tokens": current_tokens,
-                },
-            )
-            chunk_idx += 1
-            current_ids = []
-            current_tokens = 0
-            current_start_page = None
-
-        current_ids.append(_stable_element_id(el, idx))
-        current_tokens += tokens
-        if current_start_page is None:
-            current_start_page = page
-        last_page = page
-
-    if current_ids:
+    def _flush_chunk() -> None:
+        nonlocal chunk_idx, current_ids, current_text_parts, current_tokens, current_start_page
         start_page = current_start_page or last_page
         end_page = last_page
+        own_text = " ".join(current_text_parts) if current_text_parts else None
         chunks.append(
             ClauseNode(
                 clause_uid=str(chunk_idx),
                 title=f"Chunk {chunk_idx}",
                 level=1,
+                node_kind="leaf",
                 own_element_ids=current_ids,
                 subtree_element_ids=list(current_ids),
+                own_text=own_text,
+                subtree_text=own_text,
                 start_page=start_page,
                 end_page=end_page,
             )
@@ -366,6 +352,30 @@ def _degraded_tree(
                 "tokens": current_tokens,
             },
         )
+        chunk_idx += 1
+        current_ids = []
+        current_text_parts = []
+        current_tokens = 0
+        current_start_page = None
+
+    for idx, el in enumerate(elements):
+        text = el.get("text", "")
+        tokens = len(text.split())
+        page = el.get("page", 1)
+
+        if current_tokens + tokens > max_tokens and current_ids:
+            _flush_chunk()
+
+        current_ids.append(_stable_element_id(el, idx))
+        if text.strip():
+            current_text_parts.append(text.strip())
+        current_tokens += tokens
+        if current_start_page is None:
+            current_start_page = page
+        last_page = page
+
+    if current_ids:
+        _flush_chunk()
 
     logger.info(
         "STRUCTURE degraded_tree_completed",
@@ -382,22 +392,24 @@ def _degraded_tree(
         references_index=[],
         structure_confidence="LOW",
         degraded=True,
+        # nodes_index пустой при degraded — деградированные чанки не индексируются
+        nodes_index={},
     )
 
+
+# ── Главная функция ───────────────────────────────────────────────────────────
 
 def build_structure(
     document_id: str,
     elements: list[dict] | None,
 ) -> ClauseTree:
     """
-    Главная функция пайплайна: document_id + elements -> ClauseTree.
+    Главная функция пайплайна: document_id + elements → ClauseTree.
     """
     build_started = time.perf_counter()
 
     if not document_id:
-        logger.warning(
-            "STRUCTURE build: empty document_id, using placeholder"
-        )
+        logger.warning("STRUCTURE build: empty document_id, using placeholder")
         document_id = "<unknown>"
 
     if elements is None or not isinstance(elements, list):
@@ -413,6 +425,7 @@ def build_structure(
         _log_timing("build_total", build_started, document_id=document_id, degraded=True)
         return result
 
+    # Очищаем не-dict элементы
     clean_elements: list[dict] = []
     for i, el in enumerate(elements):
         if isinstance(el, dict):
@@ -426,9 +439,9 @@ def build_structure(
                     "element_type": type(el).__name__,
                 },
             )
-
     elements = clean_elements
 
+    # Проверяем признак деградации layout
     layout_degraded = False
     layout_degraded_reason: str | None = None
     for el in elements:
@@ -439,6 +452,7 @@ def build_structure(
             layout_degraded_reason = lf.get("degraded_reason")
             break
 
+    # ── Стадия 1: TOC-детекция ───────────────────────────────────────────────
     t_toc = time.perf_counter()
     toc_end_idx = _find_toc_end(elements)
     _log_timing("toc_detection", t_toc, document_id=document_id)
@@ -453,6 +467,7 @@ def build_structure(
         if not str(el.get("element_id") or "").strip()
     )
 
+    # ── Стадия 2: Heading candidates ─────────────────────────────────────────
     t_headings = time.perf_counter()
     headings = build_heading_candidates(body_elements, document_id=document_id)
     _log_timing(
@@ -464,17 +479,11 @@ def build_structure(
 
     if not headings:
         result = _degraded_tree(document_id, body_elements)
-        _log_timing(
-            "build_total",
-            build_started,
-            document_id=document_id,
-            degraded=True,
-        )
+        _log_timing("build_total", build_started, document_id=document_id, degraded=True)
         return result
 
-    # Новый расчёт качества заголовков
+    # ── Стадия 3: Coverage + confidence ──────────────────────────────────────
     good_headings_count, total_headings, good_headings_ratio = _calculate_heading_quality(headings)
-
     coverage = _calculate_coverage(headings, body_elements)
     confidence, degraded = _confidence_and_mode(
         coverage,
@@ -513,14 +522,10 @@ def build_structure(
             },
         )
         result = _degraded_tree(document_id, body_elements, coverage)
-        _log_timing(
-            "build_total",
-            build_started,
-            document_id=document_id,
-            degraded=True,
-        )
+        _log_timing("build_total", build_started, document_id=document_id, degraded=True)
         return result
 
+    # ── Стадия 4: Hierarchy + crossrefs ──────────────────────────────────────
     t_tree = time.perf_counter()
     root_nodes, nodes, element_to_uid = build_clause_hierarchy(
         headings=headings,
@@ -544,12 +549,16 @@ def build_structure(
         references=len(references),
     )
 
+    # ── Финал: собираем ClauseTree ────────────────────────────────────────────
+    # nodes_index передаём явно — downstream (чанкер, API) получает
+    # быстрый доступ к любому узлу по uid без рекурсивного обхода дерева.
     result = ClauseTree(
         document_id=document_id,
         root=root_nodes,
         references_index=references,
         structure_confidence=confidence,
         degraded=False,
+        nodes_index=nodes,
     )
 
     _log_timing(
@@ -560,3 +569,5 @@ def build_structure(
         confidence=confidence,
     )
     return result
+
+

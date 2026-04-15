@@ -9,20 +9,21 @@ from datetime import datetime
 
 # ============ НАСТРОЙКИ ============
 PROJECT_ROOT = "/home/vladi/projects/LegalMAS"
-OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_files_dump.txt"
+OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_heading_dump.txt"
 
 FILES = [
-    "src/engine/content/chunk_exporter.py",
-    "src/engine/content/chunk_snapshot_builder.py",
-    "src/engine/content/chunk_snapshot_reader.py",
-    "src/engine/content/chunking.py",
-    "src/engine/content/clause_tree_builder.py",
-    "src/engine/content/document_content_service.py",
     "src/services/structure/builder.py",
+    "src/services/structure/crossrefs.py",
+    "src/services/structure/heading_builder.py",
+    "src/services/structure/heading_candidates.py",
+    "src/services/structure/heading_features.py",
+    "src/services/structure/heading_llm_refiner.py",
+    "src/services/structure/heading_patterns.py",
+    "src/services/structure/heading_scoring.py",
+    "src/services/structure/hierarchy_builder.py",
     "src/services/structure/models.py",
-    "src/storage/artifact_store.py",
-    "src/services/document_pipeline_view_service.py",
-    "src/workers/structure_builder.py",
+    "src/services/structure/pipeline.py",
+    "src/workers/structure_builder.py"
 ]
 
 # ===================================
