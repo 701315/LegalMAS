@@ -310,6 +310,26 @@ export const ChunksStageViewer: React.FC<Props> = ({
   highlightedChunkIndices = [],
   traceLabel = null,
 }) => {
+  const status = stage.status;
+
+  // V2_ONLY: сначала честно обрабатываем status.
+  if (status === "pending") {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">
+        Чанки ещё не готовы в v2-формате. Попробуй позже.
+      </div>
+    );
+  }
+
+  if (status === "missing") {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        CHUNKS-артефакт ожидается, но недоступен или повреждён.
+        Проверь состояние пайплайна для стадии CHUNKS.
+      </div>
+    );
+  }
+
   const preview = useMemo(
     () => (isChunksPreviewDTO(stage.preview) ? stage.preview : null),
     [stage.preview],
@@ -318,10 +338,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
   const isSourcePaneMode =
     highlightedChunkIndices.length > 0 || traceLabel != null;
 
+
   const allChunks = useMemo<ChunkPreviewDTO[]>(() => {
     if (!preview) return [];
 
-    // v2 segment-aware corpus: соберём чанки из всех сегментов
     if (Array.isArray(preview.segments) && preview.segments.length > 0) {
       const fromSegments: ChunkPreviewDTO[] = [];
       for (const seg of preview.segments) {
@@ -330,14 +350,19 @@ export const ChunksStageViewer: React.FC<Props> = ({
           if (ch) fromSegments.push(ch);
         }
       }
-      if (fromSegments.length > 0) {
-        return fromSegments;
-      }
+      return fromSegments;
     }
 
-    // legacy fallback: плоский список chunks
-    return (preview.chunks ?? []).filter(Boolean);
+    // V2_ONLY: если сегментов нет, считаем, что canonical corpus отсутствует.
+    return [];
   }, [preview]);
+
+
+
+
+
+
+
 
   const hasChunks = allChunks.length > 0;
 
@@ -659,18 +684,13 @@ export const ChunksStageViewer: React.FC<Props> = ({
                                   key={chunk.index}
                                   ref={(el) => {
                                     if (el) {
-                                      listItemRefs.current.set(
-                                        chunk.index,
-                                        el,
-                                      );
+                                      listItemRefs.current.set(chunk.index, el);
                                     } else {
                                       listItemRefs.current.delete(chunk.index);
                                     }
                                   }}
                                   type="button"
-                                  onClick={() =>
-                                    setSelectedIndex(chunk.index)
-                                  }
+                                  onClick={() => setSelectedIndex(chunk.index)}
                                   className={cx(
                                     "w-full px-3 py-2 text-left text-xs transition-colors",
                                     isSelected
@@ -727,26 +747,20 @@ export const ChunksStageViewer: React.FC<Props> = ({
                         {isExpanded && (
                           <div className="border-t border-gray-100">
                             {group.items.map((chunk) => {
-                              const isSelected =
-                                selectedIndex === chunk.index;
+                              const isSelected = selectedIndex === chunk.index;
 
                               return (
                                 <button
                                   key={chunk.index}
                                   ref={(el) => {
                                     if (el) {
-                                      listItemRefs.current.set(
-                                        chunk.index,
-                                        el,
-                                      );
+                                      listItemRefs.current.set(chunk.index, el);
                                     } else {
                                       listItemRefs.current.delete(chunk.index);
                                     }
                                   }}
                                   type="button"
-                                  onClick={() =>
-                                    setSelectedIndex(chunk.index)
-                                  }
+                                  onClick={() => setSelectedIndex(chunk.index)}
                                   className={cx(
                                     "w-full px-3 py-2 text-left text-xs transition-colors",
                                     isSelected
@@ -773,7 +787,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
             </div>
           ) : (
             <div className="px-3 py-3 text-sm text-gray-500">
-              Материализованные чанки отсутствуют.
+              В v2-артефакте CHUNKS нет сегментов или чанков.
             </div>
           )}
         </div>

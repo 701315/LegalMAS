@@ -17,11 +17,13 @@ SOURCE -> PRIMARY -> EXTRACT -> PII -> STRUCTURE -> CHUNKS.
 - вызывает `DocumentPipelineViewService` для сборки pipeline view;
 - возвращает DTO с объединённой картиной по стадиям обработки.
 
-Ошибки:
-- 404, если документ не найден;
-- 404, если pipeline-артефакт отсутствует;
-- 503, если хранилище временно недоступно или представление
-  временно не может быть построено.
+Важно:
+- stage-level проблемы с артефактами не должны приводить к 404 всего endpoint;
+- отсутствие или повреждение конкретного stage artifact отражается в payload
+  через stage statuses (`pending` / `missing`);
+- 404 используется только для отсутствующего документа или версии документа;
+- 503 возвращается, если агрегированное представление временно не может быть
+  построено целиком.
 """
 
 from __future__ import annotations
@@ -38,10 +40,12 @@ from api.schemas.document_pipeline_view import (
     DocumentPipelineViewResponseDTO,
     StageViewMode,
 )
-from core.exceptions import PermanentError, TransientError
 from db.repositories.document_repo import DocumentRepository
 from db.session import get_db
-from services.document_pipeline_view_service import DocumentPipelineViewService
+from services.pipeline_view.service import (
+    DocumentPipelineViewService,
+    PipelineViewNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +68,9 @@ async def get_document_pipeline_view(
             "Режим представления стадий пайплайна:\n"
             "- canonical — показывается точный результат этапов;\n"
             "- friendly — показывается более удобный для чтения вид "
-            "(может использовать данные соседних этапов)."
+            "(может использовать данные соседних этапов).\n\n"
+            "Готовность и доступность отдельных стадий возвращаются внутри ответа "
+            "через stage statuses, а не через HTTP-статус всего endpoint."
         ),
     ),
     db: AsyncSession = Depends(get_db),
@@ -76,6 +82,10 @@ async def get_document_pipeline_view(
 
     Параметр `view_mode` управляет тем, как будут отображены отдельные стадии
     для UI. По умолчанию используется режим canonical.
+
+    Важно: проблемы отдельных stage artifacts должны отражаться в содержимом
+    ответа как `pending` / `missing`, а не превращаться в HTTP 404 для всего
+    pipeline view.
     """
     doc_repo = DocumentRepository(db)
     doc = await doc_repo.get_by_id(doc_id)
@@ -100,20 +110,10 @@ async def get_document_pipeline_view(
             view_mode=view_mode,
         )
 
-    except ValueError as e:
+    except PipelineViewNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
-        )
-    except PermanentError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pipeline artifact not found",
-        )
-    except TransientError:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Storage temporarily unavailable",
         )
     except Exception as e:
         logger.exception(
@@ -130,4 +130,5 @@ async def get_document_pipeline_view(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Pipeline view temporarily unavailable",
         )
+        
     

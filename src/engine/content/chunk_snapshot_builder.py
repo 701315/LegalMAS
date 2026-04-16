@@ -24,10 +24,12 @@ ChunkSnapshotBuilder — единый сервис для построения s
   * собирает ВСЮ эту структуру в один JSON‑объект (snapshot),
   * возвращает его как dict, чтобы воркер chunk_builder сохранил его в MinIO.
 
-Зачем это нужно:
-- В будущем RetrievalEngine / CheckRunner / LLM будут читать готовый snapshot
-  из MinIO (по ссылке chunks_ref в DocumentVersion), а не пересчитывать
-  чанки при каждом запросе.
+Зачем это нужно (исторически):
+- В старой архитектуре RetrievalEngine / CheckRunner / LLM читали готовый snapshot
+  из MinIO по ссылке из DocumentVersion.
+- Сейчас основной контракт для чтения чанков — CHUNKS v2 (chunks_manifest_v2_ref
+  + segment_chunks_ref), а этот builder остался как утилита и источник
+  вспомогательных функций.
 """
 
 from __future__ import annotations

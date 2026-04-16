@@ -11,7 +11,7 @@ Structure Builder Worker.
 - Запуск последующих задач пайплайна выполняется централизованным оркестратором.
 
 Позиция в пайплайне:
-- import -> convert -> build_primary_language_source -> extract -> pii -> structure -> classify -> ...
+- import -> convert -> build_primary_language_source -> extract -> pii -> structure -> ...
 
 Контракт стадии:
 - Основной source of truth для structure — только layout_primary_sanitized_ref.
@@ -25,6 +25,13 @@ Structure Builder Worker.
 - Асинхронная бизнес-логика живёт в _build_structure_async().
 - Один sync -> async переход через run_async().
 - Ошибки уровня контракта стадии переводятся в FAILED через отдельный UoW.
+
+После введения document_stage_executions:
+- Входной параметр stage_execution_id сообщает, какая execution-запись в БД
+  соответствует текущему запуску.
+- В начале успешного запуска мы помечаем execution как STARTED.
+- После успешного commit отмечаем execution как SUCCEEDED.
+- При PermanentError помечаем execution как FAILED с понятным error_details.
 """
 
 from __future__ import annotations
@@ -39,6 +46,9 @@ from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_stage_execution_repo import (
+    DocumentStageExecutionRepository,
+)
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
 from mas_queue.async_helpers import run_async
@@ -47,6 +57,10 @@ from mas_queue.celery_app import celery_app
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from services.structure.builder import StructureBuilder
 from storage.artifact_store import ArtifactPath, ArtifactStore
+from core.pipeline_errors import (
+    PipelineErrorType,
+    StructureV2ErrorReason,
+)
 
 logger = get_logger(__name__)
 
@@ -70,10 +84,16 @@ def build_structure(
     - при PermanentError переводит документ в FAILED;
     - при TransientError отдаёт управление retry-механизму;
     - при успехе будит оркестратор только после commit.
+
+    Дополнительно:
+    - если передан stage_execution_id, то воркер обновляет запись
+      в document_stage_executions (STARTED/SUCCEEDED/FAILED).
     """
+
     run_id = kwargs.get("run_id")
     deal_id = kwargs.get("deal_id")
     tenant_id = kwargs.get("tenant_id")
+    stage_execution_id = kwargs.get("stage_execution_id")
 
     async def _wrapper() -> dict[str, Any]:
         try:
@@ -82,6 +102,7 @@ def build_structure(
                     document_version_id=document_version_id,
                     extra_args=kwargs,
                     uow=uow,
+                    stage_execution_id=stage_execution_id,
                 )
 
         except TransientError as e:
@@ -96,6 +117,9 @@ def build_structure(
             raise
 
         except PermanentError as e:
+            reason_code = (
+                getattr(e, "details", {}) or {}
+            ).get("reason", StructureV2ErrorReason.STRUCTURE_BUILD_ERROR)
             logger.error(
                 "Permanent error during structure building",
                 document_version_id=document_version_id,
@@ -109,6 +133,8 @@ def build_structure(
                     uow=uow_status,
                     document_version_id=document_version_id,
                     message=str(e),
+                    stage_execution_id=stage_execution_id,
+                    reason_code=reason_code,
                 )
             return {
                 "status": DocumentStatus.FAILED.value,
@@ -143,6 +169,7 @@ async def _build_structure_async(
     document_version_id: str,
     extra_args: dict[str, Any],
     uow: UnitOfWork,
+    stage_execution_id: str | None,
 ) -> dict[str, Any]:
     """
     Асинхронное ядро стадии structure.
@@ -156,6 +183,10 @@ async def _build_structure_async(
     6) обновляет refs в DocumentVersion и статус документа;
     7) делает flush -> verify -> commit;
     8) возвращает committed=True только после commit.
+
+    При наличии stage_execution_id:
+    - перед основной логикой помечает execution как STARTED;
+    - после успешного commit помечает execution как SUCCEEDED.
     """
     _ = extra_args
 
@@ -167,19 +198,41 @@ async def _build_structure_async(
     ver_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
     seg_repo = DocumentSegmentRepository(uow.session)
+    dse_repo = DocumentStageExecutionRepository(uow.session)
+
+    # 1. Помечаем execution как STARTED (если он есть).
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_started(uuid.UUID(stage_execution_id))
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as STARTED for structure",
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
+            # Не прерываем саму стадию: лучше пусть структура всё равно строится.
 
     version = await ver_repo.get_by_id(v_id)
     if not version:
         raise PermanentError(
             f"DocumentVersion {v_id} not found",
-            details={"stage": "structure", "kind": "version_not_found"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.VERSION_NOT_FOUND,
+            },
         )
 
     doc = await doc_repo.get_by_id(version.document_id)
     if not doc:
         raise PermanentError(
             f"Document {version.document_id} not found",
-            details={"stage": "structure", "kind": "document_not_found"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.DOCUMENT_NOT_FOUND,
+            },
         )
 
     if doc.status in (
@@ -235,7 +288,8 @@ async def _build_structure_async(
             f"doc={doc.id}, version={v_id}",
             details={
                 "stage": "structure",
-                "kind": "missing_sanitized_layout",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.MISSING_SANITIZED_LAYOUT,
                 "allow_legacy_layout_fallback": allow_legacy_layout_fallback,
             },
         )
@@ -253,14 +307,22 @@ async def _build_structure_async(
         )
         raise PermanentError(
             f"Failed to read layout for structure building: {e}",
-            details={"stage": "structure", "kind": "layout_read_error"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.LAYOUT_READ_ERROR,
+            },
         )
 
     elements = raw_layout.get("elements", [])
     if not elements:
         raise PermanentError(
             f"No elements found in layout for version {v_id}",
-            details={"stage": "structure", "kind": "empty_layout"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.EMPTY_LAYOUT,
+            },
         )
 
     if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
@@ -341,7 +403,8 @@ async def _build_structure_async(
                         f"FileGraph segment has empty segment_id for version {v_id}",
                         details={
                             "stage": "structure",
-                            "kind": "invalid_file_graph_segment",
+                            "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                            "reason": StructureV2ErrorReason.INVALID_FILE_GRAPH_SEGMENT,
                             "segment_order": seg_order,
                         },
                     )
@@ -381,7 +444,11 @@ async def _build_structure_async(
         )
         raise PermanentError(
             f"Failed to build clause tree: {e}",
-            details={"stage": "structure", "kind": "structure_build_error"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.STRUCTURE_BUILD_ERROR,
+            },
         )
 
     clause_tree_path = ArtifactPath.clause_tree(
@@ -402,7 +469,11 @@ async def _build_structure_async(
         )
         raise PermanentError(
             f"Failed to store clause tree: {e}",
-            details={"stage": "structure", "kind": "clause_tree_store_error"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.CLAUSE_TREE_STORE_ERROR,
+            },
         )
 
     if store_file_graph:
@@ -423,7 +494,8 @@ async def _build_structure_async(
                 f"Failed to persist document segments: {e}",
                 details={
                     "stage": "structure",
-                    "kind": "document_segments_persist_error",
+                    "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                    "reason": StructureV2ErrorReason.DOCUMENT_SEGMENTS_PERSIST_ERROR,
                 },
             )
 
@@ -436,7 +508,11 @@ async def _build_structure_async(
     if not updated_version:
         raise PermanentError(
             f"Failed to update structure refs for version {v_id}",
-            details={"stage": "structure", "kind": "version_update_failed"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.VERSION_UPDATE_FAILED,
+            },
         )
 
     updated_doc = await doc_repo.update_status(
@@ -447,7 +523,11 @@ async def _build_structure_async(
     if not updated_doc:
         raise PermanentError(
             f"Failed to update document status to STRUCTURED for doc {doc.id}",
-            details={"stage": "structure", "kind": "document_status_update_failed"},
+            details={
+                "stage": "structure",
+                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                "reason": StructureV2ErrorReason.DOCUMENT_STATUS_UPDATE_FAILED,
+            },
         )
 
     await uow.session.flush()
@@ -499,6 +579,18 @@ async def _build_structure_async(
 
     await uow.session.commit()
 
+    # 2. На успешном пути помечаем execution как SUCCEEDED (если он есть).
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_succeeded(uuid.UUID(stage_execution_id))
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as SUCCEEDED for structure",
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
+
     duration = round(time.time() - start, 2)
 
     logger.info(
@@ -539,13 +631,20 @@ async def _mark_failed(
     document_version_id: str,
     *,
     message: str,
+    stage_execution_id: str | None,
+    reason_code: str,
 ) -> None:
     """
     Best-effort перевод документа в FAILED,
     если стадия structure завершилась постоянной ошибкой.
+
+    Дополнительно:
+    - если есть stage_execution_id, помечаем execution как FAILED
+      с понятными подробностями.
     """
     ver_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
+    dse_repo = DocumentStageExecutionRepository(uow.session)
 
     v_id = uuid.UUID(document_version_id)
     version = await ver_repo.get_by_id(v_id)
@@ -556,13 +655,36 @@ async def _mark_failed(
         )
         return
 
+    # Обновляем бизнес-статус документа.
     await doc_repo.set_failed(
         version.document_id,
         stage="structure",
         message=message,
-        reason="structure_error",
+        reason=PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
         run_id=None,
     )
 
+    # Обновляем execution-запись (если есть).
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_failed(
+                uuid.UUID(stage_execution_id),
+                error_details={
+                    "stage": "structure",
+                    "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                    "reason": reason_code,
+                    "message": message,
+                    "document_version_id": document_version_id,
+                },
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as FAILED for structure",
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
+
+            
 
     

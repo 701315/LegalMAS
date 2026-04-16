@@ -3,7 +3,9 @@
 """
 DocumentContentService v3: фасад над чанками и (legacy) clause tree + layout.
 
-- Для checks приоритетно читаем готовые snapshot'ы чанков (CHUNKS v2 / legacy).
+- Для checks читаем готовые snapshot'ы чанков (CHUNKS v2).
+- Clause tree + layout используем как legacy‑путь / для вспомогательных задач
+  (header/snippet, on-the-fly построение чанков).
 - Clause tree + layout используем как fallback / для вспомогательных задач
   (header/snippet, on-the-fly построение чанков).
 
@@ -50,10 +52,7 @@ from engine.content.chunking import (
     split_text_to_sized_chunks,
 )
 from core.logging import get_logger
-from engine.content.chunk_snapshot_reader import (
-    ChunkSnapshotReader,
-    ChunkCorpusReaderV2,
-)
+from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 
 logger = get_logger(__name__)
 
@@ -157,7 +156,7 @@ class DocumentContentService:
         self.documents = DocumentRepository(session)
         self.storage = storage_client or ClauseTreeStorageClient()
         self.layout_storage = layout_client or LayoutStorageClient()
-        # Внутренний ArtifactStore для чтения snapshot'ов чанков (legacy и v2).
+        # Внутренний ArtifactStore для чтения v2 snapshot'ов чанков.
         self._artifact_store = ArtifactStore()
 
     # -------------------------------------------------------------------------
@@ -249,14 +248,16 @@ class DocumentContentService:
         levels: list[str],
     ) -> list[dict[str, Any]]:
         """
-        Попробовать прочитать чанки из сохранённых snapshot'ов.
+        Прочитать чанки из сохранённых v2 snapshot'ов.
 
         ВАЖНО:
-        - Сначала пробуем CHUNKS v2 (segment-aware, manifest + segment snapshots).
-        - Если v2-артефактов нет или они невалидны, пытаемся прочитать legacy snapshot.
-        - Если и legacy нет, вернём пустой список.
+        - Используется только CHUNKS v2
+        (file manifest + segment snapshots).
+        - Legacy v1 chunk snapshot (исторический путь, оставлен только для контекста миграции)
+        больше не читается.
+        - Если v2-артефакты отсутствуют, невалидны или reader
+        падает, возвращаем пустой список.
         """
-        # 1. Пробуем v2-reader (file manifest + segment snapshots).
         v2_reader = ChunkCorpusReaderV2(
             session=self.session,
             artifact_store=self._artifact_store,
@@ -265,37 +266,16 @@ class DocumentContentService:
             v2_chunks = await v2_reader.load(doc_id=doc_id, levels=levels)
         except Exception as e:
             logger.warning(
-                "DocumentContentService._load_chunks_from_snapshot: v2 reader failed, will try legacy",
+                "DocumentContentService._load_chunks_from_snapshot: v2 reader failed",
                 extra={
                     "doc_id": str(doc_id),
                     "levels": levels,
                     "error": str(e),
                 },
             )
-            v2_chunks = []
+            return []
 
-        if v2_chunks:
-            return v2_chunks
-
-        # 2. Fallback: legacy snapshot (один JSON на весь документ).
-        legacy_reader = ChunkSnapshotReader(
-            session=self.session,
-            artifact_store=self._artifact_store,
-        )
-        try:
-            legacy_chunks = await legacy_reader.load(doc_id=doc_id, levels=levels)
-        except Exception as e:
-            logger.warning(
-                "DocumentContentService._load_chunks_from_snapshot: legacy reader failed",
-                extra={
-                    "doc_id": str(doc_id),
-                    "levels": levels,
-                    "error": str(e),
-                },
-            )
-            legacy_chunks = []
-
-        return legacy_chunks
+        return v2_chunks or []
 
     # -------------------------------------------------------------------------
     # Публичные методы
@@ -910,58 +890,37 @@ class DocumentContentService:
         self,
         doc_id: uuid.UUID,
         levels: list[str] | None = None,
-        target_tokens: int = 300,
-        max_tokens: int = 800,
-        overlap_ratio: float = 0.15,
     ) -> list[dict[str, Any]]:
         """
         Удобный фасад для CheckRunner:
-        вернуть плоский список чанков для checks с mix уровней.
+        вернуть плоский список чанков для checks.
 
         По умолчанию:
         - subclause: нормализованные под-чанки,
         - section: крупные разделы.
 
         ВАЖНО:
-        - Сначала пробуем читать чанки из snapshot'а;
-        - Если snapshot отсутствует или повреждён — падаем обратно
-          на on-the-fly расчёт через get_hierarchical_chunks.
+        - В V2_ONLY режиме читаем чанки только из CHUNKS v2 snapshot'ов.
+        - Если snapshot отсутствует или повреждён, возвращаем пустой список.
+        - On-the-fly legacy fallback через clause tree/layout больше не используется
+        в основном checks path.
         """
         if levels is None:
             levels = ["subclause", "section"]
 
-        # 1. Пытаемся прочитать чанки из snapshot'а (v2 или legacy).
         snapshot_chunks = await self._load_chunks_from_snapshot(doc_id, levels)
         if snapshot_chunks:
             return snapshot_chunks
 
-        # 2. Fallback — текущая логика: строим чанки "на лету".
-        hier = await self.get_hierarchical_chunks(
-            doc_id=doc_id,
-            target_tokens=target_tokens,
-            max_tokens=max_tokens,
-            overlap_ratio=overlap_ratio,
+        logger.warning(
+            "DocumentContentService.get_retrieval_chunks_for_checks: "
+            "no v2 chunk snapshots available, returning empty list",
+            extra={
+                "doc_id": str(doc_id),
+                "levels": levels,
+            },
         )
-
-        chunks: list[dict[str, Any]] = []
-        for level in levels:
-            items = hier.get(level) or []
-            # гарантируем формат dict с id/text/metadata
-            for ch in items:
-                if not isinstance(ch, dict):
-                    continue
-                text = (ch.get("text") or "").strip()
-                if not text:
-                    continue
-                chunks.append(
-                    {
-                        "id": ch.get("id"),
-                        "text": text,
-                        "metadata": ch.get("metadata") or {},
-                    }
-                )
-
-        return chunks
+        return []
     
     
     

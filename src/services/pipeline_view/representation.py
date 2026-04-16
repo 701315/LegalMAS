@@ -36,7 +36,7 @@ def build_stage_representation(
         - если у стадии реально есть отдельный friendly-режим,
           помечаем её как производное представление;
         - если friendly пока не поддержан, используем тот же результат,
-          но явно говорим, что это "удобный просмотр" без других источников.
+          но явно говорим, что это friendly-режим без отдельного источника данных.
     """
     derived = derived_from_stages or []
 
@@ -74,13 +74,13 @@ def build_stage_representation(
         label="Удобный вид",
         description=(
             friendly_description
-            or "Для этого этапа пока используется тот же результат, "
-               "но в режиме удобного просмотра."
+            or "Для этого этапа отдельный friendly-режим не поддержан; "
+               "показывается тот же результат этапа в режиме удобного просмотра."
         ),
         provenance=StageProvenanceDTO(
             primary_source_stage=stage_code,
             derived_from_stages=[],
-            preview_source_label=None,
+            preview_source_label="Тот же результат этапа",
         ),
     )
 
@@ -97,16 +97,20 @@ def with_representation(
     preview_source_label: str | None = None,
 ) -> PipelineStageViewDTO:
     """
-    Возвращает ту же стадию, но с заполненным полем representation.
+    Возвращает копию стадии с заполненным полем representation.
+    Исходный DTO не мутируется.
     """
-    stage.representation = build_stage_representation(
-        stage_code=stage_code,
-        view_mode=view_mode,
-        friendly_supported=friendly_supported,
-        friendly_description=friendly_description,
-        canonical_description=canonical_description,
-        derived_from_stages=derived_from_stages,
-        preview_source_label=preview_source_label,
+    return stage.model_copy(
+        update={
+            "representation": build_stage_representation(
+                stage_code=stage_code,
+                view_mode=view_mode,
+                friendly_supported=friendly_supported,
+                friendly_description=friendly_description,
+                canonical_description=canonical_description,
+                derived_from_stages=derived_from_stages,
+                preview_source_label=preview_source_label,
+            )
+        }
     )
-    return stage
 

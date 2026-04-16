@@ -1,6 +1,5 @@
 # src/api/schemas/document_pipeline_view.py
 
-
 """
 Pydantic DTO-схемы для представления пайплайна обработки документа
 в UI (Document Pipeline View).
@@ -94,14 +93,24 @@ class StageProvenanceDTO(BaseModel):
 
     primary_source_stage:
         Какая стадия является главным источником правды для этого представления.
+        Примеры:
+        - canonical STRUCTURE: STRUCTURE
+        - friendly STRUCTURE: STRUCTURE (основа), но enriched из CHUNKS
+        - canonical CHUNKS: CHUNKS
 
     derived_from_stages:
         Какие дополнительные стадии были использованы для обогащения
         или построения "удобного вида".
+        Примеры:
+        - friendly STRUCTURE: [CHUNKS]
+        - friendly layout/text (если появится): [SOURCE, PRIMARY]
 
     preview_source_label:
         Короткая человекочитаемая подпись для UI.
-        Пример: "Текстовое превью из CHUNKS".
+        Примеры:
+        - "Клауз‑дерево STRUCTURE"
+        - "Текст секции, обогащённый из CHUNKS"
+        - "Canonical snapshot CHUNKS"
     """
 
     primary_source_stage: PipelineStageCode | None = None
@@ -118,18 +127,26 @@ class StageRepresentationDTO(BaseModel):
 
     is_canonical:
         Явный флаг для фронта. Нужен, чтобы UI не вычислял это сам.
+        Примеры:
+        - canonical STRUCTURE: view_mode="canonical", is_canonical=True
+        - friendly STRUCTURE: view_mode="friendly", is_canonical=False
+        - canonical CHUNKS: view_mode="canonical", is_canonical=True
 
     label:
         Короткая подпись режима для пользователя.
         Примеры:
-        - "Результат этапа"
-        - "Удобный вид"
+        - "Результат этапа" (canonical)
+        - "Удобный вид" (friendly)
 
     description:
         Короткое пояснение, что именно показывается на экране.
+        Примеры:
+        - "Канонический clause tree из STRUCTURE"
+        - "Текст секции, обогащённый из CHUNKS"
+        - "Canonical snapshot текстовых чанков"
 
     provenance:
-        Источник данных для текущего представления.
+        Источник данных для текущего представления (StageProvenanceDTO).
     """
 
     view_mode: StageViewMode = StageViewMode.canonical
@@ -213,17 +230,30 @@ class StructureSectionPreviewDTO(BaseModel):
     """
     Представление одной секции/пункта документа для STRUCTURE-view.
 
-    Важно:
-    - canonical-STRUCTURE хранит "structure_text" — исходный текст из clause tree;
-    - friendly-STRUCTURE может дополнительно заполнять "enriched_text"
-      за счёт canonical CHUNKS;
-    - text_preview — UI-ориентированное поле для краткого отображения,
-      которое остаётся для совместимости:
+    Слои текста:
 
-        canonical:
-            text_preview = structure_text
-        friendly:
-            text_preview = enriched_text (если он есть) иначе structure_text
+    - structure_text:
+        Канонический текст узла из clause tree (STRUCTURE stage).
+        Заполняется на этапе _flatten_clause_tree и НЕ должен
+        перезаписываться enrichment-логикой.
+
+    - enriched_text:
+        Обогащённый текст секции, собранный поверх canonical snapshot CHUNKS
+        (friendly-STRUCTURE и/или наследование от дочерних секций).
+        Если enrichment не сработал, остаётся пустым.
+
+    - text_preview:
+        Legacy/UI-ориентированное поле для краткого отображения текста секции,
+        оставлено для совместимости со старым фронтом и внешними клиентами.
+
+        Для нового UI действует V2-ONLY контракт:
+
+        * canonical-STRUCTURE:
+            UI берёт structure_text и игнорирует text_preview.
+
+        * friendly-STRUCTURE:
+            UI берёт enriched_text (если он есть) иначе structure_text,
+            а text_preview не участвует в логике отображения.
     """
 
     # Стабильный технический идентификатор узла для UI.
@@ -256,14 +286,16 @@ class StructureSectionPreviewDTO(BaseModel):
     #    Если enrichment не сработал, остаётся пустым.
     enriched_text: str = ""
 
-    # 3) UI-ориентированное поле для краткого отображения текста секции.
+    # 3) Legacy/UI-ориентированное поле для краткого превью.
     #
-    # canonical:
-    #   text_preview = structure_text
-    # friendly:
-    #   text_preview = enriched_text (если он есть) иначе structure_text.
+    #    Для внешних клиентов сохраняется старый контракт:
     #
-    # Это поле оставлено для совместимости со старым фронтом и внешними клиентами.
+    #    canonical:
+    #        text_preview = structure_text
+    #    friendly:
+    #        text_preview = enriched_text (если он есть) иначе structure_text.
+    #
+    #    Новый UI в V2_ONLY-режиме text_preview НЕ использует.
     text_preview: str = ""
 
     # Привязка секции к исходному тексту (страницы, чанки, цитата).
@@ -313,11 +345,30 @@ class ChunksSegmentPreviewDTO(BaseModel):
 
 
 class ChunksPreviewDTO(BaseModel):
+    """
+    Представление текстовых чанков документа для CHUNKS-view.
+
+    Два слоя представления:
+
+    - legacy flattened view (chunks):
+        Плоский список чанков без сегментного разбиения. Оставлен для
+        совместимости со старым фронтом и внешними клиентами.
+
+    - v2 canonical view (segments):
+        Segment-aware корпус чанков (ChunksSegmentPreviewDTO), который
+        используется как единственный источник правды в новом UI.
+
+    Новый UI в V2_ONLY-режиме:
+
+    - строит список чанков ТОЛЬКО из segments[].chunks;
+    - не использует поле chunks как источник данных.
+    """
+
     type: Literal["chunks"] = "chunks"
-    # legacy flattened view
+    # legacy flattened view (старый контракт, не используется canonical UI)
     chunks: list[ChunkPreviewDTO] = Field(default_factory=list)
 
-    # v2 canonical view
+    # v2 canonical view (единственный источник правды для UI)
     segments: list[ChunksSegmentPreviewDTO] = Field(default_factory=list)
     reconstructed_text: str = ""
     raw_json: dict[str, Any] | list[Any] | None = None

@@ -75,11 +75,11 @@ class DocumentPipelineViewService:
         """
         doc = await self.doc_repo.get_by_id(document_id)
         if not doc:
-            raise ValueError("Document not found")
+            raise PipelineViewNotFoundError("Document not found")
 
         version = await self.ver_repo.get_latest(document_id)
         if not version:
-            raise ValueError("DocumentVersion not found")
+            raise PipelineViewNotFoundError("DocumentVersion not found")
 
         base_meta = self._base_meta(doc)
         segments = await self.segment_repo.list_by_version(version.id)
@@ -158,4 +158,6 @@ class DocumentPipelineViewService:
             friendly_supported=False,
         )
     
-    
+class PipelineViewNotFoundError(Exception):
+    """Pipeline view cannot be built because the document or its version does not exist."""
+    pass

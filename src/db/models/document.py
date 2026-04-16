@@ -23,9 +23,9 @@ DocumentVersion:
   - layout_primary_ref — одноязычный layout по основному языку сделки;
   - text_layout_sanitized_ref — legacy / общий sanitized layout;
   - layout_primary_sanitized_ref — одноязычный layout после PII‑санитизации;
-  - clause_tree_ref — дерево пунктов договора (primary сегмент, legacy-совместимый);
-  - chunks_ref — materialized snapshot чанков для retrieval/checks (primary сегмент);
+  - clause_tree_ref — legacy clause tree для primary сегмента;
   - file_graph_ref — граф файла: список логических сегментов + связи (v2);
+  - chunks_manifest_v2_ref — file-level манифест чанков (v2);
   - segments_count — количество логических сегментов в файле (v2).
 - Также фиксирует технические параметры пайплайна:
   - extraction_strategy, ocr_confidence;
@@ -37,8 +37,11 @@ DocumentSegment (v2):
 - Один DocumentVersion может содержать несколько DocumentSegment:
   основной договор, приложения, акты, счета и т.п.
 - Каждый сегмент имеет свой segment_clause_tree_ref и segment_chunks_ref.
-- clause_tree_ref и chunks_ref в DocumentVersion всегда указывают на primary-сегмент
-  для backward compatibility со старым кодом.
+- В текущем v2‑контракте основными источниками истины являются:
+  - file_graph_ref в DocumentVersion;
+  - segment_clause_tree_ref и segment_chunks_ref в DocumentSegment.
+- legacy clause_tree_ref в DocumentVersion, если заполнен, относится к primary‑сегменту
+  и сохраняется только для обратной совместимости со старым кодом.
 
 Для чего это нужно:
 - backend‑воркеры всех стадий (import, extract, pii, structure, classify, checks)
@@ -50,7 +53,7 @@ DocumentSegment (v2):
 """
 
 import uuid
-
+from datetime import datetime
 from sqlalchemy import (
     Float,
     ForeignKey,
@@ -63,7 +66,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from core.constants import DocumentStatus
+from core.constants import DocumentStatus, DocumentStageExecutionStatus
 from ..base import Base
 
 
@@ -310,21 +313,6 @@ class DocumentVersion(Base):
         ),
     )
 
-    chunks_ref: Mapped[str | None] = mapped_column(
-        String(1000),
-        nullable=True,
-        comment=(
-            "LEGACY: S3 URI to canonical chunk snapshot JSON "
-            "(section/clause/subclause) for this version.\n"
-            "\n"
-            "В v2 режиме это поле считается устаревшим и используется только\n"
-            "для обратной совместимости со старым кодом (ChunkSnapshotReader v1,\n"
-            "старый RetrievalEngine/CheckRunner).\n"
-            "Новая архитектура CHUNKS v2 должна использовать:\n"
-            "- DocumentSegment.segment_chunks_ref (чанки по сегментам)\n"
-            "- chunks_manifest_v2_ref (file-level манифест чанков)\n"
-        ),
-    )
 
     # ── Multi-document поля (v2) ──────────────────────────────────────────────
     # Оба поля опциональны (nullable=True).
@@ -355,8 +343,7 @@ class DocumentVersion(Base):
             "- Это один JSON-файл, который описывает весь набор чанков по файлу,\n"
             "  но сами тексты чанков лежат по ссылкам segment_chunks_ref "
             "в таблице DocumentSegment.\n"
-            "- retrieval/checks/LLM должны начинать чтение именно с этого файла,\n"
-            "  а не с legacy chunks_ref.\n"
+            "- retrieval/checks/LLM должны начинать чтение именно с этого файла.\n"
             "\n"
             "NULL означает, что CHUNKS v2 ещё не отработали для этой версии."
         ),
@@ -412,13 +399,11 @@ class DocumentVersion(Base):
 
     __table_args__ = (
         Index("idx_docver_doc_version", "document_id", "version_num"),
-        # Быстрый поиск версий у которых есть file_graph (v2 режим)
         Index(
             "idx_docver_file_graph_ref",
             "document_id",
             postgresql_where="file_graph_ref IS NOT NULL",
         ),
-        # Быстрый поиск версий у которых есть chunks_manifest_v2 (CHUNKS v2 завершён)
         Index(
             "idx_docver_chunks_manifest_v2_ref",
             "document_id",
@@ -468,9 +453,6 @@ class DocumentSegment(Base):
         ),
     )
 
-    # Детерминированный UUID сегмента.
-    # Генерируется как uuid5(NAMESPACE_URL, f"{document_id}::segment::{segment_order}").
-    # Одинаков при повторных запусках пайплайна — важно для REUSE_STRUCTURE.
     segment_id: Mapped[str] = mapped_column(
         String(36),
         nullable=False,
@@ -522,7 +504,8 @@ class DocumentSegment(Base):
         comment=(
             "True — этот сегмент является основным (primary). "
             "Ровно один сегмент на DocumentVersion должен иметь is_primary=True. "
-            "clause_tree_ref и chunks_ref в DocumentVersion указывают на этот сегмент."
+            "В legacy-совместимых сценариях clause_tree_ref в DocumentVersion, "
+            "если заполнен, относится к этому сегменту."
         ),
     )
 
@@ -557,9 +540,6 @@ class DocumentSegment(Base):
         ),
     )
 
-    # Метаданные сегмента в свободном формате.
-    # Используется для хранения доп. атрибутов без изменения схемы:
-    # например, {"detected_by": "regex", "heading_text": "ПРИЛОЖЕНИЕ №1"}.
     segment_meta: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
@@ -571,42 +551,29 @@ class DocumentSegment(Base):
     )
 
     __table_args__ = (
-        # Гарантируем уникальность segment_id внутри одной версии документа.
-        # Это защита от повторной записи одного сегмента при перезапуске воркера.
         UniqueConstraint(
             "document_version_id",
             "segment_id",
             name="uq_document_segments_version_segment",
         ),
-        # Гарантируем уникальность порядкового номера внутри версии.
-        # Не может быть двух сегментов с одинаковым segment_order.
         UniqueConstraint(
             "document_version_id",
             "segment_order",
             name="uq_document_segments_version_order",
         ),
-        # Быстрый поиск всех сегментов конкретной версии документа.
-        # Основной рабочий запрос: "дай все сегменты для version_id=X".
         Index(
             "idx_document_segments_version",
             "document_version_id",
         ),
-        # Быстрый поиск по document_id — для запросов на уровне документа
-        # без JOIN через document_versions (денормализация оправдана).
         Index(
             "idx_document_segments_document",
             "document_id",
         ),
-        # Поиск по типу сегмента в рамках документа.
-        # Пример: "найди все appendix-сегменты в этом документе".
         Index(
             "idx_document_segments_type",
             "document_id",
             "segment_type",
         ),
-        # Частичный индекс только по primary-сегментам.
-        # Самый частый запрос: "дай primary-сегмент для version_id=X".
-        # Частичный индекс занимает меньше места, чем полный.
         Index(
             "idx_document_segments_primary",
             "document_version_id",
@@ -615,3 +582,117 @@ class DocumentSegment(Base):
     )
 
 
+class DocumentStageExecution(Base):
+    """
+    One execution attempt of one pipeline stage for one document version.
+
+    Зачем нужна эта модель:
+    - это durable слой идемпотентности для document-level pipeline;
+    - оркестратор создаёт такую запись ДО постановки Celery task;
+    - worker получает stage_execution_id и обновляет lifecycle записи;
+    - активный execution блокирует повторную постановку той же стадии
+      для той же версии документа и той же orchestration strategy.
+
+    Важно:
+    - это не замена Document.status;
+    - это не замена Job;
+    - это отдельный execution ledger именно для переходов pipeline-стадий
+      на уровне document_version.
+    """
+
+    __tablename__ = "document_stage_executions"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Run that initiated this stage execution",
+    )
+
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Document to which this stage execution belongs",
+    )
+
+    document_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Exact document version processed by this stage execution",
+    )
+
+    from_status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        comment="Document.status value before this stage execution started",
+    )
+
+    to_status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        comment="Target Document.status expected after successful stage completion",
+    )
+
+    orchestration_strategy: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        comment=(
+            "High-level orchestration strategy for this execution attempt "
+            "(e.g. V2_ONLY, REUSE_STRUCTURE, FULL_RERUN). "
+            "Not the same as DocumentVersion.pipeline_strategy."
+        ),
+    )
+
+    task_name: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+        comment="Celery task name that executes this stage",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default=DocumentStageExecutionStatus.PLANNED.value,
+        comment=(
+            "Lifecycle of this stage execution attempt: "
+            "planned / dispatched / started / succeeded / failed / cancelled"
+        ),
+    )
+
+    celery_task_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment="Celery task id returned by send_task/apply_async if available",
+    )
+
+    error_details: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Execution error metadata: "
+            "{stage, type, reason, message, run_id, timestamp, extra}"
+        ),
+    )
+
+    started_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        comment="Timestamp when worker actually started execution",
+    )
+
+    finished_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        comment="Timestamp when execution finished (success/fail/cancel)",
+    )
+
+    __table_args__ = (
+        Index("idx_dse_run_created", "run_id", "created_at"),
+        Index("idx_dse_docver_created", "document_version_id", "created_at"),
+        Index("idx_dse_doc_stage_status", "document_id", "to_status", "status"),
+    )
+
+    

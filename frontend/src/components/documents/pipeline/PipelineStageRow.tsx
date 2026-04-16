@@ -32,14 +32,30 @@ function buildMetaLine(stage: PipelineStageViewDTO): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function getOpenDisabledReason(stage: PipelineStageViewDTO): string {
+  if (stage.status === "pending") {
+    return "Стадия ещё не готова";
+  }
+
+  if (stage.status === "missing") {
+    return "Артефакт стадии недоступен или повреждён";
+  }
+
+  if (!stage.available) {
+    return "Стадия недоступна для просмотра";
+  }
+
+  return "Стадия пока недоступна для просмотра";
+}
+
 export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
   const canOpen = stage.available && stage.status === "ready";
   const metaLine = buildMetaLine(stage);
 
   return (
-    <div className="flex items-start justify-between gap-3 border border-gray-100 rounded-lg p-3 bg-white">
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-white p-3">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             {stage.code}
           </span>
@@ -49,7 +65,7 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
 
         <p className="mt-1 text-sm font-medium text-gray-900">{stage.title}</p>
 
-        <p className="mt-1 text-xs text-gray-500 leading-5">
+        <p className="mt-1 text-xs leading-5 text-gray-500">
           {stage.description}
         </p>
 
@@ -63,12 +79,8 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
           type="button"
           disabled={!canOpen}
           onClick={() => onOpen(stage)}
-          title={
-            canOpen
-              ? "Открыть стадию"
-              : "Стадия пока недоступна для просмотра"
-          }
-          className="px-3 py-1.5 rounded border text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 border-gray-200 hover:bg-gray-50"
+          title={canOpen ? "Открыть стадию" : getOpenDisabledReason(stage)}
+          className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Открыть
         </button>
@@ -78,4 +90,6 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
 };
 
 export default PipelineStageRow;
+
+
 

@@ -54,9 +54,8 @@ export const PipelineStageModal: React.FC<Props> = ({
 
   // Полный актуальный набор стадий для текущего view_mode.
   // Нужен, чтобы structure-viewer мог получить chunksStage.
-  const [currentStages, setCurrentStages] = React.useState<PipelineStageViewDTO[]>(
-    stages,
-  );
+  const [currentStages, setCurrentStages] =
+    React.useState<PipelineStageViewDTO[]>(stages);
 
   // Локальный режим представления (canonical / friendly)
   const [viewMode, setViewMode] = React.useState<StageViewMode>("canonical");
@@ -85,10 +84,11 @@ export const PipelineStageModal: React.FC<Props> = ({
   }
 
   const stageData: PipelineStageViewDTO = currentStage;
-  const canToggleFriendly = supportsFriendlyMode(stageData);
+  const canToggleFriendly =
+    supportsFriendlyMode(stageData) && stageData.status === "ready";
 
   async function handleToggleViewMode() {
-    if (!documentId) return;
+    if (!documentId || !canToggleFriendly) return;
 
     const nextViewMode: StageViewMode =
       viewMode === "canonical" ? "friendly" : "canonical";
@@ -107,7 +107,9 @@ export const PipelineStageModal: React.FC<Props> = ({
         result.stages.find((item) => item.code === stageData.code) ?? null;
 
       if (!updatedStage) {
-        throw new Error(`Stage ${stageData.code} not found in pipeline response`);
+        throw new Error(
+          `Stage ${stageData.code} not found in pipeline response`,
+        );
       }
 
       setCurrentStages(result.stages);
@@ -154,8 +156,8 @@ export const PipelineStageModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-7xl h-[90vh] bg-white rounded-xl shadow-xl flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between gap-4 px-5 py-3 border-b">
+      <div className="flex h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between gap-4 border-b px-5 py-3">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-gray-500">
               {stageData.code}
@@ -163,23 +165,23 @@ export const PipelineStageModal: React.FC<Props> = ({
             <h2 className="text-base font-semibold text-gray-900">
               {stageData.title}
             </h2>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="mt-1 text-xs text-gray-500">
               {stageData.description}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
             {canToggleFriendly && (
               <button
                 type="button"
                 onClick={handleToggleViewMode}
                 disabled={loading}
-                className={`px-3 py-1.5 text-xs font-medium rounded border transition ${
+                className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
                   loading
-                    ? "text-gray-400 border-gray-200 bg-gray-50 cursor-not-allowed"
+                    ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400"
                     : viewMode === "canonical"
-                      ? "text-blue-700 border-blue-200 bg-blue-50 hover:bg-blue-100"
-                      : "text-gray-700 border-gray-200 bg-white hover:bg-gray-50"
+                      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
                 title={
                   viewMode === "canonical"
@@ -198,7 +200,7 @@ export const PipelineStageModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-sm text-gray-600 border rounded hover:bg-gray-50"
+              className="rounded border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
             >
               Закрыть
             </button>
@@ -223,5 +225,6 @@ export const PipelineStageModal: React.FC<Props> = ({
 };
 
 export default PipelineStageModal;
+
 
 

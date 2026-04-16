@@ -24,6 +24,11 @@ Run Orchestrator Worker.
 Ключевой принцип:
 - Каждый stage-worker отвечает только за свою стадию и фиксацию её результата.
 - Только run_orchestrator решает, что запускать дальше.
+
+Дополнительно (после введения document_stage_executions):
+- Для каждой постановки stage-task создаётся execution-запись.
+- Активный execution (planned / dispatched / started) блокирует
+  повторное планирование той же стадии для той же версии.
 """
 
 from __future__ import annotations
@@ -39,6 +44,8 @@ from core.logging import get_logger
 from db.models.run import Run
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.run_repo import RunRepository
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
@@ -63,6 +70,9 @@ CONVERTIBLE_TO_PDF: set[str] = {
     "html",
     "htm",
 }
+
+
+ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
 
 
 @dataclass(slots=True)
@@ -95,7 +105,8 @@ def start_run_pipeline(
     2) при первом входе стартуем Run из PENDING в RUNNING;
     3) обходим все документы сделки;
     4) для каждого документа по статусу и артефактам выбираем следующую стадию;
-    5) после планирования вызываем maybe_start_run_checks().
+    5) для выбранной стадии пытаемся создать execution-запись и поставить задачу;
+    6) после планирования вызываем maybe_start_run_checks().
     """
 
     async def _wrapper() -> dict:
@@ -126,6 +137,10 @@ async def _start_run_pipeline_async(
       следующей стадии;
     - решение принимается по status + наличию артефактов версии;
     - RUNNING run допускает повторный вход (re-entry) оркестратора.
+
+    После введения document_stage_executions:
+    - перед постановкой задачи мы пытаемся создать execution-запись;
+    - если активная запись уже есть, задачу повторно не ставим.
     """
 
     logger.info(
@@ -141,6 +156,7 @@ async def _start_run_pipeline_async(
     run_repo = RunRepository(db)
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
+    dse_repo = DocumentStageExecutionRepository(db)
 
     run_uuid = uuid.UUID(run_id)
     run_obj: Run | None = await run_repo.get_by_id(run_uuid)
@@ -272,11 +288,31 @@ async def _start_run_pipeline_async(
         if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
             tenant_id_str = str(run_obj.deal.tenant_id)
         else:
-            tenant_id_str = deal_id_str
-            logger.warning(
-                "tenant_id is missing, falling back to deal_id string",
-                extra={"run_id": run_id, "deal_id": deal_id_str, "tenant_id": tenant_id_str},
+            await run_repo.update_status(
+                run_uuid,
+                RunStatus.FAILED.value,
+                error_details={
+                    "stage": "orchestrator",
+                    "type": "config_error",
+                    "reason": "tenant_not_resolved",
+                    "message": (
+                        "Run has no explicit tenant_id and deal.tenant_id is not available; "
+                        "refusing to guess tenant from deal_id string"
+                    ),
+                },
             )
+            logger.error(
+                "Cannot resolve tenant_id for run, stopping orchestration",
+                extra={"run_id": run_id, "deal_id": deal_id_str},
+            )
+            return {
+                "run_id": run_id,
+                "deal_id": deal_id_str,
+                "tenant_id": None,
+                "documents_total": 0,
+                "tasks_scheduled": 0,
+                "documents_with_plan": 0,
+            }
     else:
         tenant_id_str = tenant_id
 
@@ -315,7 +351,9 @@ async def _start_run_pipeline_async(
             },
         )
 
-        plan = _build_document_task_plan(
+        seg_repo = DocumentSegmentRepository(db)
+
+        plan = await _build_document_task_plan(
             doc=doc,
             version=version,
             status=status,
@@ -324,6 +362,7 @@ async def _start_run_pipeline_async(
             tenant_id_str=tenant_id_str,
             is_full_rerun=is_full_rerun,
             force_reclassify=force_reclassify,
+            seg_repo=seg_repo,
         )
 
         if not plan:
@@ -337,20 +376,68 @@ async def _start_run_pipeline_async(
             )
             continue
 
+        if not version:
+            logger.warning(
+                "Task plan produced for document without version, skipping execution scheduling",
+                extra={"run_id": run_id, "document_id": doc_id_str, "status": status},
+            )
+            continue
+
+        # Для V2_ONLY мира orchestration_strategy фиксируем явно.
+        orchestration_strategy = ORCHESTRATION_STRATEGY_V2_ONLY
+
+        # Пытаемся создать execution-запись для этой стадии.
+        execution = await dse_repo.create_planned_or_none_on_conflict(
+            run_id=run_uuid,
+            document_id=doc.id,
+            document_version_id=version.id,
+            from_status=status,
+            to_status=_target_status_for_stage(plan.stage),
+            orchestration_strategy=orchestration_strategy,
+            task_name=plan.task_name,
+        )
+
+        if execution is None:
+            logger.info(
+                "Active execution already exists for this stage, skipping duplicate scheduling",
+                extra={
+                    "run_id": run_id,
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "status": status,
+                    "task_name": plan.task_name,
+                    "stage": plan.stage,
+                    "reason": plan.reason,
+                    "orchestration_strategy": orchestration_strategy,
+                },
+            )
+            continue
+
         logger.info(
             "Scheduling next document stage",
             extra={
                 "run_id": run_id,
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id) if version else None,
+                "document_version_id": str(version.id),
                 "status": status,
                 "task_name": plan.task_name,
                 "stage": plan.stage,
                 "reason": plan.reason,
+                "orchestration_strategy": orchestration_strategy,
+                "stage_execution_id": str(execution.id),
             },
         )
 
-        _send_task(plan)
+        _send_task(
+            plan=plan,
+            stage_execution_id=str(execution.id),
+            run_id=run_id,
+            deal_id=deal_id_str,
+            tenant_id=tenant_id_str,
+            document_id=doc_id_str,
+            document_version_id=str(version.id),
+            orchestration_strategy=orchestration_strategy,
+        )
         tasks_scheduled += 1
         documents_with_plan += 1
 
@@ -390,7 +477,33 @@ async def _start_run_pipeline_async(
     }
 
 
-def _build_document_task_plan(
+def _target_status_for_stage(stage: str) -> str:
+    """
+    Map internal stage name to target DocumentStatus.
+
+    Это нужно, чтобы execution-запись знала, какой статус документа
+    ожидается после успешного выполнения этой стадии.
+    """
+    if stage == "convert_to_pdf":
+        return DocumentStatus.PENDING.value
+    if stage == "build_primary_language_source":
+        return DocumentStatus.PRIMARY_READY.value
+    if stage == "extract_document":
+        return DocumentStatus.EXTRACTED.value
+    if stage == "sanitize_document":
+        return DocumentStatus.SANITIZED.value
+    if stage == "build_structure":
+        return DocumentStatus.STRUCTURED.value
+    if stage == "build_chunks":
+        return DocumentStatus.CHUNKED.value
+    if stage == "classify_document":
+        # Документ может остаться CLASSIFIED или перейти в COMPLETED,
+        # но для purposes execution достаточно понимать, что это стадия классификации.
+        return DocumentStatus.CLASSIFIED.value
+    return stage
+
+
+async def _build_document_task_plan(
     *,
     doc,
     version,
@@ -400,6 +513,7 @@ def _build_document_task_plan(
     tenant_id_str: str,
     is_full_rerun: bool,
     force_reclassify: bool,
+    seg_repo: DocumentSegmentRepository,
 ) -> TaskPlan | None:
     doc_id_str = str(doc.id)
 
@@ -556,7 +670,9 @@ def _build_document_task_plan(
             )
             return None
 
-        layout_primary_sanitized_ref = getattr(version, "layout_primary_sanitized_ref", None)
+        layout_primary_sanitized_ref = getattr(
+            version, "layout_primary_sanitized_ref", None
+        )
         if not layout_primary_sanitized_ref:
             logger.warning(
                 "SANITIZED document without layout_primary_sanitized_ref, waiting for PII commit",
@@ -595,10 +711,12 @@ def _build_document_task_plan(
             )
             return None
 
-        clause_tree_ref = getattr(version, "clause_tree_ref", None)
-        if not clause_tree_ref:
+        file_graph_ref = getattr(version, "file_graph_ref", None)
+        segments_count = getattr(version, "segments_count", None)
+
+        if not file_graph_ref:
             logger.warning(
-                "STRUCTURED document without clause_tree_ref, cannot continue",
+                "STRUCTURED document without file_graph_ref in V2_ONLY, waiting for structure v2 commit",
                 extra={
                     "document_id": doc_id_str,
                     "document_version_id": str(version.id),
@@ -607,19 +725,32 @@ def _build_document_task_plan(
             )
             return None
 
+        if not segments_count or segments_count <= 0:
+            logger.warning(
+                "STRUCTURED document without segments_count in V2_ONLY, waiting for structure v2 commit",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "segments_count": segments_count,
+                    "run_id": run_id,
+                },
+            )
+            return None
+
         logger.info(
-            "STRUCTURED document ready for chunk build",
+            "STRUCTURED document ready for chunk build (v2 structure artifacts present)",
             extra={
                 "document_id": doc_id_str,
                 "document_version_id": str(version.id),
-                "clause_tree_ref": clause_tree_ref,
+                "file_graph_ref": file_graph_ref,
+                "segments_count": segments_count,
                 "run_id": run_id,
             },
         )
         return TaskPlan(
             task_name="workers.build_chunks",
             stage="build_chunks",
-            reason="structure_ready",
+            reason="structure_v2_ready",
             kwargs={
                 "document_version_id": str(version.id),
                 "document_id": doc_id_str,
@@ -637,18 +768,63 @@ def _build_document_task_plan(
             )
             return None
 
+        chunks_manifest_v2_ref = getattr(version, "chunks_manifest_v2_ref", None)
+        if not chunks_manifest_v2_ref:
+            logger.warning(
+                "CHUNKED document without chunks_manifest_v2_ref in V2_ONLY, waiting for chunk v2 commit",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "run_id": run_id,
+                },
+            )
+            return None
+
+        summary = await seg_repo.get_chunk_refs_summary(version.id)
+        total_segments = summary["total_segments"]
+        segments_with_chunks = summary["segments_with_chunks"]
+
+        if total_segments <= 0:
+            logger.warning(
+                "CHUNKED document without persisted segments in V2_ONLY, cannot continue to classification",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                    "run_id": run_id,
+                },
+            )
+            return None
+
+        if segments_with_chunks != total_segments:
+            logger.warning(
+                "CHUNKED document has incomplete segment chunk refs in V2_ONLY, waiting for full chunk contract",
+                extra={
+                    "document_id": doc_id_str,
+                    "document_version_id": str(version.id),
+                    "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                    "total_segments": total_segments,
+                    "segments_with_chunks": segments_with_chunks,
+                    "run_id": run_id,
+                },
+            )
+            return None
+
         logger.info(
-            "CHUNKED document ready for classification",
+            "CHUNKED document ready for classification (v2 manifest + full segment chunk refs)",
             extra={
                 "document_id": doc_id_str,
                 "document_version_id": str(version.id),
+                "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                "total_segments": total_segments,
+                "segments_with_chunks": segments_with_chunks,
                 "run_id": run_id,
             },
         )
         return TaskPlan(
             task_name="workers.classify_document",
             stage="classify_document",
-            reason="chunk_snapshot_ready",
+            reason="chunks_v2_contract_ready",
             kwargs={
                 "document_id": doc_id_str,
                 "run_id": run_id,
@@ -726,10 +902,39 @@ def _build_document_task_plan(
     return None
 
 
-def _send_task(plan: TaskPlan) -> None:
-    celery_app.send_task(
-        plan.task_name,
-        kwargs=plan.kwargs,
+def _send_task(
+    *,
+    plan: TaskPlan,
+    stage_execution_id: str,
+    run_id: str,
+    deal_id: str,
+    tenant_id: str,
+    document_id: str,
+    document_version_id: str,
+    orchestration_strategy: str,
+) -> None:
+    """
+    Helper для отправки Celery task с полным context envelope.
+
+    Обязательные поля:
+    - stage_execution_id: чтобы worker мог обновить execution-запись;
+    - run_id, deal_id, tenant_id: контекст сделки и запуска;
+    - document_id, document_version_id: привязка к документу и версии;
+    - orchestration_strategy: например V2_ONLY.
+    """
+    kwargs = dict(plan.kwargs)
+    kwargs.update(
+        {
+            "stage_execution_id": stage_execution_id,
+            "run_id": run_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "orchestration_strategy": orchestration_strategy,
+        }
     )
+    celery_app.send_task(plan.task_name, kwargs=kwargs)
+    
 
     

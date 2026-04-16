@@ -3,20 +3,28 @@
 from __future__ import annotations
 
 """
-Chunk Builder Worker.
+Chunk Builder Worker (V2_ONLY).
 
 Назначение:
-- В legacy-режиме: построить canonical snapshot чанков (section / clause / subclause)
-  через ChunkSnapshotBuilder и сохранить его в chunks_ref (schema_version=1).
-- В v2-режиме: построить per-segment chunk snapshots через SegmentChunkBuilderV2,
-  сохранить их в MinIO, обновить segment_chunks_ref в DocumentSegment и
-  сохранить file-level chunks_manifest_v2_ref в DocumentVersion.
+- Построить per-segment chunk snapshots через SegmentChunkBuilderV2.
+- Сохранить segment_chunks_ref в DocumentSegment.
+- Сохранить file-level chunks_manifest_v2_ref в DocumentVersion.
 - Обновить статус документа: STRUCTURED -> CHUNKED.
-- Запустить downstream-орchestrator только после committed=True.
+- Запустить downstream-orchestrator только после committed=True.
 
 Позиция в пайплайне:
 - import -> convert -> build_primary_language_source -> extract -> pii
   -> structure -> chunking -> classify/checks/...
+
+Контракт стадии (V2_ONLY):
+- Единственный source of truth для chunking:
+  - DocumentSegment rows для document_version;
+  - segment_chunks_ref в DocumentSegment;
+  - chunks_manifest_v2_ref в DocumentVersion.
+- Legacy v1 file-level chunk snapshot не используется.
+- Любое структурное нарушение контракта -> PermanentError
+  c type=chunking_v2_contract_violation.
+- Quarantine используется только для контентных кейсов.
 """
 
 import time
@@ -27,16 +35,21 @@ from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import get_logger
+from core.pipeline_errors import (
+    ChunkingQuarantineReason,
+    ChunkingV2ErrorReason,
+    PipelineErrorType,
+)
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_stage_execution_repo import (
+    DocumentStageExecutionRepository,
+)
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
-from engine.content.chunk_snapshot_builder import ChunkSnapshotBuilder
 from engine.content.segment_chunk_builder_v2 import (
-    FileChunkManifestV2,
     FileChunkManifestSegmentV2,
     SegmentChunkBuilderV2,
-    SegmentChunkSnapshotV2,
 )
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -61,42 +74,31 @@ def build_chunks(
     tenant_id: str,
     run_id: str | None = None,
     **kwargs: Any,
-) -> dict:
+) -> dict[str, Any]:
     """
     Sync Celery entry point для построения чанков.
 
     Поведение:
-    - выполняет только свою стадию chunking;
+    - выполняет только V2_ONLY chunking;
     - при PermanentError переводит документ в FAILED;
     - при TransientError отдаёт управление retry-механизму;
     - при QuarantineError переводит документ в карантин по стадии chunking;
     - при успехе будит оркестратор только после commit.
     """
+    stage_execution_id = kwargs.get("stage_execution_id")
 
-    async def _wrapper() -> dict:
+    async def _wrapper() -> dict[str, Any]:
         try:
             async with db_uow() as uow:
-                # TODO: завести feature flag / setting вместо захардкоженного False.
-                use_v2 = settings.CHUNKS_V2_ENABLED
-
-                if use_v2:
-                    return await _build_chunks_v2_async(
-                        document_version_id=document_version_id,
-                        document_id=document_id,
-                        deal_id=deal_id,
-                        tenant_id=tenant_id,
-                        run_id=run_id,
-                        uow=uow,
-                    )
-                else:
-                    return await _build_chunks_legacy_async(
-                        document_version_id=document_version_id,
-                        document_id=document_id,
-                        deal_id=deal_id,
-                        tenant_id=tenant_id,
-                        run_id=run_id,
-                        uow=uow,
-                    )
+                return await _build_chunks_v2_async(
+                    document_version_id=document_version_id,
+                    document_id=document_id,
+                    deal_id=deal_id,
+                    tenant_id=tenant_id,
+                    run_id=run_id,
+                    uow=uow,
+                    stage_execution_id=stage_execution_id,
+                )
 
         except TransientError as e:
             logger.warning(
@@ -111,6 +113,12 @@ def build_chunks(
             raise
 
         except QuarantineError as e:
+            quarantine_reason = getattr(
+                e,
+                "reason",
+                ChunkingQuarantineReason.EMPTY_SEGMENTS_CONTENT,
+            )
+
             logger.warning(
                 "Quarantine during chunk building",
                 document_id=document_id,
@@ -118,28 +126,38 @@ def build_chunks(
                 deal_id=deal_id,
                 tenant_id=tenant_id,
                 run_id=run_id,
-                reason=getattr(e, "reason", None),
+                reason=quarantine_reason,
                 error=str(e),
             )
+
             async with db_uow() as uow_status:
                 await _mark_quarantined(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
                     message=str(e),
-                    reason=getattr(e, "reason", "emptychunks"),
+                    reason=quarantine_reason,
                     run_id=uuid.UUID(run_id) if run_id else None,
+                    stage_execution_id=stage_execution_id,
+                    document_version_id=document_version_id,
                 )
+
             return {
                 "status": DocumentStatus.QUARANTINE.value,
                 "document_id": document_id,
                 "document_version_id": document_version_id,
                 "quarantined": True,
-                "quarantine_reason": getattr(e, "reason", "emptychunks"),
+                "quarantine_reason": quarantine_reason,
                 "error": str(e),
                 "committed": False,
             }
 
         except PermanentError as e:
+            details = getattr(e, "details", {}) or {}
+            reason_code = details.get(
+                "reason",
+                ChunkingV2ErrorReason.SEGMENT_BUILDER_ERROR,
+            )
+
             logger.error(
                 "Permanent error during chunk building",
                 document_id=document_id,
@@ -147,20 +165,27 @@ def build_chunks(
                 deal_id=deal_id,
                 tenant_id=tenant_id,
                 run_id=run_id,
+                reason_code=reason_code,
                 error=str(e),
             )
+
             async with db_uow() as uow_status:
                 await _mark_failed(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
                     message=str(e),
                     run_id=uuid.UUID(run_id) if run_id else None,
+                    stage_execution_id=stage_execution_id,
+                    document_version_id=document_version_id,
+                    reason_code=reason_code,
                 )
+
             return {
                 "status": DocumentStatus.FAILED.value,
                 "document_id": document_id,
                 "document_version_id": document_version_id,
                 "error": str(e),
+                "reason_code": reason_code,
                 "committed": False,
             }
 
@@ -174,10 +199,9 @@ def build_chunks(
             deal_id=deal_id,
             tenant_id=tenant_id,
             run_id=run_id,
-            chunks_ref=result.get("chunks_ref"),
-            layout_kind=result.get("layout_kind"),
-            layout_ref=result.get("layout_ref"),
             chunks_manifest_v2_ref=result.get("chunks_manifest_v2_ref"),
+            segments_count=result.get("segments_count"),
+            chunk_count_total=result.get("chunk_count_total"),
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -188,246 +212,6 @@ def build_chunks(
     return result
 
 
-async def _build_chunks_legacy_async(
-    *,
-    document_version_id: str,
-    document_id: str,
-    deal_id: str,
-    tenant_id: str,
-    run_id: str | None,
-    uow: UnitOfWork,
-) -> dict:
-    """
-    Текущая legacy-логика построения чанков (schema_version=1, один snapshot на файл).
-    """
-
-    start = time.time()
-    store = ArtifactStore(settings)
-
-    ver_repo = DocumentVersionRepository(uow.session)
-    doc_repo = DocumentRepository(uow.session)
-
-    v_id = uuid.UUID(document_version_id)
-    d_id = uuid.UUID(document_id)
-
-    version = await ver_repo.get_by_id(v_id)
-    if not version:
-        raise PermanentError(
-            f"DocumentVersion {v_id} not found",
-            details={"stage": "chunking", "kind": "version_not_found"},
-        )
-
-    doc = await doc_repo.get_by_id(d_id)
-    if not doc:
-        raise PermanentError(
-            f"Document {d_id} not found",
-            details={"stage": "chunking", "kind": "document_not_found"},
-        )
-
-    existing_chunks_ref = getattr(version, "chunks_ref", None)
-
-    existing_schema_version: int | None = None
-    if existing_chunks_ref:
-        try:
-            existing_snapshot = store.get_json(existing_chunks_ref)
-            if isinstance(existing_snapshot, dict):
-                existing_schema_version = existing_snapshot.get("schema_version")
-        except Exception as e:
-            logger.warning(
-                "Failed to load existing chunk snapshot for version, will rebuild",
-                document_id=str(doc.id),
-                document_version_id=str(version.id),
-                chunks_ref=existing_chunks_ref,
-                error=str(e),
-            )
-
-    force_rebuild = False  # TODO: прокинуть из Celery kwargs при необходимости.
-
-    needs_rebuild = (
-        force_rebuild
-        or not existing_chunks_ref
-        or doc.status != DocumentStatus.CHUNKED.value
-        or existing_schema_version != 1
-    )
-
-    if not needs_rebuild:
-        logger.info(
-            "Chunks snapshot already exists with expected schema_version, skipping rebuild",
-            document_id=str(doc.id),
-            document_version_id=str(version.id),
-            chunks_ref=existing_chunks_ref,
-            schema_version=existing_schema_version,
-        )
-        return {
-            "status": DocumentStatus.CHUNKED.value,
-            "document_id": str(doc.id),
-            "document_version_id": str(version.id),
-            "chunks_ref": existing_chunks_ref,
-            "skipped": True,
-            "committed": False,
-        }
-
-    clause_tree_ref = getattr(version, "clause_tree_ref", None)
-    if not clause_tree_ref:
-        raise PermanentError(
-            f"Cannot build chunks: clause_tree_ref is missing for version {v_id}",
-            details={"stage": "chunking", "kind": "missing_clause_tree"},
-        )
-
-    snapshot_builder = ChunkSnapshotBuilder(store=store)
-    try:
-        snapshot = await snapshot_builder.build_snapshot(
-            session=uow.session,
-            doc_id=d_id,
-            target_tokens=300,
-            max_tokens=800,
-            overlap_ratio=0.15,
-        )
-    except PermanentError:
-        raise
-    except Exception as e:
-        logger.exception(
-            "ChunkSnapshotBuilder failed",
-            document_id=str(doc.id),
-            document_version_id=str(v_id),
-            clause_tree_ref=clause_tree_ref,
-            error=str(e),
-        )
-        raise PermanentError(
-            f"ChunkSnapshotBuilder failed: {e}",
-            details={"stage": "chunking", "kind": "snapshot_builder_error"},
-        )
-
-    source_info = snapshot.get("source") or {}
-    layout_ref = source_info.get("layout_ref")
-    layout_kind = source_info.get("layout_kind")
-    snapshot_clause_tree_ref = source_info.get("clause_tree_ref")
-
-    chunks = snapshot.get("chunks") or {}
-    clause_chunks = chunks.get("clause") or []
-    subclause_chunks = chunks.get("subclause") or []
-
-    if not clause_chunks and not subclause_chunks:
-        logger.warning(
-            "ChunkSnapshotBuilder produced empty snapshot (no clause/subclause chunks)",
-            extra={
-                "document_id": str(doc.id),
-                "document_version_id": str(version.id),
-                "clause_tree_ref": clause_tree_ref,
-                "layout_ref": layout_ref,
-            },
-        )
-        raise QuarantineError(
-            "No usable chunks built from clause tree and layout",
-            document_id=str(doc.id),
-            reason="emptychunks",
-            details={
-                "document_version_id": str(version.id),
-                "clause_tree_ref": clause_tree_ref,
-                "layout_ref": layout_ref,
-            },
-        )
-
-    if not layout_ref or not layout_kind:
-        logger.warning(
-            "Chunk snapshot source metadata is incomplete",
-            document_id=str(doc.id),
-            document_version_id=str(v_id),
-            snapshot_source=source_info,
-        )
-
-    chunks_path = ArtifactPath.chunks(
-        tenant_id=tenant_id,
-        deal_id=deal_id,
-        document_id=str(doc.id),
-    )
-
-    try:
-        chunks_ref = store.put_json(chunks_path, snapshot)
-    except Exception as e:
-        logger.exception(
-            "Failed to store chunks snapshot",
-            document_id=str(doc.id),
-            document_version_id=str(v_id),
-            chunks_path=chunks_path,
-            error=str(e),
-        )
-        raise PermanentError(
-            f"Failed to store chunks snapshot: {e}",
-            details={"stage": "chunking", "kind": "chunks_store_error"},
-        )
-
-    updated_version = await ver_repo.update_refs(
-        version_id=v_id,
-        chunks_ref=chunks_ref,
-    )
-    if not updated_version:
-        raise PermanentError(
-            f"Failed to update chunks_ref for version {v_id}",
-            details={"stage": "chunking", "kind": "version_update_failed"},
-        )
-
-    updated_doc = await doc_repo.update_status(
-        doc.id,
-        DocumentStatus.CHUNKED.value,
-        processing_error_details=None,
-    )
-    if not updated_doc:
-        raise PermanentError(
-            f"Failed to update document status to CHUNKED for doc {doc.id}",
-            details={"stage": "chunking", "kind": "document_status_update_failed"},
-        )
-
-    await uow.session.flush()
-
-    refreshed_version = await ver_repo.get_by_id(v_id)
-    if not refreshed_version:
-        raise TransientError(
-            f"DocumentVersion {v_id} is not visible after flush"
-        )
-
-    refreshed_chunks_ref = getattr(refreshed_version, "chunks_ref", None)
-    if not refreshed_chunks_ref:
-        raise TransientError(
-            f"chunks_ref is not visible after flush for version {v_id}"
-        )
-
-    if refreshed_chunks_ref != chunks_ref:
-        raise TransientError(
-            f"chunks_ref mismatch after flush for version {v_id}"
-        )
-
-    await uow.session.commit()
-
-    duration = round(time.time() - start, 2)
-
-    logger.info(
-        "Chunks snapshot (legacy) built and committed successfully",
-        document_id=str(doc.id),
-        document_version_id=str(v_id),
-        chunks_ref=chunks_ref,
-        clause_tree_ref=clause_tree_ref,
-        snapshot_clause_tree_ref=snapshot_clause_tree_ref,
-        layout_ref=layout_ref,
-        layout_kind=layout_kind,
-        duration_seconds=duration,
-        status=DocumentStatus.CHUNKED.value,
-    )
-
-    return {
-        "status": DocumentStatus.CHUNKED.value,
-        "document_id": str(doc.id),
-        "document_version_id": str(v_id),
-        "chunks_ref": chunks_ref,
-        "clause_tree_ref": clause_tree_ref,
-        "snapshot_clause_tree_ref": snapshot_clause_tree_ref,
-        "layout_ref": layout_ref,
-        "layout_kind": layout_kind,
-        "duration_seconds": duration,
-        "committed": True,
-    }
-
-
 async def _build_chunks_v2_async(
     *,
     document_version_id: str,
@@ -436,44 +220,73 @@ async def _build_chunks_v2_async(
     tenant_id: str,
     run_id: str | None,
     uow: UnitOfWork,
-) -> dict:
+    stage_execution_id: str | None,
+) -> dict[str, Any]:
     """
-    Новая v2-логика построения чанков:
+    V2_ONLY-логика построения чанков:
     - строим per-segment snapshots и file-level manifest через SegmentChunkBuilderV2;
     - сохраняем segment_chunks и manifest в MinIO;
     - обновляем segment_chunks_ref и chunks_manifest_v2_ref в БД;
     - статус документа -> CHUNKED.
-    """
 
+    Дополнительно:
+    - execution STARTED перед выполнением;
+    - execution SUCCEEDED после commit;
+    - жёсткие проверки v2-контракта.
+    """
     start = time.time()
     store = ArtifactStore(settings)
 
     ver_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
     seg_repo = DocumentSegmentRepository(uow.session)
+    dse_repo = DocumentStageExecutionRepository(uow.session)
 
     v_id = uuid.UUID(document_version_id)
     d_id = uuid.UUID(document_id)
+
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_started(uuid.UUID(stage_execution_id))
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as STARTED for chunking",
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
 
     version = await ver_repo.get_by_id(v_id)
     if not version:
         raise PermanentError(
             f"DocumentVersion {v_id} not found",
-            details={"stage": "chunking_v2", "kind": "version_not_found"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.VERSION_NOT_FOUND,
+            },
         )
 
     doc = await doc_repo.get_by_id(d_id)
     if not doc:
         raise PermanentError(
             f"Document {d_id} not found",
-            details={"stage": "chunking_v2", "kind": "document_not_found"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.DOCUMENT_NOT_FOUND,
+            },
         )
 
     segments = await seg_repo.list_by_version(v_id)
     if not segments:
         raise PermanentError(
             f"No DocumentSegment rows found for version {v_id}",
-            details={"stage": "chunking_v2", "kind": "segments_missing"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.SEGMENTS_MISSING,
+            },
         )
 
     builder_v2 = SegmentChunkBuilderV2(store=store)
@@ -497,7 +310,11 @@ async def _build_chunks_v2_async(
         )
         raise PermanentError(
             f"SegmentChunkBuilderV2 failed: {e}",
-            details={"stage": "chunking_v2", "kind": "segment_builder_error"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.SEGMENT_BUILDER_ERROR,
+            },
         )
 
     if not segment_snapshots:
@@ -507,27 +324,70 @@ async def _build_chunks_v2_async(
             document_version_id=str(v_id),
         )
         raise QuarantineError(
-            "No usable segment chunks built",
+            "No usable segment chunks built from valid structure",
             document_id=str(doc.id),
-            reason="emptysegments",
+            reason=ChunkingQuarantineReason.EMPTY_SEGMENTS_CONTENT,
             details={
                 "document_version_id": str(version.id),
             },
         )
 
-    # 1. Сохраняем per-segment snapshots в MinIO и обновляем segment_chunks_ref.
+    manifest_segments_list = getattr(file_manifest, "segments", None) or []
+    if not manifest_segments_list:
+        raise PermanentError(
+            "File chunk manifest v2 is empty",
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.MANIFEST_EMPTY,
+            },
+        )
+
+    db_segment_ids = {s.segment_id for s in segments}
+    manifest_segment_ids = {s.segment_id for s in manifest_segments_list}
+
+    if db_segment_ids != manifest_segment_ids:
+        raise PermanentError(
+            "File chunk manifest v2 is inconsistent with persisted segments",
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.MANIFEST_INCONSISTENT_WITH_SEGMENTS,
+            },
+        )
+
     segments_by_id = {s.segment_id: s for s in segments}
     manifest_segments: dict[str, FileChunkManifestSegmentV2] = {
-        s.segment_id: s for s in file_manifest.segments
+        s.segment_id: s for s in manifest_segments_list
     }
+
+    chunk_count_total = 0
+    segment_rows_to_replace: list[dict[str, Any]] = []
 
     for snapshot in segment_snapshots:
         seg = segments_by_id.get(snapshot.segment_id)
         if seg is None:
             raise PermanentError(
                 f"Internal error: no DocumentSegment row for snapshot.segment_id={snapshot.segment_id}",
-                details={"stage": "chunking_v2", "kind": "segment_not_found_for_snapshot"},
+                details={
+                    "stage": "chunking_v2",
+                    "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                    "reason": ChunkingV2ErrorReason.SEGMENT_NOT_FOUND_FOR_SNAPSHOT,
+                },
             )
+
+        snapshot_dict = snapshot.to_dict()
+        snapshot_chunks = snapshot_dict.get("chunks", {}) or {}
+        section_chunks = snapshot_chunks.get("section", []) or []
+        clause_chunks = snapshot_chunks.get("clause", []) or []
+        subclause_chunks = snapshot_chunks.get("subclause", []) or []
+
+        snapshot_chunk_count = (
+            len(section_chunks)
+            + len(clause_chunks)
+            + len(subclause_chunks)
+        )
+        chunk_count_total += snapshot_chunk_count
 
         chunk_path = ArtifactPath.segment_chunks(
             tenant_id=tenant_id,
@@ -537,7 +397,7 @@ async def _build_chunks_v2_async(
         )
 
         try:
-            segment_chunks_ref = store.put_json(chunk_path, snapshot.to_dict())
+            segment_chunks_ref = store.put_json(chunk_path, snapshot_dict)
         except Exception as e:
             logger.exception(
                 "Failed to store segment chunk snapshot",
@@ -549,23 +409,71 @@ async def _build_chunks_v2_async(
             )
             raise PermanentError(
                 f"Failed to store segment chunk snapshot: {e}",
-                details={"stage": "chunking_v2", "kind": "segment_chunks_store_error"},
+                details={
+                    "stage": "chunking_v2",
+                    "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                    "reason": ChunkingV2ErrorReason.SEGMENT_CHUNKS_STORE_ERROR,
+                },
             )
 
-        # обновляем в БД segment_chunks_ref
-        seg.segment_chunks_ref = segment_chunks_ref  # локально в объекте
-        # и прокидываем в manifest
         manifest_segment = manifest_segments.get(snapshot.segment_id)
         if manifest_segment is not None:
             manifest_segment.segment_chunks_ref = segment_chunks_ref
 
-    # 2. Перезаписываем DocumentSegment rows одним replace (atomic pattern).
+        segment_rows_to_replace.append(
+            {
+                "document_version_id": seg.document_version_id,
+                "document_id": seg.document_id,
+                "segment_id": seg.segment_id,
+                "segment_order": seg.segment_order,
+                "segment_type": seg.segment_type,
+                "segment_title": seg.segment_title,
+                "page_start": seg.page_start,
+                "page_end": seg.page_end,
+                "is_primary": seg.is_primary,
+                "confidence": seg.confidence,
+                "segment_clause_tree_ref": seg.segment_clause_tree_ref,
+                "segment_chunks_ref": segment_chunks_ref,
+                "segment_meta": seg.segment_meta,
+            }
+        )
+
+    if len(segment_rows_to_replace) != len(segments):
+        raise PermanentError(
+            "Prepared segment rows count does not match persisted segment rows",
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.MANIFEST_INCONSISTENT_WITH_SEGMENTS,
+            },
+        )
+
+    if chunk_count_total <= 0:
+        raise QuarantineError(
+            "No usable chunk items built from valid segment snapshots",
+            document_id=str(doc.id),
+            reason=ChunkingQuarantineReason.EMPTY_CHUNKS_CONTENT,
+            details={
+                "document_version_id": str(version.id),
+            },
+        )
+
+    for manifest_segment in manifest_segments_list:
+        if not getattr(manifest_segment, "segment_chunks_ref", None):
+            raise PermanentError(
+                "File chunk manifest v2 is inconsistent: some manifest segments have no segment_chunks_ref",
+                details={
+                    "stage": "chunking_v2",
+                    "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                    "reason": ChunkingV2ErrorReason.MANIFEST_INCONSISTENT_WITH_SEGMENTS,
+                },
+            )
+
     await seg_repo.replace_segments(
         document_version_id=v_id,
-        items=list(segments),
+        items=segment_rows_to_replace,
     )
 
-    # 3. Сохраняем file-level manifest в MinIO.
     manifest_path = ArtifactPath.chunks_manifest_v2(
         tenant_id=tenant_id,
         deal_id=deal_id,
@@ -584,21 +492,25 @@ async def _build_chunks_v2_async(
         )
         raise PermanentError(
             f"Failed to store file chunk manifest v2: {e}",
-            details={"stage": "chunking_v2", "kind": "manifest_store_error"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.MANIFEST_STORE_ERROR,
+            },
         )
 
-    # 4. Обновляем DocumentVersion: записываем ссылку на v2 manifest.
-    # ВАЖНО: здесь предполагается, что в DocumentVersion есть поле chunks_manifest_v2_ref
-    # и в репозитории есть метод update_refs_v2 или расширенный update_refs.
     updated_version = await ver_repo.update_refs(
         version_id=v_id,
-        # legacy chunks_ref можно оставить как есть, либо None.
-        chunks_manifest_v2_ref=chunks_manifest_v2_ref,  # type: ignore[arg-type]
+        chunks_manifest_v2_ref=chunks_manifest_v2_ref,
     )
     if not updated_version:
         raise PermanentError(
             f"Failed to update chunks_manifest_v2_ref for version {v_id}",
-            details={"stage": "chunking_v2", "kind": "version_update_failed"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.VERSION_UPDATE_FAILED,
+            },
         )
 
     updated_doc = await doc_repo.update_status(
@@ -609,7 +521,11 @@ async def _build_chunks_v2_async(
     if not updated_doc:
         raise PermanentError(
             f"Failed to update document status to CHUNKED for doc {doc.id}",
-            details={"stage": "chunking_v2", "kind": "document_status_update_failed"},
+            details={
+                "stage": "chunking_v2",
+                "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                "reason": ChunkingV2ErrorReason.DOCUMENT_STATUS_UPDATE_FAILED,
+            },
         )
 
     await uow.session.flush()
@@ -631,7 +547,34 @@ async def _build_chunks_v2_async(
             f"chunks_manifest_v2_ref mismatch after flush for version {v_id}"
         )
 
+    refreshed_segments = await seg_repo.list_by_version(v_id)
+    if len(refreshed_segments) != len(segments):
+        raise TransientError(
+            "document_segments count mismatch after flush "
+            f"for version {v_id}: expected={len(segments)}, actual={len(refreshed_segments)}"
+        )
+
+    missing_segment_chunk_refs = [
+        s.segment_id for s in refreshed_segments if not getattr(s, "segment_chunks_ref", None)
+    ]
+    if missing_segment_chunk_refs:
+        raise TransientError(
+            "segment_chunks_ref missing after flush "
+            f"for version {v_id}: missing_segment_ids={missing_segment_chunk_refs}"
+        )
+
     await uow.session.commit()
+
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_succeeded(uuid.UUID(stage_execution_id))
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as SUCCEEDED for chunking",
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
 
     duration = round(time.time() - start, 2)
 
@@ -641,17 +584,18 @@ async def _build_chunks_v2_async(
         document_version_id=str(v_id),
         chunks_manifest_v2_ref=chunks_manifest_v2_ref,
         segments_count=len(segment_snapshots),
+        chunk_count_total=chunk_count_total,
         duration_seconds=duration,
         status=DocumentStatus.CHUNKED.value,
     )
 
-    # Для backward-совместимости можно продолжать возвращать chunks_ref=None.
     return {
         "status": DocumentStatus.CHUNKED.value,
         "document_id": str(doc.id),
         "document_version_id": str(v_id),
-        "chunks_ref": None,
         "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+        "segments_count": len(segment_snapshots),
+        "chunk_count_total": chunk_count_total,
         "duration_seconds": duration,
         "committed": True,
     }
@@ -664,11 +608,15 @@ async def _mark_quarantined(
     message: str,
     reason: str,
     run_id: uuid.UUID | None,
+    stage_execution_id: str | None,
+    document_version_id: str,
 ) -> None:
     """
     Перевести документ в карантин на стадии chunking.
     """
     doc_repo = DocumentRepository(uow.session)
+    dse_repo = DocumentStageExecutionRepository(uow.session)
+
     await doc_repo.set_quarantined(
         document_uuid,
         stage="chunking",
@@ -677,6 +625,28 @@ async def _mark_quarantined(
         run_id=run_id,
     )
 
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_failed(
+                uuid.UUID(stage_execution_id),
+                error_details={
+                    "stage": "chunking_v2",
+                    "type": "chunking_quarantine",
+                    "reason": reason,
+                    "message": message,
+                    "document_uuid": str(document_uuid),
+                    "document_version_id": document_version_id,
+                },
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as FAILED(quarantine) for chunking",
+                document_uuid=str(document_uuid),
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
+
 
 async def _mark_failed(
     uow: UnitOfWork,
@@ -684,17 +654,45 @@ async def _mark_failed(
     *,
     message: str,
     run_id: uuid.UUID | None,
+    stage_execution_id: str | None,
+    document_version_id: str,
+    reason_code: str,
 ) -> None:
     """
     Best-effort перевод документа в FAILED при ошибке chunking.
     """
     doc_repo = DocumentRepository(uow.session)
+    dse_repo = DocumentStageExecutionRepository(uow.session)
+
     await doc_repo.set_failed(
         document_uuid,
         stage="chunking",
         message=message,
-        reason="chunking_error",
+        reason=PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
         run_id=run_id,
     )
+
+    if stage_execution_id:
+        try:
+            await dse_repo.mark_failed(
+                uuid.UUID(stage_execution_id),
+                error_details={
+                    "stage": "chunking_v2",
+                    "type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+                    "reason": reason_code,
+                    "message": message,
+                    "document_uuid": str(document_uuid),
+                    "document_version_id": document_version_id,
+                },
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to mark stage execution as FAILED for chunking",
+                document_uuid=str(document_uuid),
+                document_version_id=document_version_id,
+                stage_execution_id=stage_execution_id,
+                error=str(e),
+            )
+            
 
     

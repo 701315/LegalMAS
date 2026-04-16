@@ -3,8 +3,11 @@
 """
 Stage builder: STRUCTURE — дерево секций/пунктов документа.
 
-Самый сложный stage: поддерживает v2 (per-segment) и legacy (single tree),
-обогащение текстом из CHUNKS, source mapping, наследование от детей.
+V2_ONLY contract:
+1) canonical source — version.file_graph_ref + per-segment clause trees
+2) требуются materialized segments
+3) не использует legacy clause_tree_ref как источник истины
+4) friendly-представление обогащается текстом из CHUNKS, но поверх v2 STRUCTURE
 """
 
 from __future__ import annotations
@@ -32,10 +35,7 @@ from api.schemas.document_pipeline_view import (
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from db.models.document import DocumentSegment
-from engine.content.chunk_snapshot_reader import (
-    ChunkCorpusReaderV2,
-    ChunkSnapshotReader,
-)
+from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 from services.pipeline_view.normalizers import (
     chunk_sort_key,
     extract_clause_tree_text,
@@ -69,7 +69,7 @@ _STRUCTURE_REPR_KWARGS = dict(
 
 
 class StructureStageBuilder:
-    """Строит стадию STRUCTURE для pipeline view."""
+    """Строит стадию STRUCTURE для pipeline view в режиме V2_ONLY."""
 
     def __init__(self, session: AsyncSession, store: ArtifactStore):
         self._session = session
@@ -84,15 +84,25 @@ class StructureStageBuilder:
         view_mode: StageViewMode = StageViewMode.canonical,
     ) -> PipelineStageViewDTO:
         """Основной метод построения стадии STRUCTURE."""
-        has_v2_segments = bool(segments)
-        legacy_artifact_ref = version.clause_tree_ref
 
-        if not has_v2_segments and not legacy_artifact_ref:
+        file_graph_ref = getattr(version, "file_graph_ref", None)
+        if not file_graph_ref:
+            logger.info(
+                "PIPELINE_VIEW STRUCTURE pending: no file_graph_ref",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "view_mode": view_mode.value,
+                },
+            )
             return with_representation(
                 PipelineStageViewDTO(
                     code=PipelineStageCode.STRUCTURE,
                     title="STRUCTURE: дерево документа",
-                    description="Структурированное дерево секций, пунктов и подпунктов документа.",
+                    description=(
+                        "Артефакт file_graph_ref ещё не записан. "
+                        "Структура документа пока не готова."
+                    ),
                     available=False,
                     kind=PipelineStageKind.structure,
                     status=PipelineStageStatus.pending,
@@ -104,25 +114,105 @@ class StructureStageBuilder:
                 **_STRUCTURE_REPR_KWARGS,
             )
 
+        if not segments:
+            logger.warning(
+                "PIPELINE_VIEW STRUCTURE pending: no segments for file_graph_ref",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "file_graph_ref": file_graph_ref,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.STRUCTURE,
+                    title="STRUCTURE: дерево документа",
+                    description=(
+                        "Артефакт file_graph_ref записан, но персистентные сегменты "
+                        "для версии ещё не материализованы."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.structure,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=file_graph_ref,
+                    meta=base_meta,
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_STRUCTURE_REPR_KWARGS,
+            )
+
         sections: list[StructureSectionPreviewDTO] = []
         segment_previews: list[StructureSegmentPreviewDTO] = []
 
-        # v2 path: per-segment clause trees
-        if has_v2_segments:
-            self._load_v2_segments(
-                doc, version, segments, sections, segment_previews,
+        v2_errors = await self._load_v2_segments(
+            doc=doc,
+            version=version,
+            segments=segments,
+            sections=sections,
+            segment_previews=segment_previews,
+        )
+
+        if not sections:
+            if v2_errors:
+                logger.warning(
+                    "PIPELINE_VIEW STRUCTURE missing: no sections built from v2 segment trees",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "version_id": str(version.id),
+                        "file_graph_ref": file_graph_ref,
+                        "v2_errors": v2_errors,
+                        "view_mode": view_mode.value,
+                    },
+                )
+                return with_representation(
+                    PipelineStageViewDTO(
+                        code=PipelineStageCode.STRUCTURE,
+                        title="STRUCTURE: дерево документа",
+                        description=(
+                            "Per-segment clause trees недоступны или не содержат валидных "
+                            "узлов. Структура документа не может быть построена."
+                        ),
+                        available=False,
+                        kind=PipelineStageKind.structure,
+                        status=PipelineStageStatus.missing,
+                        artifact_ref=file_graph_ref,
+                        meta=base_meta,
+                        preview=None,
+                    ),
+                    view_mode=view_mode,
+                    **_STRUCTURE_REPR_KWARGS,
+                )
+
+            logger.warning(
+                "PIPELINE_VIEW STRUCTURE pending: no sections from v2 trees, no explicit errors",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "file_graph_ref": file_graph_ref,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.STRUCTURE,
+                    title="STRUCTURE: дерево документа",
+                    description=(
+                        "Персегментные clause trees не дали ни одной секции. "
+                        "Структура документа пока не готова."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.structure,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=file_graph_ref,
+                    meta=base_meta,
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_STRUCTURE_REPR_KWARGS,
             )
 
-        # legacy path: один tree на весь document
-        if not sections and legacy_artifact_ref:
-            result = self._load_legacy_tree(
-                doc, version, legacy_artifact_ref, sections, base_meta, view_mode,
-            )
-            if result is not None:
-                # Вернул ранний выход (ошибка загрузки)
-                return result
-
-        # Обогащение
         source_mapped = await self._try_attach_source_mapping(doc.id, sections)
 
         text_enriched = False
@@ -131,7 +221,6 @@ class StructureStageBuilder:
 
         self._inherit_from_children(sections)
 
-        # Финальный text_preview
         for s in sections:
             if view_mode == StageViewMode.canonical:
                 s.text_preview = s.structure_text or ""
@@ -155,20 +244,17 @@ class StructureStageBuilder:
             text_enriched=text_enriched,
         )
 
-        artifact_ref = version.file_graph_ref or legacy_artifact_ref
-
         logger.info(
-            "PIPELINE_VIEW STRUCTURE",
+            "PIPELINE_VIEW STRUCTURE ready (v2_only)",
             extra={
                 "doc_id": str(doc.id),
                 "version_id": str(version.id),
-                "artifact_ref": artifact_ref,
+                "file_graph_ref": file_graph_ref,
                 "sections_len": len(sections),
                 "segments_len": len(segment_previews),
                 "text_enriched": text_enriched,
                 "source_mapped": source_mapped,
                 "view_mode": view_mode.value,
-                "has_v2_segments": has_v2_segments,
             },
         )
 
@@ -179,7 +265,7 @@ class StructureStageBuilder:
             available=bool(sections),
             kind=PipelineStageKind.structure,
             status=PipelineStageStatus.ready if sections else PipelineStageStatus.pending,
-            artifact_ref=artifact_ref,
+            artifact_ref=file_graph_ref,
             meta=meta,
             preview=preview if sections else None,
         )
@@ -188,38 +274,55 @@ class StructureStageBuilder:
 
     # ── V2 segments ─────────────────────────────────────────────────
 
-    def _load_v2_segments(
+    async def _load_v2_segments(
         self,
         doc,
         version,
         segments: list[DocumentSegment],
         sections: list[StructureSectionPreviewDTO],
         segment_previews: list[StructureSegmentPreviewDTO],
-    ) -> None:
+    ) -> list[str]:
+        errors: list[str] = []
+
         for seg in segments:
             seg_ref = seg.segment_clause_tree_ref
             if not seg_ref:
                 logger.warning(
-                    "PIPELINE_VIEW STRUCTURE: segment has no segment_clause_tree_ref",
+                    "PIPELINE_VIEW STRUCTURE v2_only: segment has no segment_clause_tree_ref",
                     extra={
                         "doc_id": str(doc.id),
                         "version_id": str(version.id),
                         "segment_id": seg.segment_id,
                     },
                 )
+                errors.append(f"no_segment_clause_tree_ref:{seg.segment_id}")
                 continue
 
             try:
                 payload = self._store.get_json(seg_ref)
-            except (PermanentError, TransientError):
+            except PermanentError:
                 logger.warning(
-                    "PIPELINE_VIEW STRUCTURE: segment clause tree unavailable",
+                    "PIPELINE_VIEW STRUCTURE v2_only: segment clause tree missing",
                     extra={
                         "doc_id": str(doc.id),
+                        "version_id": str(version.id),
                         "segment_id": seg.segment_id,
                         "ref": seg_ref,
                     },
                 )
+                errors.append(f"missing:{seg.segment_id}")
+                continue
+            except TransientError:
+                logger.warning(
+                    "PIPELINE_VIEW STRUCTURE v2_only: segment clause tree temporarily unavailable",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "version_id": str(version.id),
+                        "segment_id": seg.segment_id,
+                        "ref": seg_ref,
+                    },
+                )
+                errors.append(f"pending:{seg.segment_id}")
                 continue
 
             pipeline_segment = _make_segment_dto(seg)
@@ -228,12 +331,26 @@ class StructureStageBuilder:
             before_count = len(sections)
             for idx, node in enumerate(root_nodes):
                 flatten_clause_tree(
-                    node, sections,
+                    node,
+                    sections,
                     level=1,
                     path_indices=[seg.segment_order, idx],
                     segment=pipeline_segment,
                 )
             seg_sections = sections[before_count:]
+
+            if not seg_sections:
+                logger.warning(
+                    "PIPELINE_VIEW STRUCTURE v2_only: segment tree produced no sections",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "version_id": str(version.id),
+                        "segment_id": seg.segment_id,
+                        "ref": seg_ref,
+                    },
+                )
+                errors.append(f"empty:{seg.segment_id}")
+                continue
 
             segment_previews.append(
                 StructureSegmentPreviewDTO(
@@ -243,58 +360,7 @@ class StructureStageBuilder:
                 )
             )
 
-    # ── Legacy tree ─────────────────────────────────────────────────
-
-    def _load_legacy_tree(
-        self,
-        doc,
-        version,
-        artifact_ref: str,
-        sections: list[StructureSectionPreviewDTO],
-        base_meta: StageMetaDTO,
-        view_mode: StageViewMode,
-    ) -> PipelineStageViewDTO | None:
-        """Загружает legacy clause tree. Возвращает стадию-ошибку или None при успехе."""
-        try:
-            payload = self._store.get_json(artifact_ref)
-        except PermanentError:
-            return with_representation(
-                PipelineStageViewDTO(
-                    code=PipelineStageCode.STRUCTURE,
-                    title="STRUCTURE: дерево документа",
-                    description="Артефакт clause tree ожидается, но отсутствует в сторедже.",
-                    available=False,
-                    kind=PipelineStageKind.structure,
-                    status=PipelineStageStatus.missing,
-                    artifact_ref=artifact_ref,
-                    meta=base_meta,
-                    preview=None,
-                ),
-                view_mode=view_mode,
-                **_STRUCTURE_REPR_KWARGS,
-            )
-        except TransientError:
-            return with_representation(
-                PipelineStageViewDTO(
-                    code=PipelineStageCode.STRUCTURE,
-                    title="STRUCTURE: дерево документа",
-                    description="Структурированный артефакт временно недоступен.",
-                    available=False,
-                    kind=PipelineStageKind.structure,
-                    status=PipelineStageStatus.pending,
-                    artifact_ref=artifact_ref,
-                    meta=base_meta,
-                    preview=None,
-                ),
-                view_mode=view_mode,
-                **_STRUCTURE_REPR_KWARGS,
-            )
-
-        root_nodes = iter_structure_root_nodes(payload)
-        for idx, node in enumerate(root_nodes):
-            flatten_clause_tree(node, sections, level=1, path_indices=[idx], segment=None)
-
-        return None  # Успех — ранний выход не нужен
+        return errors
 
     # ── Source mapping ──────────────────────────────────────────────
 
@@ -351,9 +417,8 @@ class StructureStageBuilder:
 
 
 # ════════════════════════════════════════════════════════════════════
-# Автономные функции (используются также из stage_chunks)
+# Автономные функции (используются также из других stage builders)
 # ════════════════════════════════════════════════════════════════════
-
 
 def _make_segment_dto(seg: DocumentSegment) -> PipelineSegmentDTO:
     return PipelineSegmentDTO(
@@ -456,7 +521,8 @@ def flatten_clause_tree(
     for idx, child in enumerate(children):
         if isinstance(child, dict):
             flatten_clause_tree(
-                child, acc,
+                child,
+                acc,
                 level=effective_level + 1,
                 path_indices=path_indices + [idx],
                 segment=segment,
@@ -537,18 +603,15 @@ async def _load_clause_chunks(
     session: AsyncSession,
     store: ArtifactStore,
 ) -> list[dict[str, Any]]:
-    """Загружает clause-level чанки: сначала v2, потом legacy."""
+    """Загружает clause-level чанки только из CHUNKS v2 (без legacy fallback)."""
     reader_v2 = ChunkCorpusReaderV2(session=session, artifact_store=store)
     chunks = await reader_v2.load(doc_id=doc_id, levels=["clause"])
-    if chunks:
-        return chunks
-
-    logger.info(
-        "No v2 clause chunks, falling back to legacy snapshot",
-        extra={"doc_id": str(doc_id)},
-    )
-    legacy_reader = ChunkSnapshotReader(session=session, artifact_store=store)
-    return await legacy_reader.load(doc_id=doc_id, levels=["clause"])
+    if not chunks:
+        logger.warning(
+            "Structure source mapping skipped: no v2 clause chunks",
+            extra={"doc_id": str(doc_id)},
+        )
+    return chunks
 
 
 async def attach_structure_source_mapping(
@@ -727,5 +790,6 @@ async def enrich_structure_with_text(
         enriched_any = True
 
     return enriched_any
+
 
     

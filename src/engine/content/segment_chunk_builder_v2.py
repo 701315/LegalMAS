@@ -21,8 +21,8 @@ SegmentChunkBuilderV2 — построение чанков по логичес�
      - строит subclause‑чанки;
      - сохраняет snapshot чанков сегмента в MinIO;
      - обновляет segment.segment_chunks_ref в БД.
-  3) Строит file-level манифест чанков (chunks_manifest_v2.json):
-     - перечисление сегментов и их chunks_ref;
+ 3) Строит file-level манифест чанков (chunks_manifest_v2.json):
+     - перечисление сегментов и их segment_chunks_ref;
      - aggregate‑статистика по чанкам.
 
 - Итог:
@@ -54,14 +54,14 @@ SegmentChunkBuilderV2 — построение чанков по логичес�
      - нормализует текст, добавляет метаданные (segment_id, segment_type, и т.п.);
      - строит subclause‑чанки;
      - собирает snapshot чанков сегмента.
-  3) Строит file-level манифест чанков:
-     - перечисление сегментов и их будущих chunks_ref;
+ 3) Строит file-level манифест чанков:
+     - перечисление сегментов и их будущих segment_chunks_ref;
      - aggregate‑статистика по чанкам.
 
 Важно:
 - Этот builder НЕ пишет в MinIO и НЕ обновляет БД.
 - Сохранение segment_chunks_ref и chunks_manifest_v2_ref делает worker.
-- Этот builder НЕ использует DocumentVersion.clause_tree_ref / chunks_ref.
+- Этот builder НЕ использует legacy file-level refs старого chunking/structure контракта.
 """
 
 import uuid
@@ -236,7 +236,7 @@ class SegmentChunkBuilderV2:
       * DocumentSegment.segment_clause_tree_ref.
     - Не использует legacy:
       * DocumentVersion.clause_tree_ref
-      * DocumentVersion.chunks_ref
+      * legacy file-level chunk snapshot (schema v1)
     """
 
     def __init__(self, store: ArtifactStore | None = None) -> None:

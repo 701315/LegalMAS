@@ -12,8 +12,9 @@ Repository for DocumentVersion CRUD operations.
   - file_graph_ref, segments_count — структура файла (v2);
   - chunks_manifest_v2_ref — file-level манифест чанков (CHUNKS v2);
   - segment_chunks_ref — ссылки на чанки сегментов лежат в DocumentSegment.
-- Поле chunks_ref считается LEGACY и используется только старым кодом
-  (ChunkSnapshotReader v1, старый Retrieval/CheckRunner).
+- Сейчас основным источником истины являются:
+  - DocumentSegment.segment_chunks_ref
+  - DocumentVersion.chunks_manifest_v2_ref
 """
 
 import uuid
@@ -81,19 +82,6 @@ class DocumentVersionRepository:
             chunks_manifest_v2_ref=chunks_manifest_v2_ref,
         )
 
-    async def update_chunks_legacy_ref(
-        self,
-        version_id: uuid.UUID,
-        chunks_ref: str,
-    ) -> DocumentVersion | None:
-        """
-        Update only legacy chunks_ref.
-        """
-        return await self.update_refs(
-            version_id=version_id,
-            chunks_ref=chunks_ref,
-        )
-
     async def update_refs(
         self,
         version_id: uuid.UUID,
@@ -107,7 +95,6 @@ class DocumentVersionRepository:
         pipeline_strategy: str | None = None,
         converted_pdf_ref: str | None = None,
         primary_source_ref: str | None = None,
-        chunks_ref: str | None = None,
         file_graph_ref: str | None = None,
         segments_count: int | None = None,
         chunks_manifest_v2_ref: str | None = None,
@@ -128,20 +115,14 @@ class DocumentVersionRepository:
         - structure_builder:
             clause_tree_ref, file_graph_ref, segments_count
         - chunk_builder:
-            chunks_ref (LEGACY), chunks_manifest_v2_ref (v2)
-        - chunks_ref и chunks_manifest_v2_ref обновляются независимо:
-          * legacy path может писать только chunks_ref;
-          * v2 path может писать только chunks_manifest_v2_ref;
-          * transitional dual-write режим может писать оба поля.
+            chunks_manifest_v2_ref
 
         Важно:
         - raw_ref / sanitized_ref оставляем для backward compatibility;
         - layout_primary_ref / layout_primary_sanitized_ref — это новый основной
           контракт для одноязычного downstream-пайплайна;
         - primary_source_ref — одноязычный source (PDF) до extract;
-        - chunks_ref — LEGACY snapshot чанков (section/clause/subclause)
-          для старого Retrieval/CheckRunner;
-        - chunks_manifest_v2_ref — новый file-level манифест чанков (CHUNKS v2);
+        - chunks_manifest_v2_ref — file-level манифест чанков (CHUNKS v2);
         - None означает "не обновлять это поле";
         - если version_id не найден, метод возвращает None.
         """
@@ -177,9 +158,6 @@ class DocumentVersionRepository:
         if primary_source_ref is not None:
             values["primary_source_ref"] = primary_source_ref
 
-        if chunks_ref is not None:
-            values["chunks_ref"] = chunks_ref
-
         if file_graph_ref is not None:
             values["file_graph_ref"] = file_graph_ref
 
@@ -209,5 +187,6 @@ class DocumentVersionRepository:
             await self.session.flush()
 
         return version
+    
     
     

@@ -86,6 +86,17 @@ class RunStatus(str, Enum):
     FAILED = "failed"
 
 
+class DocumentStageExecutionStatus(str, Enum):
+    """Lifecycle of a single document stage execution attempt."""
+
+    PLANNED = "planned"
+    DISPATCHED = "dispatched"
+    STARTED = "started"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
 class BundleSourceType(str, Enum):
     """Source from which documents were imported."""
 

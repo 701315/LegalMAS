@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.document import DocumentSegment
@@ -41,6 +41,16 @@ class DocumentSegmentRepository:
             .order_by(DocumentSegment.segment_order.asc())
         )
         return list(result.scalars().all())
+    
+    async def all_segments_have_chunk_refs(
+        self,
+        document_version_id: uuid.UUID,
+    ) -> bool:
+        summary = await self.get_chunk_refs_summary(document_version_id)
+        return (
+            summary["total_segments"] > 0
+            and summary["segments_with_chunks"] == summary["total_segments"]
+        )
 
     async def delete_by_version(
         self,
@@ -100,3 +110,22 @@ class DocumentSegmentRepository:
         return rows
     
     
+    async def get_chunk_refs_summary(
+        self,
+        document_version_id: uuid.UUID,
+    ) -> dict[str, int]:
+        total_stmt = select(func.count()).select_from(DocumentSegment).where(
+            DocumentSegment.document_version_id == document_version_id
+        )
+        total = (await self.session.execute(total_stmt)).scalar_one()
+
+        with_chunks_stmt = select(func.count()).select_from(DocumentSegment).where(
+            DocumentSegment.document_version_id == document_version_id,
+            DocumentSegment.segment_chunks_ref.is_not(None),
+        )
+        with_chunks = (await self.session.execute(with_chunks_stmt)).scalar_one()
+
+        return {
+            "total_segments": int(total or 0),
+            "segments_with_chunks": int(with_chunks or 0),
+        }

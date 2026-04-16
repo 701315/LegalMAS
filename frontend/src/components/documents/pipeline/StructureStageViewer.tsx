@@ -67,26 +67,19 @@ function getSectionJson(section: StructureSectionPreviewDTO): string {
 }
 
 /**
- * Универсальный helper для выбора текста секции
- * с корректным fallback:
- *
- * canonical:
- *   - сначала structure_text;
- *   - затем text_preview (для старых бэкендов);
- *
- * friendly:
- *   - сначала enriched_text;
- *   - затем structure_text;
- *   - затем text_preview (на случай старых бэкендов).
+ * Canonical text секции:
+ * - используется только structure_text;
+ * - UI не использует дополнительные текстовые поля.
  */
-function getSectionTextCanonical(section: StructureSectionPreviewDTO): {
+function getSectionTextCanonical(
+  section: StructureSectionPreviewDTO,
+): {
   text: string;
   hasText: boolean;
 } {
   const structure = (section.structure_text ?? "").trim();
-  const preview = (section.text_preview ?? "").trim();
 
-  const text = structure || preview;
+  const text = structure;
 
   return {
     text,
@@ -97,9 +90,8 @@ function getSectionTextCanonical(section: StructureSectionPreviewDTO): {
 function getSectionTextFriendly(section: StructureSectionPreviewDTO): string {
   const enriched = (section.enriched_text ?? "").trim();
   const structure = (section.structure_text ?? "").trim();
-  const preview = (section.text_preview ?? "").trim();
 
-  return enriched || structure || preview;
+  return enriched || structure;
 }
 
 function getSectionLabel(section: StructureSectionPreviewDTO): string {
@@ -133,15 +125,13 @@ function getSectionMetaLine(section: StructureSectionPreviewDTO): string {
 
 /**
  * Короткое описание для навигационного списка слева.
- * Здесь достаточно укороченного текста секции
- * с общим fallback: enriched -> structure -> text_preview.
+ * Используется только v2-логика: enriched -> structure.
  */
 function getSectionNavDescription(section: StructureSectionPreviewDTO): string {
   const enriched = (section.enriched_text ?? "").trim();
   const structure = (section.structure_text ?? "").trim();
-  const preview = (section.text_preview ?? "").trim();
 
-  const text = enriched || structure || preview;
+  const text = enriched || structure;
   if (!text) return "";
 
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
@@ -205,7 +195,27 @@ export const StructureStageViewer: React.FC<Props> = ({
   structureStage,
   chunksStage,
 }) => {
+  const status = structureStage.status;
   const preview = structureStage.preview;
+
+  // V2_ONLY: сначала честно обрабатываем status,
+  // и только потом смотрим на наличие preview.
+  if (status === "pending") {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">
+        Структура документа ещё не готова в v2-формате. Попробуй позже.
+      </div>
+    );
+  }
+
+  if (status === "missing") {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Структурированный артефакт ожидается, но недоступен или повреждён.
+        Проверь состояние пайплайна для стадии STRUCTURE.
+      </div>
+    );
+  }
 
   if (!isStructurePreview(preview)) {
     return (
@@ -225,15 +235,16 @@ export const StructureStageViewer: React.FC<Props> = ({
   const hasSegmentGroups = segmentGroups.length > 0;
 
   const sections: StructureSectionPreviewDTO[] = React.useMemo(() => {
-    if (hasSegmentGroups) {
-      const all: StructureSectionPreviewDTO[] = [];
-      for (const group of segmentGroups) {
-        all.push(...group.sections);
-      }
-      return all;
+    if (!hasSegmentGroups) {
+      return [];
     }
-    return preview.sections ?? [];
-  }, [hasSegmentGroups, segmentGroups, preview.sections]);
+
+    const all: StructureSectionPreviewDTO[] = [];
+    for (const group of segmentGroups) {
+      all.push(...group.sections);
+    }
+    return all;
+  }, [hasSegmentGroups, segmentGroups]);
 
   const sectionCount = structureStage.meta?.section_count ?? sections.length;
 
@@ -337,22 +348,28 @@ export const StructureStageViewer: React.FC<Props> = ({
           <CanonicalJsonPanel
             sections={sections}
             activeSectionId={activeSectionId}
-            sourceLabel={
-              hasSegmentGroups
-                ? "Здесь показывается текущий объект секции из preview.segments[].sections[]."
-                : "Здесь показывается текущий объект секции из preview.sections[]."
-            }
+            sourceLabel="Здесь показывается текущий объект секции из preview.segments[].sections[]."
           />
         ) : chunksStage ? (
-          <ChunksStageViewer
-            stage={chunksStage}
-            highlightedChunkIndices={highlightedChunkIndices}
-            traceLabel={
-              highlightedChunkIndices.length > 0
-                ? "Фрагменты исходного текста, привязанные к выбранной секции"
-                : "Для выбранной секции не найдено связанных чанков"
-            }
-          />
+          chunksStage.status === "ready" ? (
+            <ChunksStageViewer
+              stage={chunksStage}
+              highlightedChunkIndices={highlightedChunkIndices}
+              traceLabel={
+                highlightedChunkIndices.length > 0
+                  ? "Фрагменты исходного текста, привязанные к выбранной секции"
+                  : "Для выбранной секции не найдено связанных чанков"
+              }
+            />
+          ) : chunksStage.status === "pending" ? (
+            <div className="flex h-full items-center justify-center text-sm text-gray-500">
+              CHUNKS ещё не готовы в v2-формате. Попробуй позже.
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-red-700">
+              CHUNKS-артефакт ожидается, но недоступен или повреждён.
+            </div>
+          )
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-gray-500">
             CHUNKS-стадия недоступна — показать исходный текст невозможно.
@@ -731,5 +748,6 @@ const CanonicalJsonPanel: React.FC<{
 };
 
 export default StructureStageViewer;
+
 
 

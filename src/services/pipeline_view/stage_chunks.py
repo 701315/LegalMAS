@@ -3,16 +3,18 @@
 """
 Stage builder: CHUNKS — материализованные чанки документа.
 
-Поддерживает:
-1) v2 (manifest + per-segment snapshots через ChunkCorpusReaderV2)
-2) legacy snapshot (version.chunks_ref)
-3) fallback через DocumentContentService
+V2_ONLY contract:
+1) canonical source — version.chunks_manifest_v2_ref
+2) segment-level completeness required:
+   - segments exist
+   - every segment has segment_chunks_ref
+3) no legacy snapshot path
+4) no fallback through DocumentContentService
 """
 
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +35,6 @@ from core.logging import get_logger
 from db.models.document import DocumentSegment
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
-from engine.content.document_content_service import DocumentContentService
 from services.pipeline_view.representation import with_representation
 from storage.artifact_store import ArtifactStore
 
@@ -55,13 +56,12 @@ _CHUNKS_REPR_KWARGS = dict(
 
 
 class ChunksStageBuilder:
-    """Строит стадию CHUNKS для pipeline view."""
+    """Строит стадию CHUNKS для pipeline view в режиме V2_ONLY."""
 
     def __init__(self, session: AsyncSession, store: ArtifactStore):
         self._session = session
         self._store = store
         self._segment_repo = DocumentSegmentRepository(session)
-        self._content_service = DocumentContentService(session=session)
 
     async def build(
         self,
@@ -72,30 +72,318 @@ class ChunksStageBuilder:
     ) -> PipelineStageViewDTO:
         """Основной метод построения стадии CHUNKS."""
 
-        # 1) v2 path
+        manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
+        if not manifest_ref:
+            logger.info(
+                "PIPELINE_VIEW CHUNKS pending: no chunks_manifest_v2_ref",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest чанков ещё не записан. "
+                        "Стадия CHUNKS пока не готова."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=None,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
+            )
+
+        segments = await self._segment_repo.list_by_version(version.id)
+        if not segments:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS pending: no persisted segments for v2 manifest",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest найден, но сегменты документа ещё не "
+                        "материализованы. Стадия CHUNKS пока не согласована."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
+            )
+
+        summary = await self._segment_repo.get_chunk_refs_summary(version.id)
+        total_segments = summary["total_segments"]
+        segments_with_chunks = summary["segments_with_chunks"]
+
+        if total_segments <= 0:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS pending: total_segments=0",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest найден, но materialized segments отсутствуют. "
+                        "Стадия CHUNKS пока не готова."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
+            )
+
+        if segments_with_chunks != total_segments:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS pending: incomplete segment chunk refs",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "total_segments": total_segments,
+                    "segments_with_chunks": segments_with_chunks,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest найден, но не у всех сегментов заполнен "
+                        "segment_chunks_ref. Стадия CHUNKS пока не готова."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
+            )
+
         reader_v2 = ChunkCorpusReaderV2(
             session=self._session,
             artifact_store=self._store,
         )
-        raw_chunks_v2 = await reader_v2.load(doc_id=doc.id, levels=["clause"])
-        segments = await self._segment_repo.list_by_version(version.id)
 
-        chunk_previews: list[ChunkPreviewDTO] = []
-        segments_preview: list[ChunksSegmentPreviewDTO] = []
-        artifact_ref: str | None = version.chunks_manifest_v2_ref or version.chunks_ref
-
-        if raw_chunks_v2:
-            chunk_previews, segments_preview = self._build_v2_chunks(
-                doc, version, raw_chunks_v2, segments,
+        try:
+            raw_chunks_v2 = await reader_v2.load(doc_id=doc.id, levels=["clause"])
+        except PermanentError:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS missing: manifest declared but payload not found",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest чанков указан, но соответствующий артефакт "
+                        "отсутствует в сторедже."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.missing,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
+            )
+        except TransientError:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS pending: storage temporarily unavailable",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest чанков временно недоступен. "
+                        "Попробуйте обновить представление позже."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.pending,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
             )
 
-        # 2) legacy snapshot path
+        if not raw_chunks_v2:
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS missing: manifest exists but chunk corpus is empty",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "total_segments": total_segments,
+                    "segments_with_chunks": segments_with_chunks,
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 manifest чанков существует, но materialized chunk corpus "
+                        "пуст или не может быть восстановлен."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.missing,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
+            )
+
+        chunk_previews, segments_preview = self._build_v2_chunks(
+            doc=doc,
+            version=version,
+            raw_chunks_v2=raw_chunks_v2,
+            segments=segments,
+        )
+
         if not chunk_previews:
-            return await self._build_legacy_or_fallback(
-                doc, version, base_meta, view_mode,
+            logger.warning(
+                "PIPELINE_VIEW CHUNKS missing: v2 corpus loaded but no valid chunk previews built",
+                extra={
+                    "doc_id": str(doc.id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "raw_chunks_count": len(raw_chunks_v2),
+                    "segments_count": len(segments),
+                    "view_mode": view_mode.value,
+                },
+            )
+            return with_representation(
+                PipelineStageViewDTO(
+                    code=PipelineStageCode.CHUNKS,
+                    title="CHUNKS: materialized chunks",
+                    description=(
+                        "V2 chunk corpus загружен, но не удалось построить "
+                        "валидное segment-aware preview."
+                    ),
+                    available=False,
+                    kind=PipelineStageKind.chunks,
+                    status=PipelineStageStatus.missing,
+                    artifact_ref=manifest_ref,
+                    meta=StageMetaDTO(
+                        page_count=base_meta.page_count,
+                        element_count=base_meta.element_count,
+                        chunk_count=0,
+                        section_count=base_meta.section_count,
+                        source_file_name=base_meta.source_file_name,
+                        mime_type=base_meta.mime_type,
+                    ),
+                    preview=None,
+                ),
+                view_mode=view_mode,
+                **_CHUNKS_REPR_KWARGS,
             )
 
-        # v2 результат
         reconstructed_text = "\n\n".join(
             ch.text for ch in chunk_previews if ch.text.strip()
         )
@@ -118,13 +406,15 @@ class ChunksStageBuilder:
         )
 
         logger.info(
-            "PIPELINE_VIEW CHUNKS (v2)",
+            "PIPELINE_VIEW CHUNKS ready (v2_only)",
             extra={
                 "doc_id": str(doc.id),
                 "version_id": str(version.id),
-                "manifest_ref": version.chunks_manifest_v2_ref,
+                "manifest_ref": manifest_ref,
                 "chunk_count": len(chunk_previews),
                 "segments_count": len(segments_preview),
+                "total_segments": total_segments,
+                "segments_with_chunks": segments_with_chunks,
                 "view_mode": view_mode.value,
             },
         )
@@ -133,18 +423,15 @@ class ChunksStageBuilder:
             code=PipelineStageCode.CHUNKS,
             title="CHUNKS: materialized chunks",
             description=(
-                "Материализованный corpus чанков документа (segment-aware) "
+                "Материализованный segment-aware corpus чанков документа "
                 "для retrieval, checks и viewer."
             ),
-            available=bool(chunk_previews),
+            available=True,
             kind=PipelineStageKind.chunks,
-            status=(
-                PipelineStageStatus.ready if chunk_previews
-                else PipelineStageStatus.pending
-            ),
-            artifact_ref=version.chunks_manifest_v2_ref or version.chunks_ref,
+            status=PipelineStageStatus.ready,
+            artifact_ref=manifest_ref,
             meta=meta,
-            preview=preview if chunk_previews else None,
+            preview=preview,
         )
 
         return with_representation(stage, view_mode=view_mode, **_CHUNKS_REPR_KWARGS)
@@ -178,9 +465,10 @@ class ChunksStageBuilder:
             seg = segment_by_id.get(segment_id)
             if not seg:
                 logger.warning(
-                    "PIPELINE_VIEW CHUNKS v2: manifest segment not found in DB",
+                    "PIPELINE_VIEW CHUNKS v2_only: manifest segment not found in DB",
                     extra={
                         "doc_id": str(doc.id),
+                        "version_id": str(version.id),
                         "segment_id": segment_id,
                         "raw_items_count": len(raw_items),
                     },
@@ -232,6 +520,14 @@ class ChunksStageBuilder:
                 )
 
             if not seg_chunks:
+                logger.warning(
+                    "PIPELINE_VIEW CHUNKS v2_only: segment has no valid chunk previews",
+                    extra={
+                        "doc_id": str(doc.id),
+                        "version_id": str(version.id),
+                        "segment_id": segment_id,
+                    },
+                )
                 continue
 
             reconstructed = "\n\n".join(ch.text for ch in seg_chunks if ch.text.strip())
@@ -247,241 +543,4 @@ class ChunksStageBuilder:
 
         return flat_chunks, segments_preview
 
-    # ── Legacy / fallback ───────────────────────────────────────────
-
-    async def _build_legacy_or_fallback(
-        self,
-        doc,
-        version,
-        base_meta: StageMetaDTO,
-        view_mode: StageViewMode,
-    ) -> PipelineStageViewDTO:
-        """Legacy snapshot или fallback через DocumentContentService."""
-        artifact_ref = version.chunks_ref
-        chunks: list[ChunkPreviewDTO] = []
-        raw_snapshot: dict[str, Any] | list[Any] | None = None
-
-        if artifact_ref:
-            try:
-                snapshot = self._store.get_json(artifact_ref)
-                raw_snapshot = snapshot
-                chunks = _extract_chunks_from_snapshot(snapshot)
-            except PermanentError:
-                return with_representation(
-                    PipelineStageViewDTO(
-                        code=PipelineStageCode.CHUNKS,
-                        title="CHUNKS: materialized chunks",
-                        description="Snapshot чанков ожидается, но отсутствует в сторедже.",
-                        available=False,
-                        kind=PipelineStageKind.chunks,
-                        status=PipelineStageStatus.missing,
-                        artifact_ref=artifact_ref,
-                        meta=base_meta,
-                        preview=None,
-                    ),
-                    view_mode=view_mode,
-                    **_CHUNKS_REPR_KWARGS,
-                )
-            except TransientError:
-                return with_representation(
-                    PipelineStageViewDTO(
-                        code=PipelineStageCode.CHUNKS,
-                        title="CHUNKS: materialized chunks",
-                        description="Snapshot чанков временно недоступен.",
-                        available=False,
-                        kind=PipelineStageKind.chunks,
-                        status=PipelineStageStatus.pending,
-                        artifact_ref=artifact_ref,
-                        meta=base_meta,
-                        preview=None,
-                    ),
-                    view_mode=view_mode,
-                    **_CHUNKS_REPR_KWARGS,
-                )
-
-        # fallback
-        if not chunks:
-            chunks = await _load_chunks_fallback(doc.id, self._content_service)
-
-        if not chunks:
-            meta = StageMetaDTO(
-                page_count=base_meta.page_count,
-                element_count=base_meta.element_count,
-                chunk_count=0,
-                section_count=base_meta.section_count,
-                source_file_name=base_meta.source_file_name,
-                mime_type=base_meta.mime_type,
-            )
-            return with_representation(
-                PipelineStageViewDTO(
-                    code=PipelineStageCode.CHUNKS,
-                    title="CHUNKS: materialized chunks",
-                    description="Чанки для документа пока недоступны.",
-                    available=False,
-                    kind=PipelineStageKind.chunks,
-                    status=PipelineStageStatus.pending,
-                    artifact_ref=artifact_ref,
-                    meta=meta,
-                    preview=None,
-                ),
-                view_mode=view_mode,
-                **_CHUNKS_REPR_KWARGS,
-            )
-
-        reconstructed_text = "\n\n".join(ch.text for ch in chunks if ch.text.strip())
-
-        preview = ChunksPreviewDTO(
-            type="chunks",
-            chunks=chunks,
-            segments=[],
-            reconstructed_text=reconstructed_text,
-            raw_json=raw_snapshot,
-        )
-
-        meta = StageMetaDTO(
-            page_count=base_meta.page_count,
-            element_count=base_meta.element_count,
-            chunk_count=len(chunks),
-            section_count=base_meta.section_count,
-            source_file_name=base_meta.source_file_name,
-            mime_type=base_meta.mime_type,
-        )
-
-        logger.info(
-            "PIPELINE_VIEW CHUNKS (legacy)",
-            extra={
-                "doc_id": str(doc.id),
-                "chunks_ref": artifact_ref,
-                "chunk_count": len(chunks),
-                "view_mode": view_mode.value,
-            },
-        )
-
-        stage = PipelineStageViewDTO(
-            code=PipelineStageCode.CHUNKS,
-            title="CHUNKS: materialized chunks",
-            description=(
-                "Материализованный snapshot чанков документа для retrieval, checks и viewer."
-            ),
-            available=True,
-            kind=PipelineStageKind.chunks,
-            status=PipelineStageStatus.ready,
-            artifact_ref=artifact_ref,
-            meta=meta,
-            preview=preview,
-        )
-
-        return with_representation(stage, view_mode=view_mode, **_CHUNKS_REPR_KWARGS)
-
-
-# ════════════════════════════════════════════════════════════════════
-# Вспомогательные функции
-# ════════════════════════════════════════════════════════════════════
-
-
-def _extract_chunks_from_snapshot(
-    snapshot: dict[str, Any] | list[Any],
-) -> list[ChunkPreviewDTO]:
-    """Извлекает ChunkPreviewDTO из legacy snapshot."""
-    result: list[ChunkPreviewDTO] = []
-
-    if isinstance(snapshot, dict):
-        raw = snapshot.get("chunks") or snapshot
-        if isinstance(raw, list):
-            items = raw
-        elif isinstance(raw, dict):
-            items: list[dict[str, Any]] = []
-            for lvl_items in raw.values():
-                if isinstance(lvl_items, list):
-                    items.extend(lvl_items)
-        else:
-            return result
-    elif isinstance(snapshot, list):
-        items = snapshot
-    else:
-        return result
-
-    if not isinstance(items, list):
-        return result
-
-    for idx, item in enumerate(items):
-        if not isinstance(item, dict):
-            continue
-        text = item.get("text") or ""
-        if not isinstance(text, str) or not text.strip():
-            continue
-
-        meta = item.get("metadata") or {}
-        clause_uid = item.get("clause_uid") or meta.get("clause_uid") or ""
-        page_from = (
-            item.get("page_from") or meta.get("page_from")
-            or item.get("page") or meta.get("page")
-        )
-        page_to = (
-            item.get("page_to") or meta.get("page_to")
-            or item.get("page") or meta.get("page")
-        )
-
-        result.append(
-            ChunkPreviewDTO(
-                index=idx,
-                clause_uid=str(clause_uid) if clause_uid else "",
-                page_from=page_from if isinstance(page_from, int) else None,
-                page_to=page_to if isinstance(page_to, int) else None,
-                text=text[:4000],
-            )
-        )
-
-    return result
-
-
-async def _load_chunks_fallback(
-    doc_id: UUID,
-    content_service: DocumentContentService,
-) -> list[ChunkPreviewDTO]:
-    """Загружает чанки через DocumentContentService как последний fallback."""
-    result: list[ChunkPreviewDTO] = []
-
-    try:
-        if hasattr(content_service, "get_chunks"):
-            payload = await content_service.get_chunks(doc_id=doc_id)
-        elif hasattr(content_service, "get_sized_chunks"):
-            payload = await content_service.get_sized_chunks(doc_id=doc_id)
-        else:
-            return result
-    except Exception:
-        return result
-
-    if not isinstance(payload, list):
-        return result
-
-    for idx, item in enumerate(payload):
-        if not isinstance(item, dict):
-            continue
-        text = item.get("text") or ""
-        if not isinstance(text, str) or not text.strip():
-            continue
-
-        meta = item.get("metadata") or {}
-        clause_uid = item.get("clause_uid") or meta.get("clause_uid") or ""
-        page_from = (
-            item.get("page_from") or meta.get("page_from")
-            or item.get("page") or meta.get("page")
-        )
-        page_to = (
-            item.get("page_to") or meta.get("page_to")
-            or item.get("page") or meta.get("page")
-        )
-
-        result.append(
-            ChunkPreviewDTO(
-                index=idx,
-                clause_uid=str(clause_uid) if clause_uid else "",
-                page_from=page_from if isinstance(page_from, int) else None,
-                page_to=page_to if isinstance(page_to, int) else None,
-                text=text[:4000],
-            )
-        )
-
-    return result
-
+        
