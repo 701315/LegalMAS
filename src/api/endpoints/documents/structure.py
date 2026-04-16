@@ -1,5 +1,3 @@
-# src/api/endpoints/documents/structure.py
-
 """
 Document structure and viewer endpoints.
 """
@@ -85,7 +83,13 @@ async def get_document_layout_for_viewer(
     if not version:
         raise HTTPException(status_code=404, detail="DocumentVersion not found")
 
-    layout_ref = version.text_layout_sanitized_ref or version.text_layout_raw_ref
+    # v2-контракт: layout_primary_sanitized_ref — основной source of truth после PII;
+    # layout_primary_ref — fallback если PII ещё не выполнен.
+    # Старые legacy-рефы (text_layout_sanitized_ref / text_layout_raw_ref) НЕ используются.
+    layout_ref = (
+        version.layout_primary_sanitized_ref
+        or version.layout_primary_ref
+    )
     if not layout_ref:
         raise HTTPException(
             status_code=404,
@@ -299,7 +303,7 @@ async def get_document_layouts_debug(
     if not version:
         raise HTTPException(status_code=404, detail="DocumentVersion not found")
 
-    raw_ref = version.text_layout_raw_ref
+    raw_ref = version.layout_primary_ref or version.text_layout_raw_ref
     sanitized_ref = (
         version.layout_primary_sanitized_ref
         or version.text_layout_sanitized_ref
@@ -344,4 +348,3 @@ async def get_document_layouts_debug(
         raw_layout=raw_layout,
         sanitized_layout=sanitized_layout,
     )
-
