@@ -5,6 +5,12 @@ from __future__ import annotations
 import uuid
 from typing import Any, Iterable
 
+# anyio.to_thread.run_sync позволяет запустить синхронную (блокирующую) функцию
+# в отдельном потоке, не замораживая async event loop.
+# Это важно потому что ArtifactStore.get_json делает HTTP-запрос в MinIO —
+# он может занять 50-500мс, и всё это время event loop был бы заморожен.
+from anyio.to_thread import run_sync
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -14,6 +20,12 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Константы ожидаемой схемы snapshot'а.
+# Вынесены как константы чтобы: (1) не дублировать магические строки,
+# (2) при смене версии менять в одном месте.
+_EXPECTED_SCOPE = "segment"
+_EXPECTED_SCHEMA_VERSION = 2
+
 
 class ChunkCorpusReaderV2:
     """
@@ -21,23 +33,23 @@ class ChunkCorpusReaderV2:
 
     Простыми словами для непрофессионального программиста:
 
-    - Вся информация о чанках теперь разделена:
+    - Вся информация о чанках разделена:
       * один "манифест" на весь файл (file manifest),
       * отдельные snapshots для каждого сегмента.
 
     - Этот класс:
       1) Находит последнюю версию документа (DocumentVersion).
       2) Берёт ссылку на file manifest (chunks_manifest_v2_ref).
-      3) Грузит manifest JSON из object storage.
+      3) Грузит manifest JSON из object storage (MinIO) — асинхронно.
       4) Для каждого сегмента берёт ссылку на его snapshot (segment_chunks_ref).
-      5) Грузит сегментные snapshots и собирает единый список чанков.
+      5) Грузит сегментные snapshots асинхронно и собирает единый список чанков.
 
-    - Возвращает такой же нормализованный список, как и legacy-reader:
+    - Возвращает нормализованный список:
       [
           {
               "id": ...,
               "text": ...,
-              "metadata": {...},  # но тут уже есть segment-aware поля
+              "metadata": {...},
           }
       ]
     """
@@ -78,12 +90,31 @@ class ChunkCorpusReaderV2:
         # 2. Берём ссылку на file-level manifest.
         manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
         if not manifest_ref:
-            # Нет манифеста — значит CHUNKS v2 ещё не построен.
+            # Нет манифеста — значит CHUNKS v2 ещё не построен для этого документа.
             return []
 
-        # 3. Грузим manifest JSON из object storage.
-        manifest = self._load_manifest(manifest_ref, doc_id, version.id)
+        # 3. Грузим manifest JSON из MinIO — АСИНХРОННО через _load_json_async.
+        manifest = await self._load_json_async(
+            ref=manifest_ref,
+            context={
+                "doc_id": str(doc_id),
+                "version_id": str(version.id),
+                "label": "file manifest",
+            },
+        )
         if manifest is None:
+            return []
+
+        if not isinstance(manifest, dict):
+            logger.warning(
+                "ChunkCorpusReaderV2: manifest is not a dict",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "manifest_type": type(manifest).__name__,
+                },
+            )
             return []
 
         # 4. Проверяем базовую структуру manifest.
@@ -99,13 +130,13 @@ class ChunkCorpusReaderV2:
             )
             return []
 
-        # 5. Считываем сегментные записи из БД (проверка целостности, если нужно).
-        #    Сейчас мы используем в основном данные манифеста, потому что в нём уже есть segment_chunks_ref.
-        #    Репозиторий можно использовать для дополнительных проверок или для случаев, когда ref ещё не проставлен.
+        # 5. Считываем сегментные записи из БД для проверки целостности.
+        #    Если сегмент есть в манифесте но отсутствует в БД — это аномалия,
+        #    логируем предупреждение (но продолжаем читать).
         db_segments = await self.segments.list_by_version(version.id)
         db_segments_by_id = {s.segment_id: s for s in db_segments}
 
-        # 6. Идём по сегментам из манифеста, грузим их snapshots и собираем единый corpus.
+        # 6. Идём по сегментам из манифеста, грузим их snapshots, собираем corpus.
         out: list[dict[str, Any]] = []
 
         for seg in segments_meta:
@@ -130,7 +161,7 @@ class ChunkCorpusReaderV2:
                 )
                 continue
 
-            # Дополнительная проверка: сегмент из манифеста должен быть в БД.
+            # Дополнительная проверка целостности: сегмент из манифеста должен быть в БД.
             if segment_id not in db_segments_by_id:
                 logger.warning(
                     "ChunkCorpusReaderV2: manifest segment not found in DB segments",
@@ -142,7 +173,8 @@ class ChunkCorpusReaderV2:
                     },
                 )
 
-            segment_items = self._load_segment_snapshot(
+            # Загружаем snapshot сегмента и извлекаем нужные уровни чанков.
+            segment_items = await self._load_segment_snapshot(
                 doc_id=doc_id,
                 version_id=version.id,
                 segment_id=segment_id,
@@ -153,57 +185,38 @@ class ChunkCorpusReaderV2:
 
         return out
 
-    @staticmethod
-    def _normalize_levels(levels: Iterable[str]) -> set[str]:
-        """
-        Простой helper: нормализует список уровней чанков.
-        """
-        return {
-            lvl.strip().lower()
-            for lvl in levels
-            if isinstance(lvl, str) and lvl.strip()
-        }
+    # ------------------------------------------------------------------
+    # Внутренние helpers
+    # ------------------------------------------------------------------
 
-    def _load_manifest(
+    async def _load_json_async(
         self,
-        manifest_ref: str,
-        doc_id: uuid.UUID,
-        version_id: uuid.UUID,
-    ) -> dict[str, Any] | None:
+        ref: str,
+        context: dict[str, Any],
+    ) -> Any:
         """
-        Загрузить file-level manifest (chunks_manifest_v2.json) из object storage.
+        Загрузить JSON из MinIO в отдельном потоке (не блокируя event loop).
 
-        Возвращает dict или None, если что-то пошло не так.
+        Простыми словами:
+        - ArtifactStore.get_json делает HTTP-запрос — это медленная операция.
+        - Если вызвать её напрямую в async-коде, весь сервер "встанет" на это время.
+        - run_sync запускает её в отдельном потоке, event loop остаётся свободным.
+
+        Возвращает распарсенный объект (dict/list) или None при ошибке.
         """
+        def _get() -> Any:
+            return self.artifact_store.get_json(ref)
+
         try:
-            manifest = self.artifact_store.get_json(manifest_ref)
+            return await run_sync(_get)
         except Exception as e:
             logger.warning(
-                "ChunkCorpusReaderV2: failed to load file manifest",
-                extra={
-                    "doc_id": str(doc_id),
-                    "version_id": str(version_id),
-                    "manifest_ref": manifest_ref,
-                    "error": str(e),
-                },
+                "ChunkCorpusReaderV2: failed to load JSON from storage",
+                extra={**context, "ref": ref, "error": str(e)},
             )
             return None
 
-        if not isinstance(manifest, dict):
-            logger.warning(
-                "ChunkCorpusReaderV2: manifest is not a dict",
-                extra={
-                    "doc_id": str(doc_id),
-                    "version_id": str(version_id),
-                    "manifest_ref": manifest_ref,
-                    "manifest_type": type(manifest).__name__,
-                },
-            )
-            return None
-
-        return manifest
-
-    def _load_segment_snapshot(
+    async def _load_segment_snapshot(
         self,
         *,
         doc_id: uuid.UUID,
@@ -215,56 +228,64 @@ class ChunkCorpusReaderV2:
         """
         Загрузить snapshot одного сегмента и вернуть нормализованные чанки.
 
-        - doc_id, version_id — для логов и проверок.
+        - doc_id, version_id — только для логов.
         - segment_id — идентификатор сегмента (строка).
-        - segment_chunks_ref — ссылка на JSON с чанками сегмента.
-        - level_set — какие уровни чанков нужны.
+        - segment_chunks_ref — путь к JSON с чанками сегмента в MinIO.
+        - level_set — множество нужных уровней (section / clause / subclause).
         """
-        try:
-            snapshot = self.artifact_store.get_json(segment_chunks_ref)
-        except Exception as e:
-            logger.warning(
-                "ChunkCorpusReaderV2: failed to load segment snapshot",
-                extra={
-                    "doc_id": str(doc_id),
-                    "version_id": str(version_id),
-                    "segment_id": segment_id,
-                    "segment_chunks_ref": segment_chunks_ref,
-                    "error": str(e),
-                },
-            )
+        context = {
+            "doc_id": str(doc_id),
+            "version_id": str(version_id),
+            "segment_id": segment_id,
+            "label": "segment snapshot",
+        }
+
+        snapshot = await self._load_json_async(
+            ref=segment_chunks_ref,
+            context=context,
+        )
+
+        if snapshot is None:
+            # Ошибка уже залогирована внутри _load_json_async.
             return []
 
         if not isinstance(snapshot, dict):
             logger.warning(
                 "ChunkCorpusReaderV2: segment snapshot is not a dict",
                 extra={
-                    "doc_id": str(doc_id),
-                    "version_id": str(version_id),
-                    "segment_id": segment_id,
+                    **context,
                     "segment_chunks_ref": segment_chunks_ref,
                     "snapshot_type": type(snapshot).__name__,
                 },
             )
             return []
 
-        # Проверяем базовые поля snapshot (по желанию можно сделать строгую проверку schema_version/scope).
         scope = snapshot.get("scope")
         schema_version = snapshot.get("schema_version")
-        if scope != "segment" or schema_version != 2:
-            logger.warning(
-                "ChunkCorpusReaderV2: unexpected segment snapshot schema",
+
+        # ЖЁСТКАЯ ПРОВЕРКА СХЕМЫ.
+        # Если scope или schema_version не совпадают с ожидаемыми —
+        # мы НЕ читаем данные дальше. Это защита от ситуации когда
+        # в MinIO по ошибке окажется snapshot старого формата (V1):
+        # его структура отличается от V2, и молчаливое чтение даст
+        # некорректные данные без какой-либо ошибки.
+        if scope != _EXPECTED_SCOPE or schema_version != _EXPECTED_SCHEMA_VERSION:
+            logger.error(
+                "ChunkCorpusReaderV2: unexpected segment snapshot schema — skipping segment. "
+                "Expected scope='segment', schema_version=2. "
+                "This segment will be excluded from checks corpus.",
                 extra={
-                    "doc_id": str(doc_id),
-                    "version_id": str(version_id),
-                    "segment_id": segment_id,
+                    **context,
                     "segment_chunks_ref": segment_chunks_ref,
-                    "scope": scope,
-                    "schema_version": schema_version,
+                    "actual_scope": scope,
+                    "actual_schema_version": schema_version,
+                    "expected_scope": _EXPECTED_SCOPE,
+                    "expected_schema_version": _EXPECTED_SCHEMA_VERSION,
                 },
             )
+            return []
 
-        chunks_by_level = (snapshot.get("chunks") or {})
+        chunks_by_level = snapshot.get("chunks") or {}
         if not isinstance(chunks_by_level, dict):
             return []
 
@@ -273,6 +294,7 @@ class ChunkCorpusReaderV2:
         for lvl, items in chunks_by_level.items():
             if not isinstance(lvl, str):
                 continue
+            # Пропускаем уровни, которые не запрашивались.
             if lvl.strip().lower() not in level_set:
                 continue
             if not isinstance(items, list):
@@ -283,6 +305,7 @@ class ChunkCorpusReaderV2:
                     continue
 
                 text = (ch.get("text") or "").strip()
+                # Пустые чанки пропускаем — они не несут информации для LLM.
                 if not text:
                     continue
 
@@ -290,15 +313,27 @@ class ChunkCorpusReaderV2:
                 if not isinstance(metadata, dict):
                     metadata = {}
 
-                out.append(
-                    {
-                        "id": ch.get("id"),
-                        "text": text,
-                        "metadata": metadata,
-                    }
-                )
+                out.append({
+                    "id": ch.get("id") or f"{segment_id}:{lvl}:{len(out)}",
+                    "text": text,
+                    "metadata": metadata,
+                })
 
         return out
+
+    @staticmethod
+    def _normalize_levels(levels: Iterable[str]) -> set[str]:
+        """
+        Нормализовать список уровней: привести к нижнему регистру,
+        убрать пробелы, отфильтровать пустые строки.
+        """
+        return {
+            lvl.strip().lower()
+            for lvl in levels
+            if isinstance(lvl, str) and lvl.strip()
+        }
+    
+
     
 
     

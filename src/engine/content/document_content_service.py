@@ -3,21 +3,15 @@
 """
 DocumentContentService v3: фасад над чанками и (legacy) clause tree + layout.
 
-
 - Для checks читаем готовые snapshot'ы чанков (CHUNKS v2).
 - Clause tree + layout используем как legacy‑путь / для вспомогательных задач
   (header/snippet, on-the-fly построение чанков).
-- Clause tree + layout используем как fallback / для вспомогательных задач
-  (header/snippet, on-the-fly построение чанков).
-
 
 Простыми словами:
-
 
 - В MinIO есть два типа артефактов:
   1) layout (text layout) — список маленьких текстовых кусочков (elements);
   2) clause tree — структура документа (пункты, подпункты, их иерархия).
-
 
 - Этот сервис:
   - читает clause tree и layout по ссылкам из последней DocumentVersion;
@@ -30,29 +24,21 @@ DocumentContentService v3: фасад над чанками и (legacy) clause t
     * иерархию section/clause/subclause,
     * header + snippet для классификаторов.
 
-
 - Сервис НИЧЕГО не кэширует между задачами Celery:
   - на каждый вызов ему дают свежую AsyncSession,
   - он сам читает нужные JSON из MinIO.
 """
 
-
 from __future__ import annotations
 
-
+import re
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
-
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
-
 from db.models.document import DocumentVersion
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from storage.artifact_store import ArtifactStore
-
-
 from engine.retrieval.tokenization import count_tokens
 from engine.retrieval.models import RetrievalChunk
 from engine.content.clause_tree_builder import ClauseTreeBuilder
@@ -64,39 +50,30 @@ from engine.content.chunking import (
 from core.logging import get_logger
 from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 
-
 logger = get_logger(__name__)
-
 
 
 class ClauseTreeStorageClientProtocol:
     """
     Простейший протокол для клиента хранения, который умеет читать JSON
     по URI вида s3://bucket/path/to/file.json.
-
-
     Для непрофессионального программиста:
     - Это просто "договор" об интерфейсе.
     - Любой объект, у которого есть метод load_json(uri: str) -> dict,
       можно использовать как источник clause tree.
     """
 
-
     async def load_json(self, uri: str) -> dict[str, Any]:
         raise NotImplementedError
-
 
 
 class ClauseTreeStorageClient(ClauseTreeStorageClientProtocol):
     """
     Адаптер поверх ArtifactStore, реализующий load_json(uri).
-
-
     ArtifactStore сам знает, как читать JSON из MinIO.
     Этот класс просто оборачивает синхронный вызов в асинхронный,
     чтобы удобнее использовать его в async-коде.
     """
-
 
     def __init__(self, store: ArtifactStore | None = None) -> None:
         self.store = store or ArtifactStore()
@@ -105,21 +82,16 @@ class ClauseTreeStorageClient(ClauseTreeStorageClientProtocol):
     async def load_json(self, uri: str) -> dict[str, Any]:
         from anyio.to_thread import run_sync
 
-
         def _get() -> dict[str, Any]:
             return self.store.get_json(uri)
 
-
         return await run_sync(_get)
-
 
 
 class LayoutStorageClient:
     """
     Простой клиент для чтения layout JSON (raw или sanitized) из MinIO
     через ArtifactStore.
-
-
     Формат layout (см. build_text_layout_raw):
       {
         "elements": [
@@ -139,7 +111,6 @@ class LayoutStorageClient:
       }
     """
 
-
     def __init__(self, store: ArtifactStore | None = None) -> None:
         self.store = store or ArtifactStore()
 
@@ -147,23 +118,16 @@ class LayoutStorageClient:
     async def load_json(self, uri: str) -> dict[str, Any]:
         from anyio.to_thread import run_sync
 
-
         def _get() -> dict[str, Any]:
             return self.store.get_json(uri)
 
-
         return await run_sync(_get)
-
 
 
 class DocumentContentService:
     """
     Сервис доступа к содержимому документа (структура + текст).
-
-
     Важно:
-
-
     - Сервис работает как "адаптер" поверх:
         * AsyncSession (через DocumentVersionRepository),
         * ArtifactStore (через ClauseTreeStorageClient и LayoutStorageClient).
@@ -174,26 +138,30 @@ class DocumentContentService:
       Каждый воркер создаёт этот сервис в рамках одного UnitOfWork (db_uow).
     """
 
-
     def __init__(
         self,
         session: AsyncSession,
         storage_client: ClauseTreeStorageClientProtocol | None = None,
         layout_client: LayoutStorageClient | None = None,
+        artifact_store: ArtifactStore | None = None,
     ) -> None:
         self.session = session
         self.versions = DocumentVersionRepository(session)
         self.documents = DocumentRepository(session)
-        self.storage = storage_client or ClauseTreeStorageClient()
-        self.layout_storage = layout_client or LayoutStorageClient()
-        # Внутренний ArtifactStore для чтения v2 snapshot'ов чанков.
-        self._artifact_store = ArtifactStore()
 
+        # Единственный экземпляр ArtifactStore для всего сервиса.
+        # Простыми словами: это одно "соединение" с MinIO, которое
+        # переиспользуется везде внутри сервиса.
+        # Раньше создавалось три отдельных экземпляра — это лишние соединения.
+        # Теперь все три клиента используют один и тот же объект.
+        self._artifact_store = artifact_store or ArtifactStore()
+
+        self.storage = storage_client or ClauseTreeStorageClient(self._artifact_store)
+        self.layout_storage = layout_client or LayoutStorageClient(self._artifact_store)
 
     # -------------------------------------------------------------------------
     # Внутренние helpers: загрузка последней версии, clause tree и layout
     # -------------------------------------------------------------------------
-
 
     async def _get_latest_version(self, doc_id: uuid.UUID) -> Optional[DocumentVersion]:
         """
@@ -220,8 +188,6 @@ class DocumentContentService:
     async def _load_layout(self, version: DocumentVersion) -> Optional[Dict[str, Any]]:
         """
         Загрузить рабочий layout документа по единому контракту пайплайна.
-
-
         Приоритет:
         1) layout_primary_sanitized_ref — основной source of truth после PII;
         2) layout_primary_ref — recovery fallback для случаев, когда PII ещё не выполнен.
@@ -248,8 +214,6 @@ class DocumentContentService:
     ) -> float | None:
         """
         Посчитать нормализованную позицию чанка в документе.
-
-
         Для непрофессионального программиста:
         - Если знаем страницу(ы) чанка и общее число страниц,
           считаем "середину" чанка и делим на длину документа.
@@ -261,16 +225,13 @@ class DocumentContentService:
         if not total_pages or total_pages <= 0:
             return None
 
-
         if start_page is None and end_page is None:
             return None
-
 
         s = start_page if isinstance(start_page, int) else end_page
         e = end_page if isinstance(end_page, int) else start_page
         if s is None or e is None:
             return None
-
 
         mid = (s + e) / 2.0
         ratio = mid / float(total_pages)
@@ -293,8 +254,6 @@ class DocumentContentService:
     ) -> list[dict[str, Any]]:
         """
         Прочитать чанки из сохранённых v2 snapshot'ов.
-
-
         ВАЖНО:
         - Используется только CHUNKS v2
         (file manifest + segment snapshots).
@@ -320,7 +279,6 @@ class DocumentContentService:
             )
             return []
 
-
         return v2_chunks or []
 
 
@@ -337,8 +295,6 @@ class DocumentContentService:
     ) -> Optional[str]:
         """
         Извлечь шапку документа (title + преамбула) напрямую из layout.
-
-
         Простыми словами:
         - Берём layout последней версии документа.
         - Сканируем первые несколько страниц (обычно 1–2).
@@ -350,16 +306,13 @@ class DocumentContentService:
         if not version:
             return None
 
-
         layout = await self._load_layout(version)
         if not layout:
             return None
 
-
         elements = layout.get("elements") or []
         if not elements:
             return None
-
 
         # Фильтруем только первые max_pages страниц
         header_elements: List[Dict[str, Any]] = []
@@ -368,35 +321,25 @@ class DocumentContentService:
             if not isinstance(page, int) or page > max_pages:
                 continue
 
-
             text = (el.get("text") or "").strip()
             if not text:
                 continue
 
-
             upper = text.upper()
-
 
             # Стоп‑сигналы: оглавление или явный крупный раздел
             if "TABLE OF CONTENTS" in upper or "СОДЕРЖАНИЕ" in upper:
                 break
 
-
             # Примитивная эвристика: если строка похожа на раздел 1./1.1 и т.п.,
             # считаем, что шапка закончилась.
-            import re
-
-
             if re.match(r"^\d{1,2}(\.\d{1,2})*\.\s+.+", text):
                 break
 
-
             header_elements.append(el)
-
 
         if not header_elements:
             return None
-
 
         parts: List[str] = []
         for el in header_elements:
@@ -404,15 +347,12 @@ class DocumentContentService:
             if t:
                 parts.append(t)
 
-
         full = "\n".join(parts).strip()
         if not full:
             return None
 
-
         if len(full) > max_length:
             full = full[:max_length]
-
 
         return full or None
 
@@ -426,7 +366,6 @@ class DocumentContentService:
     ) -> Optional[str]:
         """
         Извлечь сниппет тела документа напрямую из layout (v2-артефакт).
-
         Простыми словами:
         - Берём layout последней версии документа (layout_primary_sanitized_ref
           или layout_primary_ref — единственный source of truth в v2).
@@ -435,13 +374,11 @@ class DocumentContentService:
         - Собираем текст со следующих страниц, отбрасывая слишком короткие
           элементы (колонтитулы, номера страниц и т.п.).
         - Возвращаем один текстовый блок для L3 (эмбеддинги) и L4 (LLM).
-
         Почему не clause tree:
         - clause tree — legacy-артефакт (CHUNKS v1), может отсутствовать
           у новых документов, обработанных пайплайном v2.
         - layout всегда присутствует после Stage 3 (extract), поэтому
           этот метод надёжно работает для всех документов.
-
         Параметры:
         - skip_pages     : сколько первых страниц пропустить (шапка документа).
         - max_length     : максимальная длина сниппета в символах.
@@ -513,21 +450,15 @@ class DocumentContentService:
     async def get_chunks(self, doc_id: uuid.UUID) -> List[Dict[str, Any]]:
         """
         Построить чанки для Retrieval/Checks:
-
-
         - один чанк на каждую листовую клаузу в clause tree;
         - текст чанка — реальный текст клаузы, собранный по element_ids
           из layout (sanitized/raw);
         - если clause tree отсутствует или layout недоступен, вернуть один
           "пустой" чанк, чтобы пайплайн не падал.
-
-
         ВАЖНО:
         - Это legacy-путь (CHUNKS v1), используется для:
         * документов без готовых snapshot'ов чанков;
         * вспомогательных задач (debug, header/snippet и т.п.).
-
-
         Для непрофессионального программиста:
         - "чанк" = кусок текста договора, обычно один пункт,
           который дальше анализируют на риски.
@@ -540,10 +471,8 @@ class DocumentContentService:
             )
             return []
 
-
         tree = await self._load_clause_tree(version)
         layout = await self._load_layout(version)
-
 
         if not tree or not layout:
             logger.warning(
@@ -561,13 +490,11 @@ class DocumentContentService:
             )
             return []
 
-
         leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
             tree=tree,
             layout=layout,
         )
-
 
         if not leaf_chunks:
             logger.warning(
@@ -583,7 +510,6 @@ class DocumentContentService:
             )
             return []
 
-
         # Пытаемся достать общее число страниц из layout.metadata
         total_pages: int | None = None
         layout_meta = layout.get("metadata") or {}
@@ -594,13 +520,11 @@ class DocumentContentService:
                 total_pages = value
                 break
 
-
         # Пробрасываем информацию о language_filter / degraded из layout в метаданные чанков.
         lf_meta = (layout_meta.get("language_filter") or {}) if isinstance(layout_meta, dict) else {}
         lf_degraded = lf_meta.get("degraded")
         lf_reason = lf_meta.get("degraded_reason")
         lf_target_lang = lf_meta.get("target_language")
-
 
         if lf_degraded is not None or lf_target_lang:
             for ch in leaf_chunks:
@@ -616,7 +540,6 @@ class DocumentContentService:
                     meta["language_filter"] = lf
                     ch["metadata"] = meta
 
-
         # Добавляем position_ratio для каждого листового чанка (если можем)
         if total_pages:
             for ch in leaf_chunks:
@@ -627,7 +550,6 @@ class DocumentContentService:
                 if pos is not None:
                     meta["position_ratio"] = pos
                     ch["metadata"] = meta
-
 
         return leaf_chunks
 
@@ -640,74 +562,53 @@ class DocumentContentService:
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Вернуть:
-
-
         - header_text: заголовки верхнего уровня (обычно level 1) —
-          для L2 классификатора;
+        для L2 классификатора;
         - snippet_text: текст первых нескольких листовых клауз —
-          для L3 (эмбеддинги) и L4 (LLM).
-
+        для L3 (эмбеддинги) и L4 (LLM).
 
         ВАЖНО:
-        - Это legacy-путь (CHUNKS v1), используется для:
-        * документов без готовых snapshot'ов чанков;
-        * вспомогательных задач (debug, header/snippet и т.п.).
-
-
-        Важно:
-        - snippet собирается по тем же правилам, что и чанки:
-          по element_ids из clause tree, через layout.
+        - Для v2-документов (без clause_tree_ref): читаем header и snippet
+        напрямую из layout через get_title_and_preamble / get_snippet_from_layout.
+        - Для legacy v1 документов: snippet собирается по element_ids из clause tree.
         """
         version = await self._get_latest_version(doc_id)
         if not version:
             return None, None
 
-
         tree = await self._load_clause_tree(version)
         layout = await self._load_layout(version)
 
-
+        # v2-документы не имеют clause tree — читаем напрямую из layout.
         if not tree or not layout:
-            return None, None
+            header_text = await self.get_title_and_preamble(doc_id)
+            snippet_text = await self.get_snippet_from_layout(doc_id)
+            return header_text, snippet_text
 
+        # --- legacy v1 путь: clause tree + layout ---
 
         # Header: нормализованная шапка (title + преамбула) из layout.
         header_text = await self.get_title_and_preamble(doc_id)
 
-
-        # Листовые клаузы — используем тот же ClauseTreeBuilder.
-        leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
+        # Листовые клаузы — один вызов, результат переиспользуем.
+        leaf_chunks_all = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
             tree=tree,
             layout=layout,
         )
 
-
-        if not leaf_chunks:
+        if not leaf_chunks_all:
             return header_text, None
 
-
-        # Берём первые max_leaf_clauses клауз.
-        leaf_chunks = leaf_chunks[:max_leaf_clauses]
-
-
         # --- Микрополитика длины сниппета ---
-        MIN_CLAUSE_LEN = 80      # минимум символов для "осмысленной" клаузы
-        EXTRA_CLAUSES = 5        # сколько максимум клауз можно взять в сниппет
+        MIN_CLAUSE_LEN = 80   # минимум символов для "осмысленной" клаузы
+        EXTRA_CLAUSES = 5     # сколько максимум клауз можно взять в сниппет
 
-
-        # Посчитаем суммарную длину первых двух клауз
-        first_two = leaf_chunks[:2]
-        first_two_len = sum(len(ch.get("text") or "") for ch in first_two)
-
-
-        # Если короткие — расширяем окно до EXTRA_CLAUSES (если они есть)
+        first_two_len = sum(len(ch.get("text") or "") for ch in leaf_chunks_all[:2])
         if first_two_len < MIN_CLAUSE_LEN:
-            extra_leaf_chunks = leaf_chunks
-            if len(extra_leaf_chunks) < EXTRA_CLAUSES:
-                pass
-            leaf_chunks = extra_leaf_chunks[:EXTRA_CLAUSES]
-
+            leaf_chunks = leaf_chunks_all[:EXTRA_CLAUSES]
+        else:
+            leaf_chunks = leaf_chunks_all[:max_leaf_clauses]
 
         # Собираем текст сниппета: клаузы разделяем двойным переводом строки,
         # чтобы модель видела границы пунктов.
@@ -717,13 +618,10 @@ class DocumentContentService:
             if text:
                 texts_for_snippet.append(text)
 
-
         snippet_text = "\n\n".join(texts_for_snippet).strip()
-
 
         if snippet_text and len(snippet_text) > max_snippet_len:
             snippet_text = snippet_text[:max_snippet_len]
-
 
         return header_text, (snippet_text or None)
 
@@ -734,15 +632,12 @@ class DocumentContentService:
     ) -> list[RetrievalChunk]:
         """
         Внутренний адаптер: get_chunks -> список RetrievalChunk с kind="clause".
-
-
         Для непрофессионального программиста:
         - Мы берём уже готовые клауза-чанки (dict) из get_chunks();
         - Превращаем каждый в объект RetrievalChunk с нормальным "паспортом";
         - В дальнейшем retrieval / LLM / checks будут работать именно с этим типом.
         """
         raw_chunks = await self.get_chunks(doc_id)
-
 
         retrieval_chunks: list[RetrievalChunk] = []
         for ch in raw_chunks:
@@ -751,9 +646,8 @@ class DocumentContentService:
             if not text:
                 continue
 
-
             rc = RetrievalChunk(
-                id=str(ch.get("id") or f"{doc_id}:clause"),
+                id=str(ch.get("id") or f"{doc_id}:clause:{meta.get('clause_uid') or 'unknown'}"),
                 doc_id=meta.get("doc_id") or str(doc_id),
                 kind="clause",
                 clause_uid=meta.get("clause_uid"),
@@ -784,7 +678,6 @@ class DocumentContentService:
             )
             retrieval_chunks.append(rc)
 
-
         return retrieval_chunks
 
 
@@ -796,14 +689,11 @@ class DocumentContentService:
         overlap_ratio: float = 0.15,
     ) -> list[RetrievalChunk]:
         """
-        Внутренний адаптер: get_sized_chunks -> список RetrievalChunk с kind="subclause".
+        Внутренний адаптер: get_sized_chunks -> список RetrievalChunk.
 
-
-        Для непрофессионального программиста:
-        - get_sized_chunks уже умеет строить нормализованные под-чанки
-          (subclause) в формате dict;
-        - здесь мы аккуратно упаковываем их в RetrievalChunk, не меняя
-          внешний интерфейс get_sized_chunks (он по-прежнему возвращает dict).
+        kind определяется по факту:
+        - "subclause" — если клауза была разбита (id заканчивается на ":1", ":2", ...);
+        - "clause"    — если клауза осталась целой (id заканчивается на ":0").
         """
         raw_chunks = await self.get_sized_chunks(
             doc_id=doc_id,
@@ -812,7 +702,6 @@ class DocumentContentService:
             overlap_ratio=overlap_ratio,
         )
 
-
         retrieval_chunks: list[RetrievalChunk] = []
         for ch in raw_chunks:
             text = (ch.get("text") or "").strip()
@@ -820,11 +709,20 @@ class DocumentContentService:
             if not text:
                 continue
 
+            chunk_id = str(ch.get("id") or f"{doc_id}:clause:0")
+
+            # Определяем kind по индексу в конце id (формат: "{doc_id}:{clause_uid}:{sub_idx}")
+            # sub_idx > 0 означает, что клауза была реально разбита на под-чанки.
+            try:
+                sub_idx = int(chunk_id.rsplit(":", 1)[-1])
+            except (ValueError, IndexError):
+                sub_idx = 0
+            kind = "subclause" if sub_idx > 0 else "clause"
 
             rc = RetrievalChunk(
-                id=str(ch.get("id") or f"{doc_id}:subclause"),
+                id=chunk_id,
                 doc_id=meta.get("doc_id") or str(doc_id),
-                kind="subclause",
+                kind=kind,
                 clause_uid=meta.get("clause_uid"),
                 level=meta.get("level"),
                 text=text,
@@ -853,7 +751,6 @@ class DocumentContentService:
             )
             retrieval_chunks.append(rc)
 
-
         return retrieval_chunks
 
 
@@ -864,63 +761,24 @@ class DocumentContentService:
         max_tokens: int = 800,
         overlap_ratio: float = 0.15,
     ) -> List[Dict[str, Any]]:
-        """
-        Построить НОРМАЛИЗОВАННЫЕ чанки поверх листовых клауз.
+        """..."""
 
-
-        Для непрофессионального пользователя:
-        - сначала каждая листовая клауза превращается в один крупный чанк (get_chunks);
-        - затем мы берём эти большие куски и аккуратно делим их
-          на более мелкие части по предложениям и абзацам;
-        - цель: чтобы каждый чанк был удобного размера для нейросети,
-          примерно около target_tokens, но не больше max_tokens;
-        - небольшое перекрытие (overlap_ratio) нужно, чтобы смысл не терялся
-          на стыках чанков: часть текста повторяется в соседнем чанке.
-
-
-        ВАЖНО:
-        - Это legacy-путь (CHUNKS v1), используется для:
-        * документов без готовых snapshot'ов чанков;
-        * вспомогательных задач (debug, header/snippet и т.п.).
-
-
-        На выходе:
-        - возвращается список словарей с полями:
-          * "id" — уникальный идентификатор чанка,
-          * "text" — текст чанка,
-          * "metadata" — служебные данные (пункт договора, страницы, путь в структуре и т.п.).
-        """
-
-
-        # Политика длины клаузы:
-        # - короткие клаузы (<= SHORT_CLAUSE_MAX_TOKENS) не режем вообще;
-        # - очень длинные (>= LONG_CLAUSE_MIN_TOKENS) режем;
-        # - средние оставляем целиком, чтобы не дробить нормальные пункты.
-        SHORT_CLAUSE_MAX_TOKENS = int(target_tokens * 0.9)   # ~270 при target=300
-        LONG_CLAUSE_MIN_TOKENS = int(max_tokens * 1.2)       # ~960 при max=800
-
+        SHORT_CLAUSE_MAX_TOKENS = int(target_tokens * 0.9)
+        LONG_CLAUSE_MIN_TOKENS = int(max_tokens * 1.2)
 
         base_chunks = await self.get_chunks(doc_id)
         sized: List[Dict[str, Any]] = []
 
-
-        total_pages: int | None = None
-        for base in base_chunks:
-            meta = base.get("metadata") or {}
-            pos = meta.get("position_ratio")
-            if pos is not None:
-                total_pages = None
-                break
-
+        # position_ratio уже проставлен в get_chunks() — здесь просто переносим его.
+        # Пересчёт через total_pages не нужен: get_chunks() сам читает total_pages
+        # из layout и проставляет position_ratio в каждый чанк.
 
         for base in base_chunks:
             text = base.get("text") or ""
             metadata = base.get("metadata") or {}
 
-
             if not text.strip():
                 continue
-
 
             clause_uid = metadata.get("clause_uid")
             level = metadata.get("level")
@@ -928,18 +786,9 @@ class DocumentContentService:
             start_page = metadata.get("start_page")
             end_page = metadata.get("end_page")
             element_ids = metadata.get("element_ids") or []
-
+            position_ratio = metadata.get("position_ratio")  # берём как есть из get_chunks()
 
             clause_token_count = count_tokens(text)
-
-
-            if "position_ratio" in metadata:
-                position_ratio = metadata.get("position_ratio")
-            elif total_pages:
-                position_ratio = self._calc_position_ratio(start_page, end_page, total_pages)
-            else:
-                position_ratio = None
-
 
             def _append_whole_clause_chunk() -> None:
                 chunk_id = f"{doc_id}:{clause_uid or 'full'}:0"
@@ -962,16 +811,13 @@ class DocumentContentService:
                     }
                 )
 
-
             if clause_token_count <= SHORT_CLAUSE_MAX_TOKENS:
                 _append_whole_clause_chunk()
                 continue
 
-
             if SHORT_CLAUSE_MAX_TOKENS < clause_token_count < LONG_CLAUSE_MIN_TOKENS:
                 _append_whole_clause_chunk()
                 continue
-
 
             sub_texts = split_text_to_sized_chunks(
                 text=text,
@@ -980,43 +826,33 @@ class DocumentContentService:
                 overlap_ratio=overlap_ratio,
             )
 
-
             if not sub_texts:
                 _append_whole_clause_chunk()
                 continue
-
 
             for sub_idx, sub_text in enumerate(sub_texts):
                 if not sub_text.strip():
                     continue
 
-
-                sub_token_count = count_tokens(sub_text)
                 chunk_id = f"{doc_id}:{clause_uid or 'full'}:{sub_idx}"
-
-
-                sub_metadata = {
-                    "doc_id": str(doc_id),
-                    "clause_uid": clause_uid,
-                    "title": metadata.get("title"),
-                    "level": level,
-                    "path_titles": path_titles,
-                    "start_page": start_page,
-                    "end_page": end_page,
-                    "element_ids": element_ids,
-                    "token_count": sub_token_count,
-                    "position_ratio": position_ratio,
-                }
-
-
                 sized.append(
                     {
                         "id": chunk_id,
                         "text": sub_text,
-                        "metadata": sub_metadata,
+                        "metadata": {
+                            "doc_id": str(doc_id),
+                            "clause_uid": clause_uid,
+                            "title": metadata.get("title"),
+                            "level": level,
+                            "path_titles": path_titles,
+                            "start_page": start_page,
+                            "end_page": end_page,
+                            "element_ids": element_ids,
+                            "token_count": count_tokens(sub_text),
+                            "position_ratio": position_ratio,
+                        },
                     }
                 )
-
 
         if not sized:
             logger.warning(
@@ -1024,7 +860,6 @@ class DocumentContentService:
                 extra={"doc_id": str(doc_id)},
             )
             return []
-
 
         return sized
 
@@ -1038,14 +873,10 @@ class DocumentContentService:
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Вернуть многоуровневые чанки по документу.
-
-
         Для непрофессионального программиста:
         - section: крупные разделы договора (объединённые клаузы по заголовкам).
         - clause: исходные листовые клаузы (как в get_chunks()).
         - subclause: нормализованные под-чанки внутри клауз (как в get_sized_chunks()).
-
-
         ВАЖНО:
         - Внешний формат остаётся таким же, как был раньше:
             {
@@ -1064,14 +895,12 @@ class DocumentContentService:
             overlap_ratio=overlap_ratio,
         )
 
-
         clause_chunks_legacy = [rc.to_legacy_dict() for rc in clause_chunks_rc]
         section_chunks_legacy = build_section_chunks_from_clauses(
             doc_id=str(doc_id),
             clause_chunks=clause_chunks_legacy,
             max_tokens=1200,
         )
-
 
         def _with_summary_rc(chunks: List[RetrievalChunk]) -> List[Dict[str, Any]]:
             out: List[Dict[str, Any]] = []
@@ -1080,7 +909,6 @@ class DocumentContentService:
                     rc.summary = build_chunk_summary(rc.path_titles, rc.text)
                 out.append(rc.to_legacy_dict())
             return out
-
 
         return {
             "section": section_chunks_legacy,
@@ -1098,11 +926,9 @@ class DocumentContentService:
         Удобный фасад для CheckRunner:
         вернуть плоский список чанков для checks.
 
-
         По умолчанию:
         - subclause: нормализованные под-чанки,
         - section: крупные разделы.
-
 
         ВАЖНО:
         - В V2_ONLY режиме читаем чанки только из CHUNKS v2 snapshot'ов.
@@ -1113,21 +939,56 @@ class DocumentContentService:
         if levels is None:
             levels = ["subclause", "section"]
 
+        # Сначала проверяем: есть ли у документа V2 manifest вообще.
+        # Это позволяет различить два разных случая:
+        # 1) chunks_manifest_v2_ref не проставлен — документ обработан старым
+        #    пайплайном ДО V2 или chunking ещё не завершился. Это системная
+        #    проблема, которую надо видеть в логах отдельно.
+        # 2) manifest есть, но snapshot вернул пустой список — другая проблема
+        #    (пустой документ, ошибка при chunking, битый snapshot).
+        version = await self._get_latest_version(doc_id)
+        if not version:
+            logger.warning(
+                "get_retrieval_chunks_for_checks: no latest version found",
+                extra={"doc_id": str(doc_id), "levels": levels},
+            )
+            return []
+
+        manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
+        if not manifest_ref:
+            # Документ обработан legacy-пайплайном (до V2) или chunking не завершён.
+            # Check выполнится на пустом корпусе — это нужно видеть в мониторинге.
+            logger.warning(
+                "get_retrieval_chunks_for_checks: chunks_manifest_v2_ref is not set. "
+                "Document was processed by legacy pipeline or chunking stage not completed. "
+                "Check will run on empty corpus.",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "levels": levels,
+                },
+            )
+            return []
 
         snapshot_chunks = await self._load_chunks_from_snapshot(doc_id, levels)
-        if snapshot_chunks:
-            return snapshot_chunks
 
+        if not snapshot_chunks:
+            # manifest есть, но чанков нет — аномалия: пустой документ,
+            # ошибка при записи snapshot'а, или запрошенные levels не совпадают
+            # с теми, что были построены.
+            logger.warning(
+                "get_retrieval_chunks_for_checks: manifest exists but snapshot returned "
+                "no chunks for requested levels. Check will run on empty corpus.",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "levels": levels,
+                },
+            )
+            return []
 
-        logger.warning(
-            "DocumentContentService.get_retrieval_chunks_for_checks: "
-            "no v2 chunk snapshots available, returning empty list",
-            extra={
-                "doc_id": str(doc_id),
-                "levels": levels,
-            },
-        )
-        return []
+        return snapshot_chunks
     
 
     
