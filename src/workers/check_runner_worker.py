@@ -67,7 +67,7 @@ def run_deal_checks(
     - строит пары (doc_id, check_id);
     - публикует отдельные задачи run_single_check;
     - переводит Run в RUNNING и обновляет total_checks;
-    - не выполняет сами checks внутри себя.
+    - при total_checks == 0 детерминированно финализирует Run.
     """
     logger.info(
         "Run deal checks scheduler received",
@@ -121,16 +121,13 @@ def run_deal_checks(
                 checks_mode = getattr(run_obj, "checks_mode", "global_and_doc_type")
                 checks_scope = getattr(run_obj, "checks_scope", None)
 
-
                 pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
                 if pb_version is None:
                     raise ValueError(
                         f"PlaybookVersion not found: {run_obj.playbook_version_id}"
                     )
 
-
                 playbook = load_playbook_from_version(pb_version)
-
 
                 logger.info(
                     "Run deal checks scheduler: playbook loaded",
@@ -142,7 +139,6 @@ def run_deal_checks(
                         "checks_scope": checks_scope,
                     },
                 )
-
 
                 runner = CheckRunner(
                     llm_client=llm_client,
@@ -163,6 +159,31 @@ def run_deal_checks(
                 processed_docs = int(plan.get("processed_docs", 0) or 0)
                 total_checks = int(plan.get("total_checks", 0) or 0)
                 errors = int(plan.get("errors", 0) or 0)
+
+                logger.info(
+                    "Run deal checks scheduler: plan built",
+                    extra={
+                        "run_id": run_id,
+                        "deal_id": deal_id,
+                        "processed_docs": processed_docs,
+                        "pairs_count": len(pairs),
+                        "total_checks": total_checks,
+                        "planning_errors": errors,
+                        "checks_mode": checks_mode,
+                        "checks_scope": checks_scope,
+                    },
+                )
+
+                if total_checks != len(pairs):
+                    logger.warning(
+                        "Run deal checks scheduler: total_checks differs from pairs_count",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "total_checks": total_checks,
+                            "pairs_count": len(pairs),
+                        },
+                    )
 
                 await run_repo.update_status(
                     run_uuid,
@@ -190,7 +211,9 @@ def run_deal_checks(
                 duration = time.time() - started_at
 
                 try:
-                    metrics.checks_duration.labels(stage="deal_checks_schedule").observe(duration)
+                    metrics.checks_duration.labels(stage="deal_checks_schedule").observe(
+                        duration
+                    )
                 except Exception:
                     logger.exception(
                         "run_deal_checks scheduler: failed to update checks_duration metric",
@@ -215,9 +238,26 @@ def run_deal_checks(
                 )
 
                 if total_checks == 0:
+                    logger.warning(
+                        "Run deal checks scheduler: zero checks planned, finalizing run immediately",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "processed_docs": processed_docs,
+                            "planning_errors": errors,
+                            "checks_mode": checks_mode,
+                            "checks_scope": checks_scope,
+                        },
+                    )
+
                     finalized = await run_repo.finalize_run_if_finished(run_uuid)
+                    if finalized is None:
+                        raise ValueError(
+                            f"Run not found during zero-check finalize: {run_uuid}"
+                        )
+
                     return {
-                        "status": finalized.status if finalized else RunStatus.RUNNING.value,
+                        "status": finalized.status,
                         "processed_docs": processed_docs,
                         "total_checks": total_checks,
                         "scheduled_checks": scheduled,
@@ -421,7 +461,9 @@ def run_single_check(
                     evidence_ref=None,
                     confidence=None,
                     detector_used=None,
-                    quality_flags={"raw": {"source": "timeout", "error_message": str(e)}},
+                    quality_flags={
+                        "raw": {"source": "timeout", "error_message": str(e)}
+                    },
                     structured_data=None,
                     conditional_check_triggered=False,
                     trigger_name=None,
@@ -458,7 +500,9 @@ def run_single_check(
                     evidence_ref=None,
                     confidence=None,
                     detector_used=None,
-                    quality_flags={"raw": {"source": "exception", "error_message": str(e)}},
+                    quality_flags={
+                        "raw": {"source": "exception", "error_message": str(e)}
+                    },
                     structured_data=None,
                     conditional_check_triggered=False,
                     trigger_name=None,
@@ -509,6 +553,9 @@ def finalize_run_if_ready(
 
     Используем единую логику RunRepository.finalize_run_if_finished(), чтобы не
     дублировать правила переходов RUNNING / COMPLETED / COMPLETED_WITH_ERRORS.
+
+    Инвариант:
+    - zero-check run (total_checks == 0) не должен бесконечно оставаться non-terminal.
     """
     logger.info(
         "Finalize run task received",
@@ -528,7 +575,9 @@ def finalize_run_if_ready(
 
             total_checks = int(getattr(run_obj, "total_checks", 0) or 0)
             finished_checks = await result_repo.count_finished_checks_for_run(run_uuid)
-            materialized_checks = await result_repo.count_distinct_checks_for_run(run_uuid)
+            materialized_checks = (
+                await result_repo.count_distinct_checks_for_run(run_uuid)
+            )
 
             updated_run = await run_repo.finalize_run_if_finished(run_uuid)
             if updated_run is None:
@@ -560,12 +609,21 @@ def finalize_run_if_ready(
                 }
 
             if total_checks <= 0:
-                return {
-                    "status": "NOT_READY",
-                    "reason": "no_total_checks",
-                    "materialized_checks": materialized_checks,
-                    "finished_checks": finished_checks,
-                }
+                logger.error(
+                    "finalize_run_if_ready: zero-check run is still non-terminal after repository finalize",
+                    extra={
+                        "run_id": run_id,
+                        "status": updated_run.status,
+                        "run_total_checks": updated_run.total_checks,
+                        "run_completed_checks": updated_run.completed_checks,
+                        "materialized_checks": materialized_checks,
+                        "finished_checks": finished_checks,
+                        "has_errors": updated_run.has_errors,
+                    },
+                )
+                raise RuntimeError(
+                    f"Run {run_id} has zero total_checks but remained non-terminal after finalize"
+                )
 
             return {
                 "status": "NOT_READY",
@@ -576,4 +634,5 @@ def finalize_run_if_ready(
             }
 
     return run_async(_run())
+
 

@@ -449,7 +449,8 @@ class SegmentChunkBuilderV2:
         if not segment_clause_tree_ref:
             raise PermanentError(
                 f"No segment_clause_tree_ref for segment {segment.segment_id} "
-                f"(document_version_id={document_version_id})"
+                f"(document_version_id={document_version_id}). "
+                f"This is a STRUCTURE stage bug, not a CHUNKS bug."
             )
 
         logger.info(

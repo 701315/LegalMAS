@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import time
 import uuid
-
+import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
@@ -373,18 +373,60 @@ async def _extract_document_async(
                 version_id=document_version_id,
                 run_id=run_id,
             )
-        elif refreshed_layout_primary_ref != primary_ref or refreshed_raw_ref != raw_ref:
-            logger.warning(
-                "Extract: refs differ on immediate post-commit read; "
-                "keeping committed result and relying on orchestrator guards",
-                document_id=document_id,
-                version_id=document_version_id,
-                expected_layout_primary_ref=primary_ref,
-                actual_layout_primary_ref=refreshed_layout_primary_ref,
-                expected_raw_ref=raw_ref,
-                actual_raw_ref=refreshed_raw_ref,
-                run_id=run_id,
+        else:
+            # Жёсткое расхождение: сломан layout_primary_ref или raw_ref изменился на другое ненулевое значение.
+            hard_mismatch = (
+                refreshed_layout_primary_ref != primary_ref
+                or (refreshed_raw_ref is not None and refreshed_raw_ref != raw_ref)
             )
+
+            # При необходимости даём БД шанс догнать raw_ref.
+            if (
+                refreshed_layout_primary_ref == primary_ref
+                and not refreshed_raw_ref
+                and raw_ref
+            ):
+                await asyncio.sleep(0.1)
+                refreshed_version = await ver_repo.get_by_id(
+                    uuid.UUID(document_version_id)
+                )
+                refreshed_raw_ref = (
+                    getattr(refreshed_version, "raw_ref", None)
+                    if refreshed_version
+                    else None
+                )
+
+            soft_raw_lag = (
+                refreshed_layout_primary_ref == primary_ref
+                and not refreshed_raw_ref
+                and raw_ref
+            )
+
+            if hard_mismatch:
+                logger.warning(
+                    "Extract: refs differ on immediate post-commit read; "
+                    "keeping committed result and relying on orchestrator guards",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    expected_layout_primary_ref=primary_ref,
+                    actual_layout_primary_ref=refreshed_layout_primary_ref,
+                    expected_raw_ref=raw_ref,
+                    actual_raw_ref=refreshed_raw_ref,
+                    run_id=run_id,
+                )
+            elif soft_raw_lag:
+                logger.info(
+                    "Extract: raw_ref not visible on immediate post-commit read; "
+                    "committed result is authoritative, orchestrator will re-read later",
+                    document_id=document_id,
+                    version_id=document_version_id,
+                    expected_layout_primary_ref=primary_ref,
+                    actual_layout_primary_ref=refreshed_layout_primary_ref,
+                    expected_raw_ref=raw_ref,
+                    actual_raw_ref=refreshed_raw_ref,
+                    run_id=run_id,
+                )
+
     except Exception as e:
         logger.warning(
             "Extract: post-commit readback failed; committed result kept",

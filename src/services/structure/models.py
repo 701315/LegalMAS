@@ -486,11 +486,46 @@ class FileStructureResult:
     - segment_trees:   ClauseTree для каждого сегмента, в том же порядке
                        что file_graph.segments.
     - file_graph:      FileGraph с метаданными всех сегментов и связями.
+
+    Инварианты (проверяются в __post_init__):
+    - len(segment_trees) == len(file_graph.segments)
+    - segment_id каждого ClauseTree в segment_trees совпадает с
+      segment_id соответствующего сегмента в file_graph.segments.
     """
 
     primary_tree: ClauseTree
     segment_trees: list[ClauseTree]
     file_graph: FileGraph
+
+    def __post_init__(self) -> None:
+        graph_segments = self.file_graph.segments or []
+
+        if len(self.segment_trees) != len(graph_segments):
+            raise ValueError(
+                f"FileStructureResult invariant violated: "
+                f"segment_trees count ({len(self.segment_trees)}) != "
+                f"file_graph.segments count ({len(graph_segments)})"
+            )
+
+        graph_ids = {
+            str(getattr(seg, "segment_id", "") or "")
+            for seg in graph_segments
+        }
+        tree_ids = {
+            str(t.segment_id or "")
+            for t in self.segment_trees
+        }
+
+        missing_in_trees = graph_ids - tree_ids
+        extra_in_trees = tree_ids - graph_ids
+
+        if missing_in_trees or extra_in_trees:
+            raise ValueError(
+                f"FileStructureResult invariant violated: "
+                f"segment_ids mismatch between file_graph.segments and segment_trees. "
+                f"missing_in_trees={missing_in_trees}, "
+                f"extra_in_trees={extra_in_trees}"
+            )
 
     @property
     def primary_segment_id(self) -> str | None:
@@ -517,5 +552,4 @@ class FileStructureResult:
             None,
         )
     
-
     

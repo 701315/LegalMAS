@@ -64,7 +64,10 @@ class DocumentVersionRepository:
             .order_by(DocumentVersion.version_num.desc())
             .limit(1)
         )
-        return result.scalar_one_or_none()
+        version = result.scalar_one_or_none()
+        if version is not None:
+            self.session.expunge(version)
+        return version
 
     async def update_chunks_v2_ref(
         self,

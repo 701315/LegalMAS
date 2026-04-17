@@ -365,24 +365,42 @@ async def _build_structure_async(
             segment_tree_ref_by_id: dict[str, str] = {}
 
             if store_segment_trees:
-                for segment_result in getattr(file_result, "segments", []) or []:
-                    segment_tree = getattr(segment_result, "clause_tree", None)
-                    segment_id = getattr(segment_result, "segment_id", None)
+                for seg in graph_segments:
+                    seg_id = str(getattr(seg, "segment_id", "") or "")
+                    if not seg_id:
+                        raise PermanentError(
+                            f"FileGraph segment has empty segment_id for version {v_id}",
+                            details={
+                                "stage": "structure",
+                                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                                "reason": StructureV2ErrorReason.INVALID_FILE_GRAPH_SEGMENT,
+                            },
+                        )
 
-                    if not segment_tree or not segment_id:
-                        continue
+                    clause_tree_obj = file_result.get_tree_for_segment(seg_id)
+                    if not clause_tree_obj:
+                        raise PermanentError(
+                            f"No ClauseTree found for segment {seg_id} in FileStructureResult "
+                            f"(version={v_id}). segment_trees has "
+                            f"{len(file_result.segment_trees)} entries.",
+                            details={
+                                "stage": "structure",
+                                "type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                                "reason": StructureV2ErrorReason.STRUCTURE_BUILD_ERROR,
+                            },
+                        )
 
                     segment_tree_path = ArtifactPath.segment_clause_tree(
                         tenant_id=tenant_id,
                         deal_id=deal_id,
                         document_id=str(doc.id),
-                        segment_id=segment_id,
+                        segment_id=seg_id,
                     )
                     segment_tree_ref = store.put_json(
                         segment_tree_path,
-                        segment_tree.to_dict(),
+                        clause_tree_obj.to_dict(),
                     )
-                    segment_tree_ref_by_id[str(segment_id)] = segment_tree_ref
+                    segment_tree_ref_by_id[seg_id] = segment_tree_ref
 
             for index, seg in enumerate(graph_segments):
                 seg_id = str(getattr(seg, "segment_id", "") or "")

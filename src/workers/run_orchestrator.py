@@ -47,6 +47,8 @@ from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.run_repo import RunRepository
+from db.repositories.deal_repo import DealRepository
+
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -120,6 +122,39 @@ def start_run_pipeline(
             )
 
     return run_async(_wrapper())
+
+
+async def _resolve_tenant_id(
+    tenant_id: str | None,
+    deal_uuid: uuid.UUID,
+    db: AsyncSession,
+) -> str:
+    """
+    Резолвит tenant_id для оркестратора.
+
+    Приоритет:
+    1) явный tenant_id из kwargs (не None, не нулевой UUID);
+    2) tenant_id из deals (явный DB-запрос, не lazy-load);
+    3) deal_id как surrogate — допустимо только в dev/single-tenant окружении,
+       когда deals.tenant_id = NULL или нулевой UUID.
+    """
+    if tenant_id:
+        return tenant_id
+    deal_repo = DealRepository(db)
+    deal_obj = await deal_repo.get_by_id(deal_uuid)
+    if deal_obj and deal_obj.tenant_id:
+        resolved = str(deal_obj.tenant_id)
+        logger.info(
+            "tenant_id resolved from deal",
+            extra={"deal_id": str(deal_uuid), "tenant_id": resolved},
+        )
+        return resolved
+    surrogate = str(deal_uuid)
+    logger.warning(
+        "tenant_id not resolvable, using deal_id as surrogate tenant",
+        extra={"deal_id": surrogate},
+    )
+    return surrogate
 
 
 async def _start_run_pipeline_async(
@@ -284,37 +319,62 @@ async def _start_run_pipeline_async(
 
     deal_id_str = str(deal_uuid)
 
-    if tenant_id is None:
-        if hasattr(run_obj, "deal") and run_obj.deal and hasattr(run_obj.deal, "tenant_id"):
-            tenant_id_str = str(run_obj.deal.tenant_id)
-        else:
-            await run_repo.update_status(
-                run_uuid,
-                RunStatus.FAILED.value,
-                error_details={
-                    "stage": "orchestrator",
-                    "type": "config_error",
-                    "reason": "tenant_not_resolved",
-                    "message": (
-                        "Run has no explicit tenant_id and deal.tenant_id is not available; "
-                        "refusing to guess tenant from deal_id string"
-                    ),
-                },
-            )
-            logger.error(
-                "Cannot resolve tenant_id for run, stopping orchestration",
-                extra={"run_id": run_id, "deal_id": deal_id_str},
-            )
-            return {
+    tenant_id_str = await _resolve_tenant_id(
+        tenant_id=tenant_id,
+        deal_uuid=deal_uuid,
+        db=db,
+    )
+
+
+    # Читаем сделку и проверяем выбранный язык
+    deal_repo = DealRepository(db)
+    deal = await deal_repo.get_by_id(deal_uuid)
+
+    if not deal:
+        await run_repo.update_status(
+            run_uuid,
+            RunStatus.FAILED.value,
+            error_details={
+                "stage": "orchestrator",
+                "type": "config_error",
+                "reason": "deal_not_found",
+                "message": f"Deal {deal_id_str} not found for run {run_id}",
+            },
+        )
+        logger.error(
+            "Deal not found for run",
+            extra={"run_id": run_id, "deal_id": deal_id_str},
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+            "documents_with_plan": 0,
+        }
+
+    deal_primary_language = getattr(deal, "primary_language", None)
+
+    if not deal_primary_language:
+        # Язык ещё не выбран — пайплайн документов не стартуем.
+        # Run можно оставить RUNNING или пометить как FAILED/WAITING — на твой UX.
+        logger.info(
+            "Run pipeline paused: deal has no primary_language selected",
+            extra={
                 "run_id": run_id,
                 "deal_id": deal_id_str,
-                "tenant_id": None,
-                "documents_total": 0,
-                "tasks_scheduled": 0,
-                "documents_with_plan": 0,
-            }
-    else:
-        tenant_id_str = tenant_id
+            },
+        )
+        return {
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+            "documents_with_plan": 0,
+        }
+
 
     docs = await doc_repo.get_by_deal(deal_uuid)
     if not docs:
@@ -363,6 +423,7 @@ async def _start_run_pipeline_async(
             is_full_rerun=is_full_rerun,
             force_reclassify=force_reclassify,
             seg_repo=seg_repo,
+            deal_primary_language=deal_primary_language,  # ← НОВОЕ
         )
 
         if not plan:
@@ -428,7 +489,7 @@ async def _start_run_pipeline_async(
             },
         )
 
-        _send_task(
+        celery_task_id = _send_task(
             plan=plan,
             stage_execution_id=str(execution.id),
             run_id=run_id,
@@ -438,6 +499,7 @@ async def _start_run_pipeline_async(
             document_version_id=str(version.id),
             orchestration_strategy=orchestration_strategy,
         )
+        await dse_repo.mark_dispatched(execution.id, celery_task_id=celery_task_id)  # ← новая строка
         tasks_scheduled += 1
         documents_with_plan += 1
 
@@ -479,10 +541,13 @@ async def _start_run_pipeline_async(
 
 def _target_status_for_stage(stage: str) -> str:
     """
-    Map internal stage name to target DocumentStatus.
+    Map internal stage name to *intended* DocumentStatus
+    on successful completion of this stage.
 
-    Это нужно, чтобы execution-запись знала, какой статус документа
-    ожидается после успешного выполнения этой стадии.
+    Это не исчерпывающий список всех возможных финальных статусов.
+    Например, build_primary_language_source может перевести документ
+    в LANGUAGE_SELECTION_REQUIRED или QUARANTINE, но целевой happy-path
+    остаётся PRIMARY_READY.
     """
     if stage == "convert_to_pdf":
         return DocumentStatus.PENDING.value
@@ -514,6 +579,7 @@ async def _build_document_task_plan(
     is_full_rerun: bool,
     force_reclassify: bool,
     seg_repo: DocumentSegmentRepository,
+    deal_primary_language: str | None,
 ) -> TaskPlan | None:
     doc_id_str = str(doc.id)
 
@@ -576,6 +642,8 @@ async def _build_document_task_plan(
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
                 "run_id": run_id,
+                "target_language": deal_primary_language,
+
             },
         )
 
@@ -912,29 +980,19 @@ def _send_task(
     document_id: str,
     document_version_id: str,
     orchestration_strategy: str,
-) -> None:
-    """
-    Helper для отправки Celery task с полным context envelope.
-
-    Обязательные поля:
-    - stage_execution_id: чтобы worker мог обновить execution-запись;
-    - run_id, deal_id, tenant_id: контекст сделки и запуска;
-    - document_id, document_version_id: привязка к документу и версии;
-    - orchestration_strategy: например V2_ONLY.
-    """
+) -> str:  # ← возвращает celery task id
     kwargs = dict(plan.kwargs)
-    kwargs.update(
-        {
-            "stage_execution_id": stage_execution_id,
-            "run_id": run_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "orchestration_strategy": orchestration_strategy,
-        }
-    )
-    celery_app.send_task(plan.task_name, kwargs=kwargs)
+    kwargs.update({
+        "stage_execution_id": stage_execution_id,
+        "run_id": run_id,
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "orchestration_strategy": orchestration_strategy,
+    })
+    result = celery_app.send_task(plan.task_name, kwargs=kwargs)
+    return result.id  # ← AsyncResult.id
     
 
     

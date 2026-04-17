@@ -280,7 +280,10 @@ class RunRepository:
         stmt = (
             update(Run)
             .where(Run.id == run_id, Run.status == RunStatus.PENDING.value)
-            .values(status=RunStatus.RUNNING.value)
+            .values(
+                status=RunStatus.RUNNING.value,
+                started_at=datetime.now(UTC).replace(tzinfo=None),
+            )
             .returning(Run.id)
         )
         result = await self.session.execute(stmt)
@@ -288,11 +291,6 @@ class RunRepository:
         if not row:
             return False
 
-        await self.session.execute(
-            update(Run)
-            .where(Run.id == run_id)
-            .values(started_at=datetime.now(UTC).replace(tzinfo=None))
-        )
         await self.session.flush()
         return True
 
@@ -300,38 +298,66 @@ class RunRepository:
         """
         Синхронизировать прогресс Run по CheckResult и, если все checks завершены,
         перевести Run в финальный статус.
+
+        Инварианты:
+        - source of truth для ожидаемого объёма checks — Run.total_checks,
+          который выставляет scheduler;
+        - materialized_checks — это факт появления CheckResult, а не план;
+        - zero-check run не должен бесконечно оставаться RUNNING.
         """
+        run = await self.get_by_id(run_id)
+        if run is None:
+            return None
+
         result_repo = ResultRepository(self.session)
 
-        total_checks = await result_repo.count_distinct_checks_for_run(run_id)
+        planned_total_checks = int(getattr(run, "total_checks", 0) or 0)
+        materialized_checks = await result_repo.count_distinct_checks_for_run(run_id)
         completed_checks = await result_repo.count_finished_checks_for_run(run_id)
         has_failed_checks = await result_repo.has_failed_or_timed_out_checks(run_id)
 
         values: dict = {
-            "total_checks": total_checks,
             "completed_checks": completed_checks,
             "has_errors": has_failed_checks,
         }
 
-        if total_checks == 0:
-            run = await self.get_by_id(run_id)
-            if run is None:
-                return None
+        # total_checks уже определён scheduler'ом как execution plan.
+        # Перетираем его только если в Run он ещё не был выставлен.
+        if planned_total_checks <= 0 and materialized_checks > 0:
+            planned_total_checks = materialized_checks
+            values["total_checks"] = planned_total_checks
 
-            if run.status in (
-                RunStatus.COMPLETED.value,
-                RunStatus.COMPLETED_WITH_ERRORS.value,
-                RunStatus.FAILED.value,
-            ):
-                return run
+        if run.status in (
+            RunStatus.COMPLETED.value,
+            RunStatus.COMPLETED_WITH_ERRORS.value,
+            RunStatus.FAILED.value,
+        ):
+            stale_updates = {}
+            if (run.completed_checks or 0) != completed_checks:
+                stale_updates["completed_checks"] = completed_checks
+            if bool(getattr(run, "has_errors", False)) != has_failed_checks:
+                stale_updates["has_errors"] = has_failed_checks
+            if stale_updates:
+                return await self.update_status(run_id, run.status, **stale_updates)
+            return run
 
+        # zero-check run — валидный terminal scenario
+        if planned_total_checks <= 0:
+            final_status = (
+                RunStatus.COMPLETED_WITH_ERRORS.value
+                if has_failed_checks
+                else RunStatus.COMPLETED.value
+            )
+            values["total_checks"] = 0
             return await self.update_status(
                 run_id,
-                run.status if run.status else RunStatus.PENDING.value,
+                final_status,
                 **values,
             )
 
-        if completed_checks < total_checks:
+        # checks есть, но ещё не все в terminal execution_status
+        if completed_checks < planned_total_checks:
+            values["total_checks"] = planned_total_checks
             return await self.update_status(
                 run_id,
                 RunStatus.RUNNING.value,
@@ -344,6 +370,7 @@ class RunRepository:
             else RunStatus.COMPLETED.value
         )
 
+        values["total_checks"] = planned_total_checks
         return await self.update_status(
             run_id,
             final_status,
@@ -417,4 +444,5 @@ class JobRepository:
         if job:
             await self.session.flush()
         return job
+    
     

@@ -5,7 +5,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
-import type { Deal, DealDetail, PaginatedResponse } from "../types";
+import type {
+  Deal,
+  DealDetail,
+  PaginatedResponse,
+  DealPrimaryLanguageUpdatePayload,
+} from "../types";
 
 // -------------------------------------------------------------
 // НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
@@ -41,11 +46,12 @@ export const dealApi = {
    * Установить основной язык сделки.
    * PATCH /api/v1/deals/{deal_id}/primary-language
    */
-  setPrimaryLanguage: (dealId: string, primaryLanguage: string | null) =>
+  setPrimaryLanguage: (
+    dealId: string,
+    payload: DealPrimaryLanguageUpdatePayload,
+  ) =>
     client
-      .patch<DealDetail>(`/api/v1/deals/${dealId}/primary-language`, {
-        primary_language: primaryLanguage,
-      })
+      .patch<DealDetail>(`/api/v1/deals/${dealId}/primary-language`, payload)
       .then((response) => response.data),
 };
 
@@ -73,7 +79,7 @@ export function useDeals(page = 1, status?: string, tenantId?: string) {
 export function useDeal(dealId: string | null) {
   return useQuery({
     queryKey: ["deal", dealId],
-    queryFn: () => dealApi.get(dealId!),
+    queryFn: () => dealApi.get(dealId as string),
     enabled: !!dealId,
   });
 }
@@ -88,14 +94,19 @@ export function useSetPrimaryLanguage(dealId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { primary_language: string | null }) =>
-      dealApi.setPrimaryLanguage(dealId, payload.primary_language),
-    onSuccess: (updatedDeal) => {
-      // Обновляем кеш детали сделки
+    mutationFn: (payload: DealPrimaryLanguageUpdatePayload) =>
+      dealApi.setPrimaryLanguage(dealId, payload),
+
+    onSuccess: async (updatedDeal) => {
       queryClient.setQueryData<DealDetail>(["deal", dealId], updatedDeal);
-      // Инвалидируем детали сделки и все списки сделок
-      queryClient.invalidateQueries({ queryKey: ["deal", dealId] });
-      queryClient.invalidateQueries({ queryKey: ["deals"] });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["deal", dealId] }),
+        queryClient.invalidateQueries({ queryKey: ["deals"] }),
+        queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, true] }),
+        queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, false] }),
+      ]);
     },
   });
 }
+

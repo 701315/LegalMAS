@@ -26,6 +26,8 @@ PII Sanitizer Worker.
 
 import uuid
 from typing import Any
+from datetime import datetime, timezone
+from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
 
 from core.config import settings
 from core.exceptions import PermanentError, QuarantineError
@@ -370,6 +372,8 @@ def sanitize_document(
     deal_id: str,
     tenant_id: str,
     run_id: str | None = None,
+    stage_execution_id: str | None = None,
+    **kwargs,  # noqa: ARG002, поглощает: document_id, stage_execution_id, orchestration_strategy и др.
 ) -> dict:
     """
     Синхронная Celery‑таска санитизации документа.
@@ -383,17 +387,40 @@ def sanitize_document(
       - запуск следующего этапа (Structure Builder) выполняется оркестратором.
     """
     version_uuid = uuid.UUID(document_version_id)
+    exec_uuid = uuid.UUID(stage_execution_id) if stage_execution_id else None
 
     async def _run() -> dict:
         async with db_uow() as uow_main:
             store = ArtifactStore(settings)
             sanitizer = PIISanitizer(uow=uow_main, artifact_store=store)
+            dse_repo = DocumentStageExecutionRepository(uow_main.session)
+
+            if exec_uuid:
+                await dse_repo.mark_started(exec_uuid)
 
             try:
                 result = await sanitizer.sanitize(version_uuid)
+
+                if exec_uuid:
+                    await dse_repo.mark_succeeded(exec_uuid)
+
                 return result
 
             except PermanentError as e:
+                async with db_uow() as uow_err:
+                    dse_err = DocumentStageExecutionRepository(uow_err.session)
+                    if exec_uuid:
+                        await dse_err.mark_failed(exec_uuid, error_details={
+                            "stage": "pii",
+                            "type": "permanent_error",
+                            "reason": "pii_error",
+                            "message": str(e),
+                            "run_id": run_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        })
+                    await _mark_failed(uow_err, version_id=version_uuid, message=str(e))
+                # ← один UoW на оба обновления — атомарно
+
                 logger.error(
                     "Permanent error during PII sanitization",
                     document_version_id=document_version_id,
@@ -402,16 +429,7 @@ def sanitize_document(
                     run_id=run_id,
                     error=str(e),
                 )
-                async with db_uow() as uow_status:
-                    await _mark_failed(
-                        uow_status,
-                        version_id=version_uuid,
-                        message=str(e),
-                    )
-                return {
-                    "status": DocumentStatus.FAILED.value,
-                    "error": str(e),
-                }
+                return {"status": DocumentStatus.FAILED.value, "error": str(e)}
 
             except QuarantineError as e:
                 logger.error(
@@ -422,16 +440,19 @@ def sanitize_document(
                     run_id=run_id,
                     error=str(e),
                 )
-                async with db_uow() as uow_status:
-                    await _mark_quarantine(
-                        uow_status,
-                        version_id=version_uuid,
-                        error=e,
-                    )
-                return {
-                    "status": DocumentStatus.QUARANTINE.value,
-                    "error": str(e),
-                }
+                async with db_uow() as uow_err:
+                    dse_err = DocumentStageExecutionRepository(uow_err.session)
+                    if exec_uuid:
+                        await dse_err.mark_failed(exec_uuid, error_details={
+                            "stage": "pii",
+                            "type": "quarantine_error",
+                            "reason": getattr(e, "reason", "pii_quarantine"),
+                            "message": str(e),
+                            "run_id": run_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        })
+                    await _mark_quarantine(uow_err, version_id=version_uuid, error=e)
+                return {"status": DocumentStatus.QUARANTINE.value, "error": str(e)}
 
     # Переход в async‑мир через общий мост run_async
     result = run_async(_run())

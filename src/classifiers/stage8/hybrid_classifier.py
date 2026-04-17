@@ -377,8 +377,18 @@ class HybridClassifier:
                 # На случай, если метод ещё не внедрён в рантайме — просто пропускаем.
                 header_text = None
 
-            # 2) Сниппет оставляем как раньше — первые несколько листовых клауз.
-            _, snippet_text = await self.content_service.get_header_and_snippet(doc.id)
+            # 2) Сниппет берём напрямую из layout (v2-артефакт).
+            # get_snippet_from_layout() читает layout_primary_sanitized_ref или layout_primary_ref
+            # — тот же source of truth, что и весь v2-пайплайн.
+            # get_header_and_snippet() больше не используем: он требует clause tree (legacy),
+            # которого у новых документов может не быть.
+            try:
+                snippet_text = await self.content_service.get_snippet_from_layout(doc.id)
+            except AttributeError:
+                # Защитный fallback: если метод ещё не задеплоен в рантайме —
+                # просто пропускаем, L3/L4 отработают без сниппета.
+                snippet_text = None
+
         else:
             logger.warning(
                 "HybridClassifier: content_service is not configured, L2/L3/L4 will be limited",

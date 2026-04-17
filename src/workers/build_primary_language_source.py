@@ -24,20 +24,25 @@ Build Primary Language Source Worker.
 """
 
 import uuid
-
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import PermanentError, TransientError
 
 from core.config import settings
 from core.constants import DocumentStatus
 from core.logging import get_logger
+from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
+from services.document_language_pipeline import (
+    build_primary_language_layout,
+    MIN_TARGET_LANGUAGE_RATIO,
+    _normalize_lang,
+)
 from db.uow import db_uow
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
-from services.document_language_pipeline import build_primary_language_layout
 from services.primary_pdf_builder import build_pdf_from_layout
 from services.quick_pdf_layout import build_quick_layout_from_pdf
 from storage.artifact_store import ArtifactPath, ArtifactStore
@@ -60,6 +65,7 @@ def build_primary_language_source(
     deal_id: str,
     tenant_id: str,
     run_id: str | None = None,
+    target_language: str | None = None,
 ) -> dict:
     """
     Sync Celery entrypoint.
@@ -84,6 +90,7 @@ def build_primary_language_source(
                 tenant_id=tenant_id,
                 db=uow.session,
                 run_id=run_id,
+                target_language=target_language,
             )
 
     try:
@@ -175,6 +182,7 @@ async def _build_primary_language_source_async(
     tenant_id: str,
     db: AsyncSession,
     run_id: str | None = None,
+    target_language: str | None = None,
 ) -> dict:
     logger.info(
         "Starting build_primary_language_source",
@@ -313,18 +321,112 @@ async def _build_primary_language_source_async(
             usable_element_ratio=quick_meta.get("usable_element_ratio"),
         )
 
-    # 3. Строим одноязычный layout и обновляем языки сделки.
+    # 3. Резолвим целевой язык:
+    #    1) target_language из kwargs (от оркестратора, если он его пробросил);
+    #    2) Deal.primary_language из БД.
+    resolved_target_language = _normalize_lang(target_language)
+
+    if not resolved_target_language:
+        deal_repo = DealRepository(db)
+        deal = await deal_repo.get_by_id(deal_uuid)
+        resolved_target_language = _normalize_lang(
+            getattr(deal, "primary_language", None) if deal else None
+        )
+
+    if not resolved_target_language:
+        logger.warning(
+            "Primary source build called without target language; "
+            "pausing pipeline until user selects language",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+        )
+        updated_doc = await doc_repo.update_status(
+            doc_uuid,
+            DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
+            processing_error_details=None,
+        )
+        if not updated_doc:
+            raise PermanentError(
+                f"Document {document_id} not found during LANGUAGE_SELECTION_REQUIRED status update"
+            )
+        return {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "source_ref": source_ref,
+            "primary_source_ref": existing_primary_ref,
+            "target_language": None,
+            "detected_languages": [],
+            "requires_user_selection": True,
+            "committed": False,
+        }
+
+    # 4. Строим одноязычный layout и проверяем соответствие документа целевому языку.
     primary_layout_result = await build_primary_language_layout(
         db=db,
         deal_id=deal_uuid,
         tenant_id=tenant_id,
         document_id=document_id,
         layout=quick_layout,
+        target_language=resolved_target_language,   # ← язык теперь обязателен
     )
 
     primary_layout = primary_layout_result.primary_layout
     decision = primary_layout_result.decision
     target_language = decision.target_language
+
+    # ── Карантин: целевой язык отсутствует или слишком мал по доле ──────────────
+    # Worker обязан остановить обработку и перевести документ в QUARANTINE.
+    if primary_layout_result.should_quarantine:
+        logger.warning(
+            "Primary source build: document quarantined due to language mismatch",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            target_language=target_language,
+            detected_languages=decision.detected_languages,
+            target_language_ratio=round(decision.target_language_ratio, 3),
+            quarantine_reason=decision.quarantine_reason,
+        )
+        updated_doc = await doc_repo.update_status(
+            doc_uuid,
+            DocumentStatus.QUARANTINE.value,
+            processing_error_details={
+                "stage": "build_primary_language_source",
+                "type": "language_mismatch",
+                "reason": decision.quarantine_reason,
+                "message": (
+                    f"Document does not contain sufficient content in target language "
+                    f"'{target_language}' "
+                    f"(ratio={round(decision.target_language_ratio, 3)}, "
+                    f"threshold={MIN_TARGET_LANGUAGE_RATIO})"
+                ),
+                "timestamp": _utcnow_iso(),
+            },
+        )
+        if not updated_doc:
+            raise PermanentError(
+                f"Document {document_id} not found during QUARANTINE status update"
+            )
+        await db.commit()
+        return {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "source_ref": source_ref,
+            "primary_source_ref": existing_primary_ref,
+            "target_language": target_language,
+            "detected_languages": decision.detected_languages,
+            "requires_user_selection": False,
+            "quarantined": True,
+            "quarantine_reason": decision.quarantine_reason,
+            "committed": True,
+        }
 
     language_filter_meta = (primary_layout.get("metadata") or {}).get("language_filter") or {}
 
@@ -433,40 +535,6 @@ async def _build_primary_language_source_async(
             "committed": True,
         }
 
-    # Документ многоязычный, язык не выбран пользователем — останавливаемся.
-    if decision.requires_user_selection and target_language is None:
-        updated_doc = await doc_repo.update_status(
-            doc_uuid,
-            DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
-            processing_error_details=None,
-        )
-        if not updated_doc:
-            raise PermanentError(
-                f"Document {document_id} not found during LANGUAGE_SELECTION_REQUIRED status update"
-            )
-
-        logger.info(
-            "Primary source build: user primary language selection required, pipeline paused",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            detected_languages=decision.detected_languages,
-        )
-
-        # Для этой ветки commit произойдёт в db_uow снаружи.
-        return {
-            "document_id": document_id,
-            "document_version_id": document_version_id,
-            "deal_id": deal_id,
-            "tenant_id": tenant_id,
-            "source_ref": source_ref,
-            "primary_source_ref": existing_primary_ref,
-            "target_language": None,
-            "detected_languages": decision.detected_languages,
-            "requires_user_selection": True,
-            "committed": False,
-        }
 
     # 4. Собираем одноязычный PDF из primary_layout.
     try:
@@ -600,4 +668,7 @@ def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
         )
     return s3_ref.replace(prefix, "", 1)
 
-
+def _utcnow_iso() -> str:
+    """Текущее время UTC в ISO 8601 для error_details."""
+    from datetime import timezone
+    return datetime.now(tz=timezone.utc).isoformat()

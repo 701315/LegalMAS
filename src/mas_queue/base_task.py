@@ -86,7 +86,6 @@ from mas_queue.dlq import DLQManager
 
 logger = get_logger(__name__)
 
-
 class MASBaseTask(Task):
     """
     Базовый класс Celery‑тасок с политикой ретраев, DLQ и трекингом Job.
@@ -113,15 +112,18 @@ class MASBaseTask(Task):
         """
         Обёртка вокруг выполнения задачи.
 
-        Перехватывает исключения и маршрутизирует их:
-        Retry                  → перекидываем как есть (Celery расписал ретрай);
-        PermanentError         → on_failure (DLQ, без ретраев);
-        QuarantineError        → on_failure (quarantine, без ретраев);
-        SoftTimeLimitExceeded  → превращаем в PermanentError → on_failure (DLQ);
-        TransientError         → _handle_transient (retry / DLQ при исчерпании);
-        Programming errors     → считаем permanent, без ретраев;
-        Exception              → считаем транзиентным → _handle_transient.
+        Envelope-поля оркестратора (stage_execution_id, orchestration_strategy)
+        извлекаются здесь и сохраняются в self, чтобы сигнатуры воркеров
+        оставались чистыми.
+
+        Важно: хуки before_start / on_success / on_failure получают kwargs
+        напрямую из Celery (до этого __call__) — envelope-поля в них ещё
+        присутствуют. Это нормально: хуки используют только job_id / deal_id
+        / document_id и envelope им не мешает.
         """
+        self._stage_execution_id: str | None = kwargs.pop("stage_execution_id", None)
+        self._orchestration_strategy: str | None = kwargs.pop("orchestration_strategy", None)
+
         try:
             return self.run(*args, **kwargs)
         except Retry:
