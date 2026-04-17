@@ -1,6 +1,7 @@
 // =============================================================
 // src/App.tsx
-// Основное приложение LegalMAS фронта: Landing -> Login -> Dashboard -> Project.
+// Основное приложение LegalMAS фронта:
+// Landing -> Login -> Dashboard -> Project.
 // =============================================================
 
 import React from "react";
@@ -12,22 +13,30 @@ import {
   useParams,
   useNavigate,
 } from "react-router-dom";
+
 import LoginPage from "./pages/LoginPage";
-import LandingPage from "./pages/LandingPage";       // ← ДОБАВЛЕНО
+import LandingPage from "./pages/LandingPage";
 import DealPage from "./pages/DealPage";
 import DealListPage from "./pages/DealListPage";
 import DashboardPage from "./pages/DashboardPage";
 import NewProjectPage from "./pages/NewProjectPage";
-import { useDeal } from "./api/deals";
-import { useAuth } from "./hooks/useAuth";
 import ProjectUploadPage from "./pages/ProjectUploadPage";
 import ProjectMembersPage from "./pages/ProjectMembersPage";
-import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import DealPlaybookSelectorPage from "./pages/DealPlaybookSelectorPage";
 import AdminPlaybookLinesPage from "./pages/AdminPlaybookLinesPage";
 import ModelConfigsAdminPage from "./pages/ModelConfigsAdminPage";
 import AdminPlaybookVersionsPage from "./pages/AdminPlaybookVersionsPage";
+import SecurityPage from "./pages/SecurityPage";
+import TechOverviewPage from "./pages/TechOverviewPage";
+import SolutionsPage from "./pages/SolutionsPage";
+import DemoPage from "./pages/DemoPage";
+import AboutPage from "./pages/AboutPage";
+import CapabilitiesPage from "./pages/CapabilitiesPage";
 
+import { useDeal } from "./api/deals";
+import { useAuth } from "./hooks/useAuth";
+import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
+import ScrollToAnchor from "./components/routing/ScrollToAnchor";
 
 // Временная обёртка для страницы проекта
 function DealRouteWrapper() {
@@ -63,54 +72,69 @@ function DealRouteWrapper() {
   );
 }
 
-
 // Простая защита маршрутов: требует авторизации
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const { userId } = useAuth();
+
   if (!userId) {
     return <Navigate to="/login" replace />;
   }
+
   return children;
 }
-
 
 // Защита маршрута только для superadmin
 function RequireSuperadmin({ children }: { children: React.ReactElement }) {
   const { userId, globalRole } = useAuth();
-  if (!userId) return <Navigate to="/login" replace />;
-  if (globalRole !== "superadmin") return <Navigate to="/dashboard" replace />;
+
+  if (!userId) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (globalRole !== "superadmin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
 }
 
-
 // Защита маршрута для admin или superadmin
-function RequireAdminOrSuperadmin({ children }: { children: React.ReactElement }) {
+function RequireAdminOrSuperadmin({
+  children,
+}: {
+  children: React.ReactElement;
+}) {
   const { userId, globalRole } = useAuth();
-  if (!userId) return <Navigate to="/login" replace />;
+
+  if (!userId) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (globalRole !== "superadmin" && globalRole !== "admin") {
     return <Navigate to="/dashboard" replace />;
   }
+
   return children;
 }
 
-
 function App() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen w-full">
+      {/* Глобальный обработчик якорей */}
+      <ScrollToAnchor />
+
       <Routes>
-
         {/* ── Публичные маршруты (без авторизации) ────────── */}
-
-        {/* Лендинг — первая страница при открытии приложения */}
-        <Route path="/" element={<LandingPage />} />        {/* ← ИЗМЕНЕНО */}
-
-        {/* Экран логина */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/tech" element={<TechOverviewPage />} />
+        <Route path="/solutions" element={<SolutionsPage />} />
+        <Route path="/capabilities" element={<CapabilitiesPage />} />
+        <Route path="/demo" element={<DemoPage />} />
+        <Route path="/about" element={<AboutPage />} />
 
         {/* ── Защищённые маршруты ──────────────────────────── */}
-
-        {/* Дашборд */}
         <Route
           path="/dashboard"
           element={
@@ -120,7 +144,6 @@ function App() {
           }
         />
 
-        {/* Страница проекта */}
         <Route
           path="/projects/:dealId"
           element={
@@ -130,7 +153,6 @@ function App() {
           }
         />
 
-        {/* Создание нового проекта — только для superadmin */}
         <Route
           path="/projects/new"
           element={
@@ -140,7 +162,6 @@ function App() {
           }
         />
 
-        {/* Временный маршрут для старого списка сделок */}
         <Route
           path="/deals"
           element={
@@ -150,7 +171,6 @@ function App() {
           }
         />
 
-        {/* Загрузка документов */}
         <Route
           path="/projects/:dealId/upload"
           element={
@@ -162,7 +182,6 @@ function App() {
           }
         />
 
-        {/* Участники проекта */}
         <Route
           path="/projects/:dealId/members"
           element={
@@ -174,7 +193,6 @@ function App() {
           }
         />
 
-        {/* Привязка версии плейбука к проекту */}
         <Route
           path="/projects/:dealId/playbook"
           element={
@@ -186,7 +204,6 @@ function App() {
           }
         />
 
-        {/* Конструктор шаблонов playbook */}
         <Route
           path="/projects/:dealId/playbooks/admin"
           element={
@@ -199,8 +216,6 @@ function App() {
         />
 
         {/* ── Админ-маршруты ───────────────────────────────── */}
-
-        {/* Профили моделей */}
         <Route
           path="/admin/model-configs"
           element={
@@ -210,7 +225,6 @@ function App() {
           }
         />
 
-        {/* Версии плейбуков */}
         <Route
           path="/admin/playbook-versions"
           element={
@@ -221,13 +235,11 @@ function App() {
         />
 
         {/* ── Fallback ─────────────────────────────────────── */}
-
-        {/* Любой неизвестный путь → на лендинг */}
         <Route path="*" element={<Navigate to="/" replace />} />
-
       </Routes>
     </div>
   );
 }
 
 export default App;
+

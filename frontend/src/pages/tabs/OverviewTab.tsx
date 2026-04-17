@@ -257,7 +257,7 @@ const RunProgressCard: React.FC<{
         <>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-gray-500">
-              В загруженных документах проведено {effectiveTotal} проверок
+              В загруженных документах будет проведено {effectiveTotal} проверок
             </span>
             <span className="font-semibold text-gray-700">{percent}%</span>
           </div>

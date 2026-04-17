@@ -3,11 +3,33 @@
 html,
 body,
 #root {
+  width: 100%;
+  min-height: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-/* Убираем подчёркивание и синий цвет у всех ссылок */
+body {
+  min-height: 100vh;
+  background-color: #020617;
+  color: #ffffff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 a {
   text-decoration: none;
   color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }
