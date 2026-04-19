@@ -1,11 +1,8 @@
 import React, { useState } from "react";
-import { landingContent } from "../content/landingContent";
 import LandingHeader from "../components/marketing/landing/LandingHeader";
 import TrustStripSection from "../components/marketing/landing/TrustStripSection";
 import PremiumHeroSection from "../components/marketing/landing/PremiumHeroSection";
 import CapabilitiesBentoSection from "../components/marketing/landing/CapabilitiesBentoSection";
-import WorkflowPreviewSection from "../components/marketing/landing/WorkflowPreviewSection";
-import WhyChooseSection from "../components/marketing/landing/WhyChooseSection";
 import SecuritySplitSection from "../components/marketing/landing/SecuritySplitSection";
 import UseCasesSection from "../components/marketing/landing/UseCasesSection";
 import ArchitecturePreviewSection from "../components/marketing/landing/ArchitecturePreviewSection";
@@ -26,18 +23,16 @@ const LandingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white antialiased">
+    <div className="min-h-screen bg-[#f7f3ea] text-stone-950 antialiased">
       <LandingHeader onOpenContact={() => setContactOpen(true)} />
-      <PremiumHeroSection onOpenContact={() => setContactOpen(true)} />
+      <PremiumHeroSection />
       <TrustStripSection />
       <CapabilitiesBentoSection />
-      <WorkflowPreviewSection />
-      <WhyChooseSection />
       <SecuritySplitSection />
       <UseCasesSection />
       <ArchitecturePreviewSection />
-      <PremiumFinalCtaSection onOpenContact={() => setContactOpen(true)} />
-      <LandingFooter onOpenContact={() => setContactOpen(true)} />
+      <PremiumFinalCtaSection />
+      <LandingFooter />
 
       <ContactModal
         open={contactOpen}

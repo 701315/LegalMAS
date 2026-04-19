@@ -14,13 +14,16 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
+import localFirstImage from "../components/marketing/photo/Local-first.jpg";
+import controlledCloudImage from "../components/marketing/photo/Controlled cloud.jpg";
+import sourceLinkedImage from "../components/marketing/photo/Source-linked.jpg";
+
 export const landingContent = {
   brand: {
     name: "LegalMAS",
-    tagline: "Legal Multi-Agent System for document analysis",
+    tagline: "Legal Multi-Agent System",
   },
 
-  // Верхнее меню: ВСЕ пункты ведут на секции внутри лендинга.
   nav: [
     { label: "Возможности", href: "/#capabilities" },
     { label: "Сценарии", href: "/#use-cases" },
@@ -29,11 +32,15 @@ export const landingContent = {
   ],
 
   hero: {
-    eyebrow: "Enterprise legal AI infrastructure",
+    eyebrow: "",
     title: "Юридический анализ документов",
-    description:
-      "LegalMAS обеспечивает преобразование массива документов в юридически выверенный и структурированный результат, который включает проверку в соответствии с заданной инструкцией (playbook) проверки, выводы с прямой ссылкой на источник в исходном документе, конфиденциальную обработку данных и управляемая обработка \ анализ документации — от загрузки до формирования отчёта. Вместо работы с неструктурированным набором файлов юридическая команда получает прозрачный инструмент для проверки: по каждому разделу инструкции (playboo) фиксируется обоснованный ответ, а выявленные риски - задокументированными. Такой подход формирует полноценную, обоснованную базу для принятия решений лицами, отвечающими за стратегическое управление и комплаенс.",
-    primaryCta: "Запросить демо",
+    descriptionLines: [
+      "LegalMAS обеспечивает преобразование массива документов в юридически выверенный и структурированный результат.",
+      "Проверка строится по заданной инструкции (playbook): по каждому пункту формируются выводы с прямой ссылкой на источник в исходных документах, а данные обрабатываются конфиденциально — от загрузки до формирования отчёта.",
+      "Вместо неструктурированного набора файлов юридическая команда получает прозрачный инструмент для проверки: по каждому разделу playbook фиксируется обоснованный ответ, а выявленные риски — задокументированы.",
+      "Такой подход формирует полноценную, аргументированную базу для решений лиц, отвечающихся за стратегическое управление и комплаенс.",
+    ],
+    primaryCta: "",
     secondaryCta: "Посмотреть сценарии",
     chips: [
       "Playbook-driven review",
@@ -42,7 +49,7 @@ export const landingContent = {
       "PII-sanitized cloud mode",
     ],
     panelTitle:
-      "Почему LegalMAS выглядит как enterprise product, а не как AI-обёртка",
+      "Почему LegalMAS является enterprise product, а не AI-обёрткой",
     panelItems: [
       "Проверки строятся вокруг юридических playbooks, а не вокруг одного промпта.",
       "Каждый вывод привязан к источнику и пригоден для review.",
@@ -159,14 +166,17 @@ export const landingContent = {
       {
         title: "Local-first по умолчанию",
         text: "Документы не должны покидать контур без явного решения администратора.",
+        image: localFirstImage,
       },
       {
         title: "Controlled cloud mode",
         text: "Если внешние LLM подключаются, это делается в управляемом режиме с предварительной санацией данных.",
+        image: controlledCloudImage,
       },
       {
         title: "Source-linked + audit-ready",
         text: "Результаты подходят для review, внутреннего контроля и объяснимого анализа.",
+        image: sourceLinkedImage,
       },
     ],
     linkLabel: "Подробнее о privacy-first архитектуре",
@@ -212,7 +222,7 @@ export const landingContent = {
       "PII sanitization",
       "Document structure parsing",
       "Hybrid retrieval + checks",
-      "Async export pipeline",
+      "Что под капотом?",
     ],
     linkLabel: "Открыть архитектуру и пайплайн",
   },
@@ -225,4 +235,3 @@ export const landingContent = {
     secondary: "Изучить сценарии",
   },
 } as const;
-

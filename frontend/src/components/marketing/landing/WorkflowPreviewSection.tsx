@@ -1,4 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
 import { landingContent } from "../../../content/landingContent";
 import MarketingContainer from "../primitives/MarketingContainer";
 import MarketingSection from "../primitives/MarketingSection";
@@ -7,35 +9,54 @@ const WorkflowPreviewSection: React.FC = () => {
   const { workflow } = landingContent;
 
   return (
-    <MarketingSection className="bg-slate-950">
+    <MarketingSection className="bg-[#f1ebdf] scroll-mt-24">
       <MarketingContainer size="section">
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-          <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Document flow</div>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white lg:text-5xl">
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-4">
+            <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
+              Workflow
+            </div>
+            <h2 className="mt-4 max-w-md font-serif text-4xl leading-tight tracking-[-0.03em] text-stone-950 lg:text-5xl">
               {workflow.title}
             </h2>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-400 lg:text-lg">
+            <p className="mt-5 max-w-md text-base leading-8 text-stone-700">
               {workflow.subtitle}
             </p>
+
+            <Link
+              to="/tech#pipeline"
+              className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-stone-900 transition-colors hover:text-stone-600"
+            >
+              Открыть полный pipeline
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {workflow.steps.map((step, idx) => (
-              <div
-                key={step.title}
-                className="rounded-[28px] border border-white/10 bg-white/[0.03] p-6"
-              >
-                <div className="flex items-center justify-between">
-                  <step.icon className="h-5 w-5 text-slate-300" />
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    0{idx + 1}
+          <div className="lg:col-span-8">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {workflow.steps.map((step, index) => {
+                const Icon = step.icon;
+
+                return (
+                  <div
+                    key={step.title}
+                    className="flex h-full flex-col rounded-[28px] border border-stone-900/10 bg-[#f7f3ea] p-6"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Icon className="h-5 w-5 text-stone-700" />
+                      <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-400">
+                        0{index + 1}
+                      </div>
+                    </div>
+
+                    <h3 className="mt-10 font-serif text-2xl tracking-[-0.02em] text-stone-950">
+                      {step.title}
+                    </h3>
+                    <p className="mt-4 text-sm leading-7 text-stone-700">{step.text}</p>
                   </div>
-                </div>
-                <h3 className="mt-6 text-xl font-semibold text-white">{step.title}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-slate-400">{step.text}</p>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
       </MarketingContainer>
@@ -44,3 +65,4 @@ const WorkflowPreviewSection: React.FC = () => {
 };
 
 export default WorkflowPreviewSection;
+

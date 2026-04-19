@@ -1,57 +1,38 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, Shield } from "lucide-react";
-import MarketingPageIntro from "../components/marketing/MarketingPageIntro";
-import { securityContent } from "../content/securityContent";
-import SecurityTrustSection from "../components/marketing/security/SecurityTrustSection";
-import SecurityControlsSection from "../components/marketing/security/SecurityControlsSection";
-import SecurityArchitectureSection from "../components/marketing/security/SecurityArchitectureSection";
+import MarketingEditorialShell from "../components/marketing/landing/MarketingEditorialShell";
+import { landingContent } from "../content/landingContent";
 
 const SecurityPage: React.FC = () => {
+  const { security } = landingContent;
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl supports-[backdrop-filter]:bg-slate-950/70">
-        <div className="mx-auto flex h-16 w-full max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:h-[72px] lg:px-10 xl:px-12">
-          <Link to="/" className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white text-slate-950 shadow-lg shadow-black/20">
-              <Shield className="h-5 w-5" />
-            </div>
-
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-tight text-white">
-                LegalMAS
-              </div>
-              <div className="hidden truncate text-[11px] text-slate-500 sm:block">
-                Enterprise legal AI infrastructure
-              </div>
-            </div>
-          </Link>
-
-          <Link
-            to="/"
-            className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            На главную
-          </Link>
+    <MarketingEditorialShell
+      eyebrow="Security"
+      title="Privacy-first и security layer внутри самого продукта"
+      description="Для LegalMAS trust layer — это не отдельный маркетинговый абзац, а часть архитектуры: local-first processing, controlled cloud mode, role-based access и source-linked auditability."
+      primaryLink={{ label: "Посмотреть возможности", to: "/capabilities" }}
+      secondaryLink={{ label: "Изучить architecture", to: "/tech" }}
+    >
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="rounded-[32px] border border-stone-900/10 bg-stone-950 p-7 text-[#f7f3ea] lg:col-span-5 lg:p-9">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-400">Security posture</div>
+          <h2 className="mt-4 font-serif text-4xl leading-tight tracking-[-0.03em] text-white">{security.title}</h2>
+          <p className="mt-5 text-base leading-8 text-stone-300">{security.description}</p>
+          <div className="mt-8 flex flex-wrap gap-2.5">
+            {security.badges.map((badge) => (
+              <div key={badge} className="rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-2 text-xs font-medium text-stone-200">{badge}</div>
+            ))}
+          </div>
         </div>
-      </header>
-
-      <main
-        id="privacy"
-        className="mx-auto max-w-6xl scroll-mt-32 px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
-      >
-        <MarketingPageIntro
-          eyebrow={securityContent.intro.eyebrow}
-          title={securityContent.intro.title}
-          description={securityContent.intro.description}
-        />
-
-        <SecurityTrustSection />
-        <SecurityControlsSection />
-        <SecurityArchitectureSection />
-      </main>
-    </div>
+        <div className="grid gap-4 lg:col-span-7 lg:grid-cols-3">
+          {security.cards.map((card) => (
+            <div key={card.title} className="rounded-[28px] border border-stone-900/10 bg-white/70 p-6">
+              <h3 className="text-xl font-semibold text-stone-950">{card.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-stone-700">{card.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </MarketingEditorialShell>
   );
 };
 

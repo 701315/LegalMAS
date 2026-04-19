@@ -1,50 +1,93 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, Shield } from "lucide-react";
-import SolutionsHeroSection from "../components/marketing/solutions/SolutionsHeroSection";
-import SolutionsUseCasesSection from "../components/marketing/solutions/SolutionsUseCasesSection";
-import SolutionsWorkflowFitSection from "../components/marketing/solutions/SolutionsWorkflowFitSection";
-import SolutionsProofSection from "../components/marketing/solutions/SolutionsProofSection";
+import MarketingEditorialShell from "../components/marketing/landing/MarketingEditorialShell";
+import { landingContent } from "../content/landingContent";
+import { SearchCheck } from "lucide-react";
 
 const SolutionsPage: React.FC = () => {
+  const { useCases } = landingContent;
+
+  const extendedUseCases = [
+    ...useCases.items,
+    {
+      icon: SearchCheck,
+      title: "Проверка активов \\ партнеров",
+      description:
+        "Проведение дополнительной проверки активов \\ контрагентов из анализируемых документов по выбранным критериям через сторонние сервисы и агрегирование результатов их проверки в основной отчет.",
+    },
+  ];
+
+  // Схема цветов для левого блока по порядку сценариев
+  const leftToneByIndex: string[] = [
+    "bg-white/70",      // 1. M&A и Due Diligence
+    "bg-[#efe9dd]",     // 2. Корпоративные правовые отделы (бежевый)
+    "bg-white/75",      // 3. Контрактный review (белый)
+    "bg-[#efe9dd]",     // 4. Аудит и расследования (бежевый)
+    "bg-white/70",      // 5. Проверка активов \ партнеров (белый)
+  ];
+
+  // Для правых блоков: по умолчанию белый, но те, что напротив
+  // "Корпоративные правовые отделы" и "Аудит и расследования" — бежевые
+  const rightToneByIndex: string[] = [
+    "bg-white/60",      // 1. M&A
+    "bg-[#efe9dd]",     // 2. Корпоративные правовые отделы (бежевый)
+    "bg-white/60",      // 3. Контрактный review
+    "bg-[#efe9dd]",     // 4. Аудит и расследования (бежевый)
+    "bg-white/60",      // 5. Проверка активов \ партнеров
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl supports-[backdrop-filter]:bg-slate-950/70">
-        <div className="mx-auto flex h-16 w-full max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:h-[72px] lg:px-10 xl:px-12">
-          <Link to="/" className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white text-slate-950 shadow-lg shadow-black/20">
-              <Shield className="h-5 w-5" />
-            </div>
+    <MarketingEditorialShell
+      eyebrow="Solutions"
+      title="Сценарии, в которых LegalMAS даёт прикладной юридический результат"
+      description="Платформа подходит для M&A, due diligence, contract review, аудита и внутреннего расследования, когда нужен не общий summary, а проверяемый structured output."
+      primaryLink={{ label: "Открыть возможности", to: "/capabilities" }}
+      secondaryLink={{ label: "Посмотреть security", to: "/security" }}
+    >
+      <div className="grid gap-5">
+        {extendedUseCases.map((item, index) => {
+          const Icon = item.icon;
+          const leftTone =
+            leftToneByIndex[index] ?? leftToneByIndex[leftToneByIndex.length - 1];
+          const rightTone =
+            rightToneByIndex[index] ?? rightToneByIndex[rightToneByIndex.length - 1];
 
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-tight text-white">
-                LegalMAS
+          return (
+            <div
+              key={item.title}
+              className="grid gap-4 lg:grid-cols-12 lg:gap-5"
+            >
+              {/* Левый блок сценария */}
+              <div
+                className={`rounded-[28px] border border-stone-900/10 p-6 lg:col-span-6 lg:p-7 ${leftTone}`}
+              >
+                <Icon className="h-5 w-5 text-stone-700" />
+                <h2 className="mt-10 max-w-sm font-serif text-3xl leading-tight tracking-[-0.03em] text-stone-950">
+                  {item.title}
+                </h2>
+                <p className="mt-4 max-w-lg text-sm leading-7 text-stone-700 lg:text-base">
+                  {item.description}
+                </p>
               </div>
-              <div className="hidden truncate text-[11px] text-slate-500 sm:block">
-                Enterprise legal AI infrastructure
+
+              {/* Правый блок описания */}
+              <div
+                className={`rounded-[28px] border border-stone-900/10 p-6 lg:col-span-6 lg:p-7 ${rightTone}`}
+              >
+                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-500">
+                  Дополнительное описание
+                </div>
+                <p className="mt-10 max-w-lg text-sm leading-7 text-stone-700 lg:text-base">
+                  Будет дополнено позже.
+                </p>
               </div>
             </div>
-          </Link>
-
-          <Link
-            to="/"
-            className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            На главную
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <SolutionsHeroSection />
-        <SolutionsUseCasesSection />
-        <SolutionsWorkflowFitSection />
-        <SolutionsProofSection />
-      </main>
-    </div>
+          );
+        })}
+      </div>
+    </MarketingEditorialShell>
   );
 };
 
 export default SolutionsPage;
+
 

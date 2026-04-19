@@ -1,26 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
-/**
- * Глобальный обработчик переходов по якорям.
- *
- * Работает для ссылок вида:
- *   - "/#capabilities"
- *   - "/#use-cases"
- *   - "/security#privacy"
- *   - "/tech#pipeline"
- *
- * При смене location:
- *   - если есть hash → скроллит к соответствующему элементу с учётом высоты header;
- *   - если hash нет → скроллит страницу к началу (top: 0).
- */
 const ScrollToAnchor: React.FC = () => {
   const location = useLocation();
   const lastHashRef = useRef<string>("");
 
   useEffect(() => {
     const { hash } = location;
-    const HEADER_OFFSET = 96;
+    const HEADER_OFFSET = 72;
 
     if (!hash) {
       window.scrollTo({
@@ -36,8 +23,22 @@ const ScrollToAnchor: React.FC = () => {
     lastHashRef.current = id;
 
     let retries = 0;
-    const maxRetries = 12;
+    const maxRetries = 16;
+
     let retryTimeout: number | undefined;
+    let secondPassTimeout: number | undefined;
+    let rafId: number | undefined;
+
+    const scrollToTarget = (element: HTMLElement) => {
+      const elementTop = element.getBoundingClientRect().top + window.scrollY;
+      const targetTop = Math.max(elementTop - HEADER_OFFSET, 0);
+
+      window.scrollTo({
+        top: targetTop,
+        left: 0,
+        behavior: "auto",
+      });
+    };
 
     const tryScroll = () => {
       const currentId = lastHashRef.current;
@@ -46,31 +47,42 @@ const ScrollToAnchor: React.FC = () => {
       const element = document.getElementById(currentId);
 
       if (element) {
-        const elementTop = element.getBoundingClientRect().top + window.scrollY;
-        const targetTop = Math.max(elementTop - HEADER_OFFSET, 0);
+        rafId = window.requestAnimationFrame(() => {
+          scrollToTarget(element);
 
-        window.scrollTo({
-          top: targetTop,
-          left: 0,
-          behavior: "auto",
+          secondPassTimeout = window.setTimeout(() => {
+            const refreshedElement = document.getElementById(currentId);
+            if (refreshedElement) {
+              scrollToTarget(refreshedElement);
+            }
+            lastHashRef.current = "";
+          }, 220);
         });
 
-        lastHashRef.current = "";
         return;
       }
 
       if (retries < maxRetries) {
         retries += 1;
-        retryTimeout = window.setTimeout(tryScroll, 80);
+        retryTimeout = window.setTimeout(tryScroll, 100);
       }
     };
 
-    const initialTimeout = window.setTimeout(tryScroll, 60);
+    const initialTimeout = window.setTimeout(tryScroll, 120);
 
     return () => {
       window.clearTimeout(initialTimeout);
+
       if (retryTimeout) {
         window.clearTimeout(retryTimeout);
+      }
+
+      if (secondPassTimeout) {
+        window.clearTimeout(secondPassTimeout);
+      }
+
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
       }
     };
   }, [location]);
@@ -79,5 +91,4 @@ const ScrollToAnchor: React.FC = () => {
 };
 
 export default ScrollToAnchor;
-
 

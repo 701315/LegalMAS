@@ -1,39 +1,41 @@
 import React from "react";
-import { ArrowRight } from "lucide-react";
 import { landingContent } from "../../../content/landingContent";
 import MarketingContainer from "../primitives/MarketingContainer";
 import MarketingSection from "../primitives/MarketingSection";
-import MarketingButton from "../primitives/MarketingButton";
+import teamImage from "../photo/сотрудники.jpg";
 
-interface PremiumFinalCtaSectionProps {
-  onOpenContact: () => void;
-}
-
-const PremiumFinalCtaSection: React.FC<PremiumFinalCtaSectionProps> = ({
-  onOpenContact,
-}) => {
+const PremiumFinalCtaSection: React.FC = () => {
   const { finalCta } = landingContent;
 
   return (
-    <MarketingSection className="bg-slate-950">
-      <MarketingContainer size="hero">
-        <div className="rounded-[36px] border border-white/10 bg-white/[0.04] px-6 py-10 text-center sm:px-8 lg:px-12 lg:py-14">
-          <h2 className="mx-auto max-w-4xl text-3xl font-semibold tracking-tight text-white lg:text-5xl">
-            {finalCta.title}
-          </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-400 lg:text-lg">
-            {finalCta.description}
-          </p>
+    <MarketingSection className="bg-[#f7f3ea]">
+      <MarketingContainer size="section">
+        <div className="rounded-[36px] border border-stone-900/10 bg-[#ece5d8] p-8 lg:p-12">
+          <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-stretch lg:gap-10">
+            <div className="flex flex-col justify-center">
+              <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500">
+                Final CTA
+              </div>
 
-          <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
-            <MarketingButton onClick={onOpenContact}>
-              {finalCta.primary}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </MarketingButton>
+              <h2 className="mt-4 max-w-3xl font-serif text-4xl leading-tight tracking-[-0.03em] text-stone-950 lg:text-6xl">
+                {finalCta.title}
+              </h2>
 
-            <MarketingButton to="/solutions" variant="secondary">
-              {finalCta.secondary}
-            </MarketingButton>
+              <p className="mt-5 max-w-2xl text-base leading-8 text-stone-700 lg:text-[1.05rem]">
+                {finalCta.description}
+              </p>
+            </div>
+
+            <div className="overflow-hidden rounded-[30px] border border-stone-900/10 bg-white/50 shadow-[0_20px_60px_rgba(28,25,23,0.08)]">
+              <div className="h-full min-h-[320px] lg:min-h-[420px]">
+                <img
+                  src={teamImage}
+                  alt="Команда LegalMAS обсуждает работу с юридическими документами"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </MarketingContainer>
@@ -42,3 +44,4 @@ const PremiumFinalCtaSection: React.FC<PremiumFinalCtaSectionProps> = ({
 };
 
 export default PremiumFinalCtaSection;
+

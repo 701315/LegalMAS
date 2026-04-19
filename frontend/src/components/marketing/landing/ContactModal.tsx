@@ -25,68 +25,66 @@ const ContactModal: React.FC<ContactModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(32,27,22,0.48)] px-4 backdrop-blur-md"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/10 bg-slate-950 shadow-2xl shadow-black/50">
+      <div className="relative w-full max-w-6xl overflow-hidden rounded-[36px] border border-stone-900/10 bg-[#f7f3ea] shadow-[0_32px_120px_rgba(28,25,23,0.18)]">
         <button
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+          className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-900/10 bg-white/80 text-stone-700 transition-colors hover:bg-white hover:text-stone-950"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="border-b border-white/10 bg-white/[0.03] p-8 lg:border-b-0 lg:border-r lg:p-10">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300">
-              <Shield className="h-3.5 w-3.5 text-emerald-300" />
+        <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="border-b border-stone-900/10 bg-[#ece5d8] p-8 lg:border-b-0 lg:border-r lg:p-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-stone-900/10 bg-white/70 px-3 py-1.5 text-xs text-stone-700">
+              <Shield className="h-3.5 w-3.5" />
               Enterprise demo request
             </div>
 
-            <h3 className="mt-6 max-w-md text-3xl font-semibold tracking-tight text-white">
+            <h3 className="mt-6 max-w-md font-serif text-4xl leading-tight tracking-[-0.03em] text-stone-950">
               {landingContent.finalCta.title}
             </h3>
 
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-400 lg:text-base">
-              Расскажи о типах документов, playbooks и текущем процессе review — так демо можно сделать
-              предметным, а не общим.
+            <p className="mt-4 max-w-md text-sm leading-7 text-stone-700 lg:text-base">
+              Расскажи о типах документов, playbooks и текущем процессе review — так демо можно сделать предметным, а не общим.
             </p>
 
-            <div className="mt-8 space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">01</div>
-                <p className="mt-2 text-sm text-slate-300">
-                  Обсудим сценарий: M&A, DD, contract review или внутренний аудит.
-                </p>
+            <div className="mt-8 rounded-[28px] border border-stone-900/10 bg-white/75 p-5">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-stone-500">
+                Demo path
               </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">02</div>
-                <p className="mt-2 text-sm text-slate-300">
-                  Покажем document flow: загрузка, checks, source-linked results и export.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">03</div>
-                <p className="mt-2 text-sm text-slate-300">
-                  При необходимости отдельно разберём security model, local-first режим и архитектуру.
-                </p>
+              <div className="mt-4 space-y-3">
+                {[
+                  "Обсудим сценарий: M&A, DD, contract review или внутренний аудит.",
+                  "Покажем document flow: загрузка, checks, source-linked results и export.",
+                  "При необходимости отдельно разберём security model, local-first режим и архитектуру.",
+                ].map((item, index) => (
+                  <div key={item} className="rounded-2xl bg-[#f7f3ea] px-4 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-950 text-xs font-semibold text-[#f7f3ea]">
+                        0{index + 1}
+                      </div>
+                      <p className="text-sm leading-6 text-stone-700">{item}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
           <div className="p-8 lg:p-10">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 text-sm text-slate-400">
+              <div className="inline-flex items-center gap-2 text-sm text-stone-600">
                 <Mail className="h-4 w-4" />
                 Ответ придёт на указанный рабочий email
               </div>
 
               <form onSubmit={onSubmit} className="mt-8 space-y-5">
                 <div>
-                  <label className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">
+                  <label className="mb-2 block text-xs uppercase tracking-[0.14em] text-stone-500">
                     Рабочий email
                   </label>
                   <input
@@ -95,12 +93,12 @@ const ContactModal: React.FC<ContactModalProps> = ({
                     value={email}
                     onChange={(e) => onEmailChange(e.target.value)}
                     placeholder="name@company.com"
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-white/25 focus:bg-white/[0.05]"
+                    className="w-full rounded-[22px] border border-stone-900/10 bg-white/80 px-4 py-3.5 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-900/20 focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-xs uppercase tracking-[0.14em] text-slate-500">
+                  <label className="mb-2 block text-xs uppercase tracking-[0.14em] text-stone-500">
                     Сценарий, типы документов, объём
                   </label>
                   <textarea
@@ -109,19 +107,18 @@ const ContactModal: React.FC<ContactModalProps> = ({
                     value={message}
                     onChange={(e) => onMessageChange(e.target.value)}
                     placeholder="Например: DD для пакета SPA / SHA / NDA, 300+ документов, нужен source-linked результат и экспорт в Excel."
-                    className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3.5 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-white/25 focus:bg-white/[0.05]"
+                    className="w-full resize-none rounded-[22px] border border-stone-900/10 bg-white/80 px-4 py-3.5 text-sm text-stone-950 outline-none transition-colors placeholder:text-stone-400 focus:border-stone-900/20 focus:bg-white"
                   />
                 </div>
 
-                <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/10 px-4 py-3 text-xs leading-relaxed text-emerald-100/90">
-                  Если у тебя чувствительный сценарий, можно сразу указать требования к local-first
-                  обработке, ограничения по cloud LLM и ожидания по security review.
+                <div className="rounded-[22px] border border-emerald-900/10 bg-emerald-950 px-4 py-3 text-xs leading-relaxed text-emerald-50/90">
+                  Если у тебя чувствительный сценарий, можно сразу указать требования к local-first обработке, ограничения по cloud LLM и ожидания по security review.
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-200"
+                    className="inline-flex items-center justify-center rounded-full bg-stone-950 px-5 py-3.5 text-sm font-semibold text-[#f7f3ea] transition-colors hover:bg-stone-800"
                   >
                     Отправить запрос
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -130,16 +127,11 @@ const ContactModal: React.FC<ContactModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3.5 text-sm font-medium text-white transition-colors hover:bg-white/[0.08]"
+                    className="inline-flex items-center justify-center rounded-full border border-stone-900/10 bg-white/70 px-5 py-3.5 text-sm font-medium text-stone-800 transition-colors hover:bg-white"
                   >
-                    Отмена
+                    Закрыть
                   </button>
                 </div>
-
-                <p className="text-xs leading-relaxed text-slate-500">
-                  Сейчас форма открывает почтовый клиент через mailto. Позже её можно перевести на backend
-                  endpoint или CRM flow без изменения UI-структуры.
-                </p>
               </form>
             </div>
           </div>
