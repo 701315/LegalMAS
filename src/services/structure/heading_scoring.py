@@ -24,15 +24,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from services.structure.heading_features import (
+    alpha_uid_is_plausible,
     classify_uid_kind,
     digit_uid_without_textual_title,
     has_letters,
     is_bad_heading_title,
     is_garbage_heading_title,
-    level_from_uid,
     looks_like_body_sentence_title,
     looks_like_toc_line,
-    alpha_uid_is_plausible,
     roman_uid_is_plausible,
     uid_is_plausible,
 )
@@ -47,6 +46,7 @@ class CandidateStatus(str, Enum):
     - REJECTED  — уверенно отклоняем;
     - AMBIGUOUS — пограничный случай (можно досмотреть LLM-refiner'ом).
     """
+
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     AMBIGUOUS = "ambiguous"
@@ -62,6 +62,7 @@ class HeadingScoreResult:
     - primary_reason — короткая причина для логов;
     - accept_reasons / reject_reasons — полное объяснение решения.
     """
+
     status: CandidateStatus
     score: float
     primary_reason: str
@@ -88,6 +89,21 @@ def _is_strict_numeric_uid(uid: str) -> bool:
     return bool(_NUMERIC_UID_RE.fullmatch((uid or "").strip()))
 
 
+def level_from_uid(uid: str) -> int:
+    """
+    Определить глубину numeric uid:
+    - "1" -> 1
+    - "2.3" -> 2
+    - "4.1.5" -> 3
+
+    Для roman/alpha uid возвращаем 1.
+    """
+    normalized = normalize_spaces(uid)
+    if not _is_strict_numeric_uid(normalized):
+        return 1
+    return normalized.count(".") + 1
+
+
 def _is_effectively_empty_title(title: str) -> bool:
     """
     Строки вроде "", " ", "-", "--", ",", ".", ", ,", "- -"
@@ -95,9 +111,11 @@ def _is_effectively_empty_title(title: str) -> bool:
     """
     if not title:
         return True
+
     stripped = normalize_spaces(title).strip()
     if not stripped:
         return True
+
     cleaned = re.sub(r"[\s\.,;:!?()\[\]{}\-–—_+/\\|\"'`~№]+", "", stripped)
     return not cleaned
 
@@ -127,13 +145,9 @@ def score_heading_candidate(
 
     # ── 1. Нормализация ──────────────────────────────────────────────────────
     raw_text = normalize_spaces(raw_text)
-
-    # uid нормализуем и сразу считаем level, чтобы передать его в _normalize_title
     uid = normalize_spaces(uid)
     level = level_from_uid(uid) if uid else 1
-
-    # теперь можем корректно нормализовать title с учётом глубины
-    title = _normalize_title(title, uid_depth=level)
+    title = _normalize_title(normalize_spaces(title), uid_depth=level)
 
     accept_reasons: list[str] = []
     reject_reasons: list[str] = []
@@ -205,7 +219,6 @@ def score_heading_candidate(
         )
 
     # ── 8. Вычисляем свойства uid ────────────────────────────────────────────
-    # Вычисляем только после мусорного фильтра, чтобы не тратить ресурсы на мусор
     uid_kind = classify_uid_kind(uid)
     numeric_uid = _is_strict_numeric_uid(uid)
 
@@ -292,9 +305,8 @@ def score_heading_candidate(
             )
 
         if level == 3:
-            # Пример: "1.1.1", "2.3.4" — клаузы третьего уровня.
-            # Это самые важные leaf-узлы для risk-анализа — принимаем уверенно.
-            # (Было AMBIGUOUS 0.70 — исправлено: эти пункты нужны как leaf-клаузы)
+            # Пример: "1.1.1", "2.3.4" — типичные leaf-клаузы,
+            # критичные для построения корректного дерева и downstream анализа.
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
                 score=0.85,
@@ -304,7 +316,6 @@ def score_heading_candidate(
             )
 
         # level >= 4: очень глубокая вложенность — принимаем осторожно
-        # Пример: "1.1.1.1", "2.3.4.5" — редко встречается, помечаем AMBIGUOUS
         return HeadingScoreResult(
             status=CandidateStatus.AMBIGUOUS,
             score=0.65,
@@ -314,7 +325,6 @@ def score_heading_candidate(
         )
 
     if uid_kind == "roman":
-        # Пример: "I.", "II.", "III." — романские заголовки
         return HeadingScoreResult(
             status=CandidateStatus.ACCEPTED,
             score=0.82,
@@ -324,7 +334,6 @@ def score_heading_candidate(
         )
 
     if uid_kind == "alpha":
-        # Пример: "A.", "B.", "C." — буквенные подпункты
         return HeadingScoreResult(
             status=CandidateStatus.AMBIGUOUS,
             score=0.60,
@@ -333,7 +342,6 @@ def score_heading_candidate(
             reject_reasons=reject_reasons,
         )
 
-    # Всё остальное — неопределённо
     return HeadingScoreResult(
         status=CandidateStatus.AMBIGUOUS,
         score=0.50,
@@ -370,4 +378,6 @@ def validate_heading_candidate(
     """Старый бинарный интерфейс."""
     ok, _ = validate_heading_candidate_with_reason(uid, title, raw_text)
     return ok
+
+
 

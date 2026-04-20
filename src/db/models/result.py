@@ -1,5 +1,3 @@
-# src/db/models/result.py
-
 """
 CheckResult model — result of a single DD check on a document.
 Each check produces one result with evidence, severity, and QC status.
@@ -70,9 +68,9 @@ class CheckResult(Base):
     )
 
     evidence_ref: Mapped[str | None] = mapped_column(
-        String(1000),
+        Text,
         nullable=True,
-        comment="S3 URI or inline evidence snippet",
+        comment="S3 URI or inline evidence snippet; may be long text",
     )
 
     confidence: Mapped[float | None] = mapped_column(
@@ -184,7 +182,10 @@ class CheckResult(Base):
         String(20),
         nullable=False,
         default="PENDING",
-        comment="Execution status of this check: PENDING, RUNNING, SUCCESS, FAILED, TIMEOUT",
+        comment=(
+            "Technical execution status of this check: "
+            "PENDING, RUNNING, SUCCESS, COMPUTE_FAILED, PERSIST_FAILED, TIMEOUT, FAILED(legacy)"
+        ),
     )
 
     started_at: Mapped[datetime | None] = mapped_column(
@@ -196,13 +197,13 @@ class CheckResult(Base):
     finished_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        comment="When this check execution finished (any terminal state)",
+        comment="When this check execution reached a terminal state",
     )
 
     error_details: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
-        comment="Error/timeout details for FAILED/TIMEOUT executions",
+        comment="Error/timeout details for COMPUTE_FAILED, PERSIST_FAILED, TIMEOUT and legacy FAILED executions",
     )
 
     # --- QC fields ---

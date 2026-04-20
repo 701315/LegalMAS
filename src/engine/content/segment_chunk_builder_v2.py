@@ -19,50 +19,19 @@ SegmentChunkBuilderV2 — построение чанков по логичес�
      - строит leaf‑чанки по дереву ТОЛЬКО этого сегмента;
      - нормализует текст, добавляет метаданные (segment_id, segment_type, и т.п.);
      - строит subclause‑чанки;
-     - сохраняет snapshot чанков сегмента в MinIO;
-     - обновляет segment.segment_chunks_ref в БД.
- 3) Строит file-level манифест чанков (chunks_manifest_v2.json):
-     - перечисление сегментов и их segment_chunks_ref;
-     - aggregate‑статистика по чанкам.
-
-- Итог:
-  * На выходе имеем:
-    - segment_chunks_ref в DocumentSegment;
-    - chunks_manifest_v2_ref в DocumentVersion;
-    - CHUNKS v2 готов для retrieval/checks/LLM.
-"""
-
-from __future__ import annotations
-
-"""
-SegmentChunkBuilderV2 — построение чанков по логическим сегментам (CHUNKS v2).
-
-Простыми словами для непрофессионального программиста:
-
-- Вход:
-  * document_version_id (конкретная версия документа),
-  * session (подключение к БД),
-  * настройки chunking (target_tokens, max_tokens, overlap_ratio).
-
-- Что делает:
-  1) Читает из БД:
-     - DocumentVersion (layout_primary_sanitized_ref, file_graph_ref);
-     - все DocumentSegment для этой версии.
-  2) Для каждого сегмента:
-     - грузит segment_clause_tree_ref и общий layout;
-     - строит leaf‑чанки по дереву ТОЛЬКО этого сегмента;
-     - нормализует текст, добавляет метаданные (segment_id, segment_type, и т.п.);
-     - строит subclause‑чанки;
      - собирает snapshot чанков сегмента.
- 3) Строит file-level манифест чанков:
+  3) Строит file-level манифест чанков:
      - перечисление сегментов и их будущих segment_chunks_ref;
-     - aggregate‑статистика по чанкам.
+     - aggregate‑статистика по чанкам;
+     - aggregate‑статистика покрытия чанкинга.
 
 Важно:
 - Этот builder НЕ пишет в MinIO и НЕ обновляет БД.
 - Сохранение segment_chunks_ref и chunks_manifest_v2_ref делает worker.
 - Этот builder НЕ использует legacy file-level refs старого chunking/structure контракта.
 """
+
+from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass
@@ -101,6 +70,11 @@ class SegmentChunkSnapshotV2:
     - Один physical file может содержать несколько logical segments.
     - Для каждого сегмента строится отдельный snapshot.
     - Это позволяет не смешивать чанки договора и приложения в одном JSON.
+
+    Этап 3:
+    - Мы дополнительно сохраняем coverage‑метрики по leaf-узлам.
+    - Это нужно, чтобы downstream видел не только "сколько чанков получилось",
+      но и "сколько leaf-узлов потерялось по дороге".
     """
 
     document_id: uuid.UUID
@@ -121,6 +95,13 @@ class SegmentChunkSnapshotV2:
     subclause_chunks: list[dict[str, Any]]
     degraded: bool = False
     degradation_reason: str | None = None
+
+    # Этап 3: coverage‑метрики сегмента.
+    total_leaf_nodes: int | None = None
+    leaf_nodes_without_chunks: int | None = None
+    leaf_nodes_without_element_ids: int | None = None
+    leaf_nodes_empty_after_filtering: int | None = None
+    chunking_incomplete: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -146,6 +127,13 @@ class SegmentChunkSnapshotV2:
             "params": self.params,
             "degraded": self.degraded,
             "degradation_reason": self.degradation_reason,
+            "coverage": {
+                "total_leaf_nodes": self.total_leaf_nodes,
+                "leaf_nodes_without_chunks": self.leaf_nodes_without_chunks,
+                "leaf_nodes_without_element_ids": self.leaf_nodes_without_element_ids,
+                "leaf_nodes_empty_after_filtering": self.leaf_nodes_empty_after_filtering,
+                "chunking_incomplete": self.chunking_incomplete,
+            },
             "chunks": {
                 "section": self.section_chunks,
                 "clause": self.clause_chunks,
@@ -189,7 +177,8 @@ class FileChunkManifestV2:
       * какие сегменты есть,
       * какой из них primary,
       * где лежат чанки каждого сегмента,
-      * сколько там чанков.
+      * сколько там чанков,
+      * и есть ли проблемы покрытия чанкинга.
     """
 
     document_id: uuid.UUID
@@ -200,6 +189,13 @@ class FileChunkManifestV2:
     segments: list[FileChunkManifestSegmentV2]
     degraded: bool = False
     degradation_reason: str | None = None
+
+    # Этап 3: aggregate coverage‑метрики по всему файлу.
+    total_leaf_nodes: int | None = None
+    leaf_nodes_without_chunks: int | None = None
+    leaf_nodes_without_element_ids: int | None = None
+    leaf_nodes_empty_after_filtering: int | None = None
+    chunking_incomplete: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -221,6 +217,11 @@ class FileChunkManifestV2:
                 "section_count": sum(s.section_count for s in self.segments),
                 "clause_count": sum(s.clause_count for s in self.segments),
                 "subclause_count": sum(s.subclause_count for s in self.segments),
+                "total_leaf_nodes": self.total_leaf_nodes,
+                "leaf_nodes_without_chunks": self.leaf_nodes_without_chunks,
+                "leaf_nodes_without_element_ids": self.leaf_nodes_without_element_ids,
+                "leaf_nodes_empty_after_filtering": self.leaf_nodes_empty_after_filtering,
+                "chunking_incomplete": self.chunking_incomplete,
             },
         }
 
@@ -403,6 +404,25 @@ class SegmentChunkBuilderV2:
                 )
             )
 
+        # Этап 3: агрегированные coverage‑метрики по всем сегментам.
+        total_leaf_nodes = 0
+        leaf_nodes_without_chunks = 0
+        leaf_nodes_without_element_ids = 0
+        leaf_nodes_empty_after_filtering = 0
+        any_chunking_incomplete = False
+
+        for snap in segment_snapshots:
+            if snap.total_leaf_nodes is not None:
+                total_leaf_nodes += snap.total_leaf_nodes
+            if snap.leaf_nodes_without_chunks is not None:
+                leaf_nodes_without_chunks += snap.leaf_nodes_without_chunks
+            if snap.leaf_nodes_without_element_ids is not None:
+                leaf_nodes_without_element_ids += snap.leaf_nodes_without_element_ids
+            if snap.leaf_nodes_empty_after_filtering is not None:
+                leaf_nodes_empty_after_filtering += snap.leaf_nodes_empty_after_filtering
+            if snap.chunking_incomplete:
+                any_chunking_incomplete = True
+
         file_manifest = FileChunkManifestV2(
             document_id=doc.id,
             document_version_id=version.id,
@@ -410,8 +430,13 @@ class SegmentChunkBuilderV2:
             file_graph_ref=file_graph_ref,
             primary_segment_id=primary_segment_id,
             segments=manifest_segments,
-            degraded=False,
-            degradation_reason=None,
+            degraded=any_chunking_incomplete,
+            degradation_reason="chunking_incomplete_in_segments" if any_chunking_incomplete else None,
+            total_leaf_nodes=total_leaf_nodes,
+            leaf_nodes_without_chunks=leaf_nodes_without_chunks,
+            leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
+            leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
+            chunking_incomplete=any_chunking_incomplete,
         )
 
         logger.info(
@@ -424,6 +449,11 @@ class SegmentChunkBuilderV2:
                 "total_section_count": sum(len(s.section_chunks) for s in segment_snapshots),
                 "total_clause_count": sum(len(s.clause_chunks) for s in segment_snapshots),
                 "total_subclause_count": sum(len(s.subclause_chunks) for s in segment_snapshots),
+                "total_leaf_nodes": total_leaf_nodes,
+                "leaf_nodes_without_chunks": leaf_nodes_without_chunks,
+                "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
+                "leaf_nodes_empty_after_filtering": leaf_nodes_empty_after_filtering,
+                "chunking_incomplete": any_chunking_incomplete,
             },
         )
 
@@ -477,11 +507,12 @@ class SegmentChunkBuilderV2:
                 f"Segment clause tree {segment_clause_tree_ref} has invalid root: expected list"
             )
 
-        leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
+        leaf_result = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=document_id,
             tree=clause_tree,
             layout=layout,
         )
+        leaf_chunks = leaf_result.chunks
 
         logger.info(
             "SegmentChunkBuilderV2: leaf chunks built",
@@ -491,6 +522,9 @@ class SegmentChunkBuilderV2:
                 "segment_id": segment.segment_id,
                 "leaf_count": len(leaf_chunks),
                 "clause_tree_root_count": len(clause_root),
+                "total_leaf_nodes": leaf_result.total_leaf_nodes,
+                "leaf_nodes_without_element_ids": leaf_result.leaf_nodes_without_element_ids,
+                "leaf_nodes_empty_after_filtering": leaf_result.leaf_nodes_empty_after_filtering,
             },
         )
 
@@ -549,6 +583,44 @@ class SegmentChunkBuilderV2:
             total_pages=total_pages,
         )
 
+        total_leaf_nodes = leaf_result.total_leaf_nodes
+        leaf_nodes_without_chunks = max(0, total_leaf_nodes - len(clause_chunks))
+        leaf_nodes_without_element_ids = leaf_result.leaf_nodes_without_element_ids
+        leaf_nodes_empty_after_filtering = leaf_result.leaf_nodes_empty_after_filtering
+
+        chunking_incomplete = any(
+            (
+                leaf_nodes_without_chunks > 0,
+                leaf_nodes_without_element_ids > 0,
+                leaf_nodes_empty_after_filtering > 0,
+            )
+        )
+
+        degradation_reasons: list[str] = []
+        if leaf_nodes_without_chunks > 0:
+            degradation_reasons.append("leaf_nodes_without_chunks>0")
+        if leaf_nodes_without_element_ids > 0:
+            degradation_reasons.append("leaf_nodes_without_element_ids>0")
+        if leaf_nodes_empty_after_filtering > 0:
+            degradation_reasons.append("leaf_nodes_empty_after_filtering>0")
+
+        degradation_reason = ",".join(degradation_reasons) if degradation_reasons else None
+
+        logger.info(
+            "SegmentChunkBuilderV2: segment coverage stats",
+            extra={
+                "document_id": str(document_id),
+                "document_version_id": str(document_version_id),
+                "segment_id": segment.segment_id,
+                "total_leaf_nodes": total_leaf_nodes,
+                "leaf_nodes_without_chunks": leaf_nodes_without_chunks,
+                "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
+                "leaf_nodes_empty_after_filtering": leaf_nodes_empty_after_filtering,
+                "chunking_incomplete": chunking_incomplete,
+                "degradation_reason": degradation_reason,
+            },
+        )
+
         logger.info(
             "SegmentChunkBuilderV2: single segment snapshot built",
             extra={
@@ -558,6 +630,7 @@ class SegmentChunkBuilderV2:
                 "section_count": len(section_chunks),
                 "clause_count": len(clause_chunks),
                 "subclause_count": len(subclause_chunks),
+                "chunking_incomplete": chunking_incomplete,
             },
         )
 
@@ -578,8 +651,13 @@ class SegmentChunkBuilderV2:
             section_chunks=section_chunks,
             clause_chunks=clause_chunks,
             subclause_chunks=subclause_chunks,
-            degraded=False,
-            degradation_reason=None,
+            degraded=chunking_incomplete,
+            degradation_reason=degradation_reason,
+            total_leaf_nodes=total_leaf_nodes,
+            leaf_nodes_without_chunks=leaf_nodes_without_chunks,
+            leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
+            leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
+            chunking_incomplete=chunking_incomplete,
         )
 
     def _build_section_chunks_safe(

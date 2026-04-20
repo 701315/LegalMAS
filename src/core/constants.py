@@ -46,6 +46,34 @@ class CheckResultStatus(str, Enum):
     UNCLEAR = "unclear"
 
 
+class CheckExecutionStatus(str, Enum):
+    """
+    Technical execution status of a single check.
+
+    Важно:
+    - это НЕ бизнес-результат проверки;
+    - бизнес-результат хранится отдельно в CheckResult.result;
+    - этот enum описывает именно технический факт исполнения check.
+
+    Семантика:
+    - PENDING         — check ещё не исполнялся;
+    - RUNNING         — check запущен, но ещё не завершён;
+    - SUCCESS         — compute и persist завершились успешно;
+    - COMPUTE_FAILED  — check не смог корректно вычислиться;
+    - PERSIST_FAILED  — check вычислился, но запись результата в БД не удалась;
+    - TIMEOUT         — check не завершился из-за таймаута;
+    - FAILED          — legacy terminal статус, сохраняем для обратной совместимости.
+    """
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    COMPUTE_FAILED = "COMPUTE_FAILED"
+    PERSIST_FAILED = "PERSIST_FAILED"
+    FAILED = "FAILED"  # legacy compatibility
+    TIMEOUT = "TIMEOUT"
+
+
 class PlaybookStatus(str, Enum):
     """Lifecycle status of a playbook version."""
 

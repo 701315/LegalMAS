@@ -190,7 +190,15 @@ class CheckRunner:
         check_id: str,
         safe_chunks: list[dict] | None = None,
     ) -> dict[str, Any]:
-        """Выполнить одну проверку и сохранить результат."""
+        """
+        Выполнить одну проверку и сохранить результат.
+
+        ВАЖНО:
+        - здесь мы не различаем compute vs persist на уровне статусов,
+          но не скрываем исключения из save_check_result;
+        - Celery-воркер вокруг этого метода уже ловит SoftTimeLimitExceeded
+          и generic Exception, выставляя execution_status="TIMEOUT"/"FAILED".
+        """
         check = self._planner.find_check_for_document(doc, playbook, check_id)
 
         if check is None:
@@ -215,8 +223,12 @@ class CheckRunner:
                 session=session, doc=doc, checks=[check],
             )
 
+        # Выполняем check синхронно (внутри executor'а уже своя логика ретраев/LLM).
         exec_result = self.executor.execute(doc, check, safe_chunks)
 
+        # Сохраняем результат, не глушим исключения.
+        # Ошибка на этом этапе — либо LLM/compute (если exec_result невалиден),
+        # либо DB/persist (если repo.upsert_single_check_result упало).
         await save_check_result(
             repo=repo,
             run_id=run_id,
@@ -247,8 +259,12 @@ class CheckRunner:
             repo = uow.check_results
 
             (
-                checks, mode, doc_type, applicable_triggers,
-                global_checks, doc_type_checks,
+                checks,
+                mode,
+                doc_type,
+                applicable_triggers,
+                global_checks,
+                doc_type_checks,
             ) = self._planner.select_checks_for_document(doc, playbook)
 
             logger.info(
@@ -267,7 +283,9 @@ class CheckRunner:
                 return 0, 0
 
             # Log skipped conditional checks
-            self._log_skipped_conditionals(doc, run_id, playbook, doc_type, applicable_triggers)
+            self._log_skipped_conditionals(
+                doc, run_id, playbook, doc_type, applicable_triggers
+            )
 
             safe_chunks = await self._chunks.build_safe_chunks(
                 session=uow.session, doc=doc, checks=checks,
@@ -319,6 +337,7 @@ class CheckRunner:
                         },
                     )
         except Exception:
+            # Логирование условных скипов не должно ломать основной пайплайн.
             pass
 
         

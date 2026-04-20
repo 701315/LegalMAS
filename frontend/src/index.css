@@ -12,8 +12,8 @@ body,
 
 body {
   min-height: 100vh;
-  background-color: #020617;
-  color: #ffffff;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 *,
@@ -32,4 +32,6 @@ input,
 textarea,
 select {
   font: inherit;
+  color: inherit;
 }
+

@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
+from core.constants import CheckExecutionStatus
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -21,16 +21,30 @@ def normalize_check_result(
 ) -> dict[str, Any]:
     """
     Нормализовать DTO от CheckExecutor под поля CheckResult.
+
+    Что делаем здесь:
+    - приводим "сырой" результат чека к полям, которые можно сохранять в CheckResult;
+    - вытаскиваем evidence / quality_flags / structured_data;
+    - аккуратно сохраняем provenance по segment'ам.
+
+    ВАЖНО:
+    - здесь мы не решаем финальный execution_status;
+    - это делает resolve_execution_status().
     """
     reason = exec_result.get("reason")
     evidence = exec_result.get("evidence") or ""
     detector_method = exec_result.get("detector_method")
     raw = exec_result.get("raw") or {}
 
+    # value_text — это короткое объяснение.
+    # Если reason нет, берём укороченный evidence.
     value_text = reason or (evidence[:500] if evidence else None)
+
+    # evidence_ref — сохраняем полную строку evidence.
+    # После миграции на TEXT это безопасно.
     evidence_ref = evidence or None
 
-    quality_flags: dict = {}
+    quality_flags: dict[str, Any] = {}
     if isinstance(raw, dict):
         source = raw.get("source")
         if source:
@@ -60,6 +74,8 @@ def normalize_check_result(
         if rules_llm_decision:
             quality_flags["rules_llm_decision"] = rules_llm_decision
 
+        # Сохраняем raw целиком.
+        # Это допустимо, потому что поле quality_flags в модели — JSONB.
         quality_flags["raw"] = raw
 
     # Structured data
@@ -109,22 +125,59 @@ def resolve_execution_status(exec_result: dict) -> tuple[str, dict[str, Any] | N
     Определить execution_status и error_details по результату CheckExecutor.
 
     Возвращает:
-    - execution_status: SUCCESS / TIMEOUT / FAILED_LLM
-    - error_details: dict или None
-    """
-    llm_error_type = exec_result.get("llm_error_type")
-    llm_required = bool(exec_result.get("llm_required") or False)
-    llm_degraded = bool(exec_result.get("llm_degraded") or False)
-    rules_llm_decision = exec_result.get("rules_llm_decision")
+    - execution_status: одно из значений CheckExecutionStatus (как строка)
+      PENDING / RUNNING / SUCCESS / FAILED / TIMEOUT
+      (на практике здесь используем только SUCCESS / FAILED / TIMEOUT);
+    - error_details: dict или None.
 
-    execution_status = "SUCCESS"
+    ВАЖНО:
+    - Пока не вводим новые execution_status вроде FAILED_LLM / TECHNICAL_FAILURE,
+      потому что остальной pipeline (финализация run, метрики, счётчики completed checks)
+      пока явно ожидает SUCCESS / FAILED / TIMEOUT.
+    - Если внедрить новые статусы прямо сейчас, можно сломать завершение Run.
+    """
+    raw = exec_result.get("raw") or {}
+
+    # Берём признаки как из верхнего уровня exec_result, так и из raw.
+    # Это важно, потому что в реальном пайплайне часть LLM-диагностики
+    # часто оказывается именно в raw.
+    llm_error_type = (
+        exec_result.get("llm_error_type")
+        or (raw.get("llm_error_type") if isinstance(raw, dict) else None)
+    )
+
+    llm_required = bool(
+        exec_result.get("llm_required")
+        if exec_result.get("llm_required") is not None
+        else (raw.get("llm_required") if isinstance(raw, dict) else False)
+    )
+
+    llm_degraded = bool(
+        exec_result.get("llm_degraded")
+        if exec_result.get("llm_degraded") is not None
+        else (raw.get("llm_degraded") if isinstance(raw, dict) else False)
+    )
+
+    rules_llm_decision = (
+        exec_result.get("rules_llm_decision")
+        or (raw.get("rules_llm_decision") if isinstance(raw, dict) else None)
+    )
+
+    # По умолчанию считаем, что check отработал успешно.
+    execution_status = CheckExecutionStatus.SUCCESS.value
     error_details: dict[str, Any] | None = None
 
+    # Если LLM был обязателен и реально произошла ошибка,
+    # то это уже не SUCCESS.
     if llm_required and llm_error_type:
-        if "timeout" in str(llm_error_type).lower():
-            execution_status = "TIMEOUT"
+        llm_error_type_str = str(llm_error_type).lower()
+
+        if "timeout" in llm_error_type_str:
+            execution_status = CheckExecutionStatus.TIMEOUT.value
         else:
-            execution_status = "FAILED_LLM"
+            # В текущей архитектуре используем только те terminal-статусы,
+            # которые уже понимают run counters и finalize_run_if_finished.
+            execution_status = CheckExecutionStatus.FAILED.value
 
         error_details = {
             "type": "llm_error",
@@ -140,7 +193,16 @@ def resolve_execution_status(exec_result: dict) -> tuple[str, dict[str, Any] | N
 def _normalize_structured_data(
     structured_data_raw: Any,
 ) -> dict[str, Any] | None:
-    """Нормализовать structured_data из exec_result."""
+    """
+    Нормализовать structured_data из exec_result.
+
+    Ожидаем dict формата:
+    {
+        "field_name": {"value": ...}
+    }
+
+    Если значение пришло не в таком формате, заворачиваем его в {"value": ...}.
+    """
     if not isinstance(structured_data_raw, dict):
         return None
 
@@ -158,7 +220,9 @@ def _extract_red_flags(
     structured_data: dict[str, Any],
     quality_flags: dict,
 ) -> None:
-    """Извлечь red_flags из structured_data и добавить в quality_flags."""
+    """
+    Извлечь red_flags из structured_data и добавить в quality_flags.
+    """
     rf_payload = structured_data.get("red_flags")
     red_from_struct: Any | None = None
 
@@ -189,7 +253,9 @@ def _extract_red_flags(
 
 
 def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
-    """Извлечь segment-aware информацию из exec_result."""
+    """
+    Извлечь segment-aware информацию из exec_result.
+    """
     segment_id = None
     segment_type = None
     segment_title = None
@@ -213,7 +279,11 @@ def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
 
         is_primary_segment = raw_segment.get("is_primary_segment")
         if isinstance(is_primary_segment, str):
-            is_primary_segment = is_primary_segment.strip().lower() in ("1", "true", "yes")
+            is_primary_segment = is_primary_segment.strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
 
     return {
         "segment_id": segment_id,
@@ -222,4 +292,6 @@ def _extract_segment_provenance(exec_result: dict) -> dict[str, Any]:
         "segment_order": segment_order,
         "is_primary_segment": is_primary_segment,
     }
+
+
 

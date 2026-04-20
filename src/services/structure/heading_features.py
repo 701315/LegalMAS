@@ -24,13 +24,27 @@ import re
 
 from services.structure.heading_patterns import normalize_spaces
 
-
 _MAX_HEADING_WORDS = 24
 _MAX_HEADING_LEN = 220
 
 # Эвристики для TOC / false positives
+# Синхронизировано по смыслу с heading_patterns._TOC_DOTS_TAIL / _PAGINATION_TAIL
 _TRAILING_TOC_DOTS = re.compile(r"\.{3,}\s*\d{1,4}\s*$")
-_PAGE_END_NUMBER = re.compile(r"\s\d{1,4}\s*$")
+_PAGE_END_NUMBER = re.compile(
+    r"""
+    \s*
+    (?:
+        (?:стр\.?|с\.|page|p\.)\s*\d{1,4}
+        (?:\s*(?:из|of)\s*\d{1,4})?
+        |
+        \d{1,4}\s*/\s*\d{1,4}
+        |
+        \d{1,4}
+    )
+    \s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 
 # Эвристики текста / символов
 _ONLY_PUNCT_OR_DIGITS = re.compile(r"^[\d\W_]+$")
@@ -55,6 +69,27 @@ _NUMERIC_UID_STRICT_RE = re.compile(r"^\d+(?:\.\d+)*$")
 
 def _is_strict_numeric_uid(uid: str) -> bool:
     return bool(_NUMERIC_UID_STRICT_RE.fullmatch((uid or "").strip()))
+
+
+def has_letters(text: str) -> bool:
+    """
+    Есть ли в строке хотя бы одна буква.
+    """
+    return bool(_HAS_LETTERS.search(text or ""))
+
+
+def has_upper(text: str) -> bool:
+    """
+    Есть ли в строке заглавные буквы.
+    """
+    return bool(_HAS_UPPER.search(text or ""))
+
+
+def has_lower(text: str) -> bool:
+    """
+    Есть ли в строке строчные буквы.
+    """
+    return bool(_HAS_LOWER.search(text or ""))
 
 
 def _has_textual_content(title: str) -> bool:
@@ -86,39 +121,6 @@ def digit_uid_without_textual_title(uid: str, title: str) -> bool:
 
     return not _has_textual_content(title)
 
-def has_letters(text: str) -> bool:
-    """
-    Есть ли в строке хотя бы одна буква.
-    """
-    return bool(_HAS_LETTERS.search(text or ""))
-
-
-def has_upper(text: str) -> bool:
-    """
-    Есть ли в строке заглавные буквы.
-    """
-    return bool(_HAS_UPPER.search(text or ""))
-
-
-def has_lower(text: str) -> bool:
-    """
-    Есть ли в строке строчные буквы.
-    """
-    return bool(_HAS_LOWER.search(text or ""))
-
-
-def level_from_uid(uid: str) -> int:
-    """
-    Определить глубину numeric uid:
-    - "1" -> 1
-    - "2.3" -> 2
-    - "4.1.5" -> 3
-
-    Для roman/alpha uid эта функция всё равно вернёт 1,
-    потому что в них нет точки.
-    """
-    return uid.count(".") + 1
-
 
 def looks_like_toc_line(text: str) -> bool:
     """
@@ -135,9 +137,12 @@ def looks_like_toc_line(text: str) -> bool:
     if not t:
         return False
 
+    # У нас уже есть cleanup-хвостов в heading_patterns, но здесь нам важно
+    # отдельно подсветить TOC-подобное поведение для scoring.
     if _TRAILING_TOC_DOTS.search(t):
         return True
 
+    # Короткие строки с номером страницы в конце
     if len(t) <= 180 and _PAGE_END_NUMBER.search(t) and "." in t:
         return True
 
@@ -211,7 +216,11 @@ def is_garbage_heading_title(title: str) -> bool:
         return True
 
     # Короткий заголовок, который почти целиком состоит из цифр и разделителей
-    if not has_letters(t) and len(t.split()) <= 6 and _ONLY_DIGITS_AND_SEPARATORS.fullmatch(t):
+    if (
+        not has_letters(t)
+        and len(t.split()) <= 6
+        and _ONLY_DIGITS_AND_SEPARATORS.fullmatch(t)
+    ):
         return True
 
     return False
@@ -289,7 +298,7 @@ def roman_uid_is_plausible(uid: str) -> bool:
     """
     Похожа ли строка на валидный roman uid.
     """
-    return bool(re.fullmatch(r"[IVXLCM]+", uid.upper()))
+    return bool(re.fullmatch(r"[IVXLCM]+", (uid or "").upper()))
 
 
 def alpha_uid_is_plausible(uid: str) -> bool:

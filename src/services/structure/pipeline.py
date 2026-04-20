@@ -568,7 +568,7 @@ def _build_single_segment_tree(
 
     # ── Стадия 4: Hierarchy + crossrefs ──────────────────────────────────────
     t_tree = time.perf_counter()
-    root_nodes, nodes, element_to_uid = build_clause_hierarchy(
+    root_nodes, nodes, element_to_uid, structure_degraded = build_clause_hierarchy(
         headings=headings,
         elements=body_elements,
         document_id=document_id,
@@ -591,13 +591,28 @@ def _build_single_segment_tree(
         references=len(references),
     )
 
+    # Если own_range / hierarchy деградировали, понижаем доверие до LOW
+    # и помечаем дерево как degraded, даже при хорошей coverage.
+    if structure_degraded:
+        logger.info(
+            f"{log_prefix} degraded: hierarchy/own_range degraded",
+            extra={
+                "document_id": document_id,
+                "segment_id": segment_id,
+                "coverage": round(coverage, 3),
+                "good_headings_count": good_headings_count,
+                "good_headings_ratio": round(good_headings_ratio, 3),
+            },
+        )
+        confidence = "LOW"
+
     # ── Финал: собираем ClauseTree ────────────────────────────────────────────
     result = ClauseTree(
         document_id=document_id,
         root=root_nodes,
         references_index=references,
         structure_confidence=confidence,
-        degraded=False,
+        degraded=bool(structure_degraded),
         nodes_index=nodes,
     )
 
@@ -617,7 +632,7 @@ def _build_single_segment_tree(
         build_started,
         document_id=document_id,
         segment_id=segment_id,
-        degraded=False,
+        degraded=bool(structure_degraded),
         confidence=confidence,
     )
     return result

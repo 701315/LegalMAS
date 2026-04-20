@@ -16,11 +16,13 @@ from .playbook import ModelConfig, Playbook, PlaybookLineItem, PlaybookVersion
 from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
 from .result import CheckResult
 from .run import Job, Run
+from .check_result_persist_error import CheckResultPersistError  # NEW
 
 __all__ = [
     "AuditLog",
     "Bundle",
     "CheckResult",
+    "CheckResultPersistError",  # NEW
     "ClassificationCalibration",
     "DDRequest",
     "DLQRecord",

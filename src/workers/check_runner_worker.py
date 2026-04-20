@@ -31,7 +31,7 @@ import uuid
 
 from celery.exceptions import SoftTimeLimitExceeded
 
-from core.constants import RunStatus
+from core.constants import CheckExecutionStatus, RunStatus
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.playbook_repo import PlaybookRepository
@@ -383,7 +383,11 @@ def run_single_check(
                     raise ValueError(f"Document not found: {doc_uuid}")
 
                 existing = await result_repo.get_one(run_uuid, doc_uuid, check_id)
-                if existing and existing.execution_status == "SUCCESS" and not force:
+                if (
+                    existing
+                    and existing.execution_status == CheckExecutionStatus.SUCCESS.value
+                    and not force
+                ):
                     logger.info(
                         "run_single_check: result already SUCCESS, skipping",
                         extra={
@@ -419,6 +423,28 @@ def run_single_check(
                 exec_result = outcome["exec_result"]
                 duration = time.time() - started_at
 
+                # Если check не применим (exec_result=None), мы уже записали
+                # not_applicable в save_not_applicable_result.
+                if exec_result is None:
+                    logger.info(
+                        "run_single_check completed: check not applicable",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "doc_id": doc_id,
+                            "check_id": check_id,
+                            "duration_sec": round(duration, 2),
+                        },
+                    )
+                    return {
+                        "status": "SUCCESS",
+                        "result": None,
+                        "severity": None,
+                        "check_id": check_id,
+                        "doc_id": str(doc_uuid),
+                        "reason": "not_applicable",
+                    }
+
                 logger.info(
                     "run_single_check completed",
                     extra={
@@ -441,6 +467,10 @@ def run_single_check(
                 }
 
             except SoftTimeLimitExceeded as e:
+                # Таймаут на уровне Celery — это уникальный случай:
+                # executor / saver могли не успеть ничего записать.
+                # Здесь мы по-прежнему явно пишем TIMEOUT в CheckResult,
+                # но уже используем CheckExecutionStatus.
                 logger.warning(
                     "run_single_check: soft time limit exceeded",
                     extra={
@@ -473,12 +503,15 @@ def run_single_check(
                     clause_uid=None,
                     element_id=None,
                     bbox=None,
-                    execution_status="TIMEOUT",
+                    execution_status=CheckExecutionStatus.TIMEOUT.value,
                     error_details={"type": "soft_time_limit", "message": str(e)},
                 )
                 raise
 
             except Exception as e:
+                # Здесь мы по-прежнему пишем технический FAILED, но теперь
+                # различаем permanent/transient DB-ошибки, которые уже были
+                # залогированы в check_result_persist_errors внутри ResultRepository.
                 logger.exception(
                     "run_single_check failed",
                     extra={
@@ -489,32 +522,74 @@ def run_single_check(
                         "error": str(e),
                     },
                 )
-                await result_repo.upsert_single_check_result(
-                    run_id=run_uuid,
-                    document_id=doc_uuid,
-                    check_id=check_id,
-                    check_name=check_id,
-                    result="unclear",
-                    severity="unclear",
-                    value_text="error",
-                    evidence_ref=None,
-                    confidence=None,
-                    detector_used=None,
-                    quality_flags={
-                        "raw": {"source": "exception", "error_message": str(e)}
-                    },
-                    structured_data=None,
-                    conditional_check_triggered=False,
-                    trigger_name=None,
-                    origin=None,
-                    playbook_version_id=effective_pb_version_id,
-                    page=None,
-                    clause_uid=None,
-                    element_id=None,
-                    bbox=None,
-                    execution_status="FAILED",
-                    error_details={"type": "exception", "message": str(e)},
+
+                message = str(e)
+
+                # Простейшая эвристика: смотрим префикс сообщения, который
+                # ставит ResultRepository.upsert_single_check_result.
+                is_permanent_db_error = message.startswith(
+                    "Permanent DB error while upserting check_result"
                 )
+                is_transient_db_error = message.startswith(
+                    "Transient DB error while upserting check_result"
+                )
+
+                # В любом случае пробуем сохранить FAILED в CheckResult,
+                # но для permanent DB-ошибки запись в основную таблицу может
+                # снова упасть. Это нормально: payload уже есть в fallback-таблице.
+                try:
+                    await result_repo.upsert_single_check_result(
+                        run_id=run_uuid,
+                        document_id=doc_uuid,
+                        check_id=check_id,
+                        check_name=check_id,
+                        result="unclear",
+                        severity="unclear",
+                        value_text="error",
+                        evidence_ref=None,
+                        confidence=None,
+                        detector_used=None,
+                        quality_flags={
+                            "raw": {"source": "exception", "error_message": message}
+                        },
+                        structured_data=None,
+                        conditional_check_triggered=False,
+                        trigger_name=None,
+                        origin=None,
+                        playbook_version_id=effective_pb_version_id,
+                        page=None,
+                        clause_uid=None,
+                        element_id=None,
+                        bbox=None,
+                        execution_status=CheckExecutionStatus.COMPUTE_FAILED.value,
+                        error_details={"type": "exception", "message": message},
+                    )
+                except Exception:
+                    # Вторичный провал persist мы намеренно не ретраим здесь,
+                    # потому что он уже зафиксирован в check_result_persist_errors.
+                    logger.exception(
+                        "run_single_check: failed to persist FAILED status after exception",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "doc_id": doc_id,
+                            "check_id": check_id,
+                        },
+                    )
+
+                # Дальше — политика retry:
+                # - permanent DB error: не ретраим, просто падаем;
+                # - transient DB error: можем попросить Celery повторить задачу;
+                # - прочие ошибки: оставляем текущее поведение (no retry).
+                if is_transient_db_error:
+                    # Здесь можно настроить max_retries/backoff через options таски
+                    # или напрямую self.retry(countdown=...).
+                    raise self.retry(
+                        exc=e,
+                        countdown=30,   # пример: повтор через 30 секунд
+                    )
+
+                # Permanent DB error (и любые прочие) — не ретраим.
                 raise
 
             finally:

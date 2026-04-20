@@ -490,11 +490,12 @@ class DocumentContentService:
             )
             return []
 
-        leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
+        leaf_result = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
             tree=tree,
             layout=layout,
         )
+        leaf_chunks = leaf_result.chunks
 
         if not leaf_chunks:
             logger.warning(
@@ -506,6 +507,9 @@ class DocumentContentService:
                     "layout_primary_sanitized_ref": getattr(
                         version, "layout_primary_sanitized_ref", None
                     ),
+                    "total_leaf_nodes": leaf_result.total_leaf_nodes,
+                    "leaf_nodes_without_element_ids": leaf_result.leaf_nodes_without_element_ids,
+                    "leaf_nodes_empty_after_filtering": leaf_result.leaf_nodes_empty_after_filtering,
                 },
             )
             return []
@@ -591,11 +595,12 @@ class DocumentContentService:
         header_text = await self.get_title_and_preamble(doc_id)
 
         # Листовые клаузы — один вызов, результат переиспользуем.
-        leaf_chunks_all = ClauseTreeBuilder.build_leaf_chunks(
+        leaf_result = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
             tree=tree,
             layout=layout,
         )
+        leaf_chunks_all = leaf_result.chunks
 
         if not leaf_chunks_all:
             return header_text, None

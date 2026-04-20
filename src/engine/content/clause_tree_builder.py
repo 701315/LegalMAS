@@ -3,7 +3,6 @@
 """
 Clause tree → клауза- и section-чанки.
 
-
 Здесь:
 - вся логика обхода clause tree;
 - сборка текста клаузы по element_ids из layout;
@@ -11,27 +10,46 @@ Clause tree → клауза- и section-чанки.
 - универсальные хелперы для:
   * root-узлов,
   * индекса элементов layout.
-"""
 
+Важно:
+- Этот модуль не знает про БД и MinIO.
+- Он работает только с уже загруженными JSON-объектами.
+"""
 
 from __future__ import annotations
 
-
 import uuid
 from typing import Any, Dict, List
-
-
+from dataclasses import dataclass
 from core.logging import get_logger
-
 
 logger = get_logger(__name__)
 
+
+@dataclass
+class LeafChunkBuildResult:
+    """
+    Результат сборки leaf‑чанков по clause tree.
+
+    chunks:
+      - список нормализованных чанков по листовым клаузам;
+    total_leaf_nodes:
+      - сколько листовых узлов вообще встретилось в дереве;
+    leaf_nodes_without_element_ids:
+      - сколько листов были без element_ids и были пропущены;
+    leaf_nodes_empty_after_filtering:
+      - сколько листов не дали текста даже после fallback по heading.
+    """
+
+    chunks: List[Dict[str, Any]]
+    total_leaf_nodes: int
+    leaf_nodes_without_element_ids: int
+    leaf_nodes_empty_after_filtering: int
 
 
 class ClauseTreeBuilder:
     """
     Класс-хелпер для работы с clause tree.
-
 
     Для непрофессионального программиста:
     - Этот класс не знает про БД и MinIO.
@@ -137,7 +155,7 @@ class ClauseTreeBuilder:
         doc_id: uuid.UUID,
         tree: Dict[str, Any],
         layout: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+    ) -> LeafChunkBuildResult:
         """
         Построить клауза-чанки (листовые узлы) на основе clause tree + layout.
 
@@ -150,6 +168,11 @@ class ClauseTreeBuilder:
           },
           ...
         ]
+
+        Важно:
+        - Заголовки (heading-элементы) из layout в тело клаузы не попадают.
+        - Текст заголовка может быть использован только как fallback,
+          если у листа нет другого текста (см. _collect_leaf_chunks).
         """
         root_children = cls.extract_root_children(tree)
 
@@ -162,7 +185,12 @@ class ClauseTreeBuilder:
                     "layout_elements": len(layout.get("elements") or []),
                 },
             )
-            return []
+            return LeafChunkBuildResult(
+                chunks=[],
+                total_leaf_nodes=0,
+                leaf_nodes_without_element_ids=0,
+                leaf_nodes_empty_after_filtering=0,
+            )
 
         logger.info(
             "ClauseTreeBuilder: building leaf chunks from clause_tree",
@@ -179,6 +207,11 @@ class ClauseTreeBuilder:
 
         chunks: List[Dict[str, Any]] = []
 
+        total_leaf_nodes = 0
+        leaf_nodes_without_element_ids = 0
+        leaf_nodes_empty_after_filtering = 0
+
+
         for child in root_children:
             if not isinstance(child, dict):
                 logger.warning(
@@ -190,13 +223,17 @@ class ClauseTreeBuilder:
                 )
                 continue
 
-            cls._collect_leaf_chunks(
+            inc_total, inc_no_ids, inc_empty = cls._collect_leaf_chunks(
                 doc_id=doc_id,
                 node=child,
                 element_index=element_index,
                 out=chunks,
                 path_titles=[],
             )
+
+            total_leaf_nodes += inc_total
+            leaf_nodes_without_element_ids += inc_no_ids
+            leaf_nodes_empty_after_filtering += inc_empty
 
         leaf_count = len(chunks)
 
@@ -216,6 +253,9 @@ class ClauseTreeBuilder:
                 "layout_elements": len(layout.get("elements") or []),
                 "chunks_without_clause_uid": uid_with_none,
                 "chunks_with_empty_text": empty_text_chunks,
+                "total_leaf_nodes": total_leaf_nodes,
+                "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
+                "leaf_nodes_empty_after_filtering": leaf_nodes_empty_after_filtering,
             },
         )
 
@@ -233,7 +273,12 @@ class ClauseTreeBuilder:
                 },
             )
 
-        return chunks
+        return LeafChunkBuildResult(
+            chunks=chunks,
+            total_leaf_nodes=total_leaf_nodes,
+            leaf_nodes_without_element_ids=leaf_nodes_without_element_ids,
+            leaf_nodes_empty_after_filtering=leaf_nodes_empty_after_filtering,
+        )
 
     @classmethod
     def _collect_leaf_chunks(
@@ -243,15 +288,10 @@ class ClauseTreeBuilder:
         element_index: Dict[str, Dict[str, Any]],
         out: List[Dict[str, Any]],
         path_titles: List[str] | None = None,
-    ) -> None:
+    ) -> tuple[int, int, int]:
         """
-        Рекурсивно обойти дерево и добавить чанки для всех листовых клауз
-        (то есть узлов без children).
-
-        Для каждой листовой клаузы:
-        - берём все её own_element_ids (или element_ids как fallback),
-        - исключаем из тела заголовочные элементы layout (type == "heading"),
-        - склеиваем оставшийся текст в одном чанке.
+        Возвращает кортеж:
+        (leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc)
         """
 
         def _normalize_uid(value: Any) -> str | None:
@@ -278,6 +318,10 @@ class ClauseTreeBuilder:
                 return None
             return path[0]
 
+        leaf_seen_inc = 0
+        no_element_ids_inc = 0
+        empty_after_filtering_inc = 0
+
         current_path: List[str] = list(path_titles or [])
         node_title_raw = node.get("title")
         node_title = _normalize_title(node_title_raw)
@@ -286,7 +330,11 @@ class ClauseTreeBuilder:
 
         children = node.get("children") or []
 
+        # ------------------------------------------------------------------
+        # Листовой узел: здесь собираем один клауза-чанк.
+        # ------------------------------------------------------------------
         if not children:
+            leaf_seen_inc += 1
             clause_uid = _normalize_uid(node.get("clause_uid"))
 
             own_element_ids = node.get("own_element_ids") or []
@@ -296,6 +344,7 @@ class ClauseTreeBuilder:
             element_ids: List[str] = own_element_ids or legacy_element_ids or []
 
             if not element_ids:
+                # Важная диагностика: лист вообще не привязан к layout по element_ids.
                 logger.warning(
                     "ClauseTreeBuilder: leaf node has no element_ids",
                     extra={
@@ -307,7 +356,23 @@ class ClauseTreeBuilder:
                         "has_legacy_element_ids": bool(legacy_element_ids),
                     },
                 )
-                return
+                no_element_ids_inc += 1
+                return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
+
+            # Этап 3: заранее проверяем сценарий "один element, и он heading".
+            single_heading_element = False
+            heading_raw_text: str | None = None
+            heading_page: int | None = None
+
+            if len(element_ids) == 1:
+                el0 = element_index.get(element_ids[0])
+                if el0 is not None:
+                    el0_type = (el0.get("type") or "").strip().lower()
+                    if el0_type == "heading":
+                        single_heading_element = True
+                        heading_raw_text = (el0.get("text") or "").strip() or None
+                        page0 = el0.get("page")
+                        heading_page = page0 if isinstance(page0, int) else None
 
             missing_elements = 0
             heading_elements = 0
@@ -340,6 +405,7 @@ class ClauseTreeBuilder:
                     continue
 
                 if last_page is not None and page is not None and page != last_page:
+                    # Переход на другую страницу — вставляем пустую строку как мягкий разделитель.
                     texts.append("")
 
                 texts.append(text)
@@ -361,6 +427,36 @@ class ClauseTreeBuilder:
                     },
                 )
 
+            # ------------------------------------------------------------------
+            # Этап 3: fallback для листа, состоящего только из одного heading.
+            #
+            # Сценарий:
+            # - у листа один element_id,
+            # - этот элемент — heading,
+            # - после фильтрации body пустой.
+            #
+            # В этом случае лучше взять текст заголовка как тело клаузы, чем
+            # совсем потерять чанк.
+            # ------------------------------------------------------------------
+            if not full_text and single_heading_element and heading_raw_text:
+                full_text = heading_raw_text
+                if heading_page is not None:
+                    pages = [heading_page]
+
+                logger.info(
+                    "ClauseTreeBuilder: single-heading leaf fallback uses heading text as body",
+                    extra={
+                        "document_id": str(doc_id),
+                        "clause_uid": clause_uid,
+                        "title": node_title,
+                        "level": node.get("level"),
+                        "element_ids_count": len(element_ids),
+                        "missing_elements": missing_elements,
+                        "heading_elements": heading_elements,
+                    },
+                )
+
+            # Если даже после fallback текста нет — лист полностью пропускаем.
             if not full_text:
                 logger.info(
                     "ClauseTreeBuilder: leaf node produced empty text after filtering",
@@ -374,7 +470,8 @@ class ClauseTreeBuilder:
                         "heading_elements": heading_elements,
                     },
                 )
-                return
+                empty_after_filtering_inc += 1
+                return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
 
             start_page = min(pages) if pages else node.get("start_page")
             end_page = max(pages) if pages else node.get("end_page")
@@ -417,8 +514,11 @@ class ClauseTreeBuilder:
                     },
                 )
 
-            return
+            return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
 
+        # ------------------------------------------------------------------
+        # Нелистовой узел: просто рекурсивно обходим детей.
+        # ------------------------------------------------------------------
         for child in children:
             if not isinstance(child, dict):
                 logger.warning(
@@ -432,13 +532,20 @@ class ClauseTreeBuilder:
                 )
                 continue
 
-            cls._collect_leaf_chunks(
+            c_leaf, c_no_ids, c_empty = cls._collect_leaf_chunks(
                 doc_id=doc_id,
                 node=child,
                 element_index=element_index,
                 out=out,
                 path_titles=current_path,
             )
+            leaf_seen_inc += c_leaf
+            no_element_ids_inc += c_no_ids
+            empty_after_filtering_inc += c_empty
+
+
+        return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
+
 
     # ------------------------------------------------------------------
     # Section‑чанки (разделы верхнего уровня по subtree_element_ids)
@@ -678,5 +785,5 @@ class ClauseTreeBuilder:
                     "end_page": end_page,
                 },
             )
-
+            
 

@@ -36,21 +36,19 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setErrorText(null);
 
-    logout(); // сбрасываем старое состояние
+    logout();
 
-    if (!login || !password) {
+    if (!login.trim() || !password.trim()) {
       setErrorText("Укажите логин и пароль.");
       return;
     }
 
     loginMutation.mutate(
-      { username: login, password },
+      { username: login.trim(), password },
       {
         onSuccess: (data) => {
           const user = data.user;
 
-          // DEV: логин "admin" → superadmin
-          // PROD: маппим через таблицу, неизвестные роли → "user"
           const globalRole: GlobalRole =
             user.id === "admin"
               ? "superadmin"
@@ -66,10 +64,9 @@ const LoginPage: React.FC = () => {
             apiKey: data.access_token,
           });
 
-          navigate("/dashboard");
+          navigate("/dashboard", { replace: true });
         },
         onError: (err: unknown) => {
-          // Аккуратно достаём detail/message из ошибки любого формата
           const apiErr = err as
             | ApiError
             | (ApiError & { response?: { data?: ApiError } })
@@ -79,8 +76,7 @@ const LoginPage: React.FC = () => {
             | undefined;
 
           const detailFromResponse =
-            (apiErr as { response?: { data?: ApiError } })?.response?.data
-              ?.detail;
+            (apiErr as { response?: { data?: ApiError } })?.response?.data?.detail;
 
           const detail =
             (apiErr as ApiError)?.detail ??
@@ -96,44 +92,45 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 text-slate-900">
       {/* Логотип-ссылка на лендинг */}
       <button
+        type="button"
         onClick={() => navigate("/")}
-        className="flex items-center gap-2 mb-8 group"
+        className="group mb-8 flex items-center gap-2"
       >
-        <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center shadow">
-          <Shield className="w-5 h-5 text-white" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow">
+          <Shield className="h-5 w-5 text-white" />
         </div>
         <div className="text-left">
-          <p className="text-base font-bold text-slate-900 leading-none">
+          <p className="text-base font-bold leading-none text-slate-900">
             LegalMAS
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="mt-0.5 text-[11px] text-slate-500">
             Система интеллектуального анализа правовых документов
           </p>
         </div>
       </button>
 
       {/* Карточка формы */}
-      <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <h1 className="text-lg font-bold text-slate-900 mb-1">
+      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm">
+        <h1 className="mb-1 text-lg font-bold text-slate-900">
           Вход в систему
         </h1>
-        <p className="text-sm text-slate-500 mb-6">
+        <p className="mb-6 text-sm text-slate-500">
           Введите логин и пароль, выданные администратором.
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="mb-1 block text-xs font-medium text-slate-700">
               Логин
             </label>
             <input
               type="text"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ваш логин"
               autoComplete="username"
               autoFocus
@@ -141,21 +138,21 @@ const LoginPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="mb-1 block text-xs font-medium text-slate-700">
               Пароль
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ваш пароль"
               autoComplete="current-password"
             />
           </div>
 
           {errorText && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
               {errorText}
             </p>
           )}
@@ -163,7 +160,7 @@ const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 transition-colors mt-2"
+            className="mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
           >
             {loginMutation.isPending ? "Входим…" : "Войти"}
           </button>
@@ -172,8 +169,9 @@ const LoginPage: React.FC = () => {
 
       {/* Ссылка назад */}
       <button
+        type="button"
         onClick={() => navigate("/")}
-        className="mt-6 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        className="mt-6 text-xs text-slate-500 transition-colors hover:text-slate-700"
       >
         ← Вернуться на главную
       </button>
@@ -182,3 +180,5 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+
+

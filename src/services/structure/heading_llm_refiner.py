@@ -49,9 +49,10 @@ import json
 from dataclasses import dataclass
 from typing import Any, Literal
 
+import requests
 
+from core.config import settings
 from core.logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -68,7 +69,8 @@ class ScoredHeadingCandidate:
     - uid/title: результат deterministic parse;
     - decision: accepted / rejected / ambiguous;
     - reason: причина текущего решения rules-слоя;
-    - score: численная уверенность deterministic-слоя.
+    - score: численная уверенность deterministic-слоя;
+    - scope: логический контекст (main_contract / appendix_* / act_* и т.п.).
     """
 
     elem_i: int
@@ -81,6 +83,7 @@ class ScoredHeadingCandidate:
     score: float = 0.0
     decision_source: str = "rules"
     metadata: dict[str, Any] | None = None
+    scope: str | None = None
 
 
 @dataclass(slots=True)
@@ -101,7 +104,9 @@ def _build_prompt(
     prev_heading: str | None,
     next_heading: str | None,
     deterministic_reason: str,
+    scope: str | None,
 ) -> str:
+    scope_info = f"scope: {scope!r}" if scope is not None else "scope: null"
     return f"""
 Ты проверяешь, является ли строка документа настоящим заголовком раздела, пункта или подпункта.
 
@@ -140,14 +145,11 @@ page: {page}
 previous_accepted_heading: {prev_heading!r}
 next_accepted_heading: {next_heading!r}
 deterministic_reason: {deterministic_reason!r}
+{scope_info}
 """.strip()
 
-import requests
-
-from core.config import settings
 
 def _resolve_llm_endpoint_and_model() -> tuple[str | None, str | None]:
-    # Сейчас поддерживаем только локальный эндпоинт
     provider = (settings.STRUCTURE_LLM_PROVIDER or "").strip()
 
     if provider not in ("local", "local_endpoint", "ollama"):
@@ -180,7 +182,6 @@ def _call_local_llm(prompt: str) -> str:
     Возвращает строку с JSON-ответом модели.
     """
 
-
     provider = (
         str(getattr(settings, "STRUCTURE_LLM_PROVIDER", "") or "").strip()
         or "local_endpoint"
@@ -190,7 +191,6 @@ def _call_local_llm(prompt: str) -> str:
 
     endpoint, model = _resolve_llm_endpoint_and_model()
     if not endpoint or not model:
-        # Конфиг не готов — не вызываем LLM вообще
         raise RuntimeError("LLM endpoint or model not configured")
 
     timeout = int(
@@ -271,7 +271,9 @@ def _parse_llm_response(raw: str) -> LLMHeadingRefinement | None:
 
 def refine_ambiguous_candidates(
     *,
-    candidates: list[ScoredHeadingCandidate],
+    scored_candidates: list[ScoredHeadingCandidate],
+    elements: list[dict[str, Any]],
+    document_id: str,
     min_confidence: float = 0.75,
     max_candidates: int = 12,
 ) -> list[ScoredHeadingCandidate]:
@@ -284,15 +286,16 @@ def refine_ambiguous_candidates(
     - если LLM не ответила, вернула невалидный JSON или низкую уверенность,
       кандидат остаётся ambiguous без изменений;
     - если LLM приняла решение accept/reject с достаточной уверенностью,
-      обновляем candidate.
+      обновляем candidate;
+    - scope кандидата сохраняется без изменений.
     """
-    if not candidates:
+    if not scored_candidates:
         return []
 
     refined: list[ScoredHeadingCandidate] = []
     llm_processed = 0
 
-    for idx, candidate in enumerate(candidates):
+    for idx, candidate in enumerate(scored_candidates):
         if candidate.decision != "ambiguous":
             refined.append(candidate)
             continue
@@ -304,12 +307,12 @@ def refine_ambiguous_candidates(
         prev_heading = None
         next_heading = None
 
-        for prev in reversed(candidates[:idx]):
+        for prev in reversed(scored_candidates[:idx]):
             if prev.decision == "accepted":
                 prev_heading = f"{prev.uid} {prev.title}".strip()
                 break
 
-        for nxt in candidates[idx + 1:]:
+        for nxt in scored_candidates[idx + 1 :]:
             if nxt.decision == "accepted":
                 next_heading = f"{nxt.uid} {nxt.title}".strip()
                 break
@@ -322,6 +325,7 @@ def refine_ambiguous_candidates(
             prev_heading=prev_heading,
             next_heading=next_heading,
             deterministic_reason=candidate.reason,
+            scope=candidate.scope,
         )
 
         try:
@@ -332,9 +336,11 @@ def refine_ambiguous_candidates(
                 logger.warning(
                     "STRUCTURE llm_refiner_invalid_response",
                     extra={
+                        "document_id": document_id,
                         "element_index": candidate.elem_i,
                         "page": candidate.page,
                         "uid": candidate.uid,
+                        "scope": candidate.scope,
                     },
                 )
                 refined.append(candidate)
@@ -345,9 +351,11 @@ def refine_ambiguous_candidates(
                 logger.info(
                     "STRUCTURE llm_refiner_low_confidence",
                     extra={
+                        "document_id": document_id,
                         "element_index": candidate.elem_i,
                         "page": candidate.page,
                         "uid": candidate.uid,
+                        "scope": candidate.scope,
                         "confidence": parsed.confidence,
                     },
                 )
@@ -372,6 +380,7 @@ def refine_ambiguous_candidates(
                             "previous_reason": candidate.reason,
                             "llm_confidence": parsed.confidence,
                         },
+                        scope=candidate.scope,
                     )
                 )
             else:
@@ -391,6 +400,7 @@ def refine_ambiguous_candidates(
                             "previous_reason": candidate.reason,
                             "llm_confidence": parsed.confidence,
                         },
+                        scope=candidate.scope,
                     )
                 )
 
@@ -400,9 +410,11 @@ def refine_ambiguous_candidates(
             logger.warning(
                 "STRUCTURE llm_refiner_call_failed",
                 extra={
+                    "document_id": document_id,
                     "element_index": candidate.elem_i,
                     "page": candidate.page,
                     "uid": candidate.uid,
+                    "scope": candidate.scope,
                     "error": str(e),
                 },
             )

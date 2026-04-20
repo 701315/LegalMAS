@@ -172,11 +172,12 @@ class ChunkSnapshotBuilder:
                 },
             )
 
-        leaf_chunks = ClauseTreeBuilder.build_leaf_chunks(
+        leaf_result = ClauseTreeBuilder.build_leaf_chunks(
             doc_id=doc_id,
             tree=clause_tree,
             layout=layout,
         )
+        leaf_chunks = leaf_result.chunks
 
         leaf_with_uid = sum(
             1 for ch in leaf_chunks if (ch.get("metadata") or {}).get("clause_uid")
@@ -193,6 +194,9 @@ class ChunkSnapshotBuilder:
                 "leaf_with_clause_uid": leaf_with_uid,
                 "leaf_without_clause_uid": leaf_without_uid,
                 "leaf_empty_text_count": leaf_empty_text,
+                "total_leaf_nodes": getattr(leaf_result, "total_leaf_nodes", None),
+                "leaf_nodes_without_element_ids": getattr(leaf_result, "leaf_nodes_without_element_ids", None),
+                "leaf_nodes_empty_after_filtering": getattr(leaf_result, "leaf_nodes_empty_after_filtering", None),
             },
         )
 

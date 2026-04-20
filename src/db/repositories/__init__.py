@@ -27,6 +27,7 @@ from .relation_repo import RelationRepository
 from .result_repo import ResultRepository
 from .run_repo import JobRepository, RunRepository
 from .runner_repo import RunnerRepository
+from .check_result_persist_error_repo import CheckResultPersistErrorRepository
 
 __all__ = [
     "AuditRepository",
@@ -46,4 +47,5 @@ __all__ = [
     "RunRepository",
     "JobRepository",
     "RunnerRepository",
+    "CheckResultPersistErrorRepository",
 ]

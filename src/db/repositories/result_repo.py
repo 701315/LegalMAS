@@ -3,13 +3,11 @@
 """
 Repository for CheckResult operations.
 
-
 Отвечает за:
 - создание результатов проверок (create);
 - выборку по run (с документами и без);
 - пагинацию для DD Grid;
 - обновление QC-статуса.
-
 
 Важно:
 - этот слой не решает "что такое structured_data",
@@ -19,19 +17,19 @@ Repository for CheckResult operations.
   (StructuredField / LocationField и т.п.).
 """
 
-
 import uuid
 from datetime import UTC, datetime
-from typing import Sequence
+from typing import Sequence, Any
 from uuid import UUID
-from datetime import UTC
 
 from sqlalchemy import func, select, update, distinct, case
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import DBAPIError  # важно для обработки DB-ошибок
 
+from core.constants import CheckExecutionStatus  # новый enum для execution_status
 from ..models.result import CheckResult
 from ..models.document import Document  # подтягиваем документы к результатам
-
+from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
 
 def normalize_origin_type(origin: str | None) -> str | None:
     """
@@ -61,6 +59,35 @@ def normalize_origin_type(origin: str | None) -> str | None:
     return "custom"
 
 
+def is_permanent_db_error(err: DBAPIError) -> bool:
+    """
+    Простая классификация DB-ошибок на permanent vs transient.
+
+    Permanent (возвращаем True) — ошибки данных/схемы, которые не исчезнут
+    от повторного запроса (например, слишком длинная строка для varchar).
+
+    Transient (возвращаем False) — временные проблемы (deadlock, timeout),
+    которые теоретически можно ретраить.
+
+    ВАЖНО: здесь мы сознательно делаем минимальную классификацию.
+    Потом её можно вынести в отдельный модуль ошибок и расширить.
+    """
+    # У DBAPIError часто есть атрибут .orig с "сырой" ошибкой драйвера.
+    # Для asyncpg, например, там может быть asyncpg.exceptions.*.
+    orig = getattr(err, "orig", None)
+
+    # Если это asyncpg и есть SQLSTATE, можно использовать его:
+    # 22001 — string_data_right_truncation (слишком длинная строка).
+    sqlstate = getattr(orig, "sqlstate", None)
+    if sqlstate == "22001":
+        # StringDataRightTruncationError — data error, permanent
+        return True
+
+    # Можно добавить сюда другие коды data errors (22xxx), если нужно.
+    # Пока считаем все прочие ошибки transient, чтобы не угадать лишнего.
+    return False
+
+
 class ResultRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -83,15 +110,7 @@ class ResultRepository:
         trigger_name: str | None = None,
         origin: str | None = None,
     ) -> CheckResult:
-        """Создать результат проверки.
-
-        origin:
-            Источник определения проверки. Ожидаются значения:
-            - "GLOBAL_PLAYBOOK"  – глобальный плейбук,
-            - "DOCUMENT_TYPE"    – инструкции по типу документа,
-            - "SYSTEM"           – системные/тех. проверки.
-            Если не задано, можно передать None — поле останется пустым.
-        """
+        """Создать результат проверки."""
         cr = CheckResult(
             run_id=run_id,
             document_id=document_id,
@@ -110,7 +129,10 @@ class ResultRepository:
             trigger_name=trigger_name,
             origin=origin,
         )
+
         self.session.add(cr)
+        # Здесь flush оставляем "как есть", но по-хорошему,
+        # для единообразия тоже стоит обернуть в try/except, как в upsert.
         await self.session.flush()
         return cr
 
@@ -374,7 +396,6 @@ class ResultRepository:
             items.append(item)
 
         return items, total
-    
 
     async def get_one(
         self,
@@ -425,84 +446,191 @@ class ResultRepository:
     ) -> CheckResult:
         """
         Создать или обновить результат одной проверки (идемпотентно по run/doc/check).
+
+        ВАЖНО:
+        - запись обёрнута в try/except DBAPIError;
+        - при любой DB-ошибке делаем session.rollback();
+        - дальше поднимаем понятное исключение, чтобы вызывающий код
+          мог решить, ретраить задачу или считать её permanent-фейлом.
         """
         now = datetime.now(UTC)
 
-        existing = await self.get_one(run_id, document_id, check_id)
+        started_statuses = {
+            CheckExecutionStatus.PENDING.value,
+            CheckExecutionStatus.RUNNING.value,
+            CheckExecutionStatus.SUCCESS.value,
+            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.COMPUTE_FAILED.value,
+            CheckExecutionStatus.PERSIST_FAILED.value,
+            CheckExecutionStatus.TIMEOUT.value,
+        }
 
-        if existing is None:
-            cr = CheckResult(
+        finished_statuses = {
+            CheckExecutionStatus.SUCCESS.value,
+            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.COMPUTE_FAILED.value,
+            CheckExecutionStatus.PERSIST_FAILED.value,
+            CheckExecutionStatus.TIMEOUT.value,
+        }
+
+        # Приводим входной execution_status к Enum/строке из CheckExecutionStatus.
+        # Это защищает от опечаток в строках выше по стэку.
+        if isinstance(execution_status, CheckExecutionStatus):
+            status_value = execution_status.value
+        else:
+            try:
+                status_value = CheckExecutionStatus(execution_status).value
+            except ValueError:
+                # Неизвестный статус не должен ронять persist-слой.
+                # Для обратной совместимости деградируем в legacy FAILED.
+                status_value = CheckExecutionStatus.FAILED.value
+
+        try:
+            existing = await self.get_one(run_id, document_id, check_id)
+
+            if existing is None:
+                cr = CheckResult(
+                    run_id=run_id,
+                    document_id=document_id,
+                    check_id=check_id,
+                    check_name=check_name,
+                    result=result,
+                    severity=severity,
+                    value_text=value_text,
+                    evidence_ref=evidence_ref,
+                    confidence=confidence,
+                    detector_used=detector_used,
+                    quality_flags=quality_flags or {},
+                    structured_data=structured_data,
+                    conditional_check_triggered=conditional_check_triggered,
+                    trigger_name=trigger_name,
+                    origin=origin,
+                    playbook_version_id=playbook_version_id,
+                    page=page,
+                    clause_uid=clause_uid,
+                    element_id=element_id,
+                    bbox=bbox,
+                    # новые поля segment-aware provenance:
+                    segment_id=segment_id,
+                    segment_type=segment_type,
+                    segment_title=segment_title,
+                    segment_order=segment_order,
+                    is_primary_segment=is_primary_segment,
+                    execution_status=status_value,
+                    started_at=now if status_value in started_statuses else None,
+                    finished_at=now if status_value in finished_statuses else None,
+                    error_details=error_details,
+                )
+                self.session.add(cr)
+                await self.session.flush()
+                return cr
+
+            # Обновляем существующую запись (например, после partial failure/timeout)
+            existing.check_name = check_name
+            existing.result = result
+            existing.severity = severity
+            existing.value_text = value_text
+            existing.evidence_ref = evidence_ref
+            existing.confidence = confidence
+            existing.detector_used = detector_used
+            existing.quality_flags = quality_flags or {}
+            existing.structured_data = structured_data
+            existing.conditional_check_triggered = conditional_check_triggered
+            existing.trigger_name = trigger_name
+            existing.origin = origin
+            existing.playbook_version_id = playbook_version_id
+            existing.page = page
+            existing.clause_uid = clause_uid
+            existing.element_id = element_id
+            existing.bbox = bbox
+            # новые поля:
+            existing.segment_id = segment_id
+            existing.segment_type = segment_type
+            existing.segment_title = segment_title
+            existing.segment_order = segment_order
+            existing.is_primary_segment = is_primary_segment
+            existing.execution_status = status_value
+            existing.error_details = error_details
+
+            # started_at не трогаем, если уже был старт;
+            # finished_at обновляем только для финальных статусов.
+            if existing.started_at is None and status_value in started_statuses:
+                existing.started_at = now
+
+            if status_value in finished_statuses:
+                existing.finished_at = now
+
+            await self.session.flush()
+            return existing
+
+        except DBAPIError as err:
+            # После любой ошибки flush/commit сессию нужно откатить,
+            # иначе она останется в PendingRollback.
+            await self.session.rollback()
+
+            permanent = is_permanent_db_error(err)
+            orig = getattr(err, "orig", None)
+            sqlstate = getattr(orig, "sqlstate", None)
+
+            payload: dict[str, Any] = {
+                "run_id": str(run_id),
+                "document_id": str(document_id),
+                "check_id": check_id,
+                "check_name": check_name,
+                "result": result,
+                "severity": severity,
+                "value_text": value_text,
+                "evidence_ref": evidence_ref,
+                "confidence": confidence,
+                "detector_used": detector_used,
+                "quality_flags": quality_flags or {},
+                "structured_data": structured_data,
+                "conditional_check_triggered": conditional_check_triggered,
+                "trigger_name": trigger_name,
+                "origin": origin,
+                "playbook_version_id": (
+                    str(playbook_version_id) if playbook_version_id else None
+                ),
+                "page": page,
+                "clause_uid": clause_uid,
+                "element_id": element_id,
+                "bbox": bbox,
+                "segment_id": segment_id,
+                "segment_type": segment_type,
+                "segment_title": segment_title,
+                "segment_order": segment_order,
+                "is_primary_segment": is_primary_segment,
+                "execution_status": execution_status,
+                "error_details": error_details,
+            }
+
+            persist_error_repo = CheckResultPersistErrorRepository(self.session)
+            await persist_error_repo.log_error(
                 run_id=run_id,
                 document_id=document_id,
                 check_id=check_id,
-                check_name=check_name,
-                result=result,
-                severity=severity,
-                value_text=value_text,
-                evidence_ref=evidence_ref,
-                confidence=confidence,
-                detector_used=detector_used,
-                quality_flags=quality_flags or {},
-                structured_data=structured_data,
-                conditional_check_triggered=conditional_check_triggered,
-                trigger_name=trigger_name,
-                origin=origin,
-                playbook_version_id=playbook_version_id,
-                page=page,
-                clause_uid=clause_uid,
-                element_id=element_id,
-                bbox=bbox,
-                # новые поля segment-aware provenance:
-                segment_id=segment_id,
-                segment_type=segment_type,
-                segment_title=segment_title,
-                segment_order=segment_order,
-                is_primary_segment=is_primary_segment,
-                execution_status=execution_status,
-                started_at=now if execution_status in ("RUNNING", "SUCCESS", "FAILED", "TIMEOUT") else None,
-                finished_at=now if execution_status in ("SUCCESS", "FAILED", "TIMEOUT") else None,
-                error_details=error_details,
+                payload=payload,
+                error_type=(
+                    "permanent_db_error" if permanent else "transient_db_error"
+                ),
+                sqlstate=sqlstate,
+                error_message=str(err),
+                retryable=not permanent,
             )
-            self.session.add(cr)
-            await self.session.flush()
-            return cr
 
-        # Обновляем существующую запись (например, после partial failure/timeout)
-        existing.check_name = check_name
-        existing.result = result
-        existing.severity = severity
-        existing.value_text = value_text
-        existing.evidence_ref = evidence_ref
-        existing.confidence = confidence
-        existing.detector_used = detector_used
-        existing.quality_flags = quality_flags or {}
-        existing.structured_data = structured_data
-        existing.conditional_check_triggered = conditional_check_triggered
-        existing.trigger_name = trigger_name
-        existing.origin = origin
-        existing.playbook_version_id = playbook_version_id
-        existing.page = page
-        existing.clause_uid = clause_uid
-        existing.element_id = element_id
-        existing.bbox = bbox
-        # новые поля:
-        existing.segment_id = segment_id
-        existing.segment_type = segment_type
-        existing.segment_title = segment_title
-        existing.segment_order = segment_order
-        existing.is_primary_segment = is_primary_segment
-        existing.execution_status = execution_status
-        existing.error_details = error_details
-
-        # started_at не трогаем, если уже был старт; finished_at обновляем только для финальных статусов
-        if existing.started_at is None and execution_status in ("RUNNING", "SUCCESS", "FAILED", "TIMEOUT"):
-            existing.started_at = now
-        if execution_status in ("SUCCESS", "FAILED", "TIMEOUT"):
-            existing.finished_at = now
-
-        await self.session.flush()
-        return existing
-
+            # Здесь мы поднимаем RuntimeError с понятным сообщением.
+            # В реальном коде ты можешь заменить это на свои кастомные
+            # исключения, например PermanentDBError/TransientDBError.
+            if permanent:
+                raise RuntimeError(
+                    f"Permanent DB error while upserting check_result "
+                    f"(run_id={run_id}, document_id={document_id}, check_id={check_id}): {err}"
+                ) from err
+            else:
+                raise RuntimeError(
+                    f"Transient DB error while upserting check_result "
+                    f"(run_id={run_id}, document_id={document_id}, check_id={check_id}): {err}"
+                ) from err
 
     async def count_distinct_checks_for_run(self, run_id: uuid.UUID) -> int:
         """
@@ -523,8 +651,17 @@ class ResultRepository:
     async def count_finished_checks_for_run(self, run_id: uuid.UUID) -> int:
         """
         Сколько уникальных пар (document_id, check_id) уже в финальном execution_status.
-        Финальные статусы: SUCCESS, FAILED, TIMEOUT.
+        Финальные статусы: SUCCESS, COMPUTE_FAILED, PERSIST_FAILED, TIMEOUT
+        (и legacy FAILED для обратной совместимости).
         """
+        finished_statuses = [
+            CheckExecutionStatus.SUCCESS.value,
+            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.COMPUTE_FAILED.value,
+            CheckExecutionStatus.PERSIST_FAILED.value,
+            CheckExecutionStatus.TIMEOUT.value,
+        ]
+
         stmt = select(func.count()).select_from(
             select(
                 distinct(CheckResult.document_id),
@@ -532,7 +669,7 @@ class ResultRepository:
             )
             .where(
                 CheckResult.run_id == run_id,
-                CheckResult.execution_status.in_(["SUCCESS", "FAILED", "TIMEOUT"]),
+                CheckResult.execution_status.in_(finished_statuses),
             )
             .subquery()
         )
@@ -544,6 +681,14 @@ class ResultRepository:
         Сколько документов полностью завершили все свои checks.
         Используем для метрик «прогресс по документам» (сколько документов имеют все checks в финальном статусе).
         """
+        finished_statuses = [
+            CheckExecutionStatus.SUCCESS.value,
+            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.COMPUTE_FAILED.value,
+            CheckExecutionStatus.PERSIST_FAILED.value,
+            CheckExecutionStatus.TIMEOUT.value,
+        ]
+
         per_doc = (
             select(
                 CheckResult.document_id,
@@ -551,7 +696,7 @@ class ResultRepository:
                 func.sum(
                     case(
                         (
-                            CheckResult.execution_status.in_(["SUCCESS", "FAILED", "TIMEOUT"]),
+                            CheckResult.execution_status.in_(finished_statuses),
                             1,
                         ),
                         else_=0,
@@ -571,15 +716,25 @@ class ResultRepository:
 
     async def has_failed_or_timed_out_checks(self, run_id: uuid.UUID) -> bool:
         """
-        Есть ли по run хотя бы один check с FAILED или TIMEOUT.
+        Есть ли по run хотя бы один check с неуспешным финальным статусом.
         """
+        problematic_statuses = [
+            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.COMPUTE_FAILED.value,
+            CheckExecutionStatus.PERSIST_FAILED.value,
+            CheckExecutionStatus.TIMEOUT.value,
+        ]
+
         stmt = (
             select(CheckResult.id)
             .where(
                 CheckResult.run_id == run_id,
-                CheckResult.execution_status.in_(["FAILED", "TIMEOUT"]),
+                CheckResult.execution_status.in_(problematic_statuses),
             )
             .limit(1)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
+
+
+    

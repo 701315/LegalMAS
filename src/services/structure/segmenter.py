@@ -21,6 +21,7 @@ Deterministic segmentation of a physical file into logical document segments.
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,6 +44,10 @@ logger = get_logger(__name__)
 _MIN_ELEMENTS_BETWEEN_BOUNDARIES = 3
 _MAX_REASONABLE_SEGMENTS = 15
 _NEW_PAGE_HEADING_WINDOW = 3
+
+# Для детекта повторяющихся header/footer-артефактов
+_MIN_PAGES_FOR_ARTIFACT = 3
+_MAX_HEADER_LINES_TO_CHECK = 5
 
 
 @dataclass(frozen=True)
@@ -125,7 +130,10 @@ def _segment_elements_impl(
     if not clean_elements:
         return [_make_single_segment(document_id=document_id, elements=[])]
 
-    candidates = _collect_boundary_candidates(clean_elements)
+    # Детектируем повторяющиеся header/footer-артефакты страниц
+    artifacts = _detect_repeated_page_artifacts(clean_elements)
+
+    candidates = _collect_boundary_candidates(clean_elements, artifacts=artifacts)
     candidates = _validate_boundary_candidates(clean_elements, candidates)
 
     if not candidates:
@@ -176,12 +184,60 @@ def _segment_elements_impl(
 
 
 # ---------------------------------------------------------------------------
+# Детект повторяющихся артефактов страниц (header/footer)
+# ---------------------------------------------------------------------------
+
+
+def _detect_repeated_page_artifacts(
+    elements: list[dict[str, Any]],
+) -> set[int]:
+    """
+    Выявляет элементы, которые выглядят как повторяющиеся header/footer
+    (running header) и не должны участвовать в сегментации.
+
+    Логика:
+    - смотрим на первые несколько строк каждой страницы;
+    - нормализуем текст;
+    - если одна и та же строка встречается на >= _MIN_PAGES_FOR_ARTIFACT страницах,
+      считаем её page-артефактом.
+    Возвращаем множество индексов elements[], которые попали в эту категорию.
+    """
+
+    # page -> [indices of first N elements on that page]
+    page_first_indices: dict[int, list[int]] = defaultdict(list)
+    for idx, el in enumerate(elements):
+        page = _safe_page(el)
+        if len(page_first_indices[page]) < _MAX_HEADER_LINES_TO_CHECK:
+            page_first_indices[page].append(idx)
+
+    # normalized text -> [indices]
+    signature_hits: dict[str, list[int]] = defaultdict(list)
+    for _, idx_list in page_first_indices.items():
+        for idx in idx_list:
+            raw_text = elements[idx].get("text", "")
+            text = normalize_spaces(str(raw_text or ""))
+            if not text:
+                continue
+            signature_hits[text].append(idx)
+
+    repeated_indices: set[int] = set()
+    for text, idx_list in signature_hits.items():
+        if len(idx_list) >= _MIN_PAGES_FOR_ARTIFACT:
+            # Один и тот же текст встречается на многих страницах в верхних строках —
+            # считаем его артефактом header/footer.
+            repeated_indices.update(idx_list)
+
+    return repeated_indices
+
+
+# ---------------------------------------------------------------------------
 # Сбор кандидатов на границы
 # ---------------------------------------------------------------------------
 
 
 def _collect_boundary_candidates(
     elements: list[dict[str, Any]],
+    artifacts: set[int] | None = None,
 ) -> list[_BoundaryCandidate]:
     """
     Проходит по elements и ищет места, похожие на начало нового логического документа.
@@ -189,11 +245,17 @@ def _collect_boundary_candidates(
     Ищем только сильные сигналы:
     - явные маркеры типа "Appendix 1", "Приложение №1", "Дополнительное соглашение";
     - только в начале страницы или очень близко к нему;
-    - желательно если строка похожа на heading.
+    - желательно если строка похожа на heading;
+    - исключаем элементы, которые выглядят как повторяющиеся header/footer-артефакты.
     """
+    artifacts = artifacts or set()
     candidates: list[_BoundaryCandidate] = []
 
     for idx, element in enumerate(elements):
+        # Повторяющийся header/footer — не может быть границей сегмента
+        if idx in artifacts:
+            continue
+
         raw_text = element.get("text", "")
         text = normalize_spaces(str(raw_text or ""))
         if not text:
@@ -406,7 +468,7 @@ _AMENDMENT_RE = re.compile(
 )
 
 _ACT_RE = re.compile(
-    r"^(акт\s+(?:приема|приёма|сдачи|выполненных)|acceptance act|delivery act)",
+    r"^(передаточный\s+акт|акт\s+(?:приема|приёма|сдачи|выполненных)|acceptance act|delivery act)",
     re.IGNORECASE,
 )
 
@@ -455,12 +517,16 @@ def _infer_first_segment_type(
       чаще всего является contract;
     - иначе unknown.
     """
-    if any(c.segment_type in {
-        SEGMENT_TYPE_APPENDIX,
-        SEGMENT_TYPE_AMENDMENT,
-        SEGMENT_TYPE_ACT,
-        SEGMENT_TYPE_INVOICE,
-    } for c in candidates):
+    if any(
+        c.segment_type
+        in {
+            SEGMENT_TYPE_APPENDIX,
+            SEGMENT_TYPE_AMENDMENT,
+            SEGMENT_TYPE_ACT,
+            SEGMENT_TYPE_INVOICE,
+        }
+        for c in candidates
+    ):
         return SEGMENT_TYPE_CONTRACT
 
     first_text = normalize_spaces(str(elements[0].get("text", "") if elements else ""))

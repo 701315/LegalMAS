@@ -15,7 +15,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onOpenContact }) => {
       <div className="mx-auto flex h-[72px] w-full max-w-[1480px] items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-12">
         <Link to="/" className="flex min-w-0 items-center gap-3 text-stone-900">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-stone-900/10 bg-white/80 shadow-sm">
-            <Shield className="h-5 w-5" />
+            <Shield className="h-5 w-5 text-stone-900" />
           </div>
 
           <div className="min-w-0">
@@ -49,6 +49,7 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onOpenContact }) => {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <button
+            type="button"
             onClick={() => navigate("/login")}
             className="hidden rounded-full border border-stone-900/10 bg-white/70 px-4 py-2.5 text-sm font-medium text-stone-800 transition-colors hover:bg-white sm:inline-flex"
           >
@@ -56,12 +57,13 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onOpenContact }) => {
           </button>
 
           <button
+            type="button"
             onClick={onOpenContact}
-            className="inline-flex items-center rounded-full bg-stone-950 px-4 py-2.5 text-sm font-semibold text-[#f7f3ea] transition-colors hover:bg-stone-800 sm:px-5"
+            className="inline-flex items-center rounded-full bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-800 sm:px-5"
           >
-            <span className="hidden sm:inline">Запросить демо</span>
-            <span className="sm:hidden">Демо</span>
-            <ArrowRight className="ml-2 h-4 w-4" />
+            <span className="hidden text-white sm:inline">Запросить демо</span>
+            <span className="text-white sm:hidden">Демо</span>
+            <ArrowRight className="ml-2 h-4 w-4 text-white" />
           </button>
         </div>
       </div>
@@ -70,5 +72,6 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onOpenContact }) => {
 };
 
 export default LandingHeader;
+
 
 

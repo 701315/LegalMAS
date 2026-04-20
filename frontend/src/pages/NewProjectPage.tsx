@@ -3,7 +3,7 @@
 // Создание нового проекта (доступно только для superadmin).
 // =============================================================
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { useAuth } from "../hooks/useAuth";
@@ -29,9 +29,13 @@ const NewProjectPage: React.FC = () => {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Если вдруг пользователь не superadmin — вернём его на дашборд
+  useEffect(() => {
+    if (globalRole !== "superadmin") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [globalRole, navigate]);
+
   if (globalRole !== "superadmin") {
-    navigate("/dashboard");
     return null;
   }
 
@@ -45,6 +49,7 @@ const NewProjectPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
+
     try {
       const payload: CreateDealInput = {
         name: name.trim(),
@@ -53,42 +58,33 @@ const NewProjectPage: React.FC = () => {
         },
       };
 
-      const res = await client.post<DealResponse>(
-        "/api/v1/deals",
-        payload,
-      );
-
+      const res = await client.post<DealResponse>("/api/v1/deals", payload);
       const dealId = res.data.id;
-      // После создания сразу переходим на страницу загрузки документов проекта
+
       navigate(`/projects/${dealId}/upload`);
     } catch (err: unknown) {
-      const e = err as unknown;
-
       let detailFromResponse: string | undefined;
       let detailFromApiError: string | undefined;
       let messageFromError: string | undefined;
 
-      if (typeof e === "object" && e !== null) {
-        // axios-подобный ответ: response.data.detail
-        if ("response" in e) {
-          const resp = (e as { response?: { data?: ApiError } }).response;
+      if (typeof err === "object" && err !== null) {
+        if ("response" in err) {
+          const resp = (err as { response?: { data?: ApiError } }).response;
           detailFromResponse = resp?.data?.detail;
         }
 
-        // прямой ApiError
         if (
-          "detail" in e &&
-          typeof (e as { detail?: unknown }).detail === "string"
+          "detail" in err &&
+          typeof (err as { detail?: unknown }).detail === "string"
         ) {
-          detailFromApiError = (e as { detail?: string }).detail;
+          detailFromApiError = (err as { detail?: string }).detail;
         }
 
-        // обычный Error с message
         if (
-          "message" in e &&
-          typeof (e as { message?: unknown }).message === "string"
+          "message" in err &&
+          typeof (err as { message?: unknown }).message === "string"
         ) {
-          messageFromError = (e as { message?: string }).message;
+          messageFromError = (err as { message?: string }).message;
         }
       }
 
@@ -109,46 +105,43 @@ const NewProjectPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-xl mx-auto bg-white rounded-lg border shadow-sm p-6">
-        <h1 className="text-xl font-bold text-gray-900 mb-4">
+    <div className="min-h-screen bg-gray-50 px-4 py-6 text-gray-900">
+      <div className="mx-auto max-w-xl rounded-lg border border-gray-200 bg-white p-6 text-gray-900 shadow-sm">
+        <h1 className="mb-4 text-xl font-bold text-gray-900">
           Новый проект
         </h1>
-        <p className="text-sm text-gray-500 mb-4">
-          Укажите основные данные проекта. Остальные настройки можно
-          будет задать позже.
+        <p className="mb-4 text-sm text-gray-500">
+          Укажите основные данные проекта. Остальные настройки можно будет
+          задать позже.
         </p>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* Название проекта */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Название проекта
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder='Например: DD по покупке ООО «Ромашка»'
             />
           </div>
 
-          {/* Контактное лицо */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Контактное лицо
             </label>
             <input
               type="text"
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
-              className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="ФИО или e-mail ответственного"
             />
           </div>
 
-          {/* Ошибка */}
           {errorText && (
             <p className="text-sm text-red-600">{errorText}</p>
           )}
@@ -157,14 +150,14 @@ const NewProjectPage: React.FC = () => {
             <button
               type="button"
               onClick={handleCancel}
-              className="px-4 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
               {isSubmitting ? "Создаём..." : "Создать проект"}
             </button>
@@ -176,3 +169,5 @@ const NewProjectPage: React.FC = () => {
 };
 
 export default NewProjectPage;
+
+
