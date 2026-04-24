@@ -36,10 +36,13 @@ Runner: classification + triggers.
 """
 
 import uuid
+from typing import Any
 
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
 from engine.checks.executor import CheckExecutor
 from engine.content.document_content_service import (
     ClauseTreeStorageClient,
@@ -67,6 +70,8 @@ class Runner:
         """
         self.uow = uow
         self.repo = RunnerRepository(uow.session)
+        self.version_repo = DocumentVersionRepository(uow.session)
+        self.segment_repo = DocumentSegmentRepository(uow.session)
 
         # Сервис контента: clause tree → чанки, header/snippet
         # (сейчас нужен для классификатора; для checks используется
@@ -88,6 +93,91 @@ class Runner:
         def complete(prompt: str) -> str:
             return '{"found": false, "evidence": "", "confidence": 0.0}'
 
+
+    async def _classify_segments_for_document(self, doc) -> int:
+        """
+        Выполнить segment-level классификацию для последней версии документа.
+
+        Для непрофессионального программиста:
+        - Если у документа нет сегментов, метод просто ничего не делает.
+        - Если сегменты есть, мы проходим по каждому сегменту,
+          берём его текст, отправляем в HybridClassifier.classify_segment(...),
+          а потом сохраняем результат в таблицу DocumentSegment.
+        - Это нужно, чтобы следующий этап (checks) мог работать
+          не только по doc.doc_type, но и по segment_doc_type.
+        
+        Возвращает:
+        - сколько сегментов реально удалось классифицировать.
+        """
+        version = await self.version_repo.get_latest(doc.id)
+        if not version:
+            return 0
+
+        segments = await self.segment_repo.list_by_version(version.id)
+        if not segments:
+            return 0
+
+        classified_segments = 0
+
+        for segment in segments:
+            segment_id = getattr(segment, "segment_id", None)
+            if not segment_id:
+                continue
+
+            try:
+                segment_text = await self.content_service.get_segment_text(
+                    document_version_id=version.id,
+                    segment_id=segment_id,
+                    max_chars=12000,
+                )
+
+                if not segment_text or not segment_text.strip():
+                    logger.info(
+                        "Runner: segment classification skipped because text is empty",
+                        extra={
+                            "doc_id": str(getattr(doc, "id", None)),
+                            "document_version_id": str(version.id),
+                            "segment_id": segment_id,
+                        },
+                    )
+                    continue
+
+                class_result = await self.classifier.classify_segment(
+                    segment_id=segment_id,
+                    text=segment_text,
+                    filename=getattr(doc, "filename", "") or "",
+                    folder_path=getattr(doc, "folder_path", "") or getattr(doc, "folder", "") or "",
+                    language_hint=getattr(doc, "language", None),
+                    jurisdiction_hint=getattr(doc, "jurisdiction", None),
+                )
+
+                await self.segment_repo.update_classification_for_segment(
+                    document_version_id=version.id,
+                    segment_id=segment_id,
+                    segment_doc_type=class_result.get("final_type"),
+                    segment_confidence=class_result.get("final_confidence"),
+                    segment_level=class_result.get("level"),
+                    segment_confidence_zone=(class_result.get("details") or {}).get("confidence_zone"),
+                    segment_applicable_triggers=class_result.get("applicable_triggers") or [],
+                    segment_details=class_result,
+                )
+
+                classified_segments += 1
+
+            except Exception as e:
+                logger.exception(
+                    "Runner: segment classification failed",
+                    extra={
+                        "doc_id": str(getattr(doc, "id", None)),
+                        "document_version_id": str(version.id),
+                        "segment_id": segment_id,
+                        "error": str(e),
+                    },
+                )
+
+        return classified_segments
+
+
     async def run_deal(self, deal_id: str, run_id: uuid.UUID) -> dict:
         """
         Полный async‑пайплайн по сделке (без выполнения checks):
@@ -107,10 +197,11 @@ class Runner:
             "deal_id": str(deal_id),
             "docs_total": len(docs),
             "docs_classified": 0,
+            "segments_classified": 0,
         }
 
         for doc in docs:
-            # 1. Классификация
+            # 1. Сначала document-level классификация (как и раньше).
             class_result = await self.classifier.classify_document(str(doc.id))
 
             doc.doc_type = class_result.get("final_type")
@@ -120,14 +211,19 @@ class Runner:
 
             if hasattr(doc, "language"):
                 doc.language = class_result.get("language")
-            if hasattr(doc, "jurisdiction_guess"):
+            if hasattr(doc, "jurisdiction"):
                 doc.jurisdiction = class_result.get("jurisdiction")
 
-            # 2. Триггеры
+            # 2. Затем document-level triggers (как и раньше).
             triggers = await self.trigger_detector.detect_triggers(doc)
             triggers_from_classifier = class_result.get("applicable_triggers") or []
             merged_triggers = sorted(set(triggers or []) | set(triggers_from_classifier))
             doc.applicable_triggers = merged_triggers
+
+            # 3. После этого — segment-level классификация.
+            #    Это не заменяет document-level результат, а дополняет его.
+            classified_segments = await self._classify_segments_for_document(doc)
+            stats["segments_classified"] += classified_segments
 
             # ORM-сессия UoW отслеживает doc, отдельный вызов repo не нужен.
             stats["docs_classified"] += 1

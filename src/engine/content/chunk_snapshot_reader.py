@@ -185,6 +185,110 @@ class ChunkCorpusReaderV2:
 
         return out
 
+    async def load_segment(
+        self,
+        *,
+        doc_id: uuid.UUID,
+        segment_id: str,
+        levels: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Загрузить чанки только для одного сегмента документа.
+
+        Простыми словами:
+        - находит последнюю версию документа;
+        - читает manifest (chunks_manifest_v2_ref);
+        - ищет там нужный segment_id и его segment_chunks_ref;
+        - грузит snapshot этого сегмента и возвращает нормализованные чанки.
+
+        ВАЖНО:
+        - не ходит по всем сегментам, в отличие от load(...);
+        - работает только для V2 (scope='segment', schema_version=2).
+        """
+        level_set = self._normalize_levels(levels)
+        if not level_set:
+            return []
+
+        # 1. Последняя версия документа
+        version = await self.versions.get_latest(doc_id)
+        if not version:
+            return []
+
+        manifest_ref = getattr(version, "chunks_manifest_v2_ref", None)
+        if not manifest_ref:
+            # CHUNKS v2 ещё не построен
+            return []
+
+        # 2. Читаем manifest
+        manifest = await self._load_json_async(
+            ref=manifest_ref,
+            context={
+                "doc_id": str(doc_id),
+                "version_id": str(version.id),
+                "label": "file manifest",
+            },
+        )
+        if manifest is None:
+            return []
+
+        if not isinstance(manifest, dict):
+            logger.warning(
+                "ChunkCorpusReaderV2.load_segment: manifest is not a dict",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "manifest_type": type(manifest).__name__,
+                    "segment_id": segment_id,
+                },
+            )
+            return []
+
+        segments_meta = manifest.get("segments") or []
+        if not isinstance(segments_meta, list) or not segments_meta:
+            logger.warning(
+                "ChunkCorpusReaderV2.load_segment: manifest has no segments",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "manifest_ref": manifest_ref,
+                    "segment_id": segment_id,
+                },
+            )
+            return []
+
+        # 3. Ищем нужный сегмент
+        target_chunks_ref: str | None = None
+        for seg in segments_meta:
+            if not isinstance(seg, dict):
+                continue
+            if seg.get("segment_id") == segment_id:
+                target_chunks_ref = seg.get("segment_chunks_ref")
+                break
+
+        if not target_chunks_ref:
+            # либо сегмент не попал в manifest, либо snapshot не записан
+            logger.info(
+                "ChunkCorpusReaderV2.load_segment: segment not found in manifest",
+                extra={
+                    "doc_id": str(doc_id),
+                    "version_id": str(version.id),
+                    "segment_id": segment_id,
+                    "manifest_ref": manifest_ref,
+                },
+            )
+            return []
+
+        # 4. Загружаем snapshot конкретного сегмента
+        items = await self._load_segment_snapshot(
+            doc_id=doc_id,
+            version_id=version.id,
+            segment_id=segment_id,
+            segment_chunks_ref=target_chunks_ref,
+            level_set=level_set,
+        )
+        return items or []
+
     # ------------------------------------------------------------------
     # Внутренние helpers
     # ------------------------------------------------------------------
@@ -204,6 +308,7 @@ class ChunkCorpusReaderV2:
 
         Возвращает распарсенный объект (dict/list) или None при ошибке.
         """
+
         def _get() -> Any:
             return self.artifact_store.get_json(ref)
 
@@ -295,7 +400,8 @@ class ChunkCorpusReaderV2:
             if not isinstance(lvl, str):
                 continue
             # Пропускаем уровни, которые не запрашивались.
-            if lvl.strip().lower() not in level_set:
+            lvl_normalized = lvl.strip().lower()
+            if lvl_normalized not in level_set:
                 continue
             if not isinstance(items, list):
                 continue
@@ -313,11 +419,19 @@ class ChunkCorpusReaderV2:
                 if not isinstance(metadata, dict):
                     metadata = {}
 
-                out.append({
-                    "id": ch.get("id") or f"{segment_id}:{lvl}:{len(out)}",
-                    "text": text,
-                    "metadata": metadata,
-                })
+                # Обогащаем metadata, чтобы downstream код не зависел от writer'а.
+                if "segment_id" not in metadata:
+                    metadata["segment_id"] = segment_id
+                if "level" not in metadata:
+                    metadata["level"] = lvl_normalized
+
+                out.append(
+                    {
+                        "id": ch.get("id") or f"{segment_id}:{lvl_normalized}:{len(out)}",
+                        "text": text,
+                        "metadata": metadata,
+                    }
+                )
 
         return out
 
@@ -332,6 +446,7 @@ class ChunkCorpusReaderV2:
             for lvl in levels
             if isinstance(lvl, str) and lvl.strip()
         }
+    
     
 
     

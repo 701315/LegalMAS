@@ -31,19 +31,18 @@ from typing import Any
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+from engine.llm.client import LLMContextLimitError
 from .llm_detector import LLMDetector
 from .models import EvidenceChunk, RetrievedChunk
 from .rules_detector import RulesDetector
 from ..playbook.models import CheckDefinition
 
+
 logger = get_logger(__name__)
 
-# Порог уверенности rules, при котором positive-сигнал считаем достаточным.
+
 RULES_CONFIDENCE_THRESHOLD = getattr(settings, "RULES_CONFIDENCE_THRESHOLD", 0.7)
 
-# Нужно ли по умолчанию вызывать LLM, если rules дали "чистый negative":
-# found=False и reason=no_keywords_or_patterns_matched.
-# По умолчанию False: это и реализует стратегию "эвристика → LLM только при unclear".
 RUN_LLM_ON_RULES_CLEAN_NEGATIVE = bool(
     getattr(settings, "RUN_LLM_ON_RULES_CLEAN_NEGATIVE", False)
 )
@@ -119,12 +118,9 @@ class HybridDetector:
         rules_result.setdefault("location", None)
         rules_result.setdefault("sources", None)
 
-        # Телеметрия по правилам
         rules_result["raw"]["llm_invoked"] = False
         rules_result["raw"]["rules_threshold"] = RULES_CONFIDENCE_THRESHOLD
 
-        # Если rules что‑то нашёл, привяжем результат к лучшему чанку,
-        # чтобы downstream (ExtractionExecutor, UI) могли показать локацию.
         if rules_result.get("found"):
             best_chunk = self._select_best_chunk(chunks)
             if best_chunk is not None:
@@ -158,8 +154,6 @@ class HybridDetector:
             rules_result["raw"]["source"] = "rules_unclear_no_llm_config"
             return rules_result
 
-        # Если в LLMConfig не задан ни inline-шаблон, ни файл промпта,
-        # вызывать LLM бессмысленно — остаёмся на rules.
         has_inline_prompt = bool(getattr(llm_config, "prompt_template", "").strip())
         has_file_prompt = bool(getattr(llm_config, "prompt_file", None))
 
@@ -168,8 +162,6 @@ class HybridDetector:
             return rules_result
 
         # --- 4. Готовим дополнительные переменные для LLM ---
-        # Если уверенность классификации низкая — не подсказываем тип документа LLM'у,
-        # чтобы не усиливать возможную ошибку классификатора.
         try:
             cls_conf = float(classification_confidence or 0.0)
         except (TypeError, ValueError):
@@ -200,6 +192,25 @@ class HybridDetector:
                 chunks=chunks,
                 extra_variables=extra_variables,
             )
+
+        except LLMContextLimitError as e:
+            # ── Промпт превысил контекстное окно модели ─────────────────────
+            # Этот случай отличается от generic PermanentError: мы знаем точно,
+            # что проблема в размере промпта, а не в логике или конфигурации.
+            # build_user_explanation() увидит llm_error_type="context_limit"
+            # и выставит user_status="manual_review_required".
+            logger.warning(
+                "HybridDetector: LLM context limit exceeded, staying on rules result",
+                extra={
+                    "check_id": getattr(check, "id", None),
+                    "error": str(e),
+                },
+            )
+            rules_result["raw"]["source"] = "rules_unclear_llm_context_limit"
+            rules_result["raw"]["llm_error_type"] = "context_limit"
+            rules_result["raw"]["llm_error_message"] = str(e)
+            return rules_result
+
         except PermanentError as e:
             # На практике сюда обычно уже не попадаем, потому что LLMDetector
             # сам превращает ошибки в DetectionResult(details=...),
@@ -215,6 +226,7 @@ class HybridDetector:
             rules_result["raw"]["llm_error_type"] = "permanent_error"
             rules_result["raw"]["llm_error_message"] = str(e)
             return rules_result
+
         except TransientError as e:
             logger.warning(
                 "HybridDetector: transient LLM error, staying on rules result",
@@ -227,6 +239,7 @@ class HybridDetector:
             rules_result["raw"]["llm_error_type"] = "transient_error"
             rules_result["raw"]["llm_error_message"] = str(e)
             return rules_result
+
         except Exception as e:
             logger.exception(
                 "HybridDetector: unexpected error in LLMDetector.detect_with_variables",
@@ -240,8 +253,6 @@ class HybridDetector:
             rules_result["raw"]["llm_error_message"] = str(e)
             return rules_result
 
-        # Если LLMDetector вернул None — он считает, что LLM не может быть использован
-        # (нет провайдера, промпта или других базовых условий).
         if llm_detection is None:
             rules_result["raw"]["source"] = "rules_unclear_llm_unavailable"
             return rules_result
@@ -255,14 +266,15 @@ class HybridDetector:
         flat_llm.setdefault("raw", {})
         flat_llm["method"] = "llm"
 
-        # Перенесём служебную информацию из details LLM-детектора в raw.llm_details
         llm_details = getattr(llm_detection, "details", {}) or {}
         flat_llm["raw"].setdefault("llm_details", llm_details)
         flat_llm["raw"]["llm_invoked"] = True
         flat_llm["raw"]["rules_llm_decision"] = decision_reason
         flat_llm["raw"]["rules_confidence_threshold"] = RULES_CONFIDENCE_THRESHOLD
 
-        # Если LLM отработал с ошибкой/деградацией, не считаем это сильным сигналом.
+        # Если LLM отработал с ошибкой/деградацией — остаёмся на rules.
+        # error_type="context_limit" тоже сюда попадёт через llm_details,
+        # если LLMDetector поглотил LLMContextLimitError внутри call_with_retries().
         error_type = llm_details.get("error_type")
         if error_type:
             rules_result["raw"]["source"] = "rules_unclear_llm_error"
@@ -278,25 +290,21 @@ class HybridDetector:
         found_llm = bool(flat_llm.get("found", False))
         conf_llm = float(flat_llm.get("confidence", 0.0) or 0.0)
 
-        # Оба не нашли
         if not found_rules and not found_llm:
             flat_llm["raw"]["source"] = "both_not_found_llm_preferred"
             flat_llm["raw"]["rules_confidence"] = conf_rules
             return flat_llm
 
-        # Rules нашёл, LLM нет
         if found_rules and not found_llm:
             rules_result["raw"]["source"] = "rules_found_llm_not_found"
             rules_result["raw"]["llm_confidence"] = conf_llm
             return rules_result
 
-        # LLM нашёл, rules нет
         if found_llm and not found_rules:
             flat_llm["raw"]["source"] = "llm_found_rules_not_found"
             flat_llm["raw"]["rules_confidence"] = conf_rules
             return flat_llm
 
-        # Оба нашли → сравниваем confidence
         if conf_llm >= conf_rules:
             flat_llm["raw"]["source"] = "llm_stronger"
             flat_llm["raw"]["rules_confidence"] = conf_rules
@@ -322,22 +330,14 @@ class HybridDetector:
         - confident positive rules  -> LLM не нужен;
         - clean negative rules      -> LLM не нужен (для экономии ресурсов);
         - всё остальное             -> unclear, вызываем LLM.
-
-        Это поведение intentionally conservative по стоимости и масштабируемости.
-        Если позже понадобится более агрессивный fallback в LLM для некоторых
-        checks, сюда можно добавить чтение флага из CheckDefinition без изменения
-        внешнего контракта класса.
         """
         found_rules = bool(rules_result.get("found", False))
         conf_rules = float(rules_result.get("confidence", 0.0) or 0.0)
         reason_rules = str(rules_result.get("reason") or "")
 
-        # 1. Уверенный positive по rules
         if found_rules and conf_rules >= RULES_CONFIDENCE_THRESHOLD:
             return False, "rules_confident_positive"
 
-        # 2. Чистый negative по rules:
-        # ничего не найдено, без ошибок/конфликтов/подавлений.
         if (
             not found_rules
             and reason_rules == "no_keywords_or_patterns_matched"
@@ -345,30 +345,24 @@ class HybridDetector:
         ):
             return False, "rules_clean_negative"
 
-        # 3. Сигнал "negative_keywords_matched" считаем unclear:
-        # это не настоящий semantic negative, а suppress-эвристика.
         if not found_rules and reason_rules == "negative_keywords_matched":
             return True, "rules_negative_suppressed_unclear"
 
-        # 4. Нашли что-то, но confidence ниже порога — это unclear.
         if found_rules and conf_rules < RULES_CONFIDENCE_THRESHOLD:
             return True, "rules_weak_positive_unclear"
 
-        # 5. Все остальные кейсы трактуем как unclear.
         return True, "rules_unclear"
 
     @staticmethod
     def _select_best_chunk(chunks: list[RetrievedChunk]) -> RetrievedChunk | None:
         """
         Выбрать лучший чанк для привязки location:
-        - по максимальному combined_score,
+        - по максимальному combined_score;
         - если скор не задан или список пуст — вернуть None.
         """
         if not chunks:
             return None
 
-        # combined_score уже приходит из RetrievalEngine;
-        # если он везде 0.0, просто берём первый.
         best = chunks[0]
         best_score = float(getattr(best, "combined_score", 0.0) or 0.0)
 
@@ -396,7 +390,6 @@ class HybridDetector:
             "score": float(getattr(chunk, "combined_score", 0.0) or 0.0),
         }
 
-        # Структурный контекст
         base["path_titles"] = getattr(chunk, "path_titles", None) or None
         base["start_page"] = getattr(chunk, "start_page", None)
         base["end_page"] = getattr(chunk, "end_page", None)
@@ -439,7 +432,6 @@ class HybridDetector:
                 "bbox": ec.bbox or None,
             }
 
-            # Структурный контекст для навигации / breadcrumbs
             base["section_path"] = ec.path_titles or None
             base["start_page"] = ec.start_page
             base["end_page"] = ec.end_page
@@ -449,7 +441,6 @@ class HybridDetector:
             sources = [dict(base)]
 
         elif fallback_chunks:
-            # LLM не дал evidence_chunks, но у нас есть контекст от RetrievalEngine.
             best_chunk = HybridDetector._select_best_chunk(fallback_chunks)
             if best_chunk is not None:
                 loc, srcs = HybridDetector._build_location_from_chunk(best_chunk)
@@ -482,7 +473,7 @@ class HybridDetector:
             "found": found,
             "evidence": evidence_text or "",
             "confidence": confidence,
-            "method": "llm",  # может быть перезаписан выше
+            "method": "llm",
             "reason": str(reason) if reason is not None else None,
             "rule_name": None,
             "check_id": getattr(check, "id", None),
@@ -492,6 +483,7 @@ class HybridDetector:
             "sources": sources,
             "raw": {
                 "llm_details": details,
+                "llm_error_type": details.get("error_type"),
             },
         }
     

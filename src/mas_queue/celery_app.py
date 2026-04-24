@@ -127,6 +127,7 @@ celery_app.conf.update(
         "workers.relations_worker",
         "workers.run_orchestrator",
         "workers.structure_builder",
+        "workers.segment_classifier",
     ],
 
     # --- Сериализация ---

@@ -8,6 +8,7 @@ description: >
   и наличие пробелов в покрытии. Детальный анализ содержания
   и рисков CoC-клаузы выполняется отдельным чеком.
 
+ui_mode: "clause_presence"
 doc_types: []
 
 severity: "high"

@@ -15,6 +15,7 @@ The client handles timeouts, retries, and error normalization.
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 import time
@@ -25,24 +26,35 @@ from ops.metrics import METRICS
 from core.config import settings
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
-from engine.retrieval.tokenization import count_tokens  # для подсчёта prompt_tokens
+from engine.retrieval.tokenization import count_tokens
 
 logger = get_logger(__name__)
+
+
+class LLMContextLimitError(PermanentError):
+    """
+    Prompt + max_tokens превышают контекстное окно модели.
+
+    Отличается от общего PermanentError тем, что:
+    - не требует ретраев (контекст не уменьшится сам по себе);
+    - вызывающий код (HybridDetector) выставляет llm_error_type='context_limit'
+      и может корректно сформировать execution_status=FAILED.
+    """
 
 
 @dataclass
 class LLMResponse:
     """Standardized response from an LLM call."""
 
-    text: str  # Raw response text
-    found: bool | None = None  # Parsed: was the condition found?
-    evidence: str = ""  # Parsed: evidence snippet from response
-    clause: str = ""  # Parsed: clause reference
-    confidence: float = 0.0  # Parsed: confidence (if LLM provides it)
-    provider: str = ""  # Which provider was used
-    model: str = ""  # Which model was used
-    tokens_used: int = 0  # Approximate tokens consumed
-    parse_success: bool = False  # Was the JSON response parsed successfully?
+    text: str                           # Raw response text
+    found: bool | None = None           # Parsed: was the condition found?
+    evidence: str = ""                  # Parsed: evidence snippet from response
+    clause: str = ""                    # Parsed: clause reference
+    confidence: float = 0.0            # Parsed: confidence (if LLM provides it)
+    provider: str = ""                  # Which provider was used
+    model: str = ""                     # Which model was used
+    tokens_used: int = 0                # Approximate tokens consumed
+    parse_success: bool = False         # Was the JSON response parsed successfully?
     raw_response: dict = field(default_factory=dict)
 
 
@@ -52,12 +64,9 @@ class LLMClient:
     def __init__(self) -> None:
         self.provider = settings.LLM_PROVIDER  # "none" | "openai" | "ollama" | "llamacpp"
         self.timeout = settings.LLM_TIMEOUT_SECONDS
-        # llama-cpp модель можно лениво инициализировать, когда понадобится
         self._llama_model: Any = None
-        self._llama_grammar_cache: dict[str, Any] = {}  # кэш грамматик
+        self._llama_grammar_cache: dict[str, Any] = {}
 
-    # Максимальное количество попыток для повторов LLM-запроса.
-    # Для непрофессионального программиста:
     # - 0 означает «ровно один вызов без ретраев»;
     # - 2 означает «до трёх вызовов: первая попытка + 2 повтора».
     _DEFAULT_MAX_RETRIES = getattr(settings, "LLM_MAX_RETRIES", 2)
@@ -80,8 +89,12 @@ class LLMClient:
         Термины:
         - prompt_tokens: токены входного prompt
         - reserved_output_tokens: максимум токенов, который можно отдать под ответ
-        после вычета prompt и safety_margin
+          после вычета prompt и safety_margin
         - effective_max_tokens: фактически используемый max_tokens для вызова модели
+
+        Raises:
+            LLMContextLimitError: если prompt уже превышает контекстное окно
+                                  или оставшийся бюджет слишком мал для ответа.
         """
         model_limit = getattr(settings, "LLM_CONTEXT_LIMIT", None)
         safety_margin = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
@@ -93,7 +106,7 @@ class LLMClient:
             "effective_max_tokens": int(requested_max_tokens),
             "prompt_tokens": None,
             "reserved_output_tokens": None,
-            "available_for_output": None,  # backward-compatible alias
+            "available_for_output": None,
             "safety_margin": safety_margin,
             "min_output_tokens": min_output_tokens,
             "budget_enforced": False,
@@ -111,6 +124,7 @@ class LLMClient:
         diagnostics["reserved_output_tokens"] = int(reserved_output_tokens)
         diagnostics["available_for_output"] = int(reserved_output_tokens)
 
+        # ── Жёсткий блок 1: промпт сам по себе превышает окно ──────────────
         if reserved_output_tokens <= 0:
             logger.warning(
                 "LLMClient: prompt exceeds model context window",
@@ -121,8 +135,13 @@ class LLMClient:
                 reserved_output_tokens=int(reserved_output_tokens),
                 safety_margin=safety_margin,
             )
-            raise PermanentError("LLM prompt exceeds model context limit")
+            raise LLMContextLimitError(
+                f"LLM prompt exceeds model context limit "
+                f"(prompt_tokens={prompt_tokens}, model_limit={model_limit}, "
+                f"safety_margin={safety_margin})"
+            )
 
+        # ── Жёсткий блок 2: бюджет под ответ меньше минимума ───────────────
         if reserved_output_tokens < min_output_tokens:
             logger.warning(
                 "LLMClient: insufficient output token budget",
@@ -134,7 +153,10 @@ class LLMClient:
                 min_output_tokens=int(min_output_tokens),
                 safety_margin=safety_margin,
             )
-            raise PermanentError("LLM prompt leaves insufficient output token budget")
+            raise LLMContextLimitError(
+                f"LLM prompt leaves insufficient output token budget "
+                f"(reserved={reserved_output_tokens}, min_required={min_output_tokens})"
+            )
 
         effective_max_tokens = min(
             int(requested_max_tokens),
@@ -178,6 +200,13 @@ class LLMClient:
 
         Returns:
             LLMResponse or None if LLM is not available/failed.
+
+        Raises:
+            LLMContextLimitError: если prompt превышает контекстное окно.
+                                  Вызывающий код должен поймать это и выставить
+                                  error_type='context_limit', не делать retry.
+            TransientError: таймаут / сетевая ошибка — можно повторить.
+            PermanentError: прочие постоянные ошибки — retry бессмысленен.
         """
         if self.provider == "none" or not self.is_available():
             return None
@@ -187,15 +216,22 @@ class LLMClient:
             max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
         )
 
-        # Жёсткий budget по токенам: prompt_tokens + max_tokens <= LLM_CONTEXT_LIMIT.
-        # Если лимит не задан — tokens остаётся как раньше.
+        # ── Жёсткий budget: останавливаем вызов до обращения к модели ──────
+        # LLMContextLimitError — подкласс PermanentError, поэтому порядок важен:
+        # сначала ловим специфичный, затем общий.
         try:
             tokens, budget_info = self._compute_token_budget(
                 prompt=prompt,
                 requested_max_tokens=int(requested_tokens),
             )
+        except LLMContextLimitError:
+            logger.warning(
+                "LLM call aborted: context limit exceeded",
+                provider=self.provider,
+                requested_max_tokens=int(requested_tokens),
+            )
+            raise  # пробрасываем как LLMContextLimitError, не теряем тип
         except PermanentError:
-            # Логируем отдельно и пробрасываем дальше.
             logger.warning(
                 "LLM call aborted due to token budget violation",
                 provider=self.provider,
@@ -222,10 +258,8 @@ class LLMClient:
 
         try:
             if self.provider == "openai":
-                # Пока grammar_path игнорируем для openai
                 result = self._call_openai(prompt, temp, tokens)
             elif self.provider == "ollama":
-                # Пока grammar_path игнорируем для ollama
                 result = self._call_ollama(prompt, temp, tokens)
             elif self.provider == "llamacpp":
                 result = self._call_llamacpp(
@@ -238,7 +272,6 @@ class LLMClient:
         except httpx.TimeoutException:
             logger.warning("LLM call timed out", provider=self.provider)
             error_type_for_metrics = "timeout"
-            # пробрасываем как TransientError — дальше поймает LLMDetector
             raise TransientError(f"LLM timeout ({self.provider})")
         except httpx.ConnectError:
             logger.warning("LLM connection failed", provider=self.provider)
@@ -246,18 +279,15 @@ class LLMClient:
             raise TransientError(f"LLM connection failed ({self.provider})")
         except TransientError:
             error_type_for_metrics = "transient_error"
-            # уже залогировано выше, пробрасываем дальше
             raise
         except PermanentError:
             error_type_for_metrics = "permanent_error"
-            # уже залогировано выше, пробрасываем дальше
             raise
         except Exception as e:
             logger.error("LLM call failed", provider=self.provider, error=str(e))
             error_type_for_metrics = "unexpected_error"
             result = None
         finally:
-            # Метрики LLM-вызова — считаем всегда, даже при исключениях.
             duration = time.time() - start_time
             try:
                 METRICS.llm_request_duration_seconds.labels(
@@ -272,7 +302,6 @@ class LLMClient:
                         provider=self.provider,
                     ).inc(result.tokens_used)
             except Exception:
-                # Метрики не должны ломать бизнес-логику
                 logger.exception("LLMClient: failed to update LLM metrics")
 
         return result
@@ -288,23 +317,26 @@ class LLMClient:
         """
         Вызов LLM с повторами при временных ошибках.
 
-        Для непрофессионального программиста:
-        - сначала мы пробуем один обычный вызов LLM (через self.call);
-        - если ловим временную ошибку (TransientError), пробуем ещё раз,
-          пока не исчерпаем max_retries;
-        - если ошибка постоянная (PermanentError) или неожиданная — не повторяем;
-        - всегда возвращаем пару (response_or_none, errordetails_dict).
+        Порядок обработки исключений важен:
+        - LLMContextLimitError (подкласс PermanentError) — ловим первым,
+          возвращаем error_type='context_limit' без retry;
+        - PermanentError — ловим вторым, возвращаем error_type='permanent_error';
+        - TransientError — retry до max_retries;
+        - Exception — не повторяем, возвращаем error_type='unexpected_error'.
 
-        errordetails содержит:
+        Возвращает:
+            (response_or_none, error_details_dict)
+
+        error_details содержит:
         - llm_attempts: сколько реальных попыток было сделано;
-        - error_type: None, если всё ок; иначе строку ("transient_error", "permanent_error", ...);
+        - error_type: None | 'context_limit' | 'permanent_error' |
+                      'transient_error' | 'unexpected_error' | 'unavailable';
         - error_message: текст ошибки (если была).
         """
         attempts = 0
         last_error_type: str | None = None
         last_error_message: str | None = None
 
-        # Определяем, сколько раз максимум будем повторять
         retries = (
             max_retries
             if max_retries is not None
@@ -321,8 +353,6 @@ class LLMClient:
                     grammar_path=grammar_path,
                 )
 
-                # Если self.call вернул None (например, LLM_PROVIDER="none"),
-                # считаем, что это не ошибка LLM, а просто отсутствие провайдера.
                 if response is None:
                     return None, {
                         "llm_attempts": attempts,
@@ -330,15 +360,28 @@ class LLMClient:
                         "error_message": "LLM provider is not available",
                     }
 
-                # Успешный ответ — выходим без ошибок.
                 return response, {
                     "llm_attempts": attempts,
                     "error_type": None,
                     "error_message": None,
                 }
 
+            except LLMContextLimitError as e:
+                # ── Контекстный лимит: retry бессмысленен, промпт не изменится ──
+                # Важно поймать ДО общего PermanentError, иначе тип потеряется.
+                logger.warning(
+                    "LLMClient context limit exceeded, no retries",
+                    provider=self.provider,
+                    attempt=attempts,
+                    error=str(e),
+                )
+                return None, {
+                    "llm_attempts": attempts,
+                    "error_type": "context_limit",
+                    "error_message": str(e),
+                }
+
             except TransientError as e:
-                # Временная ошибка: можно попробовать ещё раз, если не исчерпали лимит.
                 last_error_type = "transient_error"
                 last_error_message = str(e)
                 logger.warning(
@@ -350,11 +393,10 @@ class LLMClient:
                 )
                 if attempts > retries:
                     break
-                # Переходим к следующей итерации цикла и пробуем ещё раз.
                 continue
 
             except PermanentError as e:
-                # Постоянная ошибка: повторять бессмысленно.
+                # Общие постоянные ошибки (не context_limit).
                 last_error_type = "permanent_error"
                 last_error_message = str(e)
                 logger.warning(
@@ -370,7 +412,6 @@ class LLMClient:
                 }
 
             except Exception as e:
-                # Любая неожиданная ошибка: ведём себя консервативно, не повторяем.
                 last_error_type = "unexpected_error"
                 last_error_message = str(e)
                 logger.error(
@@ -385,7 +426,7 @@ class LLMClient:
                     "error_message": last_error_message,
                 }
 
-        # Если сюда дошли — значит, были только временные ошибки и мы исчерпали retries.
+        # Исчерпали retries на transient ошибках.
         return None, {
             "llm_attempts": attempts,
             "error_type": last_error_type or "transient_error",
@@ -408,9 +449,7 @@ class LLMClient:
         }
         body = {
             "model": settings.LLM_OPENAI_MODEL,
-            "messages": [
-                {"role": "user", "content": prompt},
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
@@ -506,10 +545,9 @@ class LLMClient:
                 f"Model file does not exist: {normalized} (LLM_LOCAL_MODEL_PATH)"
             )
 
-        # Lazy-load модели
         if self._llama_model is None:
             try:
-                from llama_cpp import Llama  # только Llama здесь
+                from llama_cpp import Llama
             except ImportError as e:
                 raise PermanentError(
                     "llama-cpp-python is not installed. "
@@ -530,7 +568,6 @@ class LLMClient:
             )
             logger.info("Local LLM model loaded successfully", path=normalized)
 
-        # Импорт LlamaGrammar отдельно, вне if
         from llama_cpp import LlamaGrammar
 
         llama_kwargs: dict[str, Any] = {
@@ -590,7 +627,6 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
     """
     text = response.text.strip()
 
-    # Try to extract JSON from response
     json_data = _extract_json(text)
 
     if json_data:
@@ -603,7 +639,6 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
             response.confidence = 0.7
         response.parse_success = True
     else:
-        # Fallback: simple text analysis
         text_lower = text.lower()
         if any(w in text_lower for w in ["yes", "да", "found", "найден", "true"]):
             response.found = True
@@ -613,7 +648,7 @@ def _parse_llm_response(response: LLMResponse) -> LLMResponse:
         ):
             response.found = False
         else:
-            response.found = None  # Uncertain
+            response.found = None
 
         response.evidence = text[:500]
         response.confidence = 0.5
@@ -631,15 +666,11 @@ def _extract_json(text: str) -> dict | None:
     - JSON in markdown: ```json\n{"found": true}\n```
     - JSON embedded in text: Some text {"found": true} more text
     """
-    # Try direct parse
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    import re
-
-    # Try to find JSON in markdown code block
     json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if json_match:
         try:
@@ -647,7 +678,6 @@ def _extract_json(text: str) -> dict | None:
         except json.JSONDecodeError:
             pass
 
-    # Try to find JSON object anywhere in text (простая, но часто рабочая эвристика)
     brace_match = re.search(r"\{.*\}", text, re.DOTALL)
     if brace_match:
         candidate = brace_match.group(0)

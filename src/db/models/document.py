@@ -550,6 +550,51 @@ class DocumentSegment(Base):
         ),
     )
 
+    segment_doc_type: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        comment=(
+            "Код типа документа для этого сегмента (type_code из YAMLRegistry). "
+            "Например: 'nda', 'employment', 'real_estate_sale'. "
+            "Устанавливается HybridClassifier при segment-level классификации."
+        ),
+    )
+
+    segment_classification_confidence: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Уверенность классификации сегмента 0.0–1.0 (final_confidence из HybridClassifier).",
+    )
+
+    segment_classification_level: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment=(
+            "Уровень, который дал финальное решение для сегмента: "
+            "L3, L4, HYBRID, COPIED и т.п."
+        ),
+    )
+
+    segment_applicable_triggers: Mapped[list[str] | None] = mapped_column(
+        PG_ARRAY(String(100)),
+        nullable=True,
+        comment=(
+            "Список сработавших триггеров/условий для этого сегмента "
+            "(как applicable_triggers в Document, но на уровне сегмента)."
+        ),
+    )
+
+    segment_classification_details: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment=(
+            "Полный payload HybridClassifier для этого сегмента: "
+            "{levels_tried, candidates, final_type, final_confidence, confidence_zone, ...}."
+        ),
+    )
+
+
+
     __table_args__ = (
         UniqueConstraint(
             "document_version_id",

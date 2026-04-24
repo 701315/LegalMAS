@@ -1,19 +1,22 @@
 # src/engine/checks/planning/planner.py
 
+
 """
-Планирование проверок: выбор checks для документа по doc_type, триггерам и режиму.
+Планирование проверок: выбор checks для документа или сегмента
+по doc_type / segment_doc_type, триггерам и режиму.
 """
 
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, Iterable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
 from db.repositories.document_repo import DocumentRepository
 from engine.doc_type_checks.loader import DocTypeCheckLoader
+from .context import CheckContext
 
 logger = get_logger(__name__)
 
@@ -24,8 +27,14 @@ MAX_ERRORS_PER_RUN = 50
 
 class CheckPlanner:
     """
-    Выбирает и фильтрует checks для документа по текущему режиму
-    (global_only / doc_type_only / global_and_doc_type).
+    Выбирает и фильтрует checks по текущему режиму
+    (global_only / doc_type_only / global_and_doc_type),
+    используя единый контракт CheckContext.
+
+    Для непрофессионального программиста:
+    - Planner больше не читает поля doc напрямую.
+    - Он работает с CheckContext, где уже собран профиль
+      документа или сегмента (тип, триггеры, scope).
     """
 
     def __init__(
@@ -36,43 +45,107 @@ class CheckPlanner:
         self.checks_mode = checks_mode
         self.doc_type_loader = doc_type_loader or DocTypeCheckLoader()
 
-    def get_document_profile(self, doc) -> tuple[str, list[str]]:
+    # ── Вспомогательные методы для построения контекста ────────────
+
+    def build_context_for_document(self, doc, document_version_id: uuid.UUID | None) -> CheckContext:
         """
-        Вернуть профиль документа: (doc_type, applicable_triggers).
+        Построить CheckContext для документа (scope="document").
+
+        Для непрофессионального программиста:
+        - Берём doc_type и applicable_triggers из doc,
+          оборачиваем в CheckContext.
+        - document_version_id можно получить заранее в раннере
+          через DocumentVersionRepository.get_latest(doc.id).
         """
-        doc_type = getattr(doc, "doc_type", "") or ""
+        raw_doc_type = getattr(doc, "doc_type", "") or ""
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
 
-        if isinstance(raw_triggers, list):
-            applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
+        if isinstance(raw_triggers, Iterable) and not isinstance(raw_triggers, (str, bytes)):
+            trigger_list = [t for t in raw_triggers if isinstance(t, str)]
         else:
-            applicable_triggers = []
+            trigger_list = []
 
-        return doc_type, applicable_triggers
+        return CheckContext(
+            scope="document",
+            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_version_id=document_version_id,
+            document_type=raw_doc_type or None,
+            segment_id=None,
+            segment_doc_type=None,
+            triggers=frozenset(trigger_list),
+        )
 
-    def select_checks_for_document(
+    def build_context_for_segment(
         self,
+        *,
         doc,
-        playbook,
-    ) -> tuple[list[Any], str, str, list[str], list[Any], list[Any]]:
+        document_version_id: uuid.UUID,
+        segment_info,
+    ) -> CheckContext:
         """
-        Подобрать checks для документа по текущему checks_mode.
+        Построить CheckContext для сегмента (scope="segment").
+
+        segment_info должен иметь поля:
+        - segment_id
+        - segment_doc_type
+        - triggers (list[str])
+        Это идеально ложится на dataclass SegmentInfo.
+        """
+        raw_triggers = getattr(segment_info, "triggers", None) or []
+        if isinstance(raw_triggers, Iterable) and not isinstance(raw_triggers, (str, bytes)):
+            trigger_list = [t for t in raw_triggers if isinstance(t, str)]
+        else:
+            trigger_list = []
+
+        seg_doc_type = getattr(segment_info, "segment_doc_type", None)
+
+        return CheckContext(
+            scope="segment",
+            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_version_id=document_version_id,
+            document_type=None,  # для сегмента используем segment_doc_type
+            segment_id=getattr(segment_info, "segment_id", None),
+            segment_doc_type=seg_doc_type or None,
+            triggers=frozenset(trigger_list),
+        )
+
+    # ── Новый основной API: по контексту ───────────────────────────
+
+    def select_checks_for_context(
+        self,
+        ctx: CheckContext,
+        playbook,
+    ) -> tuple[list[Any], str, str | None, list[str], list[Any], list[Any]]:
+        """
+        Подобрать checks для заданного CheckContext.
 
         Возвращает:
         - checks — итоговый дедуплицированный список
-        - mode — использованный режим
-        - doc_type
-        - applicable_triggers
+        - mode — использованный режим (global_only / doc_type_only / global_and_doc_type)
+        - effective_doc_type — doc_type, по которому реально подбирались checks
+          (для scope="segment" это segment_doc_type)
+        - triggers — список применимых триггеров из контекста
         - global_checks — чеки из playbook
         - doc_type_checks — чеки из YAML doc-type
         """
-        doc_type, applicable_triggers = self.get_document_profile(doc)
+        triggers = sorted(ctx.triggers)
 
-        global_checks = playbook.get_conditional_checks(doc_type, applicable_triggers)
-        doc_type_checks = self.doc_type_loader.load_checks_for_doc(
-            doc_type=doc_type,
-            applicable_triggers=applicable_triggers,
-        )
+        # Выбираем "эффективный" doc_type: для segment берём segment_doc_type
+        if ctx.scope == "segment":
+            effective_doc_type = ctx.segment_doc_type
+        else:
+            effective_doc_type = ctx.document_type
+
+        if not effective_doc_type:
+            # Если нет типа, то doc_type-специфические чеки не подтянутся
+            global_checks = playbook.get_conditional_checks("", triggers)
+            doc_type_checks: list[Any] = []
+        else:
+            global_checks = playbook.get_conditional_checks(effective_doc_type, triggers)
+            doc_type_checks = self.doc_type_loader.load_checks_for_doc(
+                doc_type=effective_doc_type,
+                applicable_triggers=triggers,
+            )
 
         mode = self.checks_mode
         if mode == "global_only":
@@ -94,6 +167,106 @@ class CheckPlanner:
         return (
             checks,
             mode,
+            effective_doc_type,
+            triggers,
+            global_checks,
+            doc_type_checks,
+        )
+
+    def find_check_for_context(
+        self,
+        ctx: CheckContext,
+        playbook,
+        check_id: str,
+    ):
+        """
+        Найти конкретный check по check_id среди checks,
+        которые применимы к данному контексту (document или segment).
+        """
+        (
+            checks,
+            mode,
+            effective_doc_type,
+            triggers,
+            global_checks,
+            doc_type_checks,
+        ) = self.select_checks_for_context(ctx, playbook)
+
+        target_check_id = str(check_id)
+
+        for check in checks:
+            current_check_id = str(getattr(check, "id", ""))
+            if current_check_id == target_check_id:
+                return check
+
+        logger.warning(
+            "CheckPlanner: target check not applicable for context",
+            extra={
+                "document_id": str(ctx.document_id),
+                "document_version_id": str(ctx.document_version_id) if ctx.document_version_id else None,
+                "scope": ctx.scope,
+                "segment_id": ctx.segment_id,
+                "segment_doc_type": ctx.segment_doc_type,
+                "doc_type": effective_doc_type,
+                "check_id": target_check_id,
+                "checks_mode": mode,
+                "triggers": triggers,
+                "global_checks": len(global_checks),
+                "doc_type_checks": len(doc_type_checks),
+                "total_checks": len(checks),
+            },
+        )
+        return None
+
+    # ── Legacy-обёртки для совместимости ──────────────────────────
+
+    def get_document_profile(self, doc) -> tuple[str, list[str]]:
+        """
+        Legacy helper. Оставлен для обратной совместимости.
+
+        Новый код должен использовать build_context_for_document.
+        """
+        raw_doc_type = getattr(doc, "doc_type", "") or ""
+        raw_triggers = getattr(doc, "applicable_triggers", None) or []
+
+        if isinstance(raw_triggers, Iterable) and not isinstance(raw_triggers, (str, bytes)):
+            applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
+        else:
+            applicable_triggers = []
+
+        return raw_doc_type, applicable_triggers
+
+    def select_checks_for_document(
+        self,
+        doc,
+        playbook,
+    ) -> tuple[list[Any], str, str, list[str], list[Any], list[Any]]:
+        """
+        Legacy API для document-level. Сохраняем сигнатуру 1:1.
+
+        Внутри просто строим document-context и делегируем в select_checks_for_context.
+        """
+        doc_type, applicable_triggers = self.get_document_profile(doc)
+
+        # Для legacy-режима document_version_id нам не критичен, оставляем None.
+        ctx = CheckContext(
+            scope="document",
+            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_version_id=None,
+            document_type=doc_type or None,
+            segment_id=None,
+            segment_doc_type=None,
+            triggers=frozenset(applicable_triggers),
+        )
+
+        checks, mode, effective_doc_type, triggers, global_checks, doc_type_checks = (
+            self.select_checks_for_context(ctx, playbook)
+        )
+
+        # Для совместимости возвращаем legacy doc_type (из doc), а не effective_doc_type.
+        return (
+            checks,
+            mode,
             doc_type,
             applicable_triggers,
             global_checks,
@@ -107,40 +280,23 @@ class CheckPlanner:
         check_id: str,
     ):
         """
-        Найти конкретный check по check_id среди checks,
-        которые реально применимы к данному документу.
+        Legacy API. Сохраняет поведение find_check_for_document через document-context.
         """
-        (
-            checks,
-            mode,
-            doc_type,
-            applicable_triggers,
-            global_checks,
-            doc_type_checks,
-        ) = self.select_checks_for_document(doc, playbook)
+        doc_type, applicable_triggers = self.get_document_profile(doc)
 
-        target_check_id = str(check_id)
-
-        for check in checks:
-            current_check_id = str(getattr(check, "id", ""))
-            if current_check_id == target_check_id:
-                return check
-
-        logger.warning(
-            "CheckPlanner: target check not applicable for document",
-            extra={
-                "doc_id": str(getattr(doc, "id", None)),
-                "deal_id": str(getattr(doc, "deal_id", "")),
-                "doc_type": doc_type,
-                "check_id": target_check_id,
-                "checks_mode": mode,
-                "applicable_triggers": applicable_triggers,
-                "global_checks": len(global_checks),
-                "doc_type_checks": len(doc_type_checks),
-                "total_checks": len(checks),
-            },
+        ctx = CheckContext(
+            scope="document",
+            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_version_id=None,
+            document_type=doc_type or None,
+            segment_id=None,
+            segment_doc_type=None,
+            triggers=frozenset(applicable_triggers),
         )
-        return None
+
+        return self.find_check_for_context(ctx, playbook, check_id)
+
+    # ── Planning для Run (пока только document-level) ──────────────
 
     async def plan_checks_for_run(
         self,
@@ -153,13 +309,8 @@ class CheckPlanner:
         """
         Только спланировать checks для Run, без выполнения LLM.
 
-        Возвращает:
-        {
-            "pairs": [{"doc_id": "...", "check_id": "..."}],
-            "processed_docs": int,
-            "total_checks": int,
-            "errors": int,
-        }
+        Пока планирование остаётся document-level (scope="document"),
+        но внутри уже используется CheckContext.
         """
         processed_docs = 0
         total_checks = 0
@@ -183,10 +334,27 @@ class CheckPlanner:
 
         for doc in docs:
             try:
+                # Здесь можно позже внедрить version_repo и планирование по сегментам.
+                doc_type, applicable_triggers = self.get_document_profile(doc)
+
+                ctx = CheckContext(
+                    scope="document",
+                    document_id=uuid.UUID(str(getattr(doc, "id"))),
+                    document_version_id=None,
+                    document_type=doc_type or None,
+                    segment_id=None,
+                    segment_doc_type=None,
+                    triggers=frozenset(applicable_triggers),
+                )
+
                 (
-                    checks, mode, doc_type, applicable_triggers,
-                    global_checks, doc_type_checks,
-                ) = self.select_checks_for_document(doc, playbook)
+                    checks,
+                    mode,
+                    effective_doc_type,
+                    triggers,
+                    global_checks,
+                    doc_type_checks,
+                ) = self.select_checks_for_context(ctx, playbook)
 
                 logger.info(
                     "CheckPlanner: planned checks for document",
@@ -194,8 +362,9 @@ class CheckPlanner:
                         "doc_id": str(getattr(doc, "id", None)),
                         "deal_id": str(getattr(doc, "deal_id", "")),
                         "run_id": str(run_id),
-                        "doc_type": doc_type,
-                        "triggers": applicable_triggers,
+                        "scope": ctx.scope,
+                        "doc_type": effective_doc_type,
+                        "triggers": triggers,
                         "checks_mode": mode,
                         "global_checks": len(global_checks),
                         "doc_type_checks": len(doc_type_checks),
@@ -207,10 +376,12 @@ class CheckPlanner:
                     check_id = getattr(check, "id", None)
                     if not check_id:
                         continue
-                    pairs.append({
-                        "doc_id": str(doc.id),
-                        "check_id": str(check_id),
-                    })
+                    pairs.append(
+                        {
+                            "doc_id": str(doc.id),
+                            "check_id": str(check_id),
+                        }
+                    )
                     total_checks += 1
 
                 processed_docs += 1

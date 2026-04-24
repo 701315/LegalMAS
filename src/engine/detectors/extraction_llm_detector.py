@@ -46,6 +46,8 @@ ExtractionLLMDetector: LLM‑экстрактор структурированн
    - если в ExtractionConfig задано поле llm_prompt_extraction (как в кейсе
      governing_law_and_forum), сюда подставляется этот длинный юридический
      инструктаж (role, steps, edge cases и т.п.);
+   - если в тексте llm_prompt_extraction встречается плейсхолдер {context},
+     он автоматически заменяется на реальный текст договора;
    - если llm_prompt_extraction нет, используется простое описание:
        "Текущая проверка: <name>. Краткое описание проверки: <description>".
 
@@ -66,6 +68,17 @@ ExtractionLLMDetector: LLM‑экстрактор структурированн
          }
        }
    - помогает модели придерживаться нужного JSON‑формата.
+
+Правило рендеринга промптов (ВАЖНО для разработчиков)
+-----------------------------------------------------
+Все подстановки в этом классе делаются ТОЛЬКО через _render_template()
+или последовательные .replace() — НЕ через str.format().
+
+Причина: промпты могут содержать JSON-примеры ответа с фигурными скобками,
+например: {"found": true, "land_category": "земли ИЖС"}.
+str.format() интерпретирует любые {} как Python-плейсхолдеры и бросает
+KeyError на невинных JSON-ключах. str.replace() заменяет только те строки,
+которые явно указаны в словаре, и не трогает всё остальное.
 
 Контракт ответа от LLM
 ----------------------
@@ -125,6 +138,7 @@ ExtractionLLMDetector: LLM‑экстрактор структурированн
   по конкретной юридической проверке.
 """
 
+
 from __future__ import annotations
 
 import json
@@ -142,7 +156,9 @@ from ..playbook.models import (
     ExtractionFieldType,
 )
 
+
 logger = get_logger(__name__)
+
 
 PLAYBOOKS_DIR = os.getenv("PLAYBOOKS_DIR", "playbooks")
 EXTRACTION_PROMPT_PATH = os.path.join(
@@ -233,18 +249,33 @@ class ExtractionLLMDetector:
         - {FIELDS_SCHEMA}
         - {EXAMPLE_JSON}
         - {CONTEXT_TEXT}
+
+        Все подстановки выполняются через _render_template() — безопасный
+        метод на основе .replace(). НЕ используем str.format(), чтобы избежать
+        KeyError на JSON-фигурных скобках внутри промптов.
         """
         template = _load_prompt_template(EXTRACTION_PROMPT_PATH)
 
         # 1. Динамический блок про чек
         check_meta_lines: list[str] = []
 
-        # 1.1. Если в extraction есть свой LLM-промпт — используем его как основу
+        # 1.1. Если в extraction есть свой LLM-промпт — используем его как основу.
+        # ВАЖНО: если в llm_prompt_extraction написано {context} — заменяем его
+        # на реальный текст договора прямо здесь, через _render_template.
+        # Это необходимо для чеков вроде governing_law_and_forum, где юридический
+        # инструктаж включает блок с анализируемым текстом.
         custom_extraction_prompt = getattr(extraction_cfg, "llm_prompt_extraction", None)
         if isinstance(custom_extraction_prompt, str) and custom_extraction_prompt.strip():
-            check_meta_lines.append(custom_extraction_prompt.strip())
+            # Подставляем {context} в кастомный промпт, если он там есть.
+            # Остальные плейсхолдеры (если есть) оставляем как есть — они могут
+            # быть частью JSON-примеров внутри инструктажа.
+            rendered_custom = self._render_template(
+                template=custom_extraction_prompt.strip(),
+                variables={"{context}": context_text},
+            )
+            check_meta_lines.append(rendered_custom)
         else:
-            # 1.2. Иначе — минимальная метаинформация по чекy
+            # 1.2. Иначе — минимальная метаинформация по чеку
             if getattr(check, "name", None):
                 check_meta_lines.append(f"Текущая проверка: {check.name.strip()}.")
             if getattr(check, "description", None):
@@ -255,6 +286,11 @@ class ExtractionLLMDetector:
         check_meta = "\n".join(check_meta_lines).strip()
         if not check_meta:
             check_meta = "Текущая проверка: (без названия)."
+            logger.warning(
+                "ExtractionLLMDetector: check has no name, description "
+                "or llm_prompt_extraction — using fallback check_meta",
+                check_id=getattr(check, "id", None),
+            )
 
         # 2. Схема полей
         schema_lines: list[str] = []
@@ -304,15 +340,23 @@ class ExtractionLLMDetector:
         context_clean = context_text.strip()
 
         if template:
-            prompt = (
-                template.replace("{CHECK_META}", check_meta)
-                .replace("{FIELDS_SCHEMA}", fields_schema)
-                .replace("{EXAMPLE_JSON}", example_json)
-                .replace("{CONTEXT_TEXT}", context_clean)
+            # Используем _render_template() — безопасная замена через .replace().
+            # str.format() здесь НЕ используется намеренно: шаблон json_format_ru.txt
+            # и example_json содержат фигурные скобки как часть JSON-примеров,
+            # и str.format() падал бы с KeyError на каждом таком символе.
+            prompt = self._render_template(
+                template=template,
+                variables={
+                    "{CHECK_META}": check_meta,
+                    "{FIELDS_SCHEMA}": fields_schema,
+                    "{EXAMPLE_JSON}": example_json,
+                    "{CONTEXT_TEXT}": context_clean,
+                },
             )
             return prompt
 
-        # Fallback, если файла нет — минимальный встроенный промпт
+        # Fallback, если файла нет — минимальный встроенный промпт.
+        # Используем обычную конкатенацию строк, не format().
         lines: list[str] = []
         lines.append("Ты — юридический ассистент по анализу договоров.")
         lines.append(
@@ -333,7 +377,6 @@ class ExtractionLLMDetector:
         lines.append(context_clean)
         lines.append("---")
         lines.append("")
-
         lines.append("ЖЁСТКИЕ правила формата ответа (ОБЯЗАТЕЛЬНО):")
         lines.append(
             '- Выведи ТОЛЬКО один валидный JSON-объект с корневым ключом "fields".'
@@ -354,9 +397,7 @@ class ExtractionLLMDetector:
             "- Если по какому-то полю нет достаточно информации, установи "
             "value = null и confidence = 0.2."
         )
-        lines.append(
-            "- Не добавляй поля, которых нет в описанной схеме."
-        )
+        lines.append("- Не добавляй поля, которых нет в описанной схеме.")
         lines.append(
             "- Начни ответ СРАЗУ с символа { и закончи СРАЗУ символом } "
             "(никаких символов или переводов строк до и после)."
@@ -367,6 +408,44 @@ class ExtractionLLMDetector:
         )
 
         return "\n".join(lines)
+
+    # -------------------------------------------------------------------------
+    # TEMPLATE RENDERING
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _render_template(
+        template: str,
+        variables: dict[str, str],
+    ) -> str:
+        """
+        Безопасно подставить переменные в шаблон через последовательные .replace().
+
+        Принимает:
+        - template: строка шаблона с плейсхолдерами вида {PLACEHOLDER}
+        - variables: словарь {"{PLACEHOLDER}": "значение"}
+
+        Возвращает строку с выполненными подстановками.
+
+        Почему НЕ str.format():
+        - Шаблоны промптов содержат JSON-примеры ответа LLM с фигурными скобками,
+          например: {"fields": {"land_category": {"value": "пример", ...}}}.
+        - str.format() интерпретирует {land_category} как Python-плейсхолдер
+          и падает с KeyError, хотя это просто JSON-пример внутри текста.
+        - .replace() работает с конкретными подстроками и не трогает
+          ничего, что не указано явно в словаре variables.
+
+        Для непрофессионального программиста:
+        - Представь шаблон как листок с напечатанным текстом, где выделены
+          специальные метки: {CHECK_META}, {CONTEXT_TEXT} и т.п.
+        - _render_template находит каждую метку и заменяет её на нужное значение.
+        - Если в тексте есть другие фигурные скобки (например, в JSON-примере),
+          они остаются нетронутыми — метод их просто не замечает.
+        """
+        result = template
+        for placeholder, value in variables.items():
+            result = result.replace(placeholder, value)
+        return result
 
     # -------------------------------------------------------------------------
     # RESPONSE PARSING
@@ -507,3 +586,5 @@ class ExtractionLLMDetector:
         # (например, "да" -> "yes", "нет" -> "no" и т.п.).
 
         return value_str
+    
+    

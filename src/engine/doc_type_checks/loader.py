@@ -20,13 +20,19 @@ DocTypeCheckLoader — загружает специфические checks из
                 или отдельное поле keyword_groups: {...}
   - _build_check_from_v8, _build_check_from_doc_type, _build_compliance_check
     используют _build_rules_config() вместо прямого RulesConfig(...).
+
+Изменения (CheckContext support, этап 2B):
+  - Добавлен метод load_checks_for_context(ctx) — контекстный API.
+    Является тонкой надстройкой над load_checks_for_doc().
+    Для scope="document" использует document_type как ключ к YAML.
+    Для scope="segment" использует segment_doc_type как ключ к YAML.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import ValidationError
@@ -48,6 +54,10 @@ from engine.playbook.models import (
     TriggerCondition,
 )
 
+if TYPE_CHECKING:
+    # Импортируем только для аннотаций, чтобы не создавать circular import.
+    from engine.checks.planning.context import CheckContext
+
 logger = get_logger(__name__)
 
 
@@ -61,7 +71,7 @@ class DocTypeCheckLoader:
     - Изоляция ошибок: ошибка в одном check не ломает остальные.
     - Лимит: не более MAX_CHECKS checks на документ.
 
-    Использование в CheckRunner:
+    Использование через document-профиль (legacy API):
 
         loader = DocTypeCheckLoader()
         doc_type_checks = loader.load_checks_for_doc(
@@ -69,12 +79,47 @@ class DocTypeCheckLoader:
             applicable_triggers=["land_plot_sale", "individual_party"],
         )
         all_checks = global_checks + doc_type_checks
+
+    Использование через CheckContext (новый API, этап 2B):
+
+        loader = DocTypeCheckLoader()
+        doc_type_checks = loader.load_checks_for_context(ctx)
+        # ctx.scope определяет, какой doc_type используется как ключ к YAML:
+        # - scope="document"  → ctx.document_type
+        # - scope="segment"   → ctx.segment_doc_type
     """
 
     MAX_CHECKS = getattr(settings, "DOC_TYPE_MAX_CHECKS_PER_DOC", 1000)
 
     def __init__(self, registry_dir: str | None = None) -> None:
         self._dir = Path(registry_dir or settings.CLASSIFIER_REGISTRY_PATH)
+
+    # ──────────────────────────────────────────────────────────────
+    # ПУБЛИЧНЫЕ МЕТОДЫ
+    # ──────────────────────────────────────────────────────────────
+
+    def load_checks_for_context(self, ctx: "CheckContext") -> list[CheckDefinition]:
+        """
+        Загрузить checks по контексту (document или segment).
+
+        Для непрофессионального программиста:
+        - Если scope="document", ключом к YAML служит document_type документа.
+        - Если scope="segment", ключом служит segment_doc_type сегмента.
+        - В обоих случаях внутри вызывается тот же load_checks_for_doc,
+          ничего нового не создаётся и никакая логика не дублируется.
+
+        Это контекстный API согласно плану этапа 2B — позволяет CheckPlanner
+        и CheckRunner работать без знания о том, откуда берётся doc_type.
+        """
+        if ctx.scope == "segment":
+            doc_type = ctx.segment_doc_type
+        else:
+            doc_type = ctx.document_type
+
+        return self.load_checks_for_doc(
+            doc_type=doc_type or "",
+            applicable_triggers=sorted(ctx.triggers),
+        )
 
     def load_checks_for_doc(
         self,
@@ -412,12 +457,10 @@ class DocTypeCheckLoader:
             return None
 
         try:
-            # Rules — через единый метод с поддержкой keyword_groups
             rules = self._build_rules_config(
                 item.get("rules") or {}, shared_patterns
             )
 
-            # LLM config
             llm_raw = item.get("llm") or {}
             llm = LLMConfig(
                 prompt_template=llm_raw.get("prompt_template", ""),
@@ -427,7 +470,6 @@ class DocTypeCheckLoader:
                 max_tokens=llm_raw.get("max_tokens", 512),
             )
 
-            # Retrieval config
             ret_raw = item.get("retrieval") or {}
             retrieval = RetrievalConfig(
                 context_k=ret_raw.get("context_k", 5),
@@ -437,7 +479,6 @@ class DocTypeCheckLoader:
                 filters=ret_raw.get("filters") or {},
             )
 
-            # Evidence config
             ev_raw = item.get("evidence") or {}
             evidence = EvidenceConfig(
                 required=ev_raw.get("required", True),
@@ -497,12 +538,8 @@ class DocTypeCheckLoader:
 
         try:
             rules_raw = item.get("rules") or {}
-
-            # Rules — через единый метод с поддержкой keyword_groups
             rules = self._build_rules_config(rules_raw, shared_patterns)
 
-            # boost_keywords для retrieval: берём из flat keywords.
-            # Если keywords — dict (уровни), собираем все значения всех уровней.
             raw_keywords = rules_raw.get("keywords")
             if isinstance(raw_keywords, dict):
                 all_kw: list[str] = []
@@ -526,9 +563,7 @@ class DocTypeCheckLoader:
                 detector_type=DetectorType.RULES,
                 rules=rules,
                 llm=LLMConfig(),
-                retrieval=RetrievalConfig(
-                    boost_keywords=boost_kw,
-                ),
+                retrieval=RetrievalConfig(boost_keywords=boost_kw),
                 evidence=EvidenceConfig(required=True),
                 extraction=extraction,
                 conditional=conditional,
@@ -559,8 +594,6 @@ class DocTypeCheckLoader:
             return None
 
         try:
-            # compliance_rules обычно содержат простые keywords без уровней,
-            # но на всякий случай используем единый _build_rules_config.
             rules = self._build_rules_config(rule.get("rules") or {}, {})
 
             ret_raw = rule.get("retrieval") or {}
@@ -594,6 +627,7 @@ class DocTypeCheckLoader:
                 },
             )
             return None
+        
         
 
         

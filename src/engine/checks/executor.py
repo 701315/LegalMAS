@@ -32,7 +32,7 @@ CheckExecutor: запуск одной проверки (check) для одно�
 """
 
 import time
-from typing import List, Tuple
+from typing import Tuple
 
 from core.config import settings
 from core.logging import get_logger
@@ -47,15 +47,59 @@ from ..playbook.models import CheckDefinition
 from ..retrieval.engine import RetrievalEngine
 from ops.metrics import METRICS
 
+
 logger = get_logger(__name__)
+
+# Источник (raw["source"]), при котором presence-чек считается "клаузы нет"
+_PRESENCE_NOT_FOUND_SOURCES = {
+    "rules_clean_negative",
+    "both_not_found_llm_preferred",
+}
 
 
 class CheckExecutor:
     def __init__(self, llm_client):
-        # HybridDetector внутри сам решает, когда использовать rules/LLM,
-        # и уже умеет безопасно обрабатывать ошибки LLM.
         self.detector = HybridDetector(llm_client)
         self.extractor = ExtractionExecutor(llm_client)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_chunk_piece(c: dict, rc: RetrievedChunk) -> str:
+        """
+        Сформировать текстовый кусок для одного чанка: заголовок + текст.
+        Вынесено, чтобы не дублировать логику в двух ветках _build_limited_context.
+        """
+        meta = c.get("metadata", {}) or {}
+        clause = meta.get("clause_uid", "") or rc.clause_uid
+        section_title = meta.get("section_title", "")
+        path_titles = meta.get("path_titles") or rc.path_titles or []
+        start_page = meta.get("start_page") or rc.start_page
+        end_page = meta.get("end_page") or rc.end_page
+
+        header_parts: list[str] = []
+        if clause:
+            header_parts.append(f"Пункт {clause}")
+        if path_titles:
+            header_parts.append(" > ".join(path_titles))
+        elif section_title:
+            header_parts.append(section_title)
+
+        if isinstance(start_page, int) and isinstance(end_page, int):
+            if start_page == end_page:
+                header_parts.append(f"стр. {start_page}")
+            else:
+                header_parts.append(f"стр. {start_page}–{end_page}")
+        else:
+            page = meta.get("page")
+            if page:
+                header_parts.append(f"стр. {page}")
+
+        header = f"[{', '.join(header_parts)}]" if header_parts else ""
+        text = c.get("text") or ""
+        return f"{header}\n{text}".strip() if header else text
 
     def _build_limited_context(
         self,
@@ -67,102 +111,40 @@ class CheckExecutor:
         """
         Построить текстовый контекст для LLM с учётом лимита по токенам.
 
-        Простыми словами:
-        - мы склеиваем куски контекста в один большой текст;
-        - следим, чтобы общее число токенов не вышло за пределы max_tokens;
-        - если текст слишком длинный, сначала отбрасываем самые «слабые» куски;
-        - если и после этого не помещается — делаем короткие summary для хвостовых кусочков;
-        - возвращаем:
+        Возвращает:
             joined_text        — итоговый текст для LLM,
-            kept_chunks        — какие RetrievedChunk реально пошли в запрос,
+            kept_chunks        — RetrievedChunk, которые попали в запрос,
             kept_context_dicts — исходные dict'ы для этих чанков,
             total_tokens       — сколько токенов занял контекст,
-            truncated          — пришлось ли что‑то обрезать.
+            truncated          — пришлось ли что-то обрезать.
         """
+        # Ветка без лимита: склеиваем всё как есть
         if not isinstance(max_tokens, int) or max_tokens <= 0:
-            context_parts: list[str] = []
-            for c, rc in zip(contexts, retrieved_chunks):
-                meta = c.get("metadata", {}) or {}
-                clause = meta.get("clause_uid", "") or rc.clause_uid
-                section_title = meta.get("section_title", "")
-                path_titles = meta.get("path_titles") or rc.path_titles or []
-                start_page = meta.get("start_page") or rc.start_page
-                end_page = meta.get("end_page") or rc.end_page
-
-                header_parts: list[str] = []
-                if clause:
-                    header_parts.append(f"Пункт {clause}")
-                if path_titles:
-                    header_parts.append(" > ".join(path_titles))
-                elif section_title:
-                    header_parts.append(section_title)
-
-                if isinstance(start_page, int) and isinstance(end_page, int):
-                    if start_page == end_page:
-                        header_parts.append(f"стр. {start_page}")
-                    else:
-                        header_parts.append(f"стр. {start_page}–{end_page}")
-                else:
-                    page = meta.get("page")
-                    if page:
-                        header_parts.append(f"стр. {page}")
-
-                header = f"[{', '.join(header_parts)}]" if header_parts else ""
-                text = c.get("text") or ""
-                context_parts.append(f"{header}\n{text}".strip() if header else text)
-
+            context_parts = [
+                self._build_chunk_piece(c, rc)
+                for c, rc in zip(contexts, retrieved_chunks)
+            ]
             joined_text = "\n\n---\n\n".join(context_parts)
             total_tokens = count_tokens(joined_text)
             return joined_text, retrieved_chunks, contexts, total_tokens, False
 
+        # Строим items: (token_count, context_dict, retrieved_chunk, piece_text)
         items: list[tuple[int, dict, RetrievedChunk, str]] = []
         for c, rc in zip(contexts, retrieved_chunks):
-            meta = c.get("metadata", {}) or {}
-            clause = meta.get("clause_uid", "") or rc.clause_uid
-            section_title = meta.get("section_title", "")
-            path_titles = meta.get("path_titles") or rc.path_titles or []
-            start_page = meta.get("start_page") or rc.start_page
-            end_page = meta.get("end_page") or rc.end_page
-
-            header_parts: list[str] = []
-            if clause:
-                header_parts.append(f"Пункт {clause}")
-            if path_titles:
-                header_parts.append(" > ".join(path_titles))
-            elif section_title:
-                header_parts.append(section_title)
-
-            if isinstance(start_page, int) and isinstance(end_page, int):
-                if start_page == end_page:
-                    header_parts.append(f"стр. {start_page}")
-                else:
-                    header_parts.append(f"стр. {start_page}–{end_page}")
-            else:
-                page = meta.get("page")
-                if page:
-                    header_parts.append(f"стр. {page}")
-
-            header = f"[{', '.join(header_parts)}]" if header_parts else ""
-            text = c.get("text") or ""
-            piece = f"{header}\n{text}".strip() if header else text
-
-            token_count = count_tokens(piece)
-            items.append((token_count, c, rc, piece))
+            piece = self._build_chunk_piece(c, rc)
+            items.append((count_tokens(piece), c, rc, piece))
 
         reserve_ratio = getattr(settings, "LLM_CONTEXT_RESERVE_RATIO", 0.3)
         try:
             reserve_ratio = float(reserve_ratio)
         except (TypeError, ValueError):
             reserve_ratio = 0.3
-        if reserve_ratio < 0.0:
-            reserve_ratio = 0.0
-        if reserve_ratio > 0.9:
-            reserve_ratio = 0.9
+        reserve_ratio = max(0.0, min(0.9, reserve_ratio))
         hard_limit = int(max_tokens * (1.0 - reserve_ratio))
-
         if hard_limit <= 0:
             hard_limit = max_tokens // 2 if max_tokens > 0 else 2048
 
+        # Жадный набор чанков до hard_limit
         kept_items: list[tuple[int, dict, RetrievedChunk, str]] = []
         total_tokens = 0
         truncated = False
@@ -185,6 +167,7 @@ class CheckExecutor:
                 False,
             )
 
+        # Компрессия: заменяем чанки, не влезшие целиком, на summary
         compressed_items: list[tuple[int, dict, RetrievedChunk, str]] = []
         remaining_tokens = hard_limit
         important_lower = [s.lower() for s in important_terms if isinstance(s, str)]
@@ -215,17 +198,16 @@ class CheckExecutor:
                 compressed_items.append((token_count, c, rc, piece))
                 remaining_tokens -= token_count
 
+        # Аварийный fallback: берём самый маленький чанк
         if not compressed_items:
-            smallest = min(items, key=lambda t: t[0])
-            token_count, c, rc, piece = smallest
+            token_count, c, rc, piece = min(items, key=lambda t: t[0])
             piece_tokens = count_tokens(piece)
 
             if piece_tokens > hard_limit:
                 meta = c.get("metadata", {}) or {}
                 path_titles = meta.get("path_titles") or rc.path_titles or []
                 original_text = c.get("text") or rc.text or ""
-                summary = build_chunk_summary(path_titles, original_text)
-                piece = summary.strip()
+                piece = build_chunk_summary(path_titles, original_text).strip()
                 piece_tokens = count_tokens(piece)
 
             compressed_items = [(piece_tokens, c, rc, piece)]
@@ -249,14 +231,8 @@ class CheckExecutor:
         """
         Вытащить из detection/raw технические флаги по LLM.
 
-        Очень важно:
-        - бизнес-результат check (fail / pass / unclear) мы не меняем здесь;
-        - здесь мы только вычисляем технические признаки:
-          был ли сбой LLM, был ли LLM обязателен, и есть ли деградация.
-
-        Это нужно следующему слою (CheckRunner), чтобы:
-        - либо оставить execution_status="SUCCESS",
-        - либо выставить execution_status="TIMEOUT"/"FAILED".
+        Бизнес-результат (fail/pass/unclear) здесь не меняется.
+        Только вычисляем: был ли сбой LLM, был ли LLM обязателен, есть ли деградация.
         """
         if not isinstance(raw_details, dict):
             raw_details = {}
@@ -265,34 +241,20 @@ class CheckExecutor:
         if not isinstance(llm_details, dict):
             llm_details = {}
 
-        # Пытаемся взять ошибку сначала из верхнего уровня raw,
-        # потому что HybridDetector в rules-fallback ветке может положить её именно туда.
-        llm_error_type = raw_details.get("llm_error_type")
-        llm_error_message = raw_details.get("llm_error_message")
-        llm_attempts = raw_details.get("llm_attempts")
+        # Ошибку берём сначала из верхнего уровня raw (HybridDetector кладёт её туда
+        # в rules-fallback ветке), затем из llm_details.
+        llm_error_type = raw_details.get("llm_error_type") or llm_details.get("error_type")
+        llm_error_message = (
+            raw_details.get("llm_error_message") or llm_details.get("error_message")
+        )
+        llm_attempts = raw_details.get("llm_attempts") or llm_details.get("llm_attempts")
 
-        # Если сверху ничего нет — пробуем взять из llm_details.
-        if not llm_error_type:
-            llm_error_type = llm_details.get("error_type")
-        if not llm_error_message:
-            llm_error_message = llm_details.get("error_message")
-        if llm_attempts is None:
-            llm_attempts = llm_details.get("llm_attempts")
+        rules_llm_decision = raw_details.get("rules_llm_decision") or detection.get("reason")
 
-        # Это причина/режим, который HybridDetector уже вычислил.
-        # На её основе мы понимаем, был ли LLM обязателен.
-        rules_llm_decision = raw_details.get("rules_llm_decision")
-        if not rules_llm_decision:
-            rules_llm_decision = detection.get("reason")
-
-        # В этих случаях rules уже дали достаточно сильный ответ.
-        # Если LLM упал, это деградация качества, но не повод ломать business-result.
         rules_sufficient_decisions = {
             "rules_confident_positive",
             "rules_clean_negative",
         }
-
-        # В этих случаях без LLM мы честно ответить не можем.
         llm_required_decisions = {
             "rules_negative_suppressed_unclear",
             "rules_weak_positive_unclear",
@@ -306,12 +268,7 @@ class CheckExecutor:
         elif rules_llm_decision in llm_required_decisions:
             llm_required = True
         else:
-            # Безопасное поведение по умолчанию:
-            # если есть ошибка LLM и детектор реально шёл через llm/hybrid,
-            # считаем, что LLM был важен, пока явно не доказано обратное.
             llm_required = bool(llm_error_present and detector_method in {"llm", "hybrid"})
-
-        llm_degraded = bool(llm_error_present)
 
         return {
             "llm_error_type": llm_error_type,
@@ -319,21 +276,24 @@ class CheckExecutor:
             "llm_attempts": llm_attempts,
             "rules_llm_decision": rules_llm_decision,
             "llm_required": llm_required,
-            "llm_degraded": llm_degraded,
+            "llm_degraded": llm_error_present,
         }
+
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
 
     def execute(self, doc, check: CheckDefinition, chunks: list[dict]) -> dict:
         """
         Выполнить один check для одного документа.
 
         Args:
-            doc: ORM Document.
-            chunks: список чанков по документу в формате
-                [{"id": ..., "text": "...", "metadata": {...}}, ...].
+            doc:    ORM Document.
+            chunks: список чанков [{"id": ..., "text": "...", "metadata": {...}}, ...].
 
-        Возвращает словарь с результатами проверки, пригодный для записи в CheckResult.
-        Даже при внутренних ошибках детекторов метод возвращает осмысленный результат,
-        а не выбрасывает исключение.
+        Возвращает словарь, пригодный для записи в CheckResult.
+        Никогда не выбрасывает исключение: при любых внутренних ошибках
+        возвращает result="unclear" с диагностикой в raw.
         """
         start_time = time.time()
 
@@ -350,12 +310,13 @@ class CheckExecutor:
         retriever = RetrievalEngine(chunks, important_terms=important_terms)
 
         boost_keywords = raw_boost_keywords
-        if boost_keywords:
-            query = f"{check.name} {' '.join(boost_keywords[:3])}".strip()
-        else:
-            query = check.name
+        query = (
+            f"{check.name} {' '.join(boost_keywords[:3])}".strip()
+            if boost_keywords
+            else check.name
+        )
 
-        retr_cfg = getattr(check, "retrieval", None) or getattr(check, "retrieval", None)
+        retr_cfg = getattr(check, "retrieval", None)
         context_k = getattr(retr_cfg, "context_k", 5)
         max_chunks = getattr(retr_cfg, "max_chunks", None) or context_k
 
@@ -364,14 +325,12 @@ class CheckExecutor:
         retrieved_chunks: list[RetrievedChunk] = []
         for c in contexts:
             meta = c.get("metadata", {}) or {}
-
             element_ids = meta.get("element_ids") or []
             first_element_id = element_ids[0] if element_ids else (c.get("id") or "")
 
             page = meta.get("start_page")
             if page is None:
                 page = meta.get("page") or 0
-
             try:
                 page_int = int(page)
             except (TypeError, ValueError):
@@ -406,15 +365,6 @@ class CheckExecutor:
             id_to_text[cid] = c.get("text") or ""
 
         def _simple_rerank(chunks_rc: list[RetrievedChunk]) -> list[RetrievedChunk]:
-            """
-            Очень простой пересортировщик поверх combined_score.
-
-            Для непрофессионального программиста:
-            - Мы берём базовый score из RetrievalEngine.
-            - Немного повышаем под-clauses (subclause).
-            - Немного понижаем большие разделы (section).
-            - Даём небольшой бонус, если в тексте чанка есть важные слова.
-            """
             important_lower = [s.lower() for s in important_terms if isinstance(s, str)]
 
             def _score(rc: RetrievedChunk) -> float:
@@ -422,17 +372,14 @@ class CheckExecutor:
                 cid = str(rc.element_id or "")
                 meta = id_to_meta.get(cid, {})
                 text = id_to_text.get(cid, "").lower()
-
                 kind = str(meta.get("kind") or "").lower()
                 if kind == "subclause":
                     base += 0.05
                 elif kind == "section":
                     base -= 0.02
-
                 for term in important_lower:
                     if term and term in text:
                         base += 0.03
-
                 return base
 
             return sorted(chunks_rc, key=_score, reverse=True)
@@ -446,13 +393,8 @@ class CheckExecutor:
             fallback: list[RetrievedChunk] = []
             for rc in retrieved_chunks:
                 cid = str(rc.element_id or "")
-                meta = id_to_meta.get(cid, {})
-                kind = str(meta.get("kind") or "").lower()
-                if kind == required_kind_lower:
-                    primary.append(rc)
-                else:
-                    fallback.append(rc)
-
+                kind = str(id_to_meta.get(cid, {}).get("kind") or "").lower()
+                (primary if kind == required_kind_lower else fallback).append(rc)
             if primary:
                 retrieved_chunks = primary + fallback
 
@@ -520,23 +462,19 @@ class CheckExecutor:
         raw_details.setdefault("context_tokens", int(context_tokens))
 
         reason = detection.get("reason")
-        if reason is None and isinstance(raw_details, dict):
+        if reason is None:
             llm_details = raw_details.get("llm_details") or {}
             reason = llm_details.get("reason") or llm_details.get("parse_success")
 
         sources = detection.get("sources")
         location = detection.get("location")
 
-        # Вытаскиваем флаги технического состояния LLM.
-        # Это отдельная плоскость по отношению к business-result.
         llm_flags = self._extract_llm_runtime_flags(
             detector_method=detector_method,
             detection=detection,
             raw_details=raw_details,
         )
 
-        # Дублируем эти флаги ещё и в raw, чтобы downstream-слои и отладка
-        # видели их в одном месте, даже если кто-то не читает верхний уровень DTO.
         raw_details.setdefault("llm_error_type", llm_flags["llm_error_type"])
         raw_details.setdefault("llm_error_message", llm_flags["llm_error_message"])
         raw_details.setdefault("llm_attempts", llm_flags["llm_attempts"])
@@ -561,14 +499,12 @@ class CheckExecutor:
                 }
                 for rc in retrieved_chunks
             ]
-
             structured_data = self.extractor.run(
                 doc=doc,
                 check=check,
                 contexts=extraction_contexts,
                 detection=detection,
             )
-
         except Exception as e:
             logger.exception(
                 "CheckExecutor: ExtractionExecutor failed",
@@ -577,33 +513,45 @@ class CheckExecutor:
                     "check_id": getattr(check, "id", None),
                 },
             )
-            if isinstance(raw_details, dict):
-                raw_details.setdefault("extraction_error", str(e))
+            raw_details.setdefault("extraction_error", str(e))
 
+        # ------------------------------------------------------------------
+        # Business-result mapping
+        # ------------------------------------------------------------------
         pass_thr = getattr(settings, "CHECK_PASS_THRESHOLD", 0.6)
         unclear_thr = getattr(settings, "CHECK_UNCLEAR_THRESHOLD", 0.3)
 
+        # Presence-чек: оба детектора уверенно не нашли клаузу
+        # → отдельный result, понятный юристу
+        is_presence_check = getattr(check, "ui_mode", None) == "clause_presence"
+        is_presence_not_found = (
+            is_presence_check
+            and not found
+            and raw_details.get("source") in _PRESENCE_NOT_FOUND_SOURCES
+        )
+
         if found:
             result = "fail"
+            severity = check.severity_if_fail or check.severity
+        elif is_presence_not_found:
+            result = "missing_required_clause"
             severity = check.severity_if_fail or check.severity
         else:
             if confidence >= pass_thr:
                 result = "pass"
                 severity = check.severity_if_pass or "pass"
-            elif confidence <= unclear_thr:
-                result = "unclear"
-                severity = check.severity_if_unclear or check.severity
             else:
                 result = "unclear"
                 severity = check.severity_if_unclear or check.severity
 
-        # Очень важное правило Variant B:
-        # если LLM был обязателен, но упал, мы не должны выдавать это как честный pass/fail.
-        # Поэтому в таком случае насильно переводим business-result в "unclear".
+        # Variant B: LLM был обязателен, но упал → не выдавать честный pass/fail
         if llm_flags["llm_required"] and llm_flags["llm_error_type"]:
             result = "unclear"
             severity = check.severity_if_unclear or check.severity
 
+        # ------------------------------------------------------------------
+        # Location extraction
+        # ------------------------------------------------------------------
         page = None
         clause_uid = None
         element_id = None
@@ -618,7 +566,7 @@ class CheckExecutor:
         if bbox is None and isinstance(sources, list) and sources:
             first_src = sources[0]
             if isinstance(first_src, dict):
-                bbox = first_src.get("bbox", bbox)
+                bbox = first_src.get("bbox")
                 if page is None:
                     page = first_src.get("page")
                 if clause_uid is None:
@@ -626,6 +574,9 @@ class CheckExecutor:
                 if element_id is None:
                     element_id = first_src.get("element_id")
 
+        # ------------------------------------------------------------------
+        # Metrics
+        # ------------------------------------------------------------------
         detector_label = detector_method or "unknown"
         try:
             duration = time.time() - start_time
@@ -662,7 +613,6 @@ class CheckExecutor:
             "clause_uid": clause_uid,
             "element_id": element_id,
             "bbox": bbox,
-            # Новые технические поля для следующего слоя.
             "llm_error_type": llm_flags["llm_error_type"],
             "llm_error_message": llm_flags["llm_error_message"],
             "llm_attempts": llm_flags["llm_attempts"],
@@ -670,5 +620,6 @@ class CheckExecutor:
             "llm_required": llm_flags["llm_required"],
             "llm_degraded": llm_flags["llm_degraded"],
         }
+    
 
 

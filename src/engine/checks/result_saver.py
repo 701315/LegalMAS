@@ -15,8 +15,26 @@ from engine.checks.result_normalizer import (
     normalize_check_result,
     resolve_execution_status,
 )
+from engine.checks.ui_explanation import build_user_explanation
 
 logger = get_logger(__name__)
+
+
+def _merge_ui_explanation_into_quality_flags(
+    normalized: dict[str, Any],
+    ui_explanation: dict[str, Any],
+) -> None:
+    """
+    Безопасно добавить user-facing explanation в quality_flags.
+    """
+    quality_flags = normalized.get("quality_flags")
+    if not isinstance(quality_flags, dict):
+        quality_flags = {}
+
+    quality_flags["user_status"] = ui_explanation["user_status"]
+    quality_flags["user_message"] = ui_explanation["user_message"]
+    quality_flags["needs_manual_review"] = ui_explanation["needs_manual_review"]
+    normalized["quality_flags"] = quality_flags
 
 
 async def save_check_result(
@@ -48,6 +66,14 @@ async def save_check_result(
 
     # Определяем execution_status и error_details на основе результата работы check.
     execution_status, error_details = resolve_execution_status(exec_result)
+
+    ui_explanation = build_user_explanation(
+        check=check,
+        exec_result=exec_result,
+        execution_status=execution_status,
+        structured_data=normalized.get("structured_data"),
+    )
+    _merge_ui_explanation_into_quality_flags(normalized, ui_explanation)
 
     try:
         # Пишем в репозиторий. Здесь важно НИЧЕГО не глушить:
@@ -150,6 +176,14 @@ async def save_not_applicable_result(
     # Нормализуем так же, как обычный exec_result.
     normalized = normalize_check_result(exec_result, check=None)
 
+    ui_explanation = build_user_explanation(
+        check=None,
+        exec_result=exec_result,
+        execution_status=CheckExecutionStatus.SUCCESS.value,
+        structured_data=normalized.get("structured_data"),
+    )
+    _merge_ui_explanation_into_quality_flags(normalized, ui_explanation)
+
     try:
         return await repo.upsert_single_check_result(
             run_id=run_id,
@@ -194,4 +228,5 @@ async def save_not_applicable_result(
             },
         )
         raise
+    
 

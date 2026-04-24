@@ -78,6 +78,12 @@ class ScopeResolver:
         Ожидаемые поля в metadata:
         - segment_type
         - is_primary_segment (предпочтительно) или fallback: is_primary
+
+        Важное правило для непрофессионального программиста:
+        - Если у чанка вообще нет segment-aware metadata,
+          считаем его primary-сегментом по умолчанию.
+        - Это защита для legacy / transitional snapshot'ов,
+          чтобы не потерять весь корпус из-за неполной metadata.
         """
         if not chunks:
             return []
@@ -89,17 +95,34 @@ class ScopeResolver:
             if include_types is None:
                 include_types = resolved_types
 
+        include_types = {
+            str(t).strip().lower()
+            for t in (include_types or set())
+            if str(t).strip()
+        }
+
         filtered: list[dict] = []
 
         for ch in chunks:
-            meta = ch.get("metadata") or {}
+            meta = ch.get("metadata")
+            if not isinstance(meta, dict):
+                meta = {}
 
             seg_type = str(meta.get("segment_type") or "").strip().lower()
+
+            has_primary_flag = "is_primary_segment" in meta or "is_primary" in meta
+            has_segment_type = bool(seg_type)
 
             if "is_primary_segment" in meta:
                 is_primary = bool(meta.get("is_primary_segment"))
             else:
                 is_primary = bool(meta.get("is_primary"))
+
+            # Legacy-safe fallback:
+            # если segment-aware metadata вообще отсутствует,
+            # считаем такой чанк primary.
+            if not has_primary_flag and not has_segment_type:
+                is_primary = True
 
             if is_primary and include_primary:
                 filtered.append(ch)
@@ -108,6 +131,16 @@ class ScopeResolver:
             if seg_type and seg_type in include_types:
                 filtered.append(ch)
                 continue
+
+        logger.info(
+            "ScopeResolver: chunks filtered by scope",
+            extra={
+                "input_chunks": len(chunks),
+                "output_chunks": len(filtered),
+                "include_primary": include_primary,
+                "include_types": sorted(include_types),
+            },
+        )
 
         return filtered
     

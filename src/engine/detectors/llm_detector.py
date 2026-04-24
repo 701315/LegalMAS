@@ -1,5 +1,7 @@
 # src/engine/detectors/llm_detector.py
 
+# src/engine/detectors/llm_detector.py
+
 """
 LLMDetector: presence‑детектор "есть ли условие в фрагментах договора".
 
@@ -69,7 +71,7 @@ LLMDetector: presence‑детектор "есть ли условие в фра
      и подробным описанием ошибки в details (reason, error_type, error_message).
 
 3) Для временных ошибок (TransientError):
-   - _call_with_retries выполняет несколько попыток до LLM_MAX_RETRIES;
+   - _call_with_retries делегирует в client.call_with_retries() до LLM_MAX_RETRIES;
    - в details фиксируется количество попыток и последний тип ошибки.
 
 Привязка evidence к документу
@@ -95,6 +97,18 @@ LLMDetector — это ИМЕННО слой presence‑детекции:
 - встроен в гибридную схему (rules + LLM), чтобы:
   - использовать LLM только там, где это действительно нужно,
   - и не ломать обработку документа при временных проблемах с LLM.
+
+Правило рендеринга промптов (ВАЖНО для разработчиков)
+-----------------------------------------------------
+Все промпты в этом классе рендерятся ТОЛЬКО через _render_prompt().
+Метод использует str.replace() — НЕ str.format().
+
+Причина: промпты могут содержать JSON-примеры ответа с фигурными скобками,
+например: {"found": true, "evidence": "..."}.
+str.format() интерпретирует любые {} как Python-плейсхолдеры и бросает
+KeyError на невинных JSON-ключах вроде {land_category} или {found}.
+str.replace() заменяет только те строки, которые явно перечислены
+в словаре переменных, и не трогает всё остальное.
 """
 
 
@@ -106,7 +120,7 @@ from core.logging import get_logger
 from core.config import settings
 from core.exceptions import TransientError, PermanentError
 from .models import DetectionResult, EvidenceChunk, RetrievedChunk
-from ..llm.client import LLMClient, LLMResponse
+from ..llm.client import LLMClient, LLMContextLimitError, LLMResponse
 from ..playbook.models import LLMConfig
 from ..prompts.loader import get_promptloader
 
@@ -118,6 +132,19 @@ DEFAULT_PROMPT_FILE = "detection/genericclause"
 
 # Количество повторных попыток при временных ошибках LLM.
 LLM_MAX_RETRIES = getattr(settings, "LLM_MAX_RETRIES", 2)
+
+# Все переменные, которые LLMDetector умеет подставлять в промпты.
+# Если нужно добавить новую переменную — добавь её сюда и передавай
+# в extra_variables при вызове detect_with_variables().
+# ВАЖНО: ключи должны быть в формате "{имя_переменной}" — с фигурными скобками.
+_KNOWN_PROMPT_VARIABLES = {
+    "{context}",
+    "{condition_name}",
+    "{legal_base}",
+    "{doc_type}",
+    "{check_name}",
+    "{classification_confidence}",
+}
 
 
 class LLMDetector:
@@ -158,7 +185,6 @@ class LLMDetector:
             return None
 
         if not chunks:
-            # Чанков нет — считаем, что LLM нечего анализировать.
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
@@ -174,15 +200,15 @@ class LLMDetector:
         context_chunks = chunks[: max(1, context_k)]
         context_text = self._build_context(context_chunks)
 
-        # Простой шаблон: заменяем {context} в тексте промпта.
-        try:
-            prompt = prompt_template.replace("{context}", context_text)
-        except Exception as e:
-            logger.warning(
-                "LLMDetector: prompt formatting failed in detect()",
-                error=str(e),
-            )
-            # Здесь тоже можно вернуть "честный" DetectionResult с ошибкой.
+        # Рендерим промпт через безопасный _render_prompt().
+        # detect() подставляет только {context} — этого достаточно для
+        # простых промптов без дополнительных переменных.
+        prompt, render_error = self._render_prompt(
+            template=prompt_template,
+            variables={"{context}": context_text},
+        )
+
+        if render_error:
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
@@ -191,11 +217,10 @@ class LLMDetector:
                 details={
                     "reason": "prompt_format_error",
                     "error_type": "prompt_format_error",
-                    "error_message": str(e),
+                    "error_message": render_error,
                 },
             )
 
-        # Вызов LLM с ретраями и аккуратной обработкой ошибок.
         response, error_details = self._call_with_retries(
             prompt=prompt,
             temperature=config.temperature,
@@ -203,38 +228,18 @@ class LLMDetector:
         )
 
         if response is None:
-            error_type = error_details.get("error_type")
-            error_message = (error_details.get("error_message") or "").lower()
-
-            # Специализация для budget‑ошибок и недоступного провайдера
-            if error_type == "permanent_error":
-                if "context limit" in error_message or "token budget" in error_message:
-                    reason = "llm_token_budget_exceeded"
-                elif "insufficient output token budget" in error_message:
-                    reason = "llm_insufficient_output_budget"
-                else:
-                    reason = "llm_permanent_error"
-            elif error_type == "unavailable":
-                reason = "llm_unavailable"
-            elif error_type == "transient_error":
-                reason = "llm_transient_error"
-            else:
-                reason = "llm_call_failed"
-
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
                 confidence=0.0,
                 detector_type="llm",
                 details={
-                    "reason": reason,
+                    "reason": self._classify_error_reason(error_details),
                     **error_details,
                 },
             )
 
-        # Успешный ответ от LLM → строим DetectionResult, добавив туда детали вызова.
         base_result = self._build_result(response, context_chunks)
-        # Дополняем details служебной информацией о вызове
         base_result.details.update(error_details)
         return base_result
 
@@ -247,8 +252,15 @@ class LLMDetector:
         """
         Вариант detect, когда промпт ожидает дополнительные переменные.
 
-        Например, genericpresence.txt с плейсхолдерами:
+        Например, generic_presence.txt с плейсхолдерами:
           {condition_name}, {legal_base}, {context}
+
+        extra_variables передаётся из HybridDetector и содержит значения
+        вроде {"condition_name": check.name, "legal_base": check.description}.
+
+        ВАЖНО: ключи в extra_variables должны быть БЕЗ фигурных скобок,
+        например: {"condition_name": "...", "legal_base": "..."}.
+        _render_prompt сам добавит скобки при подстановке.
         """
         if not self.client.is_available():
             logger.debug("LLMDetector: LLM not available, skipping detect_with_variables")
@@ -275,33 +287,22 @@ class LLMDetector:
         context_chunks = chunks[: max(1, context_k)]
         context_text = self._build_context(context_chunks)
 
-        try:
-            variables: dict[str, Any] = {"context": context_text, **extra_variables}
-            prompt = prompt_template.format(**variables)
-        except KeyError as e:
-            logger.warning(
-                "LLMDetector: missing variable in prompt template",
-                variable=str(e),
-                prompt_source=(
-                    config.prompt_template or config.prompt_file or DEFAULT_PROMPT_FILE
-                ),
-            )
-            return DetectionResult(
-                found=False,
-                evidence_chunks=[],
-                confidence=0.0,
-                detector_type="llm",
-                details={
-                    "reason": "prompt_variable_missing",
-                    "error_type": "prompt_variable_missing",
-                    "missing_variable": str(e),
-                },
-            )
-        except Exception as e:
-            logger.warning(
-                "LLMDetector: prompt formatting failed in detect_with_variables()",
-                error=str(e),
-            )
+        # Собираем все переменные для подстановки.
+        # context всегда добавляется автоматически.
+        # extra_variables приходят без фигурных скобок → оборачиваем их.
+        variables: dict[str, str] = {"{context}": context_text}
+        for key, value in extra_variables.items():
+            # Ключи могут приходить как "condition_name" или "{condition_name}" —
+            # нормализуем к единому формату с фигурными скобками.
+            normalized_key = key if key.startswith("{") else f"{{{key}}}"
+            variables[normalized_key] = str(value) if value is not None else ""
+
+        prompt, render_error = self._render_prompt(
+            template=prompt_template,
+            variables=variables,
+        )
+
+        if render_error:
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
@@ -310,7 +311,7 @@ class LLMDetector:
                 details={
                     "reason": "prompt_format_error",
                     "error_type": "prompt_format_error",
-                    "error_message": str(e),
+                    "error_message": render_error,
                 },
             )
 
@@ -321,31 +322,13 @@ class LLMDetector:
         )
 
         if response is None:
-            error_type = error_details.get("error_type")
-            error_message = (error_details.get("error_message") or "").lower()
-
-            # Специализация для budget‑ошибок и недоступного провайдера
-            if error_type == "permanent_error":
-                if "context limit" in error_message or "token budget" in error_message:
-                    reason = "llm_token_budget_exceeded"
-                elif "insufficient output token budget" in error_message:
-                    reason = "llm_insufficient_output_budget"
-                else:
-                    reason = "llm_permanent_error"
-            elif error_type == "unavailable":
-                reason = "llm_unavailable"
-            elif error_type == "transient_error":
-                reason = "llm_transient_error"
-            else:
-                reason = "llm_call_failed"
-
             return DetectionResult(
                 found=False,
                 evidence_chunks=[],
                 confidence=0.0,
                 detector_type="llm",
                 details={
-                    "reason": reason,
+                    "reason": self._classify_error_reason(error_details),
                     **error_details,
                 },
             )
@@ -355,7 +338,77 @@ class LLMDetector:
         return base_result
 
     # ------------------------------------------------------------------
-    # ВНУТРЕННИЕ ХЕЛПЕРЫ: ВЫБОР ПРОМПТА, ВЫЗОВ LLM, ПОСТРОЕНИЕ РЕЗУЛЬТАТА
+    # ВНУТРЕННИЕ ХЕЛПЕРЫ: РЕНДЕРИНГ ПРОМПТА
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _render_prompt(
+        template: str,
+        variables: dict[str, str],
+    ) -> tuple[str, str | None]:
+        """
+        Безопасно подставить переменные в шаблон промпта.
+
+        Возвращает кортеж: (готовый промпт, текст ошибки или None).
+
+        Почему str.replace(), а не str.format():
+        - Промпты часто содержат JSON-примеры ответа с фигурными скобками,
+          например: {"found": true, "land_category": "не найдено"}.
+        - str.format() видит {land_category} как Python-плейсхолдер
+          и бросает KeyError, хотя это просто часть JSON-примера.
+        - str.replace() заменяет ровно те строки, которые перечислены
+          в словаре variables, и не трогает ничего остального.
+
+        Для непрофессионального программиста:
+        - Представь, что в промпте написано:
+            "Ответь в формате: {found: true, land_category: 'земли ИЖС'}"
+        - str.format() попытается найти переменные found и land_category
+          в твоём коде и упадёт с ошибкой, потому что их нет.
+        - str.replace() просто ищет подстроку "{context}" и заменяет её
+          на текст договора — и больше ничего не трогает.
+        """
+        try:
+            result = template
+            for placeholder, value in variables.items():
+                result = result.replace(placeholder, value)
+            return result, None
+        except Exception as e:
+            return template, str(e)
+
+    # ------------------------------------------------------------------
+    # ВНУТРЕННИЕ ХЕЛПЕРЫ: КЛАССИФИКАЦИЯ ОШИБОК
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _classify_error_reason(error_details: dict) -> str:
+        """
+        Преобразовать технический error_type из _call_with_retries
+        в человекочитаемый reason для details DetectionResult.
+
+        Вынесено в отдельный метод, чтобы не дублировать одинаковые
+        блоки if/elif в detect() и detect_with_variables().
+        """
+        error_type = error_details.get("error_type")
+        error_message = (error_details.get("error_message") or "").lower()
+
+        if error_type == "context_limit":
+            return "llm_context_limit_exceeded"
+        if error_type == "permanent_error":
+            # Fallback для случаев, когда context_limit пришёл как permanent_error
+            # от старого кода без LLMContextLimitError.
+            if "context limit" in error_message or "token budget" in error_message:
+                return "llm_token_budget_exceeded"
+            if "insufficient output token budget" in error_message:
+                return "llm_insufficient_output_budget"
+            return "llm_permanent_error"
+        if error_type == "unavailable":
+            return "llm_unavailable"
+        if error_type == "transient_error":
+            return "llm_transient_error"
+        return "llm_call_failed"
+
+    # ------------------------------------------------------------------
+    # ВНУТРЕННИЕ ХЕЛПЕРЫ: ВЫЗОВ LLM, ПОСТРОЕНИЕ РЕЗУЛЬТАТА
     # ------------------------------------------------------------------
 
     def _call_with_retries(
@@ -367,77 +420,22 @@ class LLMDetector:
         """
         Вызвать LLM с несколькими попытками при временных ошибках.
 
+        Делегирует retry-логику в LLMClient.call_with_retries(), чтобы:
+        - не дублировать обработку TransientError / PermanentError;
+        - корректно получать error_type='context_limit' из LLMContextLimitError,
+        который LLMClient ловит отдельным блоком перед PermanentError.
+
         Возвращает кортеж:
         - LLMResponse или None (если все попытки неудачны);
-        - словарь error_details, который можно положить в details DetectionResult.
+        - словарь error_details для details DetectionResult.
         """
-        attempts = 0
-        last_error_type = None
-        last_error_message = None
-
-        while attempts <= LLM_MAX_RETRIES:
-            try:
-                attempts += 1
-                response = self.client.call(
-                    prompt=prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                # None здесь означает, что LLMClient вернул "пустой" ответ
-                # (например, провайдер выключен на уровне конфигурации),
-                # но без исключения. Для детектора это эквивалентно
-                # отсутствию ответа от LLM.
-                return response, {
-                    "llm_attempts": attempts,
-                    "error_type": None,
-                    "error_message": None,
-                }
-            except TransientError as e:
-                # Временная ошибка — можно попробовать ещё раз.
-                last_error_type = "transient_error"
-                last_error_message = str(e)
-                logger.warning(
-                    "LLMDetector: transient LLM error, will retry",
-                    error=str(e),
-                    attempt=attempts,
-                    max_retries=LLM_MAX_RETRIES,
-                )
-                if attempts > LLM_MAX_RETRIES:
-                    break
-                continue
-            except PermanentError as e:
-                # Неисправимая ошибка — ретраи бессмысленны.
-                last_error_type = "permanent_error"
-                last_error_message = str(e)
-                logger.warning(
-                    "LLMDetector: permanent LLM error, no retries",
-                    error=str(e),
-                )
-                return None, {
-                    "llm_attempts": attempts,
-                    "error_type": last_error_type,
-                    "error_message": last_error_message,
-                }
-            except Exception as e:
-                # Любая другая неожиданная ошибка клиента
-                last_error_type = "unexpected_error"
-                last_error_message = str(e)
-                logger.error(
-                    "LLMDetector: unexpected exception from LLM client",
-                    error=str(e),
-                )
-                return None, {
-                    "llm_attempts": attempts,
-                    "error_type": last_error_type,
-                    "error_message": last_error_message,
-                }
-
-        # Сюда попадаем, если все ретраи по TransientError исчерпаны.
-        return None, {
-            "llm_attempts": attempts,
-            "error_type": last_error_type or "transient_error",
-            "error_message": last_error_message,
-        }
+        response, error_details = self.client.call_with_retries(
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=LLM_MAX_RETRIES,
+        )
+        return response, error_details
 
     def _resolve_prompt(self, config: LLMConfig) -> str | None:
         """
@@ -446,11 +444,9 @@ class LLMDetector:
         2. config.prompt_file (имя файла в prompts/)
         3. DEFAULT_PROMPT_FILE
         """
-        # 1. Inline template
         if getattr(config, "prompt_template", None):
             return config.prompt_template
 
-        # 2. prompt_file из конфигурации
         prompt_file = getattr(config, "prompt_file", None)
         if prompt_file:
             if self.promptloader.exists(prompt_file):
@@ -469,7 +465,6 @@ class LLMDetector:
                     available=self.promptloader.list_prompts("detection"),
                 )
 
-        # 3. Файл по умолчанию
         try:
             return self.promptloader.load_raw(DEFAULT_PROMPT_FILE)
         except FileNotFoundError:
@@ -485,7 +480,6 @@ class LLMDetector:
         Построить текст контекста для LLM из чанков.
 
         Формат: пронумерованные части с указанием страницы/клаузы.
-        Юристу это не видно напрямую, но делает ответы LLM более точными.
 
         Для непрофессионального программиста:
         - Иногда сюда могут прилетать не объекты, а обычные dict.
@@ -494,7 +488,6 @@ class LLMDetector:
         """
         parts: list[str] = []
         for i, chunk in enumerate(chunks, start=1):
-            # Унифицированный доступ к полям и для объектов, и для dict
             if isinstance(chunk, dict):
                 page = chunk.get("page", 0)
                 clause_uid = chunk.get("clause_uid") or ""
@@ -526,7 +519,6 @@ class LLMDetector:
         if response.found and response.evidence:
             best_chunk = self._find_evidence_chunk(response.evidence, context_chunks)
             if best_chunk:
-                # Берём структурный контекст из RetrievedChunk
                 evidence_chunks.append(
                     EvidenceChunk(
                         element_id=best_chunk.element_id,
@@ -557,7 +549,6 @@ class LLMDetector:
                     )
                 )
 
-        # DEBUG: логируем, что именно вернул LLM и какой чанк выбран
         try:
             logger.debug(
                 "LLMDetector._build_result",
@@ -588,7 +579,6 @@ class LLMDetector:
                 },
             )
         except Exception:
-            # Лог сам по себе не должен ломать пайплайн
             logger.debug("LLMDetector._build_result: debug logging failed")
 
         return DetectionResult(
@@ -617,7 +607,7 @@ class LLMDetector:
 
         Сначала пробуем прямое вхождение, потом по пересечению слов.
         """
-        evidence_lower = evidence_text.lower()[:100]  # ограничим длину
+        evidence_lower = evidence_text.lower()[:100]
 
         logger.debug(
             "LLMDetector._find_evidence_chunk.start",
@@ -676,3 +666,5 @@ class LLMDetector:
         )
 
         return best_chunk if best_overlap >= 3 else None
+    
+    

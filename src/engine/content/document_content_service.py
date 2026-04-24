@@ -996,8 +996,118 @@ class DocumentContentService:
         return snapshot_chunks
     
 
-    
-    
-    
+    async def get_segment_text(
+        self,
+        *,
+        document_version_id: uuid.UUID,
+        segment_id: str,
+        levels: list[str] | None = None,
+        max_chars: int = 8000,
+    ) -> str | None:
+        """
+        Вернуть текст одного логического сегмента по document_version_id и segment_id.
 
-    
+        Для непрофессионального программиста:
+        - Берём только чанки этого сегмента из CHUNKS v2 snapshot'ов;
+        - Склеиваем текст в один блок, с верхним лимитом max_chars;
+        - Не трогаем clause tree / layout напрямую, вся логика в ChunkCorpusReaderV2.
+        """
+        if levels is None:
+            levels = ["clause", "subclause"]
+
+        normalized_levels = [
+            lvl.strip().lower()
+            for lvl in levels
+            if isinstance(lvl, str) and lvl.strip()
+        ]
+        if not normalized_levels:
+            return None
+
+        if max_chars <= 0:
+            return None
+
+        reader = ChunkCorpusReaderV2(
+            session=self.session,
+            artifact_store=self._artifact_store,
+        )
+
+        # Важно: load_segment работает по doc_id, а у нас есть document_version_id.
+        # Поэтому сначала нужно достать DocumentVersion и взять из него document_id.
+        version = await self.versions.get_by_id(document_version_id)
+        if not version:
+            logger.warning(
+                "DocumentContentService.get_segment_text: version not found",
+                extra={
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment_id,
+                },
+            )
+            return None
+
+        doc_id = version.document_id
+
+        try:
+            chunks = await reader.load_segment(
+                doc_id=doc_id,
+                segment_id=segment_id,
+                levels=normalized_levels,
+            )
+        except Exception as e:
+            logger.warning(
+                "DocumentContentService.get_segment_text: failed to load segment chunks",
+                extra={
+                    "document_id": str(doc_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment_id,
+                    "levels": normalized_levels,
+                    "error": str(e),
+                },
+            )
+            return None
+
+        if not chunks:
+            logger.info(
+                "DocumentContentService.get_segment_text: no chunks for segment",
+                extra={
+                    "document_id": str(doc_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment_id,
+                    "levels": normalized_levels,
+                },
+            )
+            return None
+
+        parts: list[str] = []
+        total_len = 0
+        separator = "\n\n"
+
+        # Здесь мы полагаемся на порядок из snapshot'а: как rule of thumb,
+        # он уже идёт в логическом порядке по документу.
+        for ch in chunks:
+            text = (ch.get("text") or "").strip()
+            if not text:
+                continue
+
+            sep_len = len(separator) if parts else 0
+            remaining = max_chars - total_len - sep_len
+            if remaining <= 0:
+                break
+
+            if len(text) > remaining:
+                text = text[:remaining].rstrip()
+
+            if not text:
+                break
+
+            if parts:
+                total_len += len(separator)
+
+            parts.append(text)
+            total_len += len(text)
+
+        if not parts:
+            return None
+
+        segment_text = separator.join(parts).strip()
+        return segment_text or None
+

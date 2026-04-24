@@ -36,9 +36,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from typing import Any
-
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from core.constants import DocumentStatus, RunStatus
 from core.logging import get_logger
 from db.models.run import Run
@@ -48,7 +46,6 @@ from db.repositories.document_stage_execution_repo import DocumentStageExecution
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.run_repo import RunRepository
 from db.repositories.deal_repo import DealRepository
-
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -73,9 +70,92 @@ CONVERTIBLE_TO_PDF: set[str] = {
     "htm",
 }
 
+def _is_multi_document(version) -> bool:
+    """
+    Multi-document критерий: в структуре версии заведен segments_count > 1.
+    Single-document файлы имеют 0/None/1.
+    """
+    return bool(getattr(version, "segments_count", None) and getattr(version, "segments_count", 0) > 1)
+
+def _is_single_document(version) -> bool:
+    """
+    Обратный helper для читаемости условий orchestration.
+    """
+    return not _is_multi_document(version)
+
+async def _count_relevant_segments(seg_repo: DocumentSegmentRepository, version_id) -> int:
+    """
+    Считает сегменты версии, которые реально участвуют в segment-level пайплайне.
+
+    Здесь считаем релевантными сегменты, у которых есть segment_id.
+    Если позже появится явный флаг "is_logical_document", критерий лучше перенести сюда.
+    """
+    return await seg_repo.count_by_version_and_has_segment_id(version_id)
+
+async def _count_unclassified_segments(seg_repo: DocumentSegmentRepository, version_id) -> int:
+    """
+    Считает релевантные сегменты версии, для которых segment-level классификация еще не завершена.
+
+    Критерий "классифицирован" сознательно мягкий: достаточно наличия segment_doc_type
+    или segment_classification_level. Этого хватает, чтобы checks могли выбрать правильный doc_type.
+    """
+    return await seg_repo.count_unclassified_for_version(version_id)
+
+async def _are_all_segments_classified(seg_repo: DocumentSegmentRepository, version) -> bool:
+    """
+    Readiness-предикат для segment-level классификации.
+
+    - для single-document всегда False (segment path не нужен);
+    - для multi-document возвращает True только если:
+      1) есть хотя бы один релевантный сегмент;
+      2) для всех релевантных сегментов заполнен segment-level результат.
+    """
+    if version is None or _is_single_document(version):
+        return False
+
+    total = await _count_relevant_segments(seg_repo, version.id)
+    if total == 0:
+        return False
+
+    unclassified = await _count_unclassified_segments(seg_repo, version.id)
+    return unclassified == 0
+
+async def _can_start_checks_for_run(
+    run_obj: Run,
+    docs: list,
+    ver_repo: DocumentVersionRepository,
+    seg_repo: DocumentSegmentRepository,
+) -> bool:
+    """
+    Пред-гейт для maybe_start_run_checks.
+
+    - для single-document документов: условий дополнительных нет;
+    - для multi-document документов: хотя бы один документ run'a с сегментами
+      еще не имеет завершенной segment-level классификации — checks не запускаем.
+    """
+    run_id = str(run_obj.id)
+    for doc in docs:
+        version = await ver_repo.get_latest(doc.id)
+        if not version:
+            continue
+
+        if _is_multi_document(version):
+            all_segments_classified = await _are_all_segments_classified(seg_repo, version)
+            if not all_segments_classified:
+                logger.info(
+                    "Run checks postponed: multi-document has unclassified segments",
+                    extra={
+                        "run_id": run_id,
+                        "document_id": str(doc.id),
+                        "document_version_id": str(version.id),
+                        "segments_count": getattr(version, "segments_count", None),
+                    },
+                )
+                return False
+
+    return True
 
 ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
-
 
 @dataclass(slots=True)
 class TaskPlan:
@@ -83,7 +163,6 @@ class TaskPlan:
     kwargs: dict[str, Any]
     reason: str
     stage: str
-
 
 @celery_app.task(
     base=MASBaseTask,
@@ -123,7 +202,6 @@ def start_run_pipeline(
 
     return run_async(_wrapper())
 
-
 async def _resolve_tenant_id(
     tenant_id: str | None,
     deal_uuid: uuid.UUID,
@@ -131,7 +209,6 @@ async def _resolve_tenant_id(
 ) -> str:
     """
     Резолвит tenant_id для оркестратора.
-
     Приоритет:
     1) явный tenant_id из kwargs (не None, не нулевой UUID);
     2) tenant_id из deals (явный DB-запрос, не lazy-load);
@@ -156,7 +233,6 @@ async def _resolve_tenant_id(
     )
     return surrogate
 
-
 async def _start_run_pipeline_async(
     run_id: str,
     deal_id: str | None,
@@ -166,7 +242,6 @@ async def _start_run_pipeline_async(
 ) -> dict:
     """
     Async-ядро оркестрации Run.
-
     Правило:
     - на один проход оркестратора для одного документа ставим не более ОДНОЙ
       следующей стадии;
@@ -325,7 +400,6 @@ async def _start_run_pipeline_async(
         db=db,
     )
 
-
     # Читаем сделку и проверяем выбранный язык
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_uuid)
@@ -375,7 +449,6 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
         }
 
-
     docs = await doc_repo.get_by_deal(deal_uuid)
     if not docs:
         logger.info(
@@ -394,6 +467,7 @@ async def _start_run_pipeline_async(
 
     tasks_scheduled = 0
     documents_with_plan = 0
+    seg_repo = DocumentSegmentRepository(db)
 
     for doc in docs:
         doc_id_str = str(doc.id)
@@ -411,8 +485,6 @@ async def _start_run_pipeline_async(
             },
         )
 
-        seg_repo = DocumentSegmentRepository(db)
-
         plan = await _build_document_task_plan(
             doc=doc,
             version=version,
@@ -423,7 +495,7 @@ async def _start_run_pipeline_async(
             is_full_rerun=is_full_rerun,
             force_reclassify=force_reclassify,
             seg_repo=seg_repo,
-            deal_primary_language=deal_primary_language,  # ← НОВОЕ
+            deal_primary_language=deal_primary_language,
         )
 
         if not plan:
@@ -515,7 +587,22 @@ async def _start_run_pipeline_async(
         },
     )
 
-    await maybe_start_run_checks(db=db, run_id=run_uuid)
+    # Пред-гейт: не дергаем maybe_start_run_checks, пока у multi-document
+    # документов не завершена segment-level классификация.
+    seg_repo_for_checks = DocumentSegmentRepository(db)
+    can_start_checks = await _can_start_checks_for_run(
+        run_obj=run_obj,
+        docs=docs,
+        ver_repo=ver_repo,
+        seg_repo=seg_repo_for_checks,
+    )
+    if not can_start_checks:
+        logger.info(
+            "Run checks auto-start postponed due to incomplete segment-level classification",
+            extra={"run_id": run_id},
+        )
+    else:
+        await maybe_start_run_checks(db=db, run_id=run_uuid)
 
     logger.info(
         "Run pipeline scheduling complete",
@@ -538,12 +625,10 @@ async def _start_run_pipeline_async(
         "documents_with_plan": documents_with_plan,
     }
 
-
 def _target_status_for_stage(stage: str) -> str:
     """
     Map internal stage name to *intended* DocumentStatus
     on successful completion of this stage.
-
     Это не исчерпывающий список всех возможных финальных статусов.
     Например, build_primary_language_source может перевести документ
     в LANGUAGE_SELECTION_REQUIRED или QUARANTINE, но целевой happy-path
@@ -565,8 +650,11 @@ def _target_status_for_stage(stage: str) -> str:
         # Документ может остаться CLASSIFIED или перейти в COMPLETED,
         # но для purposes execution достаточно понимать, что это стадия классификации.
         return DocumentStatus.CLASSIFIED.value
+    if stage == "classify_document_segments":
+        # Segment-level классификация — это подстадия внутри document-level CLASSIFIED.
+        # Статус документа не меняем, чтобы не ломать существующие контракты.
+        return DocumentStatus.CLASSIFIED.value    
     return stage
-
 
 async def _build_document_task_plan(
     *,
@@ -643,7 +731,6 @@ async def _build_document_task_plan(
                 "tenant_id": tenant_id_str,
                 "run_id": run_id,
                 "target_language": deal_primary_language,
-
             },
         )
 
@@ -902,6 +989,14 @@ async def _build_document_task_plan(
         )
 
     if status == DocumentStatus.CLASSIFIED.value:
+        if not version:
+            logger.warning(
+                "CLASSIFIED document without version, nothing to plan",
+                extra={"document_id": doc_id_str, "run_id": run_id},
+            )
+            return None
+
+        # 1) явный запрос на ре-классификацию всегда выигрывает.
         if is_full_rerun or force_reclassify:
             logger.info(
                 "CLASSIFIED document scheduled for reclassification",
@@ -924,9 +1019,42 @@ async def _build_document_task_plan(
                 },
             )
 
+        # 2) multi-document: после document-level классификации требуется
+        # обязательная segment-level стадия, если она еще не завершена.
+        if _is_multi_document(version):
+            all_segments_classified = await _are_all_segments_classified(
+                seg_repo, version
+            )
+            if not all_segments_classified:
+                logger.info(
+                    "CLASSIFIED multi-document requires segment-level classification",
+                    extra={
+                        "document_id": doc_id_str,
+                        "document_version_id": str(version.id),
+                        "segments_count": getattr(version, "segments_count", None),
+                        "run_id": run_id,
+                    },
+                )
+                return TaskPlan(
+                    task_name="workers.classify_document_segments",
+                    stage="classify_document_segments",
+                    reason="multi_document_requires_segment_level_classification",
+                    kwargs={
+                        "document_id": doc_id_str,
+                        "run_id": run_id,
+                        "deal_id": deal_id_str,
+                        "tenant_id": tenant_id_str,
+                    },
+                )
+
+        # 3) single-document или уже завершённая segment-level классификация.
         logger.info(
             "Document already classified, reusing classification for this run",
-            extra={"document_id": doc_id_str, "run_id": run_id},
+            extra={
+                "document_id": doc_id_str,
+                "run_id": run_id,
+                "segments_count": getattr(version, "segments_count", None),
+            },
         )
         return None
 
@@ -969,7 +1097,6 @@ async def _build_document_task_plan(
     )
     return None
 
-
 def _send_task(
     *,
     plan: TaskPlan,
@@ -993,6 +1120,4 @@ def _send_task(
     })
     result = celery_app.send_task(plan.task_name, kwargs=kwargs)
     return result.id  # ← AsyncResult.id
-    
-
     

@@ -39,6 +39,8 @@ from workers.pii_sanitizer import sanitize_document  # noqa: F401
 from workers.structure_builder import build_structure  # noqa: F401
 from workers.classifier import classify_document  # noqa: F401
 from workers.chunk_builder import build_chunks  # noqa: F401
+from workers.segment_classifier import classify_document_segments  # noqa: F401
+
 
 # запуск checks: scheduler + атомарные checks + финализация run
 from workers.check_runner_worker import (  # noqa: F401

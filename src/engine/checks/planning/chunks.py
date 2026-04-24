@@ -1,32 +1,26 @@
 # src/engine/checks/planning/chunks.py
 
-
 """
 Подготовка safe_chunks для проверок: загрузка, скоупинг, санитизация.
 """
 
-
 from __future__ import annotations
 
-
+import uuid
 from typing import Any
-
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 from core.logging import get_logger
 from engine.checks.planning.scope import ScopeResolver
+from engine.content.chunk_snapshot_reader import ChunkCorpusReaderV2
 from engine.content.document_content_service import DocumentContentService
 
-
 logger = get_logger(__name__)
-
 
 # Лимиты — максимальное число чанков и максимальный размер текста одного чанка
 MAX_CHUNKS_PER_DOC = 2000
 MAX_CHUNK_TEXT_CHARS = 20_000
-
 
 
 class ChunksPreparer:
@@ -38,12 +32,19 @@ class ChunksPreparer:
     - Отфильтровывает чанки по scope (первичный сегмент, тип документа).
     - Обрезает слишком длинные тексты и слишком большие списки.
     - Возвращает "безопасный" список чанков, готовый для передачи в LLM.
-    """
 
+    В multi-document режиме умеет строить корпус для одного сегмента:
+    - Загружает только чанки нужного сегмента через ChunkCorpusReaderV2.load_segment.
+    - Каждый чанк уже содержит metadata["segment_id"] — проставляется в reader'е.
+    - Возвращает реальные нарезанные чанки, не synthetic-заглушку.
+    """
 
     def __init__(self, scope_resolver: ScopeResolver):
         self._scope = scope_resolver
 
+    # ──────────────────────────────────────────────────────────────
+    # ПУБЛИЧНЫЕ МЕТОДЫ
+    # ──────────────────────────────────────────────────────────────
 
     async def build_safe_chunks(
         self,
@@ -59,44 +60,15 @@ class ChunksPreparer:
         - Celery-task run_single_check(...)
         """
         content_service = DocumentContentService(session=session)
-
-
-        # Определяем уровни чанков из retrieval-конфигов checks.
-        # Каждый check в YAML может указать нужные уровни: section / clause / subclause.
-        # Собираем объединение всех уровней по всем checks в текущем наборе.
-        all_levels: set[str] = set()
-        for chk in checks:
-            retr_cfg = getattr(chk, "retrieval", None)
-            if retr_cfg and getattr(retr_cfg, "levels", None):
-                try:
-                    all_levels.update(str(lvl).lower() for lvl in retr_cfg.levels)
-                except Exception:
-                    pass
-
-
-        # Если ни один check не указал уровни — используем безопасный default.
-        # Порядок preferred_order важен: сначала самые мелкие (subclause),
-        # потом крупнее (clause, section) — так LLM получает наиболее точный контекст.
-        if not all_levels:
-            levels_for_doc = ["subclause", "section"]
-        else:
-            preferred_order = ["subclause", "clause", "section"]
-            levels_for_doc = [
-                lvl for lvl in preferred_order if lvl in all_levels
-            ] or list(all_levels)
-
+        levels_for_doc = self._resolve_levels(checks, default=["subclause", "section"])
 
         # Запрашиваем готовые чанки из V2-snapshot'ов.
-        #
-        # ВАЖНО: get_retrieval_chunks_for_checks принимает только doc_id и levels.
-        # Параметры target_tokens / max_tokens / overlap_ratio здесь НЕ нужны —
-        # нарезка чанков произошла один раз на этапе CHUNKING в SegmentChunkBuilderV2.
-        # Здесь мы только ЧИТАЕМ уже готовые чанки из MinIO.
+        # get_retrieval_chunks_for_checks принимает только doc_id и levels.
+        # Нарезка чанков произошла один раз на этапе CHUNKING — здесь мы только ЧИТАЕМ.
         chunks = await content_service.get_retrieval_chunks_for_checks(
             doc_id=doc.id,
             levels=levels_for_doc,
         )
-
 
         # Фильтрация по scope: оставляем только чанки из нужных сегментов
         # (например, только из первичного документа, без приложений).
@@ -107,10 +79,7 @@ class ChunksPreparer:
             include_types=include_types,
         )
 
-
         # Защита от аномально большого числа чанков.
-        # Если документ содержит больше MAX_CHUNKS_PER_DOC чанков —
-        # берём только первые, остальные отбрасываем с предупреждением в лог.
         if len(chunks) > MAX_CHUNKS_PER_DOC:
             logger.warning(
                 "ChunksPreparer: too many chunks, truncating",
@@ -122,31 +91,7 @@ class ChunksPreparer:
             )
             chunks = chunks[:MAX_CHUNKS_PER_DOC]
 
-
-        # Санитизация текста: если текст одного чанка слишком длинный —
-        # обрезаем до MAX_CHUNK_TEXT_CHARS символов.
-        # Это защита от случаев, когда в snapshot попал аномально большой чанк.
-        safe_chunks: list[dict] = []
-        for ch in chunks:
-            text = ch.get("text") or ""
-            if len(text) > MAX_CHUNK_TEXT_CHARS:
-                logger.warning(
-                    "ChunksPreparer: chunk text truncated",
-                    extra={
-                        "doc_id": str(getattr(doc, "id", None)),
-                        "chunk_id": ch.get("id"),
-                        "orig_len": len(text),
-                        "max_len": MAX_CHUNK_TEXT_CHARS,
-                    },
-                )
-                text = text[:MAX_CHUNK_TEXT_CHARS]
-
-
-            safe_chunks.append({
-                "id": ch.get("id"),
-                "text": text,
-                "metadata": ch.get("metadata") or {},
-            })
+        safe_chunks = self._sanitize_chunks(chunks, doc=doc)
 
         if not safe_chunks:
             logger.warning(
@@ -155,6 +100,176 @@ class ChunksPreparer:
             )
 
         return safe_chunks
+
+    async def build_safe_chunks_for_segment(
+        self,
+        session: AsyncSession,
+        doc,
+        checks: list[Any],
+        segment_id: str,
+        max_chars: int = MAX_CHUNK_TEXT_CHARS,
+    ) -> list[dict]:
+        """
+        Собрать safe_chunks для одного логического документа-сегмента.
+
+        Для непрофессионального программиста:
+        - В multi-document режиме один физический файл содержит несколько
+          логических документов-сегментов.
+        - Этот метод загружает реальные чанки только нужного сегмента через
+          ChunkCorpusReaderV2.load_segment — те же нарезанные чанки, что
+          были записаны в snapshot на этапе CHUNKING.
+        - Каждый чанк уже содержит metadata["segment_id"] — reader проставляет
+          его автоматически, мы только проверяем что он там есть.
+        - Фильтрация по segment_id здесь не нужна: load_segment возвращает
+          только чанки запрошенного сегмента.
+
+        Отличие от предыдущей реализации (synthetic chunk):
+        - Раньше мы брали весь текст сегмента одним куском через get_segment_text.
+        - Теперь читаем реальные нарезанные чанки — это корректный уровень
+          детализации для LLM и rules-checker.
+        """
+        if not segment_id:
+            logger.warning(
+                "ChunksPreparer: build_safe_chunks_for_segment called without segment_id",
+                extra={"doc_id": str(getattr(doc, "id", None))},
+            )
+            return []
+
+        levels_for_segment = self._resolve_levels(
+            checks, default=["subclause", "clause"]
+        )
+
+        # Загружаем чанки только этого сегмента через ChunkCorpusReaderV2.
+        # Он сам находит последнюю версию документа и читает нужный snapshot из MinIO.
+        reader = ChunkCorpusReaderV2(session=session)
+        chunks = await reader.load_segment(
+            doc_id=doc.id,
+            segment_id=segment_id,
+            levels=levels_for_segment,
+        )
+
+        if not chunks:
+            logger.warning(
+                "ChunksPreparer: no chunks for segment, returning empty list",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "segment_id": segment_id,
+                    "levels": levels_for_segment,
+                },
+            )
+            return []
+
+        # Защита от аномально большого числа чанков одного сегмента.
+        if len(chunks) > MAX_CHUNKS_PER_DOC:
+            logger.warning(
+                "ChunksPreparer: too many segment chunks, truncating",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "segment_id": segment_id,
+                    "chunk_count": len(chunks),
+                    "max_chunks": MAX_CHUNKS_PER_DOC,
+                },
+            )
+            chunks = chunks[:MAX_CHUNKS_PER_DOC]
+
+        safe_chunks = self._sanitize_chunks(chunks, doc=doc, max_chars=max_chars)
+
+        if not safe_chunks:
+            logger.warning(
+                "ChunksPreparer: all segment chunks empty after sanitization",
+                extra={
+                    "doc_id": str(getattr(doc, "id", None)),
+                    "segment_id": segment_id,
+                },
+            )
+
+        return safe_chunks
+
+    # ──────────────────────────────────────────────────────────────
+    # ВНУТРЕННИЕ МЕТОДЫ
+    # ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _resolve_levels(
+        checks: list[Any],
+        default: list[str],
+    ) -> list[str]:
+        """
+        Определить нужные уровни чанков из retrieval-конфигов checks.
+
+        Для непрофессионального программиста:
+        - Каждый check в YAML может указать нужные уровни: section / clause / subclause.
+        - Собираем объединение всех уровней по всем checks в наборе.
+        - Если ни один check не указал уровни — используем default.
+        - Порядок preferred_order важен: сначала самые мелкие (subclause),
+          потом крупнее (clause, section) — LLM получает наиболее точный контекст.
+        """
+        all_levels: set[str] = set()
+        for chk in checks:
+            retr_cfg = getattr(chk, "retrieval", None)
+            if retr_cfg and getattr(retr_cfg, "levels", None):
+                try:
+                    all_levels.update(str(lvl).lower() for lvl in retr_cfg.levels)
+                except Exception:
+                    pass
+
+        if not all_levels:
+            return default
+
+        preferred_order = ["subclause", "clause", "section"]
+        return [lvl for lvl in preferred_order if lvl in all_levels] or list(all_levels)
+
+    @staticmethod
+    def _sanitize_chunks(
+        chunks: list[dict],
+        doc,
+        max_chars: int = MAX_CHUNK_TEXT_CHARS,
+    ) -> list[dict]:
+        """
+        Санитизировать список чанков: обрезать длинные тексты, нормализовать структуру.
+
+        Для непрофессионального программиста:
+        - Берём сырые чанки из MinIO и приводим их к единому безопасному формату.
+        - Если текст одного чанка слишком длинный — обрезаем до max_chars символов.
+          Это защита от аномально больших чанков в snapshot'е.
+        - Возвращаем список словарей с ключами: id, text, metadata.
+          Именно такой формат ожидает CheckExecutor.
+        """
+        safe: list[dict] = []
+        doc_id_str = str(getattr(doc, "id", None))
+
+        for ch in chunks:
+            text = (ch.get("text") or "").strip()
+
+            # Пустые чанки пропускаем — они не несут информации для LLM.
+            if not text:
+                continue
+
+            if len(text) > max_chars:
+                logger.warning(
+                    "ChunksPreparer: chunk text truncated",
+                    extra={
+                        "doc_id": doc_id_str,
+                        "chunk_id": ch.get("id"),
+                        "orig_len": len(text),
+                        "max_len": max_chars,
+                    },
+                )
+                text = text[:max_chars]
+
+            metadata = ch.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+
+            safe.append(
+                {
+                    "id": ch.get("id"),
+                    "text": text,
+                    "metadata": metadata,
+                }
+            )
+
+        return safe
     
     
-    
+

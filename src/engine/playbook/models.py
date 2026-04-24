@@ -386,6 +386,18 @@ class CheckDefinition(BaseModel):
     # "GLOBAL_PLAYBOOK" / "DOCUMENT_TYPE" / "SYSTEM".
     origin: str | None = None
 
+    # Режим пользовательской интерпретации результата в UI.
+    # Нужен для построения понятных сообщений для юриста.
+    # Примеры:
+    # - "clause_presence"   -> проверка наличия обязательной клаузы
+    # - "risk_detection"    -> проверка на наличие риска / проблемной формулировки
+    # - "field_extraction"  -> преимущественно извлечение структурированных полей
+    # - "generic"           -> нейтральный режим по умолчанию
+    #
+    # Поле optional для обратной совместимости:
+    # старые playbooks без ui_mode продолжают работать как раньше.
+    ui_mode: str | None = None
+
     scope: Literal["document", "family", "deal"] = "document"
 
     severity: str = "medium"
