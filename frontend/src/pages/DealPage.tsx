@@ -1,7 +1,7 @@
 // =============================================================
 // src/pages/DealPage.tsx
 // Страница сделки: обзор, DD Grid, документы, запросы, отчёт, аудит.
-// Добавлены кнопки администратора/редактора проекта.
+// Единая точка orchestration для run-scoped review tabs.
 // =============================================================
 
 import React from "react";
@@ -19,9 +19,6 @@ interface DealPageProps {
   deal: Deal;
 }
 
-/**
- * Простая реализация Tabs без сторонних библиотек.
- */
 type TabKey =
   | "overview"
   | "dd_grid"
@@ -30,13 +27,26 @@ type TabKey =
   | "report"
   | "audit";
 
+const TAB_KEYS: TabKey[] = [
+  "overview",
+  "dd_grid",
+  "documents",
+  "requests",
+  "report",
+  "audit",
+];
+
+function isTabKey(value: string | null): value is TabKey {
+  return !!value && TAB_KEYS.includes(value as TabKey);
+}
+
 const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const latestRunId = deal.last_run_id ?? null;
+  const hasLatestRun = !!latestRunId;
 
-  // Права пользователя в контексте этой сделки
   const {
     canViewOverview,
     canManageRequests,
@@ -45,40 +55,19 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   const canManageProject = canUploadDocuments || canManageRequests;
 
-  // Инициализация activeTab из query-параметра ?tab=
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = React.useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
+
   const tabFromUrl = searchParams.get("tab");
 
-  const initialTab: TabKey =
-    tabFromUrl === "dd_grid"
-      ? "dd_grid"
-      : tabFromUrl === "documents"
-      ? "documents"
-      : tabFromUrl === "requests"
-      ? "requests"
-      : tabFromUrl === "report"
-      ? "report"
-      : tabFromUrl === "audit"
-      ? "audit"
-      : "overview";
+  const initialTab: TabKey = isTabKey(tabFromUrl) ? tabFromUrl : "overview";
 
   const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
 
-  // Если меняется ?tab= в URL (например, при ручном вводе), синхронизируем activeTab
   React.useEffect(() => {
-    if (tabFromUrl === "dd_grid") {
-      setActiveTab("dd_grid");
-    } else if (tabFromUrl === "documents") {
-      setActiveTab("documents");
-    } else if (tabFromUrl === "requests") {
-      setActiveTab("requests");
-    } else if (tabFromUrl === "report") {
-      setActiveTab("report");
-    } else if (tabFromUrl === "audit") {
-      setActiveTab("audit");
-    } else {
-      setActiveTab("overview");
-    }
+    setActiveTab(isTabKey(tabFromUrl) ? tabFromUrl : "overview");
   }, [tabFromUrl]);
 
   const handleOpenMembers = () => {
@@ -101,7 +90,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     navigate(`/projects/${deal.id}/playbooks/admin`);
   };
 
-  // Переход к настройке профиля модели (страница админки ModelConfig)
   const handleOpenModelConfig = () => {
     const params = new URLSearchParams();
     params.set("dealId", deal.id);
@@ -111,16 +99,16 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     navigate(`/admin/model-configs?${params.toString()}`);
   };
 
-  // Опционально: при клике по табам можно обновлять ?tab= в URL,
-  // чтобы ссылка на страницу сохраняла активную вкладку.
   const handleSetTab = (tab: TabKey) => {
     setActiveTab(tab);
+
     const params = new URLSearchParams(location.search);
     if (tab === "overview") {
       params.delete("tab");
     } else {
       params.set("tab", tab);
     }
+
     navigate(
       {
         pathname: location.pathname,
@@ -130,7 +118,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     );
   };
 
-  // Человекочитаемый текст для режима последнего анализа (если есть)
   const renderLastRunMode = () => {
     const mode = deal.last_run_checks_mode;
     if (!mode) return null;
@@ -141,24 +128,27 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     return mode;
   };
 
+  const renderRunRequiredState = (title: string, description: string) => (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4">
+      <p className="text-sm font-medium text-amber-900">{title}</p>
+      <p className="mt-1 text-sm text-amber-800">{description}</p>
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
-      {/* Заголовок сделки + кнопки администратора/редактора */}
       <header className="bg-white rounded-lg p-5 border flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {deal.name}
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">{deal.name}</h1>
+
           <p className="text-sm text-gray-500">
             Сделка #{deal.id} · статус: {deal.status}
           </p>
 
-          {/* Блок с информацией о последнем анализе, если он был */}
-          {deal.last_run_id && (
+          {hasLatestRun && (
             <div className="mt-1 text-xs text-gray-500 space-y-0.5">
-              <p>
-                Последний анализ: run {deal.last_run_id}
-              </p>
+              <p>Последний анализ: run {deal.last_run_id}</p>
+
               {renderLastRunMode() && (
                 <p>
                   Режим проверок:{" "}
@@ -167,6 +157,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                   </span>
                 </p>
               )}
+
               {deal.last_run_pipeline_strategy && (
                 <p>
                   Стратегия пайплайна:{" "}
@@ -194,6 +185,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             >
               Участники проекта
             </button>
+
             {canUploadDocuments && (
               <button
                 type="button"
@@ -203,6 +195,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                 Загрузить новые документы
               </button>
             )}
+
             <button
               type="button"
               onClick={handleOpenPlaybook}
@@ -210,6 +203,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             >
               Playbook проекта
             </button>
+
             <button
               type="button"
               onClick={handleOpenPlaybookTemplates}
@@ -221,11 +215,16 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         )}
       </header>
 
-      {/* Вкладки */}
       <div>
-        <div className="border-b flex gap-4 text-sm overflow-x-auto">
+        <div
+          className="border-b flex gap-4 text-sm overflow-x-auto"
+          role="tablist"
+          aria-label="Вкладки сделки"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "overview"}
             onClick={() => handleSetTab("overview")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "overview"
@@ -238,6 +237,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "dd_grid"}
             onClick={() => handleSetTab("dd_grid")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "dd_grid"
@@ -250,6 +251,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "documents"}
             onClick={() => handleSetTab("documents")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "documents"
@@ -262,6 +265,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "requests"}
             onClick={() => handleSetTab("requests")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "requests"
@@ -274,6 +279,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "report"}
             onClick={() => handleSetTab("report")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "report"
@@ -286,6 +293,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "audit"}
             onClick={() => handleSetTab("audit")}
             className={`px-3 py-2 font-medium border-b-2 transition-all duration-200 ${
               activeTab === "audit"
@@ -297,10 +306,9 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           </button>
         </div>
 
-        {/* Контент вкладок */}
         <div className="mt-6">
           {activeTab === "overview" && (
-            <div className="transition-opacity duration-200 opacity-100">
+            <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
               <OverviewTab
                 deal={deal}
                 latestRunId={latestRunId}
@@ -310,31 +318,52 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           )}
 
           {activeTab === "dd_grid" && (
-            <div className="transition-opacity duration-200 opacity-100">
-              <GridTab dealId={deal.id} runId={latestRunId} />
+            <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
+              {hasLatestRun ? (
+                <GridTab dealId={deal.id} runId={latestRunId} />
+              ) : (
+                renderRunRequiredState(
+                  "DD Grid пока недоступен",
+                  "Для этой сделки ещё не запускался анализ. Запустите первый run, чтобы открыть матрицу проверок.",
+                )
+              )}
             </div>
           )}
 
           {activeTab === "documents" && (
-            <div className="transition-opacity duration-200 opacity-100">
-              <DocumentsTab deal={deal} />
+            <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
+              {hasLatestRun ? (
+                <DocumentsTab deal={deal} runId={latestRunId} />
+              ) : (
+                renderRunRequiredState(
+                  "Список review-документов пока недоступен",
+                  "Карточки документов в review-режиме появляются после первого анализа сделки.",
+                )
+              )}
             </div>
           )}
 
           {activeTab === "requests" && (
-            <div className="transition-opacity duration-200 opacity-100">
-              <RequestsTab dealId={deal.id} />
+            <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
+              {hasLatestRun ? (
+                <RequestsTab dealId={deal.id} runId={latestRunId} />
+              ) : (
+                renderRunRequiredState(
+                  "DD-запросы пока недоступны",
+                  "Сначала нужен хотя бы один run, чтобы система сформировала запросы по найденным рискам.",
+                )
+              )}
             </div>
           )}
 
           {activeTab === "report" && (
-            <div className="transition-opacity duration-200 opacity-100">
+            <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
               <ReportTab dealId={deal.id} />
             </div>
           )}
 
           {activeTab === "audit" && (
-            <div className="transition-opacity duration-200 opacity-100">
+            <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
               <AuditTab dealId={deal.id} />
             </div>
           )}
@@ -345,3 +374,5 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 };
 
 export default DealPage;
+
+

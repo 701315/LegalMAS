@@ -1,5 +1,3 @@
-# src/db/repositories/result_repo.py
-
 """
 Repository for CheckResult operations.
 
@@ -30,6 +28,7 @@ from core.constants import CheckExecutionStatus  # новый enum для execut
 from ..models.result import CheckResult
 from ..models.document import Document  # подтягиваем документы к результатам
 from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
+
 
 def normalize_origin_type(origin: str | None) -> str | None:
     """
@@ -110,7 +109,12 @@ class ResultRepository:
         trigger_name: str | None = None,
         origin: str | None = None,
     ) -> CheckResult:
-        """Создать результат проверки."""
+        """
+        Простой метод создания результата без idempotent-логики.
+
+        ВАЖНО: он не учитывает segment_id и уникальные индексы.
+        Для нормальной работы пайплайна используется upsert_single_check_result.
+        """
         cr = CheckResult(
             run_id=run_id,
             document_id=document_id,
@@ -285,7 +289,12 @@ class ResultRepository:
         return result.rowcount
 
     async def count_by_severity(self, run_id: uuid.UUID) -> dict[str, int]:
-        """Посчитать количество результатов по severity для run."""
+        """
+        Посчитать количество результатов по severity для run.
+
+        ВАЖНО: считаем все строки check_results, в том числе сегментные.
+        Для бизнес-метрик агрегатор сверху может считать по-другому.
+        """
         stmt = (
             select(CheckResult.severity, func.count(CheckResult.id))
             .where(CheckResult.run_id == run_id)
@@ -307,6 +316,9 @@ class ResultRepository:
         """
         Пагинированный список результатов для одного run с фильтрами.
         Возвращает (items, total), где items — dict'ы, совместимые с CheckResultResponse.
+
+        ВАЖНО: здесь мы показываем "сырые" строки результатов,
+        поэтому segment_id/segment_* попадают в ответ как есть.
         """
         base_stmt = (
             select(
@@ -402,13 +414,26 @@ class ResultRepository:
         run_id: uuid.UUID,
         document_id: uuid.UUID,
         check_id: str,
+        segment_id: str | None,
     ) -> CheckResult | None:
-        """Найти один результат по ключу (run, doc, check)."""
+        """
+        Найти один результат по ключу (run, doc, segment, check).
+
+        Для непрофессионального программиста:
+        - single-document: segment_id = None → ищем запись с segment_id IS NULL;
+        - multi-document: segment_id = "seg-123" → ищем запись с этим segment_id.
+        """
         stmt = select(CheckResult).where(
             CheckResult.run_id == run_id,
             CheckResult.document_id == document_id,
             CheckResult.check_id == check_id,
         )
+
+        if segment_id is None:
+            stmt = stmt.where(CheckResult.segment_id.is_(None))
+        else:
+            stmt = stmt.where(CheckResult.segment_id == segment_id)
+
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -445,13 +470,11 @@ class ResultRepository:
         error_details: dict | None = None,
     ) -> CheckResult:
         """
-        Создать или обновить результат одной проверки (идемпотентно по run/doc/check).
+        Создать или обновить результат одной проверки.
 
-        ВАЖНО:
-        - запись обёрнута в try/except DBAPIError;
-        - при любой DB-ошибке делаем session.rollback();
-        - дальше поднимаем понятное исключение, чтобы вызывающий код
-          мог решить, ретраить задачу или считать её permanent-фейлом.
+        Идемпотентность теперь по ключу (run, doc, segment_id, check):
+        - для single-document: segment_id = None;
+        - для multi-document: отдельная запись на каждый сегмент.
         """
         now = datetime.now(UTC)
 
@@ -486,9 +509,11 @@ class ResultRepository:
                 status_value = CheckExecutionStatus.FAILED.value
 
         try:
-            existing = await self.get_one(run_id, document_id, check_id)
+            # ВАЖНО: теперь get_one учитывает segment_id.
+            existing = await self.get_one(run_id, document_id, check_id, segment_id)
 
             if existing is None:
+                # Создаём новую строку результата.
                 cr = CheckResult(
                     run_id=run_id,
                     document_id=document_id,
@@ -525,7 +550,7 @@ class ResultRepository:
                 await self.session.flush()
                 return cr
 
-            # Обновляем существующую запись (например, после partial failure/timeout)
+            # Обновляем существующую запись (например, после partial failure/timeout).
             existing.check_name = check_name
             existing.result = result
             existing.severity = severity
@@ -543,7 +568,7 @@ class ResultRepository:
             existing.clause_uid = clause_uid
             existing.element_id = element_id
             existing.bbox = bbox
-            # новые поля:
+            # новые поля сегмента:
             existing.segment_id = segment_id
             existing.segment_type = segment_type
             existing.segment_title = segment_title
@@ -635,7 +660,12 @@ class ResultRepository:
     async def count_distinct_checks_for_run(self, run_id: uuid.UUID) -> int:
         """
         Сколько уникальных пар (document_id, check_id) вообще есть в check_results для run.
-        Это наш фактически материализованный прогресс по checks.
+
+        ВАЖНО:
+        - здесь мы сознательно считаем уникальные проверки на документ,
+          без учёта сегментов (segment_id).
+        - это означает: если у документа есть check X хотя бы в одном сегменте,
+          он считается один раз.
         """
         stmt = select(func.count()).select_from(
             select(
@@ -651,8 +681,14 @@ class ResultRepository:
     async def count_finished_checks_for_run(self, run_id: uuid.UUID) -> int:
         """
         Сколько уникальных пар (document_id, check_id) уже в финальном execution_status.
+
         Финальные статусы: SUCCESS, COMPUTE_FAILED, PERSIST_FAILED, TIMEOUT
         (и legacy FAILED для обратной совместимости).
+
+        ВАЖНО:
+        - мы по-прежнему считаем по (document_id, check_id), без segment_id.
+        - то есть, если хотя бы один сегмент по check'у в финальном статусе,
+          этот (doc, check) считается "finished".
         """
         finished_statuses = [
             CheckExecutionStatus.SUCCESS.value,
@@ -679,7 +715,16 @@ class ResultRepository:
     async def count_documents_fully_finished_for_run(self, run_id: uuid.UUID) -> int:
         """
         Сколько документов полностью завершили все свои checks.
-        Используем для метрик «прогресс по документам» (сколько документов имеют все checks в финальном статусе).
+
+        Используем для метрик «прогресс по документам» (сколько документов
+        имеют все checks в финальном статусе).
+
+        ВАЖНО:
+        - здесь считаем по всем строкам (включая сегменты),
+          но условие "все checks завершены" проверяется по количеству строк.
+        - этот метод оставляем без segment_id в ключе на этом этапе, потому что
+          бизнес-смысл "полностью завершён" нам ещё нужно переосмыслить
+          с учётом сегментов (можем сделать это отдельной задачей).
         """
         finished_statuses = [
             CheckExecutionStatus.SUCCESS.value,
@@ -735,6 +780,7 @@ class ResultRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
+    
 
 
     

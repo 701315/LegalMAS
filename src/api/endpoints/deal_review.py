@@ -345,3 +345,5 @@ async def get_dd_matrix(
     )
     agg, documents = await load_aggregated_results(deal_id, run_id)
     return build_dd_matrix(agg, documents)
+
+

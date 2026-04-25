@@ -1,3 +1,5 @@
+# src/db/models/result.py
+
 """
 CheckResult model — result of a single DD check on a document.
 Each check produces one result with evidence, severity, and QC status.
@@ -247,12 +249,32 @@ class CheckResult(Base):
             "is_primary_segment",
             postgresql_where=(is_primary_segment.isnot(None)),
         ),
+        # Для непрофессионального программиста:
+        # Ниже мы описываем ту же логику уникальности, которую уже внесли миграцией в БД.
+        #
+        # 1) Если segment_id IS NULL:
+        #    это обычный single-document режим,
+        #    и допускается только одна запись на (run_id, document_id, check_id).
         Index(
-            "uq_results_run_doc_check",
+            "uq_results_run_doc_check_no_segment",
             "run_id",
             "document_id",
             "check_id",
             unique=True,
+            postgresql_where=(segment_id.is_(None)),
+        ),
+        # 2) Если segment_id IS NOT NULL:
+        #    это multi-document режим,
+        #    и допускается отдельная запись на каждый сегмент:
+        #    (run_id, document_id, segment_id, check_id).
+        Index(
+            "uq_results_run_doc_segment_check",
+            "run_id",
+            "document_id",
+            "segment_id",
+            "check_id",
+            unique=True,
+            postgresql_where=(segment_id.isnot(None)),
         ),
     )
 

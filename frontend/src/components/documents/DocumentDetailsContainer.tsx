@@ -4,11 +4,13 @@
 //
 // Модель:
 // - useDocumentDetailsState возвращает нормализованный стейт документа
-// - контейнер адаптирует стейт → view-пропсы для DocumentDetails
-// - structured-data теперь берём из /documents/{doc_id}/extracted-values
+// - контейнер адаптирует state → view props для DocumentDetails
+// - structured-data берём из /documents/{doc_id}/extracted-values
+// - review-data берём из dd-matrix DTO (document-scoped adapter)
 // =============================================================
 
-import React from "react";
+import React, { useMemo } from "react";
+
 import {
   useDocumentFamily,
   useReclassifyDocument,
@@ -21,31 +23,52 @@ import {
 } from "../../api/documents.stateHooks";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useDocumentTypes } from "../../api/documentTypes";
+import { selectDocumentReviewCells } from "../../api/dealReview";
+import {
+  adaptFamilyFromDto,
+  adaptDocumentReviewView,
+} from "../../api/documents.viewAdapters";
 
 import type {
   Document,
   ReclassifyInput,
+  OpenViewerAtFn,
 } from "../../types";
+import type { DDMatrixResponseDTO } from "../../types/dealReview";
 
 import { DocumentDetails as DocumentDetailsView } from "./DocumentDetails";
-import { adaptFamilyFromDto } from "../../api/documents.viewAdapters";
 import type {
   DocumentDetailsViewClassification,
   DocumentFamilyView,
   StructuredDataView,
+  DocumentReviewView,
 } from "./DocumentDetails";
+
 
 interface Props {
   docId: string;
   dealId: string;
+
   /** Опциональный callback для навигации в DD Grid с фильтром по документу. */
   onNavigateToGrid?: (dealId: string, docName: string) => void;
+
+  /** Опциональный callback для открытия viewer в точке документа. */
+  onOpenAtLocation?: OpenViewerAtFn;
+
+  /** DD Matrix data, если контейнер используется в review-контексте. */
+  ddMatrix?: DDMatrixResponseDTO | null;
+
+  /** Открыть детали review-ячейки (например, DDMatrixCellDetails). */
+  onOpenReviewCell?: (checkId: string, checkName: string) => void;
 }
 
 export const DocumentDetailsContainer: React.FC<Props> = ({
   docId,
   dealId,
   onNavigateToGrid,
+  onOpenAtLocation,
+  ddMatrix,
+  onOpenReviewCell,
 }) => {
   // --- Стейт документа (детали + классификация) ---
   const detailsState = useDocumentDetailsState(docId);
@@ -77,7 +100,6 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
   // --- Адаптация стейтов к view-модели ---
-
   const doc: Document | null = detailsState.doc;
   const classification: DocumentDetailsViewClassification | null =
     detailsState.classification;
@@ -96,6 +118,15 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   }
 
   const structuredNotAvailable = structuredState.notAvailable;
+
+  const reviewData: DocumentReviewView | null = useMemo(() => {
+    if (!ddMatrix || !docId) return null;
+
+    const cells = selectDocumentReviewCells(ddMatrix, docId);
+    if (!cells.length) return null;
+
+    return adaptDocumentReviewView(cells);
+  }, [ddMatrix, docId]);
 
   const handleSetReviewed = (checked: boolean) => {
     setReviewedMutation.mutate(checked);
@@ -120,6 +151,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       family={family}
       structuredData={structuredData}
       structuredNotAvailable={structuredNotAvailable}
+      reviewData={reviewData}
       isLoading={isLoading}
       notFound={detailsState.notFound}
       error={detailsState.error}
@@ -137,6 +169,8 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
           : undefined
       }
       onNavigateToGrid={onNavigateToGrid}
+      onOpenAtLocation={onOpenAtLocation}
+      onOpenReviewCell={onOpenReviewCell}
       onReplaceFile={handleReplaceFile}
       availableDocTypes={availableDocTypes}
       initialDocType={doc?.doc_type ?? ""}
@@ -145,4 +179,5 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
 };
 
 export default DocumentDetailsContainer;
+
 

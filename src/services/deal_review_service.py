@@ -49,6 +49,7 @@ logger = get_logger(__name__)
 # Загрузка AggregatedResults из БД
 # ---------------------------------------------------------------------------
 
+
 async def load_aggregated_results(
     deal_id: str,
     run_id: str,
@@ -103,6 +104,7 @@ async def load_aggregated_results(
 # ---------------------------------------------------------------------------
 # Маппинг AggregatedResults → DTO для существующих UI-эндпоинтов
 # ---------------------------------------------------------------------------
+
 
 def build_document_summaries(
     agg: AggregatedResults,
@@ -166,6 +168,9 @@ def build_document_detail(
 
     Для каждого чека подтягивает structured_data напрямую из agg.rows
     (это сырой JSON из CheckResult.structured_data с полями value/source/confidence/found/location/qc).
+
+    ВНИМАНИЕ: сейчас карточка остаётся документ-ориентированной (без segment‑группировки),
+    чтобы не ломать существующий контракт фронта.
     """
     doc_meta = documents.get(document_id)
     if not doc_meta:
@@ -176,8 +181,6 @@ def build_document_detail(
         if row.document_id != document_id:
             continue
 
-        # В AggregatedResults.row.* уже должен лежать structured_data из CheckResult
-        # Если его нет, отдаём пустой dict – фронт покажет "нет извлечённых данных".
         structured_data = row.structured_data or {}
 
         checks.append(
@@ -196,6 +199,12 @@ def build_document_detail(
                 trigger_name=row.trigger_name,
                 structured_data=structured_data,
                 origin=row.origin,
+                # NEW: segment metadata (совпадает с DTO)
+                segment_id=row.segment_id or None,
+                segment_type=row.segment_type or None,
+                segment_title=row.segment_title or None,
+                segment_order=row.segment_order,
+                is_primary_segment=row.is_primary_segment,
             )
         )
 
@@ -257,6 +266,10 @@ def build_extracted_values(agg: AggregatedResults) -> list[ExtractedValueDTO]:
     """
     Построить список извлечённых структурированных значений для UI
     из AggregatedResults.structured_value_rows.
+
+    Теперь DTO ExtractedValueDTO содержит опциональные segment-поля,
+    поэтому мы можем аккуратно их пробросить без изменения контракта
+    для существующих клиентов.
     """
     return [
         ExtractedValueDTO(
@@ -268,6 +281,11 @@ def build_extracted_values(agg: AggregatedResults) -> list[ExtractedValueDTO]:
             field_format=sv.field_format,
             page=sv.page,
             clause_uid=sv.clause_uid or "",
+            segment_id=sv.segment_id or None,
+            segment_type=sv.segment_type or None,
+            segment_title=sv.segment_title or None,
+            segment_order=sv.segment_order,
+            is_primary_segment=sv.is_primary_segment,
         )
         for sv in agg.structured_value_rows
     ]
@@ -276,6 +294,7 @@ def build_extracted_values(agg: AggregatedResults) -> list[ExtractedValueDTO]:
 # ---------------------------------------------------------------------------
 # DD Matrix — матричное представление всех результатов рана
 # ---------------------------------------------------------------------------
+
 
 def build_dd_matrix(
     agg: AggregatedResults,
@@ -300,18 +319,16 @@ def build_dd_matrix(
     5. Строки сортируются по убыванию рисков:
        сначала critical fail, затем остальные fail.
     6. Формируем global_check_ids и doc_type_check_ids для вкладок фронта.
+
+    ВНИМАНИЕ: текущая реализация остаётся документ-ориентированной
+    (ячейка = результат по документу, без отдельного измерения сегментов).
+    Для полноценной segment-матрицы потребуется расширить DTO и фронт.
     """
 
-    # ------------------------------------------------------------------
-    # Шаг 1. Реестр уникальных чеков (описания столбцов матрицы)
-    # Два прохода: сначала GLOBAL_PLAYBOOK (они получат меньший order_index),
-    # затем DOCUMENT_TYPE и CONDITIONAL.
-    # ------------------------------------------------------------------
-
-    # check_id → dict с метаданными чека
+    # Шаг 1. Реестр уникальных чеков
     seen_checks: dict[str, dict[str, Any]] = {}
 
-    # Проход 1: только глобальные чеки
+    # Проход 1: GLOBAL_PLAYBOOK
     for row in agg.rows:
         origin = (row.origin or "").upper()
         if origin != "GLOBAL_PLAYBOOK":
@@ -322,18 +339,16 @@ def build_dd_matrix(
                 "check_name": row.check_name,
                 "origin": "GLOBAL_PLAYBOOK",
                 "severity": row.severity,
-                "applicable_doc_types": None,  # None = применим ко всем
+                "applicable_doc_types": None,
             }
 
-    # Проход 2: doc-type и conditional чеки
+    # Проход 2: DOCUMENT_TYPE / CONDITIONAL
     for row in agg.rows:
         origin = (row.origin or "").upper()
         if origin == "GLOBAL_PLAYBOOK":
             continue
 
-        resolved_origin = (
-            "CONDITIONAL" if row.conditional_check_triggered else "DOCUMENT_TYPE"
-        )
+        resolved_origin = "CONDITIONAL" if row.conditional_check_triggered else "DOCUMENT_TYPE"
 
         if row.check_id not in seen_checks:
             seen_checks[row.check_id] = {
@@ -344,12 +359,10 @@ def build_dd_matrix(
                 "applicable_doc_types": [],
             }
 
-        # Пополняем список применимых типов документов
         applicable = seen_checks[row.check_id]["applicable_doc_types"]
         if applicable is not None and row.doc_type not in applicable:
             applicable.append(row.doc_type)
 
-    # Присваиваем order_index и строим вспомогательные списки для фронта
     checks_list: list[CheckMetaDTO] = []
     global_check_ids: list[str] = []
     doc_type_check_ids: dict[str, list[str]] = defaultdict(list)
@@ -372,10 +385,7 @@ def build_dd_matrix(
                 if check_id not in doc_type_check_ids[doc_type]:
                     doc_type_check_ids[doc_type].append(check_id)
 
-    # ------------------------------------------------------------------
-    # Шаг 2. Индекс структурированных значений:
-    # (doc_id, check_id) → [ExtractedFieldDTO]
-    # ------------------------------------------------------------------
+    # Шаг 2. Индекс структурированных значений: (doc_id, check_id) → [ExtractedFieldDTO]
     sv_index: dict[tuple[str, str], list[ExtractedFieldDTO]] = defaultdict(list)
     for sv in agg.structured_value_rows:
         key = (sv.document_id, sv.check_id)
@@ -387,22 +397,17 @@ def build_dd_matrix(
             )
         )
 
-    # ------------------------------------------------------------------
     # Шаг 3. Индекс результатов: (doc_id, check_id) → ExportRow
-    # При дублях (не должно быть) побеждает последний — это безопасно.
-    # ------------------------------------------------------------------
     result_index: dict[tuple[str, str], Any] = {}
     for row in agg.rows:
         result_index[(row.document_id, row.check_id)] = row
 
-    # Уникальные документы в порядке первого появления в agg.rows
+    # Уникальные документы в порядке первого появления
     doc_order: dict[str, None] = {}
     for row in agg.rows:
         doc_order[row.document_id] = None
 
-    # ------------------------------------------------------------------
     # Шаг 4. Строим строки матрицы
-    # ------------------------------------------------------------------
     matrix_rows: list[DocumentMatrixRowDTO] = []
 
     for doc_id in doc_order:
@@ -412,7 +417,6 @@ def build_dd_matrix(
         for check_id in seen_checks:
             export_row = result_index.get((doc_id, check_id))
             if export_row is None:
-                # Чек не применялся к документу — ячейки нет (n/a)
                 continue
 
             results[check_id] = MatrixCellDTO(
@@ -439,18 +443,14 @@ def build_dd_matrix(
                 classification_confidence=float(
                     doc_meta.get("classification_confidence", 0.0)
                 ),
-                # Новое поле: флаг, что документ требует ручной проверки
                 requires_manual_review=bool(
                     doc_meta.get("classification_requires_review") or False
                 ),
                 results=results,
             )
         )
-        
-    # ------------------------------------------------------------------
-    # Шаг 5. Сортировка: сначала документы с наибольшим числом critical fail,
-    # затем по общему числу fail. Карантинные документы уходят в конец.
-    # ------------------------------------------------------------------
+
+    # Шаг 5. Сортировка строк по риску, карантин в конец
     matrix_rows.sort(
         key=lambda r: (
             1 if r.status == "quarantine" else 0,
@@ -462,9 +462,7 @@ def build_dd_matrix(
         )
     )
 
-    # ------------------------------------------------------------------
     # Шаг 6. Финальная сборка ответа
-    # ------------------------------------------------------------------
     return DDMatrixResponseDTO(
         deal_id=agg.deal_id,
         run_id=agg.run_id,
@@ -480,3 +478,5 @@ def build_dd_matrix(
         degraded_count=agg.degraded_count,
         evidence_validity_rate=round(agg.evidence_validity_rate, 3),
     )
+
+

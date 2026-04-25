@@ -18,9 +18,10 @@ import { useDealPermissions } from "../../hooks/usePermissions";
 
 interface Props {
   dealId: string;
+  runId: string | null;
 }
 
-export const RequestsTab: React.FC<Props> = ({ dealId }) => {
+export const RequestsTab: React.FC<Props> = ({ dealId, runId: _runId }) => {
   const { data: requests, isLoading } = useRequests(dealId);
 
   const updateMutation = useUpdateRequest(dealId);
@@ -28,9 +29,9 @@ export const RequestsTab: React.FC<Props> = ({ dealId }) => {
   const exportRequestsMutation = useExportRequests();
 
   const perms = useDealPermissions(dealId);
-  console.log("deal permissions", dealId, JSON.stringify(perms, null, 2));
+  const { canManageRequests } = perms;
 
-  const { canManageRequests } = useDealPermissions(dealId);
+  console.log("deal permissions", dealId, JSON.stringify(perms, null, 2));
 
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
 
@@ -138,3 +139,5 @@ export const RequestsTab: React.FC<Props> = ({ dealId }) => {
 };
 
 export default RequestsTab;
+
+

@@ -31,6 +31,8 @@ export type {
 
 export { ALL_DOCUMENT_COLUMNS } from "./documents";
 
+export * from "./dealReview";
+
 export type {
   RunStatus,
   RunCreateInput,

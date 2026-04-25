@@ -52,7 +52,8 @@ DD‑запросы, плоские строки экспорта, условн�
 import hashlib
 import uuid as uuid_module
 from collections import defaultdict
-from typing import Dict, List, Tuple, Any
+from typing import Any
+
 from core.config import settings
 from core.logging import get_logger
 from services.export.dd_request_loader import get_dd_request_loader
@@ -87,7 +88,12 @@ def aggregate_results(
             document_id,
             structured_data (NEW),
             conditional_check_triggered (NEW),
-            trigger_name (NEW)
+            trigger_name (NEW),
+            segment_id (NEW),
+            segment_type (NEW),
+            segment_title (NEW),
+            segment_order (NEW),
+            is_primary_segment (NEW)
         documents: Dict of document_id → {
             name, folder_path, doc_type, status,
             classification_level (NEW),
@@ -157,14 +163,12 @@ def aggregate_results(
             else ""
         )
 
-        # NEW: structured_data preview
         structured_data = cr.get("structured_data") or {}
         structured_preview = ""
         if structured_data and settings.EXPORT_STRUCTURED_DATA_ENABLED:
             parts = [f"{k}={v}" for k, v in list(structured_data.items())[:3]]
             structured_preview = "; ".join(parts)
 
-        # NEW: conditional check metadata
         is_conditional = bool(cr.get("conditional_check_triggered"))
         trigger_name = cr.get("trigger_name", "")
 
@@ -194,10 +198,14 @@ def aggregate_results(
             classification_level=doc_info.get("classification_level", ""),
             classification_confidence=doc_info.get("classification_confidence", 0.0),
             origin=cr.get("origin"),
+            segment_id=cr.get("segment_id") or "",
+            segment_type=cr.get("segment_type") or "",
+            segment_title=cr.get("segment_title") or "",
+            segment_order=cr.get("segment_order"),
+            is_primary_segment=cr.get("is_primary_segment"),
         )
         rows.append(row)
 
-        # NEW: Conditional checks sheet rows
         if is_conditional and settings.EXPORT_CONDITIONAL_CHECKS_SHEET:
             conditional_rows.append(
                 ConditionalCheckRow(
@@ -218,13 +226,11 @@ def aggregate_results(
                 )
             )
 
-        # NEW: Structured value rows
         if structured_data and settings.EXPORT_STRUCTURED_DATA_ENABLED:
             for field_name, field_value in structured_data.items():
                 if not field_value or str(field_value) in ("not_found", "None", ""):
                     continue
 
-                # Аккуратно приводим к строке для отображения
                 if isinstance(field_value, dict) and "value" in field_value:
                     display_value = str(field_value["value"])
                 else:
@@ -241,7 +247,12 @@ def aggregate_results(
                         page=cr.get("page"),
                         clause_uid=cr.get("clause_uid", ""),
                         document_id=doc_id,
-                        check_id=cr.get("check_id", ""),  # NEW
+                        check_id=cr.get("check_id", ""),
+                        segment_id=cr.get("segment_id") or "",
+                        segment_type=cr.get("segment_type") or "",
+                        segment_title=cr.get("segment_title") or "",
+                        segment_order=cr.get("segment_order"),
+                        is_primary_segment=cr.get("is_primary_segment"),
                     )
                 )
 
@@ -249,18 +260,6 @@ def aggregate_results(
     agg.rows = rows
     agg.conditional_rows = conditional_rows
     agg.structured_value_rows = structured_value_rows
-
-    Key = Tuple[str, str]  # (document_id, check_id)
-
-    def build_structured_values_index(
-        rows: list[StructuredValueRow],
-    ) -> dict[tuple[str, str], list[StructuredValueRow]]:
-        index: dict[tuple[str, str], list[StructuredValueRow]] = defaultdict(list)
-        for sv in rows:
-            key = (str(sv.document_id), str(sv.check_id))
-            index[key].append(sv)
-        return index
-
 
     # --- Step 2: Top Risks ---
     fail_rows = [r for r in rows if r.result == "fail"]
@@ -283,7 +282,9 @@ def aggregate_results(
                 (
                     cr.get("structured_data") or {}
                     for cr in check_results
-                    if cr.get("check_id") == r.check_id and cr.get("document_id") == r.document_id
+                    if cr.get("check_id") == r.check_id
+                    and cr.get("document_id") == r.document_id
+                    and (cr.get("segment_id") or "") == (r.segment_id or "")
                 ),
                 {},
             ),
@@ -293,8 +294,7 @@ def aggregate_results(
         for r in fail_rows[: settings.EXPORT_TOP_RISKS_COUNT]
     ]
 
-    # --- Step 3: DD Requests (text from YAML templates) ---
-    # NEW (Ошибка 6): добавляем unclear-critical/high в список для DD-запросов
+    # --- Step 3: DD Requests ---
     unclear_important = [
         r for r in rows
         if r.result == "unclear" and r.severity in ("critical", "high")
@@ -302,7 +302,7 @@ def aggregate_results(
     all_rows_for_requests = fail_rows + unclear_important
     agg.dd_requests = _generate_dd_requests(all_rows_for_requests, check_results)
 
-    # --- Step 4: Doc Type Summaries (with classification metadata) ---
+    # --- Step 4: Doc Type Summaries ---
     agg.doc_type_summaries = _build_doc_type_summaries(rows, documents)
 
     # --- Step 5: Quality metrics ---
@@ -347,7 +347,6 @@ def _generate_dd_requests(
     loader = get_dd_request_loader()
     severity_order = {"critical": 0, "high": 1, "medium": 2}
 
-    # rows_for_requests может содержать и fail, и unclear (critical/high)
     rows_for_requests = fail_rows
 
     if not settings.EXPORT_DD_REQUEST_DEDUP:
@@ -355,7 +354,6 @@ def _generate_dd_requests(
         for r in rows_for_requests:
             text, addressee = loader.render(r.check_id, r.check_name, [r.document_name])
 
-            # NEW (Ошибка 6): пометка unclear-critical/high как "требует уточнения"
             if r.result == "unclear" and r.severity in ("critical", "high"):
                 text = f"[ТРЕБУЕТ УТОЧНЕНИЯ] {text}"
 
@@ -376,12 +374,10 @@ def _generate_dd_requests(
             )
         return result
 
-    # Group by check_id (и для fail, и для unclear critical/high)
     by_check: dict[str, list[ExportRow]] = defaultdict(list)
     for row in rows_for_requests:
         by_check[row.check_id].append(row)
 
-    # Map check_id → structured values from results
     structured_by_check: dict[str, list[dict]] = defaultdict(list)
     for cr in check_results:
         sd = cr.get("structured_data") or {}
@@ -393,7 +389,7 @@ def _generate_dd_requests(
                     )
 
     requests: list[DDRequest] = []
-    seen_keys: set[str] = set()  # NEW (Ошибка 11): реальное использование dedup_key
+    seen_keys: set[str] = set()
     max_ev = getattr(settings, "EXPORT_EVIDENCE_MAX_LENGTH", 300)
 
     for check_id, group in by_check.items():
@@ -411,7 +407,6 @@ def _generate_dd_requests(
 
         text, addressee = loader.render(check_id, group[0].check_name, doc_names)
 
-        # NEW (Ошибка 6): если все строки в группе unclear-critical/high — запрос на уточнение
         if all(r.result == "unclear" for r in group) and any(
             r.severity in ("critical", "high") for r in group
         ):
@@ -421,7 +416,6 @@ def _generate_dd_requests(
             f"{check_id}:{','.join(sorted(doc_ids))}".encode()
         ).hexdigest()[:12]
 
-        # NEW (Ошибка 11): пропускаем дубли по dedup_key
         if dedup_key in seen_keys:
             continue
         seen_keys.add(dedup_key)
@@ -461,7 +455,6 @@ def _build_doc_type_summaries(
         unique_doc_ids = set(r.document_id for r in type_rows)
         type_docs = [documents.get(d, {}) for d in unique_doc_ids]
 
-        # Classification confidence stats
         confidences = [
             d.get("classification_confidence", 0.0)
             for d in type_docs
@@ -470,7 +463,6 @@ def _build_doc_type_summaries(
         avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
         low_conf = sum(1 for c in confidences if c < 0.6)
 
-        # NEW (Ошибка 13): считаем уникальные проверки, а не строки
         unique_checks = set(r.check_id for r in type_rows)
 
         summaries.append(
@@ -515,3 +507,8 @@ def _truncate(text: str, max_length: int) -> str:
     if len(text) <= max_length:
         return text
     return text[: max_length - 3] + "..."
+
+
+
+
+

@@ -59,7 +59,8 @@ class CheckItemDTO(BaseModel):
     - уверенность и используемый детектор;
     - флаги качества;
     - метаданные условной проверки;
-    - structured_data с извлечёнными полями.
+    - structured_data с извлечёнными полями;
+    - (опционально) метаданные сегмента для multi-document файлов.
     """
     check_id: str
     check_name: str
@@ -75,6 +76,14 @@ class CheckItemDTO(BaseModel):
     trigger_name: str | None
     structured_data: dict[str, Any]
     origin: str | None = None
+
+    # NEW: segment metadata (optional, для multi-document физических файлов)
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
 
 class CheckMetaDTO(BaseModel):
     """
@@ -94,6 +103,7 @@ class CheckMetaDTO(BaseModel):
     severity: str          # "critical" / "high" / "medium"
     order_index: int
     applicable_doc_types: list[str] | None = None
+
 
 class ExtractedFieldDTO(BaseModel):
     """
@@ -255,6 +265,9 @@ class ExtractedValueDTO(BaseModel):
     - сумма договора,
     - дата окончания,
     - название стороны и т.п.
+
+    Для multi-document файлов дополнительно может содержать сегмент,
+    к которому относится значение (основной договор, приложение, акт и т.п.).
     """
     document_name: str
     doc_type: str
@@ -264,6 +277,13 @@ class ExtractedValueDTO(BaseModel):
     field_format: str        # "money", "date", "entity_name", "text"
     page: int | None
     clause_uid: str
+
+    # NEW: опциональные метаданные сегмента
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
 
 
 class DocumentStructuredDataDTO(BaseModel):

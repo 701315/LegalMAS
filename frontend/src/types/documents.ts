@@ -196,11 +196,26 @@ export type StructuredClauseTree = ClauseNode[];
 export interface ExtractedValue {
   check_id: string;
   check_name: string;
+
   field_name: string;
   field_value: string;
-  field_format: string;
+
+  // Формат и дополнительные атрибуты значения могут быть опциональными
+  field_format?: string | null;
+
   page?: number | null;
   clause_uid?: string | null;
+
+  // Новое: сегмент, к которому относится значение
+  segment_id?: string | null;
+  segment_type?: string | null;
+  segment_title?: string | null;
+  segment_order?: number | null;
+  is_primary_segment?: boolean | null;
+
+  // Новое: привязка к чанку внутри сегмента/документа
+  chunk_id?: string | null;
+  chunk_index?: number | null;
 }
 
 export interface StructuredDataResult {

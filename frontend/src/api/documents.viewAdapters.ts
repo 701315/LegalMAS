@@ -7,15 +7,38 @@ import type {
   DocumentDetail,
   DocumentFamilyDto,
   StructuredDataResult,
+  SeverityLevel,
 } from "../types";
 
+import type { DocumentReviewCheckCell } from "./dealReview";
 
 import type {
   DocumentDetailsViewClassification,
   DocumentFamilyView,
   StructuredDataView,
+  DocumentReviewView,
+  DocumentReviewCheckView,
 } from "../components/documents/DocumentDetails";
 
+// -------------------------------------------------------------
+// Shared helpers
+// -------------------------------------------------------------
+
+function isRiskSeverity(
+  value: string | null | undefined,
+): value is SeverityLevel {
+  return (
+    value === "critical" ||
+    value === "high" ||
+    value === "medium" ||
+    value === "pass" ||
+    value === "unclear"
+  );
+}
+
+// -------------------------------------------------------------
+// Classification
+// -------------------------------------------------------------
 
 export function adaptClassification(
   detail: DocumentDetail | undefined,
@@ -33,12 +56,17 @@ export function adaptClassification(
   };
 }
 
+// -------------------------------------------------------------
+// Family
+// -------------------------------------------------------------
+
 export function adaptFamily(
   detail: DocumentDetail | undefined,
 ): DocumentFamilyView | null {
   if (!detail || !detail.family_id) {
     return null;
   }
+
   // Сейчас DocumentFamily приходит отдельным запросом /family,
   // поэтому здесь можно вернуть null, а фактический family собирать
   // в контейнере по данным из useDocumentFamily. Оставляем хелпер
@@ -68,12 +96,15 @@ export function adaptFamilyFromDto(
   };
 }
 
-
+// -------------------------------------------------------------
+// Structured data
+// -------------------------------------------------------------
 
 export function adaptStructuredDataView(
   structured: StructuredDataResult | undefined,
 ): StructuredDataView | null {
   if (!structured) return null;
+
   return {
     document_id: structured.document_id,
     filename: structured.filename,
@@ -82,3 +113,51 @@ export function adaptStructuredDataView(
     total_extracted: structured.total_extracted,
   };
 }
+
+// -------------------------------------------------------------
+// Review data (DD Matrix → DocumentDetails view)
+// -------------------------------------------------------------
+
+export function adaptDocumentReviewView(
+  cells: DocumentReviewCheckCell[],
+): DocumentReviewView {
+  const checks: DocumentReviewCheckView[] = cells.map(
+    ({ checkId, checkName, cell }) => ({
+      checkId,
+      checkName,
+      result: cell.result,
+      severity: isRiskSeverity(cell.severity) ? cell.severity : null,
+      snippet: cell.snippet ?? null,
+      page: cell.page ?? null,
+      clauseUid: cell.clause_uid ?? null,
+      confidence: cell.confidence ?? null,
+
+      segmentId: cell.segment_id ?? null,
+      segmentTitle: cell.segment_title ?? null,
+      segmentType: cell.segment_type ?? null,
+      segmentOrder: cell.segment_order ?? null,
+      isPrimarySegment: cell.is_primary_segment ?? null,
+
+      chunkId: cell.chunk_id ?? null,
+      chunkIndex: cell.chunk_index ?? null,
+
+      extractedFields: Array.isArray(cell.extracted)
+        ? cell.extracted.map((field) => ({
+            fieldName: field.field_name,
+            fieldValue: field.field_value,
+            fieldFormat: field.field_format ?? null,
+          }))
+        : [],
+    }),
+  );
+
+  return {
+    checks,
+    totalFail: checks.filter((c) => c.result === "fail").length,
+    totalUnclear: checks.filter((c) => c.result === "unclear").length,
+    totalCritical: checks.filter((c) => c.severity === "critical").length,
+    totalHigh: checks.filter((c) => c.severity === "high").length,
+  };
+}
+
+

@@ -1,6 +1,8 @@
 // =============================================================
 // src/pages/tabs/GridTab.tsx
-// Вкладка "DD Grid": поиск + фильтры + Magic Zoom + bulk QC.
+// Вкладка "DD Grid":
+// - legacy режим: поиск + фильтры + Magic Zoom + bulk QC поверх CheckResult[]
+// - review режим: backend dd-matrix DTO поверх run-scoped review API
 // =============================================================
 
 import React from "react";
@@ -10,6 +12,7 @@ import {
   useRejectResults,
   useOverrideResults,
 } from "../../api/qc";
+import { useDealReviewDdMatrix } from "../../api/dealReview";
 import type {
   CheckResult,
   QCStatus,
@@ -19,6 +22,7 @@ import type {
   OpenViewerAtPayload,
 } from "../../types";
 import DDGrid from "../../components/grid/DDGrid";
+import DDMatrixGrid from "../../components/grid/DDMatrixGrid";
 import GridFilters, {
   type QuickFilter,
 } from "../../components/grid/GridFilters";
@@ -33,6 +37,7 @@ import DocumentViewerModal, {
   type LayoutElement,
   type SizedChunkMeta,
 } from "../../components/viewer/DocumentViewerModal";
+import type { DDMatrixResponseDTO } from "../../types/dealReview";
 
 interface GridTabProps {
   dealId: string;
@@ -41,6 +46,7 @@ interface GridTabProps {
 
 type GridScope = "all" | "global" | "doctype";
 type GridMode = "matrix" | "list";
+type GridDataSource = "legacy" | "review";
 
 // Нормализованный тип источника проверки.
 type NormalizedOrigin = "global" | "doctype" | "other";
@@ -85,7 +91,34 @@ type ViewerState = {
   sizedChunks?: SizedChunkMeta[];
 } | null;
 
+function getReviewSummary(matrix: DDMatrixResponseDTO | undefined) {
+  if (!matrix) {
+    return {
+      documentCount: 0,
+      checkCount: 0,
+      criticalCount: 0,
+      highCount: 0,
+      mediumCount: 0,
+      unclearCount: 0,
+      passCount: 0,
+    };
+  }
+
+  return {
+    documentCount: matrix.total_documents ?? matrix.documents.length,
+    checkCount: matrix.total_checks ?? matrix.checks.length,
+    criticalCount: matrix.severity_counts?.critical ?? 0,
+    highCount: matrix.severity_counts?.high ?? 0,
+    mediumCount: matrix.severity_counts?.medium ?? 0,
+    unclearCount: matrix.severity_counts?.unclear ?? 0,
+    passCount: matrix.severity_counts?.pass ?? 0,
+  };
+}
+
 const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
+  const [dataSource, setDataSource] =
+    React.useState<GridDataSource>("legacy");
+
   const [searchText, setSearchText] = React.useState("");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [zoomResult, setZoomResult] = React.useState<CheckResult | null>(null);
@@ -115,11 +148,19 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const { canReclassifyDocuments } = useDealPermissions(dealId);
   const canDoQc = canReclassifyDocuments;
 
+  // Legacy источник
   const {
     data: allResults = [],
-    isLoading,
-    error,
+    isLoading: isLegacyLoading,
+    error: legacyError,
   } = useAllResults(runId);
+
+  // Новый review matrix источник
+  const {
+    data: ddMatrix,
+    isLoading: isReviewLoading,
+    error: reviewError,
+  } = useDealReviewDdMatrix(dealId, runId);
 
   // Загружаем информацию о Run, чтобы знать checks_mode / pipeline_strategy
   const {
@@ -140,6 +181,12 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       setGridScope("all");
     }
   }, [run]);
+
+  React.useEffect(() => {
+    if (dataSource === "review" && gridMode !== "matrix") {
+      setGridMode("matrix");
+    }
+  }, [dataSource, gridMode]);
 
   const confirmMutation = useConfirmResults();
   const rejectMutation = useRejectResults();
@@ -173,7 +220,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       results = results.filter((r) => r.doc_type === selectedDocType);
     }
 
-    // Новый фильтр: только те результаты, у которых есть structured_data
+    // Фильтр: только те результаты, у которых есть structured_data
     if (hasStructuredDataOnly) {
       results = results.filter((r) => r.structured_data != null);
     }
@@ -214,13 +261,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         break;
     }
 
-    console.log(
-      "DEBUG origins in filteredResults",
-      Array.from(
-        new Set(results.map((r) => String(r.origin ?? "(null)"))),
-      ),
-    );
-
     return results;
   }, [
     allResults,
@@ -236,15 +276,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         (r) => normalizeOrigin(r.origin, r.origin_type) === "global",
       ),
     [filteredResults],
-  );
-
-  console.log(
-    "DEBUG globalResults origins",
-    Array.from(
-      new Set(globalResults.map((r) => String(r.origin ?? "(null)"))),
-    ),
-    "len=",
-    globalResults.length,
   );
 
   const doctypeResults = React.useMemo(
@@ -285,7 +316,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
     if (gridScope === "doctype" && selectedScopeDocTypes.length > 0) {
       base = base.filter(
-        (r) => r.doc_type && selectedScopeDocTypes.includes(r.doc_type),
+        (r) => !!r.doc_type && selectedScopeDocTypes.includes(r.doc_type),
       );
     }
 
@@ -321,6 +352,11 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const selectedResults = React.useMemo(
     () => scopeResults.filter((r) => selectedIds.includes(r.id)),
     [scopeResults, selectedIds],
+  );
+
+  const reviewSummary = React.useMemo(
+    () => getReviewSummary(ddMatrix),
+    [ddMatrix],
   );
 
   const handleEyeClick = (result: CheckResult) => {
@@ -408,14 +444,13 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   // Коллбэк открытия viewer'a в нужном месте документа:
   // 1) тянем /api/v1/documents/{doc_id}/converted-pdf-url
-  // 2) ПАРАЛЛЕЛЬНО тянем layout + sized-chunks для overlay
+  // 2) параллельно тянем layout + sized-chunks для overlay
   // 3) кладём всё в стейт viewerState
   const openViewerAt: OpenViewerAtFn = async (loc) => {
     try {
       setViewerError(null);
       setIsViewerLoading(true);
 
-      // 1) PDF URL, как и раньше.
       const resp = await fetch(
         `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
         { credentials: "include" },
@@ -434,15 +469,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         return;
       }
 
-      // 2) Параллельно тянем layout и чанки для overlay.
-      //
-      // Для непрофессионального программиста:
-      // - здесь мы предполагаем, что на бэке есть два эндпоинта:
-      //   * GET /api/v1/documents/{id}/layout-for-viewer
-      //   * GET /api/v1/documents/{id}/sized-chunks
-      // - формат ответа мы сразу приводим к простым массивам:
-      //   * layoutElements: [{element_id, page, bbox}, ...]
-      //   * sizedChunks: [{id, metadata: {element_ids: [...] } }, ...]
       const [layoutResp, chunksResp] = await Promise.all([
         fetch(
           `/api/v1/documents/${loc.documentId}/layout-for-viewer`,
@@ -500,7 +526,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (!runId) {
     return (
-      <div className="text-sm text-gray-500 py-4">
+      <div className="py-4 text-sm text-gray-500">
         Нет выбранного запуска анализа. Сначала запустите анализ на вкладке
         «Обзор».
       </div>
@@ -509,7 +535,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (isRunLoading) {
     return (
-      <div className="text-sm text-gray-500 py-4">
+      <div className="py-4 text-sm text-gray-500">
         Загружаем информацию о запуске анализа…
       </div>
     );
@@ -517,24 +543,32 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (runError) {
     return (
-      <div className="text-sm text-red-600 py-4">
+      <div className="py-4 text-sm text-red-600">
         Не удалось загрузить информацию о запуске анализа.
       </div>
     );
   }
 
-  if (isLoading) {
+  const isGridLoading =
+    dataSource === "review" ? isReviewLoading : isLegacyLoading;
+  const gridError = dataSource === "review" ? reviewError : legacyError;
+
+  if (isGridLoading) {
     return (
-      <div className="text-sm text-gray-500 py-4">
-        Загружаем результаты…
+      <div className="py-4 text-sm text-gray-500">
+        {dataSource === "review"
+          ? "Загружаем review-матрицу…"
+          : "Загружаем результаты…"}
       </div>
     );
   }
 
-  if (error) {
+  if (gridError) {
     return (
-      <div className="text-sm text-red-600 py-4">
-        Не удалось загрузить результаты проверки.
+      <div className="py-4 text-sm text-red-600">
+        {dataSource === "review"
+          ? "Не удалось загрузить review-матрицу."
+          : "Не удалось загрузить результаты проверки."}
       </div>
     );
   }
@@ -543,7 +577,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     <div className="space-y-3 pb-10">
       <div className="text-[11px] text-gray-400">Сделка: {dealId}</div>
 
-      {/* Краткий контекст последнего Run для грида */}
       {run && (
         <div className="text-[11px] text-gray-500">
           Анализ: run {run.id} · статус: {run.status}
@@ -554,8 +587,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
                 {run.checks_mode === "global_and_doc_type"
                   ? "Плейбук + типы документов"
                   : run.checks_mode === "global_only"
-                  ? "Только плейбук"
-                  : "Только типы документов"}
+                    ? "Только плейбук"
+                    : "Только типы документов"}
               </span>
             </>
           )}
@@ -570,150 +603,238 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         </div>
       )}
 
-      <GridFilters
-        searchText={searchText}
-        onSearchChange={setSearchText}
-        activeFilter={quickFilter}
-        onFilterChange={setQuickFilter}
-        totalCount={allResults.length}
-        filteredCount={filteredResults.length}
-        availableDocTypes={availableDocTypes}
-        selectedDocType={selectedDocType}
-        onDocTypeChange={setSelectedDocType}
-        hasStructuredDataOnly={hasStructuredDataOnly}
-        onHasStructuredDataChange={setHasStructuredDataOnly}
-      />
-
-      <div className="flex items-center justify-between text-[11px] text-gray-400">
-        <div>
-          Важных без QC: {importantCount} · Неясных: {unclearCount}
-          {" · "}
-          Проверок: {scopeResults.length} по {uniqueDocCount} документам
-        </div>
+      <div className="flex items-center justify-between gap-4 text-[11px] text-gray-400">
         <div className="flex items-center gap-2">
-          <span>Показывать проверки:</span>
+          <span>Источник:</span>
           <button
             type="button"
             className={
-              "px-2 py-1 rounded border text-[11px] " +
-              (gridScope === "all"
+              "rounded border px-2 py-1 text-[11px] " +
+              (dataSource === "review"
                 ? "bg-blue-50 border-blue-400 text-blue-700"
                 : "bg-white border-gray-300 text-gray-600")
             }
-            onClick={() => setGridScope("all")}
+            onClick={() => setDataSource("review")}
           >
-            Все
+            Review matrix
           </button>
           <button
             type="button"
             className={
-              "px-2 py-1 rounded border text-[11px] " +
-              (gridScope === "global"
+              "rounded border px-2 py-1 text-[11px] " +
+              (dataSource === "legacy"
                 ? "bg-blue-50 border-blue-400 text-blue-700"
                 : "bg-white border-gray-300 text-gray-600")
             }
-            onClick={() => setGridScope("global")}
+            onClick={() => setDataSource("legacy")}
           >
-            Глобальный плейбук
+            Legacy results
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span>Режим:</span>
+          <button
+            type="button"
+            className={
+              "rounded border px-2 py-1 text-[11px] " +
+              (gridMode === "matrix"
+                ? "bg-blue-50 border-blue-400 text-blue-700"
+                : "bg-white border-gray-300 text-gray-600")
+            }
+            onClick={() => setGridMode("matrix")}
+          >
+            Матрица
           </button>
           <button
             type="button"
             className={
-              "px-2 py-1 rounded border text-[11px] " +
-              (gridScope === "doctype"
+              "rounded border px-2 py-1 text-[11px] " +
+              (gridMode === "list"
                 ? "bg-blue-50 border-blue-400 text-blue-700"
                 : "bg-white border-gray-300 text-gray-600")
             }
-            onClick={() => setGridScope("doctype")}
+            onClick={() => setGridMode("list")}
+            disabled={dataSource === "review"}
+            title={
+              dataSource === "review"
+                ? "В review-режиме пока доступна только матрица"
+                : undefined
+            }
           >
-            По типу документа
+            Список
           </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-end text-[11px] text-gray-400 gap-2">
-        <span>Режим:</span>
-        <button
-          type="button"
-          className={
-            "px-2 py-1 rounded border text-[11px] " +
-            (gridMode === "matrix"
-              ? "bg-blue-50 border-blue-400 text-blue-700"
-              : "bg-white border-gray-300 text-gray-600")
-          }
-          onClick={() => setGridMode("matrix")}
-        >
-          Матрица
-        </button>
-        <button
-          type="button"
-          className={
-            "px-2 py-1 rounded border text-[11px] " +
-            (gridMode === "list"
-              ? "bg-blue-50 border-blue-400 text-blue-700"
-              : "bg-white border-gray-300 text-gray-600")
-          }
-          onClick={() => setGridMode("list")}
-        >
-          Список
-        </button>
-      </div>
+      {dataSource === "legacy" && (
+        <>
+          <GridFilters
+            searchText={searchText}
+            onSearchChange={setSearchText}
+            activeFilter={quickFilter}
+            onFilterChange={setQuickFilter}
+            totalCount={allResults.length}
+            filteredCount={filteredResults.length}
+            availableDocTypes={availableDocTypes}
+            selectedDocType={selectedDocType}
+            onDocTypeChange={setSelectedDocType}
+            hasStructuredDataOnly={hasStructuredDataOnly}
+            onHasStructuredDataChange={setHasStructuredDataOnly}
+          />
 
-      {gridScope === "doctype" && scopeDoctypes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
-          <span>Типы документов (для этого вида проверок):</span>
-          <button
-            type="button"
-            className="px-2 py-0.5 rounded border border-gray-300 bg-white"
-            onClick={resetScopeDocTypes}
-          >
-            Все
-          </button>
-          {scopeDoctypes.map((dt) => {
-            const checked = selectedScopeDocTypes.includes(dt);
-            return (
-              <label
-                key={dt}
+          <div className="flex items-center justify-between text-[11px] text-gray-400">
+            <div>
+              Важных без QC: {importantCount} · Неясных: {unclearCount}
+              {" · "}
+              Проверок: {scopeResults.length} по {uniqueDocCount} документам
+            </div>
+            <div className="flex items-center gap-2">
+              <span>Показывать проверки:</span>
+              <button
+                type="button"
                 className={
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] cursor-pointer " +
-                  (checked
+                  "rounded border px-2 py-1 text-[11px] " +
+                  (gridScope === "all"
                     ? "bg-blue-50 border-blue-400 text-blue-700"
-                    : "bg-white border-gray-300 text-gray-700")
+                    : "bg-white border-gray-300 text-gray-600")
                 }
+                onClick={() => setGridScope("all")}
               >
-                <input
-                  type="checkbox"
-                  className="h-3 w-3"
-                  checked={checked}
-                  onChange={() => toggleScopeDocType(dt)}
-                />
-                <span>{dt}</span>
-              </label>
-            );
-          })}
-        </div>
+                Все
+              </button>
+              <button
+                type="button"
+                className={
+                  "rounded border px-2 py-1 text-[11px] " +
+                  (gridScope === "global"
+                    ? "bg-blue-50 border-blue-400 text-blue-700"
+                    : "bg-white border-gray-300 text-gray-600")
+                }
+                onClick={() => setGridScope("global")}
+              >
+                Глобальный плейбук
+              </button>
+              <button
+                type="button"
+                className={
+                  "rounded border px-2 py-1 text-[11px] " +
+                  (gridScope === "doctype"
+                    ? "bg-blue-50 border-blue-400 text-blue-700"
+                    : "bg-white border-gray-300 text-gray-600")
+                }
+                onClick={() => setGridScope("doctype")}
+              >
+                По типу документа
+              </button>
+            </div>
+          </div>
+
+          {gridScope === "doctype" && scopeDoctypes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
+              <span>Типы документов (для этого вида проверок):</span>
+              <button
+                type="button"
+                className="rounded border border-gray-300 bg-white px-2 py-0.5"
+                onClick={resetScopeDocTypes}
+              >
+                Все
+              </button>
+              {scopeDoctypes.map((dt) => {
+                const checked = selectedScopeDocTypes.includes(dt);
+                return (
+                  <label
+                    key={dt}
+                    className={
+                      "inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-[11px] " +
+                      (checked
+                        ? "bg-blue-50 border-blue-400 text-blue-700"
+                        : "bg-white border-gray-300 text-gray-700")
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={checked}
+                      onChange={() => toggleScopeDocType(dt)}
+                    />
+                    <span>{dt}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <QualityFlagsLegend />
+
+          <ExportButtons
+            allResults={scopeResults}
+            selectedResults={selectedResults}
+            dealName={dealId}
+            runId={runId ?? undefined}
+            runChecksMode={run?.checks_mode}
+            runPipelineStrategy={run?.pipeline_strategy}
+          />
+
+          <DDGrid
+            results={scopeResults}
+            onEyeClick={handleEyeClick}
+            onSelectionChange={handleSelectionChange}
+            mode={gridMode}
+            onOpenAtLocation={openViewerAt}
+          />
+        </>
       )}
 
-      <QualityFlagsLegend />
+      {dataSource === "review" && (
+        <>
+          <div className="flex items-center justify-between text-[11px] text-gray-400">
+            <div>
+              Документов: {reviewSummary.documentCount}
+              {" · "}
+              Проверок: {reviewSummary.checkCount}
+              {" · "}
+              Critical: {reviewSummary.criticalCount}
+              {" · "}
+              High: {reviewSummary.highCount}
+              {" · "}
+              Medium: {reviewSummary.mediumCount}
+              {" · "}
+              Unclear: {reviewSummary.unclearCount}
+            </div>
+            <div>
+              Quarantine: {ddMatrix?.quarantine_count ?? 0}
+              {" · "}
+              Degraded: {ddMatrix?.degraded_count ?? 0}
+              {" · "}
+              Evidence validity:{" "}
+              {ddMatrix?.evidence_validity_rate != null
+                ? `${Math.round(ddMatrix.evidence_validity_rate * 100)}%`
+                : "—"}
+            </div>
+          </div>
 
-      <ExportButtons
-        allResults={scopeResults}
-        selectedResults={selectedResults}
-        dealName={dealId}
-        runId={runId ?? undefined}
-        runChecksMode={run?.checks_mode}
-        runPipelineStrategy={run?.pipeline_strategy}
-      />
+          <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-800">
+            Review mode рендерит матрицу поверх run-scoped backend DTO.
+            Legacy-фильтры, bulk QC, Magic Zoom и export пока остаются только
+            в legacy-режиме, чтобы не маппить новую модель обратно в
+            CheckResult[].
+          </div>
 
-      <DDGrid
-        results={scopeResults}
-        onEyeClick={handleEyeClick}
-        onSelectionChange={handleSelectionChange}
-        mode={gridMode}
-        onOpenAtLocation={openViewerAt}
-      />
+          <DDMatrixGrid
+            data={ddMatrix ?? null}
+            onOpenAtLocation={openViewerAt}
+            onOpenDocument={({ documentId, documentName }) => {
+              console.log("Open review document", { documentId, documentName });
+            }}
+            onSelectionChange={() => {
+              // Review bulk actions будут добавлены отдельным инкрементом.
+            }}
+          />
+        </>
+      )}
 
-      {zoomResult && (
+      {dataSource === "legacy" && zoomResult && (
         <MagicZoom
           result={zoomResult}
           onClose={handleCloseZoom}
@@ -722,7 +843,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         />
       )}
 
-      {panelResult && (
+      {dataSource === "legacy" && panelResult && (
         <EvidencePanel
           result={panelResult}
           onClose={handleClosePanel}
@@ -731,7 +852,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         />
       )}
 
-      {canDoQc && selectedIds.length > 0 && (
+      {dataSource === "legacy" && canDoQc && selectedIds.length > 0 && (
         <BulkQCBar
           selectedCount={selectedIds.length}
           onConfirm={handleBulkConfirm}
@@ -754,4 +875,5 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 };
 
 export default GridTab;
+
 

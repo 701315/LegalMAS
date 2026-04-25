@@ -30,6 +30,7 @@ import {
 
 interface DocumentsTabProps {
   deal: Deal;
+  runId: string | null;
 }
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
@@ -83,7 +84,7 @@ function hasProcessingError(doc: Document): boolean {
   return Boolean(details.message || details.type);
 }
 
-const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
+const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
   const [page] = useState(1);
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
@@ -139,44 +140,44 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
       low_confidence: 0,
     };
 
-  const lowsByThreshold: Document[] = [];
-  const lowsByFlag: Document[] = [];
+    const lowsByThreshold: Document[] = [];
+    const lowsByFlag: Document[] = [];
 
-  for (const doc of classifiedDocs) {
-    const level =
-      (doc.classification_level as keyof ClassificationStats) || "L0";
-    stats[level] = (stats[level] || 0) + 1;
+    for (const doc of classifiedDocs) {
+      const level =
+        (doc.classification_level as keyof ClassificationStats) || "L0";
+      stats[level] = (stats[level] || 0) + 1;
 
-    const confidence =
-      typeof doc.classification_confidence === "number"
-        ? doc.classification_confidence
-        : null;
+      const confidence =
+        typeof doc.classification_confidence === "number"
+          ? doc.classification_confidence
+          : null;
 
-    if (confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD) {
-      lowsByThreshold.push(doc);
-      stats.low_confidence++;
+      if (confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD) {
+        lowsByThreshold.push(doc);
+        stats.low_confidence++;
+      }
+
+      if (doc.classification_requires_review) {
+        lowsByFlag.push(doc);
+      }
     }
 
-    if (doc.classification_requires_review) {
-      lowsByFlag.push(doc);
-    }
-  }
+    const l4Count = classifiedDocs.filter(
+      (d) => d.classification_level === "L4",
+    ).length;
 
-  const l4Count = classifiedDocs.filter(
-    (d) => d.classification_level === "L4",
-  ).length;
+    // Если backend уже шлёт явный флаг manual review, используем его.
+    // Для старых данных (без флага) — fallback по порогу confidence.
+    const lowDocs =
+      lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
 
-  // Если backend уже шлёт явный флаг manual review, используем его.
-  // Для старых данных (без флага) — fallback по порогу confidence.
-  const lowDocs =
-    lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
-
-  return {
-    classificationStats: stats,
-    lowConfidenceDocs: lowDocs,
-    l4Count,
-  };
-}, [classifiedDocs]);
+    return {
+      classificationStats: stats,
+      lowConfidenceDocs: lowDocs,
+      l4Count,
+    };
+  }, [classifiedDocs]);
 
   const handleDeleteDocument = (doc: Document) => {
     if (!canDeleteDocuments) return;
@@ -630,6 +631,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                               break;
                             }
                           }
+
                           let title: string | undefined;
 
                           if (col.field === "status" && hasProcessingError(doc)) {
@@ -651,6 +653,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
                           } else if (typeof value === "string") {
                             title = value;
                           }
+
                           return (
                             <td
                               key={col.id}
@@ -725,3 +728,4 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal }) => {
 };
 
 export default DocumentsTab;
+

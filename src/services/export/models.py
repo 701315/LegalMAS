@@ -201,6 +201,16 @@ class ExportRow:
     classification_confidence: float = 0.0
     origin: str | None = None
 
+    # Для multi-document файлов добавляем segment-метаданные.
+    # Для непрофессионального программиста:
+    # - single-document: segment_id/segment_type/... обычно пустые;
+    # - multi-document: позволяют понять, к какому логическому сегменту относится строка.
+    segment_id: str = ""
+    segment_type: str = ""
+    segment_title: str = ""
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
 
 @dataclass
 class ConditionalCheckRow:
@@ -251,6 +261,14 @@ class StructuredValueRow:
     clause_uid: str = ""
     document_id: str = ""
     check_id: str = ""
+
+    # NEW: segment-метаданные для структурированных значений.
+    # Это нужно, чтобы на фронтенде можно было показать, в каком сегменте найдено значение.
+    segment_id: str = ""
+    segment_type: str = ""
+    segment_title: str = ""
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
 
 
 @dataclass
@@ -334,6 +352,7 @@ class AggregatedResults:
 # и матричными листами в grid_builder.py
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ExtractedField:
     """
@@ -375,12 +394,12 @@ class MatrixCell:
         trigger_name — имя триггера который активировал чек
     """
 
-    result: str                                            # "fail" | "pass" | "unclear"
-    severity: str                                          # "critical" | "high" | "medium"
-    snippet: str = ""                                      # цитата из документа
-    page: int | None = None                                # страница
-    clause_uid: str = ""                                   # UID параграфа
-    extracted: list[ExtractedField] = field(default_factory=list)  # извлечённые значения
+    result: str                                          # "fail" | "pass" | "unclear"
+    severity: str                                        # "critical" | "high" | "medium"
+    snippet: str = ""                                    # цитата из документа
+    page: int | None = None                              # страница
+    clause_uid: str = ""                                 # UID параграфа
+    extracted: list[ExtractedField] = field(default_factory=list)
     confidence: float = 0.0
     qc_status: str = "pending"
     conditional_check_triggered: bool = False
@@ -417,9 +436,9 @@ class CheckMeta:
 
     check_id: str
     check_name: str
-    origin: str                                     # "GLOBAL_PLAYBOOK" | "DOCUMENT_TYPE" | "CONDITIONAL"
-    severity: str                                   # "critical" | "high" | "medium"
-    order_index: int = 0                            # порядок столбца в матрице
+    origin: str                           # "GLOBAL_PLAYBOOK" | "DOCUMENT_TYPE" | "CONDITIONAL"
+    severity: str                         # "critical" | "high" | "medium"
+    order_index: int = 0                  # порядок столбца в матрице
     applicable_doc_types: list[str] | None = None  # None = все типы документов
 
 
@@ -445,8 +464,8 @@ class DocumentMatrixRow:
     document_name: str
     doc_type: str
     folder_path: str
-    status: str = "completed"              # статус обработки документа
-    classification_level: str = ""         # L1 | L2 | L3 | L4 | HYBRID
+    status: str = "completed"             # статус обработки документа
+    classification_level: str = ""        # L1 | L2 | L3 | L4 | HYBRID
     classification_confidence: float = 0.0
     results: dict[str, MatrixCell] = field(default_factory=dict)
 
@@ -520,3 +539,5 @@ class DDMatrixResponse:
     quarantine_count: int = 0       # документов в карантине
     degraded_count: int = 0         # документов с деградированной структурой
     evidence_validity_rate: float = 1.0  # доля находок с цитатой (0.0–1.0)
+
+
