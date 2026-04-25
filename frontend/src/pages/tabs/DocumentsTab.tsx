@@ -14,7 +14,7 @@ import {
   exportDocumentsWord,
   exportDocumentsPDF,
 } from "../../api/documents";
-import type { Deal, Document } from "../../types";
+import type { Deal, DocumentListItem } from "../../types";
 import DocumentDetailsContainer from "../../components/documents/DocumentDetailsContainer";
 import { DocumentTree } from "../../components/documents/DocumentTree";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
@@ -74,7 +74,7 @@ function formatDateTime(value: string | undefined | null): string {
 }
 
 // Явный флаг наличия ошибки обработки по backend-полю
-function hasProcessingError(doc: Document): boolean {
+function hasProcessingError(doc: DocumentListItem): boolean {
   if (doc.status === "failed" || doc.status === "quarantine") {
     return true;
   }
@@ -82,6 +82,51 @@ function hasProcessingError(doc: Document): boolean {
   if (!details) return false;
   // В новой модели мы опираемся на type/message, а не на code.
   return Boolean(details.message || details.type);
+}
+
+// Источник composition-информации для документа.
+// Теперь backend подмешивает composition к элементам списка,
+// поэтому просто отдаём doc.composition (если оно есть).
+function getDocCompositionMeta(doc: DocumentListItem) {
+  return doc.composition ?? null;
+}
+
+// Рендер ячеек для composition-колонок.
+// Важно: не использовать doc[col.field], а работать с отдельной view-моделью.
+function renderCompositionCell(
+  colId: DocumentColumnId,
+  doc: DocumentListItem,
+) {
+  const meta = getDocCompositionMeta(doc);
+
+  if (!meta) {
+    // Нет данных о композиции — показываем аккуратный placeholder.
+    switch (colId) {
+      case "composition_type":
+        return "";
+      case "segment_count":
+        return "";
+      case "primary_segment_label":
+        return "";
+      case "is_composite_file":
+        return "";
+      default:
+        return "";
+    }
+  }
+
+  switch (colId) {
+    case "composition_type":
+      return meta.composition_type === "multi" ? "Multi-document" : "Single";
+    case "segment_count":
+      return meta.segment_count ?? "";
+    case "primary_segment_label":
+      return meta.primary_segment_label || "";
+    case "is_composite_file":
+      return meta.is_composite_file ? "Да" : "Нет";
+    default:
+      return "";
+  }
 }
 
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
@@ -92,7 +137,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
   const { canDeleteDocuments } = useDealPermissions(deal.id);
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [modalDoc, setModalDoc] = useState<Document | null>(null);
+  const [modalDoc, setModalDoc] = useState<DocumentListItem | null>(null);
   const [isOpenModal, setIsOpenModal] = useState(false);
 
   const [leftTab, setLeftTab] = useState<"tree" | "classification" | "table">(
@@ -101,9 +146,9 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
 
   const softDeleteMutation = useSoftDeleteDocument(deal.id);
 
-  const documents = data?.items ?? [];
+  const documents: DocumentListItem[] = data?.items ?? [];
 
-  const classifiedDocs = useMemo(
+  const classifiedDocs: DocumentListItem[] = useMemo(
     () => classifiedPage?.items ?? [],
     [classifiedPage],
   );
@@ -140,8 +185,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
       low_confidence: 0,
     };
 
-    const lowsByThreshold: Document[] = [];
-    const lowsByFlag: Document[] = [];
+    const lowsByThreshold: DocumentListItem[] = [];
+    const lowsByFlag: DocumentListItem[] = [];
 
     for (const doc of classifiedDocs) {
       const level =
@@ -179,7 +224,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
     };
   }, [classifiedDocs]);
 
-  const handleDeleteDocument = (doc: Document) => {
+  const handleDeleteDocument = (doc: DocumentListItem) => {
     if (!canDeleteDocuments) return;
 
     const confirmed = window.confirm(
@@ -594,41 +639,52 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                         {visibleColumns.map((col) => {
                           let value: unknown;
 
-                          switch (col.field) {
-                            case "applicable_triggers_count":
-                              value = doc.applicable_triggers?.length ?? 0;
-                              break;
-                            case "status": {
-                              // Берём человекочитаемый текст статуса из единого конфига.
-                              const baseLabel =
-                                doc.status && DOCUMENT_STATUS_CONFIG[doc.status]
-                                  ? DOCUMENT_STATUS_CONFIG[doc.status].label
-                                  : doc.status || "";
+                          // Сначала обрабатываем специальные ID колонок, которые не мапятся напрямую на поля Document.
+                          // Для composition-колонок работаем через отдельный helper.
+                          if (
+                            col.id === "composition_type" ||
+                            col.id === "segment_count" ||
+                            col.id === "primary_segment_label" ||
+                            col.id === "is_composite_file"
+                          ) {
+                            value = renderCompositionCell(col.id, doc);
+                          } else {
+                            // Для остальных колонок используем существующую логику, основанную на col.field.
+                            switch (col.field) {
+                              case "applicable_triggers_count":
+                                value = doc.applicable_triggers?.length ?? 0;
+                                break;
+                              case "status": {
+                                // Берём человекочитаемый текст статуса из единого конфига.
+                                const baseLabel =
+                                  doc.status && DOCUMENT_STATUS_CONFIG[doc.status]
+                                    ? DOCUMENT_STATUS_CONFIG[doc.status].label
+                                    : doc.status || "";
 
-                              if (hasProcessingError(doc)) {
-                                // Добавляем небольшой индикатор ошибки.
-                                value = `${baseLabel} ⚠`;
-                              } else {
-                                value = baseLabel;
+                                if (hasProcessingError(doc)) {
+                                  // Добавляем небольшой индикатор ошибки.
+                                  value = `${baseLabel} ⚠`;
+                                } else {
+                                  value = baseLabel;
+                                }
+                                break;
                               }
-                              break;
-                            }
-                            case "risk_level":
-                              value = formatRiskLevel(doc.risk_level);
-                              break;
-                            case "created_at":
-                              value = formatDateTime(doc.created_at);
-                              break;
-                            case "updated_at":
-                              value = formatDateTime(doc.updated_at);
-                              break;
-                            default: {
-                              // col.field совпадает с ключами Document, поэтому используем
-                              // индексный доступ без any.
-                              type DocumentKey = keyof Document;
-                              const fieldName = col.field as DocumentKey;
-                              value = doc[fieldName];
-                              break;
+                              case "risk_level":
+                                value = formatRiskLevel(doc.risk_level);
+                                break;
+                              case "created_at":
+                                value = formatDateTime(doc.created_at);
+                                break;
+                              case "updated_at":
+                                value = formatDateTime(doc.updated_at);
+                                break;
+                              default: {
+                                // col.field совпадает с ключами DocumentListItem
+                                type DocumentKey = keyof DocumentListItem;
+                                const fieldName = col.field as DocumentKey;
+                                value = doc[fieldName];
+                                break;
+                              }
                             }
                           }
 
@@ -728,4 +784,5 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
 };
 
 export default DocumentsTab;
+
 

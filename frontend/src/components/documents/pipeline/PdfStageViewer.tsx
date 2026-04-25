@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/documents/pipeline/PdfStageViewer.tsx
+// =============================================================
+
 import React from "react";
 import type { PdfPreviewDTO, PipelineStageViewDTO } from "../../../types";
 

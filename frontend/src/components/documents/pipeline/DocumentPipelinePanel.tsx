@@ -1,7 +1,13 @@
+// =============================================================
+// src/components/documents/pipeline/DocumentPipelinePanel.tsx
+// =============================================================
+
+
 import React from "react";
 import type {
   DocumentPipelineViewResponseDTO,
   PipelineStageViewDTO,
+  OpenViewerAtFn,
 } from "../../../types";
 import { getDocumentPipelineView } from "../../../api/documentPipelineView";
 import { PipelineStageRow } from "./PipelineStageRow";
@@ -9,6 +15,7 @@ import { PipelineStageModal } from "./PipelineStageModal";
 
 interface Props {
   documentId: string;
+  onOpenAtLocation?: OpenViewerAtFn;
 }
 
 function getErrorMessage(err: unknown): string {
@@ -27,7 +34,10 @@ function getErrorMessage(err: unknown): string {
   return "Не удалось загрузить стадии документа";
 }
 
-export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
+export const DocumentPipelinePanel: React.FC<Props> = ({
+  documentId,
+  onOpenAtLocation,
+}) => {
   const [data, setData] =
     React.useState<DocumentPipelineViewResponseDTO | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -126,6 +136,7 @@ export const DocumentPipelinePanel: React.FC<Props> = ({ documentId }) => {
         stage={selectedStage}
         stages={data?.stages ?? []}
         documentId={documentId}
+        onOpenAtLocation={onOpenAtLocation}
         onClose={() => setSelectedStage(null)}
       />
     </>

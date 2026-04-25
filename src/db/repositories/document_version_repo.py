@@ -17,9 +17,12 @@ Repository for DocumentVersion CRUD operations.
   - DocumentVersion.chunks_manifest_v2_ref
 """
 
-import uuid
+from __future__ import annotations
 
-from sqlalchemy import select, update
+import uuid
+from collections.abc import Sequence
+
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.document import DocumentVersion
@@ -57,7 +60,14 @@ class DocumentVersionRepository:
         return result.scalar_one_or_none()
 
     async def get_latest(self, document_id: uuid.UUID) -> DocumentVersion | None:
-        """Get the latest version of a document."""
+        """
+        Get the latest version of a document.
+
+        Для непрофессионального программиста:
+        - у одного документа может быть несколько технических версий;
+        - нам обычно нужна самая новая (с максимальным version_num);
+        - этот метод возвращает одну последнюю версию для одного document_id.
+        """
         result = await self.session.execute(
             select(DocumentVersion)
             .where(DocumentVersion.document_id == document_id)
@@ -68,6 +78,75 @@ class DocumentVersionRepository:
         if version is not None:
             self.session.expunge(version)
         return version
+
+    async def get_latest_for_documents(
+        self,
+        document_ids: Sequence[uuid.UUID],
+    ) -> dict[uuid.UUID, DocumentVersion]:
+        """
+        Вернуть последние версии сразу для набора документов.
+
+        Формат результата:
+            {
+                <document_id>: <latest DocumentVersion>,
+                ...
+            }
+
+        Для непрофессионального программиста:
+        - этот метод нужен, когда у нас есть страница документов в UI;
+        - если для каждого документа отдельно вызывать get_latest(...),
+          получится N+1 запросов к базе, а это плохой production-паттерн;
+        - поэтому мы делаем один batch-запрос и сразу получаем latest version
+          для всех document_id.
+
+        Как работает логика:
+        1. Во внутреннем подзапросе берём максимальный version_num
+           для каждого document_id.
+        2. Затем соединяем этот подзапрос с таблицей document_versions,
+           чтобы получить полные ORM-объекты DocumentVersion.
+        3. Возвращаем словарь, где ключ — document_id, а значение —
+           соответствующая latest версия.
+
+        Важно:
+        - если для какого-то документа версий ещё нет, он просто не попадёт
+          в результат;
+        - метод ничего не изменяет в БД, он только читает данные.
+        """
+        if not document_ids:
+            return {}
+
+        unique_document_ids = list(dict.fromkeys(document_ids))
+
+        latest_versions_subquery = (
+            select(
+                DocumentVersion.document_id.label("document_id"),
+                func.max(DocumentVersion.version_num).label("max_version_num"),
+            )
+            .where(DocumentVersion.document_id.in_(unique_document_ids))
+            .group_by(DocumentVersion.document_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(DocumentVersion)
+            .join(
+                latest_versions_subquery,
+                (
+                    DocumentVersion.document_id
+                    == latest_versions_subquery.c.document_id
+                )
+                & (
+                    DocumentVersion.version_num
+                    == latest_versions_subquery.c.max_version_num
+                ),
+            )
+        )
+
+        result = await self.session.execute(stmt)
+        versions = list(result.scalars().all())
+
+        # Возвращаем словарь вида {document_id: latest_version}
+        return {version.document_id: version for version in versions}
 
     async def update_chunks_v2_ref(
         self,
@@ -190,6 +269,5 @@ class DocumentVersionRepository:
             await self.session.flush()
 
         return version
-    
     
     

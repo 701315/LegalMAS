@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/documents/pipeline/StageRepresentationBanner.tsx
+// =============================================================
+
 import React from "react";
 import type {
   StageMetaDTO,

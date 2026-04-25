@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/documents/pipeline/PipelineStageRow.tsx
+// =============================================================
+
 import React from "react";
 import type { PipelineStageViewDTO } from "../../../types";
 import { StatusBadge } from "./StatusBadge";

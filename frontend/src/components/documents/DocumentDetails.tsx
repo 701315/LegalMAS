@@ -1139,7 +1139,10 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
       )}
 
       <Section title="Информационный блок по документу">
-        <DocumentPipelinePanel documentId={documentId} />
+        <DocumentPipelinePanel
+          documentId={documentId}
+          onOpenAtLocation={onOpenAtLocation}
+        />
       </Section>
 
       <Section title="Действия">

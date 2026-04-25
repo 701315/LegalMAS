@@ -33,6 +33,7 @@ from core.document_columns import (
 from db.models.document import Document
 from db.repositories.document_repo import DocumentRepository
 from db.session import get_db
+from services.document_composition_query import DocumentCompositionQueryService
 
 logger = logging.getLogger(__name__)
 
@@ -61,20 +62,33 @@ class DocumentsExportRequest(BaseModel):
 def build_table_rows(
     documents: list[Document],
     visible_column_ids: Optional[list[DocumentColumnId]],
+    composition_by_doc_id: dict[UUID, object] | None = None,
 ) -> tuple[list[str], list[list[str]]]:
     """
     Построить заголовки и строки таблицы для экспорта на основе списка документов
     и выбранных колонок.
+
+    Для непрофессионального программиста:
+    - documents — это строки из таблицы documents (ORM-модели Document);
+    - composition_by_doc_id — словарь с краткой информацией о сегментах
+      (single/multi, сколько сегментов, основной сегмент) для каждого документа;
+    - visible_column_ids определяет, какие именно колонки попадут в экспорт.
     """
     column_defs: list[DocumentColumnDef] = get_columns_by_ids(visible_column_ids)
     headers = [column.label for column in column_defs]
 
     rows: list[list[str]] = []
+    composition_by_doc_id = composition_by_doc_id or {}
+
     for doc in documents:
         row: list[str] = []
 
         for column in column_defs:
-            value = _get_export_value(doc, column)
+            value = _get_export_value(
+                doc=doc,
+                column=column,
+                composition=composition_by_doc_id.get(doc.id),
+            )
 
             if isinstance(value, bool):
                 row.append("Да" if value else "Нет")
@@ -88,11 +102,44 @@ def build_table_rows(
     return headers, rows
 
 
-def _get_export_value(doc: Document, column: DocumentColumnDef) -> object:
+def _get_export_value(
+    doc: Document,
+    column: DocumentColumnDef,
+    composition: object | None = None,
+) -> object:
     """
     Вернуть значение колонки документа с учётом вычисляемых полей и нормализации.
+
+    Для непрофессионального программиста:
+    - column.field может быть:
+        * именем реального поля ORM-модели Document (например, "filename");
+        * псевдонимом вычисляемого поля (например, "applicable_triggers_count"
+          или composition-поля).
+    - composition — это объект DocumentCompositionSummary или None,
+      который мы заранее посчитали в отдельном сервисе.
     """
     field = column.field
+
+    # Ветвь для composition-полей (они не лежат в модели Document непосредственно).
+    if field in {
+        "composition_type",
+        "segment_count",
+        "primary_segment_label",
+        "is_composite_file",
+    }:
+        if composition is None:
+            # Сегментация ещё не выполнялась или работает в legacy-режиме.
+            if field == "segment_count":
+                return 0
+            if field == "is_composite_file":
+                return False
+            return None
+
+        # composition — это Pydantic-модель DocumentCompositionSummary
+        # или другой объект с одноимёнными атрибутами.
+        return getattr(composition, field, None)
+
+    # Базовый случай: читаем реальное поле Document.
     value = getattr(doc, field, None)
 
     if field == "applicable_triggers_count":
@@ -111,9 +158,17 @@ async def _load_documents_for_export(
     db: AsyncSession,
     user: CurrentUser,
     deal_id: UUID,
-) -> list[Document]:
+) -> tuple[list[Document], dict[UUID, object]]:
     """
-    Проверить права и загрузить документы сделки для экспорта.
+    Проверить права и загрузить документы сделки для экспорта,
+    а также заранее построить composition для каждого документа.
+
+    Для непрофессионального программиста:
+    - этот helper возвращает сразу два объекта:
+        * список документов;
+        * словарь {document_id: composition_summary}.
+    - так мы избегаем N+1 запросов и держим всю бизнес-логику экспорта
+      (включая composition) в одном месте.
     """
     await require_project_role(
         db=db,
@@ -131,7 +186,11 @@ async def _load_documents_for_export(
             detail="Документы не найдены",
         )
 
-    return documents
+    # Строим composition для всех документов одним batch-запросом.
+    composition_service = DocumentCompositionQueryService(db)
+    composition_by_doc_id = await composition_service.build_for_documents(documents)
+
+    return documents, composition_by_doc_id
 
 
 def _build_download_headers(filename: str) -> dict[str, str]:
@@ -157,15 +216,19 @@ async def export_documents_excel(
     Экспортирует список документов сделки в Excel.
 
     - Проверяет права на сделку.
-    - Собирает таблицу по выбранным колонкам.
+    - Собирает таблицу по выбранным колонкам (включая composition-поля).
     - Возвращает xlsx-файл.
     """
-    documents = await _load_documents_for_export(
+    documents, composition_by_doc_id = await _load_documents_for_export(
         db=db,
         user=user,
         deal_id=body.deal_id,
     )
-    headers, rows = build_table_rows(documents, body.visible_column_ids)
+    headers, rows = build_table_rows(
+        documents=documents,
+        visible_column_ids=body.visible_column_ids,
+        composition_by_doc_id=composition_by_doc_id,
+    )
 
     try:
         import openpyxl
@@ -217,12 +280,16 @@ async def export_documents_word(
     """
     Экспортирует список документов сделки в Word (docx).
     """
-    documents = await _load_documents_for_export(
+    documents, composition_by_doc_id = await _load_documents_for_export(
         db=db,
         user=user,
         deal_id=body.deal_id,
     )
-    headers, rows = build_table_rows(documents, body.visible_column_ids)
+    headers, rows = build_table_rows(
+        documents=documents,
+        visible_column_ids=body.visible_column_ids,
+        composition_by_doc_id=composition_by_doc_id,
+    )
 
     try:
         from docx import Document as DocxDocument
@@ -278,12 +345,16 @@ async def export_documents_pdf(
     """
     Экспортирует список документов сделки в PDF.
     """
-    documents = await _load_documents_for_export(
+    documents, composition_by_doc_id = await _load_documents_for_export(
         db=db,
         user=user,
         deal_id=body.deal_id,
     )
-    headers, rows = build_table_rows(documents, body.visible_column_ids)
+    headers, rows = build_table_rows(
+        documents=documents,
+        visible_column_ids=body.visible_column_ids,
+        composition_by_doc_id=composition_by_doc_id,
+    )
 
     if not FONT_PATH.exists():
         logger.error(

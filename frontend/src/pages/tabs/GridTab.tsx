@@ -840,6 +840,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
           onClose={handleCloseZoom}
           onQcChange={handleZoomQcChange}
           onOpenFull={handleOpenFull}
+          onOpenAtLocation={openViewerAt}
         />
       )}
 

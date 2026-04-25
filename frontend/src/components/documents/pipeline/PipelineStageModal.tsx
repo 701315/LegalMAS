@@ -1,8 +1,13 @@
+// =============================================================
+// src/components/documents/pipeline/PipelineStageModal.tsx
+// =============================================================
+
 import React from "react";
 import type {
   PipelineStageKind,
   PipelineStageViewDTO,
   StageViewMode,
+  OpenViewerAtFn,
 } from "../../../types";
 import { getDocumentPipelineView } from "../../../api/documentPipelineView";
 import { PdfStageViewer } from "./PdfStageViewer";
@@ -15,6 +20,7 @@ interface Props {
   stage: PipelineStageViewDTO | null;
   stages: PipelineStageViewDTO[];
   documentId: string;
+  onOpenAtLocation?: OpenViewerAtFn;
   onClose: () => void;
 }
 
@@ -46,6 +52,7 @@ export const PipelineStageModal: React.FC<Props> = ({
   stage,
   stages,
   documentId,
+  onOpenAtLocation,
   onClose,
 }) => {
   // Текущая версия открытой стадии (может обновляться при переключении режима)
@@ -136,14 +143,22 @@ export const PipelineStageModal: React.FC<Props> = ({
 
         return (
           <StructureStageViewer
+            documentId={documentId}  
             structureStage={stageData}
             chunksStage={chunksStage}
+            onOpenAtLocation={onOpenAtLocation}
           />
         );
       }
 
       case "chunks":
-        return <ChunksStageViewer stage={stageData} />;
+        return (
+          <ChunksStageViewer 
+            stage={stageData}
+            documentId={documentId}
+            onOpenAtLocation={onOpenAtLocation} 
+          />
+        );
 
       default:
         return (

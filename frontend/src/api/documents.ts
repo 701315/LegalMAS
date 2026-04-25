@@ -10,6 +10,7 @@ import type {
   Document,
   DocumentDetail,
   DocumentFamilyDto,
+  DocumentListItem,
   PaginatedResponse,
   ReclassifyInput,
   ReclassifyResult,
@@ -60,7 +61,9 @@ const ACTIVE_PROCESSING_STATUSES = new Set<string>([
 
 const DOCUMENTS_POLL_INTERVAL_MS = 2000;
 
-function shouldPollDocuments(data?: PaginatedResponse<Document>): boolean {
+function shouldPollDocuments(
+  data?: PaginatedResponse<DocumentListItem>,
+): boolean {
   const items = data?.items ?? [];
   return items.some((doc) => ACTIVE_PROCESSING_STATUSES.has(doc.status));
 }
@@ -96,15 +99,18 @@ export const documentApi = {
     },
   ) =>
     client
-      .get<PaginatedResponse<Document>>(`/api/v1/deals/${dealId}/documents`, {
-        params: {
-          page,
-          per_page: perPage,
-          include_classification: opts?.include_classification,
-          status: opts?.status,
-          doc_type: opts?.doc_type,
+      .get<PaginatedResponse<DocumentListItem>>(
+        `/api/v1/deals/${dealId}/documents`,
+        {
+          params: {
+            page,
+            per_page: perPage,
+            include_classification: opts?.include_classification,
+            status: opts?.status,
+            doc_type: opts?.doc_type,
+          },
         },
-      })
+      )
       .then((r) => r.data),
 
   /**
@@ -395,7 +401,9 @@ export function useDocumentsWithClassification(dealId: string, page = 1) {
     enabled: !!dealId,
     staleTime: 2 * 60_000,
     refetchInterval: (query) => {
-      const data = query.state.data as PaginatedResponse<Document> | undefined;
+      const data = query.state.data as
+        | PaginatedResponse<DocumentListItem>
+        | undefined;
       return shouldPollDocuments(data) ? DOCUMENTS_POLL_INTERVAL_MS : false;
     },
     refetchOnWindowFocus: true,
@@ -413,7 +421,9 @@ export function useDocuments(dealId: string, page = 1) {
     queryFn: () => documentApi.list(dealId, page),
     enabled: !!dealId,
     refetchInterval: (query) => {
-      const data = query.state.data as PaginatedResponse<Document> | undefined;
+      const data = query.state.data as
+        | PaginatedResponse<DocumentListItem>
+        | undefined;
       return shouldPollDocuments(data) ? DOCUMENTS_POLL_INTERVAL_MS : false;
     },
     refetchOnWindowFocus: true,

@@ -62,7 +62,7 @@ Pydantic‑схемы для документов и связанных сущн
 
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from pydantic import BaseModel, Field
 
@@ -91,6 +91,45 @@ class ClassificationMetadata(BaseModel):
     low_confidence: bool               # True, если confidence < 0.6
 
 
+class DocumentCompositionSummary(BaseModel):
+    """
+    Краткое описание композиции логических документов внутри файла.
+
+    Для непрофессионального программиста:
+    - Один физический файл (одна строка в таблице документов) может содержать
+      один или несколько логических документов (сегментов):
+      * основной договор;
+      * приложения;
+      * акты;
+      * счета и т.п.
+    - Этот объект описывает, "однодокументный" это файл или "мультидокументный",
+      сколько в нём сегментов и какой из них считается основным (primary).
+
+    Поля:
+    - composition_type:
+        "single" — файл содержит один логический документ;
+        "multi"  — файл содержит несколько логических документов.
+    - segment_count:
+        Сколько логических документов (сегментов) найдено в файле.
+    - primary_segment_id:
+        Технический ID основного сегмента (UUID в строковом виде).
+        Может быть None, если данные ещё не построены.
+    - primary_segment_label:
+        Человекочитаемый заголовок основного сегмента, который можно
+        показывать в UI (например, "Приложение №1").
+        Это может быть:
+        - segment_title, если он есть;
+        - segment_doc_type или segment_type, если заголовок отсутствует.
+    - is_composite_file:
+        True, если файл содержит несколько логических документов (segment_count >= 2).
+    """
+    composition_type: Literal["single", "multi"]
+    segment_count: int
+    primary_segment_id: str | None = None
+    primary_segment_label: str | None = None
+    is_composite_file: bool
+
+
 class DocumentResponse(BaseModel):
     """
     Краткая информация о документе.
@@ -110,7 +149,9 @@ class DocumentResponse(BaseModel):
     - classification_requires_review — флаг, что HybridClassifier пометил
       документ как требующий ручной проверки (низкая уверенность или зона unknown);
     - doc_type + applicable_triggers — «профиль документа» для UI
-      (тип договора и активные сценарии/триггеры по нему).
+      (тип договора и активные сценарии/триггеры по нему);
+    - composition — краткое описание того, содержит ли файл один или несколько
+      логических документов (сегментов) и как называется основной сегмент.
     """
     id: UUID
     deal_id: UUID
@@ -139,6 +180,10 @@ class DocumentResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+    # Краткое описание композиции логических документов внутри файла.
+    # Может быть None, если сегментация ещё не выполнялась или работает в legacy-режиме.
+    composition: DocumentCompositionSummary | None = None
 
     model_config = {"from_attributes": True}
 

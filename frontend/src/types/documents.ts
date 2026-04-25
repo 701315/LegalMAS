@@ -129,6 +129,64 @@ export interface Document {
   updated_at: string;
 }
 
+// -------------------------------------------------------------
+// COMPOSITION / SEGMENTATION VIEW
+// -------------------------------------------------------------
+
+/**
+ * Тип композиции файла:
+ * - "single" — файл содержит один логический документ;
+ * - "multi" — файл содержит несколько логических документов / сегментов.
+ */
+export type DocumentCompositionType = "single" | "multi";
+
+/**
+ * View-модель композиции документа. Это не raw-поля из БД,
+ * а агрегированная информация, рассчитанная по сегментам /
+ * structured data / layouts (frontend- или backend-уровень).
+ *
+ * ВАЖНО: это специально вынесено в отдельный объект, чтобы
+ * не смешивать API-модель Document и производные view-атрибуты.
+ */
+export interface DocumentCompositionMeta {
+  /** Тип композиции: single vs multi */
+  composition_type: DocumentCompositionType;
+
+  /** Количество сегментов / логических документов внутри файла */
+  segment_count: number;
+
+  /** Метка основного сегмента (например, основной SPA) */
+  primary_segment_label: string | null;
+
+  /** ID основного сегмента, если известен */
+  primary_segment_id: string | null;
+
+  /** Флаг, что файл является “составным” (multi-structure / composite file) */
+  is_composite_file: boolean;
+}
+
+/**
+ * View-тип документа с информацией о композиции.
+ * Может использоваться в списке документов, гриде и др. местах.
+ */
+export interface DocumentWithComposition extends Document {
+  composition?: DocumentCompositionMeta | null;
+}
+
+/**
+ * Тип одной строки в списке документов.
+ *
+ * Почему отдельный alias полезен:
+ * - backend list endpoint уже возвращает DocumentResponse с composition;
+ * - UI таблицы, пагинация, экспорт и bulk-операции работают именно со списком;
+ * - имя DocumentListItem лучше отражает назначение, чем общий DocumentWithComposition.
+ *
+ * Пока это alias к DocumentWithComposition, чтобы не плодить лишние сущности.
+ * Если позже список и detail начнут различаться сильнее, alias можно будет
+ * превратить в отдельный interface без массового рефакторинга.
+ */
+export type DocumentListItem = DocumentWithComposition;
+
 /** Версия документа (для истории изменений) */
 export interface DocumentVersion {
   id: string;
@@ -206,14 +264,14 @@ export interface ExtractedValue {
   page?: number | null;
   clause_uid?: string | null;
 
-  // Новое: сегмент, к которому относится значение
+  // Сегмент, к которому относится значение
   segment_id?: string | null;
   segment_type?: string | null;
   segment_title?: string | null;
   segment_order?: number | null;
   is_primary_segment?: boolean | null;
 
-  // Новое: привязка к чанку внутри сегмента/документа
+  // Привязка к чанку внутри сегмента/документа
   chunk_id?: string | null;
   chunk_index?: number | null;
 }
@@ -262,12 +320,23 @@ export type DocumentColumnId =
   | "updated_at"
   | "id"
   | "deal_id"
-  | "classification_requires_review";
+  | "classification_requires_review"
+  // Новые колонки composition / сегментов:
+  | "composition_type"
+  | "segment_count"
+  | "primary_segment_label"
+  | "is_composite_file";
 
 export interface DocumentColumnDef {
   id: DocumentColumnId;
   label: string;
   description: string;
+  /**
+   * Поле, из которого берутся данные для базового рендеринга.
+   * Для composition-полей значение будет вычисляться вручную в компоненте таблицы,
+   * поэтому здесь укажем ближайшее родственное (например, "id"), а в UI
+   * будем использовать отдельный рендерер.
+   */
   field: keyof Document | "applicable_triggers_count";
   defaultVisible: boolean;
 }
@@ -399,6 +468,39 @@ export const ALL_DOCUMENT_COLUMNS: DocumentColumnDef[] = [
     label: "ID сделки",
     description: "Идентификатор сделки, к которой относится документ.",
     field: "deal_id",
+    defaultVisible: false,
+  },
+
+  // -----------------------------------------------------------
+  // Новые колонки композиции документа / сегментов
+  // -----------------------------------------------------------
+  {
+    id: "composition_type",
+    label: "Композиция",
+    description: "Single- или multi-document файл (по структуре сегментов).",
+    // Для composition-полей фактическое значение рендерится вручную.
+    field: "id",
+    defaultVisible: true,
+  },
+  {
+    id: "segment_count",
+    label: "Сегменты",
+    description: "Количество сегментов / логических документов в файле.",
+    field: "id",
+    defaultVisible: true,
+  },
+  {
+    id: "primary_segment_label",
+    label: "Основной сегмент",
+    description: "Название основного сегмента (например, основной SPA).",
+    field: "id",
+    defaultVisible: false,
+  },
+  {
+    id: "is_composite_file",
+    label: "Composite file",
+    description: "Флаг, что файл содержит несколько логических документов.",
+    field: "id",
     defaultVisible: false,
   },
 ];

@@ -49,6 +49,10 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
   const page = evidenceObj?.page;
   const clauseUid = evidenceObj?.clause_uid ?? null;
 
+  const segmentId = evidenceObj?.segment_id ?? null;
+  const chunkIndex = evidenceObj?.chunk_index ?? null;
+  const chunkId = evidenceObj?.chunk_id ?? null;
+
   const evidenceDetails = evidenceObj?.structured_data ?? undefined;
 
   const hasEvidenceDetails =
@@ -341,10 +345,28 @@ export const EvidencePanel: React.FC<EvidencePanelProps> = ({
             )}
             {!isLoading && !error && (
               <>
-                {(page || clauseUid) && (
-                  <div className="mb-1 text-[11px] text-gray-500 flex gap-3">
+                {(page || clauseUid || segmentId || chunkIndex) && (
+                  <div className="mb-1 text-[11px] text-gray-500 flex flex-wrap gap-2">
                     {page && <span>Стр. {page}</span>}
                     {clauseUid && <span>Clause: {clauseUid}</span>}
+
+                    {segmentId && (
+                      <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700">
+                        Сегмент: {segmentId}
+                      </span>
+                    )}
+
+                    {chunkIndex != null && (
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+                        Chunk #{chunkIndex}
+                      </span>
+                    )}
+
+                    {!segmentId && chunkId && (
+                      <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-700">
+                        Chunk ID: {chunkId}
+                      </span>
+                    )}
                   </div>
                 )}
                 <div className="border rounded bg-gray-50 p-3 text-xs leading-relaxed max-h-48 overflow-auto">

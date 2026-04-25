@@ -1,14 +1,21 @@
+// =============================================================
+// src/components/documents/pipeline/StructureStageViewer.tsx
+// =============================================================
+
 import React from "react";
 import type {
   PipelineStageViewDTO,
   StructurePreviewDTO,
   StructureSectionPreviewDTO,
+  OpenViewerAtFn,
 } from "../../../types";
 import { ChunksStageViewer } from "./ChunksStageViewer";
 
 interface Props {
+  documentId: string;
   structureStage: PipelineStageViewDTO;
   chunksStage: PipelineStageViewDTO | null;
+  onOpenAtLocation?: OpenViewerAtFn;
 }
 
 interface SegmentSectionGroup {
@@ -56,6 +63,27 @@ function hasChunksMapping(section: StructureSectionPreviewDTO): boolean {
     section.source_mapping?.source_stage === "CHUNKS" &&
     (section.source_mapping?.chunk_indices?.length ?? 0) > 0
   );
+}
+
+function buildSectionViewerPayload(
+  documentId: string,
+  section: StructureSectionPreviewDTO,
+): Parameters<OpenViewerAtFn>[0] {
+  const page =
+    typeof section.page_from === "number"
+      ? section.page_from
+      : section.page_from ?? null;
+
+  // В STRUCTURE у тебя clause_uid и segment‑поля уже есть прямо на секции.
+  return {
+    documentId,
+    page,
+    clauseUid: section.clause_uid ?? null,
+    elementId: null,
+    segmentId: section.segment_id ?? null,
+    chunkId: null,
+    chunkIndex: null,
+  };
 }
 
 function getSectionJson(section: StructureSectionPreviewDTO): string {
@@ -192,8 +220,10 @@ function groupSectionsBySegment(
 }
 
 export const StructureStageViewer: React.FC<Props> = ({
+  documentId,
   structureStage,
   chunksStage,
+  onOpenAtLocation,
 }) => {
   const status = structureStage.status;
   const preview = structureStage.preview;
@@ -334,11 +364,15 @@ export const StructureStageViewer: React.FC<Props> = ({
           <CanonicalSectionPanel
             sections={sections}
             activeSectionId={activeSectionId}
+            documentId={documentId}
+            onOpenAtLocation={onOpenAtLocation}
           />
         ) : (
           <FriendlySectionPanel
             sections={sections}
             activeSectionId={activeSectionId}
+            documentId={documentId}
+            onOpenAtLocation={onOpenAtLocation}
           />
         )}
       </section>
@@ -360,6 +394,8 @@ export const StructureStageViewer: React.FC<Props> = ({
                   ? "Фрагменты исходного текста, привязанные к выбранной секции"
                   : "Для выбранной секции не найдено связанных чанков"
               }
+              documentId={documentId}
+              onOpenAtLocation={onOpenAtLocation}
             />
           ) : chunksStage.status === "pending" ? (
             <div className="flex h-full items-center justify-center text-sm text-gray-500">
@@ -440,7 +476,9 @@ const SectionNavItem: React.FC<{
 const CanonicalSectionPanel: React.FC<{
   sections: StructureSectionPreviewDTO[];
   activeSectionId: string | null;
-}> = ({ sections, activeSectionId }) => {
+  documentId: string;
+  onOpenAtLocation?: OpenViewerAtFn;
+}> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
   if (!sections.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-gray-500">
@@ -607,6 +645,20 @@ const CanonicalSectionPanel: React.FC<{
             </p>
           </div>
         )}
+
+        {onOpenAtLocation && section && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() =>
+                onOpenAtLocation(buildSectionViewerPayload(documentId, section))
+              }
+              className="inline-flex items-center rounded border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+            >
+              Открыть в документе
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -615,7 +667,9 @@ const CanonicalSectionPanel: React.FC<{
 const FriendlySectionPanel: React.FC<{
   sections: StructureSectionPreviewDTO[];
   activeSectionId: string | null;
-}> = ({ sections, activeSectionId }) => {
+  documentId: string;
+  onOpenAtLocation?: OpenViewerAtFn;
+}> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
   if (!sections.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-gray-500">
@@ -696,6 +750,20 @@ const FriendlySectionPanel: React.FC<{
             <p className="text-sm text-gray-500">
               Для этой секции нет текстового превью.
             </p>
+          </div>
+        )}
+
+        {onOpenAtLocation && section && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() =>
+                onOpenAtLocation(buildSectionViewerPayload(documentId, section))
+              }
+              className="inline-flex items-center rounded border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+            >
+              Открыть в документе
+            </button>
           </div>
         )}
       </div>

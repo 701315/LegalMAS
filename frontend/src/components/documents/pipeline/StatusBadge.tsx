@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/documents/pipeline/StatusBadge.tsx
+// =============================================================
+
 import React from "react";
 import type { PipelineStageStatus } from "../../../types";
 

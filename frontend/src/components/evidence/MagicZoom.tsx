@@ -5,11 +5,11 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-
-import type { CheckResult, QCStatus } from "../../types";
+import { useEvidence } from "../../api/evidence";
+import type { EvidenceDetail } from "../../api/evidence";
+import type { CheckResult, QCStatus, OpenViewerAtFn } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
-import { useEvidence } from "../../api/evidence";
 
 interface MagicZoomProps {
   result: CheckResult;
@@ -19,20 +19,15 @@ interface MagicZoomProps {
     result: CheckResult,
     newStatus: Exclude<QCStatus, "pending">,
   ) => void;
+  onOpenAtLocation?: OpenViewerAtFn;
 }
-
-type EvidenceDto = {
-  snippet?: string;
-  quote?: string;
-  page?: number;
-  clause_uid?: string;
-};
 
 export const MagicZoom: React.FC<MagicZoomProps> = ({
   result,
   onClose,
   onOpenFull,
   onQcChange,
+  onOpenAtLocation,
 }) => {
   const { data: evidence, isLoading, error } = useEvidence(result.id);
 
@@ -40,42 +35,65 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
   const modalRoot =
     typeof document !== "undefined" ? document.body : null;
 
+  const evidenceObj: EvidenceDetail | undefined = evidence ?? undefined;
+
+  const snippet =
+    evidenceObj?.snippet ||
+    (evidenceObj as any)?.quote ||
+    result.value_text ||
+    "(нет фрагмента текста)";
+
+  const page = (evidenceObj as any)?.page as number | undefined;
+  const clauseUid = (evidenceObj as any)?.clause_uid ?? null;
+
+  const segmentId = evidenceObj?.segment_id ?? null;
+  const chunkIndex = evidenceObj?.chunk_index ?? null;
+  const chunkId = evidenceObj?.chunk_id ?? null;
+
+  const triggered = result.conditional_check_triggered;
+  const triggerName = result.trigger_name;
+  const detector = result.detector_used;
+  const qcStatus = result.qc_status;
+
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    onClose();
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
   };
 
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
   };
 
-  const handleOpenFull = () => {
-    onOpenFull?.(result);
-  };
-
   const handleApprove = () => {
-    onQcChange?.(result, "approved");
+    if (!onQcChange) return;
+    onQcChange(result, "approved");
   };
 
   const handleReject = () => {
-    onQcChange?.(result, "rejected");
+    if (!onQcChange) return;
+    onQcChange(result, "rejected");
   };
 
-  const evidenceObj = (evidence ?? {}) as EvidenceDto;
+  const handleOpenFull = () => {
+    if (!onOpenFull) return;
+    onOpenFull(result);
+  };
 
-  const snippet =
-    evidenceObj.snippet ||
-    evidenceObj.quote ||
-    result.value_text ||
-    "(нет фрагмента текста)";
+  const handleOpenInDoc = () => {
+    if (!onOpenAtLocation) return;
+    if (!result.document_id) return;
 
-  const page = evidenceObj.page;
-  const clauseUid = evidenceObj.clause_uid;
-
-  const triggered = result.conditional_check_triggered;
-  const triggerName = result.trigger_name;
-  const detector = result.detector_used;
-  const qcStatus = result.qc_status;
+    onOpenAtLocation({
+      documentId: result.document_id,
+      page: page ?? null,
+      clauseUid: clauseUid ?? null,
+      elementId: null,
+      segmentId: segmentId,
+      chunkId: chunkId,
+      chunkIndex: chunkIndex,
+    });
+  };
 
   if (!modalRoot) {
     // На случай SSR — просто ничего не рендерим
@@ -174,12 +192,32 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
         )}
 
         {/* Метаданные фрагмента */}
-        {!isLoading && !error && (page || clauseUid) && (
-          <div className="mb-1 text-[11px] text-gray-500 flex gap-3">
-            {page && <span>Стр. {page}</span>}
-            {clauseUid && <span>Clause: {clauseUid}</span>}
-          </div>
-        )}
+        {!isLoading &&
+          !error &&
+          (page || clauseUid || segmentId || chunkIndex) && (
+            <div className="mb-1 text-[11px] text-gray-500 flex flex-wrap gap-2">
+              {page && <span>Стр. {page}</span>}
+              {clauseUid && <span>Clause: {clauseUid}</span>}
+
+              {segmentId && (
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700">
+                  Сегмент: {segmentId}
+                </span>
+              )}
+
+              {chunkIndex != null && (
+                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+                  Chunk #{chunkIndex}
+                </span>
+              )}
+
+              {!segmentId && chunkId && (
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-700">
+                  Chunk ID: {chunkId}
+                </span>
+              )}
+            </div>
+          )}
 
         {/* Фрагмент / цитата */}
         {!isLoading && !error && (
@@ -218,6 +256,15 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
                 </button>
               </>
             )}
+            {onOpenAtLocation && (
+              <button
+                type="button"
+                className="px-3 py-1 rounded border text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                onClick={handleOpenInDoc}
+              >
+                В документ
+              </button>
+            )}
             <button
               type="button"
               className="px-3 py-1 rounded border text-xs text-gray-700 hover:bg-gray-50"
@@ -241,3 +288,6 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
 };
 
 export default MagicZoom;
+
+
+

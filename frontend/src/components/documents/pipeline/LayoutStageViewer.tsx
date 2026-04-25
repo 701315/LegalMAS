@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/documents/pipeline/LayoutStageViewer.tsx
+// =============================================================
+
 import React from "react";
 import type { LayoutPreviewDTO, PipelineStageViewDTO } from "../../../types";
 

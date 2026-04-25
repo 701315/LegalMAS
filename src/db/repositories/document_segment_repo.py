@@ -23,6 +23,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import delete, select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..models.document import DocumentSegment
 
 
@@ -66,6 +67,53 @@ class DocumentSegmentRepository:
             .order_by(DocumentSegment.segment_order.asc())
         )
         return list(result.scalars().all())
+
+    async def list_by_versions(
+        self,
+        document_version_ids: Sequence[uuid.UUID],
+    ) -> dict[uuid.UUID, list[DocumentSegment]]:
+        """
+        Вернуть сегменты сразу для нескольких версий документов.
+
+        Формат результата:
+            {
+                <document_version_id>: [DocumentSegment, ...],
+                ...
+            }
+
+        Для непрофессионального программиста:
+        - Этот метод нужен, когда у нас есть страница документов в UI;
+        - у каждого документа есть своя последняя версия (DocumentVersion);
+        - для каждой версии есть список сегментов (DocumentSegment);
+        - чтобы не дергать базу в цикле (N+1 запрос), мы делаем
+          один batch-запрос и раскладываем результаты по словарю.
+
+        Поведение:
+        - если у какой-то версии нет сегментов, она просто не попадёт
+          в результирующий словарь;
+        - метод не меняет БД, он только читает данные.
+        """
+        if not document_version_ids:
+            return {}
+
+        unique_version_ids = list(dict.fromkeys(document_version_ids))
+
+        stmt = (
+            select(DocumentSegment)
+            .where(DocumentSegment.document_version_id.in_(unique_version_ids))
+            .order_by(
+                DocumentSegment.document_version_id.asc(),
+                DocumentSegment.segment_order.asc(),
+            )
+        )
+        result = await self.session.execute(stmt)
+        segments = list(result.scalars().all())
+
+        by_version: dict[uuid.UUID, list[DocumentSegment]] = {}
+        for seg in segments:
+            by_version.setdefault(seg.document_version_id, []).append(seg)
+
+        return by_version
 
     async def list_by_document(
         self,
@@ -202,7 +250,6 @@ class DocumentSegmentRepository:
             "total_segments": int(total or 0),
             "segments_with_chunks": int(with_chunks or 0),
         }
-
 
     # -------------------------------------------------------------------------
     # Подсчёт сегментов для orchestration (multi-document пайплайн)

@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/documents/pipeline/ChunksStageViewer.tsx
+// =============================================================
+
 import React, {
   useEffect,
   useLayoutEffect,
@@ -9,12 +13,15 @@ import type {
   ChunkPreviewDTO,
   ChunksPreviewDTO,
   PipelineStageViewDTO,
+  OpenViewerAtFn,
 } from "../../../types";
 
 interface Props {
   stage: PipelineStageViewDTO;
   highlightedChunkIndices?: number[];
   traceLabel?: string | null;
+  documentId: string;
+  onOpenAtLocation?: OpenViewerAtFn;
 }
 
 type RenderSegment =
@@ -108,6 +115,27 @@ function chunkMetaLine(chunk: ChunkPreviewDTO): string {
 
   return parts.length ? parts.join(" · ") : "Без метаданных";
 }
+
+function buildChunkViewerPayload(
+  documentId: string,
+  chunk: ChunkPreviewDTO,
+): Parameters<OpenViewerAtFn>[0] {
+  const page =
+    typeof chunk.page_from === "number"
+      ? chunk.page_from
+      : chunk.page_from ?? null;
+
+  return {
+    documentId,
+    page,
+    clauseUid: chunk.clause_uid ?? null,
+    elementId: null,
+    segmentId: chunk.segment_id ?? null,
+    chunkId: chunk.chunk_id ?? null,
+    chunkIndex: chunk.index ?? null,
+  };
+}
+
 
 function fallbackReconstructedText(chunks: ChunkPreviewDTO[]): string {
   return chunks
@@ -309,6 +337,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
   stage,
   highlightedChunkIndices = [],
   traceLabel = null,
+  documentId,
+  onOpenAtLocation,
 }) => {
   const status = stage.status;
 
@@ -866,6 +896,22 @@ export const ChunksStageViewer: React.FC<Props> = ({
                     </p>
                   </div>
                 ) : null}
+
+                {onOpenAtLocation && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOpenAtLocation(
+                          buildChunkViewerPayload(documentId, selectedChunk as ChunkPreviewDTO),
+                        )
+                      }
+                      className="inline-flex items-center rounded border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+                    >
+                      Открыть в документе
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">

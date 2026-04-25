@@ -6,6 +6,14 @@
 Используем:
 - для экспорта (Excel / Word / PDF);
 - для потенциальной генерации фронтовых типов в будущем.
+
+Важно:
+- не все колонки обязаны быть "сырыми" полями ORM-модели Document;
+- часть колонок может быть вычисляемой read-model колонкой
+  (например, applicable_triggers_count или composition-поля);
+- поле DocumentColumnDef.field поэтому трактуется как:
+  * либо имя реального атрибута Document;
+  * либо псевдоним вычисляемого поля, которое умеет обработать export/read layer.
 """
 
 from dataclasses import dataclass
@@ -29,6 +37,10 @@ DocumentColumnId = Literal[
     "classification_level",
     "classification_confidence",
     "applicable_triggers_count",
+    "composition_type",
+    "segment_count",
+    "primary_segment_label",
+    "is_composite_file",
     "created_at",
     "updated_at",
     "id",
@@ -48,7 +60,8 @@ class DocumentColumnDef:
     description:
         Краткое описание смысла колонки.
     field:
-        Имя поля в модели Document или спец. псевдоним (например, "applicable_triggers_count").
+        Имя поля в модели Document или спец. псевдоним
+        (например, "applicable_triggers_count", "composition_type").
     default_visible:
         Показывается ли по умолчанию (используем и на бэке, и на фронте).
     """
@@ -155,6 +168,41 @@ ALL_DOCUMENT_COLUMNS: List[DocumentColumnDef] = [
         default_visible=False,
     ),
     DocumentColumnDef(
+        id="composition_type",
+        label="Композиция файла",
+        description=(
+            "Показывает, содержит ли файл один логический документ "
+            '("single") или несколько ("multi").'
+        ),
+        field="composition_type",
+        default_visible=True,
+    ),
+    DocumentColumnDef(
+        id="segment_count",
+        label="Сегменты",
+        description="Количество логических документов (сегментов) внутри файла.",
+        field="segment_count",
+        default_visible=False,
+    ),
+    DocumentColumnDef(
+        id="primary_segment_label",
+        label="Основной сегмент",
+        description=(
+            "Человекочитаемое название основного логического документа внутри файла."
+        ),
+        field="primary_segment_label",
+        default_visible=True,
+    ),
+    DocumentColumnDef(
+        id="is_composite_file",
+        label="Составной файл",
+        description=(
+            "Логический флаг: файл содержит несколько логических документов."
+        ),
+        field="is_composite_file",
+        default_visible=False,
+    ),
+    DocumentColumnDef(
         id="created_at",
         label="Создан",
         description="Дата и время добавления документа в сделку.",
@@ -207,3 +255,5 @@ def get_columns_by_ids(ids: list[DocumentColumnId] | None) -> list[DocumentColum
 
 def get_default_visible_ids() -> list[DocumentColumnId]:
     return [c.id for c in ALL_DOCUMENT_COLUMNS if c.default_visible]
+
+

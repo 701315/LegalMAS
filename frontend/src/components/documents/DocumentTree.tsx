@@ -4,16 +4,17 @@
 // Для юриста даёт:
 // - быстрое понимание структуры дата-рума;
 // - статус обработки документа;
-// - уровень классификации (L0–L4 / manual) в компактном виде.
+// - уровень классификации (L0–L4 / manual) в компактном виде;
+// - признак composite-файла (single / multi) и число сегментов.
 // =============================================================
 
-import React, { useState, useMemo } from "react";
-import type { Document, ClassificationLevel } from "../../types";
+import React, { useMemo, useState } from "react";
+import type { ClassificationLevel, DocumentListItem } from "../../types";
 import {
-  ChevronRight,
   ChevronDown,
-  Folder,
+  ChevronRight,
   FileText,
+  Folder,
   Search,
 } from "lucide-react";
 import { cn } from "../../utils";
@@ -23,25 +24,25 @@ import { DOCUMENT_STATUS_CONFIG } from "../../utils/statusConfig";
 /* ---------- Публичные пропсы ---------- */
 
 interface Props {
-  documents: Document[];
+  documents: DocumentListItem[];
   selectedDocId: string | null;
-  onSelectDoc: (doc: Document) => void;
+  onSelectDoc: (doc: DocumentListItem) => void;
   /** Показывать ли компактный бейдж классификации. */
   showClassification?: boolean;
   /** Можно ли удалять документы (admin/editor). */
   canDelete?: boolean;
   /** Колбэк для удаления документа. */
-  onDeleteDoc?: (doc: Document) => void;
+  onDeleteDoc?: (doc: DocumentListItem) => void;
 }
 
 /* ---------- Внутренние типы ---------- */
 
 /** Узел дерева: папка с дочерними папками и файлами. */
 interface TreeNode {
-  name: string; // Имя папки
-  fullPath: string; // Полный путь от корня
-  children: TreeNode[]; // Дочерние папки
-  docs: Document[]; // Файлы в этой папке
+  name: string;
+  fullPath: string;
+  children: TreeNode[];
+  docs: DocumentListItem[];
 }
 
 /* ====================================================================
@@ -57,19 +58,15 @@ export const DocumentTree: React.FC<Props> = ({
   onDeleteDoc,
 }) => {
   const [searchText, setSearchText] = useState("");
-  // По умолчанию раскрыт корень
   const [expanded, setExpanded] = useState<Set<string>>(new Set([""]));
 
-  /* --- Построение дерева --- */
   const rootNode = useMemo(() => buildTree(documents), [documents]);
 
-  /* --- Фильтрация по поиску --- */
   const displayTree = useMemo(() => {
     if (!searchText.trim()) return rootNode;
     return filterTree(rootNode, searchText.toLowerCase());
   }, [rootNode, searchText]);
 
-  /* --- Клик по папке: развернуть / свернуть --- */
   const toggle = (path: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -79,13 +76,11 @@ export const DocumentTree: React.FC<Props> = ({
     });
   };
 
-  /* --- Подсчёт документов --- */
   const totalShown = countDocs(displayTree);
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* ---------- Поиск ---------- */}
-      <div className="p-3 border-b">
+    <div className="flex h-full flex-col bg-white">
+      <div className="border-b p-3">
         <div className="relative">
           <Search
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
@@ -96,18 +91,17 @@ export const DocumentTree: React.FC<Props> = ({
             placeholder="Поиск по имени документа…"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded border py-1.5 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <p className="text-[11px] text-gray-400 mt-1.5">
+        <p className="mt-1.5 text-[11px] text-gray-400">
           Показано: {totalShown} из {documents.length} документов
         </p>
       </div>
 
-      {/* ---------- Дерево ---------- */}
       <div className="flex-1 overflow-y-auto px-1 py-2">
         {totalShown === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-10">
+          <p className="py-10 text-center text-sm text-gray-400">
             Документы не найдены
           </p>
         ) : (
@@ -137,11 +131,11 @@ interface NodeViewProps {
   expanded: Set<string>;
   onToggle: (path: string) => void;
   selectedDocId: string | null;
-  onSelectDoc: (doc: Document) => void;
+  onSelectDoc: (doc: DocumentListItem) => void;
   depth: number;
   showClassification: boolean;
   canDelete: boolean;
-  onDeleteDoc?: (doc: Document) => void;
+  onDeleteDoc?: (doc: DocumentListItem) => void;
 }
 
 const NodeView: React.FC<NodeViewProps> = ({
@@ -161,43 +155,36 @@ const NodeView: React.FC<NodeViewProps> = ({
 
   return (
     <>
-      {/* ---- Строка папки (пропускаем для корня) ---- */}
       {node.name && (
         <div
-          className="flex items-center gap-1.5 py-1 px-2 rounded hover:bg-gray-50 cursor-pointer select-none"
+          className="flex cursor-pointer select-none items-center gap-1.5 rounded px-2 py-1 hover:bg-gray-50"
           style={{ paddingLeft }}
           onClick={() => hasContent && onToggle(node.fullPath)}
         >
-          {/* Стрелка */}
           {hasContent ? (
             isOpen ? (
-              <ChevronDown size={14} className="text-gray-400 shrink-0" />
+              <ChevronDown size={14} className="shrink-0 text-gray-400" />
             ) : (
-              <ChevronRight size={14} className="text-gray-400 shrink-0" />
+              <ChevronRight size={14} className="shrink-0 text-gray-400" />
             )
           ) : (
             <span className="w-3.5 shrink-0" />
           )}
 
-          {/* Иконка папки */}
-          <Folder size={14} className="text-blue-500 shrink-0" />
+          <Folder size={14} className="shrink-0 text-blue-500" />
 
-          {/* Имя */}
-          <span className="flex-1 text-sm text-gray-700 truncate">
+          <span className="flex-1 truncate text-sm text-gray-700">
             {node.name}
           </span>
 
-          {/* Счётчик документов в поддереве */}
-          <span className="text-[11px] text-gray-400 shrink-0">
+          <span className="shrink-0 text-[11px] text-gray-400">
             {countDocs(node)}
           </span>
         </div>
       )}
 
-      {/* ---- Содержимое (дочерние папки + файлы) ---- */}
       {isOpen && (
         <>
-          {/* Дочерние папки */}
           {node.children.map((child) => (
             <NodeView
               key={child.fullPath}
@@ -213,51 +200,71 @@ const NodeView: React.FC<NodeViewProps> = ({
             />
           ))}
 
-          {/* Файлы в текущей папке */}
           {node.docs.map((doc) => {
             const config = DOCUMENT_STATUS_CONFIG[doc.status];
             const needsReview = doc.classification_requires_review;
+            const composition = doc.composition ?? null;
 
             return (
               <div
                 key={doc.id}
                 className={cn(
-                  "flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer text-sm",
+                  "flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-sm",
                   selectedDocId === doc.id
                     ? "bg-blue-50 text-blue-800 ring-1 ring-blue-300"
-                    : "hover:bg-gray-50 text-gray-700",
+                    : "text-gray-700 hover:bg-gray-50",
                 )}
                 style={{ paddingLeft: (depth + 1) * 14 + 8 }}
                 onClick={() => onSelectDoc(doc)}
               >
-                <FileText size={13} className="text-gray-400 shrink-0" />
+                <FileText size={13} className="shrink-0 text-gray-400" />
 
-                <span className="flex-1 truncate">{doc.filename}</span>
+                <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
 
-                {/* Бейдж классификации (компактный) */}
+                {composition && (
+                  <div className="ml-1 flex shrink-0 items-center gap-1">
+                    {composition.composition_type === "multi" && (
+                      <span
+                        className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                        title="Файл содержит несколько логических документов"
+                      >
+                        multi
+                      </span>
+                    )}
+
+                    {typeof composition.segment_count === "number" &&
+                      composition.segment_count > 1 && (
+                        <span
+                          className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
+                          title="Количество сегментов / логических документов"
+                        >
+                          {composition.segment_count} seg
+                        </span>
+                      )}
+                  </div>
+                )}
+
                 {showClassification && doc.classification_level && (
                   <ClassificationBadge
                     level={doc.classification_level as ClassificationLevel}
                     confidence={doc.classification_confidence}
                     showConfidence={false}
-                    className="shrink-0 ml-1"
+                    className="ml-1 shrink-0"
                   />
                 )}
 
-                {/* Бейдж "нужна проверка" при low-confidence/unknown */}
                 {needsReview && (
                   <span
-                    className="ml-1 shrink-0 px-1.5 py-0.5 rounded bg-yellow-50 text-[11px] text-yellow-700 border border-yellow-200"
+                    className="ml-1 shrink-0 rounded border border-yellow-200 bg-yellow-50 px-1.5 py-0.5 text-[11px] text-yellow-700"
                     title="Классификатор не уверен, требуется ручной просмотр"
                   >
                     нужна проверка
                   </span>
                 )}
 
-                {/* Явный статус документа */}
                 <span
                   className={cn(
-                    "shrink-0 ml-2 text-[11px] uppercase",
+                    "ml-2 shrink-0 text-[11px] uppercase",
                     config?.color === "success"
                       ? "text-green-600"
                       : config?.color === "warning"
@@ -271,7 +278,6 @@ const NodeView: React.FC<NodeViewProps> = ({
                   {config?.label || doc.status}
                 </span>
 
-                {/* Кнопка удаления (если разрешено) */}
                 {canDelete && onDeleteDoc && (
                   <button
                     type="button"
@@ -298,25 +304,29 @@ const NodeView: React.FC<NodeViewProps> = ({
    Утилиты: построение дерева, фильтрация, подсчёт
    ==================================================================== */
 
-/** Построить дерево из плоского списка документов. */
-function buildTree(documents: Document[]): TreeNode {
+function buildTree(documents: DocumentListItem[]): TreeNode {
   const root: TreeNode = { name: "", fullPath: "", children: [], docs: [] };
 
   for (const doc of documents) {
-    const parts = (doc.folder_path || "")
-      .split("/")
-      .filter((p) => p.length > 0);
+    const parts = (doc.folder_path || "").split("/").filter((p) => p.length > 0);
 
     let current = root;
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const path = parts.slice(0, i + 1).join("/");
+
       let child = current.children.find((c) => c.name === part);
       if (!child) {
-        child = { name: part, fullPath: path, children: [], docs: [] };
+        child = {
+          name: part,
+          fullPath: path,
+          children: [],
+          docs: [],
+        };
         current.children.push(child);
       }
+
       current = child;
     }
 
@@ -327,14 +337,12 @@ function buildTree(documents: Document[]): TreeNode {
   return root;
 }
 
-/** Рекурсивная сортировка: папки по имени, файлы по имени. */
 function sortTree(node: TreeNode) {
   node.children.sort((a, b) => a.name.localeCompare(b.name, "ru"));
   node.docs.sort((a, b) => a.filename.localeCompare(b.filename, "ru"));
   node.children.forEach(sortTree);
 }
 
-/** Фильтрация дерева: оставить только совпадающие файлы и их родительские папки. */
 function filterTree(node: TreeNode, searchLower: string): TreeNode {
   const matchingDocs = node.docs.filter((d) =>
     d.filename.toLowerCase().includes(searchLower),
@@ -344,14 +352,21 @@ function filterTree(node: TreeNode, searchLower: string): TreeNode {
     .map((c) => filterTree(c, searchLower))
     .filter((c) => c.children.length > 0 || c.docs.length > 0);
 
-  return { ...node, docs: matchingDocs, children: matchingChildren };
+  return {
+    ...node,
+    docs: matchingDocs,
+    children: matchingChildren,
+  };
 }
 
-/** Рекурсивный подсчёт документов во всём поддереве. */
 function countDocs(node: TreeNode): number {
   return (
-    node.docs.length + node.children.reduce((sum, c) => sum + countDocs(c), 0)
+    node.docs.length +
+    node.children.reduce((sum, c) => sum + countDocs(c), 0)
   );
 }
 
 export default DocumentTree;
+
+
+
