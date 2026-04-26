@@ -18,6 +18,7 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "../../utils";
+import { getCompositionBadgeData } from "../../utils/compositionHelpers";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { DOCUMENT_STATUS_CONFIG } from "../../utils/statusConfig";
 
@@ -203,7 +204,7 @@ const NodeView: React.FC<NodeViewProps> = ({
           {node.docs.map((doc) => {
             const config = DOCUMENT_STATUS_CONFIG[doc.status];
             const needsReview = doc.classification_requires_review;
-            const composition = doc.composition ?? null;
+            const compositionBadges = getCompositionBadgeData(doc);
 
             return (
               <div
@@ -221,9 +222,14 @@ const NodeView: React.FC<NodeViewProps> = ({
 
                 <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
 
-                {composition && (
+                {(compositionBadges.showMultiBadge ||
+                  compositionBadges.showSegmentCount ||
+                  compositionBadges.showPrimaryLabel ||
+                  compositionBadges.showCompositeBadge) && (
                   <div className="ml-1 flex shrink-0 items-center gap-1">
-                    {composition.composition_type === "multi" && (
+
+                    {/* Бейдж "multi" — файл содержит несколько логических документов */}
+                    {compositionBadges.showMultiBadge && (
                       <span
                         className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
                         title="Файл содержит несколько логических документов"
@@ -232,15 +238,35 @@ const NodeView: React.FC<NodeViewProps> = ({
                       </span>
                     )}
 
-                    {typeof composition.segment_count === "number" &&
-                      composition.segment_count > 1 && (
-                        <span
-                          className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
-                          title="Количество сегментов / логических документов"
-                        >
-                          {composition.segment_count} seg
-                        </span>
-                      )}
+                    {/* Счётчик сегментов — показывается только если > 1 */}
+                    {compositionBadges.showSegmentCount && (
+                      <span
+                        className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
+                        title="Количество сегментов / логических документов"
+                      >
+                        {compositionBadges.segmentCount} seg
+                      </span>
+                    )}
+
+                    {/* Метка основного сегмента — новое, было NOT STARTED */}
+                    {compositionBadges.showPrimaryLabel && (
+                      <span
+                        className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500"
+                        title={`Основной сегмент: ${compositionBadges.primaryLabel}`}
+                      >
+                        {compositionBadges.primaryLabel}
+                      </span>
+                    )}
+
+                    {/* Бейдж "composite" — отдельный флаг из backend */}
+                    {compositionBadges.showCompositeBadge && (
+                      <span
+                        className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700"
+                        title="Composite file: содержит несколько юридических документов"
+                      >
+                        composite
+                      </span>
+                    )}
                   </div>
                 )}
 

@@ -20,6 +20,7 @@ import type {
   CheckResultValue,
   OpenViewerAtFn,
   OpenViewerAtPayload,
+  DocumentCompositionMeta,
 } from "../../types";
 import DDGrid from "../../components/grid/DDGrid";
 import DDMatrixGrid from "../../components/grid/DDMatrixGrid";
@@ -38,6 +39,7 @@ import DocumentViewerModal, {
   type SizedChunkMeta,
 } from "../../components/viewer/DocumentViewerModal";
 import type { DDMatrixResponseDTO } from "../../types/dealReview";
+import { useDocuments } from "../../api/documents";
 
 interface GridTabProps {
   dealId: string;
@@ -133,6 +135,31 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   // Флаг "только со структурированными данными"
   const [hasStructuredDataOnly, setHasStructuredDataOnly] =
     React.useState(false);
+
+  // Фильтр "только multi-document" для legacy-режима
+  const [legacyMultiDocOnly, setLegacyMultiDocOnly] = React.useState(false);
+
+  // Документы для построения compositionByDocId в legacy-режиме
+  // useDocuments возвращает PaginatedResponse<DocumentListItem>,
+  // поэтому берём .items из data.
+  const { data: documentsPage } = useDocuments(dealId);
+
+  const compositionByDocId = React.useMemo(() => {
+    const items = documentsPage?.items ?? [];
+    return new Map<string, DocumentCompositionMeta>(
+      items
+        .filter((d): d is typeof d & { composition: DocumentCompositionMeta } =>
+          d.composition != null,
+        )
+        .map((d) => [d.id, d.composition]),
+    );
+  }, [documentsPage]);
+
+  // Фильтры для review-режима (DDMatrixGrid)
+  // Только multi-document файлы
+  const [reviewMultiDocOnly, setReviewMultiDocOnly] = React.useState(false);
+  // Только документы с хотя бы одним Critical
+  const [reviewCriticalOnly, setReviewCriticalOnly] = React.useState(false);
 
   const [gridScope, setGridScope] = React.useState<GridScope>("all");
   const [selectedScopeDocTypes, setSelectedScopeDocTypes] = React.useState<
@@ -681,6 +708,9 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
             onDocTypeChange={setSelectedDocType}
             hasStructuredDataOnly={hasStructuredDataOnly}
             onHasStructuredDataChange={setHasStructuredDataOnly}
+            onlyMultiDocument={legacyMultiDocOnly}
+            onOnlyMultiDocumentChange={setLegacyMultiDocOnly}
+            hasCompositionData={compositionByDocId.size > 0}
           />
 
           <div className="flex items-center justify-between text-[11px] text-gray-400">
@@ -778,6 +808,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
           <DDGrid
             results={scopeResults}
+            compositionByDocId={compositionByDocId}
+            onlyMultiDocument={legacyMultiDocOnly}
             onEyeClick={handleEyeClick}
             onSelectionChange={handleSelectionChange}
             mode={gridMode}
@@ -788,6 +820,30 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
       {dataSource === "review" && (
         <>
+        {/* Фильтры review-режима */}
+        <div className="flex items-center gap-3 text-[11px] text-gray-600">
+          <span className="text-gray-400">Фильтры:</span>
+
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              className="h-3 w-3"
+              checked={reviewMultiDocOnly}
+              onChange={(e) => setReviewMultiDocOnly(e.target.checked)}
+            />
+            <span>Только multi-document</span>
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              className="h-3 w-3"
+              checked={reviewCriticalOnly}
+              onChange={(e) => setReviewCriticalOnly(e.target.checked)}
+            />
+            <span className="text-red-600 font-medium">Только Critical</span>
+          </label>
+        </div>
           <div className="flex items-center justify-between text-[11px] text-gray-400">
             <div>
               Документов: {reviewSummary.documentCount}
@@ -830,6 +886,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
             onSelectionChange={() => {
               // Review bulk actions будут добавлены отдельным инкрементом.
             }}
+            multiDocumentOnly={reviewMultiDocOnly}
+            criticalOnly={reviewCriticalOnly}
           />
         </>
       )}

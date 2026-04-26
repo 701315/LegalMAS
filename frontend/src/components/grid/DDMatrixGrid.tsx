@@ -30,6 +30,7 @@ import type {
 } from "../../types/dealReview";
 
 import { SeverityBadge } from "../ui/SeverityBadge";
+import { getCompositionBadgeDataFromMeta } from "../../utils/compositionHelpers";
 import DDMatrixCellDetails, {
   type MatrixCellDetailsCell,
 } from "./DDMatrixCellDetails";
@@ -37,6 +38,32 @@ import DDMatrixCellDetails, {
 // AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
+
+
+// -------------------------------------------------------------
+// Composition helper для MatrixRow
+// Адаптирует MatrixRow к формату, понятному getCompositionBadgeData.
+// Не тащит DocumentListItem в этот файл — только берём нужные поля.
+// -------------------------------------------------------------
+
+function getRowCompositionBadgeData(row: MatrixRowBase) {
+  // Преобразуем MatrixRow в DocumentCompositionMeta и передаём напрямую в helper.
+  // Больше не нужно создавать fake DocumentListItem.
+  
+  if (row.isMultiDocument == null && row.segmentCount == null) {
+    // Если composition-данных нет, передаём null
+    return getCompositionBadgeDataFromMeta(null);
+  }
+
+  return getCompositionBadgeDataFromMeta({
+    composition_type: row.isMultiDocument ? "multi" : "single",
+    segment_count: row.segmentCount ?? 1,
+    primary_segment_label: row.primarySegmentLabel ?? null,
+    primary_segment_id: null,
+    is_composite_file: false,
+  });
+}
+
 
 // -------------------------------------------------------------
 // Props
@@ -61,6 +88,12 @@ export interface DDMatrixGridProps {
   }) => void;
 
   onSelectionChange?: (documentIds: string[]) => void;
+
+  /** Если true — показываем только строки с isMultiDocument === true */
+  multiDocumentOnly?: boolean;
+
+  /** Если передан — показываем только строки с критичностью >= переданного порога */
+  criticalOnly?: boolean;
 
   height?: number;
 }
@@ -245,8 +278,13 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   onOpenDocument,
   onOpenCell,
   onSelectionChange,
+  multiDocumentOnly = false,
+  criticalOnly = false,
   height = 600,
 }) => {
+
+
+
   const [selectedCell, setSelectedCell] = useState<SelectedCellState>({
     open: false,
     documentId: null,
@@ -264,8 +302,22 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       };
     }
 
-    return buildMatrixRows(data);
-  }, [data]);
+    const built = buildMatrixRows(data);
+
+    // Применяем фильтры на уровне rowData, а не в AG Grid,
+    // чтобы они работали предсказуемо и не зависели от состояния грида.
+    let filtered = built.rowData;
+
+    if (multiDocumentOnly) {
+      filtered = filtered.filter((row) => row.isMultiDocument === true);
+    }
+
+    if (criticalOnly) {
+      filtered = filtered.filter((row) => row.totalCritical > 0);
+    }
+
+    return { rowData: filtered, riskColumns: built.riskColumns };
+  }, [data, multiDocumentOnly, criticalOnly]);
 
   const closeDetails = useCallback(() => {
     setSelectedCell({
@@ -370,16 +422,40 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       },
       {
         headerName: "Состав",
-        width: 160,
-        valueGetter: (params) => {
+        field: "isMultiDocument",
+        width: 180,
+        cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
           const row = params.data;
-          if (!row) return "—";
-          if (row.isMultiDocument) {
-            return row.segmentCount != null
-              ? `multi-document · ${row.segmentCount}`
-              : "multi-document";
+          if (!row) return <span className="text-[11px] text-gray-300">—</span>;
+
+          const badges = getRowCompositionBadgeData(row);
+
+          if (!badges.showMultiBadge && !badges.showSegmentCount) {
+            return (
+              <span className="text-[11px] text-gray-400">single</span>
+            );
           }
-          return "single-document";
+
+          return (
+            <div className="flex items-center gap-1 py-0.5">
+              {badges.showMultiBadge && (
+                <span
+                  className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                  title="Файл содержит несколько логических документов"
+                >
+                  multi
+                </span>
+              )}
+              {badges.showSegmentCount && (
+                <span
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
+                  title="Количество сегментов"
+                >
+                  {badges.segmentCount} seg
+                </span>
+              )}
+            </div>
+          );
         },
       },
       {

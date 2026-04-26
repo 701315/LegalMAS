@@ -16,12 +16,18 @@ import { RequestSidePanel } from "../../components/requests/RequestSidePanel";
 import { Loader2 } from "lucide-react";
 import { useDealPermissions } from "../../hooks/usePermissions";
 
+import { useDealReviewDdRequests } from "../../api/dealReview";
+import type { DDRequestDTO } from "../../types/dealReview";
+import { ReviewRequestsTable } from "../../components/requests/ReviewRequestsTable";
+import { ReviewRequestSidePanel } from "../../components/requests/ReviewRequestSidePanel";
+
+
 interface Props {
   dealId: string;
   runId: string | null;
 }
 
-export const RequestsTab: React.FC<Props> = ({ dealId, runId: _runId }) => {
+export const RequestsTab: React.FC<Props> = ({ dealId, runId }) => {
   const { data: requests, isLoading } = useRequests(dealId);
 
   const updateMutation = useUpdateRequest(dealId);
@@ -34,6 +40,21 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId: _runId }) => {
   console.log("deal permissions", dealId, JSON.stringify(perms, null, 2));
 
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
+
+  const [selectedReviewReq, setSelectedReviewReq] = useState<DDRequestDTO | null>(null);
+
+  // Run-scoped DD requests — segment-aware, read-only review view.
+  // Включается только если runId передан в пропсах.
+  const { data: reviewRequests, isLoading: isLoadingReview } =
+    useDealReviewDdRequests(dealId, runId ?? null, {
+      enabled: !!runId,
+    });
+
+  // Режим: если есть runId и review-данные загружены — показываем review-режим.
+  // Иначе — legacy-режим.
+  const isReviewMode = !!runId && !isLoadingReview && Array.isArray(reviewRequests);
+
+
 
   // Сохранение изменений из side panel
   const handleSave = useCallback(
@@ -115,6 +136,33 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId: _runId }) => {
     );
   }
 
+  if (isLoading && !isReviewMode) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin mr-3 text-blue-500" size={24} />
+        <span className="text-lg text-gray-500">Загружаем запросы…</span>
+      </div>
+    );
+  }
+
+  // Review-режим: run-scoped, segment-aware, read-only
+  if (isReviewMode) {
+    return (
+      <>
+        <ReviewRequestsTable
+          requests={reviewRequests ?? []}
+          onRowClick={setSelectedReviewReq}
+        />
+        <ReviewRequestSidePanel
+          request={selectedReviewReq}
+          onClose={() => setSelectedReviewReq(null)}
+          onOpenAtLocation={undefined} // TODO(MR4): пробросить openViewerAt из родителя
+        />
+      </>
+    );
+  }
+
+  // Legacy-режим: управление запросами (CRUD)
   return (
     <>
       <RequestsTable
@@ -125,7 +173,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId: _runId }) => {
         onExportExcel={handleExportExcel}
         canManageRequests={canManageRequests}
       />
-
       <RequestSidePanel
         request={selectedReq}
         onClose={() => setSelectedReq(null)}

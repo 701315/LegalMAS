@@ -28,6 +28,8 @@ import {
   getErrorStageLabel,
 } from "../../utils/statusConfig";
 
+import { getCompositionCellValue } from "../../utils/compositionHelpers";
+
 interface DocumentsTabProps {
   deal: Deal;
   runId: string | null;
@@ -84,50 +86,6 @@ function hasProcessingError(doc: DocumentListItem): boolean {
   return Boolean(details.message || details.type);
 }
 
-// Источник composition-информации для документа.
-// Теперь backend подмешивает composition к элементам списка,
-// поэтому просто отдаём doc.composition (если оно есть).
-function getDocCompositionMeta(doc: DocumentListItem) {
-  return doc.composition ?? null;
-}
-
-// Рендер ячеек для composition-колонок.
-// Важно: не использовать doc[col.field], а работать с отдельной view-моделью.
-function renderCompositionCell(
-  colId: DocumentColumnId,
-  doc: DocumentListItem,
-) {
-  const meta = getDocCompositionMeta(doc);
-
-  if (!meta) {
-    // Нет данных о композиции — показываем аккуратный placeholder.
-    switch (colId) {
-      case "composition_type":
-        return "";
-      case "segment_count":
-        return "";
-      case "primary_segment_label":
-        return "";
-      case "is_composite_file":
-        return "";
-      default:
-        return "";
-    }
-  }
-
-  switch (colId) {
-    case "composition_type":
-      return meta.composition_type === "multi" ? "Multi-document" : "Single";
-    case "segment_count":
-      return meta.segment_count ?? "";
-    case "primary_segment_label":
-      return meta.primary_segment_label || "";
-    case "is_composite_file":
-      return meta.is_composite_file ? "Да" : "Нет";
-    default:
-      return "";
-  }
-}
 
 const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
   const [page] = useState(1);
@@ -647,7 +605,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                             col.id === "primary_segment_label" ||
                             col.id === "is_composite_file"
                           ) {
-                            value = renderCompositionCell(col.id, doc);
+                            value = getCompositionCellValue(col.id, doc);
+
                           } else {
                             // Для остальных колонок используем существующую логику, основанную на col.field.
                             switch (col.field) {

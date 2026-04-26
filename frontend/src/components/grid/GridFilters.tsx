@@ -1,6 +1,5 @@
 // =============================================================
 // src/components/grid/GridFilters.tsx
-// Панель поиска и быстрых фильтров для DD Grid.
 // =============================================================
 
 import React from "react";
@@ -23,14 +22,23 @@ interface GridFiltersProps {
   totalCount: number;
   filteredCount: number;
 
-  // фильтр по типу документа
   availableDocTypes: string[];
   selectedDocType: string | null;
   onDocTypeChange: (value: string | null) => void;
 
-  // новый: фильтр "есть структурированные данные"
   hasStructuredDataOnly: boolean;
   onHasStructuredDataChange: (value: boolean) => void;
+
+  /**
+   * Фильтр "только multi-document файлы".
+   * Скрыт если hasCompositionData=false (нет данных — нет фильтра).
+   */
+  onlyMultiDocument: boolean;
+  onOnlyMultiDocumentChange: (value: boolean) => void;
+  hasCompositionData?: boolean;
+  
+  criticalOnly?: boolean;
+  onCriticalOnlyChange?: (value: boolean) => void;
 }
 
 const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
@@ -44,11 +52,6 @@ const QUICK_FILTERS: { key: QuickFilter; label: string }[] = [
   { key: "low_confidence", label: "Low confidence" },
 ];
 
-/**
- * Отдельный компонент панели фильтров:
- * - ничего не знает о данных;
- * - полностью управляется через пропсы.
- */
 const GridFilters: React.FC<GridFiltersProps> = ({
   searchText,
   onSearchChange,
@@ -61,28 +64,19 @@ const GridFilters: React.FC<GridFiltersProps> = ({
   onDocTypeChange,
   hasStructuredDataOnly,
   onHasStructuredDataChange,
+  onlyMultiDocument,
+  onOnlyMultiDocumentChange,
+  hasCompositionData = false,
+  criticalOnly,
+  onCriticalOnlyChange,
 }) => {
-  const handleDocTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const v = e.target.value;
-    onDocTypeChange(v === "" ? null : v);
-  };
-
-  const handleHasStructuredChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    onHasStructuredDataChange(e.target.checked);
-  };
-
   return (
     <div className="flex flex-wrap gap-3 items-center justify-between">
-      {/* Поиск + счетчик */}
       <div className="flex items-center gap-2">
         <input
           type="text"
           value={searchText}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            onSearchChange(e.target.value)
-          }
+          onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Поиск по документу или проверке…"
           className="text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
         />
@@ -91,20 +85,17 @@ const GridFilters: React.FC<GridFiltersProps> = ({
         </span>
       </div>
 
-      {/* Тип документа + чекбокс структурированных данных */}
       <div className="flex items-center gap-3 text-xs">
         <div className="flex items-center gap-1">
           <span className="text-gray-500">Тип документа:</span>
           <select
             className="border rounded px-2 py-1 text-xs"
             value={selectedDocType ?? ""}
-            onChange={handleDocTypeChange}
+            onChange={(e) => onDocTypeChange(e.target.value === "" ? null : e.target.value)}
           >
             <option value="">Все</option>
             {availableDocTypes.map((dt) => (
-              <option key={dt} value={dt}>
-                {dt}
-              </option>
+              <option key={dt} value={dt}>{dt}</option>
             ))}
           </select>
         </div>
@@ -114,15 +105,37 @@ const GridFilters: React.FC<GridFiltersProps> = ({
             type="checkbox"
             className="h-3 w-3"
             checked={hasStructuredDataOnly}
-            onChange={handleHasStructuredChange}
+            onChange={(e) => onHasStructuredDataChange(e.target.checked)}
           />
-          <span className="text-gray-500">
-            Только со структурированными данными
-          </span>
+          <span className="text-gray-500">Только со структурированными данными</span>
         </label>
+
+        {hasCompositionData && (
+          <label className="inline-flex items-center gap-1 cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-3 w-3"
+              checked={onlyMultiDocument}
+              onChange={(e) => onOnlyMultiDocumentChange(e.target.checked)}
+            />
+            <span className="text-gray-500">Только multi-document</span>
+          </label>
+        )}
+
+        {criticalOnly !== undefined && onCriticalOnlyChange && (
+          <label className="inline-flex items-center gap-1 cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-3 w-3"
+              checked={criticalOnly}
+              onChange={(e) => onCriticalOnlyChange(e.target.checked)}
+            />
+            <span className="text-red-600 font-medium">Только Critical</span>
+          </label>
+        )}
+
       </div>
 
-      {/* Quick filters */}
       <div className="flex flex-wrap gap-1.5 text-xs">
         {QUICK_FILTERS.map((f) => (
           <button
@@ -144,3 +157,5 @@ const GridFilters: React.FC<GridFiltersProps> = ({
 };
 
 export default GridFilters;
+
+

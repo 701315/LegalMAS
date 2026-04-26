@@ -13,6 +13,7 @@ import type {
   ColDef,
   ICellRendererParams,
   ValueGetterParams,
+  ValueFormatterParams,
   SelectionChangedEvent,
 } from "ag-grid-community";
 
@@ -22,13 +23,14 @@ import type {
   StructuredField,
   ClassificationLevel,
   SeverityLevel,
+  DocumentCompositionMeta,
 } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
+import { getCompositionBadgeDataFromMeta } from "../../utils/compositionHelpers";
 import QCCellRenderer from "../qc/QCCellRenderer";
 import QualityFlagRenderer from "../qc/QualityFlagRenderer";
 
-// AG Grid стили
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
@@ -47,16 +49,29 @@ interface DDGridProps {
     newStatus: "approved" | "rejected",
   ) => void;
 
-  // для bulk QC:
-  // - в режиме list: ids результатов (CheckResult.id)
-  // - в режиме matrix: ids документов (document_id)
+  /**
+   * Для bulk QC:
+   * - list-режим: ids результатов (CheckResult.id)
+   * - matrix-режим: ids документов (document_id)
+   */
   onSelectionChange?: (ids: string[]) => void;
 
-  // Режим отображения: матрица или список
   mode?: "matrix" | "list";
 
-  // Открыть viewer на конкретном фрагменте
   onOpenAtLocation?: OpenViewerAtFn;
+
+  /**
+   * Словарь documentId → composition metadata.
+   * Строится в GridTab из DocumentListItem[].
+   * При отсутствии: composition-колонки скрыты, поведение идентично текущему.
+   */
+  compositionByDocId?: Map<string, DocumentCompositionMeta>;
+
+  /**
+   * Фильтр: показывать только строки с compositionType === "multi".
+   * Игнорируется если compositionByDocId не передан.
+   */
+  onlyMultiDocument?: boolean;
 }
 
 interface GridContext {
@@ -71,7 +86,7 @@ interface GridContext {
 }
 
 // -------------------------------------------------------------
-// Типы для матричного режима (строка = документ, риск = CheckResult)
+// Типы для матричного режима
 // -------------------------------------------------------------
 
 interface MatrixRowBase {
@@ -86,9 +101,14 @@ interface MatrixRowBase {
   totalHigh: number;
   totalMedium: number;
   totalUnclear: number;
+
+  // Composition — опциональные, заполняются только из compositionByDocId
+  compositionType?: "single" | "multi" | null;
+  segmentCount?: number | null;
+  primarySegmentLabel?: string | null;
+  isCompositeFile?: boolean | null;
 }
 
-// динамические поля: risk_<checkId> -> CheckResult | undefined
 type MatrixRow = MatrixRowBase & {
   [key: `risk_${string}`]: CheckResult | undefined;
 };
@@ -113,7 +133,7 @@ export const DDGrid: React.FC<DDGridProps> = ({ mode = "matrix", ...rest }) => {
 export default DDGrid;
 
 // -------------------------------------------------------------
-// Матричный grid: документ × риск (AG Grid, legacy CheckResult[])
+// Матричный grid: документ × риск
 // -------------------------------------------------------------
 
 const MatrixGrid: React.FC<DDGridProps> = ({
@@ -123,7 +143,20 @@ const MatrixGrid: React.FC<DDGridProps> = ({
   onCheckClick,
   onSelectionChange,
   onOpenAtLocation,
+  compositionByDocId,
+  onlyMultiDocument,
 }) => {
+  const context = useMemo<GridContext>(
+    () => ({
+      onEyeClick,
+      onDocumentClick,
+      onCheckClick,
+      onQcChange: undefined,
+      onOpenAtLocation,
+    }),
+    [onEyeClick, onDocumentClick, onCheckClick, onOpenAtLocation],
+  );
+
   const { rowData, riskColumns, legacyResultByDocumentId } = useMemo(() => {
     const docMap = new Map<string, MatrixRow>();
     const riskMetaMap = new Map<string, MatrixColumnMeta>();
@@ -136,6 +169,8 @@ const MatrixGrid: React.FC<DDGridProps> = ({
 
       let row = docMap.get(docId);
       if (!row) {
+        const comp = compositionByDocId?.get(docId) ?? null;
+
         row = {
           documentId: docId,
           documentName: r.document_name || "[no name]",
@@ -150,7 +185,14 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           totalHigh: 0,
           totalMedium: 0,
           totalUnclear: 0,
+
+          // Composition из внешнего словаря — не из CheckResult
+          compositionType: comp?.composition_type ?? null,
+          segmentCount: comp?.segment_count ?? null,
+          primarySegmentLabel: comp?.primary_segment_label ?? null,
+          isCompositeFile: comp?.is_composite_file ?? null,
         };
+
         docMap.set(docId, row);
       }
 
@@ -180,15 +222,14 @@ const MatrixGrid: React.FC<DDGridProps> = ({
       riskColumns: Array.from(riskMetaMap.values()),
       legacyResultByDocumentId,
     };
-  }, [results]);
+  }, [results, compositionByDocId]);
 
-  const context: GridContext = {
-    onEyeClick,
-    onDocumentClick,
-    onCheckClick,
-    onQcChange: undefined,
-    onOpenAtLocation,
-  };
+  // Фильтр onlyMultiDocument вынесен отдельно — не смешивается с построением
+  // docMap, чтобы totalCritical/High/Medium считались по всем results документа.
+  const filteredRowData = useMemo(() => {
+    if (!onlyMultiDocument || !compositionByDocId) return rowData;
+    return rowData.filter((r) => r.compositionType === "multi");
+  }, [rowData, onlyMultiDocument, compositionByDocId]);
 
   const baseColumns = useMemo<ColDef<MatrixRow>[]>(
     () => [
@@ -211,11 +252,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           if (!p.value) {
             return <span className="text-xs text-gray-400">[no name]</span>;
           }
-
           if (!onDocumentClick || legacyResultByDocumentId.size === 0) {
             return <span className="text-xs text-gray-700">{p.value}</span>;
           }
-
           const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation();
             const docId = p.data?.documentId;
@@ -223,7 +262,6 @@ const MatrixGrid: React.FC<DDGridProps> = ({
             const first = legacyResultByDocumentId.get(docId);
             if (first) onDocumentClick(first);
           };
-
           return (
             <button
               type="button"
@@ -279,6 +317,62 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           );
         },
       },
+
+      // Composition-колонки — добавляются только если словарь передан и не пуст.
+      // Это backward-compatible: инстансы без compositionByDocId не получат
+      // пустых колонок и не изменят своё поведение.
+      ...(compositionByDocId && compositionByDocId.size > 0
+        ? ([
+            {
+              headerName: "Состав",
+              field: "compositionType" as keyof MatrixRow,
+              width: 90,
+              pinned: "left" as const,
+              cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
+                const badges = getCompositionBadgeDataFromMeta(
+                  p.data?.compositionType != null
+                    ? {
+                        composition_type: p.data
+                          .compositionType as "single" | "multi",
+                        segment_count: p.data.segmentCount ?? 0,
+                        primary_segment_label:
+                          p.data.primarySegmentLabel ?? null,
+                        primary_segment_id: null,
+                        is_composite_file: p.data.isCompositeFile ?? false,
+                      }
+                    : null,
+                );
+                if (!badges.showMultiBadge && !badges.showSegmentCount) {
+                  return (
+                    <span className="text-[11px] text-gray-400">single</span>
+                  );
+                }
+                return (
+                  <div className="flex items-center gap-1 py-0.5">
+                    {badges.showMultiBadge && (
+                      <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        multi
+                      </span>
+                    )}
+                    {badges.showSegmentCount && (
+                      <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600">
+                        {badges.segmentCount} seg
+                      </span>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              headerName: "Primary segment",
+              field: "primarySegmentLabel" as keyof MatrixRow,
+              width: 160,
+              valueFormatter: (p: ValueFormatterParams<MatrixRow>) =>
+                (p.value as string | null | undefined) || "—",
+            },
+          ] as ColDef<MatrixRow>[])
+        : []),
+
       {
         headerName: "Crit",
         field: "totalCritical",
@@ -300,7 +394,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
         width: 80,
       },
     ],
-    [onDocumentClick, legacyResultByDocumentId],
+    [onDocumentClick, legacyResultByDocumentId, compositionByDocId],
   );
 
   const riskCols = useMemo<ColDef<MatrixRow>[]>(
@@ -332,21 +426,31 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               context.onEyeClick?.(r);
             };
 
-            const handleOpenInDoc = (e: React.MouseEvent<HTMLButtonElement>) => {
+            const handleOpenInDoc = (
+              e: React.MouseEvent<HTMLButtonElement>,
+            ) => {
               e.stopPropagation();
               if (!context.onOpenAtLocation) return;
-              const loc: any = (r as any).location;
               const documentId = r.document_id;
               if (!documentId) return;
 
+              // CheckResult не имеет поля .location.
+              // Ищем первый StructuredField с location для точной навигации.
+              const firstFieldWithLocation = r.structured_data
+                ? Object.values(
+                    r.structured_data as Record<string, StructuredField>,
+                  ).find((f): f is StructuredField => !!f?.location)
+                : null;
+              const loc = firstFieldWithLocation?.location ?? null;
+
               context.onOpenAtLocation({
                 documentId,
-                page: loc?.page ?? loc?.start_page ?? null,
-                clauseUid: loc?.clause_uid ?? null,
-                elementId: loc?.element_id ?? null,
-                segmentId: loc?.segment_id ?? null,
-                chunkId: loc?.chunk_id ?? null,
-                chunkIndex: loc?.chunk_index ?? null,
+                page: (loc as any)?.page ?? (loc as any)?.start_page ?? null,
+                clauseUid: (loc as any)?.clause_uid ?? null,
+                elementId: (loc as any)?.element_id ?? null,
+                segmentId: (loc as any)?.segment_id ?? null,
+                chunkId: (loc as any)?.chunk_id ?? null,
+                chunkIndex: (loc as any)?.chunk_index ?? null,
               });
             };
 
@@ -364,8 +468,8 @@ const MatrixGrid: React.FC<DDGridProps> = ({
                         ? `Идентифицирован (${r.severity})`
                         : "Идентифицирован"
                       : r.result === "unclear"
-                      ? "Требует внимания юриста"
-                      : "Не найден"}
+                        ? "Требует внимания юриста"
+                        : "Не найден"}
                   </span>
                   {r.severity && (
                     <div className="mt-0.5 origin-left scale-90">
@@ -423,7 +527,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
     onSelectionChange(ids);
   };
 
-  if (!rowData.length) {
+  if (!filteredRowData.length) {
     return (
       <div className="p-3 text-xs text-gray-400">
         Нет данных для отображения в матрице.
@@ -434,7 +538,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
   return (
     <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
       <AgGridReact<MatrixRow>
-        rowData={rowData}
+        rowData={filteredRowData}
         columnDefs={columnDefs}
         defaultColDef={defaultColDef}
         context={context}
@@ -466,13 +570,16 @@ const ListGrid: React.FC<DDGridProps> = ({
   onSelectionChange,
   onOpenAtLocation,
 }) => {
-  const context: GridContext = {
-    onEyeClick,
-    onDocumentClick,
-    onCheckClick,
-    onQcChange,
-    onOpenAtLocation,
-  };
+  const context = useMemo<GridContext>(
+    () => ({
+      onEyeClick,
+      onDocumentClick,
+      onCheckClick,
+      onQcChange,
+      onOpenAtLocation,
+    }),
+    [onEyeClick, onDocumentClick, onCheckClick, onQcChange, onOpenAtLocation],
+  );
 
   const columnDefs = useMemo<ColDef<CheckResult>[]>(
     () => [
@@ -639,7 +746,9 @@ const ListGrid: React.FC<DDGridProps> = ({
     [],
   );
 
-  const handleSelectionChanged = (event: SelectionChangedEvent<CheckResult>) => {
+  const handleSelectionChanged = (
+    event: SelectionChangedEvent<CheckResult>,
+  ) => {
     if (!onSelectionChange) return;
     const ids: string[] = event.api
       .getSelectedNodes()
@@ -781,8 +890,6 @@ const ConditionalCellRenderer: React.FC<BaseCellParams> = (props) => {
   );
 };
 
-// Краткий renderer извлечённых данных для list-таблицы.
-// Показываем до 2 полей и даём клик "Фрагмент" при наличии location.
 const StructuredDataCellRenderer: React.FC<BaseCellParams> = (props) => {
   const { data, context } = props;
   const sd = data.structured_data as

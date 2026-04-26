@@ -6,14 +6,15 @@
 // - Текст запроса (редактируемый)
 // - Адресат
 // - Источник (badge + пояснение для yaml_template)
-// - Связанные документы
+// - Связанные документы (с опциональными именами)
 // - Проверка (check_id)
-// - Извлечённые данные (structured_values)
+// - Извлечённые данные (structured_values через normalizeStructuredValue)
 // - Действия: копировать текст, сохранить, удалить
 // =============================================================
 
 import React, { useEffect, useState } from "react";
 import type { DDRequest } from "../../types";
+import { normalizeStructuredValue } from "../../types/ddRequests";
 import { DD_REQUEST_SOURCE_DISPLAY } from "../../constants";
 import { X, Clipboard, Check, Trash2, Pencil, Loader2 } from "lucide-react";
 
@@ -24,6 +25,12 @@ interface Props {
   onDelete: (reqId: string) => Promise<void>;
   isSaving: boolean;
   canManageRequests: boolean;
+  /**
+   * Опциональный словарь docId → имя файла.
+   * Если передан — document_refs рендерятся с именами вместо UUID.
+   * Backward-compatible: при отсутствии отображается raw docId.
+   */
+  documentNameById?: Record<string, string>;
 }
 
 export const RequestSidePanel: React.FC<Props> = ({
@@ -33,11 +40,11 @@ export const RequestSidePanel: React.FC<Props> = ({
   onDelete,
   isSaving,
   canManageRequests,
+  documentNameById,
 }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
-  const [priority, setPriority] =
-    useState<DDRequest["priority"]>("medium");
+  const [priority, setPriority] = useState<DDRequest["priority"]>("medium");
   const [status, setStatus] = useState<DDRequest["status"]>("open");
   const [copied, setCopied] = useState(false);
 
@@ -45,9 +52,7 @@ export const RequestSidePanel: React.FC<Props> = ({
   // Привязываемся только к идентификатору, чтобы сбрасывать форму
   // когда пользователь выбрал другой request.
   useEffect(() => {
-    if (!request) {
-      return;
-    }
+    if (!request) return;
     setText(request.text);
     setPriority(request.priority);
     setStatus(request.status);
@@ -66,21 +71,18 @@ export const RequestSidePanel: React.FC<Props> = ({
 
   if (!request) return null;
 
-  // Копирование текста
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Сохранение изменений
   const handleSave = async () => {
     if (!canManageRequests) return;
     await onSave(request.id, { text, priority, status });
     setEditing(false);
   };
 
-  // Удаление запроса
   const handleDelete = async () => {
     if (!canManageRequests) return;
     if (!confirm("Удалить запрос? Это действие нельзя отменить.")) return;
@@ -88,20 +90,13 @@ export const RequestSidePanel: React.FC<Props> = ({
     onClose();
   };
 
-  // Приоритеты — фиксированный список (из типа)
-  const PRIORITY_OPTIONS: {
-    value: DDRequest["priority"];
-    label: string;
-  }[] = [
+  const PRIORITY_OPTIONS: { value: DDRequest["priority"]; label: string }[] = [
     { value: "critical", label: "Критичный" },
     { value: "high", label: "Высокий" },
     { value: "medium", label: "Средний" },
   ];
 
-  const STATUS_OPTIONS: {
-    value: DDRequest["status"];
-    label: string;
-  }[] = [
+  const STATUS_OPTIONS: { value: DDRequest["status"]; label: string }[] = [
     { value: "open", label: "Открыт" },
     { value: "in_progress", label: "В работе" },
     { value: "resolved", label: "Закрыт" },
@@ -118,10 +113,7 @@ export const RequestSidePanel: React.FC<Props> = ({
   return (
     <>
       {/* Затемнение */}
-      <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
 
       {/* Панель */}
       <div className="fixed right-0 top-0 h-full w-[420px] bg-white shadow-2xl z-50 border-l flex flex-col animate-in slide-in-from-right">
@@ -221,15 +213,21 @@ export const RequestSidePanel: React.FC<Props> = ({
           {/* Документы */}
           <Field label={`Документы (${documentCount})`}>
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {request.document_refs.slice(0, 10).map((docId, i) => (
-                <div
-                  key={docId ?? i}
-                  className="flex items-center gap-2 text-sm text-gray-700 p-2 bg-gray-50 rounded"
-                >
-                  <span>📄</span>
-                  <span className="truncate">{docId}</span>
-                </div>
-              ))}
+              {request.document_refs.slice(0, 10).map((docId, i) => {
+                const displayName = documentNameById?.[docId] ?? docId;
+                const hasName =
+                  documentNameById != null && documentNameById[docId] != null;
+                return (
+                  <div
+                    key={docId ?? i}
+                    className="flex items-center gap-2 text-sm text-gray-700 p-2 bg-gray-50 rounded"
+                    title={hasName ? docId : undefined}
+                  >
+                    <span>📄</span>
+                    <span className="truncate">{displayName}</span>
+                  </div>
+                );
+              })}
               {documentCount > 10 && (
                 <p className="text-xs text-gray-400 py-1 text-center">
                   … и ещё {documentCount - 10}
@@ -250,6 +248,22 @@ export const RequestSidePanel: React.FC<Props> = ({
             )}
           </Field>
 
+          {/* Источники (evidence_refs) */}
+          {request.evidence_refs && request.evidence_refs.length > 0 && (
+            <Field label={`Источники (${request.evidence_refs.length})`}>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {request.evidence_refs.map((ref, i) => (
+                  <div
+                    key={ref ?? i}
+                    className="text-xs text-gray-600 p-2 bg-gray-50 rounded leading-relaxed"
+                  >
+                    {ref}
+                  </div>
+                ))}
+              </div>
+            </Field>
+          )}
+
           {/* Извлечённые данные */}
           {request.structured_values &&
             request.structured_values.length > 0 && (
@@ -258,18 +272,22 @@ export const RequestSidePanel: React.FC<Props> = ({
               >
                 <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
                   {request.structured_values.map((sv, i) => {
-                    const [key] = Object.keys(sv);
-                    const [val] = Object.values(sv);
+                    const { key, value, format } = normalizeStructuredValue(sv);
                     return (
                       <div
                         key={i}
                         className="flex justify-between text-xs py-0.5 border-b border-gray-100 last:border-0"
                       >
                         <span className="text-gray-400 capitalize">
-                          {String(key || "").replace(/_/g, " ")}
+                          {key.replace(/_/g, " ")}
+                          {format && (
+                            <span className="ml-1 text-gray-300 normal-case">
+                              ({format})
+                            </span>
+                          )}
                         </span>
                         <span className="text-gray-700 font-medium text-right">
-                          {val != null ? String(val) : "—"}
+                          {value}
                         </span>
                       </div>
                     );
@@ -316,7 +334,6 @@ export const RequestSidePanel: React.FC<Props> = ({
               </button>
               <button
                 onClick={() => {
-                  // Явный откат к значениям текущего запроса
                   setText(request.text);
                   setPriority(request.priority);
                   setStatus(request.status);
@@ -370,3 +387,6 @@ function Field({
 }
 
 export default RequestSidePanel;
+
+
+
