@@ -6,7 +6,7 @@
 
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import type { Deal } from "../types";
+import type { Deal, OpenViewerAtPayload } from "../types";
 import OverviewTab from "./tabs/OverviewTab";
 import GridTab from "./tabs/GridTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -66,6 +66,14 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
 
+  /**
+   * Viewer navigation state для cross-tab navigation.
+   * Когда пользователь кликает "Открыть в документе" из RequestsTab,
+   * мы сохраняем payload здесь и переключаемся на documents tab.
+   */
+  const [viewerLocation, setViewerLocation] =
+    React.useState<OpenViewerAtPayload | null>(null);
+
   React.useEffect(() => {
     setActiveTab(isTabKey(tabFromUrl) ? tabFromUrl : "overview");
   }, [tabFromUrl]);
@@ -117,6 +125,26 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       { replace: true },
     );
   };
+
+  /**
+   * Handler для viewer jump из любого tab (requests, grid, etc).
+   * Переключает пользователя на documents tab и передаёт payload для viewer navigation.
+   */
+  const handleOpenViewerAt = React.useCallback(
+    (payload: OpenViewerAtPayload) => {
+      setViewerLocation(payload);
+      handleSetTab("documents");
+    },
+    [],
+  );
+
+  /**
+   * Callback для сброса viewer location после того, как DocumentsTab применит навигацию.
+   * Это предотвращает повторное применение того же payload при переключении между tabs.
+   */
+  const handleViewerLocationConsumed = React.useCallback(() => {
+    setViewerLocation(null);
+  }, []);
 
   const renderLastRunMode = () => {
     const mode = deal.last_run_checks_mode;
@@ -333,7 +361,12 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           {activeTab === "documents" && (
             <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
               {hasLatestRun ? (
-                <DocumentsTab deal={deal} runId={latestRunId} />
+                <DocumentsTab
+                  deal={deal}
+                  runId={latestRunId}
+                  openViewerAt={viewerLocation}
+                  onViewerLocationConsumed={handleViewerLocationConsumed}
+                />
               ) : (
                 renderRunRequiredState(
                   "Список review-документов пока недоступен",
@@ -346,7 +379,11 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           {activeTab === "requests" && (
             <div className="transition-opacity duration-200 opacity-100" role="tabpanel">
               {hasLatestRun ? (
-                <RequestsTab dealId={deal.id} runId={latestRunId} />
+                <RequestsTab
+                  dealId={deal.id}
+                  runId={latestRunId}
+                  onOpenViewerAt={handleOpenViewerAt}
+                />
               ) : (
                 renderRunRequiredState(
                   "DD-запросы пока недоступны",
@@ -374,5 +411,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 };
 
 export default DealPage;
+
 
 

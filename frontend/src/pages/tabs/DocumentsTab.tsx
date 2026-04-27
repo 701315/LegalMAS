@@ -14,7 +14,7 @@ import {
   exportDocumentsWord,
   exportDocumentsPDF,
 } from "../../api/documents";
-import type { Deal, DocumentListItem } from "../../types";
+import type { Deal, DocumentListItem, OpenViewerAtPayload } from "../../types";
 import DocumentDetailsContainer from "../../components/documents/DocumentDetailsContainer";
 import { DocumentTree } from "../../components/documents/DocumentTree";
 import { ClassificationBadge } from "../../components/ui/ClassificationBadge";
@@ -33,6 +33,16 @@ import { getCompositionCellValue } from "../../utils/compositionHelpers";
 interface DocumentsTabProps {
   deal: Deal;
   runId: string | null;
+  /**
+   * External viewer navigation payload — приходит из DealPage,
+   * когда пользователь кликает "Открыть в документе" из другого tab.
+   */
+  openViewerAt?: OpenViewerAtPayload | null;
+  /**
+   * Callback для уведомления DealPage о том, что viewer location был применён.
+   * После применения DealPage сбросит state, чтобы избежать повторного применения.
+   */
+  onViewerLocationConsumed?: () => void;
 }
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
@@ -86,8 +96,12 @@ function hasProcessingError(doc: DocumentListItem): boolean {
   return Boolean(details.message || details.type);
 }
 
-
-const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
+const DocumentsTab: React.FC<DocumentsTabProps> = ({
+  deal,
+  runId: _runId,
+  openViewerAt,
+  onViewerLocationConsumed,
+}) => {
   const [page] = useState(1);
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
@@ -111,7 +125,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
     [classifiedPage],
   );
 
-  // === НОВОЕ: состояние видимых колонок и режима выбора ===
+  // === состояние видимых колонок и режима выбора ===
 
   const defaultVisibleIds = useMemo<DocumentColumnId[]>(
     () =>
@@ -127,7 +141,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
     useState<DocumentColumnId[]>(defaultVisibleIds);
 
   const visibleColumns = useMemo<DocumentColumnDef[]>(
-    () => ALL_DOCUMENT_COLUMNS.filter((col) => visibleColumnIds.includes(col.id)),
+    () =>
+      ALL_DOCUMENT_COLUMNS.filter((col) => visibleColumnIds.includes(col.id)),
     [visibleColumnIds],
   );
 
@@ -172,8 +187,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
 
     // Если backend уже шлёт явный флаг manual review, используем его.
     // Для старых данных (без флага) — fallback по порогу confidence.
-    const lowDocs =
-      lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
+    const lowDocs = lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
 
     return {
       classificationStats: stats,
@@ -181,6 +195,21 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
       l4Count,
     };
   }, [classifiedDocs]);
+
+  // === External viewer navigation handling ===
+  // Применяем openViewerAt payload, если он передан из DealPage
+  React.useEffect(() => {
+    if (!openViewerAt) return;
+
+    const targetDocId = openViewerAt.documentId;
+    setSelectedDocId(targetDocId);
+    setLeftTab("tree");
+
+    // Уведомляем DealPage, что payload применён
+    onViewerLocationConsumed?.();
+  }, [openViewerAt, onViewerLocationConsumed]);
+
+  // === Handlers ===
 
   const handleDeleteDocument = (doc: DocumentListItem) => {
     if (!canDeleteDocuments) return;
@@ -192,8 +221,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
 
     softDeleteMutation.mutate(doc.id);
   };
-
-  // === НОВОЕ: обработчики выбора колонок ===
 
   const handleToggleColumnSelection = (colId: DocumentColumnId) => {
     setTempSelectedIds((prev) =>
@@ -359,8 +386,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                     </p>
                     <p>
                       Уровень уверенности ниже{" "}
-                      {Math.round(LOW_CONFIDENCE_THRESHOLD * 100)}% — рекомендуется
-                      проверить тип документа.
+                      {Math.round(LOW_CONFIDENCE_THRESHOLD * 100)}% —
+                      рекомендуется проверить тип документа.
                     </p>
                   </div>
                 )}
@@ -412,7 +439,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                 {classifiedDocs.length > 0 && (
                   <div>
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Список классифицированных документов ({classifiedDocs.length})
+                      Список классифицированных документов (
+                      {classifiedDocs.length})
                     </h4>
                     <div className="border border-gray-100 rounded bg-white max-h-64 overflow-y-auto">
                       <table className="w-full text-xs">
@@ -456,7 +484,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                                 />
                               </td>
                               <td className="px-2 py-1 text-right text-gray-500">
-                                {typeof doc.classification_confidence === "number"
+                                {typeof doc.classification_confidence ===
+                                "number"
                                   ? `${Math.round(
                                       doc.classification_confidence * 100,
                                     )}%`
@@ -606,7 +635,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                             col.id === "is_composite_file"
                           ) {
                             value = getCompositionCellValue(col.id, doc);
-
                           } else {
                             // Для остальных колонок используем существующую логику, основанную на col.field.
                             switch (col.field) {
@@ -616,7 +644,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
                               case "status": {
                                 // Берём человекочитаемый текст статуса из единого конфига.
                                 const baseLabel =
-                                  doc.status && DOCUMENT_STATUS_CONFIG[doc.status]
+                                  doc.status &&
+                                  DOCUMENT_STATUS_CONFIG[doc.status]
                                     ? DOCUMENT_STATUS_CONFIG[doc.status].label
                                     : doc.status || "";
 
@@ -649,17 +678,24 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
 
                           let title: string | undefined;
 
-                          if (col.field === "status" && hasProcessingError(doc)) {
+                          if (
+                            col.field === "status" &&
+                            hasProcessingError(doc)
+                          ) {
                             const details = doc.processing_error_details;
                             const stageLabel = getErrorStageLabel(details);
                             const message = details?.message;
 
-                            if (message && stageLabel !== "Неизвестная стадия") {
+                            if (
+                              message &&
+                              stageLabel !== "Неизвестная стадия"
+                            ) {
                               title = `${stageLabel}: ${message}`;
                             } else if (message) {
                               title = message;
                             } else {
-                              title = typeof value === "string" ? value : undefined;
+                              title =
+                                typeof value === "string" ? value : undefined;
                             }
                           } else if (col.field === "status" && doc.status) {
                             title =
@@ -743,5 +779,4 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({ deal, runId: _runId }) => {
 };
 
 export default DocumentsTab;
-
 

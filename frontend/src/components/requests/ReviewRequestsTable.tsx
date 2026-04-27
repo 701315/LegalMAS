@@ -2,11 +2,13 @@
 // src/components/requests/ReviewRequestsTable.tsx
 // Read-only таблица DD-запросов в review-режиме.
 // Работает ИСКЛЮЧИТЕЛЬНО поверх DDRequestDTO[] из run-scoped API.
-// Не зависит от legacy DDRequest[].
+// Использует adapter для преобразования DTO в UI read-model.
 // =============================================================
 
 import React, { useMemo, useState } from "react";
 import type { DDRequestDTO } from "../../types/dealReview";
+import { toRequestTableRowFromReview } from "../../viewAdapters/requestPresentation";
+import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
 import { Search } from "lucide-react";
 
 interface Props {
@@ -20,61 +22,51 @@ const PRIORITY_ORDER: Record<string, number> = {
   medium: 2,
 };
 
-function PriorityBadge({ priority }: { priority: string }) {
-  if (priority === "critical") {
-    return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">
-        Критичный
-      </span>
-    );
-  }
-  if (priority === "high") {
-    return (
-      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800">
-        Высокий
-      </span>
-    );
-  }
-  return (
-    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
-      Средний
-    </span>
-  );
-}
-
 export const ReviewRequestsTable: React.FC<Props> = ({
   requests,
   onRowClick,
 }) => {
   const [searchText, setSearchText] = useState("");
 
+  // Преобразуем все запросы в UI read-model через adapter
+  const viewModels = useMemo(() => {
+    return requests.map((req) => ({
+      dto: req, // сохраняем исходный DTO для onRowClick
+      view: toRequestTableRowFromReview(req),
+    }));
+  }, [requests]);
+
   const filtered = useMemo(() => {
-    let list = [...requests];
+    let list = [...viewModels];
 
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
-      list = list.filter((r) => {
-        const text = r.text.toLowerCase();
-        const checkName = r.check_name?.toLowerCase() ?? "";
-        const docNames = r.document_names.join(" ").toLowerCase();
+      list = list.filter((item) => {
+        const { view } = item;
+        const text = view.text.toLowerCase();
+        const checkLabel = view.checkLabel?.toLowerCase() ?? "";
+        const addressee = view.addressee?.toLowerCase() ?? "";
+        // Для review mode у нас уже есть document names в view.documentsLabel
+        const docsLabel = view.documentsLabel?.toLowerCase() ?? "";
         return (
           text.includes(lower) ||
-          checkName.includes(lower) ||
-          docNames.includes(lower)
+          checkLabel.includes(lower) ||
+          addressee.includes(lower) ||
+          docsLabel.includes(lower)
         );
       });
     }
 
     // Сортировка: critical → high → medium, внутри — по check_name
     list.sort((a, b) => {
-      const pa = PRIORITY_ORDER[a.priority] ?? 9;
-      const pb = PRIORITY_ORDER[b.priority] ?? 9;
+      const pa = PRIORITY_ORDER[a.view.priority] ?? 9;
+      const pb = PRIORITY_ORDER[b.view.priority] ?? 9;
       if (pa !== pb) return pa - pb;
-      return (a.check_name ?? "").localeCompare(b.check_name ?? "");
+      return (a.view.checkLabel ?? "").localeCompare(b.view.checkLabel ?? "");
     });
 
     return list;
-  }, [requests, searchText]);
+  }, [viewModels, searchText]);
 
   return (
     <div className="space-y-3">
@@ -120,72 +112,60 @@ export const ReviewRequestsTable: React.FC<Props> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((req) => {
-              // Segment context: показываем если есть хотя бы один из полей
-              const hasSegment = !!(
-                req.segment_id ||
-                req.segment_title ||
-                req.chunk_index != null
-              );
+            {filtered.map((item) => {
+              const { dto, view } = item;
 
               return (
                 <tr
-                  key={req.request_id}
+                  key={view.id}
                   className="hover:bg-gray-50 cursor-pointer transition"
-                  onClick={() => onRowClick(req)}
+                  onClick={() => onRowClick(dto)}
                 >
-                  {/* Приоритет */}
+                  {/* Приоритет — shared component */}
                   <td className="px-4 py-3">
-                    <PriorityBadge priority={req.priority} />
+                    <RequestPriorityBadge priority={view.priority} size="sm" />
                   </td>
 
                   {/* Текст */}
                   <td className="px-4 py-3">
                     <p className="text-sm text-gray-900 line-clamp-2">
-                      {req.text}
+                      {view.text}
                     </p>
-                    {req.check_name && (
+                    {view.checkLabel && (
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {req.check_name}
+                        {view.checkLabel}
                       </p>
                     )}
-                    {req.addressee && (
+                    {view.addressee && (
                       <p className="text-xs text-blue-500 mt-0.5">
-                        → {req.addressee}
+                        → {view.addressee}
                       </p>
                     )}
                   </td>
 
-                  {/* Документы — уже имена, не ID */}
+                  {/* Документы — используем готовый label из view model */}
                   <td className="px-4 py-3">
-                    {req.document_names.length === 0 ? (
-                      <span className="text-xs text-gray-300">—</span>
-                    ) : req.document_names.length === 1 ? (
+                    {view.documentsLabel ? (
                       <span className="text-xs text-gray-700 line-clamp-2">
-                        {req.document_names[0]}
+                        {view.documentsLabel}
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-700">
-                        {req.document_names[0]}
-                        <span className="text-gray-400">
-                          {" "}+{req.document_names.length - 1}
-                        </span>
-                      </span>
+                      <span className="text-xs text-gray-300">—</span>
                     )}
                   </td>
 
-                  {/* Сегмент */}
+                  {/* Сегмент — используем готовые поля из view model */}
                   <td className="px-4 py-3">
-                    {hasSegment ? (
+                    {view.hasSegmentContext ? (
                       <div className="flex flex-col gap-0.5">
-                        {req.segment_title && (
+                        {view.segmentTitle && (
                           <span className="text-xs text-gray-700 line-clamp-1">
-                            {req.segment_title}
+                            {view.segmentTitle}
                           </span>
                         )}
-                        {req.chunk_index != null && (
+                        {view.chunkIndex != null && (
                           <span className="text-[10px] text-gray-400">
-                            Chunk #{req.chunk_index}
+                            Chunk #{view.chunkIndex}
                           </span>
                         )}
                       </div>
@@ -215,4 +195,5 @@ export const ReviewRequestsTable: React.FC<Props> = ({
 };
 
 export default ReviewRequestsTable;
+
 

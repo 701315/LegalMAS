@@ -171,6 +171,24 @@ class CheckResult(Base):
         comment="True if the finding belongs to the primary logical segment of the file",
     )
 
+    chunk_id: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment=(
+            "Full chunk identifier from retrieval/chunking layer, "
+            "e.g. {doc_id}:{segment_id}:{clause_uid}:{sub_idx}"
+        ),
+    )
+
+    chunk_index: Mapped[int | None] = mapped_column(
+        nullable=True,
+        comment=(
+            "Sub-chunk index within clause or segment. "
+            "0 = whole clause/default chunk, 1+ = sized subchunk"
+        ),
+    )
+
+
     playbook_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("playbook_versions.id", ondelete="SET NULL"),
@@ -243,18 +261,13 @@ class CheckResult(Base):
             postgresql_where=(structured_data.isnot(None)),
         ),
         Index("idx_results_run_segment", "run_id", "segment_id"),
+        Index("idx_results_chunk_id", "chunk_id"),
         Index(
             "idx_results_run_primary_segment",
             "run_id",
             "is_primary_segment",
             postgresql_where=(is_primary_segment.isnot(None)),
         ),
-        # Для непрофессионального программиста:
-        # Ниже мы описываем ту же логику уникальности, которую уже внесли миграцией в БД.
-        #
-        # 1) Если segment_id IS NULL:
-        #    это обычный single-document режим,
-        #    и допускается только одна запись на (run_id, document_id, check_id).
         Index(
             "uq_results_run_doc_check_no_segment",
             "run_id",
@@ -263,10 +276,6 @@ class CheckResult(Base):
             unique=True,
             postgresql_where=(segment_id.is_(None)),
         ),
-        # 2) Если segment_id IS NOT NULL:
-        #    это multi-document режим,
-        #    и допускается отдельная запись на каждый сегмент:
-        #    (run_id, document_id, segment_id, check_id).
         Index(
             "uq_results_run_doc_segment_check",
             "run_id",

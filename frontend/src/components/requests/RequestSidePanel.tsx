@@ -1,22 +1,19 @@
 // =============================================================
 // src/components/requests/RequestSidePanel.tsx
-// Side panel деталей DD-запроса для юриста.
-// - Приоритет (селектор)
-// - Статус (селектор)
-// - Текст запроса (редактируемый)
-// - Адресат
-// - Источник (badge + пояснение для yaml_template)
-// - Связанные документы (с опциональными именами)
-// - Проверка (check_id)
-// - Извлечённые данные (structured_values через normalizeStructuredValue)
-// - Действия: копировать текст, сохранить, удалить
+// Side panel деталей DD-запроса для юриста (legacy CRUD mode).
+// Поддерживает редактирование, удаление, управление статусом.
+// Использует shared presentation components и adapter.
+// НЕ показывает segment context (legacy DDRequest не имеет этих полей).
 // =============================================================
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import type { DDRequest } from "../../types";
-import { normalizeStructuredValue } from "../../types/ddRequests";
-import { DD_REQUEST_SOURCE_DISPLAY } from "../../constants";
+import { toRequestPanelViewFromLegacy } from "../../viewAdapters/requestPresentation";
 import { X, Clipboard, Check, Trash2, Pencil, Loader2 } from "lucide-react";
+
+// Shared components
+import { RequestDocumentsList } from "./shared/RequestDocumentsList";
+import { RequestStructuredValuesList } from "./shared/RequestStructuredValuesList";
 
 interface Props {
   request: DDRequest | null;
@@ -48,9 +45,13 @@ export const RequestSidePanel: React.FC<Props> = ({
   const [status, setStatus] = useState<DDRequest["status"]>("open");
   const [copied, setCopied] = useState(false);
 
-  // Синхронизация при выборе нового запроса.
-  // Привязываемся только к идентификатору, чтобы сбрасывать форму
-  // когда пользователь выбрал другой request.
+  // Преобразуем DDRequest в UI read-model через adapter
+  const viewModel = useMemo(() => {
+    if (!request) return null;
+    return toRequestPanelViewFromLegacy(request, canManageRequests);
+  }, [request, canManageRequests]);
+
+  // Синхронизация при выборе нового запроса
   useEffect(() => {
     if (!request) return;
     setText(request.text);
@@ -69,7 +70,7 @@ export const RequestSidePanel: React.FC<Props> = ({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  if (!request) return null;
+  if (!viewModel || !request) return null;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text);
@@ -102,13 +103,11 @@ export const RequestSidePanel: React.FC<Props> = ({
     { value: "resolved", label: "Закрыт" },
   ];
 
-  const sourceCfg = request.source
-    ? DD_REQUEST_SOURCE_DISPLAY[request.source]
-    : undefined;
-
-  const documentCount = Array.isArray(request.document_refs)
-    ? request.document_refs.length
-    : 0;
+  // Преобразуем document_refs с опциональными именами из documentNameById
+  const documentsWithNames = viewModel.documents.map((doc) => ({
+    ...doc,
+    name: documentNameById?.[doc.id!] ?? doc.name,
+  }));
 
   return (
     <>
@@ -120,11 +119,12 @@ export const RequestSidePanel: React.FC<Props> = ({
         {/* Шапка */}
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <h3 className="text-lg font-semibold text-gray-900">
-            Запрос #{request.id.slice(-6)}
+            {viewModel.title}
           </h3>
           <button
             onClick={onClose}
             className="p-1.5 hover:bg-gray-100 rounded transition"
+            aria-label="Закрыть"
           >
             <X size={20} />
           </button>
@@ -132,7 +132,7 @@ export const RequestSidePanel: React.FC<Props> = ({
 
         {/* Тело */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Приоритет */}
+          {/* Приоритет — редактируемый */}
           <Field label="Приоритет">
             <select
               value={priority}
@@ -150,7 +150,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             </select>
           </Field>
 
-          {/* Статус */}
+          {/* Статус — редактируемый */}
           <Field label="Статус">
             <select
               value={status}
@@ -169,37 +169,31 @@ export const RequestSidePanel: React.FC<Props> = ({
           </Field>
 
           {/* Адресат */}
-          {request.addressee && (
+          {viewModel.addressee && (
             <Field label="Адресат">
               <p className="text-sm text-gray-700 font-medium">
-                {request.addressee}
+                {viewModel.addressee}
               </p>
             </Field>
           )}
 
-          {/* Источник */}
-          {request.source && (
+          {/* Источник — используем view model */}
+          {viewModel.source && (
             <Field label="Источник">
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                  sourceCfg?.color || "bg-gray-100 text-gray-600"
-                }`}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${viewModel.source.colorClass}`}
               >
-                {sourceCfg?.icon && (
-                  <span aria-hidden="true">{sourceCfg.icon}</span>
-                )}
-                <span>{sourceCfg?.label || request.source}</span>
+                <span>{viewModel.source.label}</span>
               </span>
-              {request.source === "yaml_template" && (
+              {viewModel.source.helperText && (
                 <p className="text-xs text-purple-600 mt-1">
-                  Текст и адресат сгенерированы автоматически из
-                  YAML-инструкции типа документа.
+                  {viewModel.source.helperText}
                 </p>
               )}
             </Field>
           )}
 
-          {/* Текст запроса */}
+          {/* Текст запроса — редактируемый */}
           <Field label="Текст запроса">
             <textarea
               value={text}
@@ -210,49 +204,33 @@ export const RequestSidePanel: React.FC<Props> = ({
             />
           </Field>
 
-          {/* Документы */}
-          <Field label={`Документы (${documentCount})`}>
-            <div className="space-y-1 max-h-48 overflow-y-auto">
-              {request.document_refs.slice(0, 10).map((docId, i) => {
-                const displayName = documentNameById?.[docId] ?? docId;
-                const hasName =
-                  documentNameById != null && documentNameById[docId] != null;
-                return (
-                  <div
-                    key={docId ?? i}
-                    className="flex items-center gap-2 text-sm text-gray-700 p-2 bg-gray-50 rounded"
-                    title={hasName ? docId : undefined}
-                  >
-                    <span>📄</span>
-                    <span className="truncate">{displayName}</span>
-                  </div>
-                );
-              })}
-              {documentCount > 10 && (
-                <p className="text-xs text-gray-400 py-1 text-center">
-                  … и ещё {documentCount - 10}
-                </p>
-              )}
-            </div>
-          </Field>
+          {/* Документы — shared component */}
+          {documentsWithNames.length > 0 && (
+            <Field label={`Документы (${documentsWithNames.length})`}>
+              <RequestDocumentsList
+                documents={documentsWithNames}
+                maxVisible={10}
+              />
+            </Field>
+          )}
 
           {/* Проверка */}
-          <Field label="Проверка">
-            <p className="text-sm text-gray-700">
-              {request.check_id ?? "—"}
-            </p>
-            {request.source === "yaml_template" && (
-              <p className="text-xs text-gray-400 mt-0.5">
-                Связано с YAML‑проверкой (check_id).
-              </p>
-            )}
-          </Field>
+          {viewModel.checkId && (
+            <Field label="Проверка">
+              <p className="text-sm text-gray-700">{viewModel.checkId}</p>
+              {viewModel.source?.code === "yaml_template" && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Связано с YAML‑проверкой (check_id).
+                </p>
+              )}
+            </Field>
+          )}
 
           {/* Источники (evidence_refs) */}
-          {request.evidence_refs && request.evidence_refs.length > 0 && (
-            <Field label={`Источники (${request.evidence_refs.length})`}>
+          {viewModel.evidenceRefs.length > 0 && (
+            <Field label={`Источники (${viewModel.evidenceRefs.length})`}>
               <div className="space-y-1 max-h-32 overflow-y-auto">
-                {request.evidence_refs.map((ref, i) => (
+                {viewModel.evidenceRefs.map((ref, i) => (
                   <div
                     key={ref ?? i}
                     className="text-xs text-gray-600 p-2 bg-gray-50 rounded leading-relaxed"
@@ -264,37 +242,17 @@ export const RequestSidePanel: React.FC<Props> = ({
             </Field>
           )}
 
-          {/* Извлечённые данные */}
-          {request.structured_values &&
-            request.structured_values.length > 0 && (
-              <Field
-                label={`Извлечённые данные (${request.structured_values.length})`}
-              >
-                <div className="space-y-1 bg-gray-50 rounded p-2 max-h-40 overflow-y-auto">
-                  {request.structured_values.map((sv, i) => {
-                    const { key, value, format } = normalizeStructuredValue(sv);
-                    return (
-                      <div
-                        key={i}
-                        className="flex justify-between text-xs py-0.5 border-b border-gray-100 last:border-0"
-                      >
-                        <span className="text-gray-400 capitalize">
-                          {key.replace(/_/g, " ")}
-                          {format && (
-                            <span className="ml-1 text-gray-300 normal-case">
-                              ({format})
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-gray-700 font-medium text-right">
-                          {value}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Field>
-            )}
+          {/* Извлечённые данные — shared component */}
+          {viewModel.structuredValues.length > 0 && (
+            <Field
+              label={`Извлечённые данные (${viewModel.structuredValues.length})`}
+            >
+              <RequestStructuredValuesList
+                values={viewModel.structuredValues}
+                maxHeight="10rem"
+              />
+            </Field>
+          )}
         </div>
 
         {/* Подвал */}
@@ -368,6 +326,10 @@ export const RequestSidePanel: React.FC<Props> = ({
     </>
   );
 };
+
+// -------------------------------------------------------------
+// Вспомогательный компонент Field (оставляем локальным)
+// -------------------------------------------------------------
 
 function Field({
   label,

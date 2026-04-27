@@ -223,6 +223,9 @@ def build_document_detail(
 def build_dd_requests(agg: AggregatedResults) -> list[DDRequestDTO]:
     """
     Построить список DD-запросов для UI из AggregatedResults.dd_requests.
+    
+    Теперь передаёт segment provenance для точной навигации в viewer
+    при клике "Open in document" из review panel.
     """
     return [
         DDRequestDTO(
@@ -232,9 +235,18 @@ def build_dd_requests(agg: AggregatedResults) -> list[DDRequestDTO]:
             check_name=req.check_name,
             addressee=req.addressee,
             text=req.text,
+            document_ids=req.document_ids,
             document_names=req.document_names,
             doc_types=req.doc_types,
             structured_values=req.structured_values,
+            # NEW: segment provenance для viewer navigation
+            segment_id=req.segment_id or None,
+            segment_type=req.segment_type or None,
+            segment_title=req.segment_title or None,
+            segment_order=req.segment_order,
+            is_primary_segment=req.is_primary_segment,
+            chunk_id=req.chunk_id or None,
+            chunk_index=req.chunk_index,
         )
         for req in agg.dd_requests
     ]

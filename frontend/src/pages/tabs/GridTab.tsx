@@ -139,6 +139,9 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   // Фильтр "только multi-document" для legacy-режима
   const [legacyMultiDocOnly, setLegacyMultiDocOnly] = React.useState(false);
 
+  // Фильтр "только Critical" для legacy-режима
+  const [legacyCriticalOnly, setLegacyCriticalOnly] = React.useState(false);
+
   // Документы для построения compositionByDocId в legacy-режиме
   // useDocuments возвращает PaginatedResponse<DocumentListItem>,
   // поэтому берём .items из data.
@@ -288,6 +291,11 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         break;
     }
 
+    // Фильтр "только Critical" (применяется после quickFilter)
+    if (legacyCriticalOnly) {
+      results = results.filter((r) => r.severity === "critical");
+    }
+
     return results;
   }, [
     allResults,
@@ -295,6 +303,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     quickFilter,
     selectedDocType,
     hasStructuredDataOnly,
+    legacyCriticalOnly,
   ]);
 
   const globalResults = React.useMemo(
@@ -711,6 +720,8 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
             onlyMultiDocument={legacyMultiDocOnly}
             onOnlyMultiDocumentChange={setLegacyMultiDocOnly}
             hasCompositionData={compositionByDocId.size > 0}
+            criticalOnly={legacyCriticalOnly}
+            onCriticalOnlyChange={setLegacyCriticalOnly}
           />
 
           <div className="flex items-center justify-between text-[11px] text-gray-400">

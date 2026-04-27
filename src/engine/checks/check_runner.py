@@ -499,6 +499,14 @@ class CheckRunner:
 
                 for check in checks:
                     exec_result = self.executor.execute(doc, check, safe_chunks)
+
+                    # Добавляем segment metadata в exec_result для downstream normalizer/saver
+                    exec_result["segment_id"] = getattr(segment, "segment_id", None)
+                    exec_result["segment_type"] = getattr(segment, "segment_type", None)
+                    exec_result["segment_title"] = getattr(segment, "segment_title", None)
+                    exec_result["segment_order"] = getattr(segment, "segment_order", None)
+                    exec_result["is_primary_segment"] = getattr(segment, "is_primary", None)
+
                     await save_check_result(
                         repo=repo,
                         run_id=run_id,

@@ -170,7 +170,22 @@ class RunnerRepository:
                     "conditional_check_triggered": r.conditional_check_triggered or False,
                     "trigger_name": r.trigger_name or "",
                     "origin": r.origin or None,
+                    # Viewer/highlight fields
+                    "page": r.page,
+                    "clause_uid": r.clause_uid or "",
+                    "element_id": r.element_id,
+                    "bbox": r.bbox,
+                    # Segment-aware provenance
+                    "segment_id": r.segment_id,
+                    "segment_type": r.segment_type,
+                    "segment_title": r.segment_title,
+                    "segment_order": r.segment_order,
+                    "is_primary_segment": r.is_primary_segment,
+                    "chunk_id": r.chunk_id,
+                    "chunk_index": r.chunk_index,
                 }
             )
+
         return out
+
 

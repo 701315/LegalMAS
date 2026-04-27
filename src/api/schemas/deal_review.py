@@ -220,7 +220,8 @@ class DDRequestDTO(BaseModel):
     - адресата;
     - текст запроса;
     - к каким документам и типам относится;
-    - какие structured_values были использованы.
+    - какие structured_values были использованы;
+    - (опционально) segment provenance для viewer navigation в multi-document файлах.
     """
     request_id: str
     priority: str
@@ -228,9 +229,21 @@ class DDRequestDTO(BaseModel):
     check_name: str | None
     addressee: str
     text: str
+    document_ids: list[str]
     document_names: list[str]
     doc_types: list[str]
     structured_values: list[dict[str, Any]]
+
+    # NEW: Segment provenance для viewer navigation (MR4)
+    # Заполняется, если запрос привязан к конкретному сегменту multi-document файла.
+    # Позволяет фронтенду открыть PDF viewer на точной позиции в документе.
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+    chunk_id: str | None = None
+    chunk_index: int | None = None
 
 
 class ConditionalCheckDTO(BaseModel):
@@ -312,5 +325,7 @@ class DocumentStructuredDataDTO(BaseModel):
 
     total_values: int
     values: list[ExtractedValueDTO]
+
+    
 
 

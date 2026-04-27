@@ -217,8 +217,19 @@ export interface DocumentDetailDTO {
 
 /**
  * DD Request / follow-up request в рамках review.
- * structured_values пока оставлены максимально гибкими,
- * но добавлены optional provenance-поля для будущего enrichment.
+ * 
+ * Для непрофессионального программиста:
+ * Это запрос юриста или автоматически сформированный follow-up вопрос
+ * по результатам проверки документов. Содержит текст запроса, приоритет,
+ * список документов и segment/chunk provenance для навигации в viewer.
+ * 
+ * ВАЖНО для MR4:
+ * - document_ids содержит UUID документов для прямой навигации в viewer
+ * - document_names содержит человекочитаемые имена файлов для отображения
+ * - Эти два массива синхронизированы по индексу: document_ids[0] относится
+ *   к document_names[0], и так далее
+ * - Segment provenance (segment_id, chunk_id, etc.) унаследованы от
+ *   SegmentProvenanceDTO и указывают на конкретное место в документе
  */
 export interface DDRequestDTO extends SegmentProvenanceDTO {
   request_id: string;
@@ -231,9 +242,20 @@ export interface DDRequestDTO extends SegmentProvenanceDTO {
   text: string;
 
   document_names: string[];
+  
+  /**
+   * UUID документов, соответствующие document_names по индексу.
+   * Если backend ещё не обновлён — может быть пустым массивом.
+   * Если есть хотя бы один id — можно строить viewer navigation.
+   */
+  document_ids: string[];
+  
   doc_types: string[];
 
-  structured_values: Array<Record<string, unknown>>;
+  structured_values: Array<
+    | { field_name: string; field_value: unknown; field_format?: string | null }
+    | Record<string, unknown>
+  >;
 }
 
 /**
@@ -300,4 +322,6 @@ export interface DocumentStructuredDataDTO {
   total_values: number;
   values: ExtractedValueDTO[];
 }
+
+
 

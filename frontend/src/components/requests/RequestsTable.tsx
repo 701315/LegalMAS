@@ -1,16 +1,15 @@
 // =============================================================
 // src/components/requests/RequestsTable.tsx
-// Таблица DD‑запросов для юриста.
+// Таблица DD‑запросов для юриста (legacy CRUD mode).
+// Использует adapter для преобразования DDRequest в UI read-model.
 // Колонки: Приоритет, Текст, Документы (count), Статус, Источник.
 // Поиск, сортировка, кнопки экспорта.
 // =============================================================
 
 import React, { useMemo, useState } from "react";
 import type { DDRequest } from "../../types";
-import {
-  DD_REQUEST_STATUS_DISPLAY,
-  DD_REQUEST_SOURCE_DISPLAY,
-} from "../../constants";
+import { toRequestTableRowFromLegacy } from "../../viewAdapters/requestPresentation";
+import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
 import { Search, Plus, Download, FileText } from "lucide-react";
 
 interface Props {
@@ -19,8 +18,7 @@ interface Props {
   onCreateClick: () => void;
   onExportWord: () => Promise<void>;
   onExportExcel: () => Promise<void>;
-  canManageRequests: boolean; 
-
+  canManageRequests: boolean;
 }
 
 type SortKey = "priority" | "status" | "created";
@@ -42,39 +40,50 @@ export const RequestsTable: React.FC<Props> = ({
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("priority");
 
+  // Преобразуем все запросы в UI read-model через adapter
+  const viewModels = useMemo(() => {
+    return requests.map((req) => ({
+      dto: req, // сохраняем исходный DDRequest для onRowClick и сортировки
+      view: toRequestTableRowFromLegacy(req),
+    }));
+  }, [requests]);
+
   const filtered = useMemo(() => {
-    let list = [...requests];
+    let list = [...viewModels];
 
     if (searchText.trim()) {
       const lower = searchText.toLowerCase();
-      list = list.filter((r) => {
-        const text = r.text.toLowerCase();
-        const checkName = r.check_id?.toLowerCase() ?? "";
-        return text.includes(lower) || checkName.includes(lower);
+      list = list.filter((item) => {
+        const { view } = item;
+        const text = view.text.toLowerCase();
+        const checkLabel = view.checkLabel?.toLowerCase() ?? "";
+        return text.includes(lower) || checkLabel.includes(lower);
       });
     }
 
     list.sort((a, b) => {
       if (sortBy === "priority") {
         return (
-          (PRIORITY_ORDER[a.priority] ?? 9) -
-          (PRIORITY_ORDER[b.priority] ?? 9)
+          (PRIORITY_ORDER[a.view.priority] ?? 9) -
+          (PRIORITY_ORDER[b.view.priority] ?? 9)
         );
       }
       if (sortBy === "status") {
-        return a.status.localeCompare(b.status);
+        return (a.view.statusLabel ?? "").localeCompare(
+          b.view.statusLabel ?? ""
+        );
       }
-      // created (newest first)
+      // created (newest first) — используем исходный DTO
       return (
-        new Date(b.created_at).getTime() -
-        new Date(a.created_at).getTime()
+        new Date(b.dto.created_at).getTime() -
+        new Date(a.dto.created_at).getTime()
       );
     });
 
     return list;
-  }, [requests, searchText, sortBy]);
+  }, [viewModels, searchText, sortBy]);
 
-return (
+  return (
     <div className="space-y-3">
       {/* Шапка */}
       <div className="flex items-center justify-between">
@@ -158,86 +167,55 @@ return (
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((req) => {
-              const statusDisplay =
-                DD_REQUEST_STATUS_DISPLAY[req.status] ?? req.status;
-              const [statusIcon, statusLabel] =
-                statusDisplay.includes(" ")
-                  ? statusDisplay.split(" ", 2)
-                  : ["", statusDisplay];
-
-              const sourceCfg = req.source
-                ? DD_REQUEST_SOURCE_DISPLAY[req.source]
-                : undefined;
-
-              const documentCount = Array.isArray(req.document_refs)
-                ? req.document_refs.length
-                : 0;
+            {filtered.map((item) => {
+              const { dto, view } = item;
 
               return (
                 <tr
-                  key={req.id}
+                  key={view.id}
                   className="hover:bg-gray-50 cursor-pointer transition"
-                  onClick={() => onRowClick(req)}
+                  onClick={() => onRowClick(dto)}
                 >
-                  {/* Приоритет */}
+                  {/* Приоритет — shared component */}
                   <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
-                        req.priority === "critical"
-                          ? "bg-red-100 text-red-800"
-                          : req.priority === "high"
-                          ? "bg-orange-100 text-orange-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {req.priority === "critical"
-                        ? "Критичный"
-                        : req.priority === "high"
-                        ? "Высокий"
-                        : "Средний"}
-                    </span>
+                    <RequestPriorityBadge priority={view.priority} size="sm" />
                   </td>
 
                   {/* Текст */}
                   <td className="px-4 py-3">
                     <p className="text-sm text-gray-900 line-clamp-2">
-                      {req.text}
+                      {view.text}
                     </p>
-                    {req.check_id && (
+                    {view.checkLabel && (
                       <p className="text-xs text-gray-400 mt-0.5">
-                        Проверка: {req.check_id}
+                        Проверка: {view.checkLabel}
                       </p>
                     )}
                   </td>
 
-                  {/* Документы */}
+                  {/* Документы — используем готовый count из view model */}
                   <td className="px-4 py-3 text-sm text-gray-700">
-                    {documentCount} док.
+                    {view.documentCount} док.
                   </td>
 
                   {/* Статус */}
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                      {statusIcon && (
-                        <span aria-hidden="true">{statusIcon}</span>
-                      )}
-                      <span>{statusLabel}</span>
-                    </span>
+                    {view.statusLabel ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        <span>{view.statusLabel}</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
                   </td>
 
                   {/* Источник */}
                   <td className="px-4 py-3">
-                    {sourceCfg ? (
+                    {view.sourceLabel && view.sourceColorClass ? (
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sourceCfg.color}`}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${view.sourceColorClass}`}
                       >
-                        {sourceCfg.icon && (
-                          <span aria-hidden="true">
-                            {sourceCfg.icon}
-                          </span>
-                        )}
-                        <span>{sourceCfg.label}</span>
+                        <span>{view.sourceLabel}</span>
                       </span>
                     ) : (
                       <span className="text-gray-300 text-xs">—</span>
@@ -265,3 +243,6 @@ return (
 };
 
 export default RequestsTable;
+
+
+

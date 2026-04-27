@@ -1,5 +1,3 @@
-# src/services/export/aggregator.py
-
 """
 Export Aggregator Service.
 
@@ -93,7 +91,9 @@ def aggregate_results(
             segment_type (NEW),
             segment_title (NEW),
             segment_order (NEW),
-            is_primary_segment (NEW)
+            is_primary_segment (NEW),
+            chunk_id (NEW),
+            chunk_index (NEW)
         documents: Dict of document_id → {
             name, folder_path, doc_type, status,
             classification_level (NEW),
@@ -203,6 +203,8 @@ def aggregate_results(
             segment_title=cr.get("segment_title") or "",
             segment_order=cr.get("segment_order"),
             is_primary_segment=cr.get("is_primary_segment"),
+            chunk_id=cr.get("chunk_id") or "",
+            chunk_index=cr.get("chunk_index"),
         )
         rows.append(row)
 
@@ -253,6 +255,8 @@ def aggregate_results(
                         segment_title=cr.get("segment_title") or "",
                         segment_order=cr.get("segment_order"),
                         is_primary_segment=cr.get("is_primary_segment"),
+                        chunk_id=cr.get("chunk_id") or "",
+                        chunk_index=cr.get("chunk_index"),
                     )
                 )
 
@@ -285,11 +289,19 @@ def aggregate_results(
                     if cr.get("check_id") == r.check_id
                     and cr.get("document_id") == r.document_id
                     and (cr.get("segment_id") or "") == (r.segment_id or "")
+                    and (cr.get("chunk_id") or "") == (r.chunk_id or "")
                 ),
                 {},
             ),
             conditional_check_triggered=r.conditional_check_triggered,
             trigger_name=r.trigger_name,
+            segment_id=r.segment_id or "",
+            segment_type=r.segment_type or "",
+            segment_title=r.segment_title or "",
+            segment_order=r.segment_order,
+            is_primary_segment=r.is_primary_segment,
+            chunk_id=r.chunk_id or "",
+            chunk_index=r.chunk_index,
         )
         for r in fail_rows[: settings.EXPORT_TOP_RISKS_COUNT]
     ]
@@ -343,13 +355,25 @@ def _generate_dd_requests(
     fail_rows: list[ExportRow],
     check_results: list[dict],
 ) -> list[DDRequest]:
-    """Generate deduplicated DD requests. Text from YAML templates."""
+    """
+    Generate deduplicated DD requests with segment/chunk provenance.
+
+    Text from YAML templates.
+
+    Provenance strategy:
+    - При дедупликации берётся provenance ПЕРВОГО наиболее важного результата
+      для check_id (severity asc, confidence desc)
+    - Если чек сработал в нескольких сегментах/чанках, viewer откроется
+      на первом наиболее приоритетном результате
+    - Для полной картины юрист должен смотреть DD Matrix
+    """
     loader = get_dd_request_loader()
     severity_order = {"critical": 0, "high": 1, "medium": 2}
 
     rows_for_requests = fail_rows
 
     if not settings.EXPORT_DD_REQUEST_DEDUP:
+        # Non-dedup mode: один запрос на каждый fail/unclear-important
         result: list[DDRequest] = []
         for r in rows_for_requests:
             text, addressee = loader.render(r.check_id, r.check_name, [r.document_name])
@@ -370,10 +394,18 @@ def _generate_dd_requests(
                     document_names=[r.document_name],
                     doc_types=[r.doc_type],
                     evidence_refs=[r.evidence_snippet[:max_ev]],
+                    segment_id=r.segment_id or "",
+                    segment_type=r.segment_type or "",
+                    segment_title=r.segment_title or "",
+                    segment_order=r.segment_order,
+                    is_primary_segment=r.is_primary_segment,
+                    chunk_id=r.chunk_id or "",
+                    chunk_index=r.chunk_index,
                 )
             )
         return result
 
+    # Dedup mode: группируем по check_id
     by_check: dict[str, list[ExportRow]] = defaultdict(list)
     for row in rows_for_requests:
         by_check[row.check_id].append(row)
@@ -385,7 +417,14 @@ def _generate_dd_requests(
             for k, v in sd.items():
                 if v and str(v) not in ("not_found", "None", ""):
                     structured_by_check[cr.get("check_id", "")].append(
-                        {"field": k, "value": str(v), "doc": cr.get("document_id", "")}
+                        {
+                            "field": k,
+                            "value": str(v),
+                            "doc": cr.get("document_id", ""),
+                            "segment_id": cr.get("segment_id") or "",
+                            "chunk_id": cr.get("chunk_id") or "",
+                            "chunk_index": cr.get("chunk_index"),
+                        }
                     )
 
     requests: list[DDRequest] = []
@@ -393,10 +432,15 @@ def _generate_dd_requests(
     max_ev = getattr(settings, "EXPORT_EVIDENCE_MAX_LENGTH", 300)
 
     for check_id, group in by_check.items():
-        best_severity = min(
+        # Сортируем группу: сначала critical, потом high, потом medium,
+        # затем по confidence DESC. Provenance берётся из first_result.
+        group_sorted = sorted(
             group,
-            key=lambda r: severity_order.get(r.severity, 9),
-        ).severity
+            key=lambda r: (severity_order.get(r.severity, 9), -r.confidence),
+        )
+
+        first_result = group_sorted[0]
+        best_severity = first_result.severity
 
         doc_ids = list(dict.fromkeys(r.document_id for r in group))
         doc_names = list(dict.fromkeys(r.document_name for r in group))
@@ -434,6 +478,13 @@ def _generate_dd_requests(
                 evidence_refs=evidence_refs,
                 structured_values=structured_by_check.get(check_id, []),
                 dedup_key=dedup_key,
+                segment_id=first_result.segment_id or "",
+                segment_type=first_result.segment_type or "",
+                segment_title=first_result.segment_title or "",
+                segment_order=first_result.segment_order,
+                is_primary_segment=first_result.is_primary_segment,
+                chunk_id=first_result.chunk_id or "",
+                chunk_index=first_result.chunk_index,
             )
         )
 

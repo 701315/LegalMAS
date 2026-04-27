@@ -4,7 +4,7 @@
 // =============================================================
 
 import React, { useCallback, useState } from "react";
-import type { DDRequest } from "../../types";
+import type { DDRequest, OpenViewerAtFn } from "../../types";
 import {
   useRequests,
   useUpdateRequest,
@@ -21,13 +21,17 @@ import type { DDRequestDTO } from "../../types/dealReview";
 import { ReviewRequestsTable } from "../../components/requests/ReviewRequestsTable";
 import { ReviewRequestSidePanel } from "../../components/requests/ReviewRequestSidePanel";
 
-
 interface Props {
   dealId: string;
   runId: string | null;
+  /**
+   * Callback для открытия viewer в конкретном месте документа.
+   * Передаётся из родительского компонента (например, DealPage).
+   */
+  onOpenViewerAt?: OpenViewerAtFn;
 }
 
-export const RequestsTab: React.FC<Props> = ({ dealId, runId }) => {
+export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) => {
   const { data: requests, isLoading } = useRequests(dealId);
 
   const updateMutation = useUpdateRequest(dealId);
@@ -40,7 +44,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId }) => {
   console.log("deal permissions", dealId, JSON.stringify(perms, null, 2));
 
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
-
   const [selectedReviewReq, setSelectedReviewReq] = useState<DDRequestDTO | null>(null);
 
   // Run-scoped DD requests — segment-aware, read-only review view.
@@ -53,8 +56,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId }) => {
   // Режим: если есть runId и review-данные загружены — показываем review-режим.
   // Иначе — legacy-режим.
   const isReviewMode = !!runId && !isLoadingReview && Array.isArray(reviewRequests);
-
-
 
   // Сохранение изменений из side panel
   const handleSave = useCallback(
@@ -127,15 +128,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId }) => {
     alert("Создание нового запроса будет реализовано позже.");
   }, [canManageRequests]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin mr-3 text-blue-500" size={24} />
-        <span className="text-lg text-gray-500">Загружаем запросы…</span>
-      </div>
-    );
-  }
-
   if (isLoading && !isReviewMode) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -156,7 +148,7 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId }) => {
         <ReviewRequestSidePanel
           request={selectedReviewReq}
           onClose={() => setSelectedReviewReq(null)}
-          onOpenAtLocation={undefined} // TODO(MR4): пробросить openViewerAt из родителя
+          onOpenAtLocation={onOpenViewerAt}
         />
       </>
     );

@@ -13,7 +13,6 @@ import type {
   ColDef,
   ICellRendererParams,
   ValueGetterParams,
-  ValueFormatterParams,
   SelectionChangedEvent,
 } from "ag-grid-community";
 
@@ -27,7 +26,11 @@ import type {
 } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
-import { getCompositionBadgeDataFromMeta } from "../../utils/compositionHelpers";
+import {
+  getCompositionBadgeDataFromMeta,
+  getCompositionCellValueFromMeta,
+  toCompositionMetaFromLegacyMatrixRow,
+} from "../../utils/compositionHelpers";
 import QCCellRenderer from "../qc/QCCellRenderer";
 import QualityFlagRenderer from "../qc/QualityFlagRenderer";
 
@@ -117,6 +120,25 @@ interface MatrixColumnMeta {
   checkId: string;
   checkName: string;
   origin?: string | null;
+}
+
+// -------------------------------------------------------------
+// Локальные helper-адаптеры
+// -------------------------------------------------------------
+
+function getRowCompositionMeta(
+  row: MatrixRowBase | null | undefined,
+): DocumentCompositionMeta | null {
+  return toCompositionMetaFromLegacyMatrixRow(
+    row
+      ? {
+          compositionType: row.compositionType ?? null,
+          segmentCount: row.segmentCount ?? null,
+          primarySegmentLabel: row.primarySegmentLabel ?? null,
+          isCompositeFile: row.isCompositeFile ?? null,
+        }
+      : null,
+  );
 }
 
 // -------------------------------------------------------------
@@ -329,24 +351,19 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               width: 90,
               pinned: "left" as const,
               cellRenderer: (p: ICellRendererParams<MatrixRow>) => {
-                const badges = getCompositionBadgeDataFromMeta(
-                  p.data?.compositionType != null
-                    ? {
-                        composition_type: p.data
-                          .compositionType as "single" | "multi",
-                        segment_count: p.data.segmentCount ?? 0,
-                        primary_segment_label:
-                          p.data.primarySegmentLabel ?? null,
-                        primary_segment_id: null,
-                        is_composite_file: p.data.isCompositeFile ?? false,
-                      }
-                    : null,
-                );
+                const meta = getRowCompositionMeta(p.data);
+                const badges = getCompositionBadgeDataFromMeta(meta);
+
+                if (!meta) {
+                  return <span className="text-[11px] text-gray-300">—</span>;
+                }
+
                 if (!badges.showMultiBadge && !badges.showSegmentCount) {
                   return (
                     <span className="text-[11px] text-gray-400">single</span>
                   );
                 }
+
                 return (
                   <div className="flex items-center gap-1 py-0.5">
                     {badges.showMultiBadge && (
@@ -365,10 +382,16 @@ const MatrixGrid: React.FC<DDGridProps> = ({
             },
             {
               headerName: "Primary segment",
-              field: "primarySegmentLabel" as keyof MatrixRow,
+              colId: "primary_segment_label",
               width: 160,
-              valueFormatter: (p: ValueFormatterParams<MatrixRow>) =>
-                (p.value as string | null | undefined) || "—",
+              valueGetter: (p: ValueGetterParams<MatrixRow>) => {
+                const meta = getRowCompositionMeta(p.data);
+                const value = getCompositionCellValueFromMeta(
+                  "primary_segment_label",
+                  meta,
+                );
+                return value || "—";
+              },
             },
           ] as ColDef<MatrixRow>[])
         : []),

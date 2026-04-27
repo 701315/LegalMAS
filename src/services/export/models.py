@@ -1,5 +1,3 @@
-# src/services/export/models.py
-
 """
 Модели данных агрегатора и экспортёра LegalMAS.
 
@@ -31,7 +29,7 @@
 Источник origin у чеков:
   "GLOBAL_PLAYBOOK"  — глобальный плейбук, применим ко ВСЕМ документам сделки
   "DOCUMENT_TYPE"    — YAML-инструкция конкретного типа документа
-  "CONDITIONAL"      — условный чек, активирован триггером из applicabletriggers
+  "CONDITIONAL"      — условный чек, активирован триггером из applicable_triggers
 """
 
 from dataclasses import dataclass, field
@@ -82,6 +80,10 @@ class TopRisk:
 
     Заполняется агрегатором из fail-результатов отсортированных по severity.
     Используется в Word-отчёте (report_builder.py) и Summary Excel.
+
+    Segment/chunk provenance (NEW):
+    Для multi-document файлов и chunked retrieval позволяет точно указать,
+    в каком логическом сегменте и чанке найдена проблема.
     """
 
     check_id: str
@@ -97,6 +99,13 @@ class TopRisk:
     structured_data: dict[str, Any] = field(default_factory=dict)
     conditional_check_triggered: bool = False
     trigger_name: str = ""
+    segment_id: str = ""
+    segment_type: str = ""
+    segment_title: str = ""
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+    chunk_id: str = ""
+    chunk_index: int | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -113,6 +122,13 @@ class TopRisk:
             "structured_data": self.structured_data,
             "conditional_check_triggered": self.conditional_check_triggered,
             "trigger_name": self.trigger_name,
+            "segment_id": self.segment_id,
+            "segment_type": self.segment_type,
+            "segment_title": self.segment_title,
+            "segment_order": self.segment_order,
+            "is_primary_segment": self.is_primary_segment,
+            "chunk_id": self.chunk_id,
+            "chunk_index": self.chunk_index,
         }
 
 
@@ -128,6 +144,17 @@ class DDRequest:
 
     addressee — адресат запроса из YAML (например: «Продавец», «Юридический советник»).
     structured_values — извлечённые значения (суммы, даты) для подстановки в текст.
+
+    Segment/chunk provenance (NEW):
+    Для multi-document файлов и chunked retrieval позволяет точно указать, в каком
+    логическом сегменте и чанке найдена проблема.
+
+    При дедупликации (EXPORT_DD_REQUEST_DEDUP=True) берётся provenance ПЕРВОГО
+    fail-результата для данного check_id (sorted by severity asc, confidence desc).
+    Это означает, что если один и тот же чек сработал в нескольких сегментах/чанках,
+    в запросе будет указан только первый наиболее приоритетный.
+
+    Для получения полной картины юрист должен смотреть DD Matrix или Document Detail.
     """
 
     request_id: str
@@ -142,6 +169,13 @@ class DDRequest:
     evidence_refs: list[str] = field(default_factory=list)
     structured_values: list[dict] = field(default_factory=list)
     dedup_key: str = ""
+    segment_id: str = ""
+    segment_type: str = ""
+    segment_title: str = ""
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+    chunk_id: str = ""
+    chunk_index: int | None = None
 
     @property
     def document_count(self) -> int:
@@ -160,6 +194,13 @@ class DDRequest:
             "doc_types": self.doc_types,
             "document_count": self.document_count,
             "structured_values": self.structured_values,
+            "segment_id": self.segment_id,
+            "segment_type": self.segment_type,
+            "segment_title": self.segment_title,
+            "segment_order": self.segment_order,
+            "is_primary_segment": self.is_primary_segment,
+            "chunk_id": self.chunk_id,
+            "chunk_index": self.chunk_index,
         }
 
 
@@ -176,6 +217,10 @@ class ExportRow:
         "GLOBAL_PLAYBOOK"  — чек из глобального плейбука
         "DOCUMENT_TYPE"    — чек из YAML-инструкции типа документа
         "CONDITIONAL"      — условный чек по триггеру
+
+    Segment/chunk provenance (NEW):
+    - single-document: segment_id/chunk_id обычно пустые
+    - multi-document: позволяют понять, к какому логическому сегменту/чанку относится строка
     """
 
     document_name: str
@@ -200,16 +245,13 @@ class ExportRow:
     classification_level: str = ""
     classification_confidence: float = 0.0
     origin: str | None = None
-
-    # Для multi-document файлов добавляем segment-метаданные.
-    # Для непрофессионального программиста:
-    # - single-document: segment_id/segment_type/... обычно пустые;
-    # - multi-document: позволяют понять, к какому логическому сегменту относится строка.
     segment_id: str = ""
     segment_type: str = ""
     segment_title: str = ""
     segment_order: int | None = None
     is_primary_segment: bool | None = None
+    chunk_id: str = ""
+    chunk_index: int | None = None
 
 
 @dataclass
@@ -249,26 +291,28 @@ class StructuredValueRow:
         "date"        — дата (форматировать по локали)
         "entity_name" — наименование юридического лица
         "text"        — произвольный текст
+
+    Segment/chunk provenance (NEW):
+    Позволяет на фронтенде показать, в каком сегменте/чанке найдено значение.
     """
 
     document_name: str
     doc_type: str
     check_name: str
-    field_name: str    # например: "amount", "effective_date", "cadastral_number"
-    field_value: str   # например: "5 000 000 руб.", "01.01.2025", "77:01:0001001:123"
-    field_format: str  # "money" | "date" | "entity_name" | "text"
+    field_name: str
+    field_value: str
+    field_format: str
     page: int | None = None
     clause_uid: str = ""
     document_id: str = ""
     check_id: str = ""
-
-    # NEW: segment-метаданные для структурированных значений.
-    # Это нужно, чтобы на фронтенде можно было показать, в каком сегменте найдено значение.
     segment_id: str = ""
     segment_type: str = ""
     segment_title: str = ""
     segment_order: int | None = None
     is_primary_segment: bool | None = None
+    chunk_id: str = ""
+    chunk_index: int | None = None
 
 
 @dataclass
@@ -303,8 +347,8 @@ class AggregatedResults:
     - Excel DD Grid (grid_builder.py)
     - Excel Summary (summary_builder.py)
     - Word Report (report_builder.py)
-    - API эндпоинты deal review (dealreviewservice.py)
-    - API эндпоинт DD Matrix (dealreviewservice.py → build_dd_matrix)
+    - API эндпоинты deal review (deal_review_service.py)
+    - API эндпоинт DD Matrix (deal_review_service.py → build_dd_matrix)
 
     rows — плоский список всех результатов, каждая запись = (документ, чек).
     Из этого плоского списка строится матрица в build_dd_matrix().
@@ -367,9 +411,9 @@ class ExtractedField:
         field_name="кадастровый №", field_value="77:01:0001001:123", field_format="text"
     """
 
-    field_name: str    # человекочитаемое имя поля из YAML extraction config
-    field_value: str   # строковое представление значения
-    field_format: str  # "money" | "date" | "entity_name" | "text"
+    field_name: str
+    field_value: str
+    field_format: str
 
 
 @dataclass
@@ -392,18 +436,28 @@ class MatrixCell:
         qc_status  — статус ручной проверки: "pending" | "approved" | "rejected"
         conditional_check_triggered — True если чек сработал по триггеру
         trigger_name — имя триггера который активировал чек
+        
+    Segment/chunk provenance (NEW):
+        segment_id, chunk_id — позволяют точно указать, откуда взят результат
     """
 
-    result: str                                          # "fail" | "pass" | "unclear"
-    severity: str                                        # "critical" | "high" | "medium"
-    snippet: str = ""                                    # цитата из документа
-    page: int | None = None                              # страница
-    clause_uid: str = ""                                 # UID параграфа
+    result: str
+    severity: str
+    snippet: str = ""
+    page: int | None = None
+    clause_uid: str = ""
     extracted: list[ExtractedField] = field(default_factory=list)
     confidence: float = 0.0
     qc_status: str = "pending"
     conditional_check_triggered: bool = False
     trigger_name: str = ""
+    segment_id: str = ""
+    segment_type: str = ""
+    segment_title: str = ""
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+    chunk_id: str = ""
+    chunk_index: int | None = None
 
 
 @dataclass
@@ -436,10 +490,10 @@ class CheckMeta:
 
     check_id: str
     check_name: str
-    origin: str                           # "GLOBAL_PLAYBOOK" | "DOCUMENT_TYPE" | "CONDITIONAL"
-    severity: str                         # "critical" | "high" | "medium"
-    order_index: int = 0                  # порядок столбца в матрице
-    applicable_doc_types: list[str] | None = None  # None = все типы документов
+    origin: str
+    severity: str
+    order_index: int = 0
+    applicable_doc_types: list[str] | None = None
 
 
 @dataclass
@@ -464,8 +518,8 @@ class DocumentMatrixRow:
     document_name: str
     doc_type: str
     folder_path: str
-    status: str = "completed"             # статус обработки документа
-    classification_level: str = ""        # L1 | L2 | L3 | L4 | HYBRID
+    status: str = "completed"
+    classification_level: str = ""
     classification_confidence: float = 0.0
     results: dict[str, MatrixCell] = field(default_factory=dict)
 
@@ -517,27 +571,16 @@ class DDMatrixResponse:
     deal_id: str
     run_id: str
     deal_name: str
-
-    # Полный реестр чеков = описания всех столбцов матрицы
     checks: list[CheckMeta] = field(default_factory=list)
-
-    # check_id глобальных чеков (для вкладки «Глобальные проверки»)
     global_check_ids: list[str] = field(default_factory=list)
-
-    # {doc_type: [check_id, ...]} только DOCUMENT_TYPE чеки (для вкладок по типам)
     doc_type_check_ids: dict[str, list[str]] = field(default_factory=dict)
-
-    # Строки матрицы, отсортированы: critical_count DESC, fail_count DESC
     documents: list[DocumentMatrixRow] = field(default_factory=list)
-
-    # Общая статистика для заголовка страницы
     total_documents: int = 0
     total_checks: int = 0
     severity_counts: SeverityCounts = field(default_factory=SeverityCounts)
-
-    # Метрики качества анализа
-    quarantine_count: int = 0       # документов в карантине
-    degraded_count: int = 0         # документов с деградированной структурой
-    evidence_validity_rate: float = 1.0  # доля находок с цитатой (0.0–1.0)
+    quarantine_count: int = 0
+    degraded_count: int = 0
+    evidence_validity_rate: float = 1.0
+    
 
 
