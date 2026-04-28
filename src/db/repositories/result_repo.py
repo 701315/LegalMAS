@@ -437,6 +437,86 @@ class ResultRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+
+    async def has_success_for_doc_check(
+        self,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+        check_id: str,
+    ) -> bool:
+        """
+        Проверить, есть ли уже успешный результат по агрегату (run, doc, check),
+        независимо от segment_id.
+
+        Архитектурный смысл:
+        - orchestration-слой (Celery task run_single_check) работает на уровне
+          бизнес-единицы "одна проверка для одного документа";
+        - storage-слой хранит одну или несколько строк CheckResult:
+          * single-document: одна строка с segment_id IS NULL;
+          * multi-document: одна строка на каждый сегмент.
+
+        Поэтому для идемпотентности задачи нам нельзя смотреть
+        на конкретную storage-строку через get_one(..., segment_id=...).
+        Нам нужен агрегирующий ответ:
+        "Есть ли уже SUCCESS по этому document/check хотя бы на одном сегменте?"
+
+        Возвращает:
+        - True  -> если найден хотя бы один CheckResult со статусом SUCCESS;
+        - False -> если успешных результатов ещё нет.
+        """
+        stmt = (
+            select(CheckResult.id)
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResult.document_id == document_id,
+                CheckResult.check_id == check_id,
+                CheckResult.execution_status == CheckExecutionStatus.SUCCESS.value,
+            )
+            .limit(1)
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def get_first_success_for_doc_check(
+        self,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+        check_id: str,
+    ) -> CheckResult | None:
+        """
+        Вернуть первую найденную успешную запись по агрегату (run, doc, check),
+        чтобы orchestration-слой мог залогировать, какой именно segment-level
+        результат уже закрыл задачу.
+
+        ВАЖНО:
+        - метод не нужен для бизнес-логики принятия решения;
+          решение "скипать или нет" остаётся за has_success_for_doc_check(...).
+        - этот метод только для observability / debug logging.
+        - порядок берём детерминированный: primary segment сначала, затем
+          segment_order, затем created_at, затем id.
+        """
+        stmt = (
+            select(CheckResult)
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResult.document_id == document_id,
+                CheckResult.check_id == check_id,
+                CheckResult.execution_status == CheckExecutionStatus.SUCCESS.value,
+            )
+            .order_by(
+                CheckResult.is_primary_segment.desc().nullslast(),
+                CheckResult.segment_order.asc().nullslast(),
+                CheckResult.created_at.asc(),
+                CheckResult.id.asc(),
+            )
+            .limit(1)
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
     async def upsert_single_check_result(
         self,
         *,

@@ -13,6 +13,7 @@ from __future__ import annotations  # сильно упрощает жизнь �
 import uuid
 from uuid import UUID
 import json
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -494,12 +495,25 @@ async def get_classification_report(
 
 
 class RunExportCreate(BaseModel):
-    export_type: str = "run_full"
-    requested_by: str | None = None
-    requester_role: str | None = None
+    """
+    Тело запроса экспорта.
+
+    Клиент передаёт только тип экспорта.
+    requested_by / requester_role вычисляются на сервере
+    по текущему пользователю и project role.
+    """
+    export_type: Literal[
+        "grid_xlsx",
+        "deal_summary_xlsx",
+        "report_docx",
+        "aggregated_json",
+    ]
 
 
 class RunExportResponse(BaseModel):
+    """
+    Краткий ответ об экспорте для UI.
+    """
     id: uuid.UUID
     run_id: uuid.UUID
     deal_id: uuid.UUID
@@ -525,7 +539,7 @@ async def start_run_export(
     ВАЖНО:
     - Экспорт разрешён только для пользователей с ролью "admin" или "editor"
       в проекте (сделке), к которому относится этот run.
-    - Если статус run не "completed" — экспорт запрещён (400).
+    - Экспорт разрешён для run в статусах "completed" и "completed_with_errors".
     """
     run_repo = RunRepository(db)
     export_repo = ExportRepository(db)
@@ -535,7 +549,7 @@ async def start_run_export(
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # 2. Проверяем, что пользователь имеет право на экспорт в этой сделке.
+    # 2. Проверяем проектную роль (admin/editor) по deal_id
     await require_project_role(
         db=db,
         user=user,
@@ -543,24 +557,35 @@ async def start_run_export(
         allowed_roles=("admin", "editor"),
     )
 
-    # 3. Проверяем статус run
-    if run.status not in ("completed",):
+    # 3. Проверяем статус run — теперь допускаем completed и completed_with_errors
+    if run.status not in (RunStatus.COMPLETED.value, "completed_with_errors"):
+        # RunStatus.COMPLETED.value обычно "completed";
+        # "completed_with_errors" пока строкой, если нет enum-константы.
         raise HTTPException(
             status_code=400,
-            detail=f"Run status must be 'completed' to export, got '{run.status}'",
+            detail=(
+                "Run status must be 'completed' or 'completed_with_errors' "
+                f"to export, got '{run.status}'"
+            ),
         )
 
-    # 4. Создаём запись экспорта
+    # 4. Определяем audit-поля: requested_by / requester_role
+    requested_by = getattr(user, "id", None)
+    # Попробуем взять project role из deal_members внутри require_project_role,
+    # но т.к. она там не возвращается, используем global_role как fallback.
+    requester_role = getattr(user, "global_role", "user")
+
+    # 5. Создаём запись экспорта
     export = await export_repo.create(
         deal_id=run.deal_id,
         run_id=run.id,
         export_type=data.export_type,
-        requested_by=data.requested_by or user.id,
-        requester_role=data.requester_role or user.global_role,
+        requested_by=requested_by,
+        requester_role=requester_role,
         status="pending",
     )
 
-    # 5. Ставим задачу на экспорт в Celery
+    # 6. Ставим задачу на экспорт в Celery
     try:
         celery_app.send_task(
             "workers.export_results",
@@ -611,7 +636,6 @@ async def start_run_export(
 
     await db.commit()
     await db.refresh(export)
-
 
     return RunExportResponse(
         id=export.id,

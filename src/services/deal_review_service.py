@@ -40,6 +40,7 @@ from api.schemas.deal_review import (
     ExtractedFieldDTO,
     ExtractedValueDTO,
     MatrixCellDTO,
+    SegmentMatrixRowDTO,
 )
 
 logger = get_logger(__name__)
@@ -317,27 +318,33 @@ def build_dd_matrix(
 
     Используется эндпоинтом GET /deals/{deal_id}/runs/{run_id}/dd-matrix.
 
-    Алгоритм:
-    1. Из agg.rows собираем реестр уникальных чеков (CheckMetaDTO).
-       Глобальные чеки (origin=GLOBAL_PLAYBOOK) получают меньший order_index
-       и идут первыми в матрице.
-    2. Из agg.structured_value_rows строим индекс
-       (doc_id, check_id) → [ExtractedFieldDTO] для заполнения ячеек.
-    3. Строим индекс результатов (doc_id, check_id) → ExportRow
-       для быстрого поиска при заполнении ячеек матрицы.
-    4. Для каждого уникального документа строим DocumentMatrixRowDTO:
-       results = {check_id: MatrixCellDTO}. Отсутствие ключа = чек не
-       применялся к документу (n/a) — фронт рисует серую ячейку.
-    5. Строки сортируются по убыванию рисков:
-       сначала critical fail, затем остальные fail.
-    6. Формируем global_check_ids и doc_type_check_ids для вкладок фронта.
+    Новая архитектура:
+      - file-уровень (documents): строки на уровне физического файла (legacy),
+        будут использоваться как контейнер/группировка;
+      - segment-уровень (segment_documents): строки на уровне логического документа
+        (сегмента), это целевой уровень для DD Grid на фронте.
 
-    ВНИМАНИЕ: текущая реализация остаётся документ-ориентированной
-    (ячейка = результат по документу, без отдельного измерения сегментов).
-    Для полноценной segment-матрицы потребуется расширить DTO и фронт.
+    Алгоритм:
+      1. Из agg.rows собираем реестр уникальных чеков (CheckMetaDTO).
+         GLOBAL_PLAYBOOK получают меньший order_index и идут первыми.
+      2. Из agg.structured_value_rows строим индекс
+         (doc_id, check_id) → [ExtractedFieldDTO] для заполнения ячеек.
+         (пока без разбиения по сегментам, этого достаточно для MVP).
+      3. Строим индекс результатов на уровне файла: (doc_id, check_id) → ExportRow.
+         Это legacy-слой для DocumentMatrixRowDTO.
+      4. Строим segment-ориентированные строки: группируем agg.rows по
+         (document_id, segment_id), внутри — по check_id, выбираем "лучший"
+         ExportRow по result/severity/confidence и формируем SegmentMatrixRowDTO.
+      5. Строим legacy file-ориентированные строки (как было раньше), чтобы
+         не ломать текущий фронт: DocumentMatrixRowDTO по (doc_id, check_id).
+      6. Сортируем строки по риску: сначала critical fail, затем прочие fail,
+         карантинные документы в конце.
+      7. Формируем global_check_ids и doc_type_check_ids для вкладок фронта.
     """
 
-    # Шаг 1. Реестр уникальных чеков
+    # ------------------------------------------------------------------
+    # Шаг 1. Реестр уникальных чеков (столбцы матрицы)
+    # ------------------------------------------------------------------
     seen_checks: dict[str, dict[str, Any]] = {}
 
     # Проход 1: GLOBAL_PLAYBOOK
@@ -397,7 +404,9 @@ def build_dd_matrix(
                 if check_id not in doc_type_check_ids[doc_type]:
                     doc_type_check_ids[doc_type].append(check_id)
 
+    # ------------------------------------------------------------------
     # Шаг 2. Индекс структурированных значений: (doc_id, check_id) → [ExtractedFieldDTO]
+    # ------------------------------------------------------------------
     sv_index: dict[tuple[str, str], list[ExtractedFieldDTO]] = defaultdict(list)
     for sv in agg.structured_value_rows:
         key = (sv.document_id, sv.check_id)
@@ -409,29 +418,126 @@ def build_dd_matrix(
             )
         )
 
-    # Шаг 3. Индекс результатов: (doc_id, check_id) → ExportRow
+    # ------------------------------------------------------------------
+    # Шаг 3. Индекс результатов на уровне файла: (doc_id, check_id) → ExportRow
+    # ------------------------------------------------------------------
     result_index: dict[tuple[str, str], Any] = {}
     for row in agg.rows:
+        # Если для одного (doc_id, check_id) несколько строк (разные сегменты),
+        # здесь останется последняя. Это legacy-поведение для file-level матрицы,
+        # основной правдой станет segment_documents ниже.
         result_index[(row.document_id, row.check_id)] = row
 
-    # Уникальные документы в порядке первого появления
+    # ------------------------------------------------------------------
+    # Шаг 4. Сегмент-ориентированные строки (segment_documents)
+    # ------------------------------------------------------------------
+
+    # Группируем все ExportRow по (document_id, segment_id).
+    segment_groups: dict[tuple[str, str], list[Any]] = defaultdict(list)
+    for row in agg.rows:
+        seg_id = row.segment_id or ""  # для несегментированных документов
+        segment_groups[(row.document_id, seg_id)].append(row)
+
+    # Вспомогательные приоритеты: что считать "худшим" результатом.
+    RESULT_PRIORITY = {"fail": 3, "unclear": 2, "pass": 1}
+    SEVERITY_PRIORITY = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+    def select_best_row(rows_for_check: list[Any]) -> Any:
+        """
+        Выбрать наиболее "важную" строку для данного (segment, check):
+        - сначала по result: fail > unclear > pass;
+        - потом по severity: critical > high > medium > low;
+        - затем по confidence (по убыванию).
+        """
+        def key(r: Any) -> tuple[int, int, float]:
+            return (
+                RESULT_PRIORITY.get(r.result, 0),
+                SEVERITY_PRIORITY.get(r.severity, 0),
+                r.confidence or 0.0,
+            )
+
+        return max(rows_for_check, key=key)
+
     doc_order: dict[str, None] = {}
     for row in agg.rows:
         doc_order[row.document_id] = None
 
-    # Шаг 4. Строим строки матрицы
-    matrix_rows: list[DocumentMatrixRowDTO] = []
+    segment_rows: list[SegmentMatrixRowDTO] = []   # правильный тип
+
+    for (doc_id, seg_id), rows_for_segment in segment_groups.items():
+        doc_meta = documents.get(doc_id, {})
+        r0 = rows_for_segment[0]
+
+        by_check: dict[str, list[Any]] = defaultdict(list)
+        for r in rows_for_segment:
+            by_check[r.check_id].append(r)
+
+        segment_results: dict[str, MatrixCellDTO] = {}
+
+        for check_id, rows_for_check in by_check.items():
+            best = select_best_row(rows_for_check)
+            sv_key = (doc_id, check_id)
+            extracted = sv_index.get(sv_key, [])
+
+            segment_results[check_id] = MatrixCellDTO(
+                result=best.result,
+                severity=best.severity,
+                snippet=best.evidence_snippet or "",
+                page=best.page,
+                clause_uid=best.clause_uid or "",
+                extracted=extracted,
+                confidence=best.confidence or 0.0,
+                qc_status=best.qc_status or "pending",
+                conditional_check_triggered=best.conditional_check_triggered,
+                trigger_name=best.trigger_name or "",
+                segment_id=best.segment_id or None,
+                segment_type=best.segment_type or None,
+                segment_title=best.segment_title or None,
+                segment_order=best.segment_order,
+                is_primary_segment=best.is_primary_segment,
+                chunk_id=best.chunk_id or None,
+                chunk_index=best.chunk_index,
+            )
+
+        segment_rows.append(
+            SegmentMatrixRowDTO(              # правильный класс
+                document_id=doc_id,
+                document_name=doc_meta.get("name", ""),
+                doc_type=doc_meta.get("doc_type", "Generic"),
+                folder_path=doc_meta.get("folder_path") or None,
+                segment_id=seg_id or None,    # "" → None для несегментированных
+                segment_type=r0.segment_type or None,
+                segment_title=r0.segment_title or None,
+                segment_order=r0.segment_order,
+                is_primary_segment=r0.is_primary_segment,
+                status=doc_meta.get("status", "completed"),
+                classification_level=doc_meta.get("classification_level", ""),
+                classification_confidence=float(
+                    doc_meta.get("classification_confidence", 0.0)
+                ),
+                requires_manual_review=bool(
+                    doc_meta.get("classification_requires_review") or False
+                ),
+                results=segment_results,
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Шаг 5. Legacy file-ориентированные строки (documents)
+    # ------------------------------------------------------------------
+
+    file_rows: list[DocumentMatrixRowDTO] = []
 
     for doc_id in doc_order:
         doc_meta = documents.get(doc_id, {})
-        results: dict[str, MatrixCellDTO] = {}
+        file_results: dict[str, MatrixCellDTO] = {}
 
         for check_id in seen_checks:
             export_row = result_index.get((doc_id, check_id))
             if export_row is None:
                 continue
 
-            results[check_id] = MatrixCellDTO(
+            file_results[check_id] = MatrixCellDTO(
                 result=export_row.result,
                 severity=export_row.severity,
                 snippet=export_row.evidence_snippet or "",
@@ -442,14 +548,23 @@ def build_dd_matrix(
                 qc_status=export_row.qc_status or "pending",
                 conditional_check_triggered=export_row.conditional_check_triggered,
                 trigger_name=export_row.trigger_name or "",
+                # segment_* / chunk_* здесь можно не заполнять, т.к. этот слой legacy;
+                # для честной навигации фронт должен использовать segment_documents.
+                segment_id=None,
+                segment_type=None,
+                segment_title=None,
+                segment_order=None,
+                is_primary_segment=None,
+                chunk_id=None,
+                chunk_index=None,
             )
 
-        matrix_rows.append(
+        file_rows.append(
             DocumentMatrixRowDTO(
                 document_id=doc_id,
                 document_name=doc_meta.get("name", ""),
                 doc_type=doc_meta.get("doc_type", "Generic"),
-                folder_path=doc_meta.get("folder_path", ""),
+                folder_path=doc_meta.get("folder_path") or None,
                 status=doc_meta.get("status", "completed"),
                 classification_level=doc_meta.get("classification_level", ""),
                 classification_confidence=float(
@@ -458,23 +573,29 @@ def build_dd_matrix(
                 requires_manual_review=bool(
                     doc_meta.get("classification_requires_review") or False
                 ),
-                results=results,
+                results=file_results,
             )
         )
 
-    # Шаг 5. Сортировка строк по риску, карантин в конец
-    matrix_rows.sort(
-        key=lambda r: (
-            1 if r.status == "quarantine" else 0,
-            -sum(
-                1 for c in r.results.values()
-                if c.result == "fail" and c.severity == "critical"
-            ),
-            -sum(1 for c in r.results.values() if c.result == "fail"),
-        )
-    )
+    # ------------------------------------------------------------------
+    # Шаг 6. Сортировка строк по риску, карантин в конец
+    # ------------------------------------------------------------------
 
-    # Шаг 6. Финальная сборка ответа
+    def sort_key(row: DocumentMatrixRowDTO | SegmentMatrixRowDTO) -> tuple[int, int, int]:
+        critical_fails = sum(
+            1 for c in row.results.values()
+            if c.result == "fail" and c.severity == "critical"
+        )
+        all_fails = sum(1 for c in row.results.values() if c.result == "fail")
+        quarantine_flag = 1 if row.status == "quarantine" else 0
+        return (quarantine_flag, -critical_fails, -all_fails)
+
+    file_rows.sort(key=sort_key)
+    segment_rows.sort(key=sort_key)
+
+    # ------------------------------------------------------------------
+    # Шаг 7. Финальная сборка ответа
+    # ------------------------------------------------------------------
     return DDMatrixResponseDTO(
         deal_id=agg.deal_id,
         run_id=agg.run_id,
@@ -482,7 +603,8 @@ def build_dd_matrix(
         checks=checks_list,
         global_check_ids=global_check_ids,
         doc_type_check_ids=dict(doc_type_check_ids),
-        documents=matrix_rows,
+        documents=file_rows,
+        segment_documents=segment_rows,
         total_documents=agg.total_documents,
         total_checks=agg.total_checks,
         severity_counts=agg.severity_counts.to_dict(),

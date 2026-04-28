@@ -345,7 +345,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   family,
   structuredData,
   structuredNotAvailable,
-  reviewData,  
+  reviewData,
   isLoading,
   notFound,
   error,
@@ -366,7 +366,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   initialDocType,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-
   const [showReclassifyForm, setShowReclassifyForm] = useState(false);
   const [reclassifyDocType, setReclassifyDocType] = useState(
     initialDocType || "",
@@ -375,6 +374,30 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
   // Активный сегмент для structured data tabs
   const [activeSegmentKey, setActiveSegmentKey] = useState<string | null>(null);
+
+  const sortedReviewChecks = useMemo(() => {
+    if (!reviewData?.checks?.length) return [];
+
+    const severityRank: Record<string, number> = {
+      critical: 0,
+      high: 1,
+      medium: 2,
+      unclear: 3,
+      pass: 4,
+    };
+
+    return [...reviewData.checks].sort((a, b) => {
+      const aRank = severityRank[a.severity ?? a.result] ?? 99;
+      const bRank = severityRank[b.severity ?? b.result] ?? 99;
+      if (aRank !== bRank) return aRank - bRank;
+
+      const aSeg = a.segmentOrder ?? Number.MAX_SAFE_INTEGER;
+      const bSeg = b.segmentOrder ?? Number.MAX_SAFE_INTEGER;
+      if (aSeg !== bSeg) return aSeg - bSeg;
+
+      return a.checkName.localeCompare(b.checkName, "ru");
+    });
+  }, [reviewData]);
 
   if (isLoading) {
     return (
@@ -453,32 +476,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
   const hasReviewData = !!reviewData && reviewData.checks.length > 0;
 
-  const sortedReviewChecks = useMemo(() => {
-    if (!reviewData?.checks?.length) return [];
-
-    const severityRank: Record<string, number> = {
-      critical: 0,
-      high: 1,
-      medium: 2,
-      unclear: 3,
-      pass: 4,
-    };
-
-    return [...reviewData.checks].sort((a, b) => {
-      const aRank = severityRank[a.severity ?? a.result] ?? 99;
-      const bRank = severityRank[b.severity ?? b.result] ?? 99;
-      if (aRank !== bRank) return aRank - bRank;
-
-      const aSeg = a.segmentOrder ?? Number.MAX_SAFE_INTEGER;
-      const bSeg = b.segmentOrder ?? Number.MAX_SAFE_INTEGER;
-      if (aSeg !== bSeg) return aSeg - bSeg;
-
-      return a.checkName.localeCompare(b.checkName, "ru");
-    });
-  }, [reviewData]);
-
-
-
   const structuredSegments = groupExtractedValuesBySegment(structuredData);
 
   // ВАЖНО:
@@ -494,7 +491,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   const compositionDescription =
     getCompositionBannerDescription(structuredSegments);
 
-    
   const resolvedActiveSegmentKey =
     activeSegmentKey &&
     structuredSegments.some((s) => s.segmentKey === activeSegmentKey)
@@ -504,7 +500,6 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   const visibleSegments = resolvedActiveSegmentKey
     ? structuredSegments.filter((s) => s.segmentKey === resolvedActiveSegmentKey)
     : structuredSegments;
-
 
   const visibleReviewChecks = resolvedActiveSegmentKey
     ? sortedReviewChecks.filter(

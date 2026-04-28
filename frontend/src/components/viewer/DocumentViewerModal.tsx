@@ -129,11 +129,15 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     }
   };
 
-  // react-pdf/Page отдаёт исходные width/height страницы; сохраняем их
-  const handlePageRenderSuccess = (pageData: any) => {
+  type PageRenderInfo = {
+    originalWidth?: number;
+    originalHeight?: number;
+  };
+
+  const handlePageRenderSuccess = (pageData: PageRenderInfo) => {
     if (
-      typeof pageData?.originalWidth === "number" &&
-      typeof pageData?.originalHeight === "number"
+      typeof pageData.originalWidth === "number" &&
+      typeof pageData.originalHeight === "number"
     ) {
       setPageSize({
         originalWidth: pageData.originalWidth,
@@ -166,37 +170,41 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   // Итоговая ширина страницы: либо измеренная, либо дефолт
   const pageWidth = (containerWidth ?? 900) * initialScale;
 
-  // Ищем "активный" чанк по clauseUid из location (если есть)
-  const activeChunkIndex = React.useMemo(() => {
-    if (!sizedChunks || sizedChunks.length === 0 || !location) {
-      return -1;
+  // Ищем "активный" чанк по location
+  let activeChunkIndex = -1;
+
+  if (sizedChunks && sizedChunks.length > 0 && location) {
+    const { chunkId, chunkIndex, clauseUid } = location;
+
+    // 1) по chunkId
+    if (chunkId) {
+      const idx = sizedChunks.findIndex((ch) => ch.id === chunkId);
+      if (idx >= 0) {
+        activeChunkIndex = idx;
+      }
     }
 
-    // 1) Прямое попадание по chunkId (если есть)
-    if (location.chunkId) {
-      const idx = sizedChunks.findIndex((ch) => ch.id === location.chunkId);
-      if (idx >= 0) return idx;
-    }
-
-    // 2) Попадание по chunkIndex (если есть)
+    // 2) по chunkIndex
     if (
-      typeof location.chunkIndex === "number" &&
-      location.chunkIndex >= 0 &&
-      location.chunkIndex < sizedChunks.length
+      activeChunkIndex < 0 &&
+      typeof chunkIndex === "number" &&
+      chunkIndex >= 0 &&
+      chunkIndex < sizedChunks.length
     ) {
-      return location.chunkIndex;
+      activeChunkIndex = chunkIndex;
     }
 
-    // 3) Попадание по clauseUid (как раньше)
-    if (location.clauseUid) {
+    // 3) по clauseUid
+    if (activeChunkIndex < 0 && clauseUid) {
       const idx = sizedChunks.findIndex((ch) =>
-        ch.clauseUids?.includes(location.clauseUid!),
+        ch.clauseUids?.includes(clauseUid),
       );
-      if (idx >= 0) return idx;
+      if (idx >= 0) {
+        activeChunkIndex = idx;
+      }
     }
-
-    return -1;
-  }, [location, sizedChunks]);
+  }
+  
 
   // Карта elementId -> индекс чанка (без useMemo)
   const elementToChunkIndex = (() => {
@@ -212,7 +220,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   })();
 
   // Overlay‑объекты для текущей страницы (без useMemo)
-  const pageOverlays =
+  const pageOverlays: { bbox: [number, number, number, number]; chunkIndex: number | null }[] =
     layoutElements && layoutElements.length
       ? layoutElements
           .filter((el) => el.page === pageNumber)

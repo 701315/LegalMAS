@@ -286,14 +286,14 @@ export interface StructuredDataResult {
 
 export type OpenViewerAtPayload = {
   documentId: string;
-  page?: number | null;
-  clauseUid?: string | null;
-  elementId?: string | null;
+  page?: number;
+  clauseUid?: string;
+  elementId?: string;
 
   // v2: навигация по сегментам / чанкам
-  segmentId?: string | null;
-  chunkId?: string | null;
-  chunkIndex?: number | null;
+  segmentId?: string;
+  chunkId?: string;
+  chunkIndex?: number;
 };
 
 export type OpenViewerAtFn = (payload: OpenViewerAtPayload) => void;

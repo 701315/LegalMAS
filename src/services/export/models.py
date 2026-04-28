@@ -350,8 +350,11 @@ class AggregatedResults:
     - API эндпоинты deal review (deal_review_service.py)
     - API эндпоинт DD Matrix (deal_review_service.py → build_dd_matrix)
 
-    rows — плоский список всех результатов, каждая запись = (документ, чек).
-    Из этого плоского списка строится матрица в build_dd_matrix().
+    rows — плоский список всех результатов, каждая запись = один CheckResult
+    (документ, чек, сегмент, chunk). Для одного (document_id, check_id) может
+    быть несколько записей, если чек срабатывал в разных сегментах или чанках
+    одного физического файла. На основе этого списка строятся как плоский DD Grid,
+    так и матричные представления (включая сегмент-ориентированную DD Matrix).
     """
 
     deal_id: str
@@ -538,6 +541,51 @@ class DocumentMatrixRow:
 
 
 @dataclass
+class SegmentMatrixRow:
+    """
+    Одна строка DD Matrix на уровне логического документа (сегмента).
+
+    document_id  — физический файл, внутри которого находится сегмент.
+    segment_*    — идентификация логического документа (договор, приложение, акт).
+    results      — чек-результаты для этого логического документа.
+
+    В отличие от DocumentMatrixRow, который агрегирует результаты на уровне
+    физического файла, SegmentMatrixRow соответствует тому уровню, на котором
+    юрист фактически воспринимает документ (contract / appendix / act и т.п.).
+    """
+
+    document_id: str
+    document_name: str
+    doc_type: str
+    folder_path: str
+
+    segment_id: str
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
+    status: str = "completed"
+    classification_level: str = ""
+    classification_confidence: float = 0.0
+
+    results: dict[str, MatrixCell] = field(default_factory=dict)
+
+    @property
+    def fail_count(self) -> int:
+        """Количество чеков с результатом fail — для сортировки строк по риску."""
+        return sum(1 for c in self.results.values() if c.result == "fail")
+
+    @property
+    def critical_count(self) -> int:
+        """Количество критических провалов — для сортировки и цветовой индикации строки."""
+        return sum(
+            1 for c in self.results.values()
+            if c.result == "fail" and c.severity == "critical"
+        )
+    
+
+@dataclass
 class DDMatrixResponse:
     """
     Полный ответ эндпоинта GET /deals/{deal_id}/runs/{run_id}/dd-matrix.
@@ -575,12 +623,14 @@ class DDMatrixResponse:
     global_check_ids: list[str] = field(default_factory=list)
     doc_type_check_ids: dict[str, list[str]] = field(default_factory=dict)
     documents: list[DocumentMatrixRow] = field(default_factory=list)
+    # NEW: строки матрицы на уровне логического документа (сегмента).
+    # Именно этот список должен стать основным источником данных для DD Grid на фронте.
+    segment_documents: list[SegmentMatrixRow] = field(default_factory=list)
+
     total_documents: int = 0
     total_checks: int = 0
     severity_counts: SeverityCounts = field(default_factory=SeverityCounts)
     quarantine_count: int = 0
     degraded_count: int = 0
     evidence_validity_rate: float = 1.0
-    
-
 

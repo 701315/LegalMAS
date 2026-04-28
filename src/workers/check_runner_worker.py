@@ -382,18 +382,77 @@ def run_single_check(
                 if doc is None:
                     raise ValueError(f"Document not found: {doc_uuid}")
 
-                existing = await result_repo.get_one(run_uuid, doc_uuid, check_id)
-                if (
-                    existing
-                    and existing.execution_status == CheckExecutionStatus.SUCCESS.value
-                    and not force
-                ):
-                    logger.info(
-                        "run_single_check: result already SUCCESS, skipping",
+                # ВАЖНО:
+                # ResultRepository уже segment-aware:
+                # одна logical check-проверка на документ может материализоваться
+                # в одной whole-document строке или в нескольких segment-level строках.
+                #
+                # Поэтому orchestration-слой не должен читать конкретную storage-строку
+                # через get_one(..., segment_id=...).
+                #
+                # Здесь нам нужен агрегирующий вопрос:
+                # "Есть ли уже успешный результат по (run, doc, check)
+                # хотя бы на одном сегменте / в whole-document записи?"
+                #
+                # Если да — при force=False повторный запуск не нужен.
+                already_success = await result_repo.has_success_for_doc_check(
+                    run_id=run_uuid,
+                    document_id=doc_uuid,
+                    check_id=check_id,
+                )
+
+                if already_success and not force:
+                    # Debug-only observability:
+                    # вытаскиваем конкретную SUCCESS-строку, чтобы в логах было видно,
+                    # какой именно сегмент уже "закрыл" этот (doc, check).
+                    success_row = await result_repo.get_first_success_for_doc_check(
+                        run_id=run_uuid,
+                        document_id=doc_uuid,
+                        check_id=check_id,
+                    )
+
+                    logger.debug(
+                        "run_single_check: existing SUCCESS details for doc/check aggregate",
                         extra={
                             "run_id": run_id,
+                            "deal_id": deal_id,
                             "doc_id": doc_id,
                             "check_id": check_id,
+                            "force": force,
+                            "success_result_id": (
+                                str(success_row.id) if success_row else None
+                            ),
+                            "success_segment_id": (
+                                success_row.segment_id if success_row else None
+                            ),
+                            "success_segment_type": (
+                                success_row.segment_type if success_row else None
+                            ),
+                            "success_segment_title": (
+                                success_row.segment_title if success_row else None
+                            ),
+                            "success_segment_order": (
+                                success_row.segment_order if success_row else None
+                            ),
+                            "success_is_primary_segment": (
+                                success_row.is_primary_segment if success_row else None
+                            ),
+                            "success_created_at": (
+                                success_row.created_at.isoformat()
+                                if success_row and success_row.created_at
+                                else None
+                            ),
+                        },
+                    )
+
+                    logger.info(
+                        "run_single_check: result already SUCCESS for doc/check aggregate, skipping",
+                        extra={
+                            "run_id": run_id,
+                            "deal_id": deal_id,
+                            "doc_id": doc_id,
+                            "check_id": check_id,
+                            "force": force,
                         },
                     )
                     return {

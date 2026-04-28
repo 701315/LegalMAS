@@ -139,6 +139,16 @@ class MatrixCellDTO(BaseModel):
     conditional_check_triggered: bool
     trigger_name: str
 
+    # NEW: segment / chunk provenance (опционально, для multi-document файлов).
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+    chunk_id: str | None = None
+    chunk_index: int | None = None
+
+
 
 class DocumentMatrixRowDTO(BaseModel):
     """
@@ -152,12 +162,42 @@ class DocumentMatrixRowDTO(BaseModel):
     document_id: str
     document_name: str
     doc_type: str
-    folder_path: str
+    folder_path: str | None = None
     status: str
     classification_level: str
     classification_confidence: float
     requires_manual_review: bool = False
     results: dict[str, MatrixCellDTO]
+
+
+class SegmentMatrixRowDTO(BaseModel):
+    """
+    Строка DD Matrix для одного логического документа (сегмента).
+
+    Содержит:
+    - идентификатор физического файла и его имя;
+    - тип документа, путь к папке;
+    - метаданные сегмента (segment_id, title, type, order);
+    - статус файла и метрики классификации;
+    - словарь ячеек по check_id.
+    """
+    document_id: str
+    document_name: str
+    doc_type: str
+    folder_path: str | None = None
+
+    segment_id: str | None = None
+    segment_type: str | None = None
+    segment_title: str | None = None
+    segment_order: int | None = None
+    is_primary_segment: bool | None = None
+
+    status: str
+    classification_level: str
+    classification_confidence: float
+    requires_manual_review: bool = False
+    results: dict[str, MatrixCellDTO]
+
 
 
 class DDMatrixResponseDTO(BaseModel):
@@ -181,7 +221,10 @@ class DDMatrixResponseDTO(BaseModel):
     doc_type_check_ids: dict[str, list[str]]
 
     documents: list[DocumentMatrixRowDTO]
-
+    # NEW: сегмент-ориентированные строки матрицы.
+    # Именно они будут основным источником данных для DD Grid на фронте.
+    segment_documents: list[SegmentMatrixRowDTO] = []
+    
     total_documents: int
     total_checks: int
     severity_counts: dict[str, int]

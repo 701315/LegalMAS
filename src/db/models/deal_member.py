@@ -1,7 +1,5 @@
 # src/db/models/deal_member.py
 
-# src/db/models/deal_member.py
-
 """
 ORM-модель участника сделки (проекта).
 

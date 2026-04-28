@@ -37,6 +37,7 @@ from .endpoints import (
     runner,
     runs,
     user_projects,
+    exports,
 )
 from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
@@ -55,6 +56,8 @@ origins = [
     "http://127.0.0.1:5173",
 ]
 
+app.add_middleware(AuditMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -62,8 +65,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(AuditMiddleware)
 
 # Авторизация / логин.
 app.include_router(auth.router)
@@ -121,3 +122,4 @@ app.include_router(model_configs.router, prefix="/api/v1")
 # Документы (debug-экспорт чанков).
 app.include_router(document_chunk_exports.router, prefix="/api/v1")
 
+app.include_router(exports.router, prefix="/api/v1")

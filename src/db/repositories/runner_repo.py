@@ -131,7 +131,7 @@ class RunnerRepository:
         for d in docs:
             docs_dict[str(d.id)] = {
                 "name": d.filename,
-                "folder_path": d.folder_path,
+                "folder_path": d.folder_path or None,
                 "doc_type": d.doc_type or "",
                 "status": d.status or "",
                 "classification_level": d.classification_level or "",

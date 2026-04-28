@@ -33,7 +33,7 @@ import {
 } from "../../utils/compositionHelpers";
 import QCCellRenderer from "../qc/QCCellRenderer";
 import QualityFlagRenderer from "../qc/QualityFlagRenderer";
-
+import { buildViewerLocationPayload } from "../../utils/viewerLocation";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
@@ -464,17 +464,11 @@ const MatrixGrid: React.FC<DDGridProps> = ({
                     r.structured_data as Record<string, StructuredField>,
                   ).find((f): f is StructuredField => !!f?.location)
                 : null;
-              const loc = firstFieldWithLocation?.location ?? null;
+              const loc = firstFieldWithLocation?.location;
 
-              context.onOpenAtLocation({
-                documentId,
-                page: (loc as any)?.page ?? (loc as any)?.start_page ?? null,
-                clauseUid: (loc as any)?.clause_uid ?? null,
-                elementId: (loc as any)?.element_id ?? null,
-                segmentId: (loc as any)?.segment_id ?? null,
-                chunkId: (loc as any)?.chunk_id ?? null,
-                chunkIndex: (loc as any)?.chunk_index ?? null,
-              });
+              context.onOpenAtLocation(
+                buildViewerLocationPayload(documentId, loc),
+              );
             };
 
             return (
@@ -734,9 +728,22 @@ const ListGrid: React.FC<DDGridProps> = ({
       },
       {
         headerName: "Extracted",
-        field: "structured_data",
+        colId: "structured_data",
         flex: 1.4,
         minWidth: 220,
+        valueGetter: (params) => {
+          const sd = params.data?.structured_data as Record<string, StructuredField> | null | undefined;
+          if (!sd || typeof sd !== "object") return "";
+          const entries = Object.entries(sd);
+          if (!entries.length) return "";
+          return entries
+            .slice(0, 2)
+            .map(([name, field]) => {
+              const value = field?.value != null ? String(field.value) : "—";
+              return `${name}: ${value}`;
+            })
+            .join("; ");
+        },
         cellRenderer: StructuredDataCellRenderer,
       },
       {
@@ -935,17 +942,9 @@ const StructuredDataCellRenderer: React.FC<BaseCellParams> = (props) => {
 
   const handleOpen = (field: StructuredField) => {
     if (!field.location || !context.onOpenAtLocation) return;
-    const loc: any = field.location;
-
-    context.onOpenAtLocation({
-      documentId: data.document_id,
-      page: loc.page ?? loc.start_page ?? null,
-      clauseUid: loc.clause_uid ?? null,
-      elementId: loc.element_id ?? null,
-      segmentId: loc.segment_id ?? null,
-      chunkId: loc.chunk_id ?? null,
-      chunkIndex: loc.chunk_index ?? null,
-    });
+    context.onOpenAtLocation(
+      buildViewerLocationPayload(data.document_id, field.location),
+    );
   };
 
   return (

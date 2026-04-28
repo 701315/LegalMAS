@@ -3,11 +3,18 @@
 // Типы для экспортов и audit log.
 // =============================================================
 
+export type ExportType =
+  | "grid_xlsx"
+  | "deal_summary_xlsx"
+  | "report_docx"
+  | "report_pdf"
+  | "requests_docx";
+
 export interface ExportRecord {
   id: string;
   deal_id: string;
   run_id: string;
-  export_type: string; // "grid_xlsx" | "deal_summary_xlsx" | "report_docx" | "report_pdf" и т.п.
+  export_type: ExportType;
   file_ref: string;
   file_size_bytes: number;
   status: "pending" | "processing" | "completed" | "failed";
