@@ -51,6 +51,6 @@ from workers.check_runner_worker import (  # noqa: F401
 
 # Дополнительно: построение связей и экспорты
 from workers.relations_worker import build_relations  # noqa: F401
-from workers.exporter import export_results  # noqa: F401
+from workers.exporter import export_results, export_by_id  # noqa: F401
 from workers.export_pending import export_process_pending  # noqa: F401
 

@@ -40,6 +40,7 @@ from db.repositories import (
     RunRepository,
 )
 from db.models.playbook import PlaybookVersion
+from storage.exports import ExportSuffix
 
 logger = get_logger(__name__)
 
@@ -139,39 +140,6 @@ async def _load_deal_name(deal_id: str, db: AsyncSession) -> str:
         logger.warning("Не удалось получить имя сделки", deal_id=deal_id)
 
     return deal_id
-
-
-# ---------------------------------------------------------------------------
-# Сохранение артефактов
-# ---------------------------------------------------------------------------
-
-
-def _save_artifact(
-    store: ArtifactStore,
-    tenant_id: str,
-    deal_id: str,
-    run_id: str,
-    suffix: str,
-    data: bytes,
-    content_type: str,
-) -> str | None:
-    """
-    Сохранить файл в ArtifactStore. Возвращает ref (путь/URI) или None при ошибке.
-    """
-    try:
-        export_path = ArtifactPath.export(tenant_id, deal_id, run_id)
-        return store.put_file(
-            f"{export_path}{suffix}",
-            data,
-            content_type=content_type,
-        )
-    except Exception as e:  # noqa: BLE001
-        logger.warning(
-            "Не удалось сохранить артефакт",
-            suffix=suffix,
-            error=str(e),
-        )
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -305,18 +273,16 @@ async def export_core(
 
     # 3. DD Grid Excel
     try:
-        # НОВОЕ: передаём метаданные Run в билдера таблицы.
         grid_bytes = build_grid_excel(
             aggregated,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
         )
-        refs["dd_grid"] = _save_artifact(
-            store,
-            tenant_id,
-            deal_id,
-            run_id,
-            suffix="_dd_grid.xlsx",
+        refs["dd_grid"] = store.save_export_artifact(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
+            suffix=ExportSuffix.DD_GRID,
             data=grid_bytes,
             content_type=(
                 "application/"
@@ -336,12 +302,11 @@ async def export_core(
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
         )
-        refs["summary"] = _save_artifact(
-            store,
-            tenant_id,
-            deal_id,
-            run_id,
-            suffix="_summary.xlsx",
+        refs["summary"] = store.save_export_artifact(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
+            suffix=ExportSuffix.DEAL_SUMMARY,
             data=summary_bytes,
             content_type=(
                 "application/"
@@ -361,16 +326,14 @@ async def export_core(
             playbook_version=playbook_version_str,
             playbook_profile=playbook_profile_str,
             environment_hash=env_hash_str,
-            # НОВОЕ: режим и стратегия текущего Run в шапке отчёта.
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
         )
-        refs["report"] = _save_artifact(
-            store,
-            tenant_id,
-            deal_id,
-            run_id,
-            suffix="_report.docx",
+        refs["report"] = store.save_export_artifact(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
+            suffix=ExportSuffix.REPORT,
             data=report_bytes,
             content_type=(
                 "application/"
@@ -390,12 +353,11 @@ async def export_core(
             ensure_ascii=False,
             indent=2,
         ).encode("utf-8")
-        refs["json"] = _save_artifact(
-            store,
-            tenant_id,
-            deal_id,
-            run_id,
-            suffix="_aggregated.json",
+        refs["json"] = store.save_export_artifact(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            run_id=run_id,
+            suffix=ExportSuffix.AGGREGATED,
             data=json_bytes,
             content_type="application/json",
         )

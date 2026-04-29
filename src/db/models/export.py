@@ -1,13 +1,12 @@
 # src/db/models/export.py
 
 """
-Export model — tracks generated export files (Excel, Word, PDF).
+Export model — tracks generated export files (Excel, Word, PDF, JSON).
 """
 
 import uuid
-from datetime import datetime
 
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import BigInteger, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,26 +27,25 @@ class Export(Base):
         UUID(as_uuid=True),
         ForeignKey("runs.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     export_type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        comment="grid_xlsx, deal_summary_xlsx, report_docx, report_pdf",
+        comment="grid_xlsx, deal_summary_xlsx, report_docx, aggregated_json",
     )
 
-    # Основной реф для обратной совместимости (например, dd_grid.xlsx)
     file_ref: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,
-        comment="Primary file reference (s3://...) for backward compatibility",
+        comment="Primary file reference for backward compatibility",
     )
 
-    # Набор рефов, если экспорт генерирует несколько файлов
     file_refs: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
-        comment="Optional map of named file references: {name: s3://...}",
+        comment="Optional named file references: {name: ref}",
     )
 
     requested_by: Mapped[str | None] = mapped_column(
@@ -68,6 +66,14 @@ class Export(Base):
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default="pending",
-        comment="pending, completed, failed",
+        server_default=text("'pending'"),
+        comment="pending, processing, completed, failed",
+        index=True,
     )
+
+    error_message: Mapped[str | None] = mapped_column(
+        String(2000),
+        nullable=True,
+        comment="Last export error message, if export failed",
+    )
+    

@@ -3,12 +3,19 @@
 """
 API endpoints для работы с экспортами (Excel / Word / др.).
 
-Упрощённая версия:
+Текущая версия:
 - GET /api/v1/exports/{export_id}          — получить статус экспорта и meta-информацию;
-- GET /api/v1/exports/{export_id}/download — отдать redirect на готовый файл экспорта.
+- GET /api/v1/exports/{export_id}/download — выдать redirect на временный presigned URL файла.
+
+Особенности:
+- фронт получает стабильный internal download URL:
+    /api/v1/exports/{export_id}/download
+- реальный URL файла генерируется только в момент скачивания;
+- backend не раздаёт бинарник через себя, а делегирует скачивание MinIO/S3;
+- схема подходит для production и приватного bucket'а.
 
 Пока:
-- используем только проверку существования Export и связанной сделки;
+- используем только проверку существования Export;
 - не проверяем роли (admin/editor/viewer);
 - не пишем audit log;
 - не используем полноценный tenant-aware доступ.
@@ -26,11 +33,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.logging import get_logger
-from db.session import get_db
-from db.models.deal import Deal
-from db.models.export import Export
 from api.schemas.export import ExportRecord
+from core.logging import get_logger
+from db.models.export import Export
+from db.session import get_db
+from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
 
@@ -39,10 +46,9 @@ router = APIRouter(
     tags=["exports"],
 )
 
+EXPORT_PRESIGNED_URL_EXPIRES_SECONDS = 3600
 
-# Временная заглушка.
-# Пока tenant никак не используется в фильтрации, но оставляем зависимость,
-# чтобы потом проще было встроить мультитенантность без смены сигнатур endpoint'ов.
+
 async def get_tenant_id() -> str:
     """
     Временная заглушка для tenant_id.
@@ -54,6 +60,39 @@ async def get_tenant_id() -> str:
     - или multi-tenant routing по домену / заголовкам.
     """
     return "default"
+
+
+async def _get_export_or_404(
+    db: AsyncSession,
+    export_id: UUID,
+) -> Export:
+    stmt = select(Export).where(Export.id == export_id)
+    result = await db.execute(stmt)
+    export: Export | None = result.scalars().first()
+
+    if export is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Export not found",
+        )
+
+    return export
+
+
+def _build_download_url(export: Export) -> str | None:
+    """
+    Вернуть внутренний API URL для скачивания, если экспорт готов.
+
+    Важно:
+    - здесь НЕ генерируем presigned URL;
+    - presigned URL создаётся только в момент фактического скачивания,
+      чтобы ссылка не успела протухнуть, пока пользователь смотрит UI.
+    """
+    file_ref = (export.file_ref or "").strip()
+    if export.status != "completed" or not file_ref:
+        return None
+
+    return f"/api/v1/exports/{export.id}/download"
 
 
 @router.get("/{export_id}", response_model=ExportRecord)
@@ -72,41 +111,45 @@ async def get_export_status(
 
     Поле download_url заполняется только если экспорт завершён и file_ref существует.
     """
+    export = await _get_export_or_404(db, export_id)
 
-    # 1. Ищем запись Export по id.
-    stmt = select(Export).where(Export.id == export_id)
-    result = await db.execute(stmt)
-    export: Export | None = result.scalars().first()
-
-    if export is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Export not found",
-        )
-
-    # 2. Проверяем, что связанная сделка существует.
-    # Это простая sanity-check проверка, чтобы не отдавать "висячий" экспорт.
-    deal_stmt = select(Deal).where(Deal.id == export.deal_id)
-    deal_res = await db.execute(deal_stmt)
-    deal = deal_res.scalars().first()
-
-    if deal is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Deal not found",
-        )
-
-    # tenant_id пока не используется, но зависимость оставлена намеренно.
     _ = tenant_id
 
-    # 3. Строим download_url только для готового экспорта.
-    download_url: str | None = None
-    if export.status == "completed" and export.file_ref:
-        download_url = f"/api/v1/exports/{export.id}/download"
-
-    # 4. Преобразуем ORM-модель в Pydantic response schema.
     record = ExportRecord.model_validate(export)
-    record.download_url = download_url
+    record.download_url = _build_download_url(export)
+
+    logger.info(
+        "Export status requested",
+        export_id=str(export.id),
+        run_id=str(export.run_id),
+        deal_id=str(export.deal_id),
+        export_type=export.export_type,
+        status=export.status,
+        file_ref=export.file_ref,
+        file_size_bytes=export.file_size_bytes,
+        has_download_url=bool(record.download_url),
+    )
+
+    if export.status in {"pending", "processing"}:
+        logger.debug(
+            "Export still in progress",
+            export_id=str(export.id),
+            status=export.status,
+        )
+    elif export.status == "failed":
+        logger.warning(
+            "Export is in failed status",
+            export_id=str(export.id),
+            run_id=str(export.run_id),
+            deal_id=str(export.deal_id),
+        )
+    elif export.status == "completed" and not export.file_ref:
+        logger.warning(
+            "Export completed without file_ref",
+            export_id=str(export.id),
+            run_id=str(export.run_id),
+            deal_id=str(export.deal_id),
+        )
 
     return record
 
@@ -118,79 +161,86 @@ async def download_export_file(
     tenant_id: str = Depends(get_tenant_id),
 ):
     """
-    Скачать файл экспорта через redirect на фактический URL файла.
+    Скачать файл экспорта через redirect на временный presigned URL MinIO/S3.
 
-    Текущая логика:
+    Логика:
     - ищем Export;
     - убеждаемся, что status == completed и file_ref заполнен;
-    - если file_ref уже абсолютный URL (http/https), редиректим прямо туда;
-    - иначе считаем, что это относительный путь до раздаваемой статики
-      и редиректим на /static/{file_ref}.
+    - генерируем presigned URL через ArtifactStore;
+    - редиректим клиента на этот URL.
 
-    Это простой рабочий вариант.
-    Позже здесь можно заменить redirect на:
-    - presigned URL из S3 / MinIO,
-    - FileResponse,
-    - StreamingResponse,
-    - audit log + RBAC.
+    Это production-friendly подход:
+    - bucket может оставаться приватным;
+    - backend не стримит тяжёлые файлы через себя;
+    - ссылка живёт ограниченное время.
     """
+    export = await _get_export_or_404(db, export_id)
 
-    # 1. Ищем запись Export.
-    stmt = select(Export).where(Export.id == export_id)
-    result = await db.execute(stmt)
-    export: Export | None = result.scalars().first()
-
-    if export is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Export not found",
-        )
-
-    # 2. Проверяем, что связанная сделка существует.
-    deal_stmt = select(Deal).where(Deal.id == export.deal_id)
-    deal_res = await db.execute(deal_stmt)
-    deal = deal_res.scalars().first()
-
-    if deal is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Deal not found",
-        )
-
-    # tenant_id пока не используется, но зависимость оставлена намеренно.
     _ = tenant_id
 
-    # 3. Экспорт должен быть завершён и иметь file_ref.
-    if export.status != "completed" or not export.file_ref:
+    file_ref = (export.file_ref or "").strip()
+
+    if export.status != "completed":
+        logger.warning(
+            "Download requested for export that is not completed",
+            export_id=str(export.id),
+            run_id=str(export.run_id),
+            deal_id=str(export.deal_id),
+            export_type=export.export_type,
+            status=export.status,
+        )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Export is not ready",
         )
 
-    file_ref = export.file_ref
+    if not file_ref:
+        logger.warning(
+            "Download requested for completed export without file_ref",
+            export_id=str(export.id),
+            run_id=str(export.run_id),
+            deal_id=str(export.deal_id),
+            export_type=export.export_type,
+            status=export.status,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Export file is missing",
+        )
 
-    # 4. Если file_ref уже абсолютный URL — редиректим прямо туда.
-    if file_ref.startswith("http://") or file_ref.startswith("https://"):
-        download_url = file_ref
-    else:
-        # Иначе считаем, что file_ref — это относительный путь от корня статики.
-        # Пример:
-        #   file_ref = "exports/deal-123/run-456/deal_summary.xlsx"
-        # Тогда итоговая ссылка будет:
-        #   /static/exports/deal-123/run-456/deal_summary.xlsx
-        download_url = f"/static/{file_ref.lstrip('/')}"
+    try:
+        store = ArtifactStore()
+        presigned_url = store.get_presigned_get_url(
+            file_ref,
+            expires_seconds=EXPORT_PRESIGNED_URL_EXPIRES_SECONDS,
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.exception(
+            "Failed to generate presigned download URL",
+            export_id=str(export.id),
+            run_id=str(export.run_id),
+            deal_id=str(export.deal_id),
+            export_type=export.export_type,
+            file_ref=file_ref,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to prepare download URL",
+        ) from e
 
     logger.info(
-        "Redirecting export download",
+        "Redirecting export download to presigned URL",
         export_id=str(export.id),
         deal_id=str(export.deal_id),
         run_id=str(export.run_id),
-        download_url=download_url,
+        export_type=export.export_type,
+        file_ref=file_ref,
+        expires_seconds=EXPORT_PRESIGNED_URL_EXPIRES_SECONDS,
     )
 
     return RedirectResponse(
-        url=download_url,
+        url=presigned_url,
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
-
 

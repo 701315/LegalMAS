@@ -17,7 +17,7 @@ Pydantic-схемы для API экспортов.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -25,12 +25,22 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Разрешённые типы экспортов.
 # Если backend позже расширится, список можно пополнить.
-ExportType = str
+ExportType = Literal[
+    "grid_xlsx",
+    "deal_summary_xlsx",
+    "report_docx",
+    "aggregated_json",
+]
 
 # Разрешённые статусы экспортов.
 # Пока оставляем как str, чтобы не ломать совместимость,
 # но документируем ожидаемые значения.
-ExportStatus = str
+ExportStatus = Literal[
+    "pending",
+    "processing",
+    "completed",
+    "failed",
+]
 
 
 class ExportRequest(BaseModel):
@@ -84,7 +94,7 @@ class ExportRecord(BaseModel):
 
     status: ExportStatus = Field(
         ...,
-        description="Статус экспорта: pending, processing, completed, failed",
+        description="Статус экспорта. Для completed backend гарантирует наличие file_ref; download_url вычисляется из него.",
         examples=["completed"],
     )
 
@@ -130,7 +140,7 @@ class ExportRecord(BaseModel):
 
     download_url: str | None = Field(
         default=None,
-        description="Готовая ссылка на скачивание файла, если экспорт завершён",
+        description="Готовая ссылка на скачивание файла. Для completed должна быть доступна, если storage корректно разрешает file_ref.",
         examples=["/api/v1/exports/3fa85f64-5717-4562-b3fc-2c963f66afa6/download"],
     )
 

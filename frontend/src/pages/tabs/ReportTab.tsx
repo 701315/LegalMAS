@@ -10,7 +10,7 @@
 import React, { useMemo, useState } from "react";
 import { useLatestRun } from "../../api/results";
 import { useRequestExport, useExportStatus } from "../../api/exports";
-import type { ExportType } from "../../api/exports";
+import type { ExportType } from "../../types/exports";
 import { EXPORT_TYPE_LABEL } from "../../constants";
 
 import {

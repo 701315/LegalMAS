@@ -447,17 +447,26 @@ class ArtifactStore:
         content_type: str,
     ) -> str:
         """
-        Сохраняет экспортируемый артефакт (classification-report, check-results и т.п.)
-        под именем {run_id}__{suffix}.{ext} в каталоге exports.
+        Сохраняет экспортируемый артефакт под именем
+        {run_id}__{suffix}.{ext} в каталоге exports.
         """
         if content_type == "application/json":
             ext = "json"
         elif content_type == "text/csv":
             ext = "csv"
+        elif content_type in (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ):
+            ext = "xlsx"
+        elif content_type in (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ):
+            ext = "docx"
         else:
             ext = "bin"
 
         filename = build_export_filename(run_id, suffix, ext=ext)
         path = ArtifactPath.export(tenant_id, deal_id, run_id, filename)
         return self.put_file(path, data, content_type=content_type)
+    
     

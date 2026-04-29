@@ -527,6 +527,11 @@ class RunExportResponse(BaseModel):
     response_model=RunExportResponse,
     summary="Запустить экспорт результатов по run",
 )
+@router.post(
+    "/{run_id}/export",
+    response_model=RunExportResponse,
+    summary="Запустить экспорт результатов по run",
+)
 async def start_run_export(
     run_id: uuid.UUID,
     data: RunExportCreate,
@@ -557,10 +562,8 @@ async def start_run_export(
         allowed_roles=("admin", "editor"),
     )
 
-    # 3. Проверяем статус run — теперь допускаем completed и completed_with_errors
+    # 3. Проверяем статус run — допускаем completed и completed_with_errors
     if run.status not in (RunStatus.COMPLETED.value, "completed_with_errors"):
-        # RunStatus.COMPLETED.value обычно "completed";
-        # "completed_with_errors" пока строкой, если нет enum-константы.
         raise HTTPException(
             status_code=400,
             detail=(
@@ -571,8 +574,6 @@ async def start_run_export(
 
     # 4. Определяем audit-поля: requested_by / requester_role
     requested_by = getattr(user, "id", None)
-    # Попробуем взять project role из deal_members внутри require_project_role,
-    # но т.к. она там не возвращается, используем global_role как fallback.
     requester_role = getattr(user, "global_role", "user")
 
     # 5. Создаём запись экспорта
@@ -585,16 +586,44 @@ async def start_run_export(
         status="pending",
     )
 
-    # 6. Ставим задачу на экспорт в Celery
+    # ВАЖНО: сначала фиксируем запись в БД, потом ставим задачу в очередь
+    await db.commit()
+    await db.refresh(export)
+
+    logger.info(
+        "Export record created",
+        extra={
+            "export_id": str(export.id),
+            "run_id": str(run.id),
+            "deal_id": str(run.deal_id),
+            "export_type": export.export_type,
+            "status": export.status,
+            "requested_by": str(requested_by) if requested_by else None,
+            "requester_role": requester_role,
+        },
+    )
+
+    # 6. Ставим задачу на экспорт в Celery — передаём export_id
     try:
         celery_app.send_task(
-            "workers.export_results",
+            "workers.export_by_id",
             kwargs={
+                "export_id": str(export.id),
+            },
+            queue="default",
+        )
+
+        logger.info(
+            "Export task queued",
+            extra={
+                "export_id": str(export.id),
                 "run_id": str(run.id),
                 "deal_id": str(run.deal_id),
-                "tenant_id": str(user.tenant_id),
+                "export_type": export.export_type,
+                "task_name": "workers.export_by_id",
             },
         )
+
     except Exception as e:
         msg = str(e)
         lower_msg = msg.lower()
@@ -621,6 +650,18 @@ async def start_run_export(
                 "Не удалось запустить экспорт: внутренняя ошибка инфраструктуры."
             )
 
+        logger.error(
+            "Failed to queue export task",
+            extra={
+                "export_id": str(export.id),
+                "run_id": str(run.id),
+                "deal_id": str(run.deal_id),
+                "export_type": export.export_type,
+                "reason": reason,
+                "error": msg,
+            },
+        )
+
         await export_repo.update_status(
             export.id,
             status="failed",
@@ -632,10 +673,8 @@ async def start_run_export(
             },
         )
         await db.commit()
-        raise HTTPException(status_code=503, detail=http_detail)
 
-    await db.commit()
-    await db.refresh(export)
+        raise HTTPException(status_code=503, detail=http_detail)
 
     return RunExportResponse(
         id=export.id,
