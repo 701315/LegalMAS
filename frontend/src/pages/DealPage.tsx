@@ -119,10 +119,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     [location.pathname, location.search, navigate],
   );
 
-  const handleBackToProjects = () => {
-    navigate("/projects");
-  };
-
   const handleOpenMembers = () => {
     if (!canManageProject) return;
     navigate(`/projects/${deal.id}/members`);
@@ -334,16 +330,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                 disabled={!canManageProject}
               />
             </div>
-
-            <div className="mt-auto pt-4">
-              <button
-                type="button"
-                onClick={handleBackToProjects}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50"
-              >
-                Назад к проектам
-              </button>
-            </div>
           </nav>
         </aside>
 
@@ -352,14 +338,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           {/* Mobile header + tabs */}
           <header className="border-b border-gray-200 bg-white md:hidden">
             <div className="px-4 py-4">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleBackToProjects}
-                  className="text-xs text-gray-500 hover:text-gray-700"
-                >
-                  ← К проектам
-                </button>
+              <div className="flex justify-end">
                 <span className="text-xs text-gray-500">
                   {activeTabLabel}
                 </span>
@@ -407,8 +386,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                     <p className="mt-2 text-[11px] text-gray-500">
                       Параметры запуска доступны на вкладке «Обзор» в правом
                       блоке «Анализ документов». На мобильных устройствах панели
-                      открытия запускаются из этого раздела, чтобы сохранить
-                      единый сценарий работы.[web:97]
+                      запуска открываются из этого раздела, чтобы сохранить
+                      единый сценарий работы.
                     </p>
                   )}
                 </div>
