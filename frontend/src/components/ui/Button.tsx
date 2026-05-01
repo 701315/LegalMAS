@@ -1,6 +1,7 @@
 // src/components/ui/Button.tsx
 
 import React from "react";
+import { twMerge } from "tailwind-merge";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 type ButtonSize = "sm" | "md";
@@ -25,12 +26,12 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2 text-sm",
+  sm: "h-8 px-3 text-xs leading-none",
+  md: "h-9 px-4 text-sm leading-none",
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return twMerge(classes.filter(Boolean).join(" "));
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -52,7 +53,7 @@ const Button: React.FC<ButtonProps> = ({
       disabled={isDisabled}
       aria-busy={isLoading || undefined}
       className={cn(
-        "inline-flex items-center justify-center rounded font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex items-center justify-center rounded text-center font-inherit transition disabled:cursor-not-allowed disabled:opacity-60",
         variantClasses[variant],
         sizeClasses[size],
         fullWidth && "w-full",

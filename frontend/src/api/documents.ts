@@ -18,11 +18,6 @@ import type {
   DocumentColumnId,
 } from "../types";
 
-// Debug-ответ для /documents/{doc_id}/debug/layouts.
-//
-// Для непрофессионального программиста:
-// - raw_layout_ref / sanitized_layout_ref — это строки-ссылки на JSON в хранилище;
-// - raw_layout / sanitized_layout — сами JSON-объекты (если их запросить флагами).
 export interface DocumentLayoutsDebugResponse {
   document_id: string;
   deal_id: string;
@@ -32,15 +27,6 @@ export interface DocumentLayoutsDebugResponse {
   sanitized_layout: Record<string, unknown> | null;
 }
 
-/**
- * Статусы, при которых документ ещё находится в обработке
- * или требует пользовательского действия, и UI должен периодически
- * переподтягивать актуальные данные с backend.
- *
- * Для нашего кейса это важно, чтобы статус
- * `language_selection_required` появлялся автоматически,
- * без ручного обновления страницы.
- */
 const ACTIVE_PROCESSING_STATUSES = new Set<string>([
   "created",
   "uploaded",
@@ -78,16 +64,6 @@ function shouldPollDocumentDetail(data?: DocumentDetail): boolean {
 // -------------------------------------------------------------
 
 export const documentApi = {
-  /**
-   * Список документов по сделке.
-   *
-   * Базовый вариант:
-   *   GET /api/v1/deals/{deal_id}/documents
-   *
-   * Если у тебя уже есть UI-API по run
-   * (GET /deals/{deal_id}/runs/{run_id}/documents),
-   * позже адаптируем сигнатуру: добавим runId.
-   */
   list: (
     dealId: string,
     page = 1,
@@ -113,16 +89,6 @@ export const documentApi = {
       )
       .then((r) => r.data),
 
-  /**
-   * Детали документа.
-   *
-   * Базовый вариант:
-   *   GET /api/v1/documents/{doc_id}
-   *
-   * Если будешь использовать UI-API по run
-   * (GET /deals/{deal_id}/runs/{run_id}/documents/{doc_id}),
-   * мы расширим сигнатуру и путь.
-   */
   get: (docId: string) =>
     client
       .get<DocumentDetail>(`/api/v1/documents/${docId}`)
@@ -133,38 +99,16 @@ export const documentApi = {
       .get<DocumentFamilyDto>(`/api/v1/documents/${docId}/family`)
       .then((response) => response.data),
 
-  /**
-   * Оригинальный PDF URL.
-   * GET /api/v1/documents/{doc_id}/pdf-url
-   */
   getPdfUrl: (docId: string) =>
     client
       .get<{ url: string }>(`/api/v1/documents/${docId}/pdf-url`)
       .then((r) => r.data),
 
-  /**
-   * Специальный Markdown-файл с чанками документа.
-   *
-   * GET /api/v1/documents/{doc_id}/chunk-view
-   *
-   * Backend:
-   * - собирает уже посчитанные sized‑чанки документа в .md-файл,
-   * - кладёт его во внутреннее хранилище (MinIO / S3),
-   * - возвращает JSON { url: "https://.../doc_id__chunks_view.md" }.
-   *
-   * Для непрофессионального пользователя:
-   * - по этому URL можно открыть документ, разрезанный на чанки,
-   *   в новой вкладке браузера или скачать файл.
-   */
   getChunkViewUrl: (docId: string) =>
     client
       .get<{ url: string }>(`/api/v1/documents/${docId}/chunk-view`)
       .then((r) => r.data),
 
-  /**
-   * Ручная переклассификация документа (Editor+).
-   * POST /api/v1/documents/{doc_id}/reclassify
-   */
   reclassify: (docId: string, data: ReclassifyInput) =>
     client
       .post<ReclassifyResult>(
@@ -173,13 +117,6 @@ export const documentApi = {
       )
       .then((response) => response.data),
 
-  /**
-   * Извлечённые структурированные значения по документу.
-   * GET /api/v1/documents/{doc_id}/extracted-values
-   *
-   * Важно: StructuredDataResult здесь — это DocumentExtractedValuesResponse,
-   * а не дерево clause tree.
-   */
   getStructuredData: (docId: string) =>
     client
       .get<StructuredDataResult>(
@@ -187,18 +124,6 @@ export const documentApi = {
       )
       .then((response) => response.data),
 
-  /**
-   * Debug: получить ссылки и, опционально, сами JSON layout'ы
-   * для raw и sanitized макетов документа.
-   *
-   * GET /api/v1/documents/{doc_id}/debug/layouts
-   *
-   * Для непрофессионального программиста:
-   * - includeRaw / includeSanitized управляют тем, вернёт ли backend
-   *   полные JSON-объекты layout'ов, а не только ссылки.
-   * - По умолчанию можно запрашивать только ссылки (оба флага false),
-   *   чтобы не тянуть тяжёлые JSON без необходимости.
-   */
   getLayoutsDebug: (docId: string) =>
     client
       .get<DocumentLayoutsDebugResponse>(
@@ -212,18 +137,6 @@ export const documentApi = {
       )
       .then((r) => r.data),
 
-  /**
-   * Загрузка новых документов в сделку.
-   *
-   * POST /api/v1/deals/{dealId}/documents/upload
-   * Тело запроса: multipart/form-data с полем "files".
-   * Дополнительно можно передать folder_path как query-параметр.
-   *
-   * Бэкенд:
-   * - ставит import_bundle и сразу возвращает простой объект статуса
-   *   (сейчас это может быть пустой массив/объект, но контракт в будущем
-   *   можно расширить, не ломая фронт).
-   */
   upload: (
     dealId: string,
     files: File[],
@@ -275,12 +188,6 @@ export const documentApi = {
       });
   },
 
-  /**
-   * Мягкое удаление документа (soft-delete).
-   *
-   * POST /api/v1/documents/{docId}/delete
-   * Меняет статус документа на 'deleted'.
-   */
   softDelete: (docId: string) =>
     client
       .post<{ status: string; document_id: string; new_status: string }>(
@@ -288,12 +195,6 @@ export const documentApi = {
       )
       .then((r) => r.data),
 
-  /**
-   * Установка флага reviewed_by_person для документа.
-   *
-   * PATCH /api/v1/documents/{docId}/reviewed
-   * Тело: { reviewed_by_person: boolean }
-   */
   setReviewed: (docId: string, reviewedByPerson: boolean) =>
     client
       .patch<Document>(
@@ -302,55 +203,55 @@ export const documentApi = {
       )
       .then((r) => r.data),
 
-  /**
-   * Экспорт списка документов сделки в Excel.
-   * POST /api/v1/documents/export/excel
-   */
   exportExcel: (dealId: string, visibleColumnIds: DocumentColumnId[] | null) =>
     client
-      .post<ArrayBuffer>("/api/v1/documents/export/excel", {
-        deal_id: dealId,
-        visible_column_ids:
-          visibleColumnIds && visibleColumnIds.length > 0
-            ? visibleColumnIds
-            : null,
-      }, {
-        responseType: "blob",
-      })
+      .post<ArrayBuffer>(
+        "/api/v1/documents/export/excel",
+        {
+          deal_id: dealId,
+          visible_column_ids:
+            visibleColumnIds && visibleColumnIds.length > 0
+              ? visibleColumnIds
+              : null,
+        },
+        {
+          responseType: "blob",
+        },
+      )
       .then((r) => r.data),
 
-  /**
-   * Экспорт списка документов сделки в Word.
-   * POST /api/v1/documents/export/word
-   */
   exportWord: (dealId: string, visibleColumnIds: DocumentColumnId[] | null) =>
     client
-      .post<Blob>("/api/v1/documents/export/word", {
-        deal_id: dealId,
-        visible_column_ids:
-          visibleColumnIds && visibleColumnIds.length > 0
-            ? visibleColumnIds
-            : null,
-      }, {
-        responseType: "blob",
-      })
+      .post<Blob>(
+        "/api/v1/documents/export/word",
+        {
+          deal_id: dealId,
+          visible_column_ids:
+            visibleColumnIds && visibleColumnIds.length > 0
+              ? visibleColumnIds
+              : null,
+        },
+        {
+          responseType: "blob",
+        },
+      )
       .then((r) => r.data),
 
-  /**
-   * Экспорт списка документов сделки в PDF.
-   * POST /api/v1/documents/export/pdf
-   */
   exportPdf: (dealId: string, visibleColumnIds: DocumentColumnId[] | null) =>
     client
-      .post<Blob>("/api/v1/documents/export/pdf", {
-        deal_id: dealId,
-        visible_column_ids:
-          visibleColumnIds && visibleColumnIds.length > 0
-            ? visibleColumnIds
-            : null,
-      }, {
-        responseType: "blob",
-      })
+      .post<Blob>(
+        "/api/v1/documents/export/pdf",
+        {
+          deal_id: dealId,
+          visible_column_ids:
+            visibleColumnIds && visibleColumnIds.length > 0
+              ? visibleColumnIds
+              : null,
+        },
+        {
+          responseType: "blob",
+        },
+      )
       .then((r) => r.data),
 };
 
@@ -410,11 +311,6 @@ export function useDocumentsWithClassification(dealId: string, page = 1) {
   });
 }
 
-/**
- * Хук для получения списка документов по сделке.
- * Пример использования:
- *   const { data, isLoading } = useDocuments(dealId);
- */
 export function useDocuments(dealId: string, page = 1) {
   return useQuery({
     queryKey: ["documents", dealId, page],
@@ -431,14 +327,23 @@ export function useDocuments(dealId: string, page = 1) {
 }
 
 /**
- * Хук для получения «сырых» деталей документа (DTO) по docId.
- *
- * Нормализованный стейт для UI (DocumentDetailsState) строится
- * поверх этого хука в useDocumentDetailsState (documents.stateHooks.ts).
- *
- * Пример:
- *   const { data, isLoading, error } = useDocumentDetail(selectedDocId);
+ * Лёгкий хук для получения общего количества документов по сделке.
+ * Использует тот же paginated endpoint, но запрашивает только 1 элемент,
+ * чтобы получить total без загрузки полного списка.
  */
+export function useDocumentsCount(dealId: string) {
+  return useQuery({
+    queryKey: ["documents-count", dealId],
+    queryFn: async () => {
+      const response = await documentApi.list(dealId, 1, 1);
+      return response.total;
+    },
+    enabled: !!dealId,
+    staleTime: 2 * 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useDocumentDetail(docId: string | null) {
   return useQuery({
     queryKey: ["document", docId],
@@ -476,15 +381,6 @@ export function useDocumentChunkViewUrl(docId: string | null) {
   });
 }
 
-/**
- * Debug-хук для получения raw/sanitized layout'ов документа.
- *
- * Для пользователя UI:
- * - используется только когда открыта debug-модалка;
- * - запрашивает у backend не только ссылки на layout-артефакты,
- *   но и сами JSON layout'ы;
- * - нужен для визуального сравнения "до / после санитизации".
- */
 export function useDocumentLayoutsDebug(
   docId: string | null,
   enabled: boolean,
@@ -497,15 +393,6 @@ export function useDocumentLayoutsDebug(
   });
 }
 
-/**
- * Хук для получения «сырых» структурированных данных документа (DTO).
- *
- * Нормализованный стейт для UI (StructuredDataState) строится
- * поверх этого хука в useStructuredDataState (documents.stateHooks.ts).
- *
- * Пример:
- *   const { data, isLoading, error } = useStructuredData(docId);
- */
 export function useStructuredData(docId: string | null) {
   return useQuery({
     queryKey: ["structured-data", docId],
@@ -515,10 +402,6 @@ export function useStructuredData(docId: string | null) {
   });
 }
 
-/**
- * Хук для ручной переклассификации документа.
- * Возвращает mutate, который можно вызывать из формы/кнопки.
- */
 export function useReclassifyDocument(docId: string) {
   const qc = useQueryClient();
 
@@ -534,10 +417,6 @@ export function useReclassifyDocument(docId: string) {
   });
 }
 
-/**
- * Хук для мягкого удаления документа.
- * После успешного удаления обновляет кэш документа и списков документов.
- */
 export function useSoftDeleteDocument(dealId: string) {
   const qc = useQueryClient();
 
@@ -547,17 +426,12 @@ export function useSoftDeleteDocument(dealId: string) {
       qc.invalidateQueries({ queryKey: ["document", docId] });
       qc.invalidateQueries({ queryKey: ["documents", dealId] });
       qc.invalidateQueries({ queryKey: ["documents-classified", dealId] });
+      qc.invalidateQueries({ queryKey: ["deal", dealId] });
+      qc.invalidateQueries({ queryKey: ["documents-count", dealId] });
     },
   });
 }
 
-/**
- * Хук для загрузки новых документов в сделку.
- *
- * Пример использования:
- *   const uploadMutation = useUploadDocuments(dealId);
- *   uploadMutation.mutate({ files, folderPath });
- */
 export function useUploadDocuments(dealId: string) {
   const qc = useQueryClient();
 
@@ -570,19 +444,13 @@ export function useUploadDocuments(dealId: string) {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["documents", dealId] }),
         qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
+        qc.invalidateQueries({ queryKey: ["documents-count", dealId] }),
         qc.invalidateQueries({ queryKey: ["deal", dealId] }),
       ]);
     },
   });
 }
 
-/**
- * Хук для установки флага reviewed_by_person у документа.
- *
- * Пример:
- *   const setReviewed = useSetDocumentReviewed(docId);
- *   setReviewed.mutate(true);
- */
 export function useSetDocumentReviewed(docId: string, dealId?: string) {
   const qc = useQueryClient();
 
