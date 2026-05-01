@@ -1,7 +1,10 @@
 # src/workers/structure_builder.py
 
+# src/workers/structure_builder.py
+
 """
 Structure Builder Worker.
+
 
 Назначение:
 - Считать санитизированный одноязычный макет документа из хранилища.
@@ -10,8 +13,10 @@ Structure Builder Worker.
 - Обновить статус документа: SANITIZED -> STRUCTURED.
 - Запуск последующих задач пайплайна выполняется централизованным оркестратором.
 
+
 Позиция в пайплайне:
 - import -> convert -> build_primary_language_source -> extract -> pii -> structure -> ...
+
 
 Контракт стадии:
 - Основной source of truth для structure — только layout_primary_sanitized_ref.
@@ -20,11 +25,13 @@ Structure Builder Worker.
 - В нормальном боевом режиме fallback выключен.
 - retrigger downstream допустим только после подтверждённого commit результатов structure.
 
+
 Архитектурный паттерн:
 - Внешняя Celery-задача синхронная (def).
 - Асинхронная бизнес-логика живёт в _build_structure_async().
 - Один sync -> async переход через run_async().
 - Ошибки уровня контракта стадии переводятся в FAILED через отдельный UoW.
+
 
 После введения document_stage_executions:
 - Входной параметр stage_execution_id сообщает, какая execution-запись в БД
@@ -34,16 +41,20 @@ Structure Builder Worker.
 - При PermanentError помечаем execution как FAILED с понятным error_details.
 """
 
+
 from __future__ import annotations
+
 
 import time
 import uuid
 from typing import Any
 
+
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_stage_execution_repo import (
@@ -62,7 +73,9 @@ from core.pipeline_errors import (
     StructureV2ErrorReason,
 )
 
+
 logger = get_logger(__name__)
+
 
 
 @celery_app.task(
@@ -79,11 +92,13 @@ def build_structure(
     """
     Sync Celery entrypoint.
 
+
     Поведение:
     - выполняет только стадию structure;
     - при PermanentError переводит документ в FAILED;
     - при TransientError отдаёт управление retry-механизму;
     - при успехе будит оркестратор только после commit.
+
 
     Дополнительно:
     - если передан stage_execution_id, то воркер обновляет запись
@@ -164,6 +179,7 @@ def build_structure(
     return result
 
 
+
 async def _build_structure_async(
     *,
     document_version_id: str,
@@ -174,6 +190,7 @@ async def _build_structure_async(
     """
     Асинхронное ядро стадии structure.
 
+
     Делает только свою стадию:
     1) загружает DocumentVersion и Document;
     2) читает layout по sanitization-first контракту;
@@ -183,6 +200,7 @@ async def _build_structure_async(
     6) обновляет refs в DocumentVersion и статус документа;
     7) делает flush -> verify -> commit;
     8) возвращает committed=True только после commit.
+
 
     При наличии stage_execution_id:
     - перед основной логикой помечает execution как STARTED;
@@ -199,6 +217,7 @@ async def _build_structure_async(
     doc_repo = DocumentRepository(uow.session)
     seg_repo = DocumentSegmentRepository(uow.session)
     dse_repo = DocumentStageExecutionRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     # 1. Помечаем execution как STARTED (если он есть).
     if stage_execution_id:
@@ -611,6 +630,36 @@ async def _build_structure_async(
 
     duration = round(time.time() - start, 2)
 
+    try:
+        await audit_repo.log(
+            tenant_id=uuid.UUID(tenant_id),
+            deal_id=uuid.UUID(deal_id),
+            action="STRUCTURE_COMPLETED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(doc.id),
+                "document_version_id": str(v_id),
+                "stage_execution_id": stage_execution_id,
+                "clause_tree_ref": clause_tree_ref,
+                "file_graph_ref": file_graph_ref,
+                "segments_count": segments_count,
+                "materialized_segments": len(segment_rows_to_create) if store_file_graph else 0,
+                "layout_source": layout_source,
+                "layout_ref": layout_ref,
+                "confidence": getattr(clause_tree, "structure_confidence", None),
+                "is_degraded": getattr(clause_tree, "degraded", None),
+                "duration_seconds": duration,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Structure builder: failed to write audit log for STRUCTURE_COMPLETED",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            stage_execution_id=stage_execution_id,
+        )
+
     logger.info(
         "Structure building committed successfully",
         document_id=str(doc.id),
@@ -644,6 +693,7 @@ async def _build_structure_async(
     }
 
 
+
 async def _mark_failed(
     uow: UnitOfWork,
     document_version_id: str,
@@ -656,6 +706,7 @@ async def _mark_failed(
     Best-effort перевод документа в FAILED,
     если стадия structure завершилась постоянной ошибкой.
 
+
     Дополнительно:
     - если есть stage_execution_id, помечаем execution как FAILED
       с понятными подробностями.
@@ -663,6 +714,7 @@ async def _mark_failed(
     ver_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
     dse_repo = DocumentStageExecutionRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     v_id = uuid.UUID(document_version_id)
     version = await ver_repo.get_by_id(v_id)
@@ -681,6 +733,32 @@ async def _mark_failed(
         reason=PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
         run_id=None,
     )
+
+    try:
+        document = await doc_repo.get_by_id(version.document_id)
+        if document:
+            await audit_repo.log(
+                tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+                deal_id=document.deal_id,
+                action="STRUCTURE_FAILED",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "document_id": str(version.document_id),
+                    "document_version_id": document_version_id,
+                    "stage_execution_id": stage_execution_id,
+                    "reason_code": reason_code,
+                    "message": message,
+                    "stage": "structure",
+                    "error_type": PipelineErrorType.STRUCTURE_V2_CONTRACT_VIOLATION,
+                },
+            )
+    except Exception:
+        logger.warning(
+            "Structure builder: failed to write audit log for STRUCTURE_FAILED",
+            document_version_id=document_version_id,
+            stage_execution_id=stage_execution_id,
+        )
 
     # Обновляем execution-запись (если есть).
     if stage_execution_id:

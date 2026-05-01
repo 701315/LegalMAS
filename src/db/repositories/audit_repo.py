@@ -6,8 +6,9 @@ AuditLog is immutable — only create and read, no update or delete.
 """
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.ops import AuditLog
@@ -52,3 +53,57 @@ class AuditRepository:
         stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_page_by_deal(
+        self,
+        deal_id: uuid.UUID,
+        page: int = 1,
+        per_page: int = 50,
+        action: str | None = None,
+        actor: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> tuple[list[AuditLog], int]:
+        """
+        Вернуть одну страницу записей аудита по сделке + общий count.
+
+        Поддерживает фильтры:
+        - action  — тип действия (точное совпадение)
+        - actor   — пользователь (точное совпадение)
+        - from_date / to_date — временной диапазон по created_at
+
+        Возвращает кортеж (записи, общий_count).
+        """
+        # Базовый фильтр: только записи этой сделки
+        base_stmt = select(AuditLog).where(AuditLog.deal_id == deal_id)
+
+        # Необязательные фильтры
+        if action:
+            base_stmt = base_stmt.where(AuditLog.action == action)
+        if actor:
+            base_stmt = base_stmt.where(AuditLog.actor == actor)
+        if from_date:
+            base_stmt = base_stmt.where(AuditLog.created_at >= from_date)
+        if to_date:
+            base_stmt = base_stmt.where(AuditLog.created_at <= to_date)
+
+        # Считаем общее количество строк, попадающих под фильтры
+        count_stmt = select(func.count()).select_from(base_stmt.subquery())
+        total: int = (await self.session.execute(count_stmt)).scalar_one()
+
+        if total == 0:
+            return [], 0
+
+        # Пагинация: смещение = (номер_страницы - 1) * размер_страницы
+        offset = (page - 1) * per_page
+
+        rows_stmt = (
+            base_stmt
+            .order_by(AuditLog.created_at.desc())
+            .offset(offset)
+            .limit(per_page)
+        )
+        result = await self.session.execute(rows_stmt)
+        return list(result.scalars().all()), total
+    
+    

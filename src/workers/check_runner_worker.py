@@ -37,6 +37,7 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
+from db.repositories.audit_repo import AuditRepository
 from db.uow import db_uow
 from engine.llm.client import LLMClient
 from engine.playbook.loader import load_playbook_from_version
@@ -88,6 +89,7 @@ def run_deal_checks(
         async with db_uow() as uow:
             run_repo = RunRepository(uow.session)
             pb_repo = PlaybookRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
 
             try:
                 logger.info(
@@ -207,6 +209,32 @@ def run_deal_checks(
                         queue="heavy_llm",
                     )
                     scheduled += 1
+
+                # Аудит: checks scheduler построил и поставил execution plan
+                try:
+                    await audit_repo.log(
+                        tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
+                        deal_id=deal_uuid,
+                        action="CHECKS_SCHEDULED",
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "run_id": run_id,
+                            "playbook_version_id": str(run_obj.playbook_version_id),
+                            "checks_mode": checks_mode,
+                            "checks_scope": checks_scope,
+                            "processed_docs": processed_docs,
+                            "total_checks": total_checks,
+                            "pairs_count": len(pairs),
+                            "scheduled_checks": scheduled,
+                            "planning_errors": errors,
+                        },
+                    )
+                except Exception:
+                    logger.warning(
+                        "run_deal_checks: failed to write audit log for CHECKS_SCHEDULED",
+                        extra={"run_id": run_id, "deal_id": deal_id},
+                    )
 
                 duration = time.time() - started_at
 
@@ -702,6 +730,7 @@ def finalize_run_if_ready(
         async with db_uow() as uow:
             run_repo = RunRepository(uow.session)
             result_repo = ResultRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
 
             run_obj = await run_repo.get(run_uuid)
             if run_obj is None:
@@ -730,11 +759,48 @@ def finalize_run_if_ready(
                 },
             )
 
+            # Если Run перешёл в терминальный статус, пишем аудит.
             if updated_run.status in (
                 RunStatus.COMPLETED.value,
                 RunStatus.COMPLETED_WITH_ERRORS.value,
                 RunStatus.FAILED.value,
             ):
+                # Определяем тип события для аудита
+                if updated_run.status == RunStatus.COMPLETED.value:
+                    action = "ANALYSIS_COMPLETED"
+                elif updated_run.status == RunStatus.COMPLETED_WITH_ERRORS.value:
+                    action = "ANALYSIS_COMPLETED_WITH_ERRORS"
+                else:
+                    action = "ANALYSIS_FAILED"
+
+                try:
+                    await audit_repo.log(
+                        tenant_id=uuid.UUID(int=0),  # TODO: заменить на реальный tenant
+                        deal_id=updated_run.deal_id,
+                        action=action,
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "run_id": run_id,
+                            "status": updated_run.status,
+                            "total_checks": updated_run.total_checks,
+                            "completed_checks": updated_run.completed_checks,
+                            "materialized_checks": materialized_checks,
+                            "finished_checks": finished_checks,
+                            "has_errors": updated_run.has_errors,
+                        },
+                    )
+                    # commit делать не нужно: finalize работает в рамках одного uow,
+                    # запись аудита закоммитится вместе с остальными изменениями.
+                except Exception:
+                    logger.warning(
+                        "finalize_run_if_ready: failed to write audit log for run finalization",
+                        extra={
+                            "run_id": run_id,
+                            "status": updated_run.status,
+                        },
+                    )
+
                 return {
                     "status": updated_run.status,
                     "total_checks": updated_run.total_checks,

@@ -1,5 +1,7 @@
 # src/workers/segment_classifier.py
 
+# src/workers/segment_classifier.py
+
 """
 Segment Classifier Worker — segment-level классификация логических документов.
 
@@ -27,6 +29,11 @@ Segment Classifier Worker — segment-level классификация логи�
 - Вся работа с БД идёт через db_uow().
 - HybridClassifier используется тот же, что и для document-level,
   но вызывается через отдельный метод classify_segment(...).
+
+Audit trail:
+- На успешном завершении пишет SEGMENT_CLASSIFICATION_COMPLETED.
+- При PermanentError пишет SEGMENT_CLASSIFICATION_FAILED.
+- Audit logging best-effort: проблемы аудита не должны ломать бизнес-стадию.
 """
 
 from __future__ import annotations
@@ -40,6 +47,7 @@ from classifiers.stage8._duplicate_handler import DuplicateHandler
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.exceptions import PermanentError
 from core.logging import get_logger
+from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
@@ -180,21 +188,22 @@ def classify_document_segments(self, document_id: str, **kwargs) -> dict:
     """
     Sync Celery entry point для segment-level классификации.
     """
+    _ = self
 
     async def _wrapper() -> dict:
-        return await _classify_document_segments_async(self, document_id, kwargs)
+        return await _classify_document_segments_async(document_id, kwargs)
 
     return run_async(_wrapper())
 
 
 async def _classify_document_segments_async(
-    task,
     document_id: str,
     extra_args: dict,
 ) -> dict:
     """
     Асинхронное ядро segment-level классификации по всем сегментам документа.
     """
+    _ = extra_args
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
 
@@ -205,12 +214,15 @@ async def _classify_document_segments_async(
     total_segments = 0
     classified_segments = 0
     document_version_id: str | None = None
+    tenant_id: str | None = None
+    deal_id: str | None = None
 
     try:
         async with db_uow() as uow:
             doc_repo = DocumentRepository(uow.session)
             ver_repo = DocumentVersionRepository(uow.session)
             seg_repo = DocumentSegmentRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
 
             doc = await doc_repo.get_by_id(doc_uuid)
             if not doc:
@@ -221,6 +233,8 @@ async def _classify_document_segments_async(
                 raise PermanentError(f"No version found for document {document_id}")
 
             document_version_id = str(version.id)
+            deal_id = str(doc.deal_id) if getattr(doc, "deal_id", None) else None
+            tenant_id = str(getattr(doc, "tenant_id", None)) if getattr(doc, "tenant_id", None) else None
 
             segments = await seg_repo.list_by_version(version.id)
             total_segments = len(segments)
@@ -231,7 +245,8 @@ async def _classify_document_segments_async(
                     document_id=document_id,
                     document_version_id=document_version_id,
                 )
-                return {
+
+                result = {
                     "document_id": document_id,
                     "document_version_id": document_version_id,
                     "status": "skipped",
@@ -243,6 +258,34 @@ async def _classify_document_segments_async(
                     "skipped_segments": [],
                     "duration_ms": int((time.time() - start_time) * 1000),
                 }
+
+                if tenant_id and deal_id:
+                    try:
+                        await audit_repo.log(
+                            tenant_id=uuid.UUID(tenant_id),
+                            deal_id=uuid.UUID(deal_id),
+                            action="SEGMENT_CLASSIFICATION_COMPLETED",
+                            actor="system",
+                            actor_role="worker",
+                            details={
+                                "document_id": document_id,
+                                "document_version_id": document_version_id,
+                                "status": "skipped",
+                                "reason": "no_segments",
+                                "total_segments": 0,
+                                "classified_segments": 0,
+                                "skipped_count": 0,
+                                "duration_ms": result["duration_ms"],
+                            },
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Segment classifier: failed to write audit log for skipped no-segments result",
+                            document_id=document_id,
+                            document_version_id=document_version_id,
+                        )
+
+                return result
 
             classifier = _get_segment_classifier(uow)
             content_service = _build_content_service(uow)
@@ -349,33 +392,90 @@ async def _classify_document_segments_async(
                     )
                     continue
 
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            final_result = {
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "status": "completed",
+                "total_segments": total_segments,
+                "classified_segments": classified_segments,
+                "skipped_count": len(skipped_segments),
+                "processed_segments": processed_segments,
+                "skipped_segments": skipped_segments,
+                "duration_ms": duration_ms,
+            }
+
+            if tenant_id and deal_id:
+                try:
+                    await audit_repo.log(
+                        tenant_id=uuid.UUID(tenant_id),
+                        deal_id=uuid.UUID(deal_id),
+                        action="SEGMENT_CLASSIFICATION_COMPLETED",
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "document_id": document_id,
+                            "document_version_id": document_version_id,
+                            "status": "completed",
+                            "total_segments": total_segments,
+                            "classified_segments": classified_segments,
+                            "skipped_count": len(skipped_segments),
+                            "processed_segments": processed_segments,
+                            "skipped_segments": skipped_segments,
+                            "duration_ms": duration_ms,
+                        },
+                    )
+                except Exception:
+                    logger.warning(
+                        "Segment classifier: failed to write audit log for SEGMENT_CLASSIFICATION_COMPLETED",
+                        document_id=document_id,
+                        document_version_id=document_version_id,
+                    )
+
+            return final_result
+
     except PermanentError as e:
         logger.error(
             "Permanent error during segment classification",
             document_id=document_id,
             error=str(e),
         )
+
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        if tenant_id and deal_id:
+            try:
+                async with db_uow() as uow_status:
+                    audit_repo = AuditRepository(uow_status.session)
+                    await audit_repo.log(
+                        tenant_id=uuid.UUID(tenant_id),
+                        deal_id=uuid.UUID(deal_id),
+                        action="SEGMENT_CLASSIFICATION_FAILED",
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "document_id": document_id,
+                            "document_version_id": document_version_id,
+                            "status": "failed",
+                            "error": str(e),
+                            "duration_ms": duration_ms,
+                        },
+                    )
+            except Exception:
+                logger.warning(
+                    "Segment classifier: failed to write audit log for SEGMENT_CLASSIFICATION_FAILED",
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                )
+
         return {
             "document_id": document_id,
             "document_version_id": document_version_id,
             "status": "failed",
             "error": str(e),
-            "duration_ms": int((time.time() - start_time) * 1000),
+            "duration_ms": duration_ms,
         }
-
-    duration_ms = int((time.time() - start_time) * 1000)
-
-    return {
-        "document_id": document_id,
-        "document_version_id": document_version_id,
-        "status": "completed",
-        "total_segments": total_segments,
-        "classified_segments": classified_segments,
-        "skipped_count": len(skipped_segments),
-        "processed_segments": processed_segments,
-        "skipped_segments": skipped_segments,
-        "duration_ms": duration_ms,
-    }
 
 
 async def _get_segment_text(
@@ -393,6 +493,8 @@ async def _get_segment_text(
     - вся логика чтения сегментного текста инкапсулирована в content service;
     - ожидается, что DocumentContentService.get_segment_text(...) уже реализован.
     """
+    _ = document_id
+
     if hasattr(content_service, "get_segment_text"):
         return await content_service.get_segment_text(
             document_version_id=document_version_id,
@@ -403,4 +505,6 @@ async def _get_segment_text(
         "DocumentContentService.get_segment_text(...) is not implemented yet. "
         "Add segment-aware text extraction before enabling segment worker."
     )
+
+
 

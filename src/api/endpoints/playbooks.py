@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import List, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
@@ -527,6 +527,90 @@ async def update_playbook_line(
             for i in items
         ],
     )
+
+@router.delete(
+    "/lines/{line_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Удалить шаблон плейбука (PlaybookLine), если он не используется",
+)
+async def delete_playbook_line(
+    line_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_playbook_admin),
+):
+    """
+    Удаляет логический шаблон плейбука (PlaybookLine), только если он не используется.
+
+    Для непрофессионального программиста:
+    - Сначала проверяем, существует ли такой шаблон.
+    - Затем проверяем, есть ли у него версии, которые:
+      * назначены сделкам (Deal.playbook_version_id),
+      * или уже использовались в запуске анализа (Run.playbook_version_id).
+    - Если есть использования — возвращаем 409 Conflict с понятным текстом.
+    - Если нет — удаляем шаблон и его элементы (line_items), возвращаем 204.
+    """
+    repo = PlaybookRepository(db)
+
+    usage = await repo.get_line_usage(line_id)
+
+    # 1. Шаблон не найден — 404
+    if not usage.line_exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Playbook line not found.",
+        )
+
+    # 2. Есть версии, которые используются сделками или запусками — 409
+    if usage.used_in_deals > 0 or usage.used_in_runs > 0:
+        # Формируем человекочитаемое сообщение
+        parts: list[str] = []
+
+        if usage.used_in_deals > 0:
+            if usage.deal_names:
+                deals_str = ", ".join(usage.deal_names)
+                parts.append(
+                    f"используется в {usage.used_in_deals} сделк(е/ах): {deals_str}"
+                )
+            else:
+                parts.append(f"используется в {usage.used_in_deals} сделк(е/ах)")
+
+        if usage.used_in_runs > 0:
+            parts.append(
+                f"использовался в {usage.used_in_runs} запуск(е/ах) анализа (Run)"
+            )
+
+        detail = "Шаблон плейбука не может быть удалён: " + "; ".join(parts) + "."
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        )
+
+    # 3. Опциональный консервативный режим:
+    #    если не хочешь удалять шаблон, у которого есть версии, но они нигде не используются,
+    #    раскомментируй блок ниже.
+    #
+    # if usage.versions_count > 0:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_409_CONFLICT,
+    #         detail=(
+    #             "Шаблон имеет связанные версии плейбука и не может быть удалён. "
+    #             "Сначала удалите или заархивируйте связанные PlaybookVersion."
+    #         ),
+    #     )
+
+    deleted = await repo.delete_line_with_items(line_id)
+    if not deleted:
+        # Редкий случай гонки:
+        # шаблон существовал на этапе проверки usage,
+        # но был удалён другим запросом до текущего delete.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Playbook line not found.",
+        )
+
+    await db.commit()
+    return Response()
 
 
 # -------------------------------------------------------------------

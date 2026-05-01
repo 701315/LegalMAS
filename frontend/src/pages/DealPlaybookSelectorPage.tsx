@@ -2,12 +2,27 @@
 // src/pages/DealPlaybookSelectorPage.tsx
 // Выбор / создание playbook для конкретной сделки.
 // Работает поверх новых эндпоинтов /playbooks.
+// Переписано под единый UI-kit страницы админского интерфейса.
 // =============================================================
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
+
 import client from "../api/client";
 import { useDealPermissions } from "../hooks/usePermissions";
+
+import Button from "../components/ui/Button";
+import PageSection from "../components/ui/PageSection";
+import EmptyState from "../components/ui/EmptyState";
+import LoadingBlock from "../components/ui/LoadingBlock";
+import InlineAlert from "../components/InlineAlert";
+import ConfirmDialog from "../components/ConfirmDialog";
+
+import {
+  getApiErrorMessage,
+  isApiErrorStatus,
+} from "../utils/apiErrors";
+
 import type {
   Deal,
   DealDetail,
@@ -17,7 +32,6 @@ import type {
   PlaybookVersionDetail,
   PlaybookCreateRequest,
   PlaybookCreateResponse,
-  ApiError,
   DealPlaybookHistoryItem,
   ModelConfig,
 } from "../types";
@@ -27,23 +41,20 @@ interface DealPlaybookSelectorPageProps {
   deal?: Deal;
 }
 
+const selectClassName =
+  "w-full rounded border border-gray-300 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:bg-gray-50";
+
 const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   deal,
 }) => {
-  // 1. Получаем параметры маршрута и навигацию.
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
-  // 2. Хук прав доступа вызываем БЕЗ условий.
   const { canViewOverview } = useDealPermissions(dealId as string);
   const canEditPlaybook = canViewOverview;
 
-  // 3. Локальные состояния страницы.
-
-  // Детальная информация о сделке
   const [dealDetail, setDealDetail] = useState<DealDetail | null>(null);
 
-  // Плейбуки и версии
   const [lines, setLines] = useState<PlaybookLine[]>([]);
   const [versions, setVersions] = useState<PlaybookVersionShort[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
@@ -55,60 +66,52 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   const [selectedLineDetail, setSelectedLineDetail] =
     useState<PlaybookLineDetail | null>(null);
 
-  // Общие флаги загрузки / ошибок
   const [isLoading, setIsLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
   const [isCreatingVersion, setIsCreatingVersion] = useState(false);
+
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [successText, setSuccessText] = useState<string | null>(null);
   const [createVersionError, setCreateVersionError] = useState<string | null>(
     null,
   );
 
-  // История смен playbook
   const [history, setHistory] = useState<DealPlaybookHistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
-  // ---- НОВОЕ: модели (ModelConfig) ----
-  /** Список доступных конфигураций моделей, с которыми можно запускать плейбуки. */
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
-  /** Выбранная конфигурация модели для создания новой версии плейбука. */
   const [selectedModelConfigId, setSelectedModelConfigId] = useState<
     string | null
   >(null);
-  /** Ошибки загрузки списка моделей. */
   const [modelConfigsError, setModelConfigsError] = useState<string | null>(
     null,
   );
   const [isModelConfigsLoading, setIsModelConfigsLoading] = useState(false);
-  // -------------------------------------
 
-  // 4. Производные значения (memo).
+  const [isApplyConfirmOpen, setIsApplyConfirmOpen] = useState(false);
 
-  // Если есть detail — берём его, иначе проброшенный deal, иначе null.
   const effectiveDeal = useMemo(
     () => dealDetail ?? deal ?? null,
     [dealDetail, deal],
   );
 
-  // Для быстрого доступа к PlaybookLine по id
   const lineById = useMemo(() => {
     const map = new Map<string, PlaybookLine>();
-    for (const l of lines) {
-      map.set(l.id, l);
+    for (const line of lines) {
+      map.set(line.id, line);
     }
     return map;
   }, [lines]);
 
   const selectedLine = selectedLineId ? lineById.get(selectedLineId) : null;
 
-  // Список версий только для выбранной линии
   const visibleVersions = useMemo(() => {
     if (!selectedLineId) return [];
     return versions.filter(
-      (v) =>
-        v.playbook_id === selectedLineId &&
-        (v.status === "default" || v.status === "active"),
+      (version) =>
+        version.playbook_id === selectedLineId &&
+        (version.status === "default" || version.status === "active"),
     );
   }, [versions, selectedLineId]);
 
@@ -116,22 +119,30 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   const isSameAsCurrent =
     currentVersionId !== null && selectedVersionId === currentVersionId;
 
-  // 5. Функции-коллбеки (useCallback там, где реально нужно).
+  const isUiLocked = isApplying || isCreatingVersion;
 
-  // История смен playbook-версий для сделки
+  const clearMessages = () => {
+    setErrorText(null);
+    setSuccessText(null);
+  };
+
   const loadHistory = useCallback(async () => {
     if (!dealId) return;
+
     setIsHistoryLoading(true);
     setHistoryError(null);
+
     try {
       const res = await client.get<DealPlaybookHistoryItem[]>(
         `/api/v1/deals/${dealId}/playbook-history`,
       );
       setHistory(res.data || []);
     } catch (err) {
-      const apiErr = err as ApiError;
       setHistoryError(
-        apiErr.detail || "Не удалось загрузить историю смен playbook.",
+        getApiErrorMessage(
+          err,
+          "Не удалось загрузить историю смен playbook.",
+        ),
       );
     } finally {
       setIsHistoryLoading(false);
@@ -144,6 +155,9 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   };
 
   const handleSelectLine = (lineId: string) => {
+    if (isUiLocked) return;
+
+    clearMessages();
     setSelectedLineId(lineId);
     setSelectedVersionId(null);
     setVersionDetail(null);
@@ -151,7 +165,62 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
   };
 
   const handleSelectVersion = (versionId: string) => {
+    if (isUiLocked) return;
+
+    clearMessages();
     setSelectedVersionId(versionId);
+  };
+
+  const applyPlaybook = async () => {
+    if (!dealId) {
+      setErrorText("dealId не указан.");
+      return;
+    }
+
+    if (!selectedVersionId) {
+      setErrorText("Сначала выберите версию playbook.");
+      return;
+    }
+
+    setIsApplying(true);
+    clearMessages();
+
+    try {
+      await client.patch(`/api/v1/deals/${dealId}/playbook`, {
+        playbook_version_id: selectedVersionId,
+      });
+
+      setDealDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              playbook_version_id: selectedVersionId,
+            }
+          : prev,
+      );
+
+      await loadHistory();
+      setSuccessText("Playbook успешно применён к проекту.");
+      setIsApplyConfirmOpen(false);
+    } catch (err) {
+      if (isApiErrorStatus(err, 409)) {
+        setErrorText(
+          getApiErrorMessage(
+            err,
+            "Не удалось применить playbook: возник конфликт состояния.",
+          ),
+        );
+      } else {
+        setErrorText(
+          getApiErrorMessage(
+            err,
+            "Не удалось применить playbook к проекту. Попробуйте позже.",
+          ),
+        );
+      }
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleApplyPlaybook = async () => {
@@ -165,38 +234,14 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
       return;
     }
 
-    const currentId = effectiveDeal?.playbook_version_id;
-    if (currentId && currentId !== selectedVersionId) {
-      const ok = window.confirm(
-        "У этого проекта уже есть выбранная версия playbook. " +
-          "Старая версия будет заменена на новую. Продолжить?",
-      );
-      if (!ok) {
-        return;
-      }
+    if (currentVersionId && currentVersionId !== selectedVersionId) {
+      setIsApplyConfirmOpen(true);
+      return;
     }
 
-    setIsApplying(true);
-    setErrorText(null);
-    try {
-      await client.patch(`/api/v1/deals/${dealId}/playbook`, {
-        playbook_version_id: selectedVersionId,
-      });
-
-      // Обновляем историю сразу после успешной смены playbook
-      await loadHistory();
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setErrorText(
-        apiErr.detail ||
-          "Не удалось применить playbook к проекту. Попробуйте позже.",
-      );
-    } finally {
-      setIsApplying(false);
-    }
+    await applyPlaybook();
   };
 
-  // Создание версии из выбранного шаблона
   const handleCreateVersionForSelectedLine = async () => {
     if (!dealId) {
       setCreateVersionError("dealId не указан.");
@@ -205,7 +250,6 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
     if (!selectedLineId) return;
 
-    // Без выбранной модели запрещаем создавать версию и показываем понятную ошибку
     if (!selectedModelConfigId) {
       setCreateVersionError(
         "Сначала выберите модель (ModelConfig) для этого playbook.",
@@ -215,8 +259,11 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
     setIsCreatingVersion(true);
     setCreateVersionError(null);
+    clearMessages();
+
     try {
-      const line = lines.find((l) => l.id === selectedLineId);
+      const line = lines.find((entry) => entry.id === selectedLineId);
+
       const payload: PlaybookCreateRequest = {
         name: line?.title || "Новая версия",
         bundles: [],
@@ -227,7 +274,6 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         status: "active",
         playbook_id: selectedLineId,
         from_line_id: selectedLineId,
-        // КЛЮЧЕВОЕ: привязка к выбранной модели
         model_config_id: selectedModelConfigId,
       };
 
@@ -235,6 +281,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         "/api/v1/playbooks",
         payload,
       );
+
       const newVersion: PlaybookVersionShort = {
         id: res.data.id,
         name: res.data.name,
@@ -242,12 +289,13 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
         status: res.data.status,
         playbook_id: res.data.playbook_id ?? selectedLineId,
       };
+
       setVersions((prev) => [...prev, newVersion]);
       setSelectedVersionId(newVersion.id);
+      setSuccessText("Новая версия playbook успешно создана.");
     } catch (err) {
-      const apiErr = err as ApiError;
       setCreateVersionError(
-        apiErr.detail || "Не удалось создать версию playbook.",
+        getApiErrorMessage(err, "Не удалось создать версию playbook."),
       );
     } finally {
       setIsCreatingVersion(false);
@@ -259,36 +307,33 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     navigate(`/projects/${dealId}/playbooks/admin?playbook_id=${selectedLineId}`);
   };
 
-  // 6. Эффекты (useEffect). Все объявлены после всех хуков и не зависят от условных return.
-
-  // Загрузка актуального состояния сделки (чтобы иметь свежий playbook_version_id)
   useEffect(() => {
     let cancelled = false;
 
     async function loadDeal() {
       if (!dealId) return;
+
       try {
         const res = await client.get<DealDetail>(`/api/v1/deals/${dealId}`);
         if (!cancelled) {
           setDealDetail(res.data);
         }
       } catch {
-        // Если не смогли загрузить — используем deal из пропсов, если он есть
+        // fallback to prop deal
       }
     }
 
-    loadDeal();
+    void loadDeal();
+
     return () => {
       cancelled = true;
     };
   }, [dealId]);
 
-  // История смен playbook-версий для сделки — первичная загрузка
   useEffect(() => {
     void loadHistory();
   }, [loadHistory]);
 
-  // Загрузка списка логических плейбуков и версий
   useEffect(() => {
     let cancelled = false;
 
@@ -297,6 +342,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
       setIsLoading(true);
       setErrorText(null);
+
       try {
         const [linesRes, versionsRes] = await Promise.all([
           client.get<PlaybookLine[]>("/api/v1/playbooks/lines"),
@@ -305,17 +351,20 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
 
         if (cancelled) return;
 
-        setLines(linesRes.data || []);
-        setVersions(versionsRes.data || []);
+        const nextLines = linesRes.data || [];
+        const nextVersions = versionsRes.data || [];
+
+        setLines(nextLines);
+        setVersions(nextVersions);
 
         const currentPlaybookVersionId =
           effectiveDeal?.playbook_version_id ?? null;
 
-        // Если для сделки уже есть playbook_version_id — восстанавливаем выбор
         if (currentPlaybookVersionId) {
-          const version = (versionsRes.data || []).find(
-            (v) => v.id === currentPlaybookVersionId,
+          const version = nextVersions.find(
+            (entry) => entry.id === currentPlaybookVersionId,
           );
+
           if (version) {
             setSelectedVersionId(version.id);
             if (version.playbook_id) {
@@ -324,11 +373,12 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
           }
         }
       } catch (err) {
-        const apiErr = err as ApiError;
         if (!cancelled) {
           setErrorText(
-            apiErr.detail ||
+            getApiErrorMessage(
+              err,
               "Не удалось загрузить список playbook. Попробуйте позже.",
+            ),
           );
         }
       } finally {
@@ -339,33 +389,36 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     }
 
     void loadData();
+
     return () => {
       cancelled = true;
     };
   }, [dealId, effectiveDeal?.playbook_version_id]);
 
-  // НОВОЕ: загрузка списка ModelConfig
   useEffect(() => {
     let cancelled = false;
 
     async function loadModelConfigs() {
       setIsModelConfigsLoading(true);
       setModelConfigsError(null);
+
       try {
         const res = await client.get<ModelConfig[]>("/api/v1/model-configs");
         if (cancelled) return;
+
         const list = res.data || [];
         setModelConfigs(list);
-        // Если ещё ничего не выбрано, а список не пуст — выбираем первую модель по умолчанию
+
         if (list.length > 0) {
           setSelectedModelConfigId((prev) => prev ?? list[0].id);
         }
       } catch (err) {
-        const apiErr = err as ApiError;
         if (!cancelled) {
           setModelConfigsError(
-            apiErr.detail ||
+            getApiErrorMessage(
+              err,
               "Не удалось загрузить список моделей (ModelConfig). Обратитесь к администратору.",
+            ),
           );
         }
       } finally {
@@ -376,17 +429,18 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     }
 
     void loadModelConfigs();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Когда выбрана версия — подтягиваем её детали (состав)
   useEffect(() => {
     let cancelled = false;
 
     async function loadVersionDetail(versionId: string) {
       setVersionDetail(null);
+
       try {
         const res = await client.get<PlaybookVersionDetail>(
           `/api/v1/playbooks/${versionId}`,
@@ -406,17 +460,18 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     } else {
       setVersionDetail(null);
     }
+
     return () => {
       cancelled = true;
     };
   }, [selectedVersionId]);
 
-  // Когда выбрана линия — подтягиваем её детали (состав шаблона)
   useEffect(() => {
     let cancelled = false;
 
     async function loadLineDetail(lineId: string) {
       setSelectedLineDetail(null);
+
       try {
         const res = await client.get<PlaybookLineDetail>(
           `/api/v1/playbooks/lines/${lineId}`,
@@ -442,103 +497,91 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
     };
   }, [selectedLineId]);
 
-  // 7. УСЛОВНЫЕ РЕНДЕРЫ — ТОЛЬКО ПОСЛЕ ВСЕХ ХУКОВ.
-
-  // Если вообще нет dealId в урле — сразу отправляем на список сделок.
   if (!dealId) {
     return <Navigate to="/deals" replace />;
   }
 
-  // Если нет прав на просмотр/редактирование playbook — показываем понятный экран.
   if (!canEditPlaybook) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
-          <p className="text-sm text-gray-700 mb-4">
-            У вас нет прав для настройки playbook этого проекта.
-          </p>
-          <button
-            type="button"
-            onClick={handleBack}
-            className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-          >
-            Вернуться к проекту
-          </button>
+      <div className="min-h-screen bg-gray-50 px-4">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="w-full max-w-md rounded-lg border bg-white p-6 text-center shadow-sm">
+            <p className="mb-4 text-sm text-gray-700">
+              У вас нет прав для настройки playbook этого проекта.
+            </p>
+            <Button variant="primary" size="md" onClick={handleBack}>
+              Вернуться к проекту
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 8. Основной JSX.
-
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-6xl mx-auto space-y-4">
-        {/* Заголовок */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Playbook проекта</h1>
-            <p className="text-sm text-gray-500">
-              Проект: {effectiveDeal?.name || dealId}
-            </p>
-            {effectiveDeal?.playbook_version_id ? (
-              <p className="text-xs text-gray-500 mt-0.5">
-                Текущая версия для проекта: {effectiveDeal.playbook_version_id}
+    <>
+      <div className="min-h-screen bg-gray-50 px-4 py-6">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Playbook проекта
+              </h1>
+              <p className="text-sm text-gray-500">
+                Проект: {effectiveDeal?.name || dealId}
               </p>
-            ) : (
-              <p className="text-xs text-gray-400 mt-0.5">
-                Текущая версия playbook для проекта не выбрана.
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleBack}
-            className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          >
-            ← Назад к проекту
-          </button>
-        </div>
 
-        {errorText && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
-            {errorText}
-          </div>
-        )}
-
-        {isLoading ? (
-          <p className="text-sm text-gray-500">Загружаем playbook…</p>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Колонка 1: список логических плейбуков (шаблонов) */}
-            <div className="bg-white rounded-lg border p-4 space-y-2">
-              <h2 className="text-sm font-semibold text-gray-800 mb-2">
-                Шаблоны playbook
-              </h2>
-              {lines.length === 0 ? (
-                <p className="text-xs text-gray-500">
-                  Шаблоны playbook пока не настроены.
+              {effectiveDeal?.playbook_version_id ? (
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Текущая версия для проекта: {effectiveDeal.playbook_version_id}
                 </p>
               ) : (
-                <ul className="space-y-1 max-h-80 overflow-y-auto">
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Текущая версия playbook для проекта не выбрана.
+                </p>
+              )}
+            </div>
+
+            <Button variant="secondary" size="sm" onClick={handleBack}>
+              ← Назад к проекту
+            </Button>
+          </div>
+
+          <InlineAlert tone="error" message={errorText} />
+          <InlineAlert tone="success" message={successText} />
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <PageSection title="Шаблоны playbook">
+              {isLoading ? (
+                <LoadingBlock text="Загружаем шаблоны playbook..." rows={6} />
+              ) : lines.length === 0 ? (
+                <EmptyState
+                  title="Шаблоны не настроены"
+                  description="Создайте первый шаблон playbook в административном разделе, чтобы использовать его в проектах."
+                />
+              ) : (
+                <ul className="max-h-80 space-y-1 overflow-y-auto">
                   {lines.map((line) => (
                     <li key={line.id}>
                       <button
                         type="button"
                         onClick={() => handleSelectLine(line.id)}
-                        className={`w-full text-left px-3 py-2 rounded text-xs border ${
+                        disabled={isUiLocked}
+                        className={`w-full rounded border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
                           selectedLineId === line.id
                             ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-gray-200 hover:bg-gray-50 text-gray-800"
+                            : "border-gray-200 text-gray-800 hover:bg-gray-50"
                         }`}
                       >
                         <div className="font-semibold">{line.title}</div>
+
                         {line.description && (
                           <div className="text-[11px] text-gray-500">
                             {line.description}
                           </div>
                         )}
-                        <div className="text-[11px] text-gray-400 mt-1">
+
+                        <div className="mt-1 text-[11px] text-gray-400">
                           {line.deal_type && `Тип: ${line.deal_type} · `}
                           {line.jurisdiction &&
                             `Юрисдикция: ${line.jurisdiction} · `}
@@ -549,142 +592,128 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                   ))}
                 </ul>
               )}
-            </div>
+            </PageSection>
 
-            {/* Колонка 2: версии выбранного playbook */}
-            <div className="bg-white rounded-lg border p-4 space-y-2">
-              <h2 className="text-sm font-semibold text-gray-800 mb-2">
-                Версии playbook
-              </h2>
-
-              {createVersionError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-[11px] rounded p-2 mb-1">
-                  {createVersionError}
-                </div>
-              )}
+            <PageSection title="Версии playbook">
+              <InlineAlert tone="error" message={createVersionError} />
 
               {!selectedLineId ? (
-                <p className="text-xs text-gray-500">
-                  Сначала выберите шаблон playbook слева.
-                </p>
+                <EmptyState
+                  title="Шаблон не выбран"
+                  description="Сначала выберите шаблон playbook в левой колонке."
+                />
               ) : visibleVersions.length === 0 ? (
-                <>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Для выбранного шаблона пока нет версий. Создайте первую
-                    версию и выберите, под какой моделью её запускать.
-                  </p>
+                <div className="space-y-3">
+                  <EmptyState
+                    title="Версий пока нет"
+                    description="Для выбранного шаблона ещё не создано ни одной версии. Выберите модель и создайте первую версию."
+                  />
 
-                  {/* Выбор ModelConfig для новой версии */}
-                  <div className="mb-2">
-                    <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-700">
                       Модель для этого playbook (ModelConfig)
                     </label>
 
                     {isModelConfigsLoading ? (
-                      <p className="text-[11px] text-gray-500">
-                        Загружаем список моделей…
-                      </p>
+                      <LoadingBlock text="Загружаем список моделей..." rows={3} />
                     ) : modelConfigsError ? (
-                      <p className="text-[11px] text-red-600">
-                        {modelConfigsError}
-                      </p>
+                      <InlineAlert tone="error" message={modelConfigsError} />
                     ) : modelConfigs.length === 0 ? (
-                      <p className="text-[11px] text-gray-500">
-                        Нет доступных моделей. Обратитесь к администратору.
-                      </p>
+                      <EmptyState
+                        title="Модели недоступны"
+                        description="Нет доступных моделей. Обратитесь к администратору."
+                      />
                     ) : (
                       <select
-                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                        className={selectClassName}
                         value={selectedModelConfigId ?? ""}
                         onChange={(e) =>
-                          setSelectedModelConfigId(
-                            e.target.value || null,
-                          )
+                          setSelectedModelConfigId(e.target.value || null)
                         }
+                        disabled={isUiLocked}
                       >
-                        {modelConfigs.map((mc) => (
-                          <option key={mc.id} value={mc.id}>
-                            {mc.name}
+                        {modelConfigs.map((modelConfig) => (
+                          <option key={modelConfig.id} value={modelConfig.id}>
+                            {modelConfig.name}
                           </option>
                         ))}
                       </select>
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCreateVersionForSelectedLine}
-                    disabled={isCreatingVersion || !selectedModelConfigId}
-                    className="text-xs px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
-                  >
-                    {isCreatingVersion
-                      ? "Создаём версию..."
-                      : "Создать версию из шаблона"}
-                  </button>
-                </>
+                  <div className="flex justify-start">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleCreateVersionForSelectedLine}
+                      disabled={isCreatingVersion || !selectedModelConfigId}
+                      isLoading={isCreatingVersion}
+                    >
+                      Создать версию из шаблона
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <ul className="space-y-1 max-h-80 overflow-y-auto">
-                  {visibleVersions.map((v) => (
-                    <li key={v.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectVersion(v.id)}
-                        className={`w-full text-left px-3 py-2 rounded text-xs border ${
-                          selectedVersionId === v.id
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-gray-200 hover:bg-gray-50 text-gray-800"
-                        }`}
-                      >
-                        <div className="font-semibold">
-                          {v.name}{" "}
-                          <span className="text-[11px] text-gray-500">
-                            ({v.semver})
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-gray-400 mt-1">
-                          Статус: {v.status}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className="max-h-80 space-y-1 overflow-y-auto">
+                    {visibleVersions.map((version) => (
+                      <li key={version.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectVersion(version.id)}
+                          disabled={isUiLocked}
+                          className={`w-full rounded border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                            selectedVersionId === version.id
+                              ? "border-blue-600 bg-blue-50 text-blue-700"
+                              : "border-gray-200 text-gray-800 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="font-semibold">
+                            {version.name}{" "}
+                            <span className="text-[11px] text-gray-500">
+                              ({version.semver})
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-gray-400">
+                            Статус: {version.status}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-3 flex items-center justify-end border-t pt-3">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={handleApplyPlaybook}
+                      disabled={!selectedVersionId || isApplying || isSameAsCurrent}
+                      isLoading={isApplying}
+                    >
+                      {isSameAsCurrent ? "Уже применено" : "Применить к проекту"}
+                    </Button>
+                  </div>
+                </>
               )}
+            </PageSection>
 
-              <div className="pt-3 border-t flex items-center justify-end gap-3 mt-3">
-                <button
-                  type="button"
-                  onClick={handleApplyPlaybook}
-                  disabled={!selectedVersionId || isApplying || isSameAsCurrent}
-                  className="px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {isApplying
-                    ? "Применяем..."
-                    : isSameAsCurrent
-                    ? "Уже применено"
-                    : "Применить к проекту"}
-                </button>
-              </div>
-            </div>
-
-            {/* Колонка 3: состав выбранного шаблона / версии + история */}
-            <div className="bg-white rounded-lg border p-4 space-y-2">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="text-sm font-semibold text-gray-800">
-                  Состав playbook
-                </h2>
-                {selectedLineId && (
-                  <button
-                    type="button"
+            <PageSection
+              title="Состав playbook"
+              rightSlot={
+                selectedLineId ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={handleEditSelectedLine}
-                    className="px-2 py-1 text-[11px] rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    disabled={isUiLocked}
                   >
                     Редактировать шаблон
-                  </button>
-                )}
-              </div>
-
+                  </Button>
+                ) : null
+              }
+            >
               {selectedLine && (
-                <p className="text-[11px] text-gray-500 mb-1">
+                <p className="mb-2 text-[11px] text-gray-500">
                   Шаблон: {selectedLine.title}
                   {selectedLine.deal_type && ` · Тип: ${selectedLine.deal_type}`}
                   {selectedLine.jurisdiction &&
@@ -694,12 +723,12 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
               )}
 
               {!selectedLineId ? (
-                <p className="text-xs text-gray-500">
-                  Выберите шаблон playbook слева. Затем создайте или выберите
-                  версию в средней колонке, либо измените состав шаблона.
-                </p>
+                <EmptyState
+                  title="Ничего не выбрано"
+                  description="Выберите шаблон playbook слева, затем создайте или выберите версию в средней колонке, чтобы увидеть состав."
+                />
               ) : selectedVersionId && versionDetail ? (
-                <div className="text-xs text-gray-700 space-y-2 max-h-80 overflow-y-auto">
+                <div className="max-h-80 space-y-2 overflow-y-auto text-xs text-gray-700">
                   <div>
                     <div className="font-semibold">Общая информация</div>
                     <div className="text-gray-600">
@@ -709,15 +738,12 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                       Статус: {versionDetail.status}
                     </div>
                   </div>
+
                   <div>
-                    <div className="font-semibold mt-2">Секции / профили</div>
+                    <div className="mt-2 font-semibold">Секции / профили</div>
                     {versionDetail.section_markers ? (
-                      <pre className="bg-gray-50 border rounded p-2 overflow-x-auto">
-                        {JSON.stringify(
-                          versionDetail.section_markers,
-                          null,
-                          2,
-                        )}
+                      <pre className="overflow-x-auto rounded border bg-gray-50 p-2">
+                        {JSON.stringify(versionDetail.section_markers, null, 2)}
                       </pre>
                     ) : (
                       <div className="text-gray-500">
@@ -725,10 +751,11 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                       </div>
                     )}
                   </div>
+
                   <div>
-                    <div className="font-semibold mt-2">DD-запросы</div>
+                    <div className="mt-2 font-semibold">DD-запросы</div>
                     {versionDetail.dd_request_templates ? (
-                      <pre className="bg-gray-50 border rounded p-2 overflow-x-auto">
+                      <pre className="overflow-x-auto rounded border bg-gray-50 p-2">
                         {JSON.stringify(
                           versionDetail.dd_request_templates,
                           null,
@@ -743,7 +770,7 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                   </div>
                 </div>
               ) : selectedLineDetail ? (
-                <div className="text-xs text-gray-700 space-y-2 max-h-80 overflow-y-auto">
+                <div className="max-h-80 space-y-2 overflow-y-auto text-xs text-gray-700">
                   <div>
                     <div className="font-semibold">Общая информация</div>
                     <div className="text-gray-600">
@@ -759,23 +786,26 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                     <div className="text-gray-600">
                       Язык: {selectedLineDetail.language || "не задан"}
                     </div>
+
                     {selectedLineDetail.description && (
-                      <div className="text-gray-600 mt-1">
+                      <div className="mt-1 text-gray-600">
                         Описание: {selectedLineDetail.description}
                       </div>
                     )}
                   </div>
+
                   <div>
-                    <div className="font-semibold mt-2">
+                    <div className="mt-2 font-semibold">
                       Состав шаблона (темы / проверки)
                     </div>
+
                     {selectedLineDetail.items &&
                     selectedLineDetail.items.length > 0 ? (
                       <ul className="mt-1 space-y-1">
-                        {selectedLineDetail.items.map((item, idx) => (
+                        {selectedLineDetail.items.map((item, index) => (
                           <li
-                            key={idx}
-                            className="border rounded px-2 py-1 bg-gray-50"
+                            key={index}
+                            className="rounded border bg-gray-50 px-2 py-1"
                           >
                             <div className="text-gray-700">
                               Тип: {item.kind}
@@ -801,31 +831,29 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">
-                  Загружаем состав шаблона…
-                </p>
+                <LoadingBlock text="Загружаем состав playbook..." rows={4} />
               )}
 
-              {/* История смен playbook-версий */}
-              <div className="mt-4 pt-3 border-t">
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">
+              <div className="mt-4 border-t pt-3">
+                <h3 className="mb-2 text-sm font-semibold text-gray-800">
                   История смен playbook
                 </h3>
 
                 {isHistoryLoading ? (
-                  <p className="text-xs text-gray-500">Загружаем историю…</p>
+                  <LoadingBlock text="Загружаем историю..." rows={3} />
                 ) : historyError ? (
-                  <p className="text-xs text-red-600">{historyError}</p>
+                  <InlineAlert tone="error" message={historyError} />
                 ) : history.length === 0 ? (
-                  <p className="text-xs text-gray-500">
-                    Пока нет записей об изменении playbook для этой сделки.
-                  </p>
+                  <EmptyState
+                    title="История пока пустая"
+                    description="Пока нет записей об изменении playbook для этой сделки."
+                  />
                 ) : (
-                  <ul className="space-y-1 max-h-48 overflow-y-auto text-xs">
-                    {history.map((item, idx) => (
+                  <ul className="max-h-48 space-y-1 overflow-y-auto text-xs">
+                    {history.map((item, index) => (
                       <li
-                        key={idx}
-                        className="border border-gray-200 rounded px-2 py-1 bg-gray-50"
+                        key={index}
+                        className="rounded border border-gray-200 bg-gray-50 px-2 py-1"
                       >
                         <div className="text-gray-700">
                           {new Date(item.created_at).toLocaleString()} —{" "}
@@ -836,16 +864,19 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                             </span>
                           )}
                         </div>
+
                         <div className="text-gray-600">
                           {item.old_playbook_version_id
                             ? `Было: ${item.old_playbook_version_id}`
                             : "Было: не задано"}
                         </div>
+
                         <div className="text-gray-600">
                           {item.new_playbook_version_id
                             ? `Стало: ${item.new_playbook_version_id}`
                             : "Стало: не задано"}
                         </div>
+
                         {(item.playbook_name || item.semver) && (
                           <div className="text-gray-500">
                             {item.playbook_name && `${item.playbook_name} `}
@@ -857,12 +888,29 @@ const DealPlaybookSelectorPage: React.FC<DealPlaybookSelectorPageProps> = ({
                   </ul>
                 )}
               </div>
-            </div>
+            </PageSection>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={isApplyConfirmOpen}
+        title="Заменить текущий playbook?"
+        description="У этого проекта уже есть выбранная версия playbook. Текущая версия будет заменена на новую. Продолжить?"
+        confirmLabel="Да, заменить"
+        cancelLabel="Отмена"
+        isConfirming={isApplying}
+        onConfirm={applyPlaybook}
+        onCancel={() => {
+          if (!isApplying) {
+            setIsApplyConfirmOpen(false);
+          }
+        }}
+      />
+    </>
   );
 };
 
 export default DealPlaybookSelectorPage;
+
+

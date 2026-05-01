@@ -1,5 +1,7 @@
 # src/workers/relations_worker.py
 
+# src/workers/relations_worker.py
+
 """
 Relations Worker — построение дедупликации, связей и семей документов по сделке.
 
@@ -17,10 +19,17 @@ Relations Worker — построение дедупликации, связей
   мог корректно сериализовать результат в prefork‑модели.
 - Внутри — один переход sync → async через run_async, всё
   взаимодействие с БД и MinIO реализовано в _build_relations_async() и helpers.
+
+Audit trail:
+- На успешном завершении пишет BUILD_RELATIONS с агрегированным отчётом.
+- Audit logging best-effort: сбой аудита не должен ломать стадию.
 """
+
+from __future__ import annotations
 
 import time
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,7 +73,7 @@ def build_relations(
     self,
     deal_id: str,
     tenant_id: str,
-) -> dict:
+) -> dict[str, Any]:
     """
     Синхронная Celery‑таска построения связей и семей документов.
 
@@ -74,8 +83,9 @@ def build_relations(
       - открываем UnitOfWork через db_uow();
       - возвращаем агрегированный отчёт (кол‑во документов, дубликатов, семей).
     """
+    _ = self
 
-    async def _wrapper() -> dict:
+    async def _wrapper() -> dict[str, Any]:
         async with db_uow() as uow:
             return await _build_relations_async(deal_id, tenant_id, uow.session)
 
@@ -86,7 +96,7 @@ async def _build_relations_async(
     deal_id: str,
     tenant_id: str,
     db: AsyncSession,
-) -> dict:
+) -> dict[str, Any]:
     """
     Асинхронное ядро воркера: вся бизнес‑логика построения связей/семей.
     """
@@ -98,13 +108,7 @@ async def _build_relations_async(
     # ВАЖНО: приводим deal_id к UUID один раз и используем далее.
     deal_uuid = uuid.UUID(deal_id)
 
-    # Шаг 0: очистка старых связей и семей по сделке.
-    #
-    # Для непрофессионального программиста:
-    # - перед тем как строить новые связи, мы честно удаляем все старые
-    #   связи и «семьи» документов по этой сделке;
-    # - это делает задачу идемпотентной: если её запустить повторно,
-    #   результат будет таким же, а старых «остатков» не останется.
+    # Шаг 0: очистка старых связей и семей по сделке (идемпотентность).
     relation_repo = RelationRepository(db)
     await relation_repo.delete_all_for_deal(deal_uuid)
 
@@ -120,6 +124,7 @@ async def _build_relations_async(
             "relations": 0,
             "families": 0,
             "duration_seconds": round(duration, 2),
+            "committed": False,
         }
 
     original_total = len(docs)
@@ -183,7 +188,9 @@ async def _build_relations_async(
     if families:
         masters_with_yaml = sum(1 for f in families if f.master_yaml_available)
         master_levels = [
-            f.master_classification_level for f in families if f.master_classification_level
+            f.master_classification_level
+            for f in families
+            if f.master_classification_level
         ]
         logger.info(
             "Family masters classification summary",
@@ -208,6 +215,7 @@ async def _build_relations_async(
         "relations": len(all_relations),
         "families": len(families),
         "duration_seconds": round(duration, 2),
+        "committed": True,
     }
 
 
@@ -254,6 +262,7 @@ async def _load_text_snippets(
     Prefer sanitized primary layout, fallback to primary layout
     for legacy / not-yet-PII documents.
     """
+    _ = (tenant_id, deal_id)
     store = ArtifactStore()
     ver_repo = DocumentVersionRepository(db)
 
@@ -347,11 +356,21 @@ async def _write_audit_log(
 ) -> None:
     """Write relations audit log entry."""
     repo = AuditRepository(db)
-    await repo.log(
-        tenant_id=uuid.UUID(tenant_id),
-        deal_id=uuid.UUID(deal_id),
-        action="BUILD_RELATIONS",
-        actor="system",
-        actor_role="system",
-        details=report.to_dict(),
-    )
+    try:
+        await repo.log(
+            tenant_id=uuid.UUID(tenant_id),
+            deal_id=uuid.UUID(deal_id),
+            action="BUILD_RELATIONS",
+            actor="system",
+            actor_role="worker",
+            details=report.to_dict(),
+        )
+    except Exception as e:
+        logger.warning(
+            "Relations worker: failed to write audit log for BUILD_RELATIONS",
+            deal_id=deal_id,
+            tenant_id=tenant_id,
+            error=str(e),
+        )
+
+        

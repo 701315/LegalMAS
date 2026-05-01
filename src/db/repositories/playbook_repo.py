@@ -1,13 +1,15 @@
 # src/db/repositories/playbook_repo.py
 
+
 """
 Repository for Playbook, PlaybookVersion and ModelConfig operations.
 """
 
 import uuid
+from dataclasses import dataclass
 from typing import Iterable
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, text, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import PlaybookStatus
@@ -18,6 +20,27 @@ from ..models.playbook import (
     Playbook,
     PlaybookLineItem,
 )
+from ..models.run import Run
+
+
+@dataclass
+class PlaybookLineUsage:
+    """
+    Простая структура для описания использования логического плейбука (Playbook).
+
+    Для непрофессионального программиста:
+    - line_exists:    найден ли сам шаблон (Playbook).
+    - versions_count: сколько версий PlaybookVersion к нему привязано.
+    - used_in_deals:  сколько сделок прямо сейчас ссылаются на эти версии.
+    - used_in_runs:   сколько запусков Run ссылаются на эти версии (история).
+    - deal_names:     несколько имён сделок для понятного сообщения пользователю.
+    """
+
+    line_exists: bool
+    versions_count: int = 0
+    used_in_deals: int = 0
+    used_in_runs: int = 0
+    deal_names: list[str] | None = None
 
 
 class PlaybookRepository:
@@ -286,6 +309,99 @@ class PlaybookRepository:
         base = "".join(ch for ch in base if ch.isalnum() or ch == "_")
         return base[:80]
 
+    # --- Playbook line usage & delete ---
+
+    async def get_line_usage(self, line_id: uuid.UUID) -> PlaybookLineUsage:
+        """
+        Вернуть информацию об использовании логического плейбука (Playbook).
+
+        Для непрофессионального программиста:
+        - шаг 1: проверяем, существует ли сам шаблон;
+        - шаг 2: ищем все его версии PlaybookVersion;
+        - шаг 3: считаем, есть ли Deal, которые сейчас ссылаются на эти версии;
+        - шаг 4: считаем, есть ли Run, которые исторически ссылаются на эти версии.
+
+        Это нужно, чтобы перед удалением шаблона понять, можно ли его безопасно удалить.
+        """
+
+        # 1. Существует ли сам Playbook
+        playbook = await self.get_playbook_by_id(line_id)
+        if playbook is None:
+            return PlaybookLineUsage(
+                line_exists=False,
+                versions_count=0,
+                used_in_deals=0,
+                used_in_runs=0,
+                deal_names=[],
+            )
+
+        # 2. Все версии этого Playbook
+        versions_stmt = select(PlaybookVersion.id).where(
+            PlaybookVersion.playbook_id == line_id
+        )
+        versions_result = await self.session.execute(versions_stmt)
+        version_ids = list(versions_result.scalars().all())
+        versions_count = len(version_ids)
+
+        if versions_count == 0:
+            # Нет версий — точно никто не использует
+            return PlaybookLineUsage(
+                line_exists=True,
+                versions_count=0,
+                used_in_deals=0,
+                used_in_runs=0,
+                deal_names=[],
+            )
+
+        # 3. Считаем сделки, использующие эти версии
+        deals_stmt = select(Deal).where(Deal.playbook_version_id.in_(version_ids))
+        deals_result = await self.session.execute(deals_stmt)
+        deals = list(deals_result.scalars().all())
+        used_in_deals = len(deals)
+
+        deal_names: list[str] = []
+        for d in deals[:5]:
+            # Берём понятное имя сделки (или id, если имени нет)
+            name = getattr(d, "name", None) or str(d.id)
+            deal_names.append(name)
+
+        # 4. Считаем запуски Run, использующие эти версии
+        runs_stmt = select(func.count()).select_from(Run).where(
+            Run.playbook_version_id.in_(version_ids)
+        )
+        runs_result = await self.session.execute(runs_stmt)
+        used_in_runs = int(runs_result.scalar_one() or 0)
+
+        return PlaybookLineUsage(
+            line_exists=True,
+            versions_count=versions_count,
+            used_in_deals=used_in_deals,
+            used_in_runs=used_in_runs,
+            deal_names=deal_names,
+        )
+
+    async def delete_line_with_items(self, line_id: uuid.UUID) -> bool:
+        """
+        Удаляет Playbook и все его line_items.
+
+        Для непрофессионального программиста:
+        - на вход подаём ID шаблона;
+        - если шаблон найден — удаляем его (элементы удалятся каскадно);
+        - если не найден — возвращаем False.
+
+        Важно: этот метод сам по себе НЕ проверяет использование.
+        Перед вызовом нужно вызвать get_line_usage и убедиться, что шаблон
+        не используется сделками и запусками.
+        """
+        playbook = await self.get_playbook_by_id(line_id)
+        if playbook is None:
+            return False
+
+        await self.session.delete(playbook)
+        # Связанные PlaybookLineItem удалятся благодаря cascade="all, delete-orphan"
+        await self.session.flush()
+        return True
+
     # --- PlaybookVersion operations ---
 
     async def create_version(
@@ -386,3 +502,6 @@ class PlaybookRepository:
             select(PlaybookVersion).where(PlaybookVersion.id == version_id)
         )
         return result.scalar_one_or_none()
+    
+
+    

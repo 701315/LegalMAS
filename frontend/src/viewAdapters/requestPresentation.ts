@@ -17,6 +17,8 @@
 import type { DDRequest, StructuredValue } from "../types/ddRequests";
 import type { DDRequestDTO } from "../types/dealReview";
 import { normalizeStructuredValue } from "../types/ddRequests";
+import type { RequestPriority } from "../types/requestPriority";
+import { normalizeRequestPriority } from "../types/requestPriority";
 
 // =============================================================
 // UI Read-Model типы (view-слой)
@@ -80,7 +82,7 @@ export interface StatusView {
  */
 export interface RequestTableRowView {
   id: string;
-  priority: "critical" | "high" | "medium";
+  priority: RequestPriority;
   text: string;
   checkLabel: string | null;
   addressee: string | null;
@@ -108,8 +110,8 @@ export interface RequestTableRowView {
  */
 export interface RequestPanelView {
   id: string;
-  title: string; // check_name или fallback "Запрос #..."
-  priority: "critical" | "high" | "medium";
+  title: string;
+  priority: RequestPriority;
   text: string;
   addressee: string | null;
 
@@ -246,7 +248,7 @@ export function toRequestTableRowFromLegacy(
 
   return {
     id: req.id,
-    priority: req.priority,
+    priority: normalizeRequestPriority(req.priority),
     text: req.text,
     checkLabel: req.check_id || null,
     addressee: req.addressee || null,
@@ -303,7 +305,7 @@ export function toRequestTableRowFromReview(
 
   return {
     id: req.request_id,
-    priority: req.priority as "critical" | "high" | "medium",
+    priority: normalizeRequestPriority(req.priority),
     text: req.text,
     checkLabel: req.check_name || null,
     addressee: req.addressee || null,
@@ -365,7 +367,7 @@ export function toRequestPanelViewFromLegacy(
   return {
     id: req.id,
     title: req.check_id || `Запрос #${req.id.slice(-6)}`,
-    priority: req.priority,
+    priority: normalizeRequestPriority(req.priority),
     text: req.text,
     addressee: req.addressee || null,
 
@@ -436,7 +438,7 @@ export function toRequestPanelViewFromReview(
   return {
     id: req.request_id,
     title: req.check_name || `Запрос`,
-    priority: req.priority as "critical" | "high" | "medium",
+    priority: normalizeRequestPriority(req.priority),
     text: req.text,
     addressee: req.addressee || null,
 

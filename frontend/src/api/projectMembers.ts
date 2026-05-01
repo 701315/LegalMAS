@@ -1,9 +1,18 @@
 // =============================================================
 // src/api/projectMembers.ts
-// API-клиент и хуки для участников проекта.
+// API-клиент и hooks для участников проекта.
+// TanStack Query v5 safe version.
 // =============================================================
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type MutationFunctionContext,
+  type QueryClient,
+  type UseQueryOptions,
+} from "@tanstack/react-query";
+
 import client from "./client";
 import type { ProjectRole } from "./auth";
 
@@ -29,77 +38,129 @@ export interface UpdateProjectMemberInput {
   role?: ProjectRole;
 }
 
-// Низкоуровневый API
+export interface UpdateProjectMemberParams {
+  memberId: string;
+  data: UpdateProjectMemberInput;
+}
+
+export const projectMembersKeys = {
+  all: ["project-members"] as const,
+  byDeal: (dealId: string) => [...projectMembersKeys.all, dealId] as const,
+  create: (dealId: string) =>
+    [...projectMembersKeys.all, "create", dealId] as const,
+  update: (dealId: string) =>
+    [...projectMembersKeys.all, "update", dealId] as const,
+  remove: (dealId: string) =>
+    [...projectMembersKeys.all, "delete", dealId] as const,
+};
+
 export const projectMembersApi = {
-  list: (dealId: string) =>
-    client
-      .get<ProjectMember[]>(`/api/v1/projects/${dealId}/members`)
-      .then((r) => r.data),
+  async list(dealId: string): Promise<ProjectMember[]> {
+    const res = await client.get<ProjectMember[]>(
+      `/api/v1/projects/${dealId}/members`,
+    );
+    return res.data;
+  },
 
-  create: (dealId: string, data: CreateProjectMemberInput) =>
-    client
-      .post<ProjectMember>(`/api/v1/projects/${dealId}/members`, data)
-      .then((r) => r.data),
+  async create(
+    dealId: string,
+    data: CreateProjectMemberInput,
+  ): Promise<ProjectMember> {
+    const res = await client.post<ProjectMember>(
+      `/api/v1/projects/${dealId}/members`,
+      data,
+    );
+    return res.data;
+  },
 
-  update: (
+  async update(
     dealId: string,
     memberId: string,
     data: UpdateProjectMemberInput,
-  ) =>
-    client
-      .put<ProjectMember>(
-        `/api/v1/projects/${dealId}/members/${memberId}`,
-        data,
-      )
-      .then((r) => r.data),
+  ): Promise<ProjectMember> {
+    const res = await client.put<ProjectMember>(
+      `/api/v1/projects/${dealId}/members/${memberId}`,
+      data,
+    );
+    return res.data;
+  },
 
-  remove: (dealId: string, memberId: string) =>
-    client
-      .delete<void>(`/api/v1/projects/${dealId}/members/${memberId}`)
-      .then((r) => r.data),
+  async remove(dealId: string, memberId: string): Promise<void> {
+    await client.delete(`/api/v1/projects/${dealId}/members/${memberId}`);
+  },
 };
 
-// Хук для списка участников
-export function useProjectMembers(dealId: string | null) {
-  return useQuery({
-    queryKey: ["project-members", dealId],
-    queryFn: () => projectMembersApi.list(dealId!),
-    enabled: !!dealId,
+async function invalidateProjectMembers(
+  queryClient: QueryClient,
+  dealId: string,
+): Promise<void> {
+  await queryClient.invalidateQueries({
+    queryKey: projectMembersKeys.byDeal(dealId),
   });
 }
 
-// Хуки для мутаций
+type ProjectMembersQueryOptions = Omit<
+  UseQueryOptions<ProjectMember[], Error, ProjectMember[], readonly unknown[]>,
+  "queryKey" | "queryFn" | "enabled"
+>;
+
+export function useProjectMembers(
+  dealId: string | null,
+  options?: ProjectMembersQueryOptions,
+) {
+  return useQuery({
+    queryKey: dealId
+      ? projectMembersKeys.byDeal(dealId)
+      : projectMembersKeys.all,
+    queryFn: () => projectMembersApi.list(dealId!),
+    enabled: Boolean(dealId),
+    ...options,
+  });
+}
+
 export function useCreateProjectMember(dealId: string) {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (data: CreateProjectMemberInput) =>
-      projectMembersApi.create(dealId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["project-members", dealId] });
+    mutationKey: projectMembersKeys.create(dealId),
+    mutationFn: (
+      data: CreateProjectMemberInput,
+      _context: MutationFunctionContext,
+    ) => projectMembersApi.create(dealId, data),
+    onSuccess: async () => {
+      await invalidateProjectMembers(queryClient, dealId);
     },
   });
 }
 
 export function useUpdateProjectMember(dealId: string) {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (params: {
-      memberId: string;
-      data: UpdateProjectMemberInput;
-    }) => projectMembersApi.update(dealId, params.memberId, params.data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["project-members", dealId] });
+    mutationKey: projectMembersKeys.update(dealId),
+    mutationFn: (
+      { memberId, data }: UpdateProjectMemberParams,
+      _context: MutationFunctionContext,
+    ) => projectMembersApi.update(dealId, memberId, data),
+    onSuccess: async () => {
+      await invalidateProjectMembers(queryClient, dealId);
     },
   });
 }
 
 export function useDeleteProjectMember(dealId: string) {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (memberId: string) =>
-      projectMembersApi.remove(dealId, memberId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["project-members", dealId] });
+    mutationKey: projectMembersKeys.remove(dealId),
+    mutationFn: (
+      memberId: string,
+      _context: MutationFunctionContext,
+    ) => projectMembersApi.remove(dealId, memberId),
+    onSuccess: async () => {
+      await invalidateProjectMembers(queryClient, dealId);
     },
   });
 }
+
+

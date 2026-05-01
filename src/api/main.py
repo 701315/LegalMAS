@@ -23,6 +23,7 @@ from ops.instrument import setup_metrics
 from .endpoints import (
     admin,
     auth,
+    audit,
     classifier,
     deal_review,
     document_chunk_exports,
@@ -123,3 +124,6 @@ app.include_router(model_configs.router, prefix="/api/v1")
 app.include_router(document_chunk_exports.router, prefix="/api/v1")
 
 app.include_router(exports.router, prefix="/api/v1")
+
+# Журнал аудита (GET /deals/{deal_id}/audit, POST /audit-log)
+app.include_router(audit.router, prefix="/api/v1")

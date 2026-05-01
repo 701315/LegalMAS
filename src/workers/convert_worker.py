@@ -39,7 +39,7 @@ from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
-from db.repositories import DocumentRepository, DocumentVersionRepository
+from db.repositories import AuditRepository, DocumentRepository, DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -294,6 +294,32 @@ async def convert_to_pdf_async(
         pdf_ref=pdf_ref,
     )
 
+    audit_repo = AuditRepository(db)
+    try:
+        await audit_repo.log(
+            tenant_id=uuid.UUID(tenant_id),
+            deal_id=uuid.UUID(deal_id),
+            action="CONVERSION_COMPLETED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "run_id": run_id,
+                "origin_filetype": origin_filetype,
+                "original_ref": original_ref,
+                "converted_pdf_ref": pdf_ref,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "convert_to_pdf: failed to write audit log for CONVERSION_COMPLETED",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            deal_id=deal_id,
+        )
+
+
     return {
         "status": "converted",
         "document_id": document_id,
@@ -433,6 +459,33 @@ async def _mark_convert_failed(
         reason="conversion_error",
         run_id=run_id,
     )
+
+    document = await repo.get_by_id(document_uuid)
+    if not document:
+        return
+
+    audit_repo = AuditRepository(uow.session)
+    try:
+        await audit_repo.log(
+            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            deal_id=document.deal_id,
+            action="CONVERSION_FAILED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document_uuid),
+                "run_id": str(run_id) if run_id else None,
+                "stage": "convert",
+                "reason": "conversion_error",
+                "message": message,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "convert_to_pdf: failed to write audit log for CONVERSION_FAILED",
+            document_id=str(document_uuid),
+            run_id=str(run_id) if run_id else None,
+        )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # КАК ДЕЙСТВОВАТЬ, КОГДА ПОЯВИТСЯ РЕАЛЬНЫЙ EXTRACTOR ИЛИ КОНВЕРТЕР ДЛЯ НОВОГО ТИПА

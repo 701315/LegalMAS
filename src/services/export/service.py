@@ -28,18 +28,23 @@ Export service for processing Export records and generating output files.
   который управляет статусами Export и сохранением refs в БД;
 - использоваться воркером/джобой, которая последовательно обрабатывает
   pending-экспорты из очереди.
-"""
 
+Audit trail:
+- EXPORT_COMPLETED — успешный экспорт конкретной записи Export.
+- EXPORT_FAILED — экспорт упал на уровне run_export_for_record.
+- Audit logging best-effort: ошибки аудита не ломают основной флоу.
+"""
 
 from __future__ import annotations
 
 from typing import Any, Dict
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
 from db.models.export import Export
+from db.repositories import AuditRepository
 from services.export.core import export_core
 
 logger = get_logger(__name__)
@@ -66,6 +71,9 @@ async def run_export_for_record(
           - file_refs: словарь всех файлов (включая None или только не-None — см. ниже),
           - file_size_bytes: при желании можно посчитать суммарный размер.
       - НЕ коммитит транзакцию — это ответственность вызывающего кода.
+
+    Дополнительно:
+      - пишет EXPORT_COMPLETED / EXPORT_FAILED в audit trail (best-effort).
     """
     logger.info(
         "Запуск run_export_for_record",
@@ -74,6 +82,8 @@ async def run_export_for_record(
         deal_id=str(export.deal_id),
         status=export.status,
     )
+
+    audit_repo = AuditRepository(db)
 
     # 1. Переводим в processing
     export.status = "processing"
@@ -89,11 +99,10 @@ async def run_export_for_record(
 
         # 2. Обновляем поля Export по результатам
         export.file_ref = result.get("export_ref")
-        # Хранить полную структуру all_refs или только refs — на твой выбор.
-        # Я бы рекомендовал all_refs, чтобы видеть и "провалившиеся" файлы.
+        # Рекомендуется хранить all_refs, чтобы видеть и «провалившиеся» файлы.
         export.file_refs = result.get("all_refs") or result.get("refs")
 
-        # TODO: если нужно, можно здесь же посчитать суммарный размер
+        # TODO: при необходимости посчитать суммарный размер
         # export.file_size_bytes = ...
 
         export.status = "completed"
@@ -103,6 +112,30 @@ async def run_export_for_record(
             export_id=str(export.id),
             status=export.status,
         )
+
+        # Best-effort audit log
+        try:
+            await audit_repo.log(
+                tenant_id=export.tenant_id,
+                deal_id=export.deal_id,
+                action="EXPORT_COMPLETED",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "export_id": str(export.id),
+                    "run_id": str(export.run_id),
+                    "deal_id": str(export.deal_id),
+                    "tenant_id": str(export.tenant_id),
+                    "status": export.status,
+                    "file_ref": export.file_ref,
+                    "file_refs": export.file_refs,
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Export service: failed to write audit log for EXPORT_COMPLETED",
+                export_id=str(export.id),
+            )
 
         # Возвращаем result на случай, если вызывающему коду нужны детали
         return result
@@ -115,6 +148,29 @@ async def run_export_for_record(
         )
         export.status = "failed"
         await db.flush()
+
+        try:
+            await audit_repo.log(
+                tenant_id=export.tenant_id,
+                deal_id=export.deal_id,
+                action="EXPORT_FAILED",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "export_id": str(export.id),
+                    "run_id": str(export.run_id),
+                    "deal_id": str(export.deal_id),
+                    "tenant_id": str(export.tenant_id),
+                    "status": export.status,
+                    "error": str(e),
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Export service: failed to write audit log for EXPORT_FAILED",
+                export_id=str(export.id),
+            )
+
         # Можно вернуть частичный результат или пустой dict
         return {}
 
@@ -141,7 +197,18 @@ async def process_one_pending_export(
     export: Export | None = result.scalars().first()
 
     if export is None:
+        logger.info(
+            "process_one_pending_export: no pending exports found",
+            tenant_id=tenant_id,
+        )
         return False
+
+    logger.info(
+        "process_one_pending_export: found pending export",
+        export_id=str(export.id),
+        tenant_id=tenant_id,
+        status=export.status,
+    )
 
     # 2. Обработать её через run_export_for_record
     await run_export_for_record(export, db=db, tenant_id=tenant_id)

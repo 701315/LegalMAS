@@ -1,9 +1,13 @@
 # src/workers/pii_sanitizer.py
 
+# src/workers/pii_sanitizer.py
+
 """
 PII Sanitizer Worker.
 
+
 Пайплайн: extract → pii → structure → classify → run_deal_checks.
+
 
 Назначение:
 - Считать одноязычный макет документа (layout_primary) из MinIO.
@@ -12,6 +16,7 @@ PII Sanitizer Worker.
 - Сохранить sanitized‑layout и PII‑mapping в MinIO.
 - Обновить статус документа: EXTRACTED -> SANITIZED.
 - Запуск последующих стадий (structure и далее) выполняется централизованным оркестратором.
+
 
 Архитектурные принципы:
 - Celery‑таска синхронная (def) + async‑ядро (PIISanitizer.sanitize) под db_uow().
@@ -24,10 +29,12 @@ PII Sanitizer Worker.
   всегда имеет честный и понятный статус.
 """
 
+
 import uuid
 from typing import Any
 from datetime import datetime, timezone
 from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
+
 
 from core.config import settings
 from core.exceptions import PermanentError, QuarantineError
@@ -49,12 +56,15 @@ from core.constants import DocumentStatus
 from storage.artifact_store import ArtifactStore, ArtifactPath
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 
+
 logger = get_logger(__name__)
+
 
 
 class PIISanitizer:
     """
     Сервис санитизации PII в документе.
+
 
     Отделён от Celery‑таски для тестируемости.
     Получает UnitOfWork извне, работает строго в его границах.
@@ -85,10 +95,12 @@ class PIISanitizer:
         """
         Выполнить санитизацию документа.
 
+
         Возвращает словарь с полями:
         - document_id
         - entities_detected / tokenized / preserved
         - skipped (True, если документ уже был обработан)
+
 
         В этой функции мы НЕ открываем новый UnitOfWork,
         используем только тот, что был передан снаружи.
@@ -245,6 +257,7 @@ class PIISanitizer:
         """
         Обработать элементы layout'а.
 
+
         Возвращает:
           sanitized_elements, global_mapping, stats
         """
@@ -293,6 +306,7 @@ class PIISanitizer:
     def _build_sanitized_path(self, doc) -> str:
         """
         Построить путь для sanitized‑layout в MinIO через ArtifactPath.
+
 
         В новой архитектуре это будет одноязычный layout_primary_sanitized.
         """
@@ -359,6 +373,7 @@ class PIISanitizer:
         )
 
 
+
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -377,6 +392,7 @@ def sanitize_document(
 ) -> dict:
     """
     Синхронная Celery‑таска санитизации документа.
+
 
     Внутри:
       - открывает основной UnitOfWork (uow_main) через db_uow();
@@ -475,6 +491,7 @@ def sanitize_document(
     return result
 
 
+
 async def _mark_failed(
     uow: UnitOfWork,
     version_id: uuid.UUID,
@@ -487,6 +504,7 @@ async def _mark_failed(
     """
     version_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     version = await version_repo.get_by_id(version_id)
     if not version:
@@ -499,6 +517,32 @@ async def _mark_failed(
         reason="pii_error",
         run_id=None,
     )
+
+    document = await doc_repo.get_by_id(version.document_id)
+    if not document:
+        return
+
+    try:
+        await audit_repo.log(
+            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            deal_id=document.deal_id,
+            action="PII_SANITIZE_FAILED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document.id),
+                "document_version_id": str(version_id),
+                "stage": "pii",
+                "reason": "pii_error",
+                "message": message,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "PII sanitizer: failed to write audit log for PII_SANITIZE_FAILED",
+            document_id=str(version.document_id),
+        )
+
 
 
 async def _mark_quarantine(
@@ -513,6 +557,7 @@ async def _mark_quarantine(
     """
     version_repo = DocumentVersionRepository(uow.session)
     doc_repo = DocumentRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     version = await version_repo.get_by_id(version_id)
     if not version:
@@ -526,6 +571,31 @@ async def _mark_quarantine(
         reason=reason,
         run_id=None,
     )
+
+    document = await doc_repo.get_by_id(version.document_id)
+    if not document:
+        return
+
+    try:
+        await audit_repo.log(
+            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            deal_id=document.deal_id,
+            action="PII_SANITIZE_QUARANTINED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document.id),
+                "document_version_id": str(version_id),
+                "stage": "pii",
+                "reason": reason,
+                "message": str(error),
+            },
+        )
+    except Exception:
+        logger.warning(
+            "PII sanitizer: failed to write audit log for PII_SANITIZE_QUARANTINED",
+            document_id=str(version.document_id),
+        )
     
 
     

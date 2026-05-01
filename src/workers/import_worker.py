@@ -1,5 +1,7 @@
 # src/workers/import_worker.py
 
+# src/workers/import_worker.py
+
 """
 Import Worker — production.
 
@@ -9,17 +11,15 @@ Import Worker — production.
   НЕ запускает последующие стадии напрямую — только создаёт документы и версии.
 
 Основные функции:
-  - Распаковка ZIP с сохранением структуры папок (folder_path).
-  - Валидация файлов (расширение, размер, сигнатура / magic bytes).
-  - Дедупликация по SHA‑256 внутри одной сделки.
-  - Идемпотентность через IdempotencyKey.
-  - Карантин для некорректных / повреждённых / неподдерживаемых файлов.
-  - Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
-  - Определение исходного формата файла (source_extension, source_filetype).
-  - Подготовка документов к дальнейшему пайплайну без прямого запуска downstream‑воркеров.
-  - Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
-  - Определение исходного формата файла (source_extension, source_filetype).
-  - (Больше не ставит downstream‑таски — дальнейшая обработка решается оркестратором.)
+- Распаковка ZIP с сохранением структуры папок (folder_path).
+- Валидация файлов (расширение, размер, сигнатура / magic bytes).
+- Дедупликация по SHA‑256 внутри одной сделки.
+- Идемпотентность через IdempotencyKey.
+- Карантин для некорректных / повреждённых / неподдерживаемых файлов.
+- Загрузка оригиналов в MinIO и создание Document + DocumentVersion.
+- Определение исходного формата файла (source_extension, source_filetype).
+- Подготовка документов к дальнейшему пайплайну без прямого запуска downstream‑воркеров.
+- (Больше не ставит downstream‑таски — дальнейшая обработка решается оркестратором.)
 
 Архитектура:
 - Внешняя Celery‑таска import_bundle — синхронная (def), её вызывает Celery.
@@ -28,7 +28,15 @@ Import Worker — production.
   под управлением db_uow().
 - Import Worker не запускает последующие воркеры (build_primary_language_source, extract и т.д.).
   Дальнейшие стадии запускаются через централизованный оркестратор по статусу документа.
+
+Audit trail:
+- На успешном завершении бандла пишет IMPORT.
+- На quarantine при валидации пишет IMPORT_FILE_QUARANTINED.
+- На unsupported filetype пишет IMPORT_FILE_UNSUPPORTED.
+- Audit logging best-effort: проблемы аудита не должны ломать импорт.
 """
+
+from __future__ import annotations
 
 import hashlib
 import os
@@ -36,10 +44,10 @@ import tempfile
 import uuid
 import zipfile
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ops.metrics import get_metrics
 from core.constants import DocumentStatus
 from core.exceptions import IdempotencyConflictError, PermanentError
 from core.logging import get_logger
@@ -51,16 +59,17 @@ from db.repositories import (
     IdempotencyRepository,
 )
 from db.uow import db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
-from services.file_validator import (
-    FileStatus,
-    validate_file,
-)
+from ops.metrics import get_metrics
 from services.extract_router import (
     ExtractRoutingDecision,
     decide_extraction_strategy,
+)
+from services.file_validator import (
+    FileStatus,
+    validate_file,
 )
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
@@ -90,12 +99,13 @@ def import_bundle(
     source_path: str,
     idempotency_key: str | None = None,
     run_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Синхронная точка входа Celery‑таски импорта.
     """
+    _ = self
 
-    async def _wrapper() -> dict:
+    async def _wrapper() -> dict[str, Any]:
         # db_uow() создаёт AsyncSession и управляет транзакцией.
         async with db_uow() as uow:
             return await _import_bundle_async(
@@ -109,7 +119,6 @@ def import_bundle(
 
     # Запускаем асинхронную часть через общий мост run_async
     result = run_async(_wrapper())
-
     return result
 
 
@@ -120,12 +129,13 @@ async def _import_bundle_async(
     db: AsyncSession,
     idempotency_key: str | None = None,
     run_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     logger.info(
         "Starting import",
         deal_id=deal_id,
         source_path=source_path,
         idempotency_key=idempotency_key,
+        run_id=run_id,
     )
 
     metrics = get_metrics()
@@ -174,6 +184,7 @@ async def _import_bundle_async(
         quarantined=result["quarantine_count"],
         duplicates=result["duplicate_count"],
         skipped=result["skipped_count"],
+        committed=result.get("committed"),
     )
     return result
 
@@ -197,6 +208,7 @@ def _extract_zip(zip_path: str) -> list[tuple[str, str]]:
         )
 
     for root, dirs, files in os.walk(tmp_dir):
+        _ = dirs
         for fname in files:
             full_path = os.path.join(root, fname)
             rel_dir = os.path.relpath(root, tmp_dir)
@@ -211,7 +223,7 @@ async def _check_idempotency(
     tenant_id: str,
     key: str,
     db: AsyncSession,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """
     Проверка идемпотентности.
     """
@@ -242,7 +254,7 @@ async def _async_import(
     db: AsyncSession,
     run_id: str | None = None,
     idempotency_key: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Основная логика импорта.
     """
@@ -256,10 +268,15 @@ async def _async_import(
 
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
+    audit_repo = AuditRepository(db)
+
+    deal_uuid = uuid.UUID(deal_id)
+    tenant_uuid = uuid.UUID(tenant_id)
+    run_uuid = uuid.UUID(run_id) if run_id else None
 
     # Создаём Bundle
     bundle = Bundle(
-        deal_id=uuid.UUID(deal_id),
+        deal_id=deal_uuid,
         source_type="zip" if len(file_list) > 1 else "local",
         status="processing",
         idempotency_key=idempotency_key,
@@ -285,7 +302,7 @@ async def _async_import(
         # 2. Quarantine invalid
         if validation.status == FileStatus.QUARANTINE:
             q_doc = await doc_repo.create(
-                deal_id=uuid.UUID(deal_id),
+                deal_id=deal_uuid,
                 bundle_id=bundle.id,
                 filename=filename,
                 folder_path=folder_path or None,
@@ -298,6 +315,7 @@ async def _async_import(
                 origin_filetype=validation.filetype,
                 origin_extension=validation.original_extension,
             )
+
             # Бест‑эффорт: загружаем оригинал для ручного разбора
             try:
                 with open(filepath, "rb") as f:
@@ -308,7 +326,11 @@ async def _async_import(
                     file_bytes,
                 )
             except Exception:
-                pass
+                logger.warning(
+                    "Import worker: failed to store quarantined original",
+                    filename=filename,
+                    doc_id=str(q_doc.id),
+                )
 
             quarantine_ids.append(str(q_doc.id))
             logger.warning(
@@ -321,11 +343,37 @@ async def _async_import(
             metrics.quarantine.labels(
                 reason=validation.reason or "import_quarantine"
             ).inc()
+
+            try:
+                await audit_repo.log(
+                    tenant_id=tenant_uuid,
+                    deal_id=deal_uuid,
+                    action="IMPORT_FILE_QUARANTINED",
+                    actor="system",
+                    actor_role="worker",
+                    details={
+                        "bundle_id": str(bundle.id),
+                        "document_id": str(q_doc.id),
+                        "filename": filename,
+                        "folder_path": folder_path or None,
+                        "reason": validation.reason,
+                        "filetype": validation.filetype,
+                        "source_extension": validation.original_extension,
+                        "run_id": str(run_uuid) if run_uuid else None,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Import worker: failed to write audit log for IMPORT_FILE_QUARANTINED",
+                    doc_id=str(q_doc.id),
+                    filename=filename,
+                )
+
             continue
 
         # 3. SHA-256 deduplication
         sha256 = compute_sha256(filepath)
-        existing = await doc_repo.get_by_sha256(uuid.UUID(deal_id), sha256)
+        existing = await doc_repo.get_by_sha256(deal_uuid, sha256)
         if existing:
             duplicate_count += 1
             logger.info(
@@ -352,7 +400,7 @@ async def _async_import(
         # 5. Создаём Document
         source_ext = validation.original_extension  # например, ".pdf", ".docx"
         doc = await doc_repo.create(
-            deal_id=uuid.UUID(deal_id),
+            deal_id=deal_uuid,
             bundle_id=bundle.id,
             filename=filename,
             folder_path=folder_path or None,
@@ -373,7 +421,7 @@ async def _async_import(
         )
 
         # 6. DocumentVersion
-        doc_version = await ver_repo.create(
+        await ver_repo.create(
             document_id=doc.id,
             version_num=1,
             original_ref=original_ref,
@@ -414,7 +462,7 @@ async def _async_import(
                     f"{validation.filetype or 'unknown'}"
                 ),
                 reason=decision.reason or "unsupported_filetype",
-                run_id=uuid.UUID(run_id) if run_id else None,
+                run_id=run_uuid,
             )
             quarantine_ids.append(str(doc.id))
             imported_ids.remove(str(doc.id))
@@ -423,11 +471,39 @@ async def _async_import(
                 filename=filename,
                 filetype=validation.filetype,
                 reason=decision.reason,
+                doc_id=str(doc.id),
             )
 
             metrics.quarantine.labels(
                 reason=decision.reason or "unsupported_filetype"
             ).inc()
+
+            try:
+                await audit_repo.log(
+                    tenant_id=tenant_uuid,
+                    deal_id=deal_uuid,
+                    action="IMPORT_FILE_UNSUPPORTED",
+                    actor="system",
+                    actor_role="worker",
+                    details={
+                        "bundle_id": str(bundle.id),
+                        "document_id": str(doc.id),
+                        "filename": filename,
+                        "folder_path": folder_path or None,
+                        "filetype": validation.filetype,
+                        "source_extension": source_ext,
+                        "decision_action": decision.action,
+                        "reason": decision.reason or "unsupported_filetype",
+                        "run_id": str(run_uuid) if run_uuid else None,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Import worker: failed to write audit log for IMPORT_FILE_UNSUPPORTED",
+                    doc_id=str(doc.id),
+                    filename=filename,
+                )
+
             continue
 
     # Финализируем bundle
@@ -436,23 +512,31 @@ async def _async_import(
     bundle.completed_at = datetime.now(UTC)
     await db.flush()
 
-    # Аудит‑лог
-    audit_repo = AuditRepository(db)
-    await audit_repo.log(
-        tenant_id=uuid.UUID(tenant_id),
-        deal_id=uuid.UUID(deal_id),
-        action="IMPORT",
-        actor="system",
-        actor_role="system",
-        details={
-            "bundle_id": str(bundle.id),
-            "total_files": len(file_list),
-            "imported_count": len(imported_ids),
-            "quarantine_count": len(quarantine_ids),
-            "duplicate_count": duplicate_count,
-            "skipped_count": skipped_count,
-        },
-    )
+    # Аудит‑лог бандла
+    try:
+        await audit_repo.log(
+            tenant_id=tenant_uuid,
+            deal_id=deal_uuid,
+            action="IMPORT",
+            actor="system",
+            actor_role="worker",
+            details={
+                "bundle_id": str(bundle.id),
+                "total_files": len(file_list),
+                "imported_count": len(imported_ids),
+                "quarantine_count": len(quarantine_ids),
+                "duplicate_count": duplicate_count,
+                "skipped_count": skipped_count,
+                "run_id": str(run_uuid) if run_uuid else None,
+                "source_type": bundle.source_type,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Import worker: failed to write audit log for IMPORT",
+            deal_id=deal_id,
+            bundle_id=str(bundle.id),
+        )
 
     result = {
         "bundle_id": str(bundle.id),
@@ -462,13 +546,14 @@ async def _async_import(
         "quarantine_count": len(quarantine_ids),
         "duplicate_count": duplicate_count,
         "skipped_count": skipped_count,
+        "committed": True,
     }
 
     # Идемпотентность: помечаем ключ как завершённый
     if idempotency_key:
         idem_repo = IdempotencyRepository(db)
         record, _ = await idem_repo.get_or_create(
-            uuid.UUID(tenant_id),
+            tenant_uuid,
             "import",
             idempotency_key,
         )

@@ -1,5 +1,7 @@
 # src/workers/classifier.py
 
+# src/workers/classifier.py
+
 """
 Classifier Worker — каскадная классификация документов (Stage 6/7).
 
@@ -23,17 +25,25 @@ Classifier Worker — каскадная классификация докуме
 - Вся работа с БД выполняется под db_uow().
 - Экземпляр HybridClassifier кэшируется на процесс воркера только если
   его можно безопасно перепривязать к текущему UoW / AsyncSession.
+
+Audit trail:
+- На успешном завершении пишет CLASSIFY_COMPLETED.
+- На PermanentError переводит документ в FAILED через отдельный UoW
+  и пишет CLASSIFY_FAILED.
+- Audit logging best-effort: проблемы аудита не должны ломать бизнес-стадию.
 """
 
 from __future__ import annotations
 
 import time
 import uuid
+from typing import Any
 
 from classifiers.stage8.hybrid_classifier import HybridClassifier
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger
+from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
@@ -111,7 +121,7 @@ def _get_classifier(uow: UnitOfWork) -> HybridClassifier:
     name="workers.classify_document",
     queue="default",
 )
-def classify_document(self, document_id: str, **kwargs) -> dict:
+def classify_document(self, document_id: str, **kwargs: Any) -> dict[str, Any]:
     """
     Sync Celery entry point: обёртка над асинхронным ядром.
 
@@ -120,16 +130,22 @@ def classify_document(self, document_id: str, **kwargs) -> dict:
     - Внутри один раз передаём управление в async‑мир через run_async.
     """
 
-    async def _wrapper() -> dict:
+    async def _wrapper() -> dict[str, Any]:
         return await _classify_document_async(self, document_id, kwargs)
 
     return run_async(_wrapper())
 
 
-async def _classify_document_async(task, document_id: str, extra_args: dict) -> dict:
+async def _classify_document_async(
+    task: MASBaseTask,
+    document_id: str,
+    extra_args: dict[str, Any],
+) -> dict[str, Any]:
     """
     Асинхронное ядро классификации одного документа.
     """
+    _ = task
+
     start_time = time.time()
     doc_uuid = uuid.UUID(document_id) if isinstance(document_id, str) else document_id
 
@@ -138,7 +154,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
     run_uuid = uuid.UUID(run_id_str) if run_id_str else None
 
     playbook = None
-    classification_result: dict | None = None
+    classification_result: dict[str, Any] | None = None
     classification_requires_review: bool | None = None
 
     try:
@@ -146,6 +162,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             doc_repo = DocumentRepository(uow.session)
             ver_repo = DocumentVersionRepository(uow.session)
             playbook_repo = PlaybookRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
 
             doc = await doc_repo.get_by_id(doc_uuid)
             if not doc:
@@ -164,6 +181,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                     "document_id": document_id,
                     "status": doc.status,
                     "skipped": True,
+                    "committed": False,
                 }
 
             allowed_statuses = {
@@ -182,6 +200,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                     "status": doc.status,
                     "skipped": True,
                     "reason": "unexpected_status",
+                    "committed": False,
                 }
 
             version = await ver_repo.get_latest(doc.id)
@@ -257,6 +276,39 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
                     run_id=run_uuid,
                 )
 
+            try:
+                tenant_id_value = None
+                if hasattr(doc, "deal") and doc.deal and hasattr(doc.deal, "tenant_id"):
+                    tenant_id_value = doc.deal.tenant_id
+                elif hasattr(doc, "tenant_id") and getattr(doc, "tenant_id", None):
+                    tenant_id_value = doc.tenant_id
+
+                await audit_repo.log(
+                    tenant_id=tenant_id_value or uuid.UUID(int=0),
+                    deal_id=doc.deal_id,
+                    action="CLASSIFY_COMPLETED",
+                    actor="system",
+                    actor_role="worker",
+                    details={
+                        "document_id": str(doc.id),
+                        "document_version_id": str(version.id),
+                        "doc_type": final_type,
+                        "classification_confidence": final_conf,
+                        "classification_level": level,
+                        "classification_requires_review": classification_requires_review,
+                        "language": language,
+                        "jurisdiction": jurisdiction,
+                        "applicable_triggers": applicable_triggers,
+                        "playbook_version_id": str(playbook.id) if playbook else None,
+                        "run_id": str(run_uuid) if run_uuid else None,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Classifier: failed to write audit log for CLASSIFY_COMPLETED",
+                    document_id=str(doc.id),
+                )
+
     except PermanentError as e:
         logger.error(
             "Permanent error during classification",
@@ -274,6 +326,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
             "document_id": document_id,
             "status": DocumentStatus.FAILED.value,
             "error": str(e),
+            "committed": False,
         }
 
     duration_ms = int((time.time() - start_time) * 1000)
@@ -296,6 +349,7 @@ async def _classify_document_async(task, document_id: str, extra_args: dict) -> 
         "playbook_found": playbook is not None,
         "duration_ms": duration_ms,
         "classification_requires_review": classification_requires_review,
+        "committed": True,
     }
 
 
@@ -311,6 +365,8 @@ async def _mark_failed(
     с заполнением processing_error_details.
     """
     repo = DocumentRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
+
     await repo.set_failed(
         doc_id,
         stage="classify",
@@ -318,5 +374,42 @@ async def _mark_failed(
         reason="classification_error",
         run_id=run_id,
     )
+
+    document = await repo.get_by_id(doc_id)
+    if not document:
+        logger.warning(
+            "Classifier: document not found after set_failed",
+            document_id=str(doc_id),
+        )
+        return
+
+    try:
+        tenant_id_value = None
+        if hasattr(document, "deal") and document.deal and hasattr(
+            document.deal, "tenant_id"
+        ):
+            tenant_id_value = document.deal.tenant_id
+        elif hasattr(document, "tenant_id") and getattr(document, "tenant_id", None):
+            tenant_id_value = document.tenant_id
+
+        await audit_repo.log(
+            tenant_id=tenant_id_value or uuid.UUID(int=0),
+            deal_id=document.deal_id,
+            action="CLASSIFY_FAILED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(doc_id),
+                "stage": "classify",
+                "reason": "classification_error",
+                "message": message,
+                "run_id": str(run_id) if run_id else None,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Classifier: failed to write audit log for CLASSIFY_FAILED",
+            document_id=str(doc_id),
+        )
 
     

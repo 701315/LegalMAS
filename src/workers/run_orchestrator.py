@@ -46,6 +46,7 @@ from db.repositories.document_stage_execution_repo import DocumentStageExecution
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.run_repo import RunRepository
 from db.repositories.deal_repo import DealRepository
+from db.repositories.audit_repo import AuditRepository
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -267,6 +268,7 @@ async def _start_run_pipeline_async(
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
     dse_repo = DocumentStageExecutionRepository(db)
+    audit_repo = AuditRepository(db)
 
     run_uuid = uuid.UUID(run_id)
     run_obj: Run | None = await run_repo.get_by_id(run_uuid)
@@ -319,6 +321,30 @@ async def _start_run_pipeline_async(
                 "Run transitioned to RUNNING concurrently, continuing orchestration",
                 extra={"run_id": run_id},
             )
+        else:
+            # Run успешно стартовал из PENDING → RUNNING — пишем аудит запуска анализа.
+            deal_uuid_for_audit = run_obj.deal_id
+            try:
+                await audit_repo.log(
+                    tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
+                    deal_id=deal_uuid_for_audit,
+                    action="ANALYSIS_STARTED",
+                    actor="system",          # TODO: подставить реального пользователя из токена
+                    actor_role="worker",     # или "user", если запускался из UI
+                    details={
+                        "run_id": run_id,
+                        "deal_id": str(deal_uuid_for_audit) if deal_uuid_for_audit else None,
+                        "pipeline_strategy": getattr(run_obj, "pipeline_strategy", None),
+                        "force_reclassify": force_reclassify,
+                    },
+                )
+                # commit делать не нужно — оркестратор работает в рамках одного uow,
+                # и audit-запись закоммитится вместе с другими изменениями позже.
+            except Exception:
+                logger.warning(
+                    "Failed to write audit log for ANALYSIS_STARTED",
+                    extra={"run_id": run_id},
+                )
 
     elif current_status == RunStatus.RUNNING.value:
         logger.info(

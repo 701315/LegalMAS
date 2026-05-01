@@ -1,11 +1,15 @@
 # src/workers/extract_worker.py
 
+# src/workers/extract_worker.py
+
 """
 Extract Worker — извлечение текста и таблиц из PDF, сохранённых в MinIO.
+
 
 Позиция в пайплайне:
 - Пайплайн: import → build_primary_language_source → extract → pii → structure → classify → run_deal_checks.
 - На вход получает одноязычный документ (PDF) и создаёт артефакты text_layout_raw и layout_primary.
+
 
 Что делает воркер:
 - Читает PDF из MinIO строго по ссылке primary_source_ref из DocumentVersion.
@@ -16,18 +20,21 @@ Extract Worker — извлечение текста и таблиц из PDF, �
 - При успехе обновляет статус документа до EXTRACTED; запуск PII‑санитизации делает оркестратор.
 """
 
+
 from __future__ import annotations
+
 
 import time
 import uuid
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 from core.config import settings
 from core.constants import DocumentStatus
 from core.exceptions import PermanentError, QuarantineError, TransientError
 from core.logging import get_logger
-from db.repositories import DocumentRepository, DocumentVersionRepository
+from db.repositories import AuditRepository, DocumentRepository, DocumentVersionRepository
 from db.uow import UnitOfWork, db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -45,7 +52,9 @@ from services.pdf_extractor import (
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 from storage.artifact_store import ArtifactPath, ArtifactStore
 
+
 logger = get_logger(__name__)
+
 
 
 @celery_app.task(
@@ -65,6 +74,7 @@ def extract_document(
 ) -> dict:
     """
     Celery-обёртка вокруг асинхронной функции извлечения.
+
 
     Здесь только управление транзакцией и обработка ошибок.
     Вся бизнес-логика лежит в _extract_document_async.
@@ -165,6 +175,7 @@ def extract_document(
     return result
 
 
+
 async def _extract_document_async(
     document_version_id: str,
     document_id: str,
@@ -175,6 +186,7 @@ async def _extract_document_async(
 ) -> dict:
     """
     Основная бизнес-логика извлечения текста и таблиц из PDF.
+
 
     Контракт стадии:
     - extract работает только с primary_source_ref;
@@ -476,6 +488,42 @@ async def _extract_document_async(
     if extraction.avg_ocr_confidence is not None and extraction.strategy in ("ocr", "hybrid"):
         METRICS.extraction_ocr_confidence.observe(extraction.avg_ocr_confidence)
 
+    # Аудит: успешное завершение extract
+    audit_repo = AuditRepository(db)
+    try:
+        await audit_repo.log(
+            tenant_id=uuid.UUID(tenant_id),
+            deal_id=uuid.UUID(deal_id),
+            action="EXTRACTION_COMPLETED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "run_id": run_id,
+                "strategy": extraction.strategy,
+                "page_count": extraction.page_count,
+                "elements": len(extraction.elements),
+                "tables": len(extraction.tables),
+                "raw_ref": raw_ref,
+                "layout_primary_ref": primary_ref,
+                "ocr_confidence": (
+                    float(extraction.avg_ocr_confidence)
+                    if extraction.avg_ocr_confidence is not None
+                    else None
+                ),
+                "ocr_rate": ocr_rate,
+                "duration_seconds": round(duration, 2),
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Extract: failed to write audit log for EXTRACTION_COMPLETED",
+            document_id=document_id,
+            document_version_id=document_version_id,
+            run_id=run_id,
+        )
+
     return {
         "status": DocumentStatus.EXTRACTED.value,
         "document_id": document_id,
@@ -491,6 +539,7 @@ async def _extract_document_async(
     }
 
 
+
 async def get_pdf_source_ref(
     document_version_id: str,
     db: AsyncSession,
@@ -500,8 +549,10 @@ async def get_pdf_source_ref(
     """
     Получить ссылку на PDF-источник для extract.
 
+
     Активный pipeline:
     - extract должен читать только primary_source_ref.
+
 
     Legacy fallback (только если require_primary=False):
     - converted_pdf_ref;
@@ -531,6 +582,7 @@ async def get_pdf_source_ref(
     return original_ref
 
 
+
 async def update_extraction_result(
     document_version_id: str,
     document_id: str,
@@ -543,6 +595,7 @@ async def update_extraction_result(
 ) -> None:
     """
     Обновить результаты извлечения в БД (version + document).
+
 
     Контракт пайплайна:
     - raw_ref хранит технический snapshot layout после extract;
@@ -601,6 +654,7 @@ async def update_extraction_result(
         )
 
 
+
 async def _mark_failed(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
@@ -619,6 +673,34 @@ async def _mark_failed(
         reason=reason,
         run_id=run_id,
     )
+
+    document = await repo.get_by_id(document_uuid)
+    if not document:
+        return
+
+    audit_repo = AuditRepository(uow.session)
+    try:
+        await audit_repo.log(
+            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            deal_id=document.deal_id,
+            action="EXTRACTION_FAILED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document_uuid),
+                "run_id": str(run_id) if run_id else None,
+                "stage": "extract",
+                "reason": reason,
+                "message": message,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Extract: failed to write audit log for EXTRACTION_FAILED",
+            document_id=str(document_uuid),
+            run_id=str(run_id) if run_id else None,
+        )
+
 
 
 async def _mark_quarantine(
@@ -639,6 +721,34 @@ async def _mark_quarantine(
         reason=reason,
         run_id=run_id,
     )
+
+    document = await repo.get_by_id(document_uuid)
+    if not document:
+        return
+
+    audit_repo = AuditRepository(uow.session)
+    try:
+        await audit_repo.log(
+            tenant_id=getattr(document, "tenant_id", None) or uuid.UUID(int=0),
+            deal_id=document.deal_id,
+            action="EXTRACTION_QUARANTINED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document_uuid),
+                "run_id": str(run_id) if run_id else None,
+                "stage": "extract",
+                "reason": reason,
+                "message": msg,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Extract: failed to write audit log for EXTRACTION_QUARANTINED",
+            document_id=str(document_uuid),
+            run_id=str(run_id) if run_id else None,
+        )
+
 
 
 def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:

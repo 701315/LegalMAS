@@ -34,6 +34,7 @@ from db.repositories.run_repo import RunRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.export_repo import ExportRepository
 from db.repositories.result_repo import ResultRepository
+from db.repositories.audit_repo import AuditRepository
 
 from mas_queue.celery_app import celery_app
 from core.error_catalog import render_error_message
@@ -78,6 +79,7 @@ async def _start_run_core(
     run_repo = RunRepository(db)
     deal_repo = DealRepository(db)
     playbook_repo = PlaybookRepository(db)
+    audit_repo = AuditRepository(db)
 
     # 1. Проверяем, что сделка существует
     deal = await deal_repo.get_by_id(deal_uuid)
@@ -183,6 +185,39 @@ async def _start_run_core(
     # 6. Фиксируем изменения в БД перед постановкой задач
     await db.commit()
     await db.refresh(run)
+
+    # 6.1. Аудит: пользователь запросил запуск анализа по сделке
+    try:
+        await audit_repo.log(
+            tenant_id=getattr(user, "tenant_id", None) or uuid.UUID(int=0),
+            deal_id=deal_uuid,
+            action="ANALYSIS_REQUESTED",
+            actor=str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown",
+            actor_role=getattr(user, "global_role", "user"),
+            details={
+                "run_id": str(run.id),
+                "deal_id": str(deal_uuid),
+                "playbook_version_id": str(playbook_version_id),
+                "model_config_id": str(model_config_id),
+                "profile": data.profile,
+                "checks_mode": data.checks_mode,
+                "pipeline_strategy": pipeline_strategy,
+                "force_reclassify": bool(
+                    data.force_reclassify
+                    and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
+                ),
+            },
+        )
+        # commit уже был, аудит пойдёт в рамках того же транзакционного контекста
+    except Exception as e:
+        logger.warning(
+            "Failed to write audit log for ANALYSIS_REQUESTED",
+            extra={
+                "run_id": str(run.id),
+                "deal_id": str(deal_uuid),
+                "error": str(e),
+            },
+        )
 
     # 7. Ставим одну оркестрационную Celery-задачу для run
     # Воркер workers.start_run_pipeline должен:

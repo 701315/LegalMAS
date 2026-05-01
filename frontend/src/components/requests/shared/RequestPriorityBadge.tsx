@@ -13,54 +13,56 @@
 // =============================================================
 
 import React from "react";
+import type { RequestPriority } from "../../../types/requestPriority";
+import { REQUEST_PRIORITY_META } from "../../../types/requestPriority";
 
 interface RequestPriorityBadgeProps {
-  priority: "critical" | "high" | "medium";
+  priority: RequestPriority;
   /**
    * Размер badge.
    * - "sm" — для таблиц (компактный)
    * - "md" — для side panel (обычный)
    */
   size?: "sm" | "md";
+  className?: string;
 }
 
 /**
  * Отображает цветную плашку с приоритетом запроса.
- * Цвета:
- * - critical (критичный) → красный
- * - high (высокий) → оранжевый
- * - medium (средний) → жёлтый
+ *
+ * Важно:
+ * - Компонент работает только с нормализованным UI-типом RequestPriority.
+ * - Вся доменная семантика (label, color) хранится централизованно
+ *   в REQUEST_PRIORITY_META.
+ * - Если по какой-то причине priority окажется некорректным во runtime,
+ *   используем безопасный fallback на "medium".
  */
 export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
   priority,
   size = "md",
+  className = "",
 }) => {
-  // Конфигурация для каждого приоритета
-  const config = {
-    critical: {
-      label: "Критичный",
-      colorClass: "bg-red-100 text-red-800",
-    },
-    high: {
-      label: "Высокий",
-      colorClass: "bg-orange-100 text-orange-800",
-    },
-    medium: {
-      label: "Средний",
-      colorClass: "bg-yellow-100 text-yellow-800",
-    },
-  };
+  const config =
+    REQUEST_PRIORITY_META[priority] ?? REQUEST_PRIORITY_META.medium;
 
-  const { label, colorClass } = config[priority];
-
-  // Размеры badge
-  const sizeClass = size === "sm" ? "px-2 py-0.5 text-xs" : "px-2 py-1 text-xs";
+  const sizeClass =
+    size === "sm"
+      ? "px-2 py-0.5 text-xs"
+      : "px-2 py-1 text-xs";
 
   return (
     <span
-      className={`inline-block rounded font-semibold ${colorClass} ${sizeClass}`}
+      className={[
+        "inline-flex items-center rounded font-semibold whitespace-nowrap",
+        config.colorClass,
+        sizeClass,
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      title={`Приоритет: ${config.label}`}
     >
-      {label}
+      {config.label}
     </span>
   );
 };

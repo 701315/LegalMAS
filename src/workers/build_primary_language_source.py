@@ -3,6 +3,7 @@
 """
 Build Primary Language Source Worker.
 
+
 Назначение:
 - Подготовить primary_source_ref для extract_worker.
 - В архитектуре варианта А extract_worker больше НЕ занимается языковой
@@ -13,8 +14,10 @@ Build Primary Language Source Worker.
   3) строим одноязычный layout по выбранному языку;
   4) собираем новый одноязычный PDF и сохраняем его как primary_source_ref.
 
+
 Позиция в пайплайне:
 - import/convert -> build_primary_language_source -> extract -> pii -> structure -> ...
+
 
 Контракт:
 - вызывается оркестратором или авто-пайплайном после import/convert_to_pdf;
@@ -23,10 +26,12 @@ Build Primary Language Source Worker.
 - запуск последующих стадий (extract и далее) выполняется централизованным оркестратором.
 """
 
+
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import PermanentError, TransientError
+
 
 from core.config import settings
 from core.constants import DocumentStatus
@@ -34,6 +39,7 @@ from core.logging import get_logger
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories import AuditRepository
 from services.document_language_pipeline import (
     build_primary_language_layout,
     MIN_TARGET_LANGUAGE_RATIO,
@@ -48,7 +54,9 @@ from services.quick_pdf_layout import build_quick_layout_from_pdf
 from storage.artifact_store import ArtifactPath, ArtifactStore
 from services.run_orchestrator_trigger import retrigger_run_pipeline
 
+
 logger = get_logger(__name__)
+
 
 
 @celery_app.task(
@@ -69,6 +77,7 @@ def build_primary_language_source(
 ) -> dict:
     """
     Sync Celery entrypoint.
+
 
     Контракт:
     - вызывается оркестратором или auto-pipeline для документов после import
@@ -173,6 +182,7 @@ def build_primary_language_source(
     )
 
     return result
+
 
 
 async def _build_primary_language_source_async(
@@ -351,6 +361,31 @@ async def _build_primary_language_source_async(
             raise PermanentError(
                 f"Document {document_id} not found during LANGUAGE_SELECTION_REQUIRED status update"
             )
+
+        audit_repo = AuditRepository(db)
+        try:
+            await audit_repo.log(
+                tenant_id=uuid.UUID(tenant_id),
+                deal_id=deal_uuid,
+                action="PRIMARY_LANGUAGE_SELECTION_REQUIRED",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                    "run_id": run_id,
+                    "source_ref": source_ref,
+                    "primary_source_ref": existing_primary_ref,
+                    "reason": "no_target_language",
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Primary source build: failed to write audit log for PRIMARY_LANGUAGE_SELECTION_REQUIRED",
+                document_id=document_id,
+                document_version_id=document_version_id,
+            )
+
         return {
             "document_id": document_id,
             "document_version_id": document_version_id,
@@ -413,6 +448,33 @@ async def _build_primary_language_source_async(
                 f"Document {document_id} not found during QUARANTINE status update"
             )
         await db.commit()
+
+        audit_repo = AuditRepository(db)
+        try:
+            await audit_repo.log(
+                tenant_id=uuid.UUID(tenant_id),
+                deal_id=deal_uuid,
+                action="PRIMARY_SOURCE_QUARANTINED",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                    "run_id": run_id,
+                    "target_language": target_language,
+                    "detected_languages": decision.detected_languages,
+                    "target_language_ratio": round(decision.target_language_ratio, 3),
+                    "threshold": MIN_TARGET_LANGUAGE_RATIO,
+                    "quarantine_reason": decision.quarantine_reason,
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Primary source build: failed to write audit log for PRIMARY_SOURCE_QUARANTINED",
+                document_id=document_id,
+                document_version_id=document_version_id,
+            )
+
         return {
             "document_id": document_id,
             "document_version_id": document_version_id,
@@ -522,6 +584,33 @@ async def _build_primary_language_source_async(
             status=DocumentStatus.PRIMARY_READY.value,
         )
 
+        # Аудит: primary source готов (монолингвальный reuse)
+        audit_repo = AuditRepository(db)
+        try:
+            await audit_repo.log(
+                tenant_id=uuid.UUID(tenant_id),
+                deal_id=deal_uuid,
+                action="PRIMARY_SOURCE_READY",
+                actor="system",
+                actor_role="worker",
+                details={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                    "run_id": run_id,
+                    "mode": "monolingual_reuse",
+                    "target_language": target_language,
+                    "detected_languages": decision.detected_languages,
+                    "primary_source_ref": primary_source_ref,
+                    "source_ref": source_ref,
+                },
+            )
+        except Exception:
+            logger.warning(
+                "Primary source build: failed to write audit log for PRIMARY_SOURCE_READY (monolingual)",
+                document_id=document_id,
+                document_version_id=document_version_id,
+            )
+
         return {
             "document_id": document_id,
             "document_version_id": document_version_id,
@@ -534,7 +623,6 @@ async def _build_primary_language_source_async(
             "requires_user_selection": False,
             "committed": True,
         }
-
 
     # 4. Собираем одноязычный PDF из primary_layout.
     try:
@@ -558,7 +646,6 @@ async def _build_primary_language_source_async(
             f"for version {document_version_id}. "
             "Possible cause: language filter removed all elements."
         )
-
 
     # 5. Сохраняем одноязычный PDF как primary_source_ref.
     primary_path = ArtifactPath.primary_source(
@@ -641,6 +728,33 @@ async def _build_primary_language_source_async(
         status=DocumentStatus.PRIMARY_READY.value,
     )
 
+    # Аудит: primary source готов (одноязычный PDF)
+    audit_repo = AuditRepository(db)
+    try:
+        await audit_repo.log(
+            tenant_id=uuid.UUID(tenant_id),
+            deal_id=deal_uuid,
+            action="PRIMARY_SOURCE_READY",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "run_id": run_id,
+                "mode": "single_language_pdf",
+                "target_language": target_language,
+                "detected_languages": primary_layout_result.decision.detected_languages,
+                "primary_source_ref": primary_source_ref,
+                "source_ref": source_ref,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Primary source build: failed to write audit log for PRIMARY_SOURCE_READY",
+            document_id=document_id,
+            document_version_id=document_version_id,
+        )
+
     return {
         "document_id": document_id,
         "document_version_id": document_version_id,
@@ -653,6 +767,7 @@ async def _build_primary_language_source_async(
         "requires_user_selection": False,
         "committed": True,
     }
+
 
 
 def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
@@ -668,7 +783,10 @@ def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
         )
     return s3_ref.replace(prefix, "", 1)
 
+
 def _utcnow_iso() -> str:
     """Текущее время UTC в ISO 8601 для error_details."""
-    from datetime import timezone
     return datetime.now(tz=timezone.utc).isoformat()
+
+
+

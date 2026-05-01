@@ -33,6 +33,7 @@ Exporter Worker — экспорт результатов по сделке.
 - Выбирает нужный файл из пакета результатов по полю export_type
   (grid_xlsx / deal_summary_xlsx / report_docx / aggregated_json).
 - Обновляет запись Export через ExportRepository на каждом шаге lifecycle.
+- Пишет записи в audit_log на каждом переходе статуса.
 
 Lifecycle записи Export:
     pending → processing → completed
@@ -54,6 +55,7 @@ from core.logging import get_logger
 from db.uow import db_uow
 from db.repositories.run_repo import RunRepository
 from db.repositories.export_repo import ExportRepository
+from db.repositories.audit_repo import AuditRepository
 from core.constants import RunStatus
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
@@ -68,6 +70,7 @@ logger = get_logger(__name__)
 # Существующая таска — НЕ ТРОГАТЬ
 # Вызывается оркестратором после завершения Run
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @celery_app.task(
     base=MASBaseTask,
@@ -93,7 +96,15 @@ def export_results(
     async def _run() -> dict:
         async with db_uow() as uow:
             run_repo = RunRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
             run_uuid = uuid.UUID(run_id)
+            deal_uuid = uuid.UUID(deal_id)
+
+            # tenant_id может быть строкой "default" — безопасно конвертируем
+            try:
+                tenant_uuid = uuid.UUID(tenant_id)
+            except (ValueError, AttributeError):
+                tenant_uuid = uuid.UUID(int=0)
 
             try:
                 result = await export_core(
@@ -108,15 +119,35 @@ def export_results(
                     export_type="full_deal_export"
                 ).observe(duration)
 
+                refs = result.get("refs", {})
+
                 logger.info(
                     "Экспорт завершён",
                     extra={
                         "run_id": run_id,
                         "deal_id": deal_id,
                         "duration_sec": round(duration, 2),
-                        "files_generated": len(result.get("refs", {})),
+                        "files_generated": len(refs),
                     },
                 )
+
+                # Пишем аудит: автоматический экспорт завершён успешно
+                await audit_repo.log(
+                    tenant_id=tenant_uuid,
+                    deal_id=deal_uuid,
+                    action="EXPORT_COMPLETED",
+                    actor="system",
+                    actor_role="worker",
+                    details={
+                        "run_id": run_id,
+                        "export_type": "full_deal_export",
+                        "files_generated": len(refs),
+                        "duration_sec": round(duration, 2),
+                        "refs_keys": sorted(refs.keys()),
+                    },
+                )
+                await uow.session.commit()
+
                 return result
 
             except Exception as e:
@@ -124,6 +155,7 @@ def export_results(
                     "Экспорт завершился с ошибкой",
                     extra={"run_id": run_id, "deal_id": deal_id, "error": str(e)},
                 )
+
                 await run_repo.update_status(
                     run_uuid,
                     RunStatus.FAILED.value,
@@ -134,15 +166,38 @@ def export_results(
                         "message": str(e),
                     },
                 )
+
+                # Пишем аудит: автоматический экспорт упал
+                try:
+                    await audit_repo.log(
+                        tenant_id=tenant_uuid,
+                        deal_id=deal_uuid,
+                        action="EXPORT_FAILED",
+                        actor="system",
+                        actor_role="worker",
+                        details={
+                            "run_id": run_id,
+                            "export_type": "full_deal_export",
+                            "error": str(e)[:500],
+                        },
+                    )
+                    await uow.session.commit()
+                except Exception:
+                    # Аудит не должен ломать основной поток ошибки
+                    logger.warning(
+                        "Не удалось записать аудит для EXPORT_FAILED",
+                        extra={"run_id": run_id},
+                    )
+
                 raise
 
     return run_async(_run())
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# НОВАЯ таска — для UI-инициированного экспорта
-# Вызывается из POST /api/v1/runs/{run_id}/export
+# Вспомогательная функция выбора основного файла из словаря refs
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _pick_file_ref(export_type: str, refs: dict | None) -> str | None:
     if not refs:
@@ -160,11 +215,18 @@ def _pick_file_ref(export_type: str, refs: dict | None) -> str | None:
         if isinstance(value, str) and value:
             return value
 
+    # Если не нашли по приоритету — берём первый непустой ref
     for val in refs.values():
         if isinstance(val, str) and val:
             return val
 
     return None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# НОВАЯ таска — для UI-инициированного экспорта
+# Вызывается из POST /api/v1/runs/{run_id}/export
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 @celery_app.task(
@@ -182,15 +244,11 @@ def export_by_id(self, export_id: str) -> dict:
     из БД, читает из неё run_id / deal_id / export_type и запускает
     services.export.core.export_core.
 
-    Внутри:
-      - загружает запись Export по export_id из ExportRepository;
-      - переводит статус pending → processing и делает commit;
-      - вызывает services.export.core.export_core(...) с параметрами из записи;
-      - выбирает основной file_ref из словаря refs по export_type;
-      - переводит статус processing → completed, сохраняет file_ref и file_refs;
-      - при ошибке переводит статус processing → failed, сохраняет error_message;
-      - пишет метрику длительности экспорта по export_type;
-      - пробрасывает исключение дальше, чтобы Celery видел failure.
+    Lifecycle статусов:
+        pending → processing → completed
+                            ↘ failed
+
+    На каждом переходе статуса пишет запись в audit_log через AuditRepository.
 
     Args:
         export_id (str): UUID записи Export в виде строки.
@@ -199,8 +257,8 @@ def export_by_id(self, export_id: str) -> dict:
         dict: {
             "export_id": str,
             "status": "completed",
-            "file_ref": str | None,   — путь/ключ основного файла
-            "file_refs": dict,        — все сгенерированные файлы по ключам
+            "file_ref": str | None,
+            "file_refs": dict,
         }
 
     Raises:
@@ -219,8 +277,10 @@ def export_by_id(self, export_id: str) -> dict:
     async def _run() -> dict:
         async with db_uow() as uow:
             export_repo = ExportRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
             export_uuid = uuid.UUID(export_id)
 
+            # Загружаем запись Export из БД
             export = await export_repo.get_by_id(export_uuid)
             if not export:
                 raise ValueError(f"Export not found: {export_id}")
@@ -228,6 +288,12 @@ def export_by_id(self, export_id: str) -> dict:
             run_id = str(export.run_id)
             deal_id = str(export.deal_id)
             export_type = export.export_type
+            requested_by = export.requested_by or "unknown"
+            requester_role = export.requester_role or "user"
+
+            # deal_id и tenant_id как UUID для аудита
+            deal_uuid = uuid.UUID(deal_id)
+            tenant_uuid = uuid.UUID(int=0)  # TODO: заменить на реальный tenant_id из Export
 
             logger.info(
                 "Export job started",
@@ -239,8 +305,22 @@ def export_by_id(self, export_id: str) -> dict:
                 },
             )
 
-            # pending → processing
+            # ── Переход: pending → processing ────────────────────────────────
             await export_repo.update(export_uuid, {"status": "processing"})
+
+            # Аудит: экспорт запущен
+            await audit_repo.log(
+                tenant_id=tenant_uuid,
+                deal_id=deal_uuid,
+                action="EXPORT_STARTED",
+                actor=requested_by,
+                actor_role=requester_role,
+                details={
+                    "export_id": export_id,
+                    "run_id": run_id,
+                    "export_type": export_type,
+                },
+            )
             await uow.session.commit()
 
             logger.info(
@@ -261,6 +341,7 @@ def export_by_id(self, export_id: str) -> dict:
                 )
 
                 refs = result.get("refs", {}) if isinstance(result, dict) else {}
+
                 logger.info(
                     "Export core returned refs",
                     extra={
@@ -277,7 +358,8 @@ def export_by_id(self, export_id: str) -> dict:
                 if not file_ref:
                     refs_keys = sorted(refs.keys()) if isinstance(refs, dict) else []
                     message = (
-                        f"Export completed without primary artifact for export_type={export_type}. "
+                        f"Export completed without primary artifact for "
+                        f"export_type={export_type}. "
                         f"Available refs keys: {refs_keys}"
                     )
 
@@ -292,6 +374,7 @@ def export_by_id(self, export_id: str) -> dict:
                         },
                     )
 
+                    # ── Переход: processing → failed (нет файла) ─────────────
                     await export_repo.update(
                         export_uuid,
                         {
@@ -300,10 +383,27 @@ def export_by_id(self, export_id: str) -> dict:
                             "error_message": message[:2000],
                         },
                     )
+
+                    # Аудит: экспорт упал — файл не найден
+                    await audit_repo.log(
+                        tenant_id=tenant_uuid,
+                        deal_id=deal_uuid,
+                        action="EXPORT_FAILED",
+                        actor=requested_by,
+                        actor_role=requester_role,
+                        details={
+                            "export_id": export_id,
+                            "run_id": run_id,
+                            "export_type": export_type,
+                            "reason": "primary_artifact_missing",
+                            "refs_keys": refs_keys,
+                            "error": message[:500],
+                        },
+                    )
                     await uow.session.commit()
                     raise RuntimeError(message)
 
-                # processing → completed
+                # ── Переход: processing → completed ──────────────────────────
                 await export_repo.update(
                     export_uuid,
                     {
@@ -313,12 +413,27 @@ def export_by_id(self, export_id: str) -> dict:
                         "error_message": None,
                     },
                 )
-                await uow.session.commit()
 
                 duration = time.time() - started_at
-                metrics.export_duration.labels(
-                    export_type=export_type
-                ).observe(duration)
+                metrics.export_duration.labels(export_type=export_type).observe(duration)
+
+                # Аудит: экспорт успешно завершён
+                await audit_repo.log(
+                    tenant_id=tenant_uuid,
+                    deal_id=deal_uuid,
+                    action="EXPORT_COMPLETED",
+                    actor=requested_by,
+                    actor_role=requester_role,
+                    details={
+                        "export_id": export_id,
+                        "run_id": run_id,
+                        "export_type": export_type,
+                        "file_ref": file_ref,
+                        "files_generated": len(refs),
+                        "duration_sec": round(duration, 2),
+                    },
+                )
+                await uow.session.commit()
 
                 logger.info(
                     "Export completed",
@@ -349,7 +464,8 @@ def export_by_id(self, export_id: str) -> dict:
                         "error": str(e),
                     },
                 )
-                # processing → failed
+
+                # ── Переход: processing → failed (исключение) ────────────────
                 await export_repo.update(
                     export_uuid,
                     {
@@ -357,7 +473,32 @@ def export_by_id(self, export_id: str) -> dict:
                         "error_message": str(e)[:2000],
                     },
                 )
-                await uow.session.commit()
+
+                # Аудит: экспорт упал с исключением.
+                # Оборачиваем в try/except — аудит не должен скрывать
+                # оригинальное исключение и ломать Celery retry-логику.
+                try:
+                    await audit_repo.log(
+                        tenant_id=tenant_uuid,
+                        deal_id=deal_uuid,
+                        action="EXPORT_FAILED",
+                        actor=requested_by,
+                        actor_role=requester_role,
+                        details={
+                            "export_id": export_id,
+                            "run_id": run_id,
+                            "export_type": export_type,
+                            "reason": "exception",
+                            "error": str(e)[:500],
+                        },
+                    )
+                    await uow.session.commit()
+                except Exception:
+                    logger.warning(
+                        "Не удалось записать аудит для EXPORT_FAILED",
+                        extra={"export_id": export_id},
+                    )
+
                 raise
 
     return run_async(_run())

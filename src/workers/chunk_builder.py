@@ -1,5 +1,7 @@
 # src/workers/chunk_builder.py
 
+# src/workers/chunk_builder.py
+
 from __future__ import annotations
 
 """
@@ -25,6 +27,12 @@ Chunk Builder Worker (V2_ONLY).
 - Любое структурное нарушение контракта -> PermanentError
   c type=chunking_v2_contract_violation.
 - Quarantine используется только для контентных кейсов.
+
+Audit trail:
+- На успешном завершении пишет CHUNK_BUILD_COMPLETED.
+- При PermanentError переводит документ в FAILED и пишет CHUNK_BUILD_FAILED.
+- При QuarantineError переводит документ в QUARANTINE и пишет CHUNK_BUILD_QUARANTINED.
+- Audit logging best-effort: проблемы аудита не должны ломать бизнес-стадию.
 """
 
 import time
@@ -40,6 +48,7 @@ from core.pipeline_errors import (
     ChunkingV2ErrorReason,
     PipelineErrorType,
 )
+from db.repositories import AuditRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_stage_execution_repo import (
@@ -85,6 +94,7 @@ def build_chunks(
     - при QuarantineError переводит документ в карантин по стадии chunking;
     - при успехе будит оркестратор только после commit.
     """
+    _ = self
     stage_execution_id = kwargs.get("stage_execution_id")
 
     async def _wrapper() -> dict[str, Any]:
@@ -134,6 +144,8 @@ def build_chunks(
                 await _mark_quarantined(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
+                    tenant_uuid=uuid.UUID(tenant_id),
+                    deal_uuid=uuid.UUID(deal_id),
                     message=str(e),
                     reason=quarantine_reason,
                     run_id=uuid.UUID(run_id) if run_id else None,
@@ -173,6 +185,8 @@ def build_chunks(
                 await _mark_failed(
                     uow=uow_status,
                     document_uuid=uuid.UUID(document_id),
+                    tenant_uuid=uuid.UUID(tenant_id),
+                    deal_uuid=uuid.UUID(deal_id),
                     message=str(e),
                     run_id=uuid.UUID(run_id) if run_id else None,
                     stage_execution_id=stage_execution_id,
@@ -241,9 +255,12 @@ async def _build_chunks_v2_async(
     doc_repo = DocumentRepository(uow.session)
     seg_repo = DocumentSegmentRepository(uow.session)
     dse_repo = DocumentStageExecutionRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     v_id = uuid.UUID(document_version_id)
     d_id = uuid.UUID(document_id)
+    tenant_uuid = uuid.UUID(tenant_id)
+    deal_uuid = uuid.UUID(deal_id)
 
     if stage_execution_id:
         try:
@@ -555,7 +572,9 @@ async def _build_chunks_v2_async(
         )
 
     missing_segment_chunk_refs = [
-        s.segment_id for s in refreshed_segments if not getattr(s, "segment_chunks_ref", None)
+        s.segment_id
+        for s in refreshed_segments
+        if not getattr(s, "segment_chunks_ref", None)
     ]
     if missing_segment_chunk_refs:
         raise TransientError(
@@ -577,6 +596,32 @@ async def _build_chunks_v2_async(
             )
 
     duration = round(time.time() - start, 2)
+
+    try:
+        await audit_repo.log(
+            tenant_id=tenant_uuid,
+            deal_id=deal_uuid,
+            action="CHUNK_BUILD_COMPLETED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(doc.id),
+                "document_version_id": str(v_id),
+                "stage_execution_id": stage_execution_id,
+                "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                "segments_count": len(segment_snapshots),
+                "chunk_count_total": chunk_count_total,
+                "duration_seconds": duration,
+                "run_id": run_id,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Chunk builder: failed to write audit log for CHUNK_BUILD_COMPLETED",
+            document_id=str(doc.id),
+            document_version_id=str(v_id),
+            stage_execution_id=stage_execution_id,
+        )
 
     logger.info(
         "Segment chunks and file manifest v2 built and committed successfully",
@@ -604,6 +649,8 @@ async def _build_chunks_v2_async(
 async def _mark_quarantined(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
+    tenant_uuid: uuid.UUID,
+    deal_uuid: uuid.UUID,
     *,
     message: str,
     reason: str,
@@ -616,6 +663,7 @@ async def _mark_quarantined(
     """
     doc_repo = DocumentRepository(uow.session)
     dse_repo = DocumentStageExecutionRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     await doc_repo.set_quarantined(
         document_uuid,
@@ -624,6 +672,31 @@ async def _mark_quarantined(
         reason=reason,
         run_id=run_id,
     )
+
+    try:
+        await audit_repo.log(
+            tenant_id=tenant_uuid,
+            deal_id=deal_uuid,
+            action="CHUNK_BUILD_QUARANTINED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document_uuid),
+                "document_version_id": document_version_id,
+                "stage_execution_id": stage_execution_id,
+                "stage": "chunking_v2",
+                "reason": reason,
+                "message": message,
+                "run_id": str(run_id) if run_id else None,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Chunk builder: failed to write audit log for CHUNK_BUILD_QUARANTINED",
+            document_uuid=str(document_uuid),
+            document_version_id=document_version_id,
+            stage_execution_id=stage_execution_id,
+        )
 
     if stage_execution_id:
         try:
@@ -651,6 +724,8 @@ async def _mark_quarantined(
 async def _mark_failed(
     uow: UnitOfWork,
     document_uuid: uuid.UUID,
+    tenant_uuid: uuid.UUID,
+    deal_uuid: uuid.UUID,
     *,
     message: str,
     run_id: uuid.UUID | None,
@@ -663,6 +738,7 @@ async def _mark_failed(
     """
     doc_repo = DocumentRepository(uow.session)
     dse_repo = DocumentStageExecutionRepository(uow.session)
+    audit_repo = AuditRepository(uow.session)
 
     await doc_repo.set_failed(
         document_uuid,
@@ -671,6 +747,32 @@ async def _mark_failed(
         reason=PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
         run_id=run_id,
     )
+
+    try:
+        await audit_repo.log(
+            tenant_id=tenant_uuid,
+            deal_id=deal_uuid,
+            action="CHUNK_BUILD_FAILED",
+            actor="system",
+            actor_role="worker",
+            details={
+                "document_id": str(document_uuid),
+                "document_version_id": document_version_id,
+                "stage_execution_id": stage_execution_id,
+                "stage": "chunking_v2",
+                "reason_code": reason_code,
+                "message": message,
+                "run_id": str(run_id) if run_id else None,
+                "error_type": PipelineErrorType.CHUNKING_V2_CONTRACT_VIOLATION,
+            },
+        )
+    except Exception:
+        logger.warning(
+            "Chunk builder: failed to write audit log for CHUNK_BUILD_FAILED",
+            document_uuid=str(document_uuid),
+            document_version_id=document_version_id,
+            stage_execution_id=stage_execution_id,
+        )
 
     if stage_execution_id:
         try:
