@@ -633,6 +633,7 @@ class HybridClassifier:
         doc_id: str,
         top_l1: dict | None,
         top_l2: Any | None,
+        top_l3: Any | None,  # ДОБАВЛЕНО: теперь принимаем top_l3
         candidates: list[dict],
         details: dict,
         language: str | None,
@@ -642,24 +643,99 @@ class HybridClassifier:
         """
         Специальные правила приоритета ДО голосования.
 
-        Правило 1: сильный L2 выигрывает всё.
+        Правило 1: сильный L2 выигрывает, ЕСЛИ нет конфликта с сильным L3.
         Правило 2: L1 и L2 совпали и оба достаточно уверены → HYBRID.
 
         Возвращает готовый dict-результат или None (продолжаем каскад).
         """
         strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
 
-        # Правило 1: сильный L2
+        # ═══════════════════════════════════════════════════════════════════
+        # Правило 1: сильный L2 с проверкой на конфликт L2 vs L3
+        # ═══════════════════════════════════════════════════════════════════
         if top_l2 and top_l2.confidence >= strong_l2:
-            final_type = top_l2.doctype
-            final_conf = float(top_l2.confidence)
+            l2_type = top_l2.doctype
+            l2_conf = float(top_l2.confidence)
+            
+            # Извлекаем диагностику L2 из extra
+            l2_extra = getattr(top_l2, "extra", {}) or {}
+            l2_high_hits = int(l2_extra.get("high_hits", 0))
+            l2_medium_hits = int(l2_extra.get("medium_hits", 0))
+            l2_exclusion_hits = int(l2_extra.get("exclusion_hits", 0))
+            
+            # ── Проверка 1a: L2 основан на слабых/общих паттернах ──────────
+            # Если high_hits <= 1 и это может быть общий термин (покупатель, поставщик)
+            # → понизить приоритет L2, даже если conf >= 0.85
+            weak_l2_signal = (l2_high_hits <= 1 and l2_medium_hits <= 1)
+            
+            # ── Проверка 1b: Конфликт с L3 при высокой семантической близости ──
+            l3_conflict = False
+            l3_semantic_strong = False
+            
+            if top_l3 and top_l3.doctype != l2_type:
+                l3_conf = float(top_l3.confidence)
+                l3_extra = getattr(top_l3, "extra", {}) or {}
+                l3_raw_sim = float(l3_extra.get("raw_similarity", 0.0))
+                
+                # L3 семантически уверен, если similarity > 0.80
+                l3_semantic_strong = (l3_raw_sim > 0.80)
+                l3_conflict = True
+                
+                logger.warning(
+                    "L2_STRONG_WINS: conflict detected with L3",
+                    extra={
+                        "doc_id": doc_id,
+                        "l2_type": l2_type,
+                        "l2_conf": l2_conf,
+                        "l2_high_hits": l2_high_hits,
+                        "l3_type": top_l3.doctype,
+                        "l3_conf": l3_conf,
+                        "l3_raw_similarity": l3_raw_sim,
+                        "l3_semantic_strong": l3_semantic_strong,
+                        "weak_l2_signal": weak_l2_signal,
+                    },
+                )
+            
+            # ── Решение: L2 побеждает только при отсутствии конфликта ──────
+            # или если L2 действительно сильный (multiple independent signals)
+            if l3_conflict and l3_semantic_strong and weak_l2_signal:
+                # L3 семантически сильнее, L2 основан на 1-2 общих признаках
+                # → НЕ завершаем здесь, продолжаем к голосованию
+                details["l2_strong_suppressed"] = {
+                    "reason": "L3_SEMANTIC_CONFLICT",
+                    "l2_type": l2_type,
+                    "l2_conf": l2_conf,
+                    "l2_high_hits": l2_high_hits,
+                    "l3_type": top_l3.doctype,
+                    "l3_raw_similarity": l3_extra.get("raw_similarity"),
+                    "decision": "continue_to_voting",
+                }
+                logger.info(
+                    "Hybrid decision L2_STRONG_SUPPRESSED by L3",
+                    extra={
+                        "doc_id": doc_id,
+                        "l2_type": l2_type,
+                        "l3_type": top_l3.doctype,
+                    },
+                )
+                return None  # Продолжаем к голосованию
+            
+            # L2 действительно сильный: нет конфликта ИЛИ L2 имеет >= 2 independent hits
+            final_type = l2_type
+            final_conf = l2_conf
             details["voting"] = {
                 "strategy": "L2_STRONG_WINS",
-                "reason": f"L2 confidence >= {strong_l2}",
+                "reason": f"L2 confidence >= {strong_l2}, no L3 conflict or strong L2 evidence",
+                "l2_high_hits": l2_high_hits,
+                "l2_medium_hits": l2_medium_hits,
             }
             logger.info(
                 "Hybrid decision L2_STRONG_WINS",
-                extra={"doc_id": doc_id, "final_type": final_type, "final_confidence": final_conf},
+                extra={
+                    "doc_id": doc_id,
+                    "final_type": final_type,
+                    "final_confidence": final_conf,
+                },
             )
             self.metrics.classification_duration.labels(source="l2_strong").observe(
                 time.time() - started_at
@@ -676,7 +752,9 @@ class HybridClassifier:
                 details=details,
             )
 
-        # Правило 2: L1 + L2 согласны
+        # ═══════════════════════════════════════════════════════════════════
+        # Правило 2: L1 + L2 согласны (без изменений)
+        # ═══════════════════════════════════════════════════════════════════
         if (
             top_l1 and top_l2
             and top_l1["type_code"] == top_l2.doctype
@@ -691,7 +769,11 @@ class HybridClassifier:
             }
             logger.info(
                 "Hybrid decision L1_L2_AGREE",
-                extra={"doc_id": doc_id, "final_type": final_type, "final_confidence": final_conf},
+                extra={
+                    "doc_id": doc_id,
+                    "final_type": final_type,
+                    "final_confidence": final_conf,
+                },
             )
             self.metrics.classification_duration.labels(source="l1_l2_agree").observe(
                 time.time() - started_at
