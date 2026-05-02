@@ -128,11 +128,18 @@ class CheckExecutor:
             total_tokens = count_tokens(joined_text)
             return joined_text, retrieved_chunks, contexts, total_tokens, False
 
-        # Строим items: (token_count, context_dict, retrieved_chunk, piece_text)
-        items: list[tuple[int, dict, RetrievedChunk, str]] = []
+        # Строим items: (score, token_count, context_dict, retrieved_chunk, piece_text)
+        # score берём из combined_score чанка — он уже отражает rerank-приоритет.
+        # Сортируем по убыванию score, чтобы наиболее релевантные чанки
+        # попадали в контекст первыми при обрезке по hard_limit.
+        items: list[tuple[float, int, dict, RetrievedChunk, str]] = []
         for c, rc in zip(contexts, retrieved_chunks):
             piece = self._build_chunk_piece(c, rc)
-            items.append((count_tokens(piece), c, rc, piece))
+            score = float(rc.combined_score or 0.0)
+            items.append((score, count_tokens(piece), c, rc, piece))
+
+        items.sort(key=lambda t: t[0], reverse=True)
+
 
         reserve_ratio = getattr(settings, "LLM_CONTEXT_RESERVE_RATIO", 0.3)
         try:
@@ -145,34 +152,36 @@ class CheckExecutor:
             hard_limit = max_tokens // 2 if max_tokens > 0 else 2048
 
         # Жадный набор чанков до hard_limit
-        kept_items: list[tuple[int, dict, RetrievedChunk, str]] = []
+        kept_items: list[tuple[float, int, dict, RetrievedChunk, str]] = []
         total_tokens = 0
         truncated = False
 
-        for token_count, c, rc, piece in items:
+        for score, token_count, c, rc, piece in items:
             if total_tokens + token_count <= hard_limit:
-                kept_items.append((token_count, c, rc, piece))
+                kept_items.append((score, token_count, c, rc, piece))
                 total_tokens += token_count
             else:
                 truncated = True
-                break
+                # НЕ break — продолжаем, вдруг следующий чанк меньше по токенам.
+                # Это bin-packing: берём все чанки, которые влезают, не только первые N.
+                continue
 
         if not truncated:
-            joined_text = "\n\n---\n\n".join(piece for _, _, _, piece in kept_items)
+            joined_text = "\n\n---\n\n".join(piece for _, _, _, _, piece in kept_items)
             return (
                 joined_text,
-                [rc for _, _, rc, _ in kept_items],
-                [c for _, c, _, _ in kept_items],
+                [rc for _, _, _, rc, _ in kept_items],
+                [c for _, _, c, _, _ in kept_items],
                 total_tokens,
                 False,
             )
 
         # Компрессия: заменяем чанки, не влезшие целиком, на summary
-        compressed_items: list[tuple[int, dict, RetrievedChunk, str]] = []
+        compressed_items: list[tuple[float, int, dict, RetrievedChunk, str]] = []
         remaining_tokens = hard_limit
         important_lower = [s.lower() for s in important_terms if isinstance(s, str)]
 
-        for token_count, c, rc, piece in kept_items:
+        for score, token_count, c, rc, piece in kept_items:
             if token_count > remaining_tokens:
                 meta = c.get("metadata", {}) or {}
                 path_titles = meta.get("path_titles") or rc.path_titles or []
@@ -191,16 +200,18 @@ class CheckExecutor:
                     truncated = True
                     continue
 
-                compressed_items.append((summary_tokens, c, rc, summary_piece))
+                compressed_items.append((score, summary_tokens, c, rc, summary_piece))
                 remaining_tokens -= summary_tokens
                 truncated = True
             else:
-                compressed_items.append((token_count, c, rc, piece))
+                compressed_items.append((score, token_count, c, rc, piece))
                 remaining_tokens -= token_count
 
         # Аварийный fallback: берём самый маленький чанк
         if not compressed_items:
-            token_count, c, rc, piece = min(items, key=lambda t: t[0])
+            top_candidates = items[:3] if len(items) >= 3 else items
+            _, token_count, c, rc, piece = min(top_candidates, key=lambda t: t[1])
+
             piece_tokens = count_tokens(piece)
 
             if piece_tokens > hard_limit:
@@ -210,15 +221,20 @@ class CheckExecutor:
                 piece = build_chunk_summary(path_titles, original_text).strip()
                 piece_tokens = count_tokens(piece)
 
-            compressed_items = [(piece_tokens, c, rc, piece)]
+            # score=0.0 — fallback-чанк, в sort по start_page это нейтрально
+            compressed_items = [(0.0, piece_tokens, c, rc, piece)]   # ← 5-tuple ✓
             total_tokens = piece_tokens
             truncated = True
         else:
-            total_tokens = sum(t for t, _, _, _ in compressed_items)
+            total_tokens = sum(t for _, t, _, _, _ in compressed_items)  # ← 5-распаковка ✓
 
-        joined_text = "\n\n---\n\n".join(piece for _, _, _, piece in compressed_items)
-        kept_chunks = [rc for _, _, rc, _ in compressed_items]
-        kept_contexts = [c for _, c, _, _ in compressed_items]
+        # Восстанавливаем исходный порядок по позиции в документе (start_page),
+        # а не по score — LLM лучше читает связный нарратив, чем чанки по relevance.
+        compressed_items.sort(key=lambda t: (t[3].start_page or 0, t[3].page or 0))
+
+        joined_text = "\n\n---\n\n".join(piece for _, _, _, _, piece in compressed_items)
+        kept_chunks = [rc for _, _, _, rc, _ in compressed_items]
+        kept_contexts = [c for _, _, c, _, _ in compressed_items]
 
         return joined_text, kept_chunks, kept_contexts, total_tokens, truncated
 
@@ -368,27 +384,66 @@ class CheckExecutor:
             important_lower = [s.lower() for s in important_terms if isinstance(s, str)]
 
             def _score(rc: RetrievedChunk) -> float:
+                """
+                Эвристический rerank поверх combined_score.
+
+                combined_score остаётся главным сигналом релевантности.
+                kind / keywords дают только небольшой ограниченный сдвиг.
+                """
                 base = float(rc.combined_score or 0.0)
+
                 cid = str(rc.element_id or "")
-                meta = id_to_meta.get(cid, {})
-                text = id_to_text.get(cid, "").lower()
+                meta = id_to_meta.get(cid) or {}
+                text = (id_to_text.get(cid) or "").lower()
                 kind = str(meta.get("kind") or "").lower()
+
+                # Небольшой bonus/penalty за тип фрагмента
+                kind_bonus = 0.0
                 if kind == "subclause":
-                    base += 0.05
+                    kind_bonus = 0.05
                 elif kind == "section":
-                    base -= 0.02
+                    kind_bonus = -0.02
+
+                # Суммарный keyword-бонус с жёстким cap
+                keyword_bonus = 0.0
                 for term in important_lower:
                     if term and term in text:
-                        base += 0.03
-                return base
+                        keyword_bonus += 0.03
+                # ограничиваем влияние keyword-бонуса, чтобы не перебить base
+                keyword_bonus = min(keyword_bonus, 0.09)
+
+                return base + kind_bonus + keyword_bonus
 
             return sorted(chunks_rc, key=_score, reverse=True)
 
         if do_rerank and retrieved_chunks:
+            # Строим индекс contexts по element_id ДО rerank,
+            # чтобы после пересортировки retrieved_chunks восстановить
+            # правильные пары (rc, context_dict).
+            _ctx_by_id: dict[str, dict] = {}
+            for _c, _rc in zip(contexts, retrieved_chunks):
+                _ctx_by_id[str(_rc.element_id)] = _c
+
             retrieved_chunks = _simple_rerank(retrieved_chunks)
+
+            # Восстанавливаем contexts в том же порядке, что и retrieved_chunks после rerank.
+            # Чанки без совпадения (теоретически невозможно) пропускаем с guard.
+            contexts = [
+                _ctx_by_id[str(rc.element_id)]
+                for rc in retrieved_chunks
+                if str(rc.element_id) in _ctx_by_id
+            ]
+            # Если после фильтрации размеры разошлись — обрезаем retrieved_chunks по contexts
+            if len(contexts) != len(retrieved_chunks):
+                retrieved_chunks = retrieved_chunks[: len(contexts)]
 
         if required_kind:
             required_kind_lower = str(required_kind).lower()
+            # Строим индекс contexts по element_id для ресинхронизации после перестановки
+            _ctx_by_id_kind: dict[str, dict] = {
+                str(rc.element_id): c
+                for rc, c in zip(retrieved_chunks, contexts)
+            }
             primary: list[RetrievedChunk] = []
             fallback: list[RetrievedChunk] = []
             for rc in retrieved_chunks:
@@ -397,6 +452,15 @@ class CheckExecutor:
                 (primary if kind == required_kind_lower else fallback).append(rc)
             if primary:
                 retrieved_chunks = primary + fallback
+                # Синхронизируем contexts в том же новом порядке
+                contexts = [
+                    _ctx_by_id_kind[str(rc.element_id)]
+                    for rc in retrieved_chunks
+                    if str(rc.element_id) in _ctx_by_id_kind
+                ]
+                if len(contexts) != len(retrieved_chunks):
+                    retrieved_chunks = retrieved_chunks[: len(contexts)]
+
 
         if len(retrieved_chunks) > context_k:
             retrieved_chunks = retrieved_chunks[:context_k]
@@ -521,8 +585,6 @@ class CheckExecutor:
         pass_thr = getattr(settings, "CHECK_PASS_THRESHOLD", 0.6)
         unclear_thr = getattr(settings, "CHECK_UNCLEAR_THRESHOLD", 0.3)
 
-        # Presence-чек: оба детектора уверенно не нашли клаузу
-        # → отдельный result, понятный юристу
         is_presence_check = getattr(check, "ui_mode", None) == "clause_presence"
         is_presence_not_found = (
             is_presence_check
@@ -540,9 +602,13 @@ class CheckExecutor:
             if confidence >= pass_thr:
                 result = "pass"
                 severity = check.severity_if_pass or "pass"
+            elif confidence >= unclear_thr:
+                result = "unclear"
+                severity = check.severity_if_unclear or check.severity
             else:
                 result = "unclear"
                 severity = check.severity_if_unclear or check.severity
+                raw_details.setdefault("low_confidence_flag", True)
 
         # Variant B: LLM был обязателен, но упал → не выдавать честный pass/fail
         if llm_flags["llm_required"] and llm_flags["llm_error_type"]:

@@ -170,7 +170,15 @@ class ExtractionExecutor:
 
                     # Приводим к типу поля (MVP: через _cast_value)
                     value_cast = self._cast_value(field_cfg, str(value_raw))
-
+                    value_cast = self._validate_allowed_values(field_cfg, value_cast)
+                    if value_cast is None:
+                        logger.debug(
+                            "LLM value discarded after allowed_values check",
+                            field_name=name,
+                            raw=str(value_raw),
+                            check_id=check.id,
+                        )
+                        continue
                     if name not in structured:
                         # rules ничего не дал — используем LLM
                         structured[name] = {
@@ -235,6 +243,30 @@ class ExtractionExecutor:
                     "at": None,
                 },
             }
+
+        # 4. Дополнительная валидация required-полей после merge rules + LLM.
+        for field_cfg in extraction_cfg.fields or []:
+            if not getattr(field_cfg, "required", False):
+                continue
+
+            name = field_cfg.name
+            payload = structured.get(name)
+            if not payload:
+                logger.warning(
+                    "ExtractionExecutor: required field missing in structured payload",
+                    field_name=name,
+                    check_id=check.id,
+                )
+                continue
+
+            value = payload.get("value")
+            if value is None or (isinstance(value, str) and not value.strip()):
+                logger.warning(
+                    "ExtractionExecutor: required field has empty value",
+                    field_name=name,
+                    check_id=check.id,
+                    source=payload.get("source"),
+                )
 
         if not structured:
             return None
@@ -383,14 +415,6 @@ class ExtractionExecutor:
         field_cfg: ExtractionFieldConfig,
         text: str,
     ) -> dict[str, Any] | None:
-        """
-        Извлечь одно поле по regex_patterns и keyword_hints.
-
-        Возвращает:
-          {"value": ..., "unit": ..., "source": "rules", "confidence": float, "found": bool}
-          или None, если ничего не нашли или найденное значение — "мусор".
-        """
-        # 1. Regex-поиск: берём первый match из первого сработавшего паттерна.
         for pattern in field_cfg.regex_patterns or []:
             try:
                 m = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
@@ -406,11 +430,14 @@ class ExtractionExecutor:
             if m:
                 raw_value = m.group(1) if m.groups() else m.group(0)
 
-                # Regex может поймать "N/A" или "не указано" прямо из текста договора.
                 if _is_null_value(raw_value):
                     continue
 
+                # ↓ ВСЁ внутри if m: — правильный отступ
                 value = self._cast_value(field_cfg, raw_value)
+                value = self._validate_allowed_values(field_cfg, value)
+                if value is None:
+                    continue  # попробуем следующий паттерн
                 return {
                     "value": value,
                     "unit": field_cfg.unit,
@@ -419,7 +446,7 @@ class ExtractionExecutor:
                     "found": True,
                 }
 
-        # 2. keyword_hints: если regex не сработал, попробуем понять "есть/нет" по ключевым словам.
+        # keyword_hints — без изменений, там всё корректно
         if field_cfg.keyword_hints:
             lowered = text.lower()
             hits = [kw for kw in field_cfg.keyword_hints if kw.lower() in lowered]
@@ -429,10 +456,11 @@ class ExtractionExecutor:
                 else:
                     value = ", ".join(hits)
 
-                # Для keyword_hints тоже применяем фильтр на всякий случай
                 if _is_null_value(value):
                     return None
-
+                value = self._validate_allowed_values(field_cfg, value)
+                if value is None:
+                    return None
                 return {
                     "value": value,
                     "unit": field_cfg.unit,
@@ -476,3 +504,40 @@ class ExtractionExecutor:
 
         # По умолчанию STRING
         return raw_value
+
+    def _validate_allowed_values(
+        self,
+        field_cfg: ExtractionFieldConfig,
+        value: Any,
+    ) -> Any | None:
+        """
+        Проверить значение против allowed_values из конфига поля.
+
+        Если allowed_values не задан — пропускаем любое значение.
+        Если задан — сравниваем case-insensitive для строк.
+
+        Возвращает:
+        - канонический вариант из allowed_values (оригинальный регистр из YAML),
+            если значение прошло проверку.
+        - None, если значение НЕ входит в список — логируем warning.
+        """
+        allowed: list[Any] = getattr(field_cfg, "allowed_values", None) or []
+        if not allowed:
+            return value  # ограничений нет — пропускаем
+
+        value_str = str(value).strip().lower()
+        for candidate in allowed:
+            if str(candidate).strip().lower() == value_str:
+                return candidate  # возвращаем канонический вариант из YAML
+
+        logger.warning(
+            "ExtractionExecutor: value not in allowed_values — discarding",
+            field_name=field_cfg.name,
+            value=str(value),
+            allowed_values=[str(a) for a in allowed],
+            check_id=getattr(field_cfg, "check_id", getattr(field_cfg, "check_id", "unknown")),
+        )
+        return None
+
+
+

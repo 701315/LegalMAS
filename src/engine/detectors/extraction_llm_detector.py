@@ -516,8 +516,12 @@ class ExtractionLLMDetector:
         """
         Нормализовать значения из LLM по схеме ExtractionConfig.
 
-        - Приводим confidence к float.
-        - Если у поля есть allowed_values, стараемся привести value к одному из них.
+        Делает следующее:
+        - выбрасывает поля, которых нет в схеме;
+        - приводит confidence к float в диапазон [0.0, 1.0];
+        - приводит value к типу поля (NUMBER / BOOLEAN / STRING);
+        - если заданы allowed_values — маппит к ним, иначе значение выкидывается;
+        - опционально логирует нарушения required.
         """
         field_by_name: dict[str, ExtractionFieldConfig] = {
             f.name: f for f in (extraction_cfg.fields or [])
@@ -532,22 +536,59 @@ class ExtractionLLMDetector:
                 continue
 
             value = payload.get("value")
-            confidence = payload.get("confidence", 0.7)
+            conf_raw = payload.get("confidence", 0.7)
             try:
-                confidence_f = float(confidence)
+                confidence_f = float(conf_raw)
             except (TypeError, ValueError):
                 confidence_f = 0.7
 
-            # Нормализация по allowed_values (если заданы)
+            # Жёстко обрезаем confidence в [0.0, 1.0]
+            if confidence_f < 0.0:
+                confidence_f = 0.0
+            elif confidence_f > 1.0:
+                confidence_f = 1.0
+
+            # 1) типовая нормализация
+            value_cast = self._cast_to_type(cfg, value)
+
+            # 2) allowed_values (если заданы)
             if cfg.allowed_values:
-                normalized_value = self._normalize_to_allowed_values(
-                    value, cfg.allowed_values
+                value_allowed = self._normalize_to_allowed_values(
+                    value_cast,
+                    cfg.allowed_values,
                 )
-            else:
-                normalized_value = value
+                if value_allowed is None:
+                    # Не смогли привести к allowed_values — выбрасываем
+                    logger.warning(
+                        "ExtractionLLMDetector: value not in allowed_values, discarding",
+                        extra={
+                            "field_name": cfg.name,
+                            "value": str(value_cast),
+                            "allowed_values": [str(v) for v in cfg.allowed_values],
+                        },
+                    )
+                    continue
+                value_cast = value_allowed
+
+            # 3) required-поля: если required == True, а value_cast пустое → логируем
+            if getattr(cfg, "required", False) and (value_cast is None or str(value_cast).strip() == ""):
+                logger.warning(
+                    "ExtractionLLMDetector: required field has empty value after normalization",
+                    extra={
+                        "field_name": cfg.name,
+                        "raw_value": str(payload.get("value", "")),
+                    },
+                )
+                # Поле всё равно записываем (value=None), чтобы UI видел,
+                # что required-поле не заполнено, а не терялось бесследно.
+                normalized[name] = {
+                    "value": None,
+                    "confidence": confidence_f,
+                }
+                continue
 
             normalized[name] = {
-                "value": normalized_value,
+                "value": value_cast,
                 "confidence": confidence_f,
             }
 
@@ -557,14 +598,14 @@ class ExtractionLLMDetector:
         self,
         value: Any,
         allowed_values: list[Any],
-    ) -> Any:
+    ) -> Any | None:
         """
-        Привести value к одному из allowed_values, если это разумно возможно.
+        Привести value к одному из allowed_values.
 
         Логика:
-        - если значение уже ровно равно одному из allowed_values (как строка) — оставляем;
-        - если отличается только регистром/пробелами — приводим;
-        - иначе возвращаем исходную строку (можно поменять на None по политике).
+        - если значение уже ровно равно одному из allowed_values (строго) — оставляем;
+        - если отличается только регистром/пробелами — маппим к каноническому значению;
+        - иначе возвращаем None (значение считается невалидным).
         """
         if value is None:
             return None
@@ -582,9 +623,48 @@ class ExtractionLLMDetector:
         if value_norm in allowed_norm_map:
             return allowed_norm_map[value_norm]
 
-        # Здесь при желании можно добавить дополнительные словари соответствий
-        # (например, "да" -> "yes", "нет" -> "no" и т.п.).
+        return None
+    
 
-        return value_str
+    def _cast_to_type(
+        self,
+        cfg: ExtractionFieldConfig,
+        value: Any,
+    ) -> Any:
+        """
+        Привести value к типу поля из схемы.
+
+        - NUMBER: float/int при возможности, иначе исходная строка.
+        - BOOLEAN: нормализация да/нет/true/false/1/0, иначе исходная строка.
+        - STRING: str(value) или None, если value пустое/null-подобное.
+        """
+        if value is None:
+            return None
+
+        if cfg.type == ExtractionFieldType.NUMBER:
+            # Сначала строковая нормализация, как в ExtractionExecutor._cast_value
+            s = str(value).replace(" ", "").replace(",", ".")
+            try:
+                num = float(s)
+                return int(num) if num.is_integer() else num
+            except ValueError:
+                return str(value)
+
+        if cfg.type == ExtractionFieldType.BOOLEAN:
+            v = str(value).strip().lower()
+            true_vals = {"yes", "true", "1", "да", "верно"}
+            false_vals = {"no", "false", "0", "нет", "неверно"}
+            if v in true_vals:
+                return True
+            if v in false_vals:
+                return False
+            return str(value)
+
+        # STRING / default
+        s = str(value)
+        return s if s.strip() else None    
     
-    
+
+
+
+

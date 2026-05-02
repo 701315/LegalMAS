@@ -24,43 +24,120 @@
   инструкции для включения в PlaybookLine (шаблон плейбука).
 """
 
+from __future__ import annotations
 
 import pathlib
-from typing import List, Dict
+from typing import Dict, List
 
 import yaml
 
-from api.schemas.playbooks import PlaybookTopicInfo, PlaybookCheckInfo
+from api.schemas.playbooks import PlaybookCheckInfo, PlaybookTopicInfo
+from core.config import settings
+from core.logging import get_logger
 
-# жёстко прописанный корень проекта
-BASE_DIR = pathlib.Path("/home/vladi/projects/LegalMAS")
-GLOBAL_CHECKS_ROOT = BASE_DIR / "playbooks" / "global_checks"
+logger = get_logger(__name__)
+
+
+def _get_global_checks_root() -> pathlib.Path:
+    """
+    Возвращает корневую директорию каталога global checks.
+
+    Не кэшируем путь на import-time, чтобы код был устойчивее
+    к тестам, hot-reload и смене settings между окружениями.
+    """
+    return pathlib.Path(settings.BASE_DIR) / "playbooks" / "global_checks"
+
+
+def _safe_relative_path(path: pathlib.Path, base_dir: pathlib.Path) -> str:
+    """
+    Вернуть путь относительно BASE_DIR, а если это невозможно —
+    вернуть абсолютный/нормализованный путь как строку.
+
+    Это защищает от ValueError в случае нестандартной конфигурации путей.
+    """
+    try:
+        return str(path.relative_to(base_dir))
+    except ValueError:
+        return str(path)
+
+
+def _normalize_str(value: object, fallback: str) -> str:
+    """
+    Нормализовать YAML-значение к непустой строке.
+    """
+    if value is None:
+        return fallback
+    normalized = str(value).strip()
+    return normalized or fallback
 
 
 def load_global_checks_catalog() -> List[PlaybookTopicInfo]:
     topics: Dict[str, PlaybookTopicInfo] = {}
 
-    if not GLOBAL_CHECKS_ROOT.exists():
+    base_dir = pathlib.Path(settings.BASE_DIR)
+    global_checks_root = _get_global_checks_root()
+
+    if not global_checks_root.exists():
+        logger.warning(
+            "global_checks directory not found — catalog will be empty",
+            path=str(global_checks_root),
+        )
         return []
 
-    for topic_dir in GLOBAL_CHECKS_ROOT.iterdir():
+    if not global_checks_root.is_dir():
+        logger.warning(
+            "global_checks path exists but is not a directory — catalog will be empty",
+            path=str(global_checks_root),
+        )
+        return []
+
+    for topic_dir in sorted(global_checks_root.iterdir()):
         if not topic_dir.is_dir():
             continue
 
         topic_code = topic_dir.name
         checks: list[PlaybookCheckInfo] = []
 
-        for file in topic_dir.glob("*.yaml"):
+        for file in sorted(topic_dir.glob("*.yaml")):
             try:
-                with open(file, "r", encoding="utf-8") as f:
+                with file.open("r", encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
-            except Exception:
-                # TODO: залогировать, но не падать
+            except yaml.YAMLError as exc:
+                logger.warning(
+                    "Failed to parse global check YAML — skipping",
+                    file=_safe_relative_path(file, base_dir),
+                    error=str(exc),
+                )
+                continue
+            except OSError as exc:
+                logger.warning(
+                    "Failed to read global check YAML — skipping",
+                    file=_safe_relative_path(file, base_dir),
+                    error=str(exc),
+                )
+                continue
+            except Exception as exc:
+                logger.warning(
+                    "Unexpected error while loading global check YAML — skipping",
+                    file=_safe_relative_path(file, base_dir),
+                    error=str(exc),
+                )
                 continue
 
-            code = data.get("id") or file.stem
-            title = data.get("name") or code
-            description = data.get("description")
+            if not isinstance(data, dict) or not data:
+                logger.warning(
+                    "Empty or non-object YAML file in global_checks — skipping",
+                    file=_safe_relative_path(file, base_dir),
+                )
+                continue
+
+            code = _normalize_str(data.get("id"), file.stem)
+            title = _normalize_str(data.get("name"), code)
+
+            description_raw = data.get("description")
+            description = None
+            if description_raw is not None:
+                description = str(description_raw).strip() or None
 
             checks.append(
                 PlaybookCheckInfo(
@@ -68,17 +145,28 @@ def load_global_checks_catalog() -> List[PlaybookTopicInfo]:
                     title=title,
                     description=description,
                     topic_code=topic_code,
-                    file_path=str(file.relative_to(BASE_DIR)),
+                    file_path=_safe_relative_path(file, base_dir),
                 )
             )
 
         if not checks:
+            logger.debug(
+                "No checks found in topic directory — skipping",
+                topic=topic_code,
+            )
             continue
 
         topics[topic_code] = PlaybookTopicInfo(
             topic_code=topic_code,
-            topic_name=topic_code,  # позже можно замапить в красивое имя
+            topic_name=topic_code,
             checks=sorted(checks, key=lambda c: c.code),
         )
 
+    logger.info(
+        "Global checks catalog loaded",
+        topics=len(topics),
+        total_checks=sum(len(t.checks) for t in topics.values()),
+    )
     return sorted(topics.values(), key=lambda t: t.topic_code)
+
+

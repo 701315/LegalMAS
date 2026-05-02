@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass
+import uuid
 from typing import FrozenSet, Literal
+
+
+CheckScope = Literal["document", "segment"]
 
 
 @dataclass(frozen=True)
@@ -18,9 +21,13 @@ class CheckContext:
     - В segment-режиме важны segment_id и segment_doc_type.
     - triggers — это набор "флагов", по которым YAML и playbook решают,
       какие проверки нужно запускать.
+
+    Архитектурный смысл:
+    - Это immutable value object для planner / runner пайплайна.
+    - Контекст создаётся один раз и дальше не должен мутировать.
     """
 
-    scope: Literal["document", "segment"]
+    scope: CheckScope
 
     document_id: uuid.UUID
     document_version_id: uuid.UUID | None
@@ -35,6 +42,29 @@ class CheckContext:
     # применимые триггеры (doc- или segment-level)
     triggers: FrozenSet[str]
 
+    @property
+    def effective_doc_type(self) -> str | None:
+        """
+        Вернуть фактический doc_type, по которому надо подбирать checks.
+
+        Для непрофессионального программиста:
+        - Для scope="document" это document_type.
+        - Для scope="segment" это segment_doc_type.
+        """
+        if self.scope == "segment":
+            return self.segment_doc_type
+        return self.document_type
+
+    @property
+    def is_document_scope(self) -> bool:
+        """Удобный helper: контекст относится к целому документу."""
+        return self.scope == "document"
+
+    @property
+    def is_segment_scope(self) -> bool:
+        """Удобный helper: контекст относится к отдельному сегменту."""
+        return self.scope == "segment"
+
 
 @dataclass(frozen=True)
 class SegmentInfo:
@@ -45,9 +75,18 @@ class SegmentInfo:
     - segment_id — строковый идентификатор логического документа внутри файла.
     - segment_doc_type — тип сегмента, такой же, как doc_type для всего документа.
     - triggers — триггеры, которые classifier нашёл именно для этого сегмента.
+
+    Архитектурный смысл:
+    - Это компактный immutable carrier-object.
+    - Нужен, чтобы planner не зависел от ORM/DTO конкретной реализации сегментов.
     """
 
     segment_id: str
     segment_doc_type: str | None
     triggers: tuple[str, ...]
+
+    @property
+    def has_doc_type(self) -> bool:
+        """Есть ли у сегмента определённый segment_doc_type."""
+        return bool(self.segment_doc_type)
 

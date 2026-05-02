@@ -68,7 +68,7 @@ async def run_export_for_record(
       - обновляет поля Export:
           - status: 'completed' или 'failed',
           - file_ref: основной файл,
-          - file_refs: словарь всех файлов (включая None или только не-None — см. ниже),
+          - file_refs: словарь всех файлов,
           - file_size_bytes: при желании можно посчитать суммарный размер.
       - НЕ коммитит транзакцию — это ответственность вызывающего кода.
 
@@ -80,12 +80,12 @@ async def run_export_for_record(
         export_id=str(export.id),
         run_id=str(export.run_id),
         deal_id=str(export.deal_id),
+        tenant_id=str(export.tenant_id),
         status=export.status,
     )
 
     audit_repo = AuditRepository(db)
 
-    # 1. Переводим в processing
     export.status = "processing"
     await db.flush()
 
@@ -97,23 +97,17 @@ async def run_export_for_record(
             db=db,
         )
 
-        # 2. Обновляем поля Export по результатам
         export.file_ref = result.get("export_ref")
-        # Рекомендуется хранить all_refs, чтобы видеть и «провалившиеся» файлы.
         export.file_refs = result.get("all_refs") or result.get("refs")
-
-        # TODO: при необходимости посчитать суммарный размер
-        # export.file_size_bytes = ...
-
         export.status = "completed"
 
         logger.info(
             "Экспорт для записи Export завершён",
             export_id=str(export.id),
+            tenant_id=str(export.tenant_id),
             status=export.status,
         )
 
-        # Best-effort audit log
         try:
             await audit_repo.log(
                 tenant_id=export.tenant_id,
@@ -137,13 +131,13 @@ async def run_export_for_record(
                 export_id=str(export.id),
             )
 
-        # Возвращаем result на случай, если вызывающему коду нужны детали
         return result
 
     except Exception as e:  # noqa: BLE001
         logger.exception(
             "Ошибка при выполнении run_export_for_record",
             export_id=str(export.id),
+            tenant_id=str(export.tenant_id),
             error=str(e),
         )
         export.status = "failed"
@@ -171,7 +165,6 @@ async def run_export_for_record(
                 export_id=str(export.id),
             )
 
-        # Можно вернуть частичный результат или пустой dict
         return {}
 
 
@@ -180,40 +173,53 @@ async def process_one_pending_export(
     tenant_id: str,
 ) -> bool:
     """
-    Найти одну pending-запись Export и обработать её.
+    Найти одну pending-запись Export и обработать её атомарно.
+
+    Использует FOR UPDATE SKIP LOCKED для исключения race condition
+    при параллельных воркерах: каждый воркер возьмёт свою уникальную запись.
 
     Возвращает:
       - True, если запись была найдена и обработана (успешно или с ошибкой);
       - False, если pending-записей не было.
     """
-    # 1. Найти одну pending-запись
     stmt = (
         select(Export)
         .where(Export.status == "pending")
+        .where(Export.tenant_id == tenant_id)
         .order_by(Export.created_at)
         .limit(1)
+        .with_for_update(skip_locked=True)
     )
-    result = await db.execute(stmt)
-    export: Export | None = result.scalars().first()
 
-    if export is None:
+    try:
+        result = await db.execute(stmt)
+        export: Export | None = result.scalars().first()
+
+        if export is None:
+            logger.debug(
+                "process_one_pending_export: no pending exports available",
+                tenant_id=tenant_id,
+            )
+            return False
+
         logger.info(
-            "process_one_pending_export: no pending exports found",
+            "process_one_pending_export: claimed pending export",
+            export_id=str(export.id),
             tenant_id=tenant_id,
+            status=export.status,
         )
-        return False
 
-    logger.info(
-        "process_one_pending_export: found pending export",
-        export_id=str(export.id),
-        tenant_id=tenant_id,
-        status=export.status,
-    )
+        await run_export_for_record(export, db=db, tenant_id=tenant_id)
+        await db.commit()
+        return True
 
-    # 2. Обработать её через run_export_for_record
-    await run_export_for_record(export, db=db, tenant_id=tenant_id)
+    except Exception as e:  # noqa: BLE001
+        await db.rollback()
+        logger.exception(
+            "process_one_pending_export failed",
+            tenant_id=tenant_id,
+            error=str(e),
+        )
+        raise
 
-    # Коммитим изменения по Export и, возможно, связанным сущностям
-    await db.commit()
 
-    return True

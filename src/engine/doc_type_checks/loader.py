@@ -70,23 +70,6 @@ class DocTypeCheckLoader:
       Это позволяет обновлять YAML-файлы без перезапуска сервера.
     - Изоляция ошибок: ошибка в одном check не ломает остальные.
     - Лимит: не более MAX_CHECKS checks на документ.
-
-    Использование через document-профиль (legacy API):
-
-        loader = DocTypeCheckLoader()
-        doc_type_checks = loader.load_checks_for_doc(
-            doc_type="contract_1.6_real_estate",
-            applicable_triggers=["land_plot_sale", "individual_party"],
-        )
-        all_checks = global_checks + doc_type_checks
-
-    Использование через CheckContext (новый API, этап 2B):
-
-        loader = DocTypeCheckLoader()
-        doc_type_checks = loader.load_checks_for_context(ctx)
-        # ctx.scope определяет, какой doc_type используется как ключ к YAML:
-        # - scope="document"  → ctx.document_type
-        # - scope="segment"   → ctx.segment_doc_type
     """
 
     MAX_CHECKS = getattr(settings, "DOC_TYPE_MAX_CHECKS_PER_DOC", 1000)
@@ -105,11 +88,7 @@ class DocTypeCheckLoader:
         Для непрофессионального программиста:
         - Если scope="document", ключом к YAML служит document_type документа.
         - Если scope="segment", ключом служит segment_doc_type сегмента.
-        - В обоих случаях внутри вызывается тот же load_checks_for_doc,
-          ничего нового не создаётся и никакая логика не дублируется.
-
-        Это контекстный API согласно плану этапа 2B — позволяет CheckPlanner
-        и CheckRunner работать без знания о том, откуда берётся doc_type.
+        - В обоих случаях внутри вызывается тот же load_checks_for_doc.
         """
         if ctx.scope == "segment":
             doc_type = ctx.segment_doc_type
@@ -148,7 +127,7 @@ class DocTypeCheckLoader:
 
         result: list[CheckDefinition] = []
 
-        # 1. checks_v8 (LLM/hybrid)
+        # 1. checks_v8 (LLM/hybrid/rules)
         for item in yaml_data.get("checks_v8") or []:
             if not isinstance(item, dict):
                 continue
@@ -177,7 +156,7 @@ class DocTypeCheckLoader:
             if check:
                 result.append(check)
 
-        # 3. compliance_rules
+        # 3. compliance_rules (rules-only)
         for rule in yaml_data.get("compliance_rules") or []:
             if not isinstance(rule, dict):
                 continue
@@ -277,9 +256,9 @@ class DocTypeCheckLoader:
         Проверить, подходит ли check для данного набора триггеров.
 
         Форматы triggers в YAML:
-          triggers: {}                   → всегда запускать
-          triggers: {any: ["t1","t2"]}   → достаточно одного триггера
-          triggers: {all: ["t1","t2"]}   → нужны все
+          triggers: {}                  → всегда запускать
+          triggers: {any: ["t1","t2"]}  → достаточно одного триггера
+          triggers: {all: ["t1","t2"]}  → нужны все
         """
         triggers_cfg = item.get("triggers")
         if not triggers_cfg:
@@ -360,6 +339,41 @@ class DocTypeCheckLoader:
         regex_patterns = self._resolve_patterns(
             rules_raw.get("regex_patterns") or [], shared_patterns
         )
+
+        # Мягкий guard: предупреждаем, если rules-конфиг совсем пустой.
+        has_flat_keywords = bool(flat_keywords)
+        has_grouped_keywords = (
+            any(
+                isinstance(v, list) and len(v) > 0
+                for v in keyword_groups.values()
+            )
+            if keyword_groups
+            else False
+        )
+        has_regex = bool(regex_patterns)
+        has_clause = bool(rules_raw.get("clause_patterns"))
+
+        if (
+            not has_flat_keywords
+            and not has_grouped_keywords
+            and not has_regex
+            and not has_clause
+        ):
+            logger.warning(
+                "DocTypeCheckLoader: RulesConfig has no keywords, keyword_groups, "
+                "regex_patterns or clause_patterns — rules scoring will be skipped entirely. "
+                "If this check is rules-only, it will never trigger.",
+                extra={"rules_id": rules_raw.get("id", "<unknown>")},
+            )
+        elif isinstance(raw_keywords, dict) and not has_grouped_keywords:
+            logger.warning(
+                "DocTypeCheckLoader: keyword_groups dict is present but all levels are empty "
+                "— scoring will use zero keywords. Check your YAML.",
+                extra={
+                    "rules_id": rules_raw.get("id", "<unknown>"),
+                    "keyword_groups_keys": list(keyword_groups.keys()),
+                },
+            )
 
         return RulesConfig(
             keywords=flat_keywords,
@@ -458,7 +472,8 @@ class DocTypeCheckLoader:
 
         try:
             rules = self._build_rules_config(
-                item.get("rules") or {}, shared_patterns
+                item.get("rules") or {},
+                shared_patterns,
             )
 
             llm_raw = item.get("llm") or {}
@@ -494,6 +509,24 @@ class DocTypeCheckLoader:
                 detector_type = DetectorType(dtype_str)
             except ValueError:
                 detector_type = DetectorType.RULES
+
+            # Fix 8: rules-only checks_v8 с полностью пустым rules-конфигом не загружаем.
+            if detector_type == DetectorType.RULES:
+                if (
+                    not rules.keywords
+                    and not rules.regex_patterns
+                    and not rules.clause_patterns
+                    and not rules.keyword_groups
+                ):
+                    logger.warning(
+                        "DocTypeCheckLoader: rules-only checks_v8 item has empty rules "
+                        "(no keywords/keyword_groups/regex_patterns/clause_patterns), skipping",
+                        extra={
+                            "check_id": check_id,
+                            "doc_type": doc_type,
+                        },
+                    )
+                    return None
 
             return CheckDefinition(
                 id=check_id,
@@ -539,6 +572,23 @@ class DocTypeCheckLoader:
         try:
             rules_raw = item.get("rules") or {}
             rules = self._build_rules_config(rules_raw, shared_patterns)
+
+            # Fix 8: жёсткая валидация rules-only doc_type_checks
+            if (
+                not rules.keywords
+                and not rules.regex_patterns
+                and not rules.clause_patterns
+                and not rules.keyword_groups
+            ):
+                logger.warning(
+                    "DocTypeCheckLoader: rules-only doc_type_check has empty rules "
+                    "(no keywords/keyword_groups/regex_patterns/clause_patterns), skipping",
+                    extra={
+                        "check_id": check_id,
+                        "doc_type": doc_type,
+                    },
+                )
+                return None
 
             raw_keywords = rules_raw.get("keywords")
             if isinstance(raw_keywords, dict):
@@ -595,6 +645,23 @@ class DocTypeCheckLoader:
 
         try:
             rules = self._build_rules_config(rule.get("rules") or {}, {})
+
+            # Fix 8: жёсткая валидация rules-only compliance_rules
+            if (
+                not rules.keywords
+                and not rules.regex_patterns
+                and not rules.clause_patterns
+                and not rules.keyword_groups
+            ):
+                logger.warning(
+                    "DocTypeCheckLoader: compliance rule has empty rules "
+                    "(no keywords/keyword_groups/regex_patterns/clause_patterns), skipping",
+                    extra={
+                        "rule_id": rule_id,
+                        "doc_type": doc_type,
+                    },
+                )
+                return None
 
             ret_raw = rule.get("retrieval") or {}
             retrieval = RetrievalConfig(

@@ -6,11 +6,32 @@ Scope resolver: определяет, какие сегменты докумен
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _normalize_segment_types(raw: Any) -> set[str]:
+    """
+    Нормализовать include_segment_types в множество непустых lowercase-строк.
+
+    Для непрофессионального программиста:
+    - Если raw — список, tuple, set и т.п., превращаем значения в строки,
+      чистим пробелы и приводим к lowercase.
+    - Если raw — строка или неитерируемый объект, считаем конфигурацию некорректной
+      и возвращаем пустое множество.
+    """
+    if not isinstance(raw, Iterable) or isinstance(raw, (str, bytes)):
+        return set()
+
+    return {
+        str(t).strip().lower()
+        for t in raw
+        if str(t).strip()
+    }
 
 
 class ScopeResolver:
@@ -49,16 +70,13 @@ class ScopeResolver:
         if preset == "primary_and_appendices":
             return True, {"appendix"}
 
-        include_primary = bool(scope.get("include_primary", True))
-        include_types_raw = scope.get("include_segment_types") or []
-        include_types = {
-            str(t).strip().lower()
-            for t in include_types_raw
-            if str(t).strip()
-        }
-
         if not scope:
             return True, {"appendix"}
+
+        include_primary = bool(scope.get("include_primary", True))
+        include_types = _normalize_segment_types(
+            scope.get("include_segment_types") or []
+        )
 
         return include_primary, include_types
 
@@ -86,62 +104,84 @@ class ScopeResolver:
           чтобы не потерять весь корпус из-за неполной metadata.
         """
         if not chunks:
+            logger.debug("ScopeResolver: empty input chunks")
             return []
 
-        if include_primary is None or include_types is None:
-            resolved_primary, resolved_types = self.resolve_scope_flags()
-            if include_primary is None:
-                include_primary = resolved_primary
-            if include_types is None:
-                include_types = resolved_types
+        try:
+            if include_primary is None or include_types is None:
+                resolved_primary, resolved_types = self.resolve_scope_flags()
+                if include_primary is None:
+                    include_primary = resolved_primary
+                if include_types is None:
+                    include_types = resolved_types
 
-        include_types = {
-            str(t).strip().lower()
-            for t in (include_types or set())
-            if str(t).strip()
-        }
+            include_types = _normalize_segment_types(include_types or set())
 
-        filtered: list[dict] = []
+            filtered: list[dict] = []
 
-        for ch in chunks:
-            meta = ch.get("metadata")
-            if not isinstance(meta, dict):
-                meta = {}
+            for ch in chunks:
+                meta = ch.get("metadata")
+                if not isinstance(meta, dict):
+                    meta = {}
 
-            seg_type = str(meta.get("segment_type") or "").strip().lower()
+                seg_type = str(meta.get("segment_type") or "").strip().lower()
 
-            has_primary_flag = "is_primary_segment" in meta or "is_primary" in meta
-            has_segment_type = bool(seg_type)
+                has_primary_flag = (
+                    "is_primary_segment" in meta or "is_primary" in meta
+                )
+                has_segment_type = bool(seg_type)
 
-            if "is_primary_segment" in meta:
-                is_primary = bool(meta.get("is_primary_segment"))
+                if "is_primary_segment" in meta:
+                    is_primary = bool(meta.get("is_primary_segment"))
+                else:
+                    is_primary = bool(meta.get("is_primary"))
+
+                # Legacy-safe fallback:
+                # если segment-aware metadata вообще отсутствует,
+                # считаем такой чанк primary.
+                if not has_primary_flag and not has_segment_type:
+                    is_primary = True
+
+                if is_primary and include_primary:
+                    filtered.append(ch)
+                    continue
+
+                if seg_type and seg_type in include_types:
+                    filtered.append(ch)
+                    continue
+
+            if not filtered:
+                logger.warning(
+                    "ScopeResolver: all chunks filtered out by scope",
+                    extra={
+                        "input_chunks": len(chunks),
+                        "include_primary": include_primary,
+                        "include_types": sorted(include_types),
+                    },
+                )
             else:
-                is_primary = bool(meta.get("is_primary"))
+                logger.info(
+                    "ScopeResolver: chunks filtered by scope",
+                    extra={
+                        "input_chunks": len(chunks),
+                        "output_chunks": len(filtered),
+                        "include_primary": include_primary,
+                        "include_types": sorted(include_types),
+                    },
+                )
 
-            # Legacy-safe fallback:
-            # если segment-aware metadata вообще отсутствует,
-            # считаем такой чанк primary.
-            if not has_primary_flag and not has_segment_type:
-                is_primary = True
+            return filtered
 
-            if is_primary and include_primary:
-                filtered.append(ch)
-                continue
+        except Exception as e:
+            logger.exception(
+                "ScopeResolver: failed to filter chunks by scope, returning input chunks",
+                extra={
+                    "input_chunks": len(chunks),
+                    "error": str(e),
+                },
+            )
+            return chunks
+        
 
-            if seg_type and seg_type in include_types:
-                filtered.append(ch)
-                continue
-
-        logger.info(
-            "ScopeResolver: chunks filtered by scope",
-            extra={
-                "input_chunks": len(chunks),
-                "output_chunks": len(filtered),
-                "include_primary": include_primary,
-                "include_types": sorted(include_types),
-            },
-        )
-
-        return filtered
     
     

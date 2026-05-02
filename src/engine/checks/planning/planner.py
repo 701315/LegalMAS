@@ -1,6 +1,3 @@
-# src/engine/checks/planning/planner.py
-
-
 """
 Планирование проверок: выбор checks для документа или сегмента
 по doc_type / segment_doc_type, триггерам и режиму.
@@ -25,6 +22,38 @@ MAX_DOCS_PER_RUN = 500
 MAX_ERRORS_PER_RUN = 50
 
 
+def _to_uuid(val: Any) -> uuid.UUID:
+    """
+    Безопасно конвертирует значение в uuid.UUID с понятной ошибкой.
+
+    Для непрофессионального программиста:
+    - Если val уже uuid.UUID — просто возвращаем его.
+    - Если val — строка или другой тип, пробуем привести к строке и распарсить как UUID.
+    - Если не получилось — падаем с ValueError с пояснением, что именно было не так.
+    """
+    if isinstance(val, uuid.UUID):
+        return val
+    try:
+        return uuid.UUID(str(val))
+    except (TypeError, ValueError, AttributeError) as e:
+        raise ValueError(
+            f"CheckPlanner: cannot convert {val!r} (type={type(val).__name__}) to UUID"
+        ) from e
+
+
+def _normalize_triggers(raw: Any) -> list[str]:
+    """
+    Нормализует сырой список триггеров в list[str].
+
+    Для непрофессионального программиста:
+    - Если raw — список/кортеж и т.п. → берём только строковые элементы.
+    - Если raw — строка или вообще не итерируемый объект → возвращаем пустой список.
+    """
+    if isinstance(raw, Iterable) and not isinstance(raw, (str, bytes)):
+        return [t for t in raw if isinstance(t, str)]
+    return []
+
+
 class CheckPlanner:
     """
     Выбирает и фильтрует checks по текущему режиму
@@ -47,7 +76,11 @@ class CheckPlanner:
 
     # ── Вспомогательные методы для построения контекста ────────────
 
-    def build_context_for_document(self, doc, document_version_id: uuid.UUID | None) -> CheckContext:
+    def build_context_for_document(
+        self,
+        doc,
+        document_version_id: uuid.UUID | None,
+    ) -> CheckContext:
         """
         Построить CheckContext для документа (scope="document").
 
@@ -59,15 +92,11 @@ class CheckPlanner:
         """
         raw_doc_type = getattr(doc, "doc_type", "") or ""
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
-
-        if isinstance(raw_triggers, Iterable) and not isinstance(raw_triggers, (str, bytes)):
-            trigger_list = [t for t in raw_triggers if isinstance(t, str)]
-        else:
-            trigger_list = []
+        trigger_list = _normalize_triggers(raw_triggers)
 
         return CheckContext(
             scope="document",
-            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_id=_to_uuid(getattr(doc, "id", None)),
             document_version_id=document_version_id,
             document_type=raw_doc_type or None,
             segment_id=None,
@@ -92,16 +121,13 @@ class CheckPlanner:
         Это идеально ложится на dataclass SegmentInfo.
         """
         raw_triggers = getattr(segment_info, "triggers", None) or []
-        if isinstance(raw_triggers, Iterable) and not isinstance(raw_triggers, (str, bytes)):
-            trigger_list = [t for t in raw_triggers if isinstance(t, str)]
-        else:
-            trigger_list = []
+        trigger_list = _normalize_triggers(raw_triggers)
 
         seg_doc_type = getattr(segment_info, "segment_doc_type", None)
 
         return CheckContext(
             scope="segment",
-            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_id=_to_uuid(getattr(doc, "id", None)),
             document_version_id=document_version_id,
             document_type=None,  # для сегмента используем segment_doc_type
             segment_id=getattr(segment_info, "segment_id", None),
@@ -158,7 +184,7 @@ class CheckPlanner:
         seen_ids: set[str] = set()
         checks: list[Any] = []
         for check in raw_checks:
-            check_id = str(getattr(check, "id", ""))
+            check_id = str(getattr(check, "id", "")) or ""
             if not check_id or check_id in seen_ids:
                 continue
             seen_ids.add(check_id)
@@ -203,7 +229,9 @@ class CheckPlanner:
             "CheckPlanner: target check not applicable for context",
             extra={
                 "document_id": str(ctx.document_id),
-                "document_version_id": str(ctx.document_version_id) if ctx.document_version_id else None,
+                "document_version_id": str(ctx.document_version_id)
+                if ctx.document_version_id
+                else None,
                 "scope": ctx.scope,
                 "segment_id": ctx.segment_id,
                 "segment_doc_type": ctx.segment_doc_type,
@@ -228,11 +256,7 @@ class CheckPlanner:
         """
         raw_doc_type = getattr(doc, "doc_type", "") or ""
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
-
-        if isinstance(raw_triggers, Iterable) and not isinstance(raw_triggers, (str, bytes)):
-            applicable_triggers = [t for t in raw_triggers if isinstance(t, str)]
-        else:
-            applicable_triggers = []
+        applicable_triggers = _normalize_triggers(raw_triggers)
 
         return raw_doc_type, applicable_triggers
 
@@ -251,7 +275,7 @@ class CheckPlanner:
         # Для legacy-режима document_version_id нам не критичен, оставляем None.
         ctx = CheckContext(
             scope="document",
-            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_id=_to_uuid(getattr(doc, "id", None)),
             document_version_id=None,
             document_type=doc_type or None,
             segment_id=None,
@@ -286,7 +310,7 @@ class CheckPlanner:
 
         ctx = CheckContext(
             scope="document",
-            document_id=uuid.UUID(str(getattr(doc, "id"))),
+            document_id=_to_uuid(getattr(doc, "id", None)),
             document_version_id=None,
             document_type=doc_type or None,
             segment_id=None,
@@ -339,7 +363,7 @@ class CheckPlanner:
 
                 ctx = CheckContext(
                     scope="document",
-                    document_id=uuid.UUID(str(getattr(doc, "id"))),
+                    document_id=_to_uuid(getattr(doc, "id", None)),
                     document_version_id=None,
                     document_type=doc_type or None,
                     segment_id=None,
@@ -414,5 +438,7 @@ class CheckPlanner:
             "total_checks": total_checks,
             "errors": errors,
         }
+    
+    
     
     
