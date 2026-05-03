@@ -49,14 +49,14 @@ class CheckRunner:
 
     def __init__(
         self,
-        llm_client,
+        llm_client=None,
         playbook_version_id: uuid.UUID | None = None,
         checks_mode: str = "global_and_doc_type",
         run_repo: Optional[RunRepository] = None,
         checks_scope: dict[str, Any] | None = None,
     ) -> None:
         self.llm_client = llm_client
-        self.executor = CheckExecutor(llm_client)
+        self.executor = CheckExecutor(llm_client) if llm_client is not None else None
         self.playbook_version_id = playbook_version_id
         self.run_repo = run_repo
 
@@ -205,6 +205,13 @@ class CheckRunner:
         - Celery-воркер вокруг этого метода уже ловит SoftTimeLimitExceeded
           и generic Exception, выставляя execution_status="TIMEOUT"/"FAILED".
         """
+
+        if self.executor is None:
+            raise RuntimeError(
+                "CheckRunner.execute_single_check вызван без llm_client. "
+                "Передайте llm_client= при создании CheckRunner для задач выполнения."
+            )
+
         check = self._planner.find_check_for_document(doc, playbook, check_id)
 
         if check is None:

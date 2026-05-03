@@ -59,9 +59,24 @@ class LLMResponse:
 
 
 class LLMClient:
-    """Unified LLM client supporting multiple providers."""
+    """
+    Unified LLM client supporting multiple providers.
+
+    Singleton: каждый вызов LLMClient() возвращает один и тот же объект.
+    Модель (llamacpp) загружается ровно один раз за время жизни процесса.
+    """
+
+    _instance: "LLMClient | None" = None
+
+    def __new__(cls) -> "LLMClient":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self) -> None:
+        if hasattr(self, "_initialized"):
+            return
+        self._initialized = True
         self.provider = settings.LLM_PROVIDER  # "none" | "openai" | "ollama" | "llamacpp"
         self.timeout = settings.LLM_TIMEOUT_SECONDS
         self._llama_model: Any = None
@@ -546,6 +561,11 @@ class LLMClient:
             )
 
         if self._llama_model is None:
+            logger.info(
+                "LLMClient: загрузка модели с диска (первый вызов в этом процессе)",
+                extra={"pid": __import__("os").getpid()},
+            )
+
             try:
                 from llama_cpp import Llama
             except ImportError as e:
@@ -566,7 +586,10 @@ class LLMClient:
                 n_gpu_layers=settings.LLM_LOCAL_N_GPU_LAYERS,
                 verbose=False,
             )
-            logger.info("Local LLM model loaded successfully", path=normalized)
+            logger.info(
+                "LLMClient: модель загружена успешно",
+                extra={"pid": __import__("os").getpid()},
+            )
 
         from llama_cpp import LlamaGrammar
 

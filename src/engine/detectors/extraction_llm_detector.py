@@ -201,21 +201,44 @@ class ExtractionLLMDetector:
         if not text.strip():
             return {}
 
-        prompt = self._build_prompt(check, extraction_cfg, text)
+        # Обрезаем текст до безопасного бюджета ДО сборки промпта.
+        _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
+        if _limit > 0:
+            from engine.retrieval.tokenization import count_tokens
+            _max_out = int(getattr(settings, "LLM_MAX_TOKENS", 512))
+            _safety = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
+            # Грубая оценка overhead шаблона промпта: ~300 слов
+            _template_overhead = 300
+            _text_budget = _limit - _max_out - _safety - _template_overhead
+            _text_budget = max(200, _text_budget)
+            # Обрезка по словам
+            words = text.split()
+            max_words = int(_text_budget / 2.5)
+            if len(words) > max_words:
+                text = " ".join(words[:max_words])
+                logger.debug(
+                    "ExtractionLLMDetector: text truncated to fit token budget",
+                    original_words=len(words),
+                    truncated_words=max_words,
+                    budget=_text_budget,
+                )
 
-        # Путь к GBNF-грамматике задаётся через настройки и используется
-        # только если LLM-клиент поддерживает grammar (llama-cpp).
+        prompt = self._build_prompt(check, extraction_cfg, text)
         grammar_path = getattr(settings, "LLM_EXTRACTION_JSON_GRAMMAR_PATH", None)
 
-        try:
-            response: LLMResponse | None = self.client.call(
-                prompt=prompt,
-                temperature=0.0,  # детерминированное извлечение
-                max_tokens=None,
-                grammar_path=grammar_path,
+        response, error_details = self.client.call_with_retries(
+            prompt=prompt,
+            temperature=0.0,
+            max_tokens=None,
+            grammar_path=grammar_path,
+        )
+        if response is None:
+            logger.warning(
+                "LLM extraction call failed",
+                error_type=error_details.get("error_type"),
+                error_message=error_details.get("error_message"),
+                attempts=error_details.get("llm_attempts"),
             )
-        except Exception as e:
-            logger.warning("LLM extraction call failed", error=str(e))
             return {}
 
         if response is None or not response.text.strip():

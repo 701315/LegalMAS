@@ -1,7 +1,5 @@
 # src/engine/detectors/llm_detector.py
 
-# src/engine/detectors/llm_detector.py
-
 """
 LLMDetector: presence‑детектор "есть ли условие в фрагментах договора".
 
@@ -123,7 +121,7 @@ from .models import DetectionResult, EvidenceChunk, RetrievedChunk
 from ..llm.client import LLMClient, LLMContextLimitError, LLMResponse
 from ..playbook.models import LLMConfig
 from ..prompts.loader import get_promptloader
-
+from engine.retrieval.tokenization import count_tokens
 
 logger = get_logger(__name__)
 
@@ -198,7 +196,17 @@ class LLMDetector:
 
         context_k = config.context_k if hasattr(config, "context_k") else 5
         context_chunks = chunks[: max(1, context_k)]
-        context_text = self._build_context(context_chunks)
+
+        # Считаем бюджет под контекст: окно - резерв под output - safety - шаблон промпта.
+        _template_tokens = count_tokens(prompt_template)
+        _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
+        _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
+        if _limit > 0:
+            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256)) - _template_tokens
+            _context_budget = max(200, _context_budget)
+            context_text = self._fit_context_to_budget(context_chunks, _context_budget)
+        else:
+            context_text = self._build_context(context_chunks)
 
         # Рендерим промпт через безопасный _render_prompt().
         # detect() подставляет только {context} — этого достаточно для
@@ -285,7 +293,17 @@ class LLMDetector:
 
         context_k = config.context_k if hasattr(config, "context_k") else 5
         context_chunks = chunks[: max(1, context_k)]
-        context_text = self._build_context(context_chunks)
+
+        # Считаем бюджет под контекст: окно - резерв под output - safety - шаблон промпта.
+        _template_tokens = count_tokens(prompt_template)
+        _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
+        _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
+        if _limit > 0:
+            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256)) - _template_tokens
+            _context_budget = max(200, _context_budget)
+            context_text = self._fit_context_to_budget(context_chunks, _context_budget)
+        else:
+            context_text = self._build_context(context_chunks)
 
         # Собираем все переменные для подстановки.
         # context всегда добавляется автоматически.
@@ -502,6 +520,57 @@ class LLMDetector:
             parts.append(f"{header}\n{text}\n")
 
         return "\n".join(parts)
+
+
+    @staticmethod
+    def _fit_context_to_budget(
+        chunks: list[RetrievedChunk],
+        token_budget: int,
+    ) -> str:
+        """
+        Собрать контекст из чанков, не превышая token_budget токенов.
+
+        Берём чанки по одному пока бюджет позволяет.
+        Если первый чанк уже превышает бюджет — берём его обрезанным,
+        чтобы LLM всегда получал хоть что-то.
+
+        token_budget считается через count_tokens (слова × 2.5).
+        """
+        from engine.retrieval.tokenization import count_tokens
+
+        parts: list[str] = []
+        used = 0
+
+        for i, chunk in enumerate(chunks, start=1):
+            if isinstance(chunk, dict):
+                page = chunk.get("page", 0)
+                clause_uid = chunk.get("clause_uid") or ""
+                text = chunk.get("text", "")
+            else:
+                page = getattr(chunk, "page", 0)
+                clause_uid = getattr(chunk, "clause_uid", "") or ""
+                text = getattr(chunk, "text", "")
+
+            clause_info = f" [clause {clause_uid}]" if clause_uid else ""
+            header = f"[{i}] page {page}{clause_info}:"
+            entry = f"{header}\n{text}\n"
+            entry_tokens = count_tokens(entry)
+
+            if used + entry_tokens > token_budget:
+                if not parts:
+                    # Первый чанк не вмещается целиком — берём обрезанный.
+                    # Грубая обрезка по словам: token_budget / 2.5 слов.
+                    max_words = max(50, int(token_budget / 2.5))
+                    words = text.split()
+                    truncated = " ".join(words[:max_words])
+                    parts.append(f"{header}\n{truncated}\n[...обрезано]\n")
+                break
+
+            parts.append(entry)
+            used += entry_tokens
+
+        return "\n".join(parts)
+
 
     def _build_result(
         self,

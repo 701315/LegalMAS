@@ -1,7 +1,11 @@
-# src/classifiers/stage8/l2_header.py
-
 """
 L2 Header Classifier — классификация по заголовку документа (Stage 8).
+
+Production-версия с:
+- разделением distinctive/generic keywords через эвристику
+- жёстким подавлением типов при hard exclusions
+- калибруемым confidence через signal quality и genericity penalty
+- полной диагностикой в extra для orchestrator и voting
 
 Назначение:
 - Второй уровень каскада после L1.
@@ -20,7 +24,7 @@ L2 Header Classifier — классификация по заголовку до
 - Для каждого типа:
   - матчим header_patterns (regex);
   - считаем попадания по keywords_high/medium/low (строки);
-  - считаем exclusions (строки).
+  - считаем exclusions (строки) с разделением на hard/soft.
 - На основании количества попаданий по уровням и exclusions вычисляем confidence.
 
 Роль в каскаде:
@@ -29,6 +33,7 @@ L2 Header Classifier — классификация по заголовку до
 """
 
 from __future__ import annotations
+
 import re
 from typing import Any, Dict, List, Optional
 
@@ -39,6 +44,71 @@ from core.constants import ClassificationLevel
 from core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# === Эвристика для разделения distinctive/generic keywords ===
+# Пока YAML не обновлён до v2 schema, используем простое правило:
+# Если regex содержит \b (word boundary) и не содержит очень общих слов,
+# считаем его distinctive. Иначе — generic.
+_GENERIC_TERMS = {
+    # Русские общие термины
+    "покупател", "продавец", "сторон", "договор", "соглашени",
+    "цена", "сумм", "срок", "услуг", "работ", "исполнител",
+    "заказчик", "поставщик", "компани", "организаци",
+    # Английские общие термины
+    "buyer", "seller", "party", "parties", "agreement", "contract",
+    "price", "amount", "term", "service", "work", "contractor",
+    "customer", "supplier", "company", "organization",
+}
+
+_HARD_EXCLUSION_TERMS = {
+    "spa", "share purchase", "m&a", "merger", "acquisition",
+    "real estate", "недвижимост", "lease", "аренд", "лизинг",
+    "employment", "труд", "franchise", "франшиз",
+}
+
+
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    return max(min_value, min(max_value, value))
+
+
+def _safe_pattern_str(pattern: Any) -> str:
+    return getattr(pattern, "pattern", str(pattern))
+
+
+def _is_distinctive_pattern(pattern_str: str) -> bool:
+    """
+    Простая эвристика: паттерн distinctive, если:
+    - содержит \\b (word boundary) — значит, ищет целое слово
+    - НЕ содержит только общие термины из _GENERIC_TERMS
+
+    Для непрофессионального программиста:
+    - Это временное решение до обновления YAML.
+    - Мы пытаемся отличить "договор поставки" (distinctive)
+      от "покупатель" (generic).
+    """
+    lower = pattern_str.lower()
+
+    if r"\b" not in pattern_str:
+        return False
+
+    for term in _GENERIC_TERMS:
+        if term in lower:
+            return False
+
+    return True
+
+
+def _estimate_input_quality(header_text: str) -> float:
+    """
+    Оценка качества входа для orchestrator/voter.
+    Короткий заголовок даёт менее надёжный сигнал.
+    """
+    text_len = len((header_text or "").strip())
+    if text_len <= 0:
+        return 0.0
+    if text_len >= 120:
+        return 1.0
+    return round(max(0.5, text_len / 120.0), 3)
 
 
 class L2HeaderClassifier(BaseClassifier):
@@ -51,9 +121,7 @@ class L2HeaderClassifier(BaseClassifier):
       - exclusions (compiled regex из classification_runtime_v1.rules.exclusions).
     """
 
-
     def __init__(self, registry: YAMLRegistry | None = None) -> None:
-        # Используем singleton по умолчанию, но даём возможность подменять в тестах.
         self._registry = registry or YAMLRegistry.get_instance()
 
     @property
@@ -75,8 +143,13 @@ class L2HeaderClassifier(BaseClassifier):
         text — сюда должен приходить уже подготовленный header_text (или полный текст,
         из которого первые строки содержат заголовок).
         filename, folder_path, text_sanitized, metadata — сейчас не используются.
+
+        Возвращает:
+        - ClassificationResult с best type и confidence
+        - extra содержит полную диагностику для orchestrator
         """
         header_text = (text or "").strip()
+        input_quality = _estimate_input_quality(header_text)
 
         logger.info(
             "L2 classify start",
@@ -85,10 +158,10 @@ class L2HeaderClassifier(BaseClassifier):
                 "folder_path": folder_path,
                 "header_len": len(header_text),
                 "header_preview": repr(header_text[:400]),
+                "input_quality": input_quality,
             },
         )
 
-        # Если заголовка нет, сразу возвращаем UNKNOWN с нулевой уверенностью.
         if not header_text:
             logger.info(
                 "L2 final result",
@@ -105,6 +178,27 @@ class L2HeaderClassifier(BaseClassifier):
                 level=self.level,
                 method="header_pattern",
                 evidence=None,
+                extra={
+                    "header_pattern_hits": 0,
+                    "distinctive_high_hits": 0,
+                    "distinctive_medium_hits": 0,
+                    "generic_high_hits": 0,
+                    "generic_medium_hits": 0,
+                    "low_hits": 0,
+                    "soft_exclusion_hits": 0,
+                    "hard_exclusion_hits": 0,
+                    "has_exclusion_hit": False,
+                    "exclusion_hits": 0,
+                    "high_hits": 0,
+                    "medium_hits": 0,
+                    "signal_quality": 0.0,
+                    "genericity_penalty": 0.0,
+                    "soft_excl_penalty": 0.0,
+                    "ambiguity_penalty": 0.0,
+                    "input_quality": input_quality,
+                    "matched_type": "UNKNOWN",
+                    "matched_patterns_preview": [],
+                },
             )
 
         best_type: str = "UNKNOWN"
@@ -112,13 +206,14 @@ class L2HeaderClassifier(BaseClassifier):
         best_evidence: Optional[str] = None
         best_extra: Dict[str, Any] = {}
 
-        base_conf = float(getattr(settings, "CLASSIFICATION_L2_ACCEPT", 0.75))
+        scored_candidates: List[Dict[str, Any]] = []
+
+        base_accept = float(getattr(settings, "CLASSIFICATION_L2_ACCEPT", 0.75))
         excl_hard_threshold = int(getattr(settings, "CLASSIFICATION_L2_EXCL_HARD", 2))
         excl_soft_threshold = int(getattr(settings, "CLASSIFICATION_L2_EXCL_SOFT", 1))
 
-        # Перебираем все doc_types из реестра.
         for cfg in self._registry.get_all_configs():
-            cfg: DocumentTypeConfig
+            cfg = cfg  # type: DocumentTypeConfig
 
             header_patterns = getattr(cfg, "header_patterns", []) or []
             keywords_high = getattr(cfg, "keywords_high", []) or []
@@ -135,174 +230,296 @@ class L2HeaderClassifier(BaseClassifier):
             ):
                 continue
 
-            high_hits = 0
-            medium_hits = 0
+            header_pattern_hits = 0
+            distinctive_high_hits = 0
+            distinctive_medium_hits = 0
+            generic_high_hits = 0
+            generic_medium_hits = 0
             low_hits = 0
-            exclusion_hits = 0
+            soft_exclusion_hits = 0
+            hard_exclusion_hits = 0
             matched_patterns: List[str] = []
 
             logger.debug(
                 "L2 patterns used",
                 extra={
                     "type_code": cfg.type_code,
-                    "header_patterns": [
-                        getattr(p, "pattern", str(p)) for p in header_patterns[:10]
-                    ],
-                    "keywords_high": keywords_high[:10],
-                    "keywords_medium": keywords_medium[:10],
-                    "keywords_low": keywords_low[:10],
-                    "exclusions": exclusion_keywords[:10],
+                    "header_patterns_count": len(header_patterns),
+                    "keywords_high_count": len(keywords_high),
+                    "keywords_medium_count": len(keywords_medium),
+                    "keywords_low_count": len(keywords_low),
+                    "exclusions_count": len(exclusion_keywords),
                 },
             )
 
-            # 1) Матчим header_patterns (compiled regex с IGNORECASE).
             for p in header_patterns:
                 try:
                     if p.search(header_text):
-                        # Все header_patterns считаем как medium-сигнал заголовка,
-                        # более тонкая градация идёт через keywords_*.
-                        medium_hits += 1
-                        matched_patterns.append(getattr(p, "pattern", str(p)))
+                        header_pattern_hits += 1
+                        matched_patterns.append(f"HEADER: {_safe_pattern_str(p)}")
                 except Exception as e:
                     logger.warning(
                         "Invalid header pattern in YAMLRegistry",
                         extra={
-                            "pattern": getattr(p, "pattern", str(p)),
+                            "pattern": _safe_pattern_str(p),
                             "type_code": cfg.type_code,
                             "error": str(e),
                         },
                     )
 
-            # Вспомогательная функция для списков regex-паттернов.
-            def _match_patterns(patterns: List[Any]) -> int:
-                """
-                Считает, сколько regex-паттернов из списка нашли совпадение в header_text.
+            def _match_patterns_categorized(
+                patterns: List[Any], category: str
+            ) -> tuple[int, int]:
+                distinctive = 0
+                generic = 0
 
-                Ожидает, что patterns — это списки re.Pattern, подготовленные YAMLRegistry.
-                Если в списке случайно окажется строка, мы попытаемся
-                скомпилировать её на лету, чтобы не ломать работу.
-                """
-                hits = 0
                 for p in patterns or []:
                     try:
                         if hasattr(p, "search"):
                             regex = p
                         else:
-                            # fallback для строк, если где-то остались необработанные значения
                             pattern_str = (str(p) or "").strip()
                             if not pattern_str:
                                 continue
-                            regex = re.compile(pattern_str)
+                            regex = re.compile(pattern_str, re.IGNORECASE)
+
                         if regex.search(header_text):
-                            hits += 1
-                            matched_patterns.append(getattr(regex, "pattern", str(regex)))
+                            pattern_str = _safe_pattern_str(regex)
+                            matched_patterns.append(f"{category.upper()}: {pattern_str}")
+
+                            if _is_distinctive_pattern(pattern_str):
+                                distinctive += 1
+                            else:
+                                generic += 1
                     except Exception as e:
                         logger.warning(
-                            "L2 keyword/exclusion pattern error",
+                            "L2 keyword pattern error",
                             extra={
                                 "type_code": cfg.type_code,
-                                "pattern": getattr(p, "pattern", str(p)),
+                                "category": category,
+                                "pattern": _safe_pattern_str(p),
                                 "error": str(e),
                             },
                         )
-                return hits
+                return distinctive, generic
 
-            # 2) Матчим keywords по уровням.
-            high_hits += _match_patterns(keywords_high)
-            medium_hits += _match_patterns(keywords_medium)
-            low_hits += _match_patterns(keywords_low)
+            dist_high, gen_high = _match_patterns_categorized(keywords_high, "high")
+            dist_med, gen_med = _match_patterns_categorized(keywords_medium, "medium")
 
-            # 3) Матчим exclusions.
-            exclusion_hits += _match_patterns(exclusion_keywords)
+            distinctive_high_hits += dist_high
+            generic_high_hits += gen_high
+            distinctive_medium_hits += dist_med
+            generic_medium_hits += gen_med
 
-            # Если нет ни одного позитивного попадания — этот тип не рассматриваем.
-            if high_hits == 0 and medium_hits == 0 and low_hits == 0:
-                continue
+            for p in keywords_low or []:
+                try:
+                    if hasattr(p, "search"):
+                        regex = p
+                    else:
+                        pattern_str = (str(p) or "").strip()
+                        if not pattern_str:
+                            continue
+                        regex = re.compile(pattern_str, re.IGNORECASE)
 
-            has_exclusion_hit = exclusion_hits > 0
+                    if regex.search(header_text):
+                        low_hits += 1
+                        matched_patterns.append(f"LOW: {_safe_pattern_str(regex)}")
+                except Exception as e:
+                    logger.warning(
+                        "L2 low keyword error",
+                        extra={
+                            "type_code": cfg.type_code,
+                            "pattern": _safe_pattern_str(p),
+                            "error": str(e),
+                        },
+                    )
 
-            # --- Жёсткое подавление типа при сильных exclusions ---
-            if exclusion_hits >= excl_hard_threshold:
+            for p in exclusion_keywords or []:
+                try:
+                    if hasattr(p, "search"):
+                        regex = p
+                    else:
+                        pattern_str = (str(p) or "").strip()
+                        if not pattern_str:
+                            continue
+                        regex = re.compile(pattern_str, re.IGNORECASE)
+
+                    if regex.search(header_text):
+                        pattern_str = _safe_pattern_str(regex)
+                        matched_patterns.append(f"EXCLUSION: {pattern_str}")
+
+                        is_hard = any(term in pattern_str.lower() for term in _HARD_EXCLUSION_TERMS)
+                        if is_hard:
+                            hard_exclusion_hits += 1
+                        else:
+                            soft_exclusion_hits += 1
+                except Exception as e:
+                    logger.warning(
+                        "L2 exclusion pattern error",
+                        extra={
+                            "type_code": cfg.type_code,
+                            "pattern": _safe_pattern_str(p),
+                            "error": str(e),
+                        },
+                    )
+
+            total_exclusion_hits = hard_exclusion_hits + soft_exclusion_hits
+            has_exclusion_hit = total_exclusion_hits > 0
+
+            if hard_exclusion_hits >= 1:
                 logger.info(
-                    "L2 type suppressed by exclusions",
+                    "L2 type HARD SUPPRESSED by exclusions",
                     extra={
                         "type_code": cfg.type_code,
-                        "high_hits": high_hits,
-                        "medium_hits": medium_hits,
-                        "low_hits": low_hits,
-                        "exclusion_hits": exclusion_hits,
+                        "header_pattern_hits": header_pattern_hits,
+                        "distinctive_high_hits": distinctive_high_hits,
+                        "hard_exclusion_hits": hard_exclusion_hits,
+                        "reason": "hard_exclusion_detected",
                     },
                 )
                 continue
 
-            # --- Расчёт confidence ---
+            total_positive = (
+                header_pattern_hits
+                + distinctive_high_hits
+                + distinctive_medium_hits
+                + generic_high_hits
+                + generic_medium_hits
+                + low_hits
+            )
+            if total_positive == 0:
+                continue
+
             conf = 0.0
 
-            # При мягком exclusion (одиночный хит) не запрещаем тип, но сильно режем потолок.
-            if has_exclusion_hit and exclusion_hits < excl_hard_threshold:
-                penalty_cap = 0.4
+            if header_pattern_hits > 0:
+                base_header = 0.35
+                if distinctive_high_hits >= 1 or distinctive_medium_hits >= 2:
+                    base_header = 0.50
+                conf += base_header + 0.10 * min(header_pattern_hits - 1, 2)
+
+            if distinctive_high_hits > 0:
+                conf += 0.30 + 0.08 * min(distinctive_high_hits - 1, 3)
+
+            if distinctive_medium_hits > 0:
+                conf += 0.10 + 0.04 * min(distinctive_medium_hits - 1, 3)
+
+            if generic_high_hits > 0:
+                conf += 0.05 + 0.02 * min(generic_high_hits - 1, 2)
+
+            if generic_medium_hits > 0:
+                conf += 0.02 + 0.01 * min(generic_medium_hits - 1, 2)
+
+            conf += 0.01 * min(low_hits, 3)
+
+            total_dist = distinctive_high_hits + distinctive_medium_hits
+            total_gen = generic_high_hits + generic_medium_hits
+
+            if total_dist + total_gen > 0:
+                signal_quality = total_dist / (total_dist + total_gen)
             else:
-                penalty_cap = 1.0
+                signal_quality = 0.5
 
-            if high_hits > 0:
-                # High-сигналы обязательны для «уверенного» типа.
-                # base_conf — базовая уверенность L2 при наличии хотя бы одного high.
-                conf = base_conf
+            genericity_penalty = 0.0
+            if total_gen > total_dist:
+                genericity_penalty = 0.12 * min(total_gen - total_dist, 3)
 
-                # High дают основную массу уверенности.
-                conf += 0.15 * min(high_hits, 3)      # максимум +0.45
+            soft_excl_penalty = 0.0
+            if soft_exclusion_hits > 0:
+                soft_excl_penalty = 0.20 * min(soft_exclusion_hits, 2)
 
-                # Medium/low лишь слегка докручивают сверху.
-                conf += 0.03 * min(medium_hits, 4)    # максимум +0.12
-                conf += 0.01 * min(low_hits, 5)       # максимум +0.05
-            else:
-                # Без high: medium/low дают только слабый сигнал.
-                # Используются как подсказка, но не могут конкурировать с L3 и L1.
-                conf = 0.1 * min(medium_hits, 4) + 0.03 * min(low_hits, 5)
-                # Жёсткий потолок для случаев без high-хитов.
-                conf = min(conf, 0.4)
+            conf = conf * signal_quality - genericity_penalty - soft_excl_penalty
+            conf = _clamp(conf, 0.0, 1.0)
 
-            # Применяем потолок при мягких exclusions.
-            conf = min(conf, penalty_cap)
-
-            # Нормализация.
-            conf = max(0.0, min(1.0, conf))
+            current_extra: Dict[str, Any] = {
+                "header_pattern_hits": header_pattern_hits,
+                "distinctive_high_hits": distinctive_high_hits,
+                "distinctive_medium_hits": distinctive_medium_hits,
+                "generic_high_hits": generic_high_hits,
+                "generic_medium_hits": generic_medium_hits,
+                "low_hits": low_hits,
+                "soft_exclusion_hits": soft_exclusion_hits,
+                "hard_exclusion_hits": hard_exclusion_hits,
+                "has_exclusion_hit": has_exclusion_hit,
+                "exclusion_hits": total_exclusion_hits,
+                "high_hits": distinctive_high_hits + generic_high_hits,
+                "medium_hits": distinctive_medium_hits + generic_medium_hits,
+                "signal_quality": round(signal_quality, 3),
+                "genericity_penalty": round(genericity_penalty, 3),
+                "soft_excl_penalty": round(soft_excl_penalty, 3),
+                "ambiguity_penalty": 0.0,
+                "input_quality": input_quality,
+                "matched_type": cfg.type_code,
+                "matched_patterns_preview": matched_patterns[:15],
+                "base_accept_threshold": base_accept,
+                "soft_exclusion_threshold": excl_soft_threshold,
+                "hard_exclusion_threshold": excl_hard_threshold,
+            }
 
             logger.info(
                 "L2 type stats",
                 extra={
                     "type_code": cfg.type_code,
-                    "high_hits": high_hits,
-                    "medium_hits": medium_hits,
+                    "header_pattern_hits": header_pattern_hits,
+                    "distinctive_high_hits": distinctive_high_hits,
+                    "distinctive_medium_hits": distinctive_medium_hits,
+                    "generic_high_hits": generic_high_hits,
+                    "generic_medium_hits": generic_medium_hits,
                     "low_hits": low_hits,
-                    "exclusion_hits": exclusion_hits,
-                    "has_exclusion_hit": has_exclusion_hit,
-                    "conf": conf,
+                    "soft_exclusion_hits": soft_exclusion_hits,
+                    "hard_exclusion_hits": hard_exclusion_hits,
+                    "signal_quality": round(signal_quality, 3),
+                    "genericity_penalty": round(genericity_penalty, 3),
+                    "soft_excl_penalty": round(soft_excl_penalty, 3),
+                    "input_quality": input_quality,
+                    "final_conf": round(conf, 3),
                 },
             )
 
-            # Обновляем лучший тип, если уверенность выше.
+            scored_candidates.append(
+                {
+                    "type_code": cfg.type_code,
+                    "confidence": conf,
+                    "extra": current_extra,
+                    "evidence": (
+                        f"header={header_pattern_hits}, "
+                        f"dist_high={distinctive_high_hits}, dist_med={distinctive_medium_hits}, "
+                        f"gen_high={generic_high_hits}, gen_med={generic_medium_hits}, "
+                        f"low={low_hits}, soft_excl={soft_exclusion_hits}, hard_excl={hard_exclusion_hits}; "
+                        f"patterns={matched_patterns[:10]}"
+                    ),
+                }
+            )
+
             if conf > best_conf:
                 best_conf = conf
                 best_type = cfg.type_code
-                best_evidence = (
-                    f"high={high_hits}, medium={medium_hits}, low={low_hits}, "
-                    f"exclusions={exclusion_hits}; patterns={matched_patterns[:10]}"
-                )
-                best_extra = {
-                    "high_hits": high_hits,
-                    "medium_hits": medium_hits,
-                    "low_hits": low_hits,
-                    "exclusion_hits": exclusion_hits,
-                    "has_exclusion_hit": has_exclusion_hit,
-                    "matched_type": cfg.type_code,
-                }
+                best_evidence = scored_candidates[-1]["evidence"]
+                best_extra = dict(current_extra)
+
+        scored_candidates.sort(key=lambda x: float(x["confidence"]), reverse=True)
+
+        ambiguity_penalty = 0.0
+        if len(scored_candidates) >= 2 and best_type != "UNKNOWN":
+            top1_conf = float(scored_candidates[0]["confidence"])
+            top2_conf = float(scored_candidates[1]["confidence"])
+            margin = top1_conf - top2_conf
+            if margin < 0.15:
+                ambiguity_penalty = 0.15 * (1.0 - margin / 0.15)
+            if best_extra:
+                best_extra["ambiguity_penalty"] = round(_clamp(ambiguity_penalty, 0.0, 0.15), 3)
+                best_extra["top2_margin"] = round(margin, 4)
+                best_extra["runner_up_type"] = scored_candidates[1]["type_code"]
+                best_extra["runner_up_confidence"] = round(top2_conf, 4)
+        elif best_extra:
+            best_extra["ambiguity_penalty"] = 0.0
+            best_extra["top2_margin"] = 1.0
 
         logger.info(
             "L2 final result",
             extra={
                 "best_type": best_type,
-                "best_conf": best_conf,
+                "best_conf": round(best_conf, 4),
                 "best_evidence": best_evidence,
                 "best_extra": best_extra or None,
             },
@@ -316,3 +533,5 @@ class L2HeaderClassifier(BaseClassifier):
             evidence=best_evidence,
             extra=best_extra or None,
         )
+    
+    

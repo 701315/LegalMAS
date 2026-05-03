@@ -43,6 +43,9 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
+      - "(?i)\\bproperty\\b"
+      - "(?i)\\bSPA\\b"         # Sale and Purchase Agreement
+      - "(?i)execution[\\s_-]*version"
       - "(?i)недвижимост"
       - "(?i)квартир"
       - "(?i)земельн"

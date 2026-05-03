@@ -49,6 +49,10 @@ from ops.metrics import get_metrics
 
 logger = get_logger(__name__)
 
+# Один экземпляр LLMClient на весь процесс воркера.
+# Модель загружается один раз при старте — не при каждой задаче.
+_shared_llm_client = LLMClient()
+
 
 @celery_app.task(
     base=MASBaseTask,
@@ -81,7 +85,6 @@ def run_deal_checks(
 
     started_at = time.time()
     metrics = get_metrics()
-    llm_client = LLMClient()
     run_uuid = uuid.UUID(run_id)
     deal_uuid = uuid.UUID(deal_id)
 
@@ -143,7 +146,7 @@ def run_deal_checks(
                 )
 
                 runner = CheckRunner(
-                    llm_client=llm_client,
+                    llm_client=_shared_llm_client,
                     playbook_version_id=run_obj.playbook_version_id,
                     checks_mode=checks_mode,
                     run_repo=run_repo,
@@ -366,7 +369,6 @@ def run_single_check(
     )
 
     started_at = time.time()
-    llm_client = LLMClient()
     run_uuid = uuid.UUID(run_id)
     deal_uuid = uuid.UUID(deal_id)
     doc_uuid = uuid.UUID(doc_id)
@@ -491,7 +493,7 @@ def run_single_check(
                 checks_scope = getattr(run_obj, "checks_scope", None)
 
                 runner = CheckRunner(
-                    llm_client=llm_client,
+                    llm_client=_shared_llm_client,
                     playbook_version_id=effective_pb_version_id,
                     checks_mode=effective_checks_mode,
                     run_repo=run_repo,

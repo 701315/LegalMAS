@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     CLASSIFIER_UNCERTAIN_THRESHOLD: float = 0.50
     CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"  # L3
     CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
+    CLASSIFICATION_L4_PROMPT_PATH: str = "prompts/classification/classify_document.txt"
+    CLASSIFICATION_L4_MAX_INPUT_CHARS: int = 6000
 
     # --- LLM Provider (Stage 6/8 L4) ---
     # Базовый провайдер LLM для Stage 6/8:
