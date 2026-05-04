@@ -55,7 +55,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
   const hasPlaybook = !!deal.playbook_version_id;
 
   const canLaunchRun =
-    canStartRun && hasPlaybook && hasValidPrimaryLanguageSelection && !isSubmitting;
+    canStartRun &&
+    hasPlaybook &&
+    hasValidPrimaryLanguageSelection &&
+    !isSubmitting;
 
   let readinessLabel: string;
   if (!hasPlaybook) {
@@ -79,17 +82,13 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
       description="Проверьте параметры анализа для этой сделки."
       footer={
         <div className="flex items-center justify-between gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onClose}
-          >
+          <Button variant="secondary" size="sm" onClick={onClose}>
             Отмена
           </Button>
 
           <div className="flex items-center gap-3">
             {!canLaunchRun && (
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-[var(--text-muted)]">
                 {readinessLabel}
               </span>
             )}
@@ -107,18 +106,23 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
       }
     >
       {/* Readiness summary */}
-      <div className="mb-4 rounded border border-gray-200 bg-gray-50 px-3 py-2">
-        <p className="text-xs font-semibold text-gray-800">{readinessLabel}</p>
+      <div className="mb-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2">
+        <p className="text-xs font-semibold text-[var(--text-primary)]">
+          {readinessLabel}
+        </p>
         {latestRunId && (
-          <p className="mt-1 text-[11px] text-gray-500">
-            Последний анализ уже запускался. Новый запуск обновит результаты по текущим документам.
+          <p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
+            Последний анализ уже запускался. Новый запуск обновит результаты по
+            текущим документам.
           </p>
         )}
       </div>
 
       {/* Documents & languages */}
-      <section className="mb-4 space-y-1 text-xs text-gray-700">
-        <h3 className="font-semibold text-gray-900 text-sm">Документы</h3>
+      <section className="mb-4 space-y-1 text-xs text-[var(--text-secondary)]">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          Документы
+        </h3>
         <p>
           Языки документов:{" "}
           {documentLanguages.length > 0
@@ -128,44 +132,44 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
       </section>
 
       {/* Playbook */}
-      <section className="mb-4 space-y-1 text-xs text-gray-700">
+      <section className="mb-4 space-y-1 text-xs text-[var(--text-secondary)]">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Playbook проекта</h3>
-            <p className="text-[11px] text-gray-500">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+              Playbook проекта
+            </h3>
+            <p className="text-[11px] text-[var(--text-muted)]">
               Используется для формирования проверок и DD Grid.
             </p>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onOpenPlaybook}
-          >
+          <Button variant="secondary" size="sm" onClick={onOpenPlaybook}>
             Открыть Playbook
           </Button>
         </div>
         <p className="text-xs">
           {hasPlaybook ? (
-            <span className="text-gray-700">
-              Playbook выбран. При необходимости вы можете изменить его перед запуском.
+            <span className="text-[var(--text-secondary)]">
+              Playbook выбран. При необходимости вы можете изменить его перед
+              запуском.
             </span>
           ) : (
-            <span className="text-red-600">
-              Playbook не выбран. Нельзя запустить анализ без выбранного playbook.
+            <span className="text-[var(--color-error)]">
+              Playbook не выбран. Нельзя запустить анализ без выбранного
+              playbook.
             </span>
           )}
         </p>
       </section>
 
       {/* Primary language */}
-      <section className="mb-4 space-y-2 text-xs text-gray-700">
-        <h3 className="font-semibold text-gray-900 text-sm">
+      <section className="mb-4 space-y-2 text-xs text-[var(--text-secondary)]">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
           Основной язык анализа
         </h3>
 
         <div className="flex items-center gap-2">
           <select
-            className="border rounded px-2 py-1 text-xs bg-white text-gray-700 disabled:opacity-50"
+            className="rounded border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] disabled:opacity-50"
             value={selectedPrimaryLanguage}
             onChange={(e) => onPrimaryLanguageChange(e.target.value)}
             disabled={documentLanguages.length === 0 || isSubmitting}
@@ -183,12 +187,14 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           </select>
 
           {isSubmitting && (
-            <span className="text-[11px] text-gray-400">Сохраняем…</span>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              Сохраняем…
+            </span>
           )}
         </div>
 
         {hasMultipleDocumentLanguages && !selectedPrimaryLanguage && (
-          <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+          <p className="rounded-2xl border border-[var(--color-warning-highlight)] bg-[var(--color-warning-highlight)]/40 px-3 py-2 text-[11px] text-[var(--color-warning)]">
             В сделке есть документы на нескольких языках. Перед запуском анализа
             выберите основной язык, на нём будут выполняться нормализация,
             извлечение данных и оценка рисков.
@@ -197,8 +203,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
       </section>
 
       {/* Checks mode */}
-      <section className="mb-4 space-y-2 text-xs text-gray-700">
-        <h3 className="font-semibold text-gray-900 text-sm">Режим проверки</h3>
+      <section className="mb-4 space-y-2 text-xs text-[var(--text-secondary)]">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          Режим проверки
+        </h3>
         <div className="space-y-1.5">
           <label className="flex items-start gap-2">
             <input
@@ -210,11 +218,12 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               disabled={isSubmitting || !canStartRun}
             />
             <span>
-              <span className="block font-medium text-[13px]">
+              <span className="block text-[13px] font-medium text-[var(--text-primary)]">
                 Playbook и типы документов
               </span>
-              <span className="block text-[11px] text-gray-500">
-                Рекомендуемый режим: комбинирует глобальный playbook и типовые проверки.
+              <span className="block text-[11px] text-[var(--text-muted)]">
+                Рекомендуемый режим: комбинирует глобальный playbook и типовые
+                проверки.
               </span>
             </span>
           </label>
@@ -229,10 +238,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               disabled={isSubmitting || !canStartRun}
             />
             <span>
-              <span className="block font-medium text-[13px]">
+              <span className="block text-[13px] font-medium text-[var(--text-primary)]">
                 Только Playbook
               </span>
-              <span className="block text-[11px] text-gray-500">
+              <span className="block text-[11px] text-[var(--text-muted)]">
                 Анализ только по правилам playbook без привязки к типу документа.
               </span>
             </span>
@@ -248,10 +257,10 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               disabled={isSubmitting || !canStartRun}
             />
             <span>
-              <span className="block font-medium text-[13px]">
+              <span className="block text-[13px] font-medium text-[var(--text-primary)]">
                 Только типы документов
               </span>
-              <span className="block text-[11px] text-gray-500">
+              <span className="block text-[11px] text-[var(--text-muted)]">
                 Используются проверки, привязанные к типам документов.
               </span>
             </span>
@@ -261,15 +270,12 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
 
       {/* Additional */}
       {deal.has_pending_manual_reclassifications && (
-        <section className="mt-4 border-t border-gray-200 pt-4">
-          <button
-            type="button"
-            className="text-xs font-semibold text-gray-700 mb-2"
-          >
+        <section className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+          <p className="mb-2 text-xs font-semibold text-[var(--text-primary)]">
             Дополнительные параметры
-          </button>
+          </p>
 
-          <label className="flex items-start gap-2 text-xs text-gray-700">
+          <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
             <input
               type="checkbox"
               className="mt-[2px]"
@@ -278,26 +284,25 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               disabled={isSubmitting}
             />
             <span>
-              <span className="block font-medium text-[13px]">
+              <span className="block text-[13px] font-medium text-[var(--text-primary)]">
                 Принудительно переклассифицировать документы
               </span>
-              <span className="block text-[11px] text-gray-500">
-                Используйте после ручной переклассификации, чтобы обновить типы документов.
+              <span className="block text-[11px] text-[var(--text-muted)]">
+                Используйте после ручной переклассификации, чтобы обновить типы
+                документов.
               </span>
             </span>
           </label>
 
           {onOpenModelConfig && deal.model_config_name && (
-            <div className="mt-3 flex items-center justify-between text-xs text-gray-700">
+            <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-secondary)]">
               <div>
-                <span className="font-semibold">Профиль модели: </span>
+                <span className="font-semibold text-[var(--text-primary)]">
+                  Профиль модели:{" "}
+                </span>
                 <span>{deal.model_config_name}</span>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={onOpenModelConfig}
-              >
+              <Button variant="secondary" size="sm" onClick={onOpenModelConfig}>
                 Настроить модель
               </Button>
             </div>

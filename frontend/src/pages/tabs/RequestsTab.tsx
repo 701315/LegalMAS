@@ -24,14 +24,14 @@ import { ReviewRequestSidePanel } from "../../components/requests/ReviewRequestS
 interface Props {
   dealId: string;
   runId: string | null;
-  /**
-   * Callback для открытия viewer в конкретном месте документа.
-   * Передаётся из родительского компонента (например, DealPage).
-   */
   onOpenViewerAt?: OpenViewerAtFn;
 }
 
-export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) => {
+export const RequestsTab: React.FC<Props> = ({
+  dealId,
+  runId,
+  onOpenViewerAt,
+}) => {
   const { data: requests, isLoading } = useRequests(dealId);
 
   const updateMutation = useUpdateRequest(dealId);
@@ -41,23 +41,18 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
   const perms = useDealPermissions(dealId);
   const { canManageRequests } = perms;
 
-  console.log("deal permissions", dealId, JSON.stringify(perms, null, 2));
-
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
-  const [selectedReviewReq, setSelectedReviewReq] = useState<DDRequestDTO | null>(null);
+  const [selectedReviewReq, setSelectedReviewReq] = useState<DDRequestDTO | null>(
+    null,
+  );
 
-  // Run-scoped DD requests — segment-aware, read-only review view.
-  // Включается только если runId передан в пропсах.
   const { data: reviewRequests, isLoading: isLoadingReview } =
     useDealReviewDdRequests(dealId, runId ?? null, {
       enabled: !!runId,
     });
 
-  // Режим: если есть runId и review-данные загружены — показываем review-режим.
-  // Иначе — legacy-режим.
   const isReviewMode = !!runId && !isLoadingReview && Array.isArray(reviewRequests);
 
-  // Сохранение изменений из side panel
   const handleSave = useCallback(
     async (reqId: string, data: Partial<DDRequest>) => {
       if (!canManageRequests) return;
@@ -66,7 +61,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
     [updateMutation, canManageRequests],
   );
 
-  // Удаление запроса
   const handleDelete = useCallback(
     async (reqId: string) => {
       if (!canManageRequests) return;
@@ -75,7 +69,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
     [deleteMutation, canManageRequests],
   );
 
-  // Экспорт Word (список DD-запросов -> .docx)
   const handleExportWord = useCallback(async () => {
     try {
       const blob = await exportRequestsMutation.mutateAsync({
@@ -97,7 +90,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
     }
   }, [dealId, exportRequestsMutation]);
 
-  // Экспорт Excel (список DD-запросов -> .xlsx)
   const handleExportExcel = useCallback(async () => {
     try {
       const blob = await exportRequestsMutation.mutateAsync({
@@ -119,7 +111,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
     }
   }, [dealId, exportRequestsMutation]);
 
-  // Создание нового запроса (плейсхолдер)
   const handleCreate = useCallback(() => {
     if (!canManageRequests) {
       alert("Создание запросов доступно только редакторам и администраторам.");
@@ -130,14 +121,15 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
 
   if (isLoading && !isReviewMode) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="animate-spin mr-3 text-blue-500" size={24} />
-        <span className="text-lg text-gray-500">Загружаем запросы…</span>
+      <div className="flex min-h-[320px] items-center justify-center bg-[var(--bg-base)]">
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 text-[var(--text-secondary)] shadow-2xl shadow-black/30">
+          <Loader2 className="animate-spin text-indigo-400" size={20} />
+          <span className="text-sm">Загружаем запросы…</span>
+        </div>
       </div>
     );
   }
 
-  // Review-режим: run-scoped, segment-aware, read-only
   if (isReviewMode) {
     return (
       <>
@@ -154,7 +146,6 @@ export const RequestsTab: React.FC<Props> = ({ dealId, runId, onOpenViewerAt }) 
     );
   }
 
-  // Legacy-режим: управление запросами (CRUD)
   return (
     <>
       <RequestsTable

@@ -1,14 +1,6 @@
 // =============================================================
 // src/components/requests/shared/RequestSegmentSummary.tsx
 // Shared UI компонент для отображения segment context DD-запроса.
-// Используется ТОЛЬКО в:
-// - ReviewRequestSidePanel (review mode)
-//
-// НЕ используется в legacy mode, потому что DDRequest не имеет segment полей.
-//
-// Для непрофессионального программиста:
-// Это информационный блок, который показывает из какой части документа
-// (сегмента) был извлечён этот запрос. Например: "Приложение №1", "Chunk #5"
 // =============================================================
 
 import React from "react";
@@ -16,48 +8,20 @@ import type { SegmentProvenanceView } from "../../../viewAdapters/requestPresent
 
 interface RequestSegmentSummaryProps {
   segment: SegmentProvenanceView;
-
-  /**
-   * Callback для перехода к месту в документе (viewer jump).
-   * Опционален — если не передан, кнопка перехода не показывается.
-   */
   onJumpToViewer?: () => void;
-
-  /**
-   * Блокировка viewer jump (например, когда нет document_id).
-   */
   viewerJumpDisabled?: boolean;
-
-  /**
-   * Текст подсказки, почему viewer jump недоступен.
-   */
   viewerJumpDisabledReason?: string;
 }
 
-/**
- * Преобразует технический 0-based segment_order в человекочитаемый номер.
- *
- * Для непрофессионального программиста:
- * Внутри системы сегменты часто нумеруются с нуля:
- * 0 = первый, 1 = второй, 2 = третий.
- * Но пользователю понятнее видеть нумерацию с единицы:
- * 1 = первый, 2 = второй, 3 = третий.
- */
 function formatSegmentOrder(segmentOrder: number | null): string | null {
   if (segmentOrder == null) return null;
   return `#${segmentOrder + 1}`;
 }
 
-/**
- * Отображает информацию о сегменте и chunk для review request.
- * Показывает:
- * - Название сегмента (segment_title)
- * - Тип сегмента (segment_type)
- * - Порядок сегмента (segment_order)
- * - Номер chunk (chunk_index)
- * - Метку "Основной сегмент" если is_primary_segment = true
- * - Кнопку перехода к месту в документе (если доступна)
- */
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
 export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
   segment,
   onJumpToViewer,
@@ -65,80 +29,83 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
   viewerJumpDisabledReason,
 }) => {
   const humanSegmentOrder = formatSegmentOrder(segment.segmentOrder);
-
-  /**
-   * Показываем кнопку viewer jump, если родитель вообще передал callback.
-   * Даже если переход сейчас заблокирован, кнопку лучше оставить видимой,
-   * но disabled — так интерфейс более понятный и предсказуемый.
-   */
   const showViewerJumpButton = !!onJumpToViewer;
 
   return (
-    <div className="rounded border border-blue-100 bg-blue-50 p-3 space-y-1.5">
-      {/* Segment title */}
+    <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-3">
       {segment.segmentTitle && (
-        <div className="flex justify-between text-xs gap-3">
-          <span className="text-gray-500 shrink-0">Сегмент</span>
-          <span className="text-gray-800 font-medium text-right">
+        <div className="flex items-start justify-between gap-3 text-xs">
+          <span className="shrink-0 text-[var(--text-muted)]">Сегмент</span>
+          <span className="text-right font-medium text-[var(--text-primary)]">
             {segment.segmentTitle}
           </span>
         </div>
       )}
 
-      {/* Segment type */}
       {segment.segmentType && (
-        <div className="flex justify-between text-xs gap-3">
-          <span className="text-gray-500 shrink-0">Тип сегмента</span>
-          <span className="text-gray-700 text-right">{segment.segmentType}</span>
+        <div className="flex items-start justify-between gap-3 text-xs">
+          <span className="shrink-0 text-[var(--text-muted)]">
+            Тип сегмента
+          </span>
+          <span className="text-right text-[var(--text-secondary)]">
+            {segment.segmentType}
+          </span>
         </div>
       )}
 
-      {/* Segment order */}
       {humanSegmentOrder && (
-        <div className="flex justify-between text-xs gap-3">
-          <span className="text-gray-500 shrink-0">Порядок</span>
-          <span className="text-gray-700">{humanSegmentOrder}</span>
+        <div className="flex items-start justify-between gap-3 text-xs">
+          <span className="shrink-0 text-[var(--text-muted)]">Порядок</span>
+          <span className="text-right text-[var(--text-secondary)]">
+            {humanSegmentOrder}
+          </span>
         </div>
       )}
 
-      {/* Chunk index */}
       {segment.chunkIndex != null && (
-        <div className="flex justify-between text-xs gap-3">
-          <span className="text-gray-500 shrink-0">Chunk</span>
-          <span className="text-gray-700 font-mono">#{segment.chunkIndex}</span>
+        <div className="flex items-start justify-between gap-3 text-xs">
+          <span className="shrink-0 text-[var(--text-muted)]">Chunk</span>
+          <span className="font-mono text-right text-[var(--text-secondary)]">
+            #{segment.chunkIndex}
+          </span>
         </div>
       )}
 
-      {/* Primary segment badge */}
       {segment.isPrimarySegment && (
-        <div className="mt-1 text-[11px] text-blue-600">
-          ✦ Основной сегмент документа
+        <div className="pt-1">
+          <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--accent-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-primary)]">
+            Основной сегмент документа
+          </span>
         </div>
       )}
 
-      {/* Viewer jump button */}
       {showViewerJumpButton && (
         <button
           type="button"
           disabled={viewerJumpDisabled}
-          title={viewerJumpDisabled ? viewerJumpDisabledReason : "Открыть в документе"}
-          className={
+          title={
             viewerJumpDisabled
-              ? "mt-2 w-full text-xs text-gray-400 text-left cursor-not-allowed"
-              : "mt-2 w-full text-xs text-blue-700 hover:underline text-left"
+              ? viewerJumpDisabledReason
+              : "Открыть в документе"
           }
+          className={cn(
+            "mt-2 inline-flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-xs transition",
+            viewerJumpDisabled
+              ? "cursor-not-allowed border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-faint)]"
+              : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--accent-primary)] hover:bg-[var(--bg-card-hover)]",
+          )}
           onClick={() => {
             if (viewerJumpDisabled || !onJumpToViewer) return;
             onJumpToViewer();
           }}
         >
-          Открыть в документе →
+          <span>Открыть в документе</span>
+          <span aria-hidden="true">→</span>
         </button>
       )}
 
-      {/* Viewer jump disabled notice */}
       {viewerJumpDisabled && viewerJumpDisabledReason && (
-        <p className="mt-1 text-[10px] text-gray-400 italic">
+        <p className="text-[10px] italic text-[var(--text-faint)]">
           {viewerJumpDisabledReason}
         </p>
       )}
@@ -147,5 +114,6 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
 };
 
 export default RequestSegmentSummary;
+
 
 

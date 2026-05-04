@@ -39,19 +39,12 @@ import DDMatrixCellDetails, {
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-
 // -------------------------------------------------------------
 // Composition helper для MatrixRow
-// Адаптирует MatrixRow к формату, понятному getCompositionBadgeData.
-// Не тащит DocumentListItem в этот файл — только берём нужные поля.
 // -------------------------------------------------------------
 
 function getRowCompositionBadgeData(row: MatrixRowBase) {
-  // Преобразуем MatrixRow в DocumentCompositionMeta и передаём напрямую в helper.
-  // Больше не нужно создавать fake DocumentListItem.
-  
   if (row.isMultiDocument == null && row.segmentCount == null) {
-    // Если composition-данных нет, передаём null
     return getCompositionBadgeDataFromMeta(null);
   }
 
@@ -63,7 +56,6 @@ function getRowCompositionBadgeData(row: MatrixRowBase) {
     is_composite_file: false,
   });
 }
-
 
 // -------------------------------------------------------------
 // Props
@@ -92,7 +84,7 @@ export interface DDMatrixGridProps {
   /** Если true — показываем только строки с isMultiDocument === true */
   multiDocumentOnly?: boolean;
 
-  /** Если передан — показываем только строки с критичностью >= переданного порога */
+  /** Если true — показываем только строки, где есть хотя бы один critical */
   criticalOnly?: boolean;
 
   height?: number;
@@ -146,7 +138,9 @@ interface SelectedCellState {
 // Helpers
 // -------------------------------------------------------------
 
-function isRiskSeverity(value: string | null | undefined): value is SeverityLevel {
+function isRiskSeverity(
+  value: string | null | undefined,
+): value is SeverityLevel {
   return value === "critical" || value === "high" || value === "medium";
 }
 
@@ -172,6 +166,7 @@ function getCellSeverity(cell: MatrixCellDTO): SeverityLevel | null {
 function getCellLocationText(cell: MatrixCellDTO): string {
   const pageText = cell.page != null ? `стр. ${cell.page}` : "";
   const clauseText = cell.clause_uid ? cell.clause_uid : "";
+
   if (pageText && clauseText) return `${pageText} · ${clauseText}`;
   return pageText || clauseText || "";
 }
@@ -282,9 +277,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   criticalOnly = false,
   height = 600,
 }) => {
-
-
-
   const [selectedCell, setSelectedCell] = useState<SelectedCellState>({
     open: false,
     documentId: null,
@@ -303,9 +295,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     }
 
     const built = buildMatrixRows(data);
-
-    // Применяем фильтры на уровне rowData, а не в AG Grid,
-    // чтобы они работали предсказуемо и не зависели от состояния грида.
     let filtered = built.rowData;
 
     if (multiDocumentOnly) {
@@ -392,13 +381,17 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
           const documentName = params.data?.documentName || "[no name]";
 
           if (!documentId || !onOpenDocument) {
-            return <span className="text-xs text-gray-700">{documentName}</span>;
+            return (
+              <span className="text-xs text-[var(--text-secondary)]">
+                {documentName}
+              </span>
+            );
           }
 
           return (
             <button
               type="button"
-              className="text-left text-xs text-blue-700 hover:underline"
+              className="text-left text-xs text-[var(--accent-primary)] hover:underline"
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenDocument({
@@ -426,13 +419,20 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         width: 180,
         cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
           const row = params.data;
-          if (!row) return <span className="text-[11px] text-gray-300">—</span>;
+
+          if (!row) {
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
+          }
 
           const badges = getRowCompositionBadgeData(row);
 
           if (!badges.showMultiBadge && !badges.showSegmentCount) {
             return (
-              <span className="text-[11px] text-gray-400">single</span>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                single
+              </span>
             );
           }
 
@@ -440,15 +440,16 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
             <div className="flex items-center gap-1 py-0.5">
               {badges.showMultiBadge && (
                 <span
-                  className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                  className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] text-[var(--accent-primary)]"
                   title="Файл содержит несколько логических документов"
                 >
                   multi
                 </span>
               )}
+
               {badges.showSegmentCount && (
                 <span
-                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
+                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
                   title="Количество сегментов"
                 >
                   {badges.segmentCount} seg
@@ -471,12 +472,15 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         width: 145,
         cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
           const value = params.data?.requiresManualReview;
+
           if (!value) {
-            return <span className="text-[11px] text-gray-300">—</span>;
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
           }
 
           return (
-            <span className="inline-flex items-center rounded border border-yellow-200 bg-yellow-50 px-1.5 py-0.5 text-[11px] text-yellow-700">
+            <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[11px] font-medium border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]">
               Нужна проверка
             </span>
           );
@@ -517,10 +521,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
           minWidth: 220,
           flex: 1,
           tooltipValueGetter: (params: ITooltipParams<MatrixRow>): string => {
-          const cell = params.data?.[field];
-          return cell?.snippet || "";
+            const cell = params.data?.[field];
+            return cell?.snippet || "";
           },
-
           valueFormatter: (params: ValueFormatterParams<MatrixRow>) => {
             const cell = params.data?.[field];
             if (!cell) return "";
@@ -534,7 +537,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
             const cell = row?.[field];
 
             if (!row || !cell) {
-              return <span className="text-[11px] text-gray-300">—</span>;
+              return (
+                <span className="text-[11px] text-[var(--text-faint)]">—</span>
+              );
             }
 
             const statusText = getCellStatusText(cell);
@@ -559,7 +564,10 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                     });
                   }}
                 >
-                  <div className="text-[11px] text-gray-900">{statusText}</div>
+                  <div className="text-[11px] text-[var(--text-primary)]">
+                    {statusText}
+                  </div>
+
                   {severity && (
                     <div className="mt-1 origin-left scale-90">
                       <SeverityBadge severity={severity} />
@@ -568,24 +576,24 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                 </button>
 
                 <div className="flex w-full items-center justify-between gap-2">
-                  <div className="min-w-0 truncate text-[10px] text-gray-500">
+                  <div className="min-w-0 truncate text-[10px] text-[var(--text-muted)]">
                     {locationText || "—"}
                   </div>
 
                   {onOpenAtLocation && (
                     <button
                       type="button"
-                      className="shrink-0 text-[10px] text-blue-700 hover:underline"
+                      className="shrink-0 text-[10px] text-[var(--accent-primary)] hover:underline"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenAtLocation({
                           documentId: row.documentId,
-                          page: cell.page ?? null,
-                          clauseUid: cell.clause_uid ?? null,
-                          elementId: null,
-                          segmentId: cell.segment_id ?? null,
-                          chunkId: cell.chunk_id ?? null,
-                          chunkIndex: cell.chunk_index ?? null,
+                          page: cell.page ?? undefined,
+                          clauseUid: cell.clause_uid ?? undefined,
+                          elementId: undefined,
+                          segmentId: cell.segment_id ?? undefined,
+                          chunkId: cell.chunk_id ?? undefined,
+                          chunkIndex: cell.chunk_index ?? undefined,
                         });
                       }}
                     >
@@ -595,7 +603,9 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                 </div>
 
                 {segmentText && (
-                  <div className="text-[10px] text-gray-500">{segmentText}</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">
+                    {segmentText}
+                  </div>
                 )}
               </div>
             );
@@ -613,10 +623,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   const handleSelectionChanged = useCallback(
     (event: SelectionChangedEvent<MatrixRow>) => {
       if (!onSelectionChange) return;
+
       const ids = event.api
         .getSelectedNodes()
         .map((node) => node.data?.documentId)
         .filter((value): value is string => Boolean(value));
+
       onSelectionChange(ids);
     },
     [onSelectionChange],
@@ -624,7 +636,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
   if (!data || !rowData.length) {
     return (
-      <div className="rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
         Нет данных для отображения в DD Matrix.
       </div>
     );
@@ -632,22 +644,23 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
   return (
     <>
-      <div className="ag-theme-alpine" style={{ height, width: "100%" }}>
-        <AgGridReact<MatrixRow>
-          rowData={rowData}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDef}
-          rowSelection={{
-            mode: "multiRow",
-            enableSelectionWithoutKeys: true,
-            checkboxes: true,
-            headerCheckbox: true,
-          }}
-          suppressCellFocus
-          onSelectionChanged={handleSelectionChanged}
-          getRowId={(params) => params.data.documentId}
-          theme="legacy"
-        />
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div className="ag-theme-alpine" style={{ height, width: "100%" }}>
+          <AgGridReact<MatrixRow>
+            rowData={rowData}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            rowSelection={{
+              mode: "multiRow",
+              enableSelectionWithoutKeys: true,
+              checkboxes: true,
+              headerCheckbox: true,
+            }}
+            suppressCellFocus
+            onSelectionChanged={handleSelectionChanged}
+            getRowId={(params) => params.data.documentId}
+          />
+        </div>
       </div>
 
       <DDMatrixCellDetails
@@ -663,12 +676,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
             ? (payload) =>
                 onOpenAtLocation({
                   documentId: payload.documentId,
-                  page: payload.page ?? null,
-                  clauseUid: payload.clauseUid ?? null,
-                  elementId: null,
-                  segmentId: payload.segmentId ?? null,
-                  chunkId: payload.chunkId ?? null,
-                  chunkIndex: payload.chunkIndex ?? null,
+                  page: payload.page ?? undefined,
+                  clauseUid: payload.clauseUid ?? undefined,
+                  elementId: undefined,
+                  segmentId: payload.segmentId ?? undefined,
+                  chunkId: payload.chunkId ?? undefined,
+                  chunkIndex: payload.chunkIndex ?? undefined,
                 })
             : undefined
         }
@@ -678,3 +691,5 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 };
 
 export default DDMatrixGrid;
+
+

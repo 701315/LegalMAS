@@ -3,6 +3,7 @@
 // Вкладка "DD Grid":
 // - legacy режим: поиск + фильтры + Magic Zoom + bulk QC поверх CheckResult[]
 // - review режим: backend dd-matrix DTO поверх run-scoped review API
+// Приведено к общему дизайну workspace LegalMAS.
 // =============================================================
 
 import React from "react";
@@ -32,6 +33,7 @@ import EvidencePanel from "../../components/evidence/EvidencePanel";
 import BulkQCBar from "../../components/qc/BulkQCBar";
 import QualityFlagsLegend from "../../components/qc/QualityFlagsLegend";
 import ExportButtons from "../../components/grid/ExportButtons";
+import Button from "../../components/ui/Button";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useRun } from "../../api/runs";
 import DocumentViewerModal, {
@@ -49,12 +51,8 @@ interface GridTabProps {
 type GridScope = "all" | "global" | "doctype";
 type GridMode = "matrix" | "list";
 type GridDataSource = "legacy" | "review";
-
-// Нормализованный тип источника проверки.
 type NormalizedOrigin = "global" | "doctype" | "other";
 
-// Функция нормализации значений origin/origin_type из бэкенда
-// в стабильный enum NormalizedOrigin.
 function normalizeOrigin(
   rawOrigin: string | null | undefined,
   originType?: "global" | "doctype" | "custom",
@@ -84,8 +82,6 @@ function normalizeOrigin(
   return "other";
 }
 
-// Состояние viewer'а: куда прыгать, какой PDF открывать,
-// и дополнительные данные для overlay (layout + чанки).
 type ViewerState = {
   location: OpenViewerAtPayload;
   pdfUrl: string;
@@ -117,6 +113,65 @@ function getReviewSummary(matrix: DDMatrixResponseDTO | undefined) {
   };
 }
 
+function SectionCard({
+  title,
+  description,
+  actions,
+  children,
+}: {
+  title: string;
+  description?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-[var(--border)] px-5 py-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </section>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: "default" | "critical" | "accent";
+}) {
+  const valueClass =
+    tone === "critical"
+      ? "text-[color:rgb(120,35,46)]"
+      : tone === "accent"
+        ? "text-[var(--accent-primary)]"
+        : "text-[var(--text-primary)]";
+
+  return (
+    <div className="rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+        {label}
+      </div>
+      <div className={`mt-2 text-lg font-semibold tracking-tight ${valueClass}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [dataSource, setDataSource] =
     React.useState<GridDataSource>("legacy");
@@ -124,27 +179,15 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [searchText, setSearchText] = React.useState("");
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
   const [zoomResult, setZoomResult] = React.useState<CheckResult | null>(null);
-  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(
-    null,
-  );
+  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(null);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
-  const [selectedDocType, setSelectedDocType] = React.useState<string | null>(
-    null,
-  );
+  const [selectedDocType, setSelectedDocType] = React.useState<string | null>(null);
 
-  // Флаг "только со структурированными данными"
   const [hasStructuredDataOnly, setHasStructuredDataOnly] =
     React.useState(false);
-
-  // Фильтр "только multi-document" для legacy-режима
   const [legacyMultiDocOnly, setLegacyMultiDocOnly] = React.useState(false);
-
-  // Фильтр "только Critical" для legacy-режима
   const [legacyCriticalOnly, setLegacyCriticalOnly] = React.useState(false);
 
-  // Документы для построения compositionByDocId в legacy-режиме
-  // useDocuments возвращает PaginatedResponse<DocumentListItem>,
-  // поэтому берём .items из data.
   const { data: documentsPage } = useDocuments(dealId);
 
   const compositionByDocId = React.useMemo(() => {
@@ -158,10 +201,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     );
   }, [documentsPage]);
 
-  // Фильтры для review-режима (DDMatrixGrid)
-  // Только multi-document файлы
   const [reviewMultiDocOnly, setReviewMultiDocOnly] = React.useState(false);
-  // Только документы с хотя бы одним Critical
   const [reviewCriticalOnly, setReviewCriticalOnly] = React.useState(false);
 
   const [gridScope, setGridScope] = React.useState<GridScope>("all");
@@ -170,7 +210,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   >([]);
   const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
 
-  // Стейт цели для viewer'a + реальный PDF URL + данные для overlay
   const [viewerState, setViewerState] = React.useState<ViewerState>(null);
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
   const [viewerError, setViewerError] = React.useState<string | null>(null);
@@ -178,28 +217,24 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const { canReclassifyDocuments } = useDealPermissions(dealId);
   const canDoQc = canReclassifyDocuments;
 
-  // Legacy источник
   const {
     data: allResults = [],
     isLoading: isLegacyLoading,
     error: legacyError,
   } = useAllResults(runId);
 
-  // Новый review matrix источник
   const {
     data: ddMatrix,
     isLoading: isReviewLoading,
     error: reviewError,
   } = useDealReviewDdMatrix(dealId, runId);
 
-  // Загружаем информацию о Run, чтобы знать checks_mode / pipeline_strategy
   const {
     data: run,
     isLoading: isRunLoading,
     error: runError,
   } = useRun(runId, false);
 
-  // Инициализация gridScope на основе checks_mode Run
   React.useEffect(() => {
     if (!run) return;
     const mode = run.checks_mode;
@@ -250,7 +285,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       results = results.filter((r) => r.doc_type === selectedDocType);
     }
 
-    // Фильтр: только те результаты, у которых есть structured_data
     if (hasStructuredDataOnly) {
       results = results.filter((r) => r.structured_data != null);
     }
@@ -291,7 +325,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
         break;
     }
 
-    // Фильтр "только Critical" (применяется после quickFilter)
     if (legacyCriticalOnly) {
       results = results.filter((r) => r.severity === "critical");
     }
@@ -478,10 +511,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
     setSelectedScopeDocTypes([]);
   };
 
-  // Коллбэк открытия viewer'a в нужном месте документа:
-  // 1) тянем /api/v1/documents/{doc_id}/converted-pdf-url
-  // 2) параллельно тянем layout + sized-chunks для overlay
-  // 3) кладём всё в стейт viewerState
   const openViewerAt: OpenViewerAtFn = async (loc) => {
     try {
       setViewerError(null);
@@ -506,14 +535,12 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
       }
 
       const [layoutResp, chunksResp] = await Promise.all([
-        fetch(
-          `/api/v1/documents/${loc.documentId}/layout-for-viewer`,
-          { credentials: "include" },
-        ),
-        fetch(
-          `/api/v1/documents/${loc.documentId}/sized-chunks`,
-          { credentials: "include" },
-        ),
+        fetch(`/api/v1/documents/${loc.documentId}/layout-for-viewer`, {
+          credentials: "include",
+        }),
+        fetch(`/api/v1/documents/${loc.documentId}/sized-chunks`, {
+          credentials: "include",
+        }),
       ]);
 
       let layoutElements: LayoutElement[] | undefined;
@@ -530,7 +557,6 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
       if (chunksResp.ok) {
         const chunksJson = await chunksResp.json();
-
         const rawChunks = Array.isArray(chunksJson?.chunks)
           ? chunksJson.chunks
           : [];
@@ -562,16 +588,15 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (!runId) {
     return (
-      <div className="py-4 text-sm text-gray-500">
-        Нет выбранного запуска анализа. Сначала запустите анализ на вкладке
-        «Обзор».
+      <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 text-sm text-[var(--text-secondary)] shadow-sm">
+        Нет выбранного запуска анализа. Сначала запустите анализ на вкладке «Обзор».
       </div>
     );
   }
 
   if (isRunLoading) {
     return (
-      <div className="py-4 text-sm text-gray-500">
+      <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 text-sm text-[var(--text-secondary)] shadow-sm">
         Загружаем информацию о запуске анализа…
       </div>
     );
@@ -579,7 +604,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (runError) {
     return (
-      <div className="py-4 text-sm text-red-600">
+      <div className="rounded-[24px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-5 py-4 text-sm text-[color:rgb(120,35,46)] shadow-sm">
         Не удалось загрузить информацию о запуске анализа.
       </div>
     );
@@ -591,7 +616,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (isGridLoading) {
     return (
-      <div className="py-4 text-sm text-gray-500">
+      <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-5 py-4 text-sm text-[var(--text-secondary)] shadow-sm">
         {dataSource === "review"
           ? "Загружаем review-матрицу…"
           : "Загружаем результаты…"}
@@ -601,7 +626,7 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   if (gridError) {
     return (
-      <div className="py-4 text-sm text-red-600">
+      <div className="rounded-[24px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-5 py-4 text-sm text-[color:rgb(120,35,46)] shadow-sm">
         {dataSource === "review"
           ? "Не удалось загрузить review-матрицу."
           : "Не удалось загрузить результаты проверки."}
@@ -610,296 +635,364 @@ const GridTab: React.FC<GridTabProps> = ({ dealId, runId }) => {
   }
 
   return (
-    <div className="space-y-3 pb-10">
-      <div className="text-[11px] text-gray-400">Сделка: {dealId}</div>
+    <div className="space-y-4 pb-10">
+      <section className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div className="border-b border-[var(--border)] px-5 py-4">
+          <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            DD Grid
+          </div>
 
-      {run && (
-        <div className="text-[11px] text-gray-500">
-          Анализ: run {run.id} · статус: {run.status}
-          {run.checks_mode && (
-            <>
-              {" · "}режим проверок{" "}
-              <span className="font-medium text-gray-700">
-                {run.checks_mode === "global_and_doc_type"
-                  ? "Плейбук + типы документов"
-                  : run.checks_mode === "global_only"
-                    ? "Только плейбук"
-                    : "Только типы документов"}
-              </span>
-            </>
-          )}
-          {run.pipeline_strategy && (
-            <>
-              {" · "}стратегия пайплайна{" "}
-              <span className="font-medium text-gray-700">
-                {run.pipeline_strategy}
-              </span>
-            </>
-          )}
+          <div className="mt-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold tracking-tight text-[var(--text-primary)]">
+                Матрица проверок и доказательств
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                Просматривайте результаты проверок, переключайтесь между legacy и review
+                представлением и открывайте связанные документы в viewer.
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+                <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1">
+                  Сделка: {dealId}
+                </span>
+                {run && (
+                  <>
+                    <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1">
+                      Run: {run.id}
+                    </span>
+                    <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1">
+                      Статус: {run.status}
+                    </span>
+                    {run.checks_mode && (
+                      <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1">
+                        Проверки:{" "}
+                        {run.checks_mode === "global_and_doc_type"
+                          ? "Плейбук + типы документов"
+                          : run.checks_mode === "global_only"
+                            ? "Только плейбук"
+                            : "Только типы документов"}
+                      </span>
+                    )}
+                    {run.pipeline_strategy && (
+                      <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2.5 py-1">
+                        Пайплайн: {run.pipeline_strategy}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-base)] p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Источник данных
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={dataSource === "review" ? "primary" : "secondary"}
+                    onClick={() => setDataSource("review")}
+                  >
+                    Review matrix
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={dataSource === "legacy" ? "primary" : "secondary"}
+                    onClick={() => setDataSource("legacy")}
+                  >
+                    Legacy results
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-base)] p-3">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  Режим отображения
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gridMode === "matrix" ? "primary" : "secondary"}
+                    onClick={() => setGridMode("matrix")}
+                  >
+                    Матрица
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gridMode === "list" ? "primary" : "secondary"}
+                    onClick={() => setGridMode("list")}
+                    disabled={dataSource === "review"}
+                    title={
+                      dataSource === "review"
+                        ? "В review-режиме пока доступна только матрица"
+                        : undefined
+                    }
+                  >
+                    Список
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
 
-      <div className="flex items-center justify-between gap-4 text-[11px] text-gray-400">
-        <div className="flex items-center gap-2">
-          <span>Источник:</span>
-          <button
-            type="button"
-            className={
-              "rounded border px-2 py-1 text-[11px] " +
-              (dataSource === "review"
-                ? "bg-blue-50 border-blue-400 text-blue-700"
-                : "bg-white border-gray-300 text-gray-600")
-            }
-            onClick={() => setDataSource("review")}
-          >
-            Review matrix
-          </button>
-          <button
-            type="button"
-            className={
-              "rounded border px-2 py-1 text-[11px] " +
-              (dataSource === "legacy"
-                ? "bg-blue-50 border-blue-400 text-blue-700"
-                : "bg-white border-gray-300 text-gray-600")
-            }
-            onClick={() => setDataSource("legacy")}
-          >
-            Legacy results
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span>Режим:</span>
-          <button
-            type="button"
-            className={
-              "rounded border px-2 py-1 text-[11px] " +
-              (gridMode === "matrix"
-                ? "bg-blue-50 border-blue-400 text-blue-700"
-                : "bg-white border-gray-300 text-gray-600")
-            }
-            onClick={() => setGridMode("matrix")}
-          >
-            Матрица
-          </button>
-          <button
-            type="button"
-            className={
-              "rounded border px-2 py-1 text-[11px] " +
-              (gridMode === "list"
-                ? "bg-blue-50 border-blue-400 text-blue-700"
-                : "bg-white border-gray-300 text-gray-600")
-            }
-            onClick={() => setGridMode("list")}
-            disabled={dataSource === "review"}
-            title={
+        <div className="grid gap-3 px-5 py-4 md:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Документы" value={dataSource === "review" ? reviewSummary.documentCount : uniqueDocCount} />
+          <StatCard label="Проверки" value={dataSource === "review" ? reviewSummary.checkCount : scopeResults.length} tone="accent" />
+          <StatCard
+            label="Critical / High"
+            value={
               dataSource === "review"
-                ? "В review-режиме пока доступна только матрица"
-                : undefined
+                ? `${reviewSummary.criticalCount} / ${reviewSummary.highCount}`
+                : `${allResults.filter((r) => r.severity === "critical").length} / ${
+                    allResults.filter((r) => r.severity === "high").length
+                  }`
             }
-          >
-            Список
-          </button>
+            tone="critical"
+          />
+          <StatCard
+            label="Без QC / Unclear"
+            value={
+              dataSource === "review"
+                ? `${reviewSummary.unclearCount}`
+                : `${importantCount} / ${unclearCount}`
+            }
+          />
         </div>
-      </div>
+      </section>
 
       {dataSource === "legacy" && (
         <>
-          <GridFilters
-            searchText={searchText}
-            onSearchChange={setSearchText}
-            activeFilter={quickFilter}
-            onFilterChange={setQuickFilter}
-            totalCount={allResults.length}
-            filteredCount={filteredResults.length}
-            availableDocTypes={availableDocTypes}
-            selectedDocType={selectedDocType}
-            onDocTypeChange={setSelectedDocType}
-            hasStructuredDataOnly={hasStructuredDataOnly}
-            onHasStructuredDataChange={setHasStructuredDataOnly}
-            onlyMultiDocument={legacyMultiDocOnly}
-            onOnlyMultiDocumentChange={setLegacyMultiDocOnly}
-            hasCompositionData={compositionByDocId.size > 0}
-            criticalOnly={legacyCriticalOnly}
-            onCriticalOnlyChange={setLegacyCriticalOnly}
-          />
+          <SectionCard
+            title="Фильтры и экспорт"
+            description="Уточните выборку, переключите область проверок и выгрузите текущий набор результатов."
+          >
+            <div className="space-y-4">
+              <GridFilters
+                searchText={searchText}
+                onSearchChange={setSearchText}
+                activeFilter={quickFilter}
+                onFilterChange={setQuickFilter}
+                totalCount={allResults.length}
+                filteredCount={filteredResults.length}
+                availableDocTypes={availableDocTypes}
+                selectedDocType={selectedDocType}
+                onDocTypeChange={setSelectedDocType}
+                hasStructuredDataOnly={hasStructuredDataOnly}
+                onHasStructuredDataChange={setHasStructuredDataOnly}
+                onlyMultiDocument={legacyMultiDocOnly}
+                onOnlyMultiDocumentChange={setLegacyMultiDocOnly}
+                hasCompositionData={compositionByDocId.size > 0}
+                criticalOnly={legacyCriticalOnly}
+                onCriticalOnlyChange={setLegacyCriticalOnly}
+              />
 
-          <div className="flex items-center justify-between text-[11px] text-gray-400">
-            <div>
-              Важных без QC: {importantCount} · Неясных: {unclearCount}
-              {" · "}
-              Проверок: {scopeResults.length} по {uniqueDocCount} документам
-            </div>
-            <div className="flex items-center gap-2">
-              <span>Показывать проверки:</span>
-              <button
-                type="button"
-                className={
-                  "rounded border px-2 py-1 text-[11px] " +
-                  (gridScope === "all"
-                    ? "bg-blue-50 border-blue-400 text-blue-700"
-                    : "bg-white border-gray-300 text-gray-600")
-                }
-                onClick={() => setGridScope("all")}
-              >
-                Все
-              </button>
-              <button
-                type="button"
-                className={
-                  "rounded border px-2 py-1 text-[11px] " +
-                  (gridScope === "global"
-                    ? "bg-blue-50 border-blue-400 text-blue-700"
-                    : "bg-white border-gray-300 text-gray-600")
-                }
-                onClick={() => setGridScope("global")}
-              >
-                Глобальный плейбук
-              </button>
-              <button
-                type="button"
-                className={
-                  "rounded border px-2 py-1 text-[11px] " +
-                  (gridScope === "doctype"
-                    ? "bg-blue-50 border-blue-400 text-blue-700"
-                    : "bg-white border-gray-300 text-gray-600")
-                }
-                onClick={() => setGridScope("doctype")}
-              >
-                По типу документа
-              </button>
-            </div>
-          </div>
+              <div className="flex flex-col gap-3 rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="text-xs leading-5 text-[var(--text-secondary)]">
+                  Важных без QC: <span className="font-semibold text-[var(--text-primary)]">{importantCount}</span>
+                  {" · "}
+                  Неясных: <span className="font-semibold text-[var(--text-primary)]">{unclearCount}</span>
+                  {" · "}
+                  Проверок: <span className="font-semibold text-[var(--text-primary)]">{scopeResults.length}</span>
+                  {" · "}
+                  Документов: <span className="font-semibold text-[var(--text-primary)]">{uniqueDocCount}</span>
+                </div>
 
-          {gridScope === "doctype" && scopeDoctypes.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
-              <span>Типы документов (для этого вида проверок):</span>
-              <button
-                type="button"
-                className="rounded border border-gray-300 bg-white px-2 py-0.5"
-                onClick={resetScopeDocTypes}
-              >
-                Все
-              </button>
-              {scopeDoctypes.map((dt) => {
-                const checked = selectedScopeDocTypes.includes(dt);
-                return (
-                  <label
-                    key={dt}
-                    className={
-                      "inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-0.5 text-[11px] " +
-                      (checked
-                        ? "bg-blue-50 border-blue-400 text-blue-700"
-                        : "bg-white border-gray-300 text-gray-700")
-                    }
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Область
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gridScope === "all" ? "primary" : "secondary"}
+                    onClick={() => setGridScope("all")}
                   >
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3"
-                      checked={checked}
-                      onChange={() => toggleScopeDocType(dt)}
-                    />
-                    <span>{dt}</span>
-                  </label>
-                );
-              })}
+                    Все
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gridScope === "global" ? "primary" : "secondary"}
+                    onClick={() => setGridScope("global")}
+                  >
+                    Глобальный плейбук
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gridScope === "doctype" ? "primary" : "secondary"}
+                    onClick={() => setGridScope("doctype")}
+                  >
+                    По типу документа
+                  </Button>
+                </div>
+              </div>
+
+              {gridScope === "doctype" && scopeDoctypes.length > 0 && (
+                <div className="rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
+                  <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                    Типы документов
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={resetScopeDocTypes}
+                    >
+                      Все
+                    </Button>
+
+                    {scopeDoctypes.map((dt) => {
+                      const checked = selectedScopeDocTypes.includes(dt);
+
+                      return (
+                        <label
+                          key={dt}
+                          className={[
+                            "inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-1.5 text-xs transition-colors",
+                            checked
+                              ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-primary)]"
+                              : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)]",
+                          ].join(" ")}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5"
+                            checked={checked}
+                            onChange={() => toggleScopeDocType(dt)}
+                          />
+                          <span>{dt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <QualityFlagsLegend />
+
+              <ExportButtons
+                allResults={scopeResults}
+                selectedResults={selectedResults}
+                dealName={dealId}
+                runId={runId ?? undefined}
+                runChecksMode={run?.checks_mode}
+                runPipelineStrategy={run?.pipeline_strategy}
+              />
             </div>
-          )}
+          </SectionCard>
 
-          <QualityFlagsLegend />
-
-          <ExportButtons
-            allResults={scopeResults}
-            selectedResults={selectedResults}
-            dealName={dealId}
-            runId={runId ?? undefined}
-            runChecksMode={run?.checks_mode}
-            runPipelineStrategy={run?.pipeline_strategy}
-          />
-
-          <DDGrid
-            results={scopeResults}
-            compositionByDocId={compositionByDocId}
-            onlyMultiDocument={legacyMultiDocOnly}
-            onEyeClick={handleEyeClick}
-            onSelectionChange={handleSelectionChange}
-            mode={gridMode}
-            onOpenAtLocation={openViewerAt}
-          />
+          <SectionCard
+            title="Результаты legacy grid"
+            description="Сетка результатов проверки с доступом к Magic Zoom, Evidence Panel и массовым QC-действиям."
+          >
+            <DDGrid
+              results={scopeResults}
+              compositionByDocId={compositionByDocId}
+              onlyMultiDocument={legacyMultiDocOnly}
+              onEyeClick={handleEyeClick}
+              onSelectionChange={handleSelectionChange}
+              mode={gridMode}
+              onOpenAtLocation={openViewerAt}
+            />
+          </SectionCard>
         </>
       )}
 
       {dataSource === "review" && (
         <>
-        {/* Фильтры review-режима */}
-        <div className="flex items-center gap-3 text-[11px] text-gray-600">
-          <span className="text-gray-400">Фильтры:</span>
+          <SectionCard
+            title="Фильтры review matrix"
+            description="Фильтрация backend review DTO без обратного маппинга в legacy CheckResult[]."
+          >
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3 rounded-[20px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={reviewMultiDocOnly}
+                    onChange={(e) => setReviewMultiDocOnly(e.target.checked)}
+                  />
+                  <span>Только multi-document</span>
+                </label>
 
-          <label className="flex cursor-pointer items-center gap-1.5">
-            <input
-              type="checkbox"
-              className="h-3 w-3"
-              checked={reviewMultiDocOnly}
-              onChange={(e) => setReviewMultiDocOnly(e.target.checked)}
-            />
-            <span>Только multi-document</span>
-          </label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={reviewCriticalOnly}
+                    onChange={(e) => setReviewCriticalOnly(e.target.checked)}
+                  />
+                  <span className="font-medium text-[color:rgb(120,35,46)]">
+                    Только Critical
+                  </span>
+                </label>
+              </div>
 
-          <label className="flex cursor-pointer items-center gap-1.5">
-            <input
-              type="checkbox"
-              className="h-3 w-3"
-              checked={reviewCriticalOnly}
-              onChange={(e) => setReviewCriticalOnly(e.target.checked)}
-            />
-            <span className="text-red-600 font-medium">Только Critical</span>
-          </label>
-        </div>
-          <div className="flex items-center justify-between text-[11px] text-gray-400">
-            <div>
-              Документов: {reviewSummary.documentCount}
-              {" · "}
-              Проверок: {reviewSummary.checkCount}
-              {" · "}
-              Critical: {reviewSummary.criticalCount}
-              {" · "}
-              High: {reviewSummary.highCount}
-              {" · "}
-              Medium: {reviewSummary.mediumCount}
-              {" · "}
-              Unclear: {reviewSummary.unclearCount}
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <StatCard label="Документов" value={reviewSummary.documentCount} />
+                <StatCard label="Проверок" value={reviewSummary.checkCount} tone="accent" />
+                <StatCard label="Critical" value={reviewSummary.criticalCount} tone="critical" />
+                <StatCard label="Unclear" value={reviewSummary.unclearCount} />
+              </div>
+
+              <div className="rounded-[20px] border border-[var(--accent-primary)]/12 bg-[var(--accent-muted)] px-4 py-3 text-sm leading-6 text-[var(--text-secondary)]">
+                Review mode рендерит матрицу поверх run-scoped backend DTO. Legacy-фильтры,
+                bulk QC, Magic Zoom и export пока остаются только в legacy-режиме, чтобы не
+                маппить новую модель обратно в `CheckResult[]`.
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-secondary)]">
+                <span>
+                  Quarantine:{" "}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {ddMatrix?.quarantine_count ?? 0}
+                  </span>
+                </span>
+                <span>
+                  Degraded:{" "}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {ddMatrix?.degraded_count ?? 0}
+                  </span>
+                </span>
+                <span>
+                  Evidence validity:{" "}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {ddMatrix?.evidence_validity_rate != null
+                      ? `${Math.round(ddMatrix.evidence_validity_rate * 100)}%`
+                      : "—"}
+                  </span>
+                </span>
+              </div>
             </div>
-            <div>
-              Quarantine: {ddMatrix?.quarantine_count ?? 0}
-              {" · "}
-              Degraded: {ddMatrix?.degraded_count ?? 0}
-              {" · "}
-              Evidence validity:{" "}
-              {ddMatrix?.evidence_validity_rate != null
-                ? `${Math.round(ddMatrix.evidence_validity_rate * 100)}%`
-                : "—"}
-            </div>
-          </div>
+          </SectionCard>
 
-          <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] text-blue-800">
-            Review mode рендерит матрицу поверх run-scoped backend DTO.
-            Legacy-фильтры, bulk QC, Magic Zoom и export пока остаются только
-            в legacy-режиме, чтобы не маппить новую модель обратно в
-            CheckResult[].
-          </div>
-
-          <DDMatrixGrid
-            data={ddMatrix ?? null}
-            onOpenAtLocation={openViewerAt}
-            onOpenDocument={({ documentId, documentName }) => {
-              console.log("Open review document", { documentId, documentName });
-            }}
-            onSelectionChange={() => {
-              // Review bulk actions будут добавлены отдельным инкрементом.
-            }}
-            multiDocumentOnly={reviewMultiDocOnly}
-            criticalOnly={reviewCriticalOnly}
-          />
+          <SectionCard
+            title="Review DD Matrix"
+            description="Run-scoped матрица документов и проверок для review-режима."
+          >
+            <DDMatrixGrid
+              data={ddMatrix ?? null}
+              onOpenAtLocation={openViewerAt}
+              onOpenDocument={({ documentId, documentName }) => {
+                console.log("Open review document", { documentId, documentName });
+              }}
+              onSelectionChange={() => {
+                // Review bulk actions будут добавлены отдельным инкрементом.
+              }}
+              multiDocumentOnly={reviewMultiDocOnly}
+              criticalOnly={reviewCriticalOnly}
+            />
+          </SectionCard>
         </>
       )}
 

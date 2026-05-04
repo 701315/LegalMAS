@@ -8,8 +8,7 @@ import { AlertTriangle } from "lucide-react";
 import { CLASSIFICATION_LEVELS, CONFIDENCE_THRESHOLDS } from "../../constants";
 import type { ClassificationLevel } from "../../types";
 
-// Вспомогательная функция объединения className (простая версия)
-function cn(...classes: (string | false | null | undefined)[]) {
+function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
@@ -20,12 +19,6 @@ interface Props {
   className?: string;
 }
 
-/**
- * Показывает:
- * - уровень (L0–L4 / L_manual)
- * - процент уверенности (если есть)
- * - жёлтый треугольник, если confidence < LOW (0.6)
- */
 export const ClassificationBadge: React.FC<Props> = ({
   level,
   confidence,
@@ -45,19 +38,25 @@ export const ClassificationBadge: React.FC<Props> = ({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
-        meta.color,
-        isLowConfidence && "ring-1 ring-yellow-400",
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium leading-none",
+        meta.badgeClassName,
+        isLowConfidence && "ring-1 ring-[var(--color-gold)]/35",
         className,
       )}
-      title={meta.description}
+      title={`${meta.label}. ${meta.description}`}
     >
       {isLowConfidence && (
-        <AlertTriangle size={11} className="text-yellow-600" />
+        <AlertTriangle
+          size={11}
+          className="text-[var(--color-gold-hover)]"
+          aria-hidden="true"
+        />
       )}
-      {level}
+
+      <span>{meta.shortLabel}</span>
+
       {showConfidence && confidence !== undefined && confidence !== null && (
-        <span className="opacity-75 ml-0.5">
+        <span className="ml-0.5 opacity-75">
           {Math.round(confidence * 100)}%
         </span>
       )}

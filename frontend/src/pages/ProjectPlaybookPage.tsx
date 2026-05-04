@@ -1,12 +1,15 @@
 // =============================================================
 // src/pages/ProjectPlaybookPage.tsx
 // Редактирование YAML-playbook проекта (по capability).
+// Приведено к единому product-дизайну workspace.
 // =============================================================
 
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
 import client from "../api/client";
 import { useDealPermissions } from "../hooks/usePermissions";
+import Button from "../components/ui/Button";
+import InlineAlert from "../components/InlineAlert";
 import type { ApiError } from "../types";
 
 interface PlaybookResponse {
@@ -23,11 +26,9 @@ const ProjectPlaybookPage: React.FC = () => {
   const [errorText, setErrorText] = useState<string | null>(null);
   const [infoText, setInfoText] = useState<string | null>(null);
 
-  // Хук прав вызываем без условий
   const { canViewOverview } = useDealPermissions(dealId as string);
   const canEditPlaybook = canViewOverview;
 
-  // Загрузка существующего playbook — хук должен быть до любых return
   useEffect(() => {
     if (!dealId) return;
 
@@ -46,7 +47,6 @@ const ProjectPlaybookPage: React.FC = () => {
         }
       } catch (err) {
         const apiErr = err as ApiError;
-        // Если 404 — считаем, что playbook ещё не создан
         if (
           apiErr.code === "404" ||
           apiErr.detail === "Not Found" ||
@@ -75,26 +75,26 @@ const ProjectPlaybookPage: React.FC = () => {
     };
   }, [dealId]);
 
-  // Если dealId отсутствует — редирект на список сделок
   if (!dealId) {
     return <Navigate to="/deals" replace />;
   }
 
-  // Если прав нет — показываем экран "нет доступа"
   if (!canEditPlaybook) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
-          <p className="text-sm text-gray-700 mb-4">
-            У вас нет прав для редактирования playbook этого проекта.
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate(`/projects/${dealId}`)}
-            className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-          >
-            Вернуться к проекту
-          </button>
+      <div className="min-h-screen bg-[var(--bg-base)] px-4">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="w-full max-w-md rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
+            <p className="mb-4 text-sm text-[var(--text-secondary)]">
+              У вас нет прав для редактирования playbook этого проекта.
+            </p>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => navigate(`/projects/${dealId}`)}
+            >
+              Вернуться к проекту
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -147,40 +147,49 @@ const ProjectPlaybookPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-5xl mx-auto space-y-4">
-        {/* Заголовок */}
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
+      <div className="mx-auto max-w-5xl space-y-5">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Playbook проекта
+            <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+              Playbook YAML
+            </div>
+            <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-[var(--text-primary)]">
+              YAML-playbook проекта
             </h1>
-            <p className="text-sm text-gray-500">Проект: {dealId}</p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Проект: {dealId}
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Этот редактор предназначен для прямого редактирования YAML-конфигурации
+              playbook для конкретного проекта. Используйте его только если понимаете структуру схемы.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={handleBack}
-            className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-          >
+
+          <Button variant="secondary" size="sm" onClick={handleBack}>
             ← Назад к проекту
-          </button>
+          </Button>
         </div>
 
-        {/* Управление YAML-файлом */}
-        <div className="bg-white rounded-lg border p-4 space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <InlineAlert tone="error" message={errorText} />
+        <InlineAlert tone="success" message={infoText} />
+
+        {/* Main card */}
+        <section className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] pb-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-gray-800">
-                YAML-playbook проекта
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                Редактор YAML-playbook
               </p>
-              <p className="text-xs text-gray-500">
-                Вы можете отредактировать текст вручную или загрузить готовый
-                YAML-файл.
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Отредактируйте текст вручную или загрузите готовый YAML-файл. При сохранении
+                конфигурация применится только к этому проекту.
               </p>
             </div>
 
-            <label className="inline-flex items-center gap-2 text-sm text-blue-700 cursor-pointer">
-              <span className="px-3 py-1.5 rounded border border-blue-600 text-blue-600 hover:bg-blue-50">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--accent-primary)]">
+              <span className="rounded-2xl border border-[var(--accent-primary)] px-3 py-1.5 text-[var(--accent-primary)] hover:bg-[var(--accent-muted)]">
                 Загрузить YAML-файл
               </span>
               <input
@@ -192,48 +201,57 @@ const ProjectPlaybookPage: React.FC = () => {
             </label>
           </div>
 
-          {isLoading ? (
-            <p className="text-sm text-gray-500">
-              Загружаем текущий playbook…
-            </p>
-          ) : (
-            <textarea
-              value={yamlText}
-              onChange={(e) => setYamlText(e.target.value)}
-              className="w-full h-80 font-mono text-xs border rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              spellCheck={false}
-            />
-          )}
+          <div className="mt-4 space-y-3">
+            {isLoading ? (
+              <p className="text-sm text-[var(--text-secondary)]">
+                Загружаем текущий playbook…
+              </p>
+            ) : (
+              <textarea
+                value={yamlText}
+                onChange={(e) => setYamlText(e.target.value)}
+                className="h-80 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 font-mono text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
+                spellCheck={false}
+              />
+            )}
 
-          {errorText && (
-            <p className="text-sm text-red-600">{errorText}</p>
-          )}
+            {errorText && (
+              <p className="text-sm text-[color:rgb(120,35,46)]">{errorText}</p>
+            )}
 
-          {infoText && !errorText && (
-            <p className="text-sm text-green-700">{infoText}</p>
-          )}
+            {infoText && !errorText && (
+              <p className="text-sm text-[var(--text-secondary)]">
+                {infoText}
+              </p>
+            )}
 
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="px-4 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              Отмена
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving || isLoading}
-              className="px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isSaving ? "Сохраняем..." : "Сохранить"}
-            </button>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-[var(--border-soft)] pt-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleBack}
+                disabled={isSaving}
+              >
+                Отмена
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={handleSave}
+                disabled={isSaving || isLoading}
+                isLoading={isSaving}
+              >
+                {isSaving ? "Сохраняем..." : "Сохранить"}
+              </Button>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
 };
 
 export default ProjectPlaybookPage;
+
+
+

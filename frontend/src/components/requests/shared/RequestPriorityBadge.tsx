@@ -1,15 +1,6 @@
 // =============================================================
 // src/components/requests/shared/RequestPriorityBadge.tsx
 // Shared UI компонент для отображения приоритета DD-запроса.
-// Используется в:
-// - RequestsTable (legacy)
-// - ReviewRequestsTable (review)
-// - RequestSidePanel (legacy)
-// - ReviewRequestSidePanel (review)
-//
-// Для непрофессионального программиста:
-// Это маленький компонент-"плашка" с цветом и текстом приоритета.
-// Один и тот же компонент работает и в старом, и в новом режиме.
 // =============================================================
 
 import React from "react";
@@ -18,24 +9,27 @@ import { REQUEST_PRIORITY_META } from "../../../types/requestPriority";
 
 interface RequestPriorityBadgeProps {
   priority: RequestPriority;
-  /**
-   * Размер badge.
-   * - "sm" — для таблиц (компактный)
-   * - "md" — для side panel (обычный)
-   */
   size?: "sm" | "md";
   className?: string;
 }
 
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+const PRIORITY_TONE: Record<RequestPriority, string> = {
+  critical:
+    "border-[color:color-mix(in_srgb,var(--color-error)_22%,transparent)] bg-[var(--color-error-highlight)] text-[var(--color-error)]",
+  high:
+    "border-[color:color-mix(in_srgb,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]",
+  medium:
+    "border-[color:color-mix(in_srgb,var(--color-gold)_22%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]",
+  low:
+    "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
+};
+
 /**
  * Отображает цветную плашку с приоритетом запроса.
- *
- * Важно:
- * - Компонент работает только с нормализованным UI-типом RequestPriority.
- * - Вся доменная семантика (label, color) хранится централизованно
- *   в REQUEST_PRIORITY_META.
- * - Если по какой-то причине priority окажется некорректным во runtime,
- *   используем безопасный fallback на "medium".
  */
 export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
   priority,
@@ -45,21 +39,21 @@ export const RequestPriorityBadge: React.FC<RequestPriorityBadgeProps> = ({
   const config =
     REQUEST_PRIORITY_META[priority] ?? REQUEST_PRIORITY_META.medium;
 
+  const toneClass = PRIORITY_TONE[priority] ?? PRIORITY_TONE.medium;
+
   const sizeClass =
     size === "sm"
-      ? "px-2 py-0.5 text-xs"
+      ? "px-2 py-0.5 text-[11px]"
       : "px-2 py-1 text-xs";
 
   return (
     <span
-      className={[
-        "inline-flex items-center rounded font-semibold whitespace-nowrap",
-        config.colorClass,
+      className={cn(
+        "inline-flex items-center rounded-full border font-semibold whitespace-nowrap",
+        toneClass,
         sizeClass,
         className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      )}
       title={`Приоритет: ${config.label}`}
     >
       {config.label}

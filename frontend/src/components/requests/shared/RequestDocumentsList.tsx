@@ -1,13 +1,6 @@
 // =============================================================
 // src/components/requests/shared/RequestDocumentsList.tsx
 // Shared UI компонент для отображения списка документов DD-запроса.
-// Используется в:
-// - RequestSidePanel (legacy) — показывает UUID с опциональными именами
-// - ReviewRequestSidePanel (review) — показывает человекочитаемые имена
-//
-// Для непрофессионального программиста:
-// Это список документов с иконкой файла и названием.
-// В legacy mode показывает UUID, в review mode — нормальные имена файлов.
 // =============================================================
 
 import React from "react";
@@ -15,22 +8,16 @@ import type { DocumentView } from "../../../viewAdapters/requestPresentation";
 
 interface RequestDocumentsListProps {
   documents: DocumentView[];
-  /**
-   * Максимальное количество документов для отображения.
-   * Если больше — показываем "... и ещё N"
-   */
   maxVisible?: number;
-  /**
-   * Компактный режим для таблиц (если понадобится).
-   */
   compact?: boolean;
+}
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
 }
 
 /**
  * Отображает список документов запроса.
- * Поддерживает оба режима:
- * - Legacy: document.id есть, document.name = UUID → показываем UUID
- * - Review: document.id = null, document.name = имя файла → показываем имя
  */
 export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
   documents,
@@ -39,7 +26,7 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
 }) => {
   if (documents.length === 0) {
     return (
-      <div className="text-xs text-gray-300 py-2">
+      <div className="py-2 text-xs text-[var(--text-faint)]">
         Документы не указаны
       </div>
     );
@@ -49,25 +36,38 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
   const remainingCount = documents.length - maxVisible;
 
   return (
-    <div className={`space-y-1 ${compact ? "max-h-32" : "max-h-48"} overflow-y-auto`}>
+    <div
+      className={cn(
+        "space-y-1 overflow-y-auto",
+        compact ? "max-h-32" : "max-h-48",
+      )}
+    >
       {visibleDocuments.map((doc, index) => {
         const displayName = doc.name;
-        // Если есть rawId и он отличается от name — это legacy UUID,
-        // показываем его в title для копирования
         const hasRawId = doc.rawId && doc.rawId !== doc.name;
 
         return (
           <div
             key={doc.id ?? doc.rawId ?? index}
-            className={`flex items-center gap-2 ${
-              compact ? "p-1.5" : "p-2"
-            } bg-gray-50 rounded`}
+            className={cn(
+              "flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]",
+              compact ? "px-2 py-1.5" : "px-2.5 py-2",
+            )}
             title={hasRawId ? doc.rawId || undefined : undefined}
           >
-            <span className="text-gray-400 shrink-0" aria-hidden="true">
+            <span
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--bg-card)] text-[11px] text-[var(--text-muted)]"
+              aria-hidden="true"
+            >
               📄
             </span>
-            <span className={`truncate ${compact ? "text-xs" : "text-sm"} text-gray-700`}>
+
+            <span
+              className={cn(
+                "truncate text-[var(--text-primary)]",
+                compact ? "text-xs" : "text-sm",
+              )}
+            >
               {displayName}
             </span>
           </div>
@@ -75,7 +75,7 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
       })}
 
       {remainingCount > 0 && (
-        <p className="text-xs text-gray-400 py-1 text-center">
+        <p className="py-1 text-center text-xs text-[var(--text-muted)]">
           … и ещё {remainingCount}
         </p>
       )}
@@ -84,5 +84,4 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
 };
 
 export default RequestDocumentsList;
-
 

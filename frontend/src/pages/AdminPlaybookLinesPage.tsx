@@ -21,13 +21,13 @@ import type {
 import { getApiErrorMessage, isApiErrorStatus } from "../utils/apiErrors";
 
 const inputClassName =
-  "w-full rounded border px-2 py-1 text-xs disabled:cursor-not-allowed disabled:bg-gray-50";
+  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const smallSelectClassName =
-  "rounded border px-1 py-0.5 text-[11px] disabled:cursor-not-allowed disabled:bg-gray-50";
+  "rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const fullSelectClassName =
-  "w-full rounded border px-1 py-0.5 text-[11px] disabled:cursor-not-allowed disabled:bg-gray-50";
+  "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
 
 const AdminPlaybookLinesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -37,7 +37,9 @@ const AdminPlaybookLinesPage: React.FC = () => {
 
   const [lines, setLines] = useState<PlaybookLineShort[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-  const [currentLine, setCurrentLine] = useState<PlaybookLineDetail | null>(null);
+  const [currentLine, setCurrentLine] = useState<PlaybookLineDetail | null>(
+    null,
+  );
 
   const [isLoading, setIsLoading] = useState(true);
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
@@ -153,7 +155,9 @@ const AdminPlaybookLinesPage: React.FC = () => {
     setIsCatalogLoading(true);
 
     try {
-      const res = await client.get<PlaybookTopicInfo[]>("/api/v1/playbooks/catalog");
+      const res = await client.get<PlaybookTopicInfo[]>(
+        "/api/v1/playbooks/catalog",
+      );
       setTopics(res.data || []);
     } catch (err) {
       const apiErr = err as ApiError;
@@ -201,7 +205,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
 
     setSelectedLineId(line.id);
     void loadLineDetail(line.id);
-  }, [playbookIdFromQuery, lines]);
+  }, [playbookIdFromQuery, lines]); // isBusy специально не включаем
 
   const handleCreateNew = () => {
     if (isUiLocked) return;
@@ -425,15 +429,18 @@ const AdminPlaybookLinesPage: React.FC = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 px-4 py-6">
+      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
         <div className="mx-auto max-w-6xl space-y-4">
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
+            <div className="space-y-1">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Admin · Playbook
+              </p>
+              <h1 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
                 Конструктор шаблонов Playbook
               </h1>
-              <p className="text-sm text-gray-500">
-                Настройка логических линий (шаблонов) и их состава.
+              <p className="text-xs text-[var(--text-secondary)]">
+                Настройка логических линий (шаблонов) и их состава для проектов.
               </p>
             </div>
 
@@ -444,7 +451,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                 dealId ? navigate(`/projects/${dealId}`) : navigate("/projects")
               }
             >
-              ← На главную
+              ← Вернуться к проектам
             </Button>
           </div>
 
@@ -483,28 +490,30 @@ const AdminPlaybookLinesPage: React.FC = () => {
                   }
                 />
               ) : (
-                <ul className="max-h-80 space-y-1 overflow-y-auto">
+                <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
                   {lines.map((line) => (
                     <li key={line.id}>
                       <button
                         type="button"
                         onClick={() => handleSelectLine(line)}
                         disabled={isUiLocked}
-                        className={`w-full rounded border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                           selectedLineId === line.id
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-gray-200 text-gray-800 hover:bg-gray-50"
+                            ? "border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
+                            : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
                         }`}
                       >
-                        <div className="font-semibold">{line.title}</div>
+                        <div className="font-semibold text-[var(--text-primary)]">
+                          {line.title}
+                        </div>
 
                         {line.description && (
-                          <div className="text-[11px] text-gray-500">
+                          <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                             {line.description}
                           </div>
                         )}
 
-                        <div className="mt-1 text-[11px] text-gray-400">
+                        <div className="mt-1 text-[11px] text-[var(--text-muted)]">
                           {line.deal_type && `Тип: ${line.deal_type} · `}
                           {line.jurisdiction &&
                             `Юрисдикция: ${line.jurisdiction} · `}
@@ -522,7 +531,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
               title={currentLine ? "Редактирование шаблона" : "Новый шаблон"}
               rightSlot={
                 currentLine ? (
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] text-[var(--text-muted)]">
                     ID: {currentLine.id}
                   </span>
                 ) : null
@@ -595,13 +604,13 @@ const AdminPlaybookLinesPage: React.FC = () => {
 
               <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-gray-800">
+                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">
                     Состав шаблона (темы / проверки)
                   </h3>
 
                   <div className="flex items-center gap-2">
                     {!canAddItems && topics.length === 0 && (
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-[11px] text-[var(--text-muted)]">
                         Каталог тем не загружен
                       </span>
                     )}
@@ -625,7 +634,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                 ) : items.length === 0 ? (
                   <EmptyState
                     title="Состав шаблона пуст"
-                    description="Добавьте тему или проверку, чтобы сформировать содержимое playbook-шаблона."
+                    description="Добавьте тему или проверку, чтобы сформировать содержимое playbook‑шаблона."
                     action={
                       <Button
                         variant="primary"
@@ -638,18 +647,26 @@ const AdminPlaybookLinesPage: React.FC = () => {
                     }
                   />
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full border text-[11px]">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="w-8 border px-2 py-1 text-left">#</th>
-                          <th className="border px-2 py-1 text-left">Тип</th>
-                          <th className="border px-2 py-1 text-left">Topic</th>
-                          <th className="border px-2 py-1 text-left">Check</th>
-                          <th className="w-20 border px-2 py-1 text-left">
+                  <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+                    <table className="w-full table-fixed border-collapse text-[11px]">
+                      <thead className="bg-[var(--bg-elevated-soft)]">
+                        <tr className="text-[var(--text-muted)]">
+                          <th className="w-8 px-2 py-1 text-left font-medium">
+                            #
+                          </th>
+                          <th className="w-24 px-2 py-1 text-left font-medium">
+                            Тип
+                          </th>
+                          <th className="w-64 px-2 py-1 text-left font-medium">
+                            Topic
+                          </th>
+                          <th className="px-2 py-1 text-left font-medium">
+                            Check
+                          </th>
+                          <th className="w-24 px-2 py-1 text-left font-medium">
                             Порядок
                           </th>
-                          <th className="w-16 border px-2 py-1 text-left">
+                          <th className="w-16 px-2 py-1 text-left font-medium">
                             Удалить
                           </th>
                         </tr>
@@ -665,12 +682,13 @@ const AdminPlaybookLinesPage: React.FC = () => {
                           return (
                             <tr
                               key={`${item.kind}-${item.topic_code || "empty"}-${index}`}
+                              className="border-t border-[var(--border)]/70 align-top"
                             >
-                              <td className="border px-2 py-1 align-top">
+                              <td className="px-2 py-1 text-[var(--text-muted)]">
                                 {index + 1}
                               </td>
 
-                              <td className="border px-2 py-1 align-top">
+                              <td className="px-2 py-1">
                                 <select
                                   value={item.kind}
                                   onChange={(e) =>
@@ -687,7 +705,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                                 </select>
                               </td>
 
-                              <td className="border px-2 py-1 align-top">
+                              <td className="px-2 py-1">
                                 <select
                                   value={item.topic_code || ""}
                                   onChange={(e) =>
@@ -702,19 +720,20 @@ const AdminPlaybookLinesPage: React.FC = () => {
                                       key={topicEntry.topic_code}
                                       value={topicEntry.topic_code}
                                     >
-                                      {topicEntry.topic_code} — {topicEntry.topic_name}
+                                      {topicEntry.topic_code} —{" "}
+                                      {topicEntry.topic_name}
                                     </option>
                                   ))}
                                 </select>
                               </td>
 
-                              <td className="border px-2 py-1 align-top">
+                              <td className="px-2 py-1">
                                 {item.kind === "topic" ? (
-                                  <span className="text-gray-400">
+                                  <span className="text-[11px] text-[var(--text-muted)]">
                                     Для типа topic check не используется
                                   </span>
                                 ) : checks.length === 0 ? (
-                                  <span className="text-gray-400">
+                                  <span className="text-[11px] text-[var(--text-muted)]">
                                     Нет проверок для выбранной темы
                                   </span>
                                 ) : (
@@ -730,9 +749,14 @@ const AdminPlaybookLinesPage: React.FC = () => {
                                     disabled={isUiLocked}
                                     className={fullSelectClassName}
                                   >
-                                    <option value="">— выберите проверку —</option>
+                                    <option value="">
+                                      — выберите проверку —
+                                    </option>
                                     {checks.map((check) => (
-                                      <option key={check.code} value={check.code}>
+                                      <option
+                                        key={check.code}
+                                        value={check.code}
+                                      >
                                         {check.code} — {check.title}
                                       </option>
                                     ))}
@@ -740,7 +764,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                                 )}
                               </td>
 
-                              <td className="border px-2 py-1 align-top">
+                              <td className="px-2 py-1">
                                 <div className="flex items-center gap-1">
                                   <Button
                                     variant="ghost"
@@ -755,7 +779,9 @@ const AdminPlaybookLinesPage: React.FC = () => {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleMoveItemDown(index)}
-                                    disabled={index === items.length - 1 || isUiLocked}
+                                    disabled={
+                                      index === items.length - 1 || isUiLocked
+                                    }
                                     className="px-2 py-1 text-[10px]"
                                   >
                                     ↓
@@ -763,13 +789,13 @@ const AdminPlaybookLinesPage: React.FC = () => {
                                 </div>
                               </td>
 
-                              <td className="border px-2 py-1 align-top">
+                              <td className="px-2 py-1">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleRemoveItem(index)}
                                   disabled={isUiLocked}
-                                  className="px-2 py-1 text-[10px] text-red-600 hover:bg-red-50"
+                                  className="px-2 py-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
                                 >
                                   ✕
                                 </Button>
@@ -783,7 +809,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t pt-3">
+              <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3">
                 {currentLine ? (
                   <Button
                     variant="danger"
@@ -794,7 +820,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                     Удалить шаблон
                   </Button>
                 ) : (
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] text-[var(--text-muted)]">
                     Сначала сохраните шаблон, затем его можно будет удалить.
                   </span>
                 )}
@@ -835,8 +861,6 @@ const AdminPlaybookLinesPage: React.FC = () => {
 };
 
 export default AdminPlaybookLinesPage;
-
-
 
 
 

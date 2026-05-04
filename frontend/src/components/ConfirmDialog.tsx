@@ -2,6 +2,7 @@
 
 import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
+import Button from "./ui/Button";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -37,7 +38,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   useEffect(() => {
     if (!open) return;
 
-    previousFocusedElementRef.current = document.activeElement as HTMLElement | null;
+    previousFocusedElementRef.current =
+      (document.activeElement as HTMLElement | null) ?? null;
     document.body.style.overflow = "hidden";
 
     const frame = window.requestAnimationFrame(() => {
@@ -94,11 +96,11 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <button
         type="button"
         aria-label="Закрыть диалог"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0"
         onClick={() => {
           if (!isConfirming) {
             onCancel();
@@ -112,37 +114,45 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
-        className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-white p-5 shadow-xl"
+        className="relative z-10 w-full max-w-sm rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-xl"
       >
         <div className="space-y-2">
-          <h2 id={titleId} className="text-base font-semibold text-gray-900">
+          <h2
+            id={titleId}
+            className="text-base font-semibold tracking-tight text-[var(--text-primary)]"
+          >
             {title}
           </h2>
 
-          <p id={descriptionId} className="text-sm leading-6 text-gray-600">
+          <p
+            id={descriptionId}
+            className="text-sm leading-6 text-[var(--text-secondary)]"
+          >
             {description}
           </p>
         </div>
 
-        <div className="mt-5 flex items-center justify-end gap-3">
-          <button
+        <div className="mt-5 flex items-center justify-end gap-3 border-t border-[var(--border-soft)] pt-4">
+          <Button
             ref={cancelButtonRef}
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={onCancel}
             disabled={isConfirming}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="danger"
+            size="sm"
             onClick={onConfirm}
             disabled={isConfirming}
-            className="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isConfirming ? "Удаляем..." : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,
@@ -151,4 +161,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 };
 
 export default ConfirmDialog;
+
+
 

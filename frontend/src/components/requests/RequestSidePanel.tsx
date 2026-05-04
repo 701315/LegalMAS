@@ -11,9 +11,9 @@ import type { DDRequest } from "../../types";
 import { toRequestPanelViewFromLegacy } from "../../viewAdapters/requestPresentation";
 import { X, Clipboard, Check, Trash2, Pencil, Loader2 } from "lucide-react";
 
-// Shared components
 import { RequestDocumentsList } from "./shared/RequestDocumentsList";
 import { RequestStructuredValuesList } from "./shared/RequestStructuredValuesList";
+import Button from "../ui/Button";
 
 interface Props {
   request: DDRequest | null;
@@ -22,11 +22,6 @@ interface Props {
   onDelete: (reqId: string) => Promise<void>;
   isSaving: boolean;
   canManageRequests: boolean;
-  /**
-   * Опциональный словарь docId → имя файла.
-   * Если передан — document_refs рендерятся с именами вместо UUID.
-   * Backward-compatible: при отсутствии отображается raw docId.
-   */
   documentNameById?: Record<string, string>;
 }
 
@@ -45,13 +40,11 @@ export const RequestSidePanel: React.FC<Props> = ({
   const [status, setStatus] = useState<DDRequest["status"]>("open");
   const [copied, setCopied] = useState(false);
 
-  // Преобразуем DDRequest в UI read-model через adapter
   const viewModel = useMemo(() => {
     if (!request) return null;
     return toRequestPanelViewFromLegacy(request, canManageRequests);
   }, [request, canManageRequests]);
 
-  // Синхронизация при выборе нового запроса
   useEffect(() => {
     if (!request) return;
     setText(request.text);
@@ -61,7 +54,6 @@ export const RequestSidePanel: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
 
-  // Закрытие по Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -103,44 +95,56 @@ export const RequestSidePanel: React.FC<Props> = ({
     { value: "resolved", label: "Закрыт" },
   ];
 
-  // Преобразуем document_refs с опциональными именами из documentNameById
   const documentsWithNames = viewModel.documents.map((doc) => ({
     ...doc,
     name: documentNameById?.[doc.id!] ?? doc.name,
   }));
 
+  const canEdit = editing && canManageRequests;
+
   return (
     <>
       {/* Затемнение */}
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 bg-[oklch(0.2_0.03_260/0.5)] backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       {/* Панель */}
-      <div className="fixed right-0 top-0 h-full w-[420px] bg-white shadow-2xl z-50 border-l flex flex-col animate-in slide-in-from-right">
+      <div className="fixed right-0 top-0 z-50 flex h-full w-[440px] flex-col border-l border-[var(--border)] bg-[var(--bg-panel)] shadow-[0_0_40px_rgba(15,23,42,0.7)] animate-in slide-in-from-right">
         {/* Шапка */}
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {viewModel.title}
-          </h3>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+              {viewModel.title}
+            </h3>
+            {viewModel.checkId && (
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                Проверка: {viewModel.checkId}
+              </p>
+            )}
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded transition"
+            className="rounded-full p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
             aria-label="Закрыть"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Тело */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Приоритет — редактируемый */}
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          {/* Приоритет */}
           <Field label="Приоритет">
             <select
               value={priority}
               onChange={(e) =>
                 setPriority(e.target.value as DDRequest["priority"])
               }
-              disabled={!editing || !canManageRequests}
-              className="w-full p-2 border rounded text-sm disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!canEdit}
+              className="input-base"
             >
               {PRIORITY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -150,15 +154,15 @@ export const RequestSidePanel: React.FC<Props> = ({
             </select>
           </Field>
 
-          {/* Статус — редактируемый */}
+          {/* Статус */}
           <Field label="Статус">
             <select
               value={status}
               onChange={(e) =>
                 setStatus(e.target.value as DDRequest["status"])
               }
-              disabled={!editing || !canManageRequests}
-              className="w-full p-2 border rounded text-sm disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!canEdit}
+              className="input-base"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -171,40 +175,43 @@ export const RequestSidePanel: React.FC<Props> = ({
           {/* Адресат */}
           {viewModel.addressee && (
             <Field label="Адресат">
-              <p className="text-sm text-gray-700 font-medium">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">
                 {viewModel.addressee}
               </p>
             </Field>
           )}
 
-          {/* Источник — используем view model */}
+          {/* Источник */}
           {viewModel.source && (
             <Field label="Источник">
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${viewModel.source.colorClass}`}
+                className={[
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                  viewModel.source.colorClass,
+                ].join(" ")}
               >
                 <span>{viewModel.source.label}</span>
               </span>
               {viewModel.source.helperText && (
-                <p className="text-xs text-purple-600 mt-1">
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
                   {viewModel.source.helperText}
                 </p>
               )}
             </Field>
           )}
 
-          {/* Текст запроса — редактируемый */}
+          {/* Текст запроса */}
           <Field label="Текст запроса">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={8}
-              disabled={!editing || !canManageRequests}
-              className="w-full p-2 border rounded text-sm resize-y disabled:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!canEdit}
+              className="input-base resize-y"
             />
           </Field>
 
-          {/* Документы — shared component */}
+          {/* Документы */}
           {documentsWithNames.length > 0 && (
             <Field label={`Документы (${documentsWithNames.length})`}>
               <RequestDocumentsList
@@ -214,26 +221,23 @@ export const RequestSidePanel: React.FC<Props> = ({
             </Field>
           )}
 
-          {/* Проверка */}
-          {viewModel.checkId && (
-            <Field label="Проверка">
-              <p className="text-sm text-gray-700">{viewModel.checkId}</p>
-              {viewModel.source?.code === "yaml_template" && (
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Связано с YAML‑проверкой (check_id).
-                </p>
-              )}
+          {/* Связь с проверкой (YAML) */}
+          {viewModel.checkId && viewModel.source?.code === "yaml_template" && (
+            <Field label="Связь с проверкой">
+              <p className="text-xs text-[var(--text-muted)]">
+                Связано с YAML‑проверкой (check_id: {viewModel.checkId}).
+              </p>
             </Field>
           )}
 
           {/* Источники (evidence_refs) */}
           {viewModel.evidenceRefs.length > 0 && (
             <Field label={`Источники (${viewModel.evidenceRefs.length})`}>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2">
                 {viewModel.evidenceRefs.map((ref, i) => (
                   <div
                     key={ref ?? i}
-                    className="text-xs text-gray-600 p-2 bg-gray-50 rounded leading-relaxed"
+                    className="rounded-lg bg-[var(--bg-card)]/80 p-2 text-xs leading-relaxed text-[var(--text-secondary)]"
                   >
                     {ref}
                   </div>
@@ -242,7 +246,7 @@ export const RequestSidePanel: React.FC<Props> = ({
             </Field>
           )}
 
-          {/* Извлечённые данные — shared component */}
+          {/* Извлечённые данные */}
           {viewModel.structuredValues.length > 0 && (
             <Field
               label={`Извлечённые данные (${viewModel.structuredValues.length})`}
@@ -256,32 +260,38 @@ export const RequestSidePanel: React.FC<Props> = ({
         </div>
 
         {/* Подвал */}
-        <div className="border-t p-4 flex flex-col gap-2">
-          {/* Копировать — доступно всем */}
-          <button
+        <div className="flex flex-col gap-2 border-t border-[var(--border)] px-4 py-3">
+          {/* Копирование */}
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
             onClick={handleCopy}
-            className="flex items-center justify-center gap-1.5 w-full px-4 py-2 border rounded text-sm hover:bg-gray-50 transition"
+            className="inline-flex w-full items-center justify-center gap-1.5"
           >
             {copied ? (
               <>
-                <Check size={14} className="text-green-600" />
-                <span className="text-green-600">Скопировано!</span>
+                <Check size={14} className="text-[var(--success)]" />
+                <span>Скопировано!</span>
               </>
             ) : (
               <>
                 <Clipboard size={14} />
-                Копировать текст
+                <span>Копировать текст</span>
               </>
             )}
-          </button>
+          </Button>
 
           {/* Редактирование / сохранение */}
           {editing ? (
             <div className="flex gap-2">
-              <button
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                className="inline-flex flex-1 items-center justify-center gap-1.5"
                 onClick={handleSave}
                 disabled={isSaving || !canManageRequests}
-                className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
               >
                 {isSaving ? (
                   <Loader2 className="animate-spin" size={14} />
@@ -289,36 +299,44 @@ export const RequestSidePanel: React.FC<Props> = ({
                   <Check size={14} />
                 )}
                 Сохранить
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
                 onClick={() => {
                   setText(request.text);
                   setPriority(request.priority);
                   setStatus(request.status);
                   setEditing(false);
                 }}
-                className="px-4 py-2 border rounded text-sm text-gray-600 hover:bg-gray-50 transition"
               >
                 Отмена
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="flex gap-2">
-              <button
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                className="inline-flex flex-1 items-center justify-center gap-1.5"
                 onClick={() => canManageRequests && setEditing(true)}
                 disabled={!canManageRequests}
-                className="flex-1 flex items-center justify-center gap-1 px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
               >
                 <Pencil size={14} />
                 Редактировать
-              </button>
-              <button
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="danger"
                 onClick={handleDelete}
                 disabled={!canManageRequests}
-                className="flex items-center justify-center gap-1 px-4 py-2 border border-red-200 text-red-600 rounded text-sm hover:bg-red-50 transition disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-1.5"
               >
                 <Trash2 size={14} />
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -326,10 +344,6 @@ export const RequestSidePanel: React.FC<Props> = ({
     </>
   );
 };
-
-// -------------------------------------------------------------
-// Вспомогательный компонент Field (оставляем локальным)
-// -------------------------------------------------------------
 
 function Field({
   label,
@@ -340,7 +354,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
         {label}
       </label>
       {children}

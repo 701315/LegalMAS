@@ -10,10 +10,25 @@ interface QualityFlagRendererProps {
   result: CheckResult;
 }
 
+function FlagDot({
+  className,
+  title,
+}: {
+  className: string;
+  title: string;
+}) {
+  return (
+    <span
+      className={`inline-block h-2 w-2 rounded-full ${className}`}
+      title={title}
+      aria-label={title}
+    />
+  );
+}
+
 export const QualityFlagRenderer: React.FC<QualityFlagRendererProps> = ({
   result,
 }) => {
-  // quality_flags приходит как словарь вида { [ключ]: boolean }
   const flags: Record<string, boolean> = result.quality_flags ?? {};
 
   const hasStructureDegraded = Boolean(flags.structure_degraded);
@@ -25,26 +40,32 @@ export const QualityFlagRenderer: React.FC<QualityFlagRendererProps> = ({
     ).length > 0;
 
   if (!hasStructureDegraded && !hasLlmFallback && !otherFlagsExist) {
-    return <span className="text-[11px] text-gray-300">—</span>;
+    return (
+      <span className="text-[11px] text-[var(--text-muted)]" title="Нет флагов качества">
+        —
+      </span>
+    );
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       {hasStructureDegraded && (
-        <span
-          className="w-2 h-2 rounded-full bg-orange-500"
+        <FlagDot
+          className="bg-[var(--color-orange)]"
           title="Нарушена структура документа"
         />
       )}
+
       {hasLlmFallback && (
-        <span
-          className="w-2 h-2 rounded-full bg-purple-500"
+        <FlagDot
+          className="bg-[var(--accent-primary)]"
           title="Использован LLM fallback"
         />
       )}
+
       {otherFlagsExist && (
-        <span
-          className="w-2 h-2 rounded-full bg-gray-500"
+        <FlagDot
+          className="bg-[var(--text-muted)]"
           title="Другие флаги качества"
         />
       )}
@@ -53,3 +74,5 @@ export const QualityFlagRenderer: React.FC<QualityFlagRendererProps> = ({
 };
 
 export default QualityFlagRenderer;
+
+

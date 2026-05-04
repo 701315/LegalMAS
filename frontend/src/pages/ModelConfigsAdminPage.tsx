@@ -1,15 +1,6 @@
 // =============================================================
 // src/pages/ModelConfigsAdminPage.tsx
 // Админ-страница для управления профилями моделей (ModelConfig).
-//
-// Позволяет:
-// - посмотреть список всех ModelConfig;
-// - создать новый профиль (name + параметры);
-// - отредактировать существующий профиль;
-// - удалить профиль;
-// - при наличии dealId в query-строке привязать профиль к конкретной сделке
-//   ("Выбрать для проекта" -> PATCH /deals/{dealId}/model-config).
-//   Также показывает, где профиль используется (плейбуки / проекты).
 // =============================================================
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -21,10 +12,16 @@ import type {
   ModelConfigCreateInput,
   ModelConfigUpdateInput,
 } from "../types";
+import Button from "../components/ui/Button";
 
 type ModelConfigUsage = {
   model_config_id: string;
-  playbook_versions: { id: string; name: string; semver: string; status: string }[];
+  playbook_versions: {
+    id: string;
+    name: string;
+    semver: string;
+    status: string;
+  }[];
   deals: { id: string; name: string; status: string }[];
 };
 
@@ -51,8 +48,6 @@ const defaultCreateValues: ModelConfigCreateInput = {
 const ModelConfigsAdminPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // Если страница открыта с параметром dealId, значит нас вызвали
-  // из конкретной сделки и нужно показывать кнопку "Выбрать для проекта".
   const params = new URLSearchParams(window.location.search);
   const dealIdFromQuery = params.get("dealId");
 
@@ -90,7 +85,7 @@ const ModelConfigsAdminPage: React.FC = () => {
           );
           usageMap[cfg.id] = res.data;
         } catch {
-          // Если не удалось загрузить usage для конкретного профиля — пропускаем
+          // игнорируем ошибки конкретных usage
         }
       }),
     );
@@ -132,8 +127,6 @@ const ModelConfigsAdminPage: React.FC = () => {
   }, [loadConfigs]);
 
   const handleBack = () => {
-    // Если нас вызвали из сделки, логично вернуться назад в историю,
-    // иначе — в общий админский раздел.
     if (dealIdFromQuery) {
       navigate(-1);
     } else {
@@ -141,7 +134,6 @@ const ModelConfigsAdminPage: React.FC = () => {
     }
   };
 
-  // Начать создание нового профиля
   const startCreate = () => {
     setMode("create");
     setSelectedId(null);
@@ -149,15 +141,11 @@ const ModelConfigsAdminPage: React.FC = () => {
     setFormValues(defaultCreateValues);
   };
 
-  // Начать редактирование существующего
   const startEdit = (config: ModelConfig) => {
     setMode("edit");
     setSelectedId(config.id);
     setFormError(null);
 
-    // Так как backend сейчас не отдаёт retrieval_config/scoring_config
-    // напрямую, здесь мы заполняем только name и embeddings.
-    // Числовые поля даём по умолчанию, пользователь может их скорректировать.
     setFormValues({
       name: config.name,
       embeddings_primary: "intfloat/multilingual-e5-large",
@@ -177,7 +165,6 @@ const ModelConfigsAdminPage: React.FC = () => {
     setFormValues(defaultCreateValues);
   };
 
-  // Обновление полей формы
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     numeric: boolean = false,
@@ -238,7 +225,7 @@ const ModelConfigsAdminPage: React.FC = () => {
 
     if (sum <= 0) {
       setFormError(
-        "Сумма весов (dense_weight + sparse_weight + metadata_boost) должна быть больше нуля.",
+        "Сумма весов (dense_weight + sparse_weight + metadata_boост) должна быть больше нуля.",
       );
       return false;
     }
@@ -341,14 +328,14 @@ const ModelConfigsAdminPage: React.FC = () => {
     } catch (err) {
       const apiErr = err as ApiError;
       setDeleteError(
-        apiErr.detail || "Не удалось удалить профиль модели. Попробуйте позже.",
+        apiErr.detail ||
+          "Не удалось удалить профиль модели. Попробуйте позже.",
       );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Привязать профиль модели к конкретной сделке (если есть dealId в query)
   const handleSelectForDeal = async (config: ModelConfig) => {
     if (!dealIdFromQuery) {
       return;
@@ -367,7 +354,6 @@ const ModelConfigsAdminPage: React.FC = () => {
         model_config_id: config.id,
       });
 
-      // После успешного выбора возвращаемся на предыдущую страницу (страницу сделки)
       navigate(-1);
     } catch (err) {
       const apiErr = err as ApiError;
@@ -381,75 +367,74 @@ const ModelConfigsAdminPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-5xl mx-auto space-y-4">
+    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
+      <div className="mx-auto max-w-5xl space-y-4">
         {/* Заголовок */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
               Профили моделей (ModelConfig)
             </h1>
-            <p className="text-sm text-gray-500">
-              Здесь можно создавать и настраивать профили моделей, которые затем
-              используются плейбуками и проектами.
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Управление конфигурациями моделей, которые используют плейбуки и
+              проекты.
             </p>
             {dealIdFromQuery && (
-              <p className="text-xs text-gray-500 mt-1">
-                Страница открыта из конкретного проекта: можно выбрать профиль
+              <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                Страница открыта из конкретного проекта — можно выбрать профиль
                 модели для этой сделки.
               </p>
             )}
           </div>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             onClick={handleBack}
-            className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
           >
             ← Назад
-          </button>
+          </Button>
         </div>
 
         {/* Общие ошибки */}
         {state.error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+          <div className="rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-xs text-red-100">
             {state.error}
           </div>
         )}
         {deleteError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+          <div className="rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-xs text-red-100">
             {deleteError}
           </div>
         )}
         {selectError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3">
+          <div className="rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-xs text-red-100">
             {selectError}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Левая колонка: список профилей */}
-          <div className="bg-white rounded-lg border p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-800">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                 Список профилей
               </h2>
-              <button
-                type="button"
-                onClick={startCreate}
-                className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700"
-              >
+              <Button size="sm" variant="primary" onClick={startCreate}>
                 + Новый профиль
-              </button>
+              </Button>
             </div>
 
             {state.isLoading ? (
-              <p className="text-xs text-gray-500">Загружаем профили…</p>
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Загружаем профили…
+              </p>
             ) : state.items.length === 0 ? (
-              <p className="text-xs text-gray-500">
+              <p className="text-[11px] text-[var(--text-muted)]">
                 Пока нет ни одного профиля модели. Создайте первый.
               </p>
             ) : (
-              <ul className="space-y-2 max-h-96 overflow-y-auto">
+              <ul className="max-h-96 space-y-2 overflow-y-auto">
                 {state.items.map((cfg) => {
                   const usage = state.usage[cfg.id];
                   const isUsed =
@@ -461,30 +446,35 @@ const ModelConfigsAdminPage: React.FC = () => {
                   return (
                     <li
                       key={cfg.id}
-                      className={`border rounded px-3 py-2 text-xs flex items-center justify-between ${
+                      className={[
+                        "flex items-center justify-between rounded-xl border px-3 py-2 text-xs transition-colors",
                         selectedId === cfg.id
-                          ? "border-blue-600 bg-blue-50"
-                          : "border-gray-200 bg-white"
-                      }`}
+                          ? "border-[var(--border-strong)] bg-[var(--bg-card-hover)]"
+                          : "border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)]",
+                      ].join(" ")}
                     >
                       <div>
-                        <div className="font-semibold text-gray-800">
+                        <div className="text-xs font-semibold text-[var(--text-primary)]">
                           {cfg.name}
                         </div>
-                        <div className="text-[11px] text-gray-500">
+                        <div className="text-[11px] text-[var(--text-muted)]">
                           ID: {cfg.id}
                         </div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">
+                        <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                           {usage ? (
                             isUsed ? (
                               <>
                                 Используется в плейбуках:
-                                {usage.playbook_versions.length > 0 ? " " : " нет"}
-                                {usage.playbook_versions.slice(0, 3).map((pv) => (
-                                  <span key={pv.id}>
-                                    {` "${pv.name}" (${pv.semver})`}
-                                  </span>
-                                ))}
+                                {usage.playbook_versions.length > 0
+                                  ? " "
+                                  : " нет"}
+                                {usage.playbook_versions
+                                  .slice(0, 3)
+                                  .map((pv) => (
+                                    <span key={pv.id}>
+                                      {` "${pv.name}" (${pv.semver})`}
+                                    </span>
+                                  ))}
                                 {usage.playbook_versions.length > 3 && " …"}
                                 <button
                                   type="button"
@@ -495,7 +485,7 @@ const ModelConfigsAdminPage: React.FC = () => {
                                       )}`,
                                     )
                                   }
-                                  className="ml-1 underline text-blue-600"
+                                  className="ml-1 text-[11px] text-indigo-300 underline"
                                 >
                                   открыть версии
                                 </button>
@@ -508,46 +498,52 @@ const ModelConfigsAdminPage: React.FC = () => {
                                 {usage.deals.length > 3 && " …"}
                               </>
                             ) : (
-                              <span className="text-green-600">
+                              <span className="text-emerald-300">
                                 Не используется (можно безопасно удалить)
                               </span>
                             )
                           ) : (
-                            <span className="text-gray-400">
-                              Загружаем информацию об использовании…
-                            </span>
+                            <span>Загружаем информацию об использовании…</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(cfg)}
-                          className="px-2 py-1 text-[11px] rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        >
-                          Редактировать
-                        </button>
-
-                        {dealIdFromQuery && (
-                          <button
+                        <div className="flex flex-col items-end gap-1">
+                          <Button
                             type="button"
-                            onClick={() => handleSelectForDeal(cfg)}
-                            disabled={isSelecting}
-                            className="px-2 py-1 text-[11px] rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-60"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setSelectedId(cfg.id);
+                              startEdit(cfg);
+                            }}
                           >
-                            Выбрать для проекта
-                          </button>
-                        )}
+                            Редактировать
+                          </Button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(cfg)}
-                          disabled={isDeleting}
-                          className="px-2 py-1 text-[11px] rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
-                        >
-                          Удалить
-                        </button>
-                      </div>
+                          {dealIdFromQuery && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-indigo-300 hover:bg-indigo-500/10 hover:text-indigo-200"
+                              onClick={() => handleSelectForDeal(cfg)}
+                              isLoading={isSelecting}
+                            >
+                              Выбрать для проекта
+                            </Button>
+                          )}
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-300 hover:bg-red-500/10 hover:text-red-200"
+                            onClick={() => handleDelete(cfg)}
+                            isLoading={isDeleting}
+                          >
+                            Удалить
+                          </Button>
+                        </div>
                     </li>
                   );
                 })}
@@ -556,25 +552,25 @@ const ModelConfigsAdminPage: React.FC = () => {
           </div>
 
           {/* Правая колонка: форма */}
-          <div className="bg-white rounded-lg border p-4">
-            <h2 className="text-sm font-semibold text-gray-800 mb-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               {mode === "create"
                 ? "Создание нового профиля"
                 : mode === "edit"
                 ? "Редактирование профиля"
-                : "Выберите профиль слева или создайте новый"}
+                : "Выбор / создание профиля"}
             </h2>
 
             {mode ? (
               <form onSubmit={handleSubmit} className="space-y-3">
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded p-2">
+                  <div className="rounded border border-red-500/50 bg-red-950/60 px-3 py-2 text-[11px] text-red-100">
                     {formError}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                     Имя профиля
                   </label>
                   <input
@@ -582,13 +578,13 @@ const ModelConfigsAdminPage: React.FC = () => {
                     name="name"
                     value={formValues.name}
                     onChange={(e) => handleInputChange(e, false)}
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                    className="input-base h-8 text-xs"
                     placeholder="например, default-v1, fast-v1, quality-v1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                     Embeddings primary
                   </label>
                   <input
@@ -596,16 +592,15 @@ const ModelConfigsAdminPage: React.FC = () => {
                     name="embeddings_primary"
                     value={formValues.embeddings_primary}
                     onChange={(e) => handleInputChange(e, false)}
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                    className="input-base h-8 text-xs"
                   />
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Основная модель эмбеддингов (используется в ретривере и
-                    классификации).
+                  <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                    Основная модель эмбеддингов (ретривер и классификация).
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                     Embeddings fallback (опционально)
                   </label>
                   <input
@@ -613,16 +608,16 @@ const ModelConfigsAdminPage: React.FC = () => {
                     name="embeddings_fallback"
                     value={formValues.embeddings_fallback ?? ""}
                     onChange={(e) => handleInputChange(e, false)}
-                    className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                    className="input-base h-8 text-xs"
                   />
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                     Запасная модель эмбеддингов или оставьте пустым.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                       candidate_n
                     </label>
                     <input
@@ -630,15 +625,14 @@ const ModelConfigsAdminPage: React.FC = () => {
                       name="candidate_n"
                       value={formValues.candidate_n}
                       onChange={(e) => handleInputChange(e, true)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                      className="input-base h-8 text-xs"
                     />
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Сколько документов/фрагментов рассматривать при поиске
-                      (быстрее = меньше).
+                    <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                      Сколько кандидатов рассматривать при поиске.
                     </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                       llm_context_k
                     </label>
                     <input
@@ -646,18 +640,17 @@ const ModelConfigsAdminPage: React.FC = () => {
                       name="llm_context_k"
                       value={formValues.llm_context_k}
                       onChange={(e) => handleInputChange(e, true)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                      className="input-base h-8 text-xs"
                     />
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Сколько контекста отдавать LLM (меньше = быстрее,
-                      больше = точнее).
+                    <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                      Сколько контекста отдавать LLM (баланс скорость/качество).
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                       dense_weight
                     </label>
                     <input
@@ -666,11 +659,11 @@ const ModelConfigsAdminPage: React.FC = () => {
                       name="dense_weight"
                       value={formValues.dense_weight}
                       onChange={(e) => handleInputChange(e, true)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                      className="input-base h-8 text-xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                       sparse_weight
                     </label>
                     <input
@@ -679,11 +672,11 @@ const ModelConfigsAdminPage: React.FC = () => {
                       name="sparse_weight"
                       value={formValues.sparse_weight}
                       onChange={(e) => handleInputChange(e, true)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                      className="input-base h-8 text-xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                       metadata_boost
                     </label>
                     <input
@@ -692,41 +685,39 @@ const ModelConfigsAdminPage: React.FC = () => {
                       name="metadata_boost"
                       value={formValues.metadata_boost}
                       onChange={(e) => handleInputChange(e, true)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
+                      className="input-base h-8 text-xs"
                     />
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-500">
-                  Веса управляют балансом между эмбеддингами, BM25 и
-                  метаданными. В сумме они должны давать положительное число.
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Веса управляют балансом между dense, sparse и метаданными.
+                  Сумма должна быть больше нуля.
                 </p>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t mt-3">
-                  <button
+                <div className="mt-3 flex items-center justify-end gap-2 border-t border-[var(--border)] pt-3">
+                  <Button
                     type="button"
+                    size="sm"
+                    variant="secondary"
                     onClick={resetForm}
-                    className="px-3 py-1.5 text-xs rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                   >
                     Отмена
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-1.5 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                    size="sm"
+                    variant="primary"
+                    isLoading={isSubmitting}
                   >
-                    {isSubmitting
-                      ? "Сохраняем..."
-                      : mode === "create"
-                      ? "Создать профиль"
-                      : "Сохранить изменения"}
-                  </button>
+                    {mode === "create" ? "Создать профиль" : "Сохранить изменения"}
+                  </Button>
                 </div>
               </form>
             ) : (
-              <p className="text-xs text-gray-500">
-                Для начала выберите профиль слева или нажмите{" "}
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Выберите профиль слева или нажмите{" "}
                 <span className="font-semibold">«Новый профиль»</span>, чтобы
-                добавить конфигурацию модели.
+                создать конфигурацию модели.
               </p>
             )}
           </div>
@@ -737,3 +728,5 @@ const ModelConfigsAdminPage: React.FC = () => {
 };
 
 export default ModelConfigsAdminPage;
+
+

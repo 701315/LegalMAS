@@ -3,6 +3,11 @@
 // Управление участниками проекта (по capability, обычно admin проекта).
 // =============================================================
 
+// =============================================================
+// src/pages/ProjectMembersPage.tsx
+// Управление участниками проекта (по capability, обычно admin проекта).
+// =============================================================
+
 import React, { useState } from "react";
 import { useNavigate, useParams, Navigate } from "react-router-dom";
 import {
@@ -15,6 +20,7 @@ import type { ProjectMember } from "../api/projectMembers";
 import type { ProjectRole } from "../api/auth";
 import type { ApiError } from "../types";
 import { useDealPermissions } from "../hooks/usePermissions";
+import Button from "../components/ui/Button";
 
 type FormMode = "create" | "edit";
 
@@ -38,18 +44,14 @@ const ProjectMembersPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
 
-  // Хуки должны вызываться без условий:
-  // 1) проверка прав доступа
   const { canManageRequests } = useDealPermissions(dealId as string);
   const canManageMembers = canManageRequests;
 
-  // 2) запросы к API
   const { data: members, isLoading } = useProjectMembers(dealId as string);
   const createMutation = useCreateProjectMember(dealId as string);
   const updateMutation = useUpdateProjectMember(dealId as string);
   const deleteMutation = useDeleteProjectMember(dealId as string);
 
-  // 3) локальное состояние формы и ошибок
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [form, setForm] = useState<MemberFormState>(EMPTY_FORM);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -57,28 +59,25 @@ const ProjectMembersPage: React.FC = () => {
     null,
   );
 
-  // После хуков уже можно делать условные return.
-
-  // Если нет dealId в урле — перенаправляем на список сделок
   if (!dealId) {
     return <Navigate to="/deals" replace />;
   }
 
-  // Если нет прав управления участниками — показываем понятный экран
   if (!canManageMembers) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md bg-white rounded-lg border shadow p-6 text-center">
-          <p className="text-sm text-gray-700 mb-4">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-base)] px-4">
+        <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center shadow-2xl shadow-black/40">
+          <p className="mb-4 text-sm text-[var(--text-secondary)]">
             У вас нет прав для управления участниками этого проекта.
           </p>
-          <button
+          <Button
             type="button"
+            size="md"
+            variant="secondary"
             onClick={() => navigate(`/projects/${dealId}`)}
-            className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
           >
-            Вернуться к проекту
-          </button>
+            ← Вернуться к проекту
+          </Button>
         </div>
       </div>
     );
@@ -148,7 +147,6 @@ const ProjectMembersPage: React.FC = () => {
             name: form.name.trim(),
             login: form.login.trim(),
             role: form.role,
-            // Если пароль не введён — не отправляем его, чтобы не затирать
             password: form.password.trim() || undefined,
           },
         });
@@ -179,88 +177,111 @@ const ProjectMembersPage: React.FC = () => {
     }
   };
 
+  const membersList = members ?? [];
+
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-5xl mx-auto space-y-4">
+    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
+      <div className="mx-auto max-w-5xl space-y-4 animate-fadein">
         {/* Заголовок */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
               Участники проекта
             </h1>
-            <p className="text-sm text-gray-500">Проект: {dealId}</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              Проект:{" "}
+              <span className="font-mono text-[11px] text-[var(--text-muted)]">
+                {dealId}
+              </span>
+            </p>
           </div>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             onClick={handleBack}
-            className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
           >
             ← Назад к проекту
-          </button>
+          </Button>
         </div>
 
         {/* Таблица участников */}
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-800">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               Список участников
             </h2>
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="primary"
               onClick={openCreateForm}
-              className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
             >
               Добавить участника
-            </button>
+            </Button>
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-gray-500">
-              Загружаем список участников…
-            </p>
-          ) : (members ?? []).length === 0 ? (
-            <p className="text-sm text-gray-500">
+            <div className="space-y-2">
+              <div className="skeleton h-4 w-1/3" />
+              <div className="skeleton h-4 w-full" />
+              <div className="skeleton h-4 w-11/12" />
+            </div>
+          ) : membersList.length === 0 ? (
+            <p className="text-sm text-[var(--text-secondary)]">
               В этом проекте пока нет участников.
             </p>
           ) : (
-            <table className="w-full text-sm border-t border-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="text-left px-2 py-2 font-medium text-gray-700">
+            <table className="w-full border-collapse">
+              <thead className="border-b border-[var(--border)]">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     Имя
                   </th>
-                  <th className="text-left px-2 py-2 font-medium text-gray-700">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     Логин
                   </th>
-                  <th className="text-left px-2 py-2 font-medium text-gray-700">
+                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     Роль в проекте
                   </th>
-                  <th className="text-right px-2 py-2 font-medium text-gray-700">
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     Действия
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {(members ?? []).map((m) => (
-                  <tr key={m.member_id} className="border-t border-gray-100">
-                    <td className="px-2 py-2 text-gray-800">{m.name}</td>
-                    <td className="px-2 py-2 text-gray-600">{m.login}</td>
-                    <td className="px-2 py-2 text-gray-600">{m.role}</td>
-                    <td className="px-2 py-2 text-right space-x-2">
-                      <button
+                {membersList.map((m) => (
+                  <tr
+                    key={m.member_id}
+                    className="border-b border-[var(--border)] hover:bg-white/3 transition-colors"
+                  >
+                    <td className="px-3 py-2.5 text-sm text-[var(--text-primary)] font-medium">
+                      {m.name}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-[var(--text-secondary)]">
+                      {m.login}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-[var(--text-secondary)]">
+                      {m.role}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-sm text-[var(--text-secondary)]">
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="mr-2"
                         onClick={() => openEditForm(m)}
-                        className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
                       >
                         Редактировать
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="danger"
                         onClick={() => setConfirmDelete(m)}
-                        className="text-xs px-2 py-1 rounded border border-red-500 text-red-600 hover:bg-red-50"
                       >
                         Удалить
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -271,13 +292,13 @@ const ProjectMembersPage: React.FC = () => {
 
         {/* Ошибка вне форм */}
         {errorText && !formMode && !confirmDelete && (
-          <p className="text-sm text-red-600">{errorText}</p>
+          <p className="text-sm text-red-400">{errorText}</p>
         )}
 
         {/* Форма добавления/редактирования */}
         {formMode && (
-          <div className="bg-white rounded-lg border p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-800">
+          <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               {formMode === "create"
                 ? "Добавить участника"
                 : "Редактировать участника"}
@@ -285,40 +306,37 @@ const ProjectMembersPage: React.FC = () => {
 
             <form className="space-y-3" onSubmit={handleSave}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                   Имя пользователя
                 </label>
                 <input
                   type="text"
                   value={form.name}
-                  onChange={(e) =>
-                    handleFormChange("name", e.target.value)
-                  }
-                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  onChange={(e) => handleFormChange("name", e.target.value)}
+                  className="input-base"
                   placeholder="Например: Иванов Иван"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                   Логин
                 </label>
                 <input
                   type="text"
                   value={form.login}
-                  onChange={(e) =>
-                    handleFormChange("login", e.target.value)
-                  }
-                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  onChange={(e) => handleFormChange("login", e.target.value)}
+                  className="input-base"
                   placeholder="Например: ivanov"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                   Пароль{" "}
                   {formMode === "edit" && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-[11px] font-normal normal-case text-[var(--text-muted)]">
+                      {" "}
                       (оставьте пустым, чтобы не менять)
                     </span>
                   )}
@@ -329,7 +347,7 @@ const ProjectMembersPage: React.FC = () => {
                   onChange={(e) =>
                     handleFormChange("password", e.target.value)
                   }
-                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="input-base"
                   placeholder={
                     formMode === "create"
                       ? "Придумайте пароль"
@@ -339,7 +357,7 @@ const ProjectMembersPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                   Роль в проекте
                 </label>
                 <select
@@ -347,7 +365,7 @@ const ProjectMembersPage: React.FC = () => {
                   onChange={(e) =>
                     handleFormChange("role", e.target.value as ProjectRole)
                   }
-                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="input-base"
                 >
                   <option value="admin">Администратор</option>
                   <option value="editor">Права правки</option>
@@ -356,53 +374,53 @@ const ProjectMembersPage: React.FC = () => {
               </div>
 
               {errorText && (
-                <p className="text-sm text-red-600">{errorText}</p>
+                <p className="text-sm text-red-400">{errorText}</p>
               )}
 
               <div className="flex items-center justify-end gap-3 pt-2">
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="ghost"
                   onClick={closeForm}
-                  className="px-4 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
                   Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700"
-                >
+                </Button>
+                <Button type="submit" size="sm" variant="primary">
                   Сохранить
-                </button>
+                </Button>
               </div>
             </form>
           </div>
         )}
 
-        {/* Блок подтверждения удаления */}
+        {/* Блок подтверждения удаления (пока без глобального ConfirmDialog) */}
         {confirmDelete && (
-          <div className="bg-white rounded-lg border p-4 space-y-3">
-            <p className="text-sm text-gray-800">
+          <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4">
+            <p className="text-sm text-[var(--text-secondary)]">
               Удалить участника{" "}
-              <span className="font-semibold">
+              <span className="font-semibold text-[var(--text-primary)]">
                 {confirmDelete.name}
               </span>{" "}
               из проекта?
             </p>
             <div className="flex items-center justify-end gap-3">
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="ghost"
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Отмена
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant="danger"
                 onClick={handleDelete}
-                className="px-4 py-2 text-sm font-medium rounded bg-red-600 text-white hover:bg-red-700"
               >
                 Да, удалить
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -412,4 +430,6 @@ const ProjectMembersPage: React.FC = () => {
 };
 
 export default ProjectMembersPage;
+
+
 

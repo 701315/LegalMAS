@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { Braces, Sparkles, Database, FileText } from "lucide-react";
 import type {
   StageMetaDTO,
   StageRepresentationDTO,
@@ -13,8 +14,42 @@ interface Props {
   meta: StageMetaDTO | null;
 }
 
-function cx(...classes: Array<string | false | null | undefined>): string {
+function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
+}
+
+function MetaPill({
+  children,
+  tone = "neutral",
+  icon,
+  title,
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "accent" | "warning" | "success";
+  icon?: React.ReactNode;
+  title?: string;
+}) {
+  const toneClasses =
+    tone === "accent"
+      ? "border-[color:color-mix(in_oklab,var(--color-primary)_25%,transparent)] bg-[var(--color-primary-highlight)] text-[var(--color-primary)]"
+      : tone === "warning"
+        ? "border-[color:color-mix(in_oklab,var(--color-warning)_30%,transparent)] bg-[var(--color-warning-highlight)] text-[var(--color-warning)]"
+        : tone === "success"
+          ? "border-[color:color-mix(in_oklab,var(--color-success)_28%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]"
+          : "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] leading-none",
+        toneClasses,
+      )}
+    >
+      {icon ? <span className="shrink-0">{icon}</span> : null}
+      <span>{children}</span>
+    </span>
+  );
 }
 
 export const StageRepresentationBanner: React.FC<Props> = ({
@@ -29,10 +64,6 @@ export const StageRepresentationBanner: React.FC<Props> = ({
   const modeHint = isCanonical
     ? "Каноническое представление стадии"
     : "Дружественное представление стадии";
-
-  const modeToneClasses = isCanonical
-    ? "border-slate-300 bg-slate-100 text-slate-700"
-    : "border-blue-300 bg-blue-50 text-blue-700";
 
   const localizedRepresentationLabel =
     representation.label ||
@@ -66,46 +97,60 @@ export const StageRepresentationBanner: React.FC<Props> = ({
   }
 
   return (
-    <div className="border-b bg-gray-50 px-5 py-2">
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600">
-        <span
-          className={cx(
-            "inline-flex items-center rounded-full border px-2 py-0.5 font-medium",
-            modeToneClasses
-          )}
+    <section
+      aria-label="Режим представления стадии"
+      className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-3"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <MetaPill
+          tone={isCanonical ? "neutral" : "accent"}
+          icon={
+            isCanonical ? (
+              <Braces size={12} aria-hidden="true" />
+            ) : (
+              <Sparkles size={12} aria-hidden="true" />
+            )
+          }
           title={modeHint}
         >
           {modeLabel}
-        </span>
+        </MetaPill>
 
-        <span className="font-medium text-gray-800">
+        <span className="text-sm font-medium text-[var(--text-primary)]">
           {localizedRepresentationLabel}
         </span>
 
         {localizedPreviewSource && (
-          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">
+          <MetaPill
+            tone="warning"
+            icon={<Database size={12} aria-hidden="true" />}
+            title="Источник данных preview"
+          >
             {localizedPreviewSource}
-          </span>
+          </MetaPill>
         )}
 
         {localizedEnrichment && (
-          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">
+          <MetaPill
+            tone="success"
+            icon={<FileText size={12} aria-hidden="true" />}
+            title="Текстовое обогащение"
+          >
             {localizedEnrichment}
-          </span>
+          </MetaPill>
         )}
       </div>
 
       {localizedDescription && (
-        <p className="mt-1 text-[11px] leading-4 text-gray-500">
+        <p className="mt-2 max-w-5xl text-[12px] leading-5 text-[var(--text-muted)]">
           {localizedDescription}
         </p>
       )}
-    </div>
+    </section>
   );
 };
 
 export default StageRepresentationBanner;
-
 
 
 

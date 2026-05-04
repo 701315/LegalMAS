@@ -1,7 +1,4 @@
-// =============================================================
 // src/components/viewer/DocumentViewerModal.tsx
-// Модалка с PDF‑viewer для договора + overlay по чанкам.
-// =============================================================
 
 import React from "react";
 import { Document, Page, pdfjs } from "react-pdf";
@@ -13,18 +10,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-/**
- * Один элемент layout (маленький кусочек текста на странице).
- */
 export interface LayoutElement {
   elementId: string;
   page: number;
-  bbox: [number, number, number, number]; // [x0, top, x1, bottom]
+  bbox: [number, number, number, number];
 }
 
-/**
- * Краткая информация о чанке для overlay.
- */
 export interface SizedChunkMeta {
   id: string;
   elementIds: string[];
@@ -34,20 +25,10 @@ export interface SizedChunkMeta {
 interface DocumentViewerModalProps {
   open: boolean;
   onClose: () => void;
-
-  // Прямой URL до сконвертированного PDF.
   fileUrl: string | null;
-
-  // Куда именно нужно «прыгнуть»
   location: OpenViewerAtPayload | null;
-
-  // Необязательный первичный зум (в долях ширины контейнера)
   initialScale?: number;
-
-  // Заголовок: имя документа ИЛИ текст ошибки/статуса (из GridTab)
   title?: string | null;
-
-  // НОВОЕ: данные для overlay по чанкам.
   layoutElements?: LayoutElement[];
   sizedChunks?: SizedChunkMeta[];
 }
@@ -65,26 +46,20 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   const [numPages, setNumPages] = React.useState<number | null>(null);
   const [pageNumber, setPageNumber] = React.useState<number>(1);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-
-  // Ширина контейнера, считанная один раз и при ресайзах
   const [containerWidth, setContainerWidth] = React.useState<number | null>(
     null,
   );
-
-  // Исходные размеры страницы в координатах PDF (от react-pdf/Page)
   const [pageSize, setPageSize] = React.useState<{
     originalWidth: number;
     originalHeight: number;
   } | null>(null);
 
-  // При смене location — прыгаем на нужную страницу
   React.useEffect(() => {
     if (location?.page && location.page > 0) {
       setPageNumber(location.page);
     }
   }, [location]);
 
-  // Измеряем ширину контейнера и подписываемся на resize
   React.useLayoutEffect(() => {
     if (!open) return;
 
@@ -101,7 +76,6 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     };
   }, [open]);
 
-  // Esc‑закрытие
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -151,9 +125,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   };
 
   const handleNextPage = () => {
-    setPageNumber((prev) =>
-      numPages ? Math.min(numPages, prev + 1) : prev,
-    );
+    setPageNumber((prev) => (numPages ? Math.min(numPages, prev + 1) : prev));
   };
 
   const headerTitle =
@@ -167,16 +139,13 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     title && title.toLowerCase().includes("загрузка"),
   );
 
-  // Итоговая ширина страницы: либо измеренная, либо дефолт
   const pageWidth = (containerWidth ?? 900) * initialScale;
 
-  // Ищем "активный" чанк по location
   let activeChunkIndex = -1;
 
   if (sizedChunks && sizedChunks.length > 0 && location) {
     const { chunkId, chunkIndex, clauseUid } = location;
 
-    // 1) по chunkId
     if (chunkId) {
       const idx = sizedChunks.findIndex((ch) => ch.id === chunkId);
       if (idx >= 0) {
@@ -184,7 +153,6 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       }
     }
 
-    // 2) по chunkIndex
     if (
       activeChunkIndex < 0 &&
       typeof chunkIndex === "number" &&
@@ -194,7 +162,6 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       activeChunkIndex = chunkIndex;
     }
 
-    // 3) по clauseUid
     if (activeChunkIndex < 0 && clauseUid) {
       const idx = sizedChunks.findIndex((ch) =>
         ch.clauseUids?.includes(clauseUid),
@@ -204,9 +171,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       }
     }
   }
-  
 
-  // Карта elementId -> индекс чанка (без useMemo)
   const elementToChunkIndex = (() => {
     const map = new Map<string, number>();
     (sizedChunks ?? []).forEach((chunk, chunkIndex) => {
@@ -219,8 +184,10 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     return map;
   })();
 
-  // Overlay‑объекты для текущей страницы (без useMemo)
-  const pageOverlays: { bbox: [number, number, number, number]; chunkIndex: number | null }[] =
+  const pageOverlays: {
+    bbox: [number, number, number, number];
+    chunkIndex: number | null;
+  }[] =
     layoutElements && layoutElements.length
       ? layoutElements
           .filter((el) => el.page === pageNumber)
@@ -232,38 +199,38 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/65"
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-lg shadow-2xl w-[95vw] h-[95vh] max-w-6xl flex flex-col"
+        className="flex h-[95vh] w-[95vw] max-w-6xl flex-col rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="Просмотр документа"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b text-xs">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-4 py-2 text-xs">
           <div className="flex flex-col">
             <span
               className={
-                "truncate max-w-[360px] " +
+                "max-w-[360px] truncate " +
                 (hasErrorTitle
-                  ? "font-medium text-red-600"
+                  ? "font-medium text-[color:rgb(161,53,68)]"
                   : isLoadingTitle
-                  ? "font-medium text-gray-600"
-                  : "font-medium text-gray-800")
+                  ? "font-medium text-[var(--text-secondary)]"
+                  : "font-medium text-[var(--text-primary)]")
               }
             >
               {headerTitle}
             </span>
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] text-[var(--text-muted)]">
               {location?.page ? `Страница ${location.page}` : "Страница 1"}
               {location?.clauseUid && ` · Клауза ${location.clauseUid}`}
             </span>
           </div>
           <button
             type="button"
-            className="px-2 py-1 border rounded text-xs hover:bg-gray-50"
+            className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-3 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
             onClick={onClose}
           >
             Закрыть
@@ -271,12 +238,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-3 py-2 border-b bg-gray-50 text-[11px] text-gray-600">
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-2 text-[11px] text-[var(--text-secondary)]">
           <div className="flex items-center gap-2">
             <span>Навигация:</span>
             <button
               type="button"
-              className="px-2 py-1 border rounded disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 hover:bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={handlePrevPage}
               disabled={pageNumber <= 1}
             >
@@ -288,47 +255,44 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             </span>
             <button
               type="button"
-              className="px-2 py-1 border rounded disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white"
+              className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 hover:bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={handleNextPage}
               disabled={!numPages || pageNumber >= numPages}
             >
               ▶
             </button>
           </div>
-          <div className="text-[11px] text-gray-400">
-            Нажмите Esc или «Закрыть», чтобы выйти
+          <div className="text-[11px] text-[var(--text-muted)]">
+            Esc или «Закрыть», чтобы выйти
           </div>
         </div>
 
         {/* Body */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-auto bg-gray-200 flex items-center justify-center"
+          className="flex flex-1 items-center justify-center overflow-auto bg-[var(--bg-base)]"
         >
           {!fileUrl ? (
-            <div className="text-xs text-red-600 px-4 py-2 bg-white rounded">
+            <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
               Не удалось получить ссылку на PDF.
             </div>
           ) : (
-            <div className="bg-gray-400/10 p-2">
+            <div className="bg-[var(--bg-elevated-soft)] p-3">
               <Document
                 file={fileUrl}
                 onLoadSuccess={handleDocumentLoad}
                 loading={
-                  <div className="text-xs text-gray-600 px-4 py-2 bg-white rounded">
+                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--text-secondary)]">
                     Загружаем PDF…
                   </div>
                 }
                 error={
-                  <div className="text-xs text-red-600 px-4 py-2 bg-white rounded">
+                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[color:rgb(161,53,68)]">
                     Не удалось загрузить PDF.
                   </div>
                 }
               >
-                <div
-                  className="relative"
-                  style={{ width: pageWidth }}
-                >
+                <div className="relative" style={{ width: pageWidth }}>
                   <Page
                     pageNumber={pageNumber}
                     width={pageWidth}
@@ -339,13 +303,11 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                     <div className="pointer-events-none absolute inset-0">
                       {pageOverlays.map((ov, i) => {
                         if (ov.chunkIndex == null) return null;
+                        if (!pageSize) return null;
 
                         const [x0, top, x1, bottom] = ov.bbox;
 
-                        if (!pageSize) return null;
-
-                        const scaleX =
-                          pageWidth / pageSize.originalWidth;
+                        const scaleX = pageWidth / pageSize.originalWidth;
                         const scaleY = scaleX;
 
                         const left = x0 * scaleX;
@@ -354,13 +316,15 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                         const height = (bottom - top) * scaleY;
 
                         const isEven = ov.chunkIndex % 2 === 0;
-                        const isActive = activeChunkIndex >= 0 && ov.chunkIndex === activeChunkIndex;
+                        const isActive =
+                          activeChunkIndex >= 0 &&
+                          ov.chunkIndex === activeChunkIndex;
 
                         const bgClass = isActive
-                          ? "bg-yellow-200/60 ring-2 ring-yellow-500"
+                          ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
                           : isEven
-                          ? "bg-white/60"
-                          : "bg-gray-200/60";
+                          ? "bg-white/55"
+                          : "bg-black/8";
 
                         return (
                           <div

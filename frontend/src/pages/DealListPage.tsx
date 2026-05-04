@@ -1,45 +1,53 @@
 // =============================================================
 // src/pages/DealListPage.tsx
 // Страница списка сделок.
+// Приведено к единому product-дизайну workspace.
 // =============================================================
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { useDeals } from "../api/deals";
 import DealCard from "../components/DealCard";
+import Button from "../components/ui/Button";
 
 interface DealListPageProps {
   /** Колбэк, вызывается при выборе сделки (опционально, для master-detail) */
   onSelectDeal?: (dealId: string) => void;
 }
 
+const filterInputClassName =
+  "rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)] placeholder:text-[var(--text-muted)]";
+
 const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
-  // Текущая страница (начинаем с 1)
   const [page, setPage] = React.useState(1);
-  // Фильтр по статусу (undefined = все)
   const [status, setStatus] = React.useState<string | undefined>(undefined);
-  // Фильтр по tenant_id (undefined = все)
   const [tenantId, setTenantId] = React.useState<string | undefined>(undefined);
 
-  // Активная сделка берётся из URL /deals/:dealId
   const params = useParams<{ dealId?: string }>();
   const activeDealId = params.dealId;
 
-  // Загружаем сделки с учетом страницы, статуса и tenantId
   const { data, isLoading, error } = useDeals(page, status, tenantId);
 
   if (isLoading) {
     return (
-      <div className="p-6 text-center text-gray-500">
-        Загружаем список сделок…
+      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
+        <div className="mx-auto max-w-5xl">
+          <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-5 text-center text-sm text-[var(--text-secondary)] shadow-sm">
+            Загружаем список сделок…
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 text-center text-red-500">
-        Не удалось загрузить сделки.
+      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
+        <div className="mx-auto max-w-5xl">
+          <div className="rounded-[24px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-6 py-5 text-center text-sm text-[color:rgb(120,35,46)] shadow-sm">
+            Не удалось загрузить сделки.
+          </div>
+        </div>
       </div>
     );
   }
@@ -65,7 +73,7 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value || undefined;
     setStatus(value);
-    setPage(1); // при смене фильтра возвращаемся на первую страницу
+    setPage(1);
   };
 
   const handleTenantChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,25 +83,54 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
   };
 
   return (
-    <div className="min-height-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-5xl mx-auto">
-        <header className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Сделки
-            </h1>
-            <p className="text-sm text-gray-500">
-              Найдено: {total} (статус: {status ?? "все"})
-            </p>
+    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
+      <div className="mx-auto max-w-5xl space-y-5">
+        {/* Header */}
+        <header className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                Projects
+              </div>
+
+              <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-[var(--text-primary)]">
+                Сделки
+              </h1>
+
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                Найдено: {total}
+                {" · "}
+                Статус: {status ?? "все"}
+              </p>
+            </div>
+
+            <div className="rounded-[22px] border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+              Страница{" "}
+              <span className="font-semibold text-[var(--text-primary)]">
+                {page}
+              </span>
+              {totalPages > 1 ? (
+                <>
+                  {" "}
+                  из{" "}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {totalPages}
+                  </span>
+                </>
+              ) : null}
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <span className="text-gray-600">Статус:</span>
+          {/* Filters */}
+          <div className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-4 md:grid-cols-3">
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                Статус
+              </span>
               <select
                 value={status ?? ""}
                 onChange={handleStatusChange}
-                className="border rounded px-2 py-1 text-sm"
+                className={`${filterInputClassName} w-full`}
               >
                 <option value="">Все</option>
                 <option value="created">created</option>
@@ -103,39 +140,43 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
               </select>
             </label>
 
-            <label className="flex items-center gap-2">
-              <span className="text-gray-600">Tenant ID:</span>
+            <label className="block md:col-span-2">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                Tenant ID
+              </span>
               <input
                 type="text"
                 value={tenantId ?? ""}
                 onChange={handleTenantChange}
-                className="border rounded px-2 py-1 text-sm"
+                className={`${filterInputClassName} w-full`}
                 placeholder="UUID"
               />
             </label>
-
-            <div className="text-right text-gray-500">
-              <p>
-                Страница {page}
-              </p>
-            </div>
           </div>
         </header>
 
+        {/* Content */}
         {deals.length === 0 ? (
-          <div className="bg-white rounded-lg border p-6 text-center text-gray-500">
-            Пока нет сделок.
+          <div className="rounded-[28px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
+            <div className="mx-auto max-w-md">
+              <div className="text-base font-semibold text-[var(--text-primary)]">
+                Сделки не найдены
+              </div>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                Для текущих фильтров список пуст. Измените статус или tenant,
+                чтобы увидеть другие проекты.
+              </p>
+            </div>
           </div>
         ) : (
           <>
-            {/* Сетка плиток-сделок */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {deals.map((deal) => (
                 <Link
                   key={deal.id}
                   to={`/deals/${deal.id}`}
                   onClick={() => onSelectDeal && onSelectDeal(deal.id)}
-                  className="block no-underline text-inherit"
+                  className="block text-inherit no-underline"
                 >
                   <DealCard
                     deal={deal}
@@ -145,37 +186,38 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
               ))}
             </div>
 
-            {/* Пагинация */}
-            <div className="flex items-center justify-between text-sm text-gray-600">
-              <button
+            {/* Pagination */}
+            <div className="flex flex-col gap-3 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={handlePrev}
                 disabled={!hasPrevious}
-                className={`px-3 py-1 rounded border ${
-                  hasPrevious
-                    ? "bg-white hover:bg-gray-50"
-                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                }`}
               >
                 ← Назад
-              </button>
+              </Button>
 
-              <span>
-                Страница {page} из {totalPages}
-              </span>
+              <div className="text-sm text-[var(--text-secondary)]">
+                Страница{" "}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {page}
+                </span>{" "}
+                из{" "}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {totalPages}
+                </span>
+              </div>
 
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={handleNext}
                 disabled={!hasNext}
-                className={`px-3 py-1 rounded border ${
-                  hasNext
-                    ? "bg-white hover:bg-gray-50"
-                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                }`}
               >
                 Вперёд →
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -185,3 +227,5 @@ const DealListPage: React.FC<DealListPageProps> = ({ onSelectDeal }) => {
 };
 
 export default DealListPage;
+
+

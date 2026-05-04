@@ -3,6 +3,7 @@
 // =============================================================
 
 import React from "react";
+import { X, Sparkles, Braces, Loader2 } from "lucide-react";
 import type {
   PipelineStageKind,
   PipelineStageViewDTO,
@@ -15,6 +16,7 @@ import { LayoutStageViewer } from "./LayoutStageViewer";
 import { StructureStageViewer } from "./StructureStageViewer";
 import { ChunksStageViewer } from "./ChunksStageViewer";
 import { StageRepresentationBanner } from "./StageRepresentationBanner";
+import Button from "../../ui/Button";
 
 interface Props {
   stage: PipelineStageViewDTO | null;
@@ -55,37 +57,45 @@ export const PipelineStageModal: React.FC<Props> = ({
   onOpenAtLocation,
   onClose,
 }) => {
-  // Текущая версия открытой стадии (может обновляться при переключении режима)
   const [currentStage, setCurrentStage] =
     React.useState<PipelineStageViewDTO | null>(stage);
-
-  // Полный актуальный набор стадий для текущего view_mode.
-  // Нужен, чтобы structure-viewer мог получить chunksStage.
   const [currentStages, setCurrentStages] =
     React.useState<PipelineStageViewDTO[]>(stages);
-
-  // Локальный режим представления (canonical / friendly)
   const [viewMode, setViewMode] = React.useState<StageViewMode>("canonical");
-
-  // Статусы загрузки/ошибки при переключении режима
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // При смене входного stage (клик по другой строке в списке)
-  // переинициализируем локальное состояние.
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+
   React.useEffect(() => {
-    setCurrentStage(stage || null);
+    setCurrentStage(stage ?? null);
     setCurrentStages(stages);
     setError(null);
-
-    if (stage?.representation?.view_mode) {
-      setViewMode(stage.representation.view_mode);
-    } else {
-      setViewMode("canonical");
-    }
+    setViewMode(stage?.representation?.view_mode ?? "canonical");
   }, [stage, stages]);
 
-  // Если стадии нет, модалка не рендерится вообще.
+  React.useEffect(() => {
+    if (!currentStage) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !loading) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentStage, loading, onClose]);
+
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (loading) return;
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
   if (!currentStage) {
     return null;
   }
@@ -95,7 +105,7 @@ export const PipelineStageModal: React.FC<Props> = ({
     supportsFriendlyMode(stageData) && stageData.status === "ready";
 
   async function handleToggleViewMode() {
-    if (!documentId || !canToggleFriendly) return;
+    if (!documentId || !canToggleFriendly || loading) return;
 
     const nextViewMode: StageViewMode =
       viewMode === "canonical" ? "friendly" : "canonical";
@@ -143,7 +153,7 @@ export const PipelineStageModal: React.FC<Props> = ({
 
         return (
           <StructureStageViewer
-            documentId={documentId}  
+            documentId={documentId}
             structureStage={stageData}
             chunksStage={chunksStage}
             onOpenAtLocation={onOpenAtLocation}
@@ -153,16 +163,16 @@ export const PipelineStageModal: React.FC<Props> = ({
 
       case "chunks":
         return (
-          <ChunksStageViewer 
+          <ChunksStageViewer
             stage={stageData}
             documentId={documentId}
-            onOpenAtLocation={onOpenAtLocation} 
+            onOpenAtLocation={onOpenAtLocation}
           />
         );
 
       default:
         return (
-          <div className="text-sm text-gray-500">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
             Для этой стадии пока нет viewer.
           </div>
         );
@@ -170,55 +180,81 @@ export const PipelineStageModal: React.FC<Props> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between gap-4 border-b px-5 py-3">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]"
+      onClick={handleBackdropClick}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wide text-gray-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
               {stageData.code}
             </p>
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2
+              id={titleId}
+              className="mt-1 text-base font-semibold text-[var(--text-primary)]"
+            >
               {stageData.title}
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p
+              id={descriptionId}
+              className="mt-1 max-w-3xl text-sm text-[var(--text-muted)]"
+            >
               {stageData.description}
             </p>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
             {canToggleFriendly && (
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant={viewMode === "canonical" ? "secondary" : "ghost"}
                 onClick={handleToggleViewMode}
                 disabled={loading}
-                className={`rounded border px-3 py-1.5 text-xs font-medium transition ${
-                  loading
-                    ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400"
-                    : viewMode === "canonical"
-                      ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
                 title={
                   viewMode === "canonical"
                     ? "Показать более удобный для чтения вид"
                     : "Вернуться к каноническому результату этапа"
                 }
+                className="gap-1.5"
               >
-                {loading
-                  ? "Переключение..."
-                  : viewMode === "canonical"
-                    ? "Показать friendly формат"
-                    : "Показать canonical формат"}
-              </button>
+                {loading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Переключение...
+                  </>
+                ) : viewMode === "canonical" ? (
+                  <>
+                    <Sparkles size={14} />
+                    Friendly формат
+                  </>
+                ) : (
+                  <>
+                    <Braces size={14} />
+                    Canonical формат
+                  </>
+                )}
+              </Button>
             )}
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={onClose}
-              className="rounded border px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+              disabled={loading}
+              aria-label="Закрыть модальное окно"
+              className="px-2 py-1.5"
             >
-              Закрыть
-            </button>
+              <X size={16} />
+            </Button>
           </div>
         </div>
 
@@ -228,12 +264,33 @@ export const PipelineStageModal: React.FC<Props> = ({
         />
 
         {error && (
-          <div className="mx-5 mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mx-5 mt-4 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-4 py-3 text-sm text-[var(--color-error-strong)]">
             {error}
           </div>
         )}
 
-        <div className="flex-1 overflow-auto p-5">{renderContent()}</div>
+        <div className="min-h-0 flex-1 overflow-auto bg-[var(--bg-subtle)] p-5">
+          {renderContent()}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
+          <p className="text-xs text-[var(--text-muted)]">
+            Режим представления:{" "}
+            <span className="font-medium text-[var(--text-primary)]">
+              {viewMode === "friendly" ? "friendly" : "canonical"}
+            </span>
+          </p>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Закрыть
+          </Button>
+        </div>
       </div>
     </div>
   );

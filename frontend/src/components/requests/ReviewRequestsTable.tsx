@@ -17,25 +17,20 @@ interface Props {
   onRowClick: (request: DDRequestDTO) => void;
 }
 
-/**
- * Read-only таблица запросов.
- *
- * Важно:
- * - Вся бизнес-логика приведения DTO → UI-модель вынесена в adapter
- *   (toRequestTableRowFromReview).
- * - Здесь остаётся только поиск/сортировка и простая разметка.
- */
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
 export const ReviewRequestsTable: React.FC<Props> = ({
   requests,
   onRowClick,
 }) => {
   const [searchText, setSearchText] = useState("");
 
-  // Преобразуем все запросы в UI read-model через adapter
   const viewModels = useMemo(
     () =>
       requests.map((req) => ({
-        dto: req, // сохраняем исходный DTO для onRowClick
+        dto: req,
         view: toRequestTableRowFromReview(req),
       })),
     [requests],
@@ -51,7 +46,6 @@ export const ReviewRequestsTable: React.FC<Props> = ({
         const text = view.text.toLowerCase();
         const checkLabel = view.checkLabel?.toLowerCase() ?? "";
         const addressee = view.addressee?.toLowerCase() ?? "";
-        // Для review mode у нас уже есть document names в view.documentsLabel
         const docsLabel = view.documentsLabel?.toLowerCase() ?? "";
 
         return (
@@ -63,7 +57,6 @@ export const ReviewRequestsTable: React.FC<Props> = ({
       });
     }
 
-    // Сортировка: critical → high → medium → low, внутри — по check_name
     list.sort((a, b) => {
       const pa = REQUEST_PRIORITY_ORDER[a.view.priority] ?? 9;
       const pb = REQUEST_PRIORITY_ORDER[b.view.priority] ?? 9;
@@ -83,15 +76,18 @@ export const ReviewRequestsTable: React.FC<Props> = ({
     <div className="space-y-3">
       {/* Шапка */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Запросы — Review ({requests.length})
+        <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+          Запросы — Review{" "}
+          <span className="ml-1 text-[var(--text-muted)]">
+            ({requests.length})
+          </span>
         </h2>
       </div>
 
       {/* Поиск */}
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
           size={16}
         />
         <input
@@ -99,86 +95,95 @@ export const ReviewRequestsTable: React.FC<Props> = ({
           placeholder="Поиск по тексту, проверке или документу…"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="w-full rounded-lg border px-9 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-base !pl-9"
         />
       </div>
 
       {/* Таблица */}
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full table-fixed">
-          <thead>
-            <tr className="bg-gray-50">
-              <th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
+        <table className="w-full table-fixed border-collapse">
+          <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]/60">
+            <tr>
+              <th className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Приоритет
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Текст запроса
               </th>
-              <th className="w-48 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Документы
               </th>
-              <th className="w-36 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th className="w-36 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 Сегмент
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+
+          <tbody>
             {filtered.map(({ dto, view }) => (
               <tr
                 key={view.id}
-                className="cursor-pointer transition hover:bg-gray-50"
+                className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-b-0 hover:bg-[var(--bg-elevated-soft)]/55"
                 onClick={() => onRowClick(dto)}
               >
-                {/* Приоритет — shared component */}
-                <td className="px-4 py-3 align-top">
+                {/* Приоритет */}
+                <td className="px-3 py-2.5 align-top">
                   <RequestPriorityBadge priority={view.priority} size="sm" />
                 </td>
 
                 {/* Текст */}
-                <td className="px-4 py-3 align-top">
-                  <p className="line-clamp-2 text-sm text-gray-900">
+                <td className="px-3 py-2.5 align-top">
+                  <p className="line-clamp-2 text-sm text-[var(--text-primary)]">
                     {view.text}
                   </p>
+
                   {view.checkLabel && (
-                    <p className="mt-0.5 text-xs text-gray-400">
+                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                       {view.checkLabel}
                     </p>
                   )}
+
                   {view.addressee && (
-                    <p className="mt-0.5 text-xs text-blue-500">
+                    <p className="mt-1 text-xs text-[var(--accent-primary)]">
                       → {view.addressee}
                     </p>
                   )}
                 </td>
 
-                {/* Документы — используем готовый label из view model */}
-                <td className="px-4 py-3 align-top">
+                {/* Документы */}
+                <td className="px-3 py-2.5 align-top">
                   {view.documentsLabel ? (
-                    <span className="line-clamp-2 text-xs text-gray-700">
+                    <span className="line-clamp-2 text-xs text-[var(--text-secondary)]">
                       {view.documentsLabel}
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-300">—</span>
+                    <span className="text-xs text-[var(--text-muted)]">—</span>
                   )}
                 </td>
 
-                {/* Сегмент — используем готовые поля из view model */}
-                <td className="px-4 py-3 align-top">
+                {/* Сегмент */}
+                <td className="px-3 py-2.5 align-top">
                   {view.hasSegmentContext ? (
-                    <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-col gap-1">
                       {view.segmentTitle && (
-                        <span className="line-clamp-1 text-xs text-gray-700">
+                        <span className="line-clamp-1 text-xs text-[var(--text-secondary)]">
                           {view.segmentTitle}
                         </span>
                       )}
+
                       {view.chunkIndex != null && (
-                        <span className="text-[10px] text-gray-400">
+                        <span
+                          className={cn(
+                            "inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                            "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
+                          )}
+                        >
                           Chunk #{view.chunkIndex}
                         </span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-300">—</span>
+                    <span className="text-xs text-[var(--text-muted)]">—</span>
                   )}
                 </td>
               </tr>
@@ -187,12 +192,14 @@ export const ReviewRequestsTable: React.FC<Props> = ({
         </table>
 
         {filtered.length === 0 && (
-          <div className="py-16 text-center text-gray-400">
-            <p className="mb-1 text-lg">Запросы не найдены</p>
-            <p className="text-sm">
+          <div className="border-t border-[var(--border)] py-10 text-center">
+            <p className="mb-1 text-sm text-[var(--text-secondary)]">
+              Запросы не найдены
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
               {requests.length === 0
-                ? "Запросы появятся после анализа документов"
-                : "Попробуйте изменить поиск"}
+                ? "Запросы появятся после анализа документов."
+                : "Попробуйте изменить поиск."}
             </p>
           </div>
         )}

@@ -9,6 +9,7 @@ import React from "react";
 import { FileText, ListTree, X } from "lucide-react";
 import { useDocumentPdfUrl, useStructuredData } from "../../api/documents";
 import type { Document, ClauseNode } from "../../types";
+import Button from "../ui/Button";
 
 interface DocumentOpenModalProps {
   doc: Document;
@@ -23,14 +24,12 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   doc,
   onClose,
 }) => {
-  // Загружаем URL исходного файла
   const {
     data: pdfData,
     isLoading: isPdfLoading,
     error: pdfError,
   } = useDocumentPdfUrl(doc.id);
 
-  // Загружаем structured-data "по требованию" — включаем запрос только при нажатии кнопки
   const [loadStructured, setLoadStructured] = React.useState(false);
   const {
     data: structuredData,
@@ -39,11 +38,10 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   } = useStructuredData(loadStructured ? doc.id : null);
 
   const handleOpenPdf = () => {
-    if (isPdfLoading) {
-      return;
-    }
+    if (isPdfLoading) return;
 
     if (pdfError) {
+      // TODO: заменить на нормальный inline-тост, когда будет общий механизм
       alert(
         "Исходный файл недоступен или произошла ошибка при загрузке URL.",
       );
@@ -59,11 +57,9 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   };
 
   const handleLoadStructured = () => {
-    // Просто включаем флаг, чтобы useStructuredData получил doc.id
     setLoadStructured(true);
   };
 
-  // Одна строка оглавления
   const renderClauseRow = (
     node: ClauseNode,
     key: React.Key,
@@ -71,24 +67,22 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   ) => (
     <div
       key={key}
-      className="flex justify-between text-[11px] py-0.5 border-b border-gray-100 last:border-0"
+      className="flex justify-between border-b border-[var(--border-subtle)] py-0.5 text-[11px]"
       style={{ paddingLeft: indentPx }}
     >
-      <span className="text-gray-400">{node.clause_uid}</span>
-      <span className="text-gray-800 font-medium text-right">
+      <span className="text-[var(--text-faint)]">{node.clause_uid}</span>
+      <span className="text-right font-medium text-[var(--text-primary)]">
         {node.title}
       </span>
     </div>
   );
 
-  // Рекурсивный рендер дерева (с ограничением на количество строк)
   const renderClauseTree = (
     nodes: ClauseNode[] | undefined | null,
     indentPx = 0,
     maxRows = 80,
     acc: React.ReactNode[] = [],
   ): React.ReactNode[] => {
-    // Защита от любых не-массивов и лимит строк
     if (!nodes || !Array.isArray(nodes) || acc.length >= maxRows) {
       return acc;
     }
@@ -110,27 +104,28 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
   const renderStructuredBlock = () => {
     if (!loadStructured) {
       return (
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="md"
           onClick={handleLoadStructured}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50"
+          className="w-full justify-center gap-2"
         >
           <ListTree size={16} />
           Просмотреть structured-data
-        </button>
+        </Button>
       );
     }
 
     if (isStructuredLoading) {
       return (
-        <div className="text-xs text-gray-500 mt-2">
+        <div className="mt-2 text-xs text-[var(--text-muted)]">
           Загружаем structured-data…
         </div>
       );
     }
 
     if (structuredError) {
-      // Рассматриваем ошибку как неизвестный объект и аккуратно достаём поля
       const err = structuredError as unknown;
 
       const status =
@@ -152,12 +147,12 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
         typeof detailValue === "string"
           ? detailValue
           : typeof messageValue === "string"
-          ? messageValue
-          : "Ошибка при загрузке structured-data.";
+            ? messageValue
+            : "Ошибка при загрузке structured-data.";
 
       if (status === 404) {
         return (
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="mt-2 text-xs text-[var(--text-muted)]">
             Структурированные данные для этого документа ещё не сформированы
             или недоступны.
           </div>
@@ -165,20 +160,19 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
       }
 
       return (
-        <div className="mt-2 text-xs text-red-600">
+        <div className="mt-2 text-xs text-[var(--color-error)]">
           {String(detailMessage)}
         </div>
       );
     }
 
-    // structuredData – это массив узлов дерева или undefined
     if (
       !structuredData ||
       !Array.isArray(structuredData) ||
       structuredData.length === 0
     ) {
       return (
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-[var(--text-muted)]">
           Структурированные данные находятся в обработке или недоступны.
         </div>
       );
@@ -187,8 +181,8 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
     const rows = renderClauseTree(structuredData);
 
     return (
-      <div className="mt-3 max-h-40 overflow-y-auto border border-gray-100 rounded p-2 bg-gray-50">
-        <p className="text-xs text-gray-500 mb-1">
+      <div className="mt-3 max-h-40 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-2">
+        <p className="mb-1 text-xs text-[var(--text-muted)]">
           Краткое оглавление (structured-data):
         </p>
         {rows}
@@ -196,56 +190,66 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
     );
   };
 
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4 relative">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
         {/* Заголовок */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h3 className="text-sm font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+          <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">
             Документ: {doc.filename}
           </h3>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
             aria-label="Закрыть"
+            className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             <X size={16} />
-          </button>
+          </Button>
         </div>
 
         {/* Содержимое */}
-        <div className="p-4 space-y-3 text-sm">
-          <p className="text-xs text-gray-500">
+        <div className="space-y-3 px-4 py-4 text-sm">
+          <p className="text-xs text-[var(--text-muted)]">
             Выберите действие для документа.
           </p>
 
-          {/* Кнопка: открыть PDF */}
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="md"
             onClick={handleOpenPdf}
             disabled={isPdfLoading}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            className="w-full justify-center gap-2"
           >
             <FileText size={16} />
             {isPdfLoading
               ? "Загружаем ссылку на PDF…"
               : "Открыть исходный файл (PDF)"}
-          </button>
+          </Button>
 
-          {/* Блок structured-data */}
           {renderStructuredBlock()}
         </div>
 
         {/* Подвал */}
-        <div className="px-4 py-3 border-t flex justify-end">
-          <button
+        <div className="flex justify-end border-t border-[var(--border-subtle)] px-4 py-3">
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className="px-3 py-1.5 text-xs border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
           >
             Закрыть
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -253,3 +257,5 @@ const DocumentOpenModal: React.FC<DocumentOpenModalProps> = ({
 };
 
 export default DocumentOpenModal;
+
+

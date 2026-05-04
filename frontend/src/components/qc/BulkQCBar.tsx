@@ -20,19 +20,23 @@ interface BulkQCBarProps {
 // Варианты severity для override
 const SEVERITY_OPTIONS: { value: SeverityLevel; label: string }[] = [
   { value: "critical", label: "Critical" },
-  { value: "high",     label: "High" },
-  { value: "medium",   label: "Medium" },
-  { value: "pass",     label: "Pass" },
-  { value: "unclear",  label: "Unclear" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "pass", label: "Pass" },
+  { value: "unclear", label: "Unclear" },
 ];
 
 // Варианты result для override (+ «не менять»)
 const RESULT_OPTIONS: { value: CheckResultValue | ""; label: string }[] = [
-  { value: "",        label: "Не менять result" },
-  { value: "pass",    label: "Pass" },
-  { value: "fail",    label: "Fail" },
+  { value: "", label: "Не менять result" },
+  { value: "pass", label: "Pass" },
+  { value: "fail", label: "Fail" },
   { value: "unclear", label: "Unclear" },
 ];
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 export const BulkQCBar: React.FC<BulkQCBarProps> = ({
   selectedCount,
@@ -71,45 +75,69 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-white/95 backdrop-blur px-4 py-2 text-xs space-y-2">
+    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--border-soft)] bg-[color:color-mix(in_srgb,var(--bg-card)_92%,black)] px-4 py-2 text-xs text-[var(--text-secondary)] shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur">
       {/* Основная строка */}
-      <div className="flex items-center justify-between">
-        <div className="text-gray-700">
-          Выбрано результатов:{" "}
-          <span className="font-semibold">{selectedCount}</span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span className="text-[var(--text-secondary)]">
+            Выбрано результатов:{" "}
+          </span>
+          <span className="font-semibold text-[var(--text-primary)]">
+            {selectedCount}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Комментарий QC (опционально)…"
-            className="text-xs border rounded px-2 py-1 w-64 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="w-64 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-2 focus:ring-[var(--accent-muted)]"
           />
+
           <button
             type="button"
-            className="px-3 py-1 rounded border text-xs text-green-700 border-green-300 hover:bg-green-50 disabled:opacity-50"
+            className={cn(
+              "rounded-lg border px-3 py-1 text-xs font-medium transition",
+              "border-[color:color-mix(in_srgb,var(--success)_26%,transparent)]",
+              "bg-[color:color-mix(in_srgb,var(--success)_14%,white)]",
+              "text-[var(--success)]",
+              "hover:bg-[color:color-mix(in_srgb,var(--success)_18%,white)]",
+              "disabled:cursor-not-allowed disabled:opacity-45",
+            )}
             onClick={handleConfirm}
             disabled={disabled}
           >
             Подтвердить
           </button>
+
           <button
             type="button"
-            className="px-3 py-1 rounded border text-xs text-red-700 border-red-300 hover:bg-red-50 disabled:opacity-50"
+            className={cn(
+              "rounded-lg border px-3 py-1 text-xs font-medium transition",
+              "border-[color:color-mix(in_srgb,var(--color-error)_26%,transparent)]",
+              "bg-[var(--color-error-highlight)]",
+              "text-[var(--color-error)]",
+              "hover:bg-[color:color-mix(in_srgb,var(--color-error)_14%,white)]",
+              "disabled:cursor-not-allowed disabled:opacity-45",
+            )}
             onClick={handleReject}
             disabled={disabled}
           >
             Отклонить
           </button>
+
           {onOverride && (
             <button
               type="button"
-              className={`px-3 py-1 rounded border text-xs disabled:opacity-50 ${
+              className={cn(
+                "rounded-lg border px-3 py-1 text-xs font-medium transition",
+                "disabled:cursor-not-allowed disabled:opacity-45",
                 showOverride
-                  ? "bg-orange-50 text-orange-700 border-orange-300"
-                  : "text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
+                  ? "border-[color:color-mix(in_srgb,var(--color-orange)_26%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]"
+                  : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]",
+              )}
               onClick={() => setShowOverride((v) => !v)}
               disabled={disabled}
             >
@@ -121,14 +149,14 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 
       {/* Секция Override */}
       {showOverride && onOverride && (
-        <div className="flex items-center gap-3 border-t pt-2">
-          <span className="text-gray-500">Override:</span>
+        <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-[var(--border-soft)] pt-2">
+          <span className="text-[var(--text-secondary)]">Override:</span>
 
           {/* Severity */}
           <div className="flex items-center gap-1">
-            <label className="text-gray-500">Severity:</label>
+            <label className="text-[var(--text-secondary)]">Severity:</label>
             <select
-              className="border rounded px-2 py-1 text-xs"
+              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-muted)]"
               value={newSeverity}
               onChange={(e) =>
                 setNewSeverity(e.target.value as SeverityLevel)
@@ -144,9 +172,9 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 
           {/* Result */}
           <div className="flex items-center gap-1">
-            <label className="text-gray-500">Result:</label>
+            <label className="text-[var(--text-secondary)]">Result:</label>
             <select
-              className="border rounded px-2 py-1 text-xs"
+              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-muted)]"
               value={newResult}
               onChange={(e) =>
                 setNewResult(e.target.value as CheckResultValue | "")
@@ -162,15 +190,20 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 
           <button
             type="button"
-            className="px-3 py-1 rounded bg-orange-600 text-white text-xs hover:bg-orange-700 disabled:opacity-50"
+            className={cn(
+              "rounded-lg px-3 py-1 text-xs font-medium text-white transition",
+              "bg-[var(--color-orange)] hover:bg-[color:color-mix(in_srgb,var(--color-orange)_84%,black)]",
+              "disabled:cursor-not-allowed disabled:opacity-45",
+            )}
             onClick={handleOverride}
             disabled={disabled}
           >
             Применить override
           </button>
+
           <button
             type="button"
-            className="px-3 py-1 rounded border text-xs text-gray-600 border-gray-300 hover:bg-gray-50"
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--bg-elevated-soft)]"
             onClick={() => setShowOverride(false)}
           >
             Отмена
@@ -182,3 +215,5 @@ export const BulkQCBar: React.FC<BulkQCBarProps> = ({
 };
 
 export default BulkQCBar;
+
+

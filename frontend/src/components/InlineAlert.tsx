@@ -1,4 +1,7 @@
+// =============================================================
 // src/components/InlineAlert.tsx
+// Унифицированный inline-alert для product UI.
+// =============================================================
 
 import React from "react";
 
@@ -10,10 +13,14 @@ interface InlineAlertProps {
 }
 
 const toneClasses: Record<InlineAlertTone, string> = {
-  success: "border-green-200 bg-green-50 text-green-700",
-  error: "border-red-200 bg-red-50 text-red-700",
-  info: "border-blue-200 bg-blue-50 text-blue-700",
-  warning: "border-yellow-200 bg-yellow-50 text-yellow-800",
+  success:
+    "border-[rgba(67,122,34,0.18)] bg-[rgba(67,122,34,0.08)] text-[rgb(47,93,24)]",
+  error:
+    "border-[rgba(161,53,68,0.22)] bg-[rgba(161,53,68,0.08)] text-[rgb(120,35,46)]",
+  info:
+    "border-[rgba(1,105,111,0.18)] bg-[var(--accent-muted)] text-[var(--accent-primary)]",
+  warning:
+    "border-[rgba(150,66,25,0.18)] bg-[rgba(150,66,25,0.08)] text-[rgb(122,59,27)]",
 };
 
 const InlineAlert: React.FC<InlineAlertProps> = ({ tone, message }) => {
@@ -26,7 +33,10 @@ const InlineAlert: React.FC<InlineAlertProps> = ({ tone, message }) => {
       {message ? (
         <div
           role={tone === "error" ? "alert" : "status"}
-          className={`rounded border p-3 text-sm ${toneClasses[tone]}`}
+          className={[
+            "rounded-[18px] border px-4 py-3 text-sm shadow-sm",
+            toneClasses[tone],
+          ].join(" ")}
         >
           {message}
         </div>
@@ -38,6 +48,7 @@ const InlineAlert: React.FC<InlineAlertProps> = ({ tone, message }) => {
 };
 
 export default InlineAlert;
+
 
 
 

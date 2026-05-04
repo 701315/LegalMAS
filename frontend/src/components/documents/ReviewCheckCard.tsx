@@ -1,9 +1,11 @@
 // src/components/documents/ReviewCheckCard.tsx
 
-import React, { useState } from "react";
+import React from "react";
+import { ChevronDown, ChevronRight, ExternalLink, Table2 } from "lucide-react";
 import type { DocumentReviewCheckView } from "./DocumentDetails";
 import type { OpenViewerAtFn } from "../../types";
 import { SeverityBadge } from "../ui/SeverityBadge";
+import Button from "../ui/Button";
 
 interface Props {
   check: DocumentReviewCheckView;
@@ -18,139 +20,193 @@ export const ReviewCheckCard: React.FC<Props> = ({
   onOpenCell,
   onOpenAtLocation,
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = React.useState(false);
 
-  const hasSegment = check.segmentId || check.segmentTitle;
-  const hasEvidence = check.snippet || check.page != null || check.clauseUid;
+  const hasSegment = Boolean(check.segmentId || check.segmentTitle);
+  const hasEvidence = Boolean(
+    check.snippet ||
+      check.page != null ||
+      check.clauseUid ||
+      check.segmentId ||
+      check.chunkId ||
+      check.chunkIndex != null,
+  );
+
+  const handleOpenInDocument = () => {
+    if (!onOpenAtLocation) return;
+
+    onOpenAtLocation({
+      documentId,
+      page: check.page ?? undefined,
+      clauseUid: check.clauseUid ?? undefined,
+      elementId: undefined,
+      segmentId: check.segmentId ?? undefined,
+      chunkId: check.chunkId ?? undefined,
+      chunkIndex: check.chunkIndex ?? undefined,
+    });
+  };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white text-xs">
-      {/* Header row */}
+    <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm transition-shadow hover:shadow-md">
       <button
         type="button"
-        className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left"
-        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--bg-elevated-soft)]"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
       >
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="font-medium text-gray-900 truncate">
-            {check.checkName}
-          </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
+              {check.checkName}
+            </div>
+
+            {check.result === "unclear" && (
+              <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-gold-hover)]">
+                Unclear
+              </span>
+            )}
+          </div>
+
           {hasSegment && (
-            <span className="text-[10px] text-gray-400 truncate">
-              {check.segmentTitle || check.segmentType || check.segmentId}
-              {check.chunkIndex != null && ` · Chunk #${check.chunkIndex}`}
-            </span>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
+              <span className="truncate">
+                {check.segmentTitle || check.segmentType || check.segmentId}
+              </span>
+              {check.chunkIndex != null && (
+                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                  Chunk #{check.chunkIndex}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {check.severity && (
-            <div className="scale-90 origin-right">
-              <SeverityBadge severity={check.severity} />
-            </div>
-          )}
-          {check.result === "unclear" && (
-            <span className="inline-flex items-center rounded border border-yellow-200 bg-yellow-50 px-1.5 py-0.5 text-[10px] text-yellow-700">
-              Unclear
-            </span>
-          )}
-          <span className="text-gray-400">{expanded ? "▲" : "▼"}</span>
+          {check.severity && <SeverityBadge severity={check.severity} />}
+
+          <span
+            className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-faint)]"
+            aria-hidden="true"
+          >
+            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </span>
         </div>
       </button>
 
-      {/* Expanded body */}
       {expanded && (
-        <div className="border-t border-gray-100 px-3 py-2.5 space-y-2">
-          {/* Snippet */}
+        <div className="space-y-3 border-t border-[var(--border-subtle)] px-4 py-4">
           {check.snippet && (
-            <p className="leading-5 text-gray-700 italic">
-              &ldquo;{check.snippet}&rdquo;
-            </p>
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-3">
+              <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
+                Evidence snippet
+              </div>
+              <div className="text-sm italic leading-6 text-[var(--text-secondary)]">
+                &ldquo;{check.snippet}&rdquo;
+              </div>
+            </div>
           )}
 
-          {/* Location */}
           {(check.page != null || check.clauseUid) && (
-            <div className="flex flex-wrap gap-3 text-[10px] text-gray-500">
-              {check.page != null && <span>Страница: {check.page}</span>}
-              {check.clauseUid && <span>Clause: {check.clauseUid}</span>}
+            <div className="flex flex-wrap gap-2">
+              {check.page != null && (
+                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+                  Страница: {check.page}
+                </span>
+              )}
+
+              {check.clauseUid && (
+                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]">
+                  Clause: {check.clauseUid}
+                </span>
+              )}
             </div>
           )}
 
-          {/* Segment detail */}
           {hasSegment && (
-            <div className="rounded bg-gray-50 px-2 py-1.5 text-[10px] text-gray-600 space-y-0.5">
-              {check.segmentTitle && (
-                <div>
-                  <span className="text-gray-400">Сегмент: </span>
-                  {check.segmentTitle}
-                  {check.isPrimarySegment && (
-                    <span className="ml-1.5 text-blue-600 font-medium">
-                      (основной)
-                    </span>
-                  )}
-                </div>
-              )}
-              {check.segmentType && (
-                <div>
-                  <span className="text-gray-400">Тип: </span>
-                  {check.segmentType}
-                </div>
-              )}
-              {check.chunkIndex != null && (
-                <div>
-                  <span className="text-gray-400">Chunk #</span>
-                  {check.chunkIndex}
-                </div>
-              )}
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-3">
+              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
+                Segment context
+              </div>
+
+              <div className="space-y-1.5 text-xs text-[var(--text-secondary)]">
+                {check.segmentTitle && (
+                  <div>
+                    <span className="text-[var(--text-faint)]">Сегмент: </span>
+                    {check.segmentTitle}
+                    {check.isPrimarySegment && (
+                      <span className="ml-1.5 font-medium text-[var(--accent-primary)]">
+                        (основной)
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {check.segmentType && (
+                  <div>
+                    <span className="text-[var(--text-faint)]">Тип: </span>
+                    {check.segmentType}
+                  </div>
+                )}
+
+                {check.chunkIndex != null && (
+                  <div>
+                    <span className="text-[var(--text-faint)]">Chunk #: </span>
+                    {check.chunkIndex}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Extracted fields (collapsed) */}
           {check.extractedFields.length > 0 && (
-            <div className="space-y-1">
-              {check.extractedFields.map((f, i) => (
-                <div
-                  key={`${f.fieldName}-${i}`}
-                  className="flex items-start justify-between gap-2 text-[10px]"
-                >
-                  <span className="text-gray-500">{f.fieldName}</span>
-                  <span className="font-medium text-gray-800 text-right max-w-[55%] break-words">
-                    {f.fieldValue}
-                  </span>
-                </div>
-              ))}
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-3">
+              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
+                Extracted fields
+              </div>
+
+              <div className="space-y-2">
+                {check.extractedFields.map((field, index) => (
+                  <div
+                    key={`${field.fieldName}-${index}`}
+                    className="flex items-start justify-between gap-3 text-xs"
+                  >
+                    <span className="text-[var(--text-muted)]">
+                      {field.fieldName}
+                    </span>
+                    <span className="max-w-[60%] break-words text-right font-medium text-[var(--text-primary)]">
+                      {field.fieldValue}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {onOpenCell && (
-              <button
+              <Button
                 type="button"
-                className="text-[11px] text-blue-600 hover:underline"
+                variant="secondary"
+                size="sm"
                 onClick={() => onOpenCell(check.checkId, check.checkName)}
+                className="gap-1.5"
               >
-                Детали в DD Matrix →
-              </button>
+                <Table2 size={14} />
+                Детали в DD Matrix
+              </Button>
             )}
+
             {onOpenAtLocation && hasEvidence && (
-              <button
+              <Button
                 type="button"
-                className="text-[11px] text-blue-600 hover:underline"
-                onClick={() =>
-                  onOpenAtLocation({
-                    documentId,
-                    page: check.page,
-                    clauseUid: check.clauseUid,
-                    elementId: null,
-                    segmentId: check.segmentId,
-                    chunkId: check.chunkId,
-                    chunkIndex: check.chunkIndex,
-                  })
-                }
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenInDocument}
+                className="gap-1.5 text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--accent-primary)]"
               >
-                Открыть в документе →
-              </button>
+                <ExternalLink size={14} />
+                Открыть в документе
+              </Button>
             )}
           </div>
         </div>
@@ -158,4 +214,5 @@ export const ReviewCheckCard: React.FC<Props> = ({
     </div>
   );
 };
+
 

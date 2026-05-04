@@ -69,20 +69,14 @@ function buildSectionViewerPayload(
   documentId: string,
   section: StructureSectionPreviewDTO,
 ): Parameters<OpenViewerAtFn>[0] {
-  const page =
-    typeof section.page_from === "number"
-      ? section.page_from
-      : section.page_from ?? null;
-
-  // В STRUCTURE у тебя clause_uid и segment‑поля уже есть прямо на секции.
   return {
     documentId,
-    page,
-    clauseUid: section.clause_uid ?? null,
-    elementId: null,
-    segmentId: section.segment_id ?? null,
-    chunkId: null,
-    chunkIndex: null,
+    page: section.page_from ?? undefined,
+    clauseUid: section.clause_uid ?? undefined,
+    elementId: undefined,
+    segmentId: section.segment_id ?? undefined,
+    chunkId: undefined,
+    chunkIndex: undefined,
   };
 }
 
@@ -106,7 +100,6 @@ function getSectionTextCanonical(
   hasText: boolean;
 } {
   const structure = (section.structure_text ?? "").trim();
-
   const text = structure;
 
   return {
@@ -118,7 +111,6 @@ function getSectionTextCanonical(
 function getSectionTextFriendly(section: StructureSectionPreviewDTO): string {
   const enriched = (section.enriched_text ?? "").trim();
   const structure = (section.structure_text ?? "").trim();
-
   return enriched || structure;
 }
 
@@ -232,7 +224,7 @@ export const StructureStageViewer: React.FC<Props> = ({
   // и только потом смотрим на наличие preview.
   if (status === "pending") {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
         Структура документа ещё не готова в v2-формате. Попробуй позже.
       </div>
     );
@@ -240,7 +232,7 @@ export const StructureStageViewer: React.FC<Props> = ({
 
   if (status === "missing") {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
         Структурированный артефакт ожидается, но недоступен или повреждён.
         Проверь состояние пайплайна для стадии STRUCTURE.
       </div>
@@ -249,7 +241,7 @@ export const StructureStageViewer: React.FC<Props> = ({
 
   if (!isStructurePreview(preview)) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
         Для этой стадии нет STRUCTURE-превью.
       </div>
     );
@@ -304,13 +296,13 @@ export const StructureStageViewer: React.FC<Props> = ({
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[25%_30%_45%]">
-      <aside className="flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-3 py-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+      <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Структура документа
           </p>
           {sectionCount > 0 && (
-            <p className="mt-1 text-[11px] text-gray-400">
+            <p className="mt-1 text-[11px] text-[var(--text-faint)]">
               Секций: {sectionCount}
             </p>
           )}
@@ -322,7 +314,7 @@ export const StructureStageViewer: React.FC<Props> = ({
               <div className="space-y-2">
                 {segmentGroups.map((group) => (
                   <div key={group.segmentId}>
-                    <div className="flex items-center justify-between px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    <div className="flex items-center justify-between px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
                       <span className="truncate">{group.label}</span>
                     </div>
 
@@ -352,14 +344,14 @@ export const StructureStageViewer: React.FC<Props> = ({
               </div>
             )
           ) : (
-            <div className="px-3 py-2 text-sm text-gray-500">
+            <div className="px-3 py-2 text-xs text-[var(--text-muted)]">
               В STRUCTURE пока нет секций.
             </div>
           )}
         </div>
       </aside>
 
-      <section className="min-h-0 min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-3">
+      <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         {isCanonical ? (
           <CanonicalSectionPanel
             sections={sections}
@@ -377,7 +369,7 @@ export const StructureStageViewer: React.FC<Props> = ({
         )}
       </section>
 
-      <section className="min-h-0 min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-3">
+      <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3">
         {isCanonical ? (
           <CanonicalJsonPanel
             sections={sections}
@@ -398,16 +390,16 @@ export const StructureStageViewer: React.FC<Props> = ({
               onOpenAtLocation={onOpenAtLocation}
             />
           ) : chunksStage.status === "pending" ? (
-            <div className="flex h-full items-center justify-center text-sm text-gray-500">
+            <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
               CHUNKS ещё не готовы в v2-формате. Попробуй позже.
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-red-700">
+            <div className="flex h-full items-center justify-center text-sm text-[var(--color-error)]">
               CHUNKS-артефакт ожидается, но недоступен или повреждён.
             </div>
           )
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-gray-500">
+          <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
             CHUNKS-стадия недоступна — показать исходный текст невозможно.
           </div>
         )}
@@ -433,8 +425,10 @@ const SectionNavItem: React.FC<{
       type="button"
       onClick={onSelect}
       className={cx(
-        "flex w-full items-start gap-2 rounded-md py-1.5 text-left text-xs transition-colors",
-        isActive ? "bg-blue-50 text-blue-800" : "text-gray-700 hover:bg-gray-50",
+        "flex w-full items-start gap-2 rounded-xl py-1.5 text-left text-[11px] transition-colors",
+        isActive
+          ? "bg-[var(--bg-elevated-soft)] text-[var(--text-primary)] ring-1 ring-[color:color-mix(in_oklab,var(--accent-primary)_35%,transparent)]"
+          : "text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]",
       )}
       style={{ paddingLeft: `${8 + indent * 12}px`, paddingRight: "8px" }}
       title={[
@@ -452,7 +446,7 @@ const SectionNavItem: React.FC<{
       <div className="min-w-0 flex-1">
         <div className="truncate">{title}</div>
         {preview ? (
-          <div className="mt-0.5 truncate text-[11px] text-gray-400">
+          <div className="mt-0.5 truncate text-[10px] text-[var(--text-faint)]">
             {preview}
           </div>
         ) : null}
@@ -460,12 +454,12 @@ const SectionNavItem: React.FC<{
 
       {hasSourceChunks ? (
         <span
-          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-success,#22c55e)]"
           aria-label="Есть привязка к CHUNKS"
         />
       ) : hasClauseUid ? (
         <span
-          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400"
+          className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-primary,#3b82f6)]"
           aria-label="Есть clause_uid"
         />
       ) : null}
@@ -481,7 +475,7 @@ const CanonicalSectionPanel: React.FC<{
 }> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
   if (!sections.length) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         В STRUCTURE пока нет секций.
       </div>
     );
@@ -494,7 +488,7 @@ const CanonicalSectionPanel: React.FC<{
 
   if (!section) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         Выбери секцию слева.
       </div>
     );
@@ -506,104 +500,106 @@ const CanonicalSectionPanel: React.FC<{
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="mb-3 border-b border-gray-100 pb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mb-3 border-b border-[var(--border-subtle)] pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           Сведения о секции
         </p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-[11px] text-[var(--text-faint)]">
           В canonical‑режиме здесь показывается узел структуры документа
           (structure_text), а не enriched‑текст из CHUNKS.
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-lg border border-gray-200 bg-white p-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4">
         <div>
           <p
-            className="text-sm font-semibold text-gray-900"
+            className="text-sm font-semibold text-[var(--text-primary)]"
             title={section.clause_uid ? `clause_uid: ${section.clause_uid}` : undefined}
           >
             {getSectionLabel(section)}
           </p>
 
-          <p className="mt-1 text-[11px] text-gray-400">
+          <p className="mt-1 text-[11px] text-[var(--text-faint)]">
             {getSectionMetaLine(section)}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {sourceMapped ? (
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-success)_40%,transparent)] bg-[var(--color-success-highlight)] px-2 py-0.5 text-[11px] text-[var(--color-success)]">
               Есть привязка к CHUNKS
             </span>
           ) : (
-            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
+            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-highlight)] px-2 py-0.5 text-[11px] text-[var(--color-warning)]">
               Нет привязки к CHUNKS для этой секции
             </span>
           )}
 
           {section.segment_type ? (
-            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
               {section.segment_type}
               {section.is_primary_segment ? " · PRIMARY" : ""}
             </span>
           ) : null}
         </div>
 
-        <div className="rounded-md bg-gray-50 px-3 py-3">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+        <div className="rounded-xl bg-[var(--bg-card)] px-3 py-3">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
             Поля узла
           </p>
 
-          <dl className="space-y-2 text-sm text-gray-700">
+          <dl className="space-y-2 text-xs text-[var(--text-secondary)]">
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">ID</dt>
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
+                ID
+              </dt>
               <dd className="break-all">{section.id || "—"}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Clause UID
               </dt>
               <dd>{section.clause_uid || "—"}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Уровень
               </dt>
               <dd>{section.level ?? 1}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Страницы
               </dt>
               <dd>{pageRange ?? "—"}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Segment ID
               </dt>
               <dd>{section.segment_id || "—"}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Segment Type
               </dt>
               <dd>{section.segment_type || "—"}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Segment Title
               </dt>
               <dd>{section.segment_title || "—"}</dd>
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Segment Order
               </dt>
               <dd>
@@ -614,7 +610,7 @@ const CanonicalSectionPanel: React.FC<{
             </div>
 
             <div>
-              <dt className="text-[11px] uppercase tracking-wide text-gray-500">
+              <dt className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">
                 Primary Segment
               </dt>
               <dd>
@@ -629,19 +625,20 @@ const CanonicalSectionPanel: React.FC<{
         </div>
 
         {hasText ? (
-          <div className="rounded-md bg-gray-50 px-3 py-3">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+          <div className="rounded-xl bg-[var(--bg-card)] px-3 py-3">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
               Текст clause tree (structure_text)
             </p>
-            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
               {previewText}
             </div>
           </div>
         ) : (
-          <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-3">
-            <p className="text-sm text-gray-500">
-              Для этого узла текст clause tree не задан. Это нормально для canonical
-              STRUCTURE, если в дереве есть только заголовок и метаданные узла.
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-3">
+            <p className="text-sm text-[var(--text-muted)]">
+              Для этого узла текст clause tree не задан. Это нормально для
+              canonical STRUCTURE, если в дереве есть только заголовок и
+              метаданные узла.
             </p>
           </div>
         )}
@@ -653,7 +650,7 @@ const CanonicalSectionPanel: React.FC<{
               onClick={() =>
                 onOpenAtLocation(buildSectionViewerPayload(documentId, section))
               }
-              className="inline-flex items-center rounded border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-[11px] font-medium text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
             >
               Открыть в документе
             </button>
@@ -672,7 +669,7 @@ const FriendlySectionPanel: React.FC<{
 }> = ({ sections, activeSectionId, documentId, onOpenAtLocation }) => {
   if (!sections.length) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         В STRUCTURE пока нет секций.
       </div>
     );
@@ -685,7 +682,7 @@ const FriendlySectionPanel: React.FC<{
 
   if (!section) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         Выбери секцию слева.
       </div>
     );
@@ -696,43 +693,43 @@ const FriendlySectionPanel: React.FC<{
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="mb-3 border-b border-gray-100 pb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mb-3 border-b border-[var(--border-subtle)] pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           Текст секции
         </p>
-        <p className="mt-1 text-xs text-gray-400">
-          В friendly‑режиме здесь показывается текст секции, обогащённый из CHUNKS
-          (enriched_text), с fallback на structure_text.
+        <p className="mt-1 text-[11px] text-[var(--text-faint)]">
+          В friendly‑режиме здесь показывается текст секции, обогащённый из
+          CHUNKS (enriched_text), с fallback на structure_text.
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-lg border border-gray-200 bg-white p-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4">
         <div>
           <p
-            className="text-sm font-semibold text-gray-900"
+            className="text-sm font-semibold text-[var(--text-primary)]"
             title={section.clause_uid ? `clause_uid: ${section.clause_uid}` : undefined}
           >
             {getSectionLabel(section)}
           </p>
 
-          <p className="mt-1 text-[11px] text-gray-400">
+          <p className="mt-1 text-[11px] text-[var(--text-faint)]">
             {getSectionMetaLine(section)}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {sourceMapped ? (
-            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-success)_40%,transparent)] bg-[var(--color-success-highlight)] px-2 py-0.5 text-[11px] text-[var(--color-success)]">
               Есть привязка к CHUNKS
             </span>
           ) : (
-            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">
+            <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-highlight)] px-2 py-0.5 text-[11px] text-[var(--color-warning)]">
               Нет привязки к CHUNKS для этой секции
             </span>
           )}
 
           {section.segment_type ? (
-            <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700">
+            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]">
               {section.segment_type}
               {section.is_primary_segment ? " · PRIMARY" : ""}
             </span>
@@ -740,14 +737,14 @@ const FriendlySectionPanel: React.FC<{
         </div>
 
         {previewText ? (
-          <div className="rounded-md bg-gray-50 px-3 py-3">
-            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+          <div className="rounded-xl bg-[var(--bg-card)] px-3 py-3">
+            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
               {previewText}
             </div>
           </div>
         ) : (
-          <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-3">
-            <p className="text-sm text-gray-500">
+          <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-3">
+            <p className="text-sm text-[var(--text-muted)]">
               Для этой секции нет текстового превью.
             </p>
           </div>
@@ -760,7 +757,7 @@ const FriendlySectionPanel: React.FC<{
               onClick={() =>
                 onOpenAtLocation(buildSectionViewerPayload(documentId, section))
               }
-              className="inline-flex items-center rounded border border-blue-200 bg-white px-3 py-1.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+              className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_40%,transparent)] bg-[var(--bg-card)] px-3 py-1.5 text-[11px] font-medium text-[var(--accent-primary)] hover:bg-[var(--bg-elevated-soft)]"
             >
               Открыть в документе
             </button>
@@ -778,7 +775,7 @@ const CanonicalJsonPanel: React.FC<{
 }> = ({ sections, activeSectionId, sourceLabel }) => {
   if (!sections.length) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         В STRUCTURE пока нет секций.
       </div>
     );
@@ -791,7 +788,7 @@ const CanonicalJsonPanel: React.FC<{
 
   if (!section) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         Выбери секцию слева.
       </div>
     );
@@ -799,15 +796,15 @@ const CanonicalJsonPanel: React.FC<{
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-3 border-b border-gray-100 pb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mb-3 border-b border-[var(--border-subtle)] pb-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           JSON узла
         </p>
-        <p className="mt-1 text-xs text-gray-400">{sourceLabel}</p>
+        <p className="mt-1 text-[11px] text-[var(--text-faint)]">{sourceLabel}</p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-md bg-gray-950 p-3">
-        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-gray-100">
+      <div className="min-h-0 flex-1 overflow-auto rounded-2xl bg-[#050816] p-3">
+        <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
           {getSectionJson(section)}
         </pre>
       </div>

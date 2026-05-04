@@ -1,6 +1,6 @@
 // =============================================================
 // src/components/requests/RequestsTable.tsx
-// Таблица DD‑запросов для юриста (legacy CRUD mode).
+// Таблица DD-запросов для юриста (legacy CRUD mode).
 // Использует adapter для преобразования DDRequest в UI read-model.
 // Колонки: Приоритет, Текст, Документы (count), Статус, Источник.
 // Поиск, сортировка, кнопки экспорта.
@@ -11,6 +11,8 @@ import type { DDRequest } from "../../types";
 import { toRequestTableRowFromLegacy } from "../../viewAdapters/requestPresentation";
 import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
 import { Search, Plus, Download, FileText } from "lucide-react";
+import Button from "../ui/Button";
+import { REQUEST_PRIORITY_ORDER } from "../../types/requestPriority";
 
 interface Props {
   requests: DDRequest[];
@@ -23,10 +25,30 @@ interface Props {
 
 type SortKey = "priority" | "status" | "created";
 
-const PRIORITY_ORDER: Record<string, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+const statusToneClass = (statusLabel?: string | null): string => {
+  if (!statusLabel) {
+    return "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]";
+  }
+
+  const value = statusLabel.toLowerCase();
+
+  if (value.includes("open") || value.includes("открыт")) {
+    return "border-[color:color-mix(in_srgb,var(--color-blue)_22%,transparent)] bg-[var(--color-blue-highlight)] text-[var(--color-blue)]";
+  }
+
+  if (value.includes("progress") || value.includes("работ") || value.includes("processing")) {
+    return "border-[color:color-mix(in_srgb,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]";
+  }
+
+  if (value.includes("resolved") || value.includes("done") || value.includes("закрыт")) {
+    return "border-[color:color-mix(in_srgb,var(--color-success)_22%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]";
+  }
+
+  return "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 };
 
 export const RequestsTable: React.FC<Props> = ({
@@ -40,13 +62,14 @@ export const RequestsTable: React.FC<Props> = ({
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("priority");
 
-  // Преобразуем все запросы в UI read-model через adapter
-  const viewModels = useMemo(() => {
-    return requests.map((req) => ({
-      dto: req, // сохраняем исходный DDRequest для onRowClick и сортировки
-      view: toRequestTableRowFromLegacy(req),
-    }));
-  }, [requests]);
+  const viewModels = useMemo(
+    () =>
+      requests.map((req) => ({
+        dto: req,
+        view: toRequestTableRowFromLegacy(req),
+      })),
+    [requests],
+  );
 
   const filtered = useMemo(() => {
     let list = [...viewModels];
@@ -64,16 +87,18 @@ export const RequestsTable: React.FC<Props> = ({
     list.sort((a, b) => {
       if (sortBy === "priority") {
         return (
-          (PRIORITY_ORDER[a.view.priority] ?? 9) -
-          (PRIORITY_ORDER[b.view.priority] ?? 9)
+          (REQUEST_PRIORITY_ORDER[a.view.priority] ?? 9) -
+          (REQUEST_PRIORITY_ORDER[b.view.priority] ?? 9)
         );
       }
+
       if (sortBy === "status") {
         return (a.view.statusLabel ?? "").localeCompare(
-          b.view.statusLabel ?? ""
+          b.view.statusLabel ?? "",
+          "ru",
         );
       }
-      // created (newest first) — используем исходный DTO
+
       return (
         new Date(b.dto.created_at).getTime() -
         new Date(a.dto.created_at).getTime()
@@ -86,41 +111,56 @@ export const RequestsTable: React.FC<Props> = ({
   return (
     <div className="space-y-3">
       {/* Шапка */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Запросы ({requests.length})
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+          Запросы{" "}
+          <span className="ml-1 text-[var(--text-muted)]">
+            ({requests.length})
+          </span>
         </h2>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
           {canManageRequests && (
-            <button
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
               onClick={onCreateClick}
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition"
+              className="inline-flex items-center gap-1"
             >
               <Plus size={14} />
               Новый запрос
-            </button>
+            </Button>
           )}
-          <button
+
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
             onClick={onExportWord}
-            className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition"
+            className="inline-flex items-center gap-1"
           >
             <FileText size={14} />
             Word
-          </button>
-          <button
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
             onClick={onExportExcel}
-            className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200 transition"
+            className="inline-flex items-center gap-1"
           >
             <Download size={14} />
             Excel
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Поиск */}
       <div className="relative">
         <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
           size={16}
         />
         <input
@@ -128,34 +168,40 @@ export const RequestsTable: React.FC<Props> = ({
           placeholder="Поиск по тексту запроса или ID проверки…"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input-base !pl-9"
         />
       </div>
 
       {/* Таблица */}
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50">
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
+        <table className="w-full border-collapse">
+          <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]/60">
+            <tr>
               {(
                 [
                   ["priority", "Приоритет", "w-28"],
                   ["text", "Текст запроса", ""],
                   ["docs", "Документы", "w-24"],
-                  ["status", "Статус", "w-28"],
-                  ["source", "Источник", "w-32"],
+                  ["status", "Статус", "w-32"],
+                  ["source", "Источник", "w-36"],
                 ] as const
               ).map(([key, label, width]) => (
                 <th
                   key={key}
-                  className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider ${width}`}
+                  className={cn(
+                    "px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]",
+                    width,
+                  )}
                 >
                   {key === "priority" || key === "status" ? (
                     <button
+                      type="button"
                       onClick={() => setSortBy(key as SortKey)}
-                      className={`hover:text-gray-700 ${
-                        sortBy === key ? "text-blue-600 underline" : ""
-                      }`}
+                      className={cn(
+                        "transition-colors hover:text-[var(--text-secondary)]",
+                        sortBy === key &&
+                          "text-[var(--accent-primary)] underline underline-offset-4",
+                      )}
                     >
                       {label}
                     </button>
@@ -166,59 +212,68 @@ export const RequestsTable: React.FC<Props> = ({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+
+          <tbody>
             {filtered.map((item) => {
               const { dto, view } = item;
 
               return (
                 <tr
                   key={view.id}
-                  className="hover:bg-gray-50 cursor-pointer transition"
+                  className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-b-0 hover:bg-[var(--bg-elevated-soft)]/55"
                   onClick={() => onRowClick(dto)}
                 >
-                  {/* Приоритет — shared component */}
-                  <td className="px-4 py-3">
+                  {/* Приоритет */}
+                  <td className="px-3 py-2.5 align-top">
                     <RequestPriorityBadge priority={view.priority} size="sm" />
                   </td>
 
                   {/* Текст */}
-                  <td className="px-4 py-3">
-                    <p className="text-sm text-gray-900 line-clamp-2">
+                  <td className="px-3 py-2.5 align-top">
+                    <p className="line-clamp-2 text-sm text-[var(--text-primary)]">
                       {view.text}
                     </p>
                     {view.checkLabel && (
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                         Проверка: {view.checkLabel}
                       </p>
                     )}
                   </td>
 
-                  {/* Документы — используем готовый count из view model */}
-                  <td className="px-4 py-3 text-sm text-gray-700">
+                  {/* Документы */}
+                  <td className="px-3 py-2.5 align-top text-sm text-[var(--text-secondary)]">
                     {view.documentCount} док.
                   </td>
 
                   {/* Статус */}
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5 align-top">
                     {view.statusLabel ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        <span>{view.statusLabel}</span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                          statusToneClass(view.statusLabel),
+                        )}
+                      >
+                        {view.statusLabel}
                       </span>
                     ) : (
-                      <span className="text-gray-300 text-xs">—</span>
+                      <span className="text-xs text-[var(--text-muted)]">—</span>
                     )}
                   </td>
 
                   {/* Источник */}
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5 align-top">
                     {view.sourceLabel && view.sourceColorClass ? (
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${view.sourceColorClass}`}
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                          view.sourceColorClass,
+                        )}
                       >
-                        <span>{view.sourceLabel}</span>
+                        {view.sourceLabel}
                       </span>
                     ) : (
-                      <span className="text-gray-300 text-xs">—</span>
+                      <span className="text-xs text-[var(--text-muted)]">—</span>
                     )}
                   </td>
                 </tr>
@@ -228,12 +283,14 @@ export const RequestsTable: React.FC<Props> = ({
         </table>
 
         {filtered.length === 0 && (
-          <div className="text-center py-16 text-gray-400">
-            <p className="text-lg mb-1">Запросы не найдены</p>
-            <p className="text-sm">
+          <div className="border-t border-[var(--border)] py-10 text-center">
+            <p className="mb-1 text-sm text-[var(--text-secondary)]">
+              Запросы не найдены
+            </p>
+            <p className="text-xs text-[var(--text-muted)]">
               {requests.length === 0
-                ? "Запросы появятся после анализа с найденными проблемами"
-                : "Попробуйте изменить поиск"}
+                ? "Запросы появятся после анализа с найденными проблемами."
+                : "Попробуйте изменить поиск."}
             </p>
           </div>
         )}

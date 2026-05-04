@@ -6,6 +6,7 @@
 // Логика запуска анализа перенесена в OverviewTab.
 // =============================================================
 
+
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Deal, OpenViewerAtPayload } from "../types";
@@ -87,10 +88,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const initialTab: TabKey = isTabKey(tabFromUrl) ? tabFromUrl : "overview";
 
   const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
-
   const [viewerLocation, setViewerLocation] =
     React.useState<OpenViewerAtPayload | null>(null);
-
   const [showMobileRunHint, setShowMobileRunHint] = React.useState(false);
 
   React.useEffect(() => {
@@ -158,20 +157,22 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   }, []);
 
   const renderRunRequiredState = (title: string, description: string) => (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 px-5 py-5">
-      <p className="text-sm font-medium text-gray-900">{title}</p>
-      <p className="mt-1.5 text-sm text-gray-600">{description}</p>
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5">
+      <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
+      <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+        {description}
+      </p>
     </div>
   );
 
   const renderSettingsTab = () => {
     if (!canManageProject) {
       return (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 px-5 py-5">
-          <p className="text-sm font-medium text-gray-900">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5">
+          <p className="text-sm font-medium text-[var(--text-primary)]">
             Настройки проекта недоступны
           </p>
-          <p className="mt-1.5 text-sm text-gray-600">
+          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
             У вас нет прав на изменение участников, playbook или шаблонов
             проекта.
           </p>
@@ -181,22 +182,22 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-base font-semibold text-gray-900">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             Настройки проекта
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-gray-600">
+          <p className="mt-1 max-w-2xl text-xs text-[var(--text-secondary)]">
             Управление участниками и конфигурацией проекта вынесено отдельно от
-            рабочего review-потока.
+            рабочего review‑потока.
           </p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h3 className="text-sm font-semibold text-gray-900">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Участники проекта
             </h3>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               Управление составом команды проекта и доступами.
             </p>
             <div className="mt-4">
@@ -210,11 +211,11 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h3 className="text-sm font-semibold text-gray-900">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Playbook проекта
             </h3>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               Выбор и настройка playbook, используемого для анализа документов.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -257,32 +258,67 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const showRestartHint = deal.has_pending_manual_reclassifications;
 
   return (
-    <div className="min-h-screen w-full bg-gray-50">
+    <div className="min-h-screen w-full bg-[var(--bg-base)]">
       {/* Desktop header */}
-      <header className="hidden border-b border-gray-200 bg-white md:grid md:grid-cols-[16rem_minmax(0,1fr)]">
-        <div className="border-r border-gray-200 p-4">
-          <div className="flex h-full min-h-[140px] items-start justify-center rounded-md border border-gray-300 bg-gray-50 px-4 py-4 text-sm font-medium text-gray-600">
-            Лого
+      <header className="hidden border-b border-[var(--border)] bg-[var(--bg-card)] md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="border-r border-[var(--border)] p-4">
+          <div className="flex h-full min-h-[140px] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-base)] px-4 py-4 text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            Project workspace
           </div>
         </div>
 
         <div className="px-6 py-5">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold text-gray-900">
-              {deal.name}
-            </h1>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+                {deal.name}
+              </h1>
+              <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
+                <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono uppercase tracking-[0.18em]">
+                  {getReadableDealStatus(deal.status)}
+                </span>
+                {deal.metadata_?.contact_person && (
+                  <span className="rounded-full bg-white/5 px-2 py-0.5">
+                    Контакт: {deal.metadata_.contact_person}
+                  </span>
+                )}
+                {getReadableChecksMode(deal.last_run_checks_mode) && (
+                  <span className="rounded-full bg-white/5 px-2 py-0.5">
+                    Режим анализа:{" "}
+                    {getReadableChecksMode(deal.last_run_checks_mode)}
+                  </span>
+                )}
+              </div>
+              {showRestartHint && (
+                <p className="text-[11px] text-amber-300">
+                  После ручной переклассификации требуется повторный запуск
+                  анализа.
+                </p>
+              )}
+            </div>
+
+            <div className="hidden md:flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!canStartRun}
+                onClick={() => handleSetTab("overview")}
+              >
+                Запустить анализ
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="flex min-h-[calc(100vh-0px)] w-full">
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex md:w-64 md:flex-col md:border-r md:border-gray-200 md:bg-white">
+        <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-[var(--border)] md:bg-[var(--bg-card)]">
           <nav
             className="flex h-full flex-col px-3 py-4"
             aria-label="Навигация по проекту"
           >
-            <div className="space-y-1">
+            <div className="space-y-1 text-xs">
               <SidebarItem
                 label="Обзор"
                 tabKey="overview"
@@ -308,7 +344,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                 onSelect={handleSetTab}
               />
               <SidebarItem
-                label="Отчёты"
+                label="Отчёт"
                 tabKey="report"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
@@ -321,7 +357,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
               />
             </div>
 
-            <div className="mt-5 border-t border-gray-200 pt-4">
+            <div className="mt-5 border-t border-[var(--border)] pt-4">
               <SidebarItem
                 label="Настройки"
                 tabKey="settings"
@@ -336,20 +372,20 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         {/* Main workspace */}
         <main className="flex min-w-0 flex-1 flex-col">
           {/* Mobile header + tabs */}
-          <header className="border-b border-gray-200 bg-white md:hidden">
+          <header className="border-b border-[var(--border)] bg-[var(--bg-card)] md:hidden">
             <div className="px-4 py-4">
-              <div className="flex justify-end">
-                <span className="text-xs text-gray-500">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
                   {activeTabLabel}
                 </span>
               </div>
 
               <div className="mt-3">
-                <h1 className="text-xl font-semibold text-gray-900">
+                <h1 className="text-base font-semibold text-[var(--text-primary)]">
                   {deal.name}
                 </h1>
 
-                <div className="mt-2 flex flex-col gap-1 text-sm text-gray-600">
+                <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--text-secondary)]">
                   <span>Статус: {getReadableDealStatus(deal.status)}</span>
 
                   {deal.metadata_?.contact_person && (
@@ -367,7 +403,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                 </div>
 
                 {showRestartHint && (
-                  <p className="mt-2 text-xs text-red-600">
+                  <p className="mt-2 text-[11px] text-amber-300">
                     После ручной переклассификации требуется повторный запуск
                     анализа.
                   </p>
@@ -383,11 +419,10 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                     Запустить анализ документов
                   </Button>
                   {showMobileRunHint && (
-                    <p className="mt-2 text-[11px] text-gray-500">
-                      Параметры запуска доступны на вкладке «Обзор» в правом
-                      блоке «Анализ документов». На мобильных устройствах панели
-                      запуска открываются из этого раздела, чтобы сохранить
-                      единый сценарий работы.
+                    <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                      Параметры запуска доступны на вкладке «Обзор» в блоке
+                      «Анализ документов». На мобильных устройствах панели
+                      запуска открываются из этого раздела.
                     </p>
                   )}
                 </div>
@@ -395,7 +430,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
               <div className="mt-4">
                 <div
-                  className="flex overflow-x-auto border-t border-gray-200 pt-3 text-xs"
+                  className="flex overflow-x-auto border-t border-[var(--border)] pt-3 text-xs"
                   role="tablist"
                   aria-label="Разделы проекта"
                 >
@@ -424,7 +459,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="Отчёты"
+                    label="Отчёт"
                     tabKey="report"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
@@ -533,13 +568,14 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
       }}
       disabled={disabled}
       aria-current={isActive ? "page" : undefined}
-      className={`w-full rounded-md px-3 py-2 text-left text-sm font-medium transition ${
+      className={[
+        "w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
         disabled
-          ? "cursor-not-allowed text-gray-300"
+          ? "cursor-not-allowed text-[var(--text-muted)]/40"
           : isActive
-          ? "bg-blue-50 text-blue-700"
-          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-      }`}
+          ? "bg-white/5 text-[var(--text-primary)]"
+          : "text-[var(--text-secondary)] hover:bg-white/3 hover:text-[var(--text-primary)]",
+      ].join(" ")}
     >
       {label}
     </button>
@@ -572,13 +608,14 @@ const MobileTab: React.FC<MobileTabProps> = ({
       disabled={disabled}
       role="tab"
       aria-selected={isActive}
-      className={`shrink-0 border-b-2 px-3 py-2 text-xs font-medium ${
+      className={[
+        "shrink-0 border-b-2 px-3 py-2 text-[11px] font-medium transition-colors",
         disabled
-          ? "cursor-not-allowed border-transparent text-gray-300"
+          ? "cursor-not-allowed border-transparent text-[var(--text-muted)]/40"
           : isActive
-          ? "border-blue-600 text-blue-600"
-          : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-      }`}
+          ? "border-[var(--accent)] text-[var(--accent)]"
+          : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)] hover:text-[var(--text-secondary)]",
+      ].join(" ")}
     >
       {label}
     </button>

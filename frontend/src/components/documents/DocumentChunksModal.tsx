@@ -10,6 +10,7 @@
 
 import React, { useEffect, useState } from "react";
 import { X, Loader2, AlertTriangle } from "lucide-react";
+import Button from "../ui/Button";
 
 interface Props {
   isOpen: boolean;
@@ -72,77 +73,102 @@ export const DocumentChunksModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[95vh] flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
         {/* header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-gray-900 truncate">
+            <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
               Документ в формате чанков
             </h2>
-            <p className="text-xs text-gray-500 truncate" title={docName}>
+            <p
+              className="truncate text-xs text-[var(--text-muted)]"
+              title={docName}
+            >
               {docName}
             </p>
           </div>
 
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="p-1 rounded hover:bg-gray-100 text-gray-500"
+            aria-label="Закрыть"
+            className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             <X size={16} />
-          </button>
+          </Button>
         </div>
 
         {/* пояснение */}
-        <div className="px-4 pt-2 text-[11px] text-gray-500 border-b pb-2">
-          Этот просмотр показывает документ так, как его «видит» система
-          чанкинга: один чанк за другим, с заголовками и служебной
-          информацией. Прокрутите вниз, чтобы увидеть весь документ.
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-2">
+          <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+            Этот просмотр показывает документ так, как его «видит» система
+            чанкинга: один чанк за другим, с заголовками и служебной
+            информацией. Прокрутите вниз, чтобы увидеть весь документ.
+          </p>
         </div>
 
         {/* body */}
         <div className="flex-1 p-4">
           {isLoading && (
-            <div className="h-[70vh] flex items-center justify-center text-gray-400 text-sm">
-              <Loader2 className="animate-spin mr-2" size={18} />
+            <div className="flex h-[70vh] items-center justify-center text-sm text-[var(--text-muted)]">
+              <Loader2 className="mr-2 animate-spin" size={18} />
               Загрузка файла чанков…
             </div>
           )}
 
           {loadError && !isLoading && (
-            <div className="h-[70vh] flex flex-col items-center justify-center text-center text-xs text-red-700">
-              <AlertTriangle size={18} className="mb-1 text-red-500" />
-              <p>Ошибка при загрузке файла чанков</p>
-              <p className="mt-1 text-[11px] text-gray-500 break-words">
+            <div className="flex h-[70vh] flex-col items-center justify-center rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-4 text-center">
+              <AlertTriangle
+                size={18}
+                className="mb-1 text-[var(--color-error)]"
+              />
+              <p className="text-xs font-medium text-[var(--color-error-strong)]">
+                Ошибка при загрузке файла чанков
+              </p>
+              <p className="mt-1 break-words text-[11px] text-[var(--text-muted)]">
                 {loadError}
               </p>
             </div>
           )}
 
           {!isLoading && !loadError && content && (
-            <div className="h-[70vh] border rounded bg-gray-50 overflow-y-auto text-xs">
-              <pre className="p-3 whitespace-pre-wrap text-[11px] leading-snug font-mono">
+            <div className="h-[70vh] overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]">
+              <pre className="p-4 font-mono text-[11px] leading-snug whitespace-pre-wrap text-[var(--text-primary)]">
                 {content}
               </pre>
             </div>
           )}
 
           {!isLoading && !loadError && !content && (
-            <div className="h-[70vh] flex items-center justify-center text-xs text-gray-500">
-              Нет данных для отображения чанков документа.
+            <div className="flex h-[70vh] items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 text-center">
+              <p className="text-xs text-[var(--text-muted)]">
+                Нет данных для отображения чанков документа.
+              </p>
             </div>
           )}
         </div>
 
         {/* footer */}
-        <div className="px-4 py-2 border-t flex justify-end">
-          <button
+        <div className="flex justify-end border-t border-[var(--border-subtle)] px-4 py-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
             onClick={onClose}
-            className="px-3 py-1.5 text-xs rounded border text-gray-700 hover:bg-gray-50"
           >
             Закрыть
-          </button>
+          </Button>
         </div>
       </div>
     </div>

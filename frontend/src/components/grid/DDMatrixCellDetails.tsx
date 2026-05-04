@@ -11,6 +11,10 @@ import type {
   CheckResult,
 } from "../../types";
 
+import Drawer from "../ui/Drawer";
+import Button from "../ui/Button";
+import { SeverityBadge } from "../ui/SeverityBadge";
+
 export interface MatrixCellDetailsCell {
   result: CheckResult["result"] | string;
   severity: SeverityLevel | null;
@@ -109,6 +113,48 @@ function getSegmentMeta(cell: MatrixCellDetailsCell): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-2">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+function InfoCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm">
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-xs">
+      <span className="shrink-0 text-[var(--text-muted)]">{label}</span>
+      <span className="text-right font-medium text-[var(--text-primary)]">
+        {value}
+      </span>
+    </div>
+  );
+}
+
 export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
   open,
   onClose,
@@ -123,250 +169,215 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
     return null;
   }
 
-  const titleId = "dd-matrix-cell-details-title";
-
-  const handleOpenInViewer = () => {
-    if (!onOpenInViewer || !documentId) return;
-
-    onOpenInViewer({
-      documentId,
-      page: cell.page ?? null,
-      clauseUid: cell.clauseUid ?? null,
-      elementId: null,
-      segmentId: cell.segmentId ?? null,
-      chunkId: cell.chunkId ?? null,
-      chunkIndex: cell.chunkIndex ?? null,
-    });
-  };
-
   const confidenceText = getConfidenceText(cell.confidence);
   const humanResultText = getHumanResultText(cell.result, cell.severity);
   const segmentHeading = getSegmentHeading(cell);
   const segmentMeta = getSegmentMeta(cell);
 
+  const canOpenInViewer =
+    !!onOpenInViewer &&
+    (cell.page != null ||
+      !!cell.clauseUid ||
+      !!cell.segmentId ||
+      !!cell.chunkId ||
+      cell.chunkIndex != null);
+
+  const handleOpenInViewer = () => {
+    if (!onOpenInViewer) return;
+
+    onOpenInViewer({
+      documentId,
+      page: cell.page ?? undefined,
+      clauseUid: cell.clauseUid ?? undefined,
+      elementId: undefined,
+      segmentId: cell.segmentId ?? undefined,
+      chunkId: cell.chunkId ?? undefined,
+      chunkIndex: cell.chunkIndex ?? undefined,
+    });
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/30"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-    >
-      <div
-        className="flex h-full w-full max-w-xl flex-col bg-white shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
-          <div className="space-y-1">
-            <div className="text-xs uppercase tracking-wide text-gray-400">
-              Проверка
-            </div>
-            <h3 id={titleId} className="text-base font-semibold text-gray-900">
-              {checkName || checkId || "Без названия проверки"}
-            </h3>
-            <p className="text-xs text-gray-500">
-              Документ:{" "}
-              <span className="font-medium text-gray-800">
-                {documentName || documentId}
-              </span>
-            </p>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title={checkName || checkId || "Без названия проверки"}
+      description={`Документ: ${documentName || documentId}`}
+      footer={
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[11px] text-[var(--text-muted)]">
+            Открыть документ в контексте evidence.
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-50"
-              aria-label="Закрыть панель"
-              title="Закрыть"
-            >
-              ✕
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-            >
+            <Button variant="secondary" size="sm" onClick={onClose}>
               Закрыть
-            </button>
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleOpenInViewer}
+              disabled={!canOpenInViewer}
+              title={
+                canOpenInViewer
+                  ? "Открыть в документе"
+                  : "Недостаточно данных для перехода в viewer"
+              }
+            >
+              Открыть в документе
+            </Button>
           </div>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {/* Result summary */}
-          <section className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Результат
-            </h4>
-
-            <div className="space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-800">
-              <div>
-                <span className="text-gray-500">Статус:</span>{" "}
-                <span className="font-semibold text-gray-900">
+      }
+    >
+      <div className="space-y-5">
+        <Section title="Результат">
+          <InfoCard>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {cell.severity && <SeverityBadge severity={cell.severity} />}
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {humanResultText}
                 </span>
-                <span className="ml-1 text-[10px] text-gray-400">
+                <span className="text-[11px] text-[var(--text-faint)]">
                   ({cell.result})
                 </span>
               </div>
 
-              <div>
-                <span className="text-gray-500">Severity:</span>{" "}
-                <span className="font-medium text-gray-900">
-                  {cell.severity || "—"}
-                </span>
+              <div className="space-y-2">
+                <InfoRow
+                  label="Severity"
+                  value={cell.severity || "—"}
+                />
+                <InfoRow
+                  label="QC статус"
+                  value={cell.qcStatus || "—"}
+                />
+                <InfoRow
+                  label="Confidence"
+                  value={confidenceText}
+                />
+                {cell.conditionalTriggered && (
+                  <InfoRow
+                    label="Trigger"
+                    value={cell.triggerName || "Conditional check triggered"}
+                  />
+                )}
               </div>
-
-              <div>
-                <span className="text-gray-500">QC статус:</span>{" "}
-                <span className="font-medium text-gray-900">
-                  {cell.qcStatus || "—"}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-gray-500">Confidence:</span>{" "}
-                <span className="font-medium text-gray-900">
-                  {confidenceText}
-                </span>
-              </div>
-
-              {cell.conditionalTriggered && (
-                <div>
-                  <span className="text-gray-500">Trigger:</span>{" "}
-                  <span className="font-medium text-gray-900">
-                    {cell.triggerName || "Conditional check triggered"}
-                  </span>
-                </div>
-              )}
             </div>
-          </section>
+          </InfoCard>
+        </Section>
 
-          {/* Evidence snippet */}
-          <section className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Evidence
-            </h4>
-
-            <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-800">
+        <Section title="Evidence">
+          <InfoCard>
+            <div className="space-y-3">
               {cell.snippet ? (
-                <p className="leading-5 text-gray-900">{cell.snippet}</p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">
+                  {cell.snippet}
+                </p>
               ) : (
-                <p className="text-gray-400">Evidence snippet отсутствует.</p>
+                <p className="text-xs text-[var(--text-faint)]">
+                  Evidence snippet отсутствует.
+                </p>
               )}
 
-              <div className="flex flex-wrap gap-3 text-[11px] text-gray-500">
+              <div className="flex flex-wrap gap-3 text-[11px] text-[var(--text-muted)]">
                 <span>Страница: {cell.page ?? "—"}</span>
                 <span>Clause UID: {cell.clauseUid || "—"}</span>
               </div>
             </div>
-          </section>
+          </InfoCard>
+        </Section>
 
-          {/* Segment / Chunk provenance */}
-          {(cell.segmentId ||
-            cell.segmentTitle ||
-            cell.segmentType ||
-            cell.chunkIndex != null) && (
-            <section className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Segment / Chunk
-              </h4>
-
-              <div className="space-y-1 rounded-lg border border-gray-200 bg-white p-3 text-[11px] text-gray-800">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-gray-900">
+        {(cell.segmentId ||
+          cell.segmentTitle ||
+          cell.segmentType ||
+          cell.chunkId ||
+          cell.chunkIndex != null) && (
+          <Section title="Segment / Chunk">
+            <InfoCard>
+              <div className="space-y-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">
                     {segmentHeading}
                   </span>
 
                   {cell.isPrimarySegment && (
-                    <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                    <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
                       Основной сегмент
                     </span>
                   )}
                 </div>
 
                 {segmentMeta && (
-                  <p className="text-[10px] text-gray-500">{segmentMeta}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    {segmentMeta}
+                  </p>
                 )}
 
                 {cell.segmentId && (
-                  <p className="text-[10px] text-gray-400">
+                  <p className="text-[10px] text-[var(--text-faint)]">
                     segment_id: {cell.segmentId}
                   </p>
                 )}
 
+                {cell.chunkId && (
+                  <p className="text-[10px] text-[var(--text-muted)]">
+                    chunk_id: {cell.chunkId}
+                  </p>
+                )}
+
                 {cell.chunkIndex != null && (
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[10px] text-[var(--text-muted)]">
                     Chunk #{cell.chunkIndex}
                   </p>
                 )}
               </div>
-            </section>
-          )}
+            </InfoCard>
+          </Section>
+        )}
 
-          {/* Extracted fields */}
-          <section className="space-y-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Извлечённые поля
-            </h4>
-
-            <div className="space-y-1 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-800">
-              {cell.extractedFields.length === 0 ? (
-                <p className="text-gray-400">Извлечённые значения отсутствуют.</p>
-              ) : (
-                cell.extractedFields.map((f, idx) => (
+        <Section title="Извлечённые поля">
+          <InfoCard>
+            {cell.extractedFields.length === 0 ? (
+              <p className="text-xs text-[var(--text-faint)]">
+                Извлечённые значения отсутствуют.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {cell.extractedFields.map((field, idx) => (
                   <div
-                    key={`${f.fieldName}-${idx}`}
-                    className="flex items-start justify-between gap-3 border-b border-gray-100 pb-2 last:border-0 last:pb-0"
+                    key={`${field.fieldName}-${idx}`}
+                    className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-2 last:border-0 last:pb-0"
                   >
                     <div className="min-w-0">
-                      <div className="text-[11px] font-medium text-gray-700">
-                        {f.fieldName}
+                      <div className="text-[11px] font-medium text-[var(--text-secondary)]">
+                        {field.fieldName}
                       </div>
 
-                      {f.fieldFormat && (
-                        <div className="text-[10px] text-gray-400">
-                          {f.fieldFormat}
+                      {field.fieldFormat && (
+                        <div className="text-[10px] text-[var(--text-faint)]">
+                          {field.fieldFormat}
                         </div>
                       )}
 
-                      {f.fieldSource && (
-                        <div className="text-[10px] text-gray-400">
-                          {f.fieldSource}
+                      {field.fieldSource && (
+                        <div className="text-[10px] text-[var(--text-faint)]">
+                          {field.fieldSource}
                         </div>
                       )}
                     </div>
 
-                    <div className="max-w-[55%] break-words text-right text-[11px] font-semibold text-gray-900">
-                      {f.fieldValue}
+                    <div className="max-w-[55%] break-words text-right text-[11px] font-semibold text-[var(--text-primary)]">
+                      {field.fieldValue}
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-200 px-5 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-[11px] text-gray-400">
-              Открыть документ в контексте evidence.
-            </div>
-
-            <button
-              type="button"
-              onClick={handleOpenInViewer}
-              className="inline-flex items-center rounded-md bg-blue-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-            >
-              Открыть в документе
-            </button>
-          </div>
-        </div>
+                ))}
+              </div>
+            )}
+          </InfoCard>
+        </Section>
       </div>
-    </div>
+    </Drawer>
   );
 };
 

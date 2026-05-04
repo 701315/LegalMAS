@@ -1,6 +1,7 @@
 // =============================================================
 // src/pages/LoginPage.tsx
 // Страница входа: логин + пароль, сохранение пользователя в uiStore.
+// Обновлено под общий дизайн workspace LegalMAS.
 // =============================================================
 
 import React, { useState } from "react";
@@ -8,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { Shield } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useLogin } from "../api/auth";
+import Button from "../components/ui/Button";
 import type { GlobalRole } from "../stores/uiStore";
 import type { ProjectRole } from "../api/auth";
 import type { ApiError } from "../types";
@@ -76,7 +78,8 @@ const LoginPage: React.FC = () => {
             | undefined;
 
           const detailFromResponse =
-            (apiErr as { response?: { data?: ApiError } })?.response?.data?.detail;
+            (apiErr as { response?: { data?: ApiError } })?.response?.data
+              ?.detail;
 
           const detail =
             (apiErr as ApiError)?.detail ??
@@ -92,45 +95,53 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 text-slate-900">
-      {/* Логотип-ссылка на лендинг */}
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg-base)] px-4 text-[var(--text-primary)]">
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="group mb-8 flex items-center gap-2"
+        className="group mb-8 flex items-center gap-3"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 shadow">
-          <Shield className="h-5 w-5 text-white" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-primary)] text-white shadow-sm">
+          <Shield className="h-5 w-5" />
         </div>
         <div className="text-left">
-          <p className="text-base font-bold leading-none text-slate-900">
+          <p className="text-sm font-semibold leading-tight text-[var(--text-primary)]">
             LegalMAS
           </p>
-          <p className="mt-0.5 text-[11px] text-slate-500">
-            Система интеллектуального анализа правовых документов
+          <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+            Платформа интеллектуального анализа правовых документов
           </p>
         </div>
       </button>
 
-      {/* Карточка формы */}
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-slate-900 shadow-sm">
-        <h1 className="mb-1 text-lg font-bold text-slate-900">
-          Вход в систему
-        </h1>
-        <p className="mb-6 text-sm text-slate-500">
-          Введите логин и пароль, выданные администратором.
-        </p>
+      <div className="w-full max-w-sm rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] px-6 py-7 shadow-sm">
+        <div className="mb-6">
+          <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            Secure sign-in
+          </div>
+
+          <h1 className="mt-4 text-[20px] font-semibold tracking-tight text-[var(--text-primary)]">
+            Вход в LegalMAS
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+            Используйте учётные данные, выданные администратором вашей команды.
+          </p>
+        </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">
+            <label
+              htmlFor="login"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
+            >
               Логин
             </label>
             <input
+              id="login"
               type="text"
               value={login}
               onChange={(e) => setLogin(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
               placeholder="Ваш логин"
               autoComplete="username"
               autoFocus
@@ -138,40 +149,45 @@ const LoginPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">
+            <label
+              htmlFor="password"
+              className="mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]"
+            >
               Пароль
             </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)]"
               placeholder="Ваш пароль"
               autoComplete="current-password"
             />
           </div>
 
           {errorText && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+            <p className="rounded-2xl border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-3.5 py-2.5 text-xs text-[color:rgb(120,35,46)]">
               {errorText}
             </p>
           )}
 
-          <button
+          <Button
             type="submit"
-            disabled={loginMutation.isPending}
-            className="mt-2 w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            variant="primary"
+            size="sm"
+            fullWidth
+            isLoading={loginMutation.isPending}
           >
-            {loginMutation.isPending ? "Входим…" : "Войти"}
-          </button>
+            Войти
+          </Button>
         </form>
       </div>
 
-      {/* Ссылка назад */}
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="mt-6 text-xs text-slate-500 transition-colors hover:text-slate-700"
+        className="mt-6 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
       >
         ← Вернуться на главную
       </button>
@@ -180,5 +196,7 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+
+
 
 

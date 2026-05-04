@@ -1,30 +1,12 @@
-/**
- * LayoutDebugModal
- *
- * Визуальное сравнение документа до и после PII-sanitation.
- *
- * Что делает:
- * - показывает две синхронно прокручиваемые колонки;
- * - слева отображает raw layout (исходный текст);
- * - справа отображает sanitized layout (текст после санитизации);
- * - сопоставляет строки сначала по elementid, затем эвристически по похожести текста внутри страницы;
- * - в левой колонке подсвечивает только изменившиеся слова внутри строки;
- * - если строка удалена полностью, подсвечивает весь исходный текст как удалённый.
- *
- * Для чего нужен:
- * - быстро проверить, как именно изменился документ после санитизации;
- * - понять, какие слова были замаскированы, заменены или удалены;
- * - визуально валидировать результат PII pipeline без чтения JSON.
- *
- * Важно:
- * - backend debug endpoint возвращает raw/sanitized JSON только если включены
- *   query params includeraw=true и includesanitized=true;
- * - этот компонент предполагает, что useDocumentLayoutsDebug делает именно такой запрос.
- */
+// =============================================================
+// src/components/documents/LayoutDebugModal.tsx
+// Визуальное сравнение документа до и после PII-sanitation.
+// =============================================================
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { X, Loader2, AlertTriangle } from "lucide-react";
 import { useDocumentLayoutsDebug } from "../../api/documents";
+import Button from "../ui/Button";
 
 interface Props {
   docId: string;
@@ -51,7 +33,7 @@ type LayoutsDebugResponse = {
   rawlayout?: LayoutPayload | null;
   sanitizedlayout?: LayoutPayload | null;
 
-  // fallback for camelCase if frontend mapper normalizes keys
+  // fallback camelCase
   documentId?: string;
   dealId?: string;
   rawLayoutRef?: string | null;
@@ -156,11 +138,16 @@ function extractRawLayout(data: LayoutsDebugResponse | undefined): unknown {
   return data?.rawlayout ?? data?.rawLayout ?? null;
 }
 
-function extractSanitizedLayout(data: LayoutsDebugResponse | undefined): unknown {
+function extractSanitizedLayout(
+  data: LayoutsDebugResponse | undefined,
+): unknown {
   return data?.sanitizedlayout ?? data?.sanitizedLayout ?? null;
 }
 
-function buildCompareRows(rawLayout: unknown, sanitizedLayout: unknown): CompareRow[] {
+function buildCompareRows(
+  rawLayout: unknown,
+  sanitizedLayout: unknown,
+): CompareRow[] {
   const rawElements = getElements(rawLayout);
   const sanitizedElements = getElements(sanitizedLayout);
 
@@ -173,7 +160,10 @@ function buildCompareRows(rawLayout: unknown, sanitizedLayout: unknown): Compare
   });
 
   const rawByPage = new Map<number, Array<{ el: LayoutElement; index: number }>>();
-  const sanitizedByPage = new Map<number, Array<{ el: LayoutElement; index: number }>>();
+  const sanitizedByPage = new Map<
+    number,
+    Array<{ el: LayoutElement; index: number }>
+  >();
 
   rawElements.forEach((el, index) => {
     const page = typeof el.page === "number" ? el.page : 1;
@@ -349,26 +339,31 @@ function MatchBadge({ type }: { type: CompareRow["matchType"] }) {
   const config =
     type === "id"
       ? {
-          cls: "bg-gray-100 text-gray-700 border-gray-200",
+          cls: "bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)] border-[var(--border-subtle)]",
           text: "match: id",
         }
       : type === "heuristic"
         ? {
-            cls: "bg-blue-100 text-blue-700 border-blue-200",
+            cls: "bg-[var(--color-blue-highlight)] text-[var(--color-blue)] border-[var(--color-blue-hover)]/40",
             text: "match: similar text",
           }
         : type === "removed"
           ? {
-              cls: "bg-red-100 text-red-700 border-red-200",
+              cls: "bg-[var(--color-error-highlight)] text-[var(--color-error)] border-[var(--color-error-hover)]/40",
               text: "removed",
             }
           : {
-              cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+              cls: "bg-[var(--color-success-highlight)] text-[var(--color-success)] border-[var(--color-success-hover)]/40",
               text: "added",
             };
 
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] ${config.cls}`}>
+    <span
+      className={[
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]",
+        config.cls,
+      ].join(" ")}
+    >
       {config.text}
     </span>
   );
@@ -384,12 +379,14 @@ function BeforeTextDiff({
   removed: boolean;
 }) {
   if (!beforeText) {
-    return <span className="text-gray-400 italic">Нет текста</span>;
+    return (
+      <span className="text-[var(--text-faint)] italic">Нет текста</span>
+    );
   }
 
   if (removed) {
     return (
-      <span className="rounded px-1 py-0.5 bg-red-100 text-red-900">
+      <span className="rounded bg-[var(--color-error-highlight)] px-1 py-0.5 text-[var(--color-error)]">
         {beforeText}
       </span>
     );
@@ -408,7 +405,7 @@ function BeforeTextDiff({
           return (
             <span
               key={index}
-              className="rounded px-1 py-0.5 bg-red-100 text-red-900"
+              className="rounded bg-[var(--color-error-highlight)] px-1 py-0.5 text-[var(--color-error)]"
             >
               {token.text}
             </span>
@@ -421,15 +418,11 @@ function BeforeTextDiff({
   );
 }
 
-export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) => {
-  /**
-   * Важно:
-   * backend endpoint /documents/{docId}/debug-layouts по умолчанию НЕ включает raw/sanitized JSON,
-   * если не передать includeraw=true и includesanitized=true.
-   *
-   * Этот вызов предполагает, что хук useDocumentLayoutsDebug внутри себя делает запрос именно так.
-   * Если хук этого не делает — ниже в UI ты увидишь "Нет данных для сравнения".
-   */
+export const LayoutDebugModal: React.FC<Props> = ({
+  docId,
+  isOpen,
+  onClose,
+}) => {
   const {
     data,
     isLoading,
@@ -447,8 +440,8 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
   useEffect(() => {
     if (!isOpen) return;
 
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
 
     document.addEventListener("keydown", onKeyDown);
@@ -456,7 +449,10 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
   }, [isOpen, onClose]);
 
   const rawLayout = useMemo(() => extractRawLayout(data), [data]);
-  const sanitizedLayout = useMemo(() => extractSanitizedLayout(data), [data]);
+  const sanitizedLayout = useMemo(
+    () => extractSanitizedLayout(data),
+    [data],
+  );
 
   const groupedPages = useMemo(() => {
     const rows = buildCompareRows(rawLayout, sanitizedLayout);
@@ -485,12 +481,16 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
 
   if (!isOpen) return null;
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
   };
 
   const errorMessage =
-    error instanceof Error ? error.message : error ? String(error) : "Неизвестная ошибка";
+    error instanceof Error
+      ? error.message
+      : error
+        ? String(error)
+        : "Неизвестная ошибка";
 
   return (
     <div
@@ -501,68 +501,77 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
         role="dialog"
         aria-modal="true"
         aria-labelledby="layout-compare-v3-title"
-        className="w-full max-w-[96vw] h-[94vh] rounded-xl bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+        className="flex h-[94vh] w-full max-w-[96vw] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl"
       >
-        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b bg-gray-50">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-4">
           <div className="min-w-0">
             <h2
               id="layout-compare-v3-title"
-              className="text-base font-semibold text-gray-900"
+              className="text-base font-semibold text-[var(--text-primary)]"
             >
               Документ до и после санитизации
             </h2>
-            <p className="text-xs text-gray-500 mt-1 break-all">
-              В левой колонке подсвечены только изменившиеся слова
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              В левой колонке подсвечены только изменившиеся слова.
             </p>
           </div>
 
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="p-2 rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-700"
             aria-label="Закрыть"
+            className="px-2 py-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
-        <div className="px-5 py-3 border-b bg-white text-sm text-gray-700">
-          Слева исходный текст, справа санитизированный. Если строка изменилась, в левой колонке подсвечиваются только изменённые слова; если строка удалена полностью, подсвечивается вся строка.
+        <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3 text-xs text-[var(--text-secondary)]">
+          Слева исходный текст, справа санитизированный. Если строка
+          изменилась, в левой колонке подсвечиваются только изменённые
+          слова; если строка удалена полностью, подсвечивается вся строка.
         </div>
 
-        <div className="flex-1 min-h-0 bg-gray-100">
+        <div className="min-h-0 flex-1 bg-[var(--bg-elevated-soft)]">
           {isLoading && (
-            <div className="h-full flex items-center justify-center text-sm text-gray-500 bg-white">
-              <Loader2 className="animate-spin mr-2" size={18} />
+            <div className="flex h-full items-center justify-center bg-[var(--bg-card)] text-sm text-[var(--text-muted)]">
+              <Loader2 className="mr-2 animate-spin" size={18} />
               Загрузка сравнения…
             </div>
           )}
 
           {!!error && !isLoading && (
-            <div className="h-full flex flex-col items-center justify-center text-center bg-white">
-              <AlertTriangle size={20} className="mb-2 text-red-500" />
-              <div className="text-sm font-medium text-red-700">
+            <div className="flex h-full flex-col items-center justify-center bg-[var(--bg-card)] text-center">
+              <AlertTriangle
+                size={20}
+                className="mb-2 text-[var(--color-error)]"
+              />
+              <div className="text-sm font-medium text-[var(--color-error)]">
                 Ошибка загрузки данных
               </div>
-              <div className="mt-1 text-xs text-gray-500 break-all max-w-2xl">
+              <div className="mt-1 max-w-2xl break-all text-xs text-[var(--text-muted)]">
                 {errorMessage}
               </div>
             </div>
           )}
 
           {!isLoading && !error && groupedPages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center text-sm text-gray-500 bg-white px-6">
+            <div className="flex h-full flex-col items-center justify-center bg-[var(--bg-card)] px-6 text-center text-sm text-[var(--text-muted)]">
               <div>Нет данных для сравнения raw / sanitized layout.</div>
-              <div className="mt-2 text-xs text-gray-400">
-                Проверь, что запрос debug-layouts вызывается с includeraw=true и includesanitized=true.
+              <div className="mt-2 text-xs text-[var(--text-faint)]">
+                Проверь, что запрос debug-layouts вызывается с
+                includeraw=true и includesanitized=true.
               </div>
             </div>
           )}
 
           {!isLoading && !error && groupedPages.length > 0 && (
-            <div className="h-full grid grid-cols-1 lg:grid-cols-2 gap-px bg-gray-200">
-              <div className="min-h-0 bg-white flex flex-col">
-                <div className="sticky top-0 z-10 px-4 py-3 border-b bg-white">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="grid h-full grid-cols-1 gap-px bg-[var(--border-subtle)] lg:grid-cols-2">
+              <div className="flex min-h-0 flex-col bg-[var(--bg-card)]">
+                <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                     До санитизации
                   </div>
                 </div>
@@ -570,11 +579,14 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
                 <div
                   ref={leftRef}
                   onScroll={() => handleSyncScroll("left")}
-                  className="flex-1 overflow-auto px-4 py-4 space-y-6"
+                  className="flex-1 space-y-6 overflow-auto px-4 py-4"
                 >
                   {groupedPages.map((page) => (
-                    <section key={`left-page-${page.page}`} className="space-y-3">
-                      <div className="sticky top-0 z-[1] inline-flex text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                    <section
+                      key={`left-page-${page.page}`}
+                      className="space-y-3"
+                    >
+                      <div className="sticky top-0 z-[1] inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-xs text-[var(--text-muted)]">
                         Страница {page.page}
                       </div>
 
@@ -582,13 +594,13 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
                         {page.items.map((row) => (
                           <div
                             key={`left-${row.key}`}
-                            className="rounded-md px-3 py-2 border border-transparent"
+                            className="rounded-md border border-transparent px-3 py-2"
                           >
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="mb-1 flex items-center gap-2">
                               <MatchBadge type={row.matchType} />
                             </div>
 
-                            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
+                            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-primary)]">
                               <BeforeTextDiff
                                 beforeText={row.beforeText}
                                 afterText={row.afterText}
@@ -603,9 +615,9 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
                 </div>
               </div>
 
-              <div className="min-h-0 bg-white flex flex-col">
-                <div className="sticky top-0 z-10 px-4 py-3 border-b bg-white">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <div className="flex min-h-0 flex-col bg-[var(--bg-card)]">
+                <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                     После санитизации
                   </div>
                 </div>
@@ -613,11 +625,14 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
                 <div
                   ref={rightRef}
                   onScroll={() => handleSyncScroll("right")}
-                  className="flex-1 overflow-auto px-4 py-4 space-y-6"
+                  className="flex-1 space-y-6 overflow-auto px-4 py-4"
                 >
                   {groupedPages.map((page) => (
-                    <section key={`right-page-${page.page}`} className="space-y-3">
-                      <div className="sticky top-0 z-[1] inline-flex text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                    <section
+                      key={`right-page-${page.page}`}
+                      className="space-y-3"
+                    >
+                      <div className="sticky top-0 z-[1] inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-xs text-[var(--text-muted)]">
                         Страница {page.page}
                       </div>
 
@@ -627,23 +642,25 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
                             key={`right-${row.key}`}
                             className={
                               row.added
-                                ? "rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2"
+                                ? "rounded-md border border-[color:color-mix(in_srgb,var(--color-success)_30%,transparent)] bg-[var(--color-success-highlight)] px-3 py-2"
                                 : "rounded-md border border-transparent bg-transparent px-3 py-2"
                             }
                           >
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="mb-1 flex items-center gap-2">
                               <MatchBadge type={row.matchType} />
                             </div>
 
-                            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
+                            <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-primary)]">
                               {row.removed ? (
-                                <span className="text-gray-400 italic">
+                                <span className="text-[var(--text-faint)] italic">
                                   Удалено после санитизации
                                 </span>
                               ) : row.afterText ? (
                                 row.afterText
                               ) : (
-                                <span className="text-gray-400 italic">Нет текста</span>
+                                <span className="text-[var(--text-faint)] italic">
+                                  Нет текста
+                                </span>
                               )}
                             </div>
                           </div>
@@ -657,13 +674,10 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
           )}
         </div>
 
-        <div className="px-5 py-3 border-t bg-gray-50 flex items-center justify-end">
-          <button
-            onClick={onClose}
-            className="px-3 py-2 text-xs rounded-md bg-gray-900 text-white hover:bg-gray-800"
-          >
+        <div className="flex items-center justify-end border-t border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-3">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose}>
             Закрыть
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -671,4 +685,6 @@ export const LayoutDebugModal: React.FC<Props> = ({ docId, isOpen, onClose }) =>
 };
 
 export default LayoutDebugModal;
+
+
 

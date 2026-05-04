@@ -5,19 +5,6 @@
 
 import type { UserRole } from "../types";
 
-// -------------------------------------------------------------
-// РОЛИ И УРОВНИ ДОСТУПА
-// -------------------------------------------------------------
-
-/**
- * Внутренние числовые уровни для ролей.
- * Используются в canReclassify / canViewClassificationReport / canViewYamlInstructions.
- *
- * viewer   -> 1
- * editor   -> 2
- * reviewer -> 3
- * admin    -> 4
- */
 export const ROLE_LEVEL: Record<UserRole, number> = {
   viewer: 1,
   editor: 2,
@@ -26,95 +13,79 @@ export const ROLE_LEVEL: Record<UserRole, number> = {
   superadmin: 5,
 };
 
-// -------------------------------------------------------------
-// ПРАВА ДОСТУПА (FRONTEND-HELPERS)
-// -------------------------------------------------------------
-
-/** Editor+ может вручную переклассифицировать документ */
 export const canReclassify = (role: UserRole) => ROLE_LEVEL[role] >= 2;
 
-/** Editor+ может просматривать classification report */
 export const canViewClassificationReport = (role: UserRole) =>
   ROLE_LEVEL[role] >= 2;
 
-/** Admin может просматривать YAML-инструкции */
 export const canViewYamlInstructions = (role: UserRole) =>
   ROLE_LEVEL[role] >= 4;
 
-// -------------------------------------------------------------
-// УРОВНИ КЛАССИФИКАЦИИ
-// -------------------------------------------------------------
-
-/**
- * Настройки отображения уровней классификации L0–L4, L_manual.
- * color — Tailwind-классы для бейджа.
- */
 export const CLASSIFICATION_LEVELS: Record<
   string,
   {
+    shortLabel: string;
     label: string;
     description: string;
-    color: string;
+    badgeClassName: string;
   }
 > = {
   L0: {
+    shortLabel: "L0",
     label: "L0 — Нет совпадений",
     description: "Тип документа не определён",
-    color: "bg-gray-200 text-gray-700",
+    badgeClassName:
+      "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]",
   },
   L1: {
+    shortLabel: "L1",
     label: "L1 — Имя файла",
     description: "Классификация по имени файла",
-    color: "bg-blue-100 text-blue-700",
+    badgeClassName:
+      "border-[var(--color-blue)]/18 bg-[var(--color-blue-highlight)] text-[var(--color-blue)]",
   },
   L2: {
+    shortLabel: "L2",
     label: "L2 — Ключевые слова",
     description: "Классификация по ключевым словам",
-    color: "bg-indigo-100 text-indigo-700",
+    badgeClassName:
+      "border-[var(--accent-primary)]/18 bg-[var(--accent-muted)] text-[var(--accent-primary)]",
   },
   L3: {
+    shortLabel: "L3",
     label: "L3 — Семантика",
     description: "Семантический поиск (эмбеддинги)",
-    color: "bg-purple-100 text-purple-700",
+    badgeClassName:
+      "border-[var(--color-purple)]/18 bg-[var(--color-purple-highlight)] text-[var(--color-purple)]",
   },
   L4: {
+    shortLabel: "L4",
     label: "L4 — LLM",
     description: "Подтверждено языковой моделью",
-    color: "bg-green-100 text-green-700",
+    badgeClassName:
+      "border-[var(--color-success)]/18 bg-[var(--color-success-highlight)] text-[var(--color-success)]",
   },
   L_manual: {
+    shortLabel: "Manual",
     label: "Ручной override",
     description: "Тип задан вручную оператором",
-    color: "bg-yellow-100 text-yellow-800",
+    badgeClassName:
+      "border-[var(--color-gold)]/18 bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]",
   },
 };
 
-// -------------------------------------------------------------
-// ПОРОГИ УВЕРЕННОСТИ КЛАССИФИКАЦИИ
-// -------------------------------------------------------------
-
-/**
- * Пороги уверенности классификации.
- * LOW = 0.6 — ниже считается low_confidence (синхронизировано с бэкендом).
- */
 export const CONFIDENCE_THRESHOLDS = {
-  LOW: 0.6, // ниже — требует проверки
-  MEDIUM: 0.8, // ниже — рекомендуется проверить
-  HIGH: 0.9, // >= HIGH — высокая уверенность
+  LOW: 0.6,
+  MEDIUM: 0.8,
+  HIGH: 0.9,
 };
 
-// -------------------------------------------------------------
-// DD ЗАПРОСЫ — СТАТУСЫ И ИСТОЧНИКИ
-// -------------------------------------------------------------
-
-/** Читаемые статусы DD-запросов для UI */
 export const DD_REQUEST_STATUS_DISPLAY: Record<string, string> = {
   open: "🔴 Открыт",
   in_progress: "🟡 В работе",
   resolved: "🟢 Закрыт",
 };
 
-/** Читаемые источники DD-запросов для UI */
 export const DD_REQUEST_SOURCE_DISPLAY: Record<
   string,
   { label: string; color: string; icon: string }
@@ -147,14 +118,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   RUN_START: "Запуск анализа",
   PLAYBOOK_PROMOTE: "Промоут playbook",
   SET_DEAL_PLAYBOOK: "Изменение playbook сделки",
-  // классификация
   RECLASSIFY: "Переклассификация",
   YAML_INSTRUCTION_APPLY: "Применение YAML-инструкции",
 };
-
-// -------------------------------------------------------------
-// ЭКСПОРТЫ — ТИПЫ ФАЙЛОВ
-// -------------------------------------------------------------
 
 export const EXPORT_TYPE_LABEL: Record<string, string> = {
   grid_xlsx: "DD Grid (Excel)",

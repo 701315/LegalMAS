@@ -29,25 +29,17 @@ import {
 } from "../../utils/statusConfig";
 
 import { getCompositionCellValue } from "../../utils/compositionHelpers";
+import Button from "../../components/ui/Button";
 
 interface DocumentsTabProps {
   deal: Deal;
   runId: string | null;
-  /**
-   * External viewer navigation payload — приходит из DealPage,
-   * когда пользователь кликает "Открыть в документе" из другого tab.
-   */
   openViewerAt?: OpenViewerAtPayload | null;
-  /**
-   * Callback для уведомления DealPage о том, что viewer location был применён.
-   * После применения DealPage сбросит state, чтобы избежать повторного применения.
-   */
   onViewerLocationConsumed?: () => void;
 }
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
-// Типизация для статистики классификации
 interface ClassificationStats {
   L0: number;
   L1: number;
@@ -58,7 +50,6 @@ interface ClassificationStats {
   low_confidence: number;
 }
 
-// Вспомогательное форматирование риска
 function formatRiskLevel(risk: string | null | undefined): string {
   if (!risk) return "";
   switch (risk) {
@@ -75,7 +66,6 @@ function formatRiskLevel(risk: string | null | undefined): string {
   }
 }
 
-// Вспомогательное форматирование дат
 function formatDateTime(value: string | undefined | null): string {
   if (!value) return "";
   try {
@@ -85,14 +75,12 @@ function formatDateTime(value: string | undefined | null): string {
   }
 }
 
-// Явный флаг наличия ошибки обработки по backend-полю
 function hasProcessingError(doc: DocumentListItem): boolean {
   if (doc.status === "failed" || doc.status === "quarantine") {
     return true;
   }
   const details = doc.processing_error_details;
   if (!details) return false;
-  // В новой модели мы опираемся на type/message, а не на code.
   return Boolean(details.message || details.type);
 }
 
@@ -125,8 +113,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     [classifiedPage],
   );
 
-  // === состояние видимых колонок и режима выбора ===
-
   const defaultVisibleIds = useMemo<DocumentColumnId[]>(
     () =>
       ALL_DOCUMENT_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id),
@@ -146,7 +132,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     [visibleColumnIds],
   );
 
-  // Статистика по классификации + список low-confidence документов + L4-count
   const { classificationStats, lowConfidenceDocs, l4Count } = useMemo(() => {
     const stats: ClassificationStats = {
       L0: 0,
@@ -185,8 +170,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
       (d) => d.classification_level === "L4",
     ).length;
 
-    // Если backend уже шлёт явный флаг manual review, используем его.
-    // Для старых данных (без флага) — fallback по порогу confidence.
     const lowDocs = lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
 
     return {
@@ -196,8 +179,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     };
   }, [classifiedDocs]);
 
-  // === External viewer navigation handling ===
-  // Применяем openViewerAt payload, если он передан из DealPage
   React.useEffect(() => {
     if (!openViewerAt) return;
 
@@ -205,11 +186,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     setSelectedDocId(targetDocId);
     setLeftTab("tree");
 
-    // Уведомляем DealPage, что payload применён
     onViewerLocationConsumed?.();
   }, [openViewerAt, onViewerLocationConsumed]);
-
-  // === Handlers ===
 
   const handleDeleteDocument = (doc: DocumentListItem) => {
     if (!canDeleteDocuments) return;
@@ -274,49 +252,50 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   };
 
   return (
-    <div className="flex h-full">
-      {/* Левая колонка: дерево / панель классификации / таблица */}
-      <div className="w-[55%] border-r border-gray-200 flex flex-col">
-        {/* Заголовок + табы */}
-        <div className="border-b">
-          <div className="px-4 pt-2 text-xs font-semibold text-gray-500 uppercase flex justify-between items-center">
+    <div className="flex h-full bg-[var(--bg-base)] text-[var(--text-primary)]">
+      <div className="flex w-[55%] flex-col border-r border-[var(--border)] bg-[var(--bg-surface)]">
+        <div className="border-b border-[var(--border)]">
+          <div className="flex items-center justify-between px-4 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
             <span>Документы ({documents.length})</span>
           </div>
-          <div className="mt-2 flex text-xs font-medium px-2">
+
+          <div className="mt-2 flex px-2 text-xs font-medium">
             <button
               type="button"
               onClick={() => setLeftTab("tree")}
-              className={`flex-1 px-2 py-1 rounded-t border-b-2 ${
+              className={`flex-1 rounded-t-md border-b-2 px-2 py-1 transition-colors duration-150 ${
                 leftTab === "tree"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
               }`}
             >
               📁 Дерево
             </button>
+
             <button
               type="button"
               onClick={() => setLeftTab("classification")}
-              className={`flex-1 px-2 py-1 rounded-t border-b-2 flex items-center justify-center gap-1 ${
+              className={`flex flex-1 items-center justify-center gap-1 rounded-t-md border-b-2 px-2 py-1 transition-colors duration-150 ${
                 leftTab === "classification"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
               }`}
             >
               🏷️ Классификация
               {classificationStats.low_confidence > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-yellow-100 text-yellow-800 text-[10px] px-1.5 py-0.5">
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
                   {classificationStats.low_confidence}
                 </span>
               )}
             </button>
+
             <button
               type="button"
               onClick={() => setLeftTab("table")}
-              className={`flex-1 px-2 py-1 rounded-t border-b-2 ${
+              className={`flex-1 rounded-t-md border-b-2 px-2 py-1 transition-colors duration-150 ${
                 leftTab === "table"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
               }`}
             >
               📄 Таблица
@@ -324,12 +303,14 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
           </div>
         </div>
 
-        {/* Состояния загрузки/ошибки */}
         {isLoading && (
-          <div className="p-4 text-sm text-gray-500">Загружаем документы…</div>
+          <div className="p-4 text-sm text-[var(--text-secondary)]">
+            Загружаем документы…
+          </div>
         )}
+
         {error && (
-          <div className="p-4 text-sm text-red-600">
+          <div className="p-4 text-sm text-red-400">
             Не удалось загрузить документы.
           </div>
         )}
@@ -348,21 +329,23 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
             )}
 
             {leftTab === "classification" && (
-              <div className="flex-1 overflow-y-auto p-3 space-y-4">
-                {/* Мини-статистика по уровням */}
+              <div className="flex-1 space-y-4 overflow-y-auto bg-[var(--bg-surface)] p-3">
                 <div>
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                     Статистика по уровням
                   </h4>
+
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {(["L0", "L1", "L2", "L3", "L4", "L_manual"] as const).map(
                       (lvl) => (
                         <div
                           key={lvl}
-                          className="flex items-center justify-between bg-gray-50 rounded px-2 py-1"
+                          className="flex items-center justify-between rounded-lg bg-[var(--bg-card)] px-2 py-1"
                         >
-                          <span className="text-gray-500">{lvl}</span>
-                          <span className="font-semibold text-gray-800">
+                          <span className="text-[var(--text-secondary)]">
+                            {lvl}
+                          </span>
+                          <span className="font-semibold text-[var(--text-primary)]">
                             {classificationStats[lvl]}
                           </span>
                         </div>
@@ -371,17 +354,15 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                   </div>
                 </div>
 
-                {/* Явный индикатор использования L4 LLM */}
                 {l4Count > 0 && (
-                  <p className="text-xs text-green-700">
+                  <p className="text-xs text-emerald-400">
                     {l4Count} документ(ов) классифицировано с помощью L4 LLM.
                   </p>
                 )}
 
-                {/* Предупреждение о low-confidence */}
                 {classificationStats.low_confidence > 0 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
-                    <p className="font-semibold mb-1">
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-200">
+                    <p className="mb-1 font-semibold">
                       Документы с низкой уверенностью классификации
                     </p>
                     <p>
@@ -392,13 +373,13 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                   </div>
                 )}
 
-                {/* Список low-confidence документов */}
                 {lowConfidenceDocs.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
                       Требуют внимания ({lowConfidenceDocs.length})
                     </h4>
-                    <div className="space-y-1 max-h-64 overflow-y-auto">
+
+                    <div className="max-h-64 space-y-1 overflow-y-auto">
                       {lowConfidenceDocs.map((doc) => (
                         <button
                           key={doc.id}
@@ -407,16 +388,17 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                             setSelectedDocId(doc.id);
                             setLeftTab("tree");
                           }}
-                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2"
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-[var(--text-secondary)] transition-colors hover:bg-white/5"
                         >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-gray-800 truncate">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[var(--text-primary)]">
                               {doc.filename}
                             </p>
-                            <p className="text-[11px] text-gray-400 truncate">
+                            <p className="truncate text-[11px] text-[var(--text-muted)]">
                               {doc.doc_type || "Тип не определён"}
                             </p>
                           </div>
+
                           <ClassificationBadge
                             level={doc.classification_level}
                             confidence={doc.classification_confidence}
@@ -430,62 +412,61 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                 )}
 
                 {classificationStats.low_confidence === 0 && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-[var(--text-muted)]">
                     Документов с низкой уверенностью классификации нет.
                   </p>
                 )}
 
-                {/* Мини-таблица всех классифицированных документов */}
                 {classifiedDocs.length > 0 && (
                   <div>
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Список классифицированных документов (
-                      {classifiedDocs.length})
+                    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+                      Список классифицированных документов ({classifiedDocs.length})
                     </h4>
-                    <div className="border border-gray-100 rounded bg-white max-h-64 overflow-y-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-gray-50">
+
+                    <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-card)]">
+                      <table className="w-full border-collapse">
+                        <thead className="border-b border-[var(--border)]">
                           <tr>
-                            <th className="px-2 py-1 text-left text-gray-500 font-semibold">
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                               Имя файла
                             </th>
-                            <th className="px-2 py-1 text-left text-gray-500 font-semibold">
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                               Тип
                             </th>
-                            <th className="px-2 py-1 text-left text-gray-500 font-semibold">
+                            <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                               Уровень
                             </th>
-                            <th className="px-2 py-1 text-right text-gray-500 font-semibold">
+                            <th className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                               Уверенность
                             </th>
                           </tr>
                         </thead>
+
                         <tbody>
                           {classifiedDocs.map((doc) => (
                             <tr
                               key={doc.id}
-                              className="hover:bg-gray-50 cursor-pointer"
+                              className="cursor-pointer border-b border-[var(--border)] transition-colors hover:bg-white/5"
                               onClick={() => {
                                 setSelectedDocId(doc.id);
                                 setLeftTab("tree");
                               }}
                             >
-                              <td className="px-2 py-1 truncate text-gray-800">
+                              <td className="px-3 py-2.5 text-sm text-[var(--text-primary)]">
                                 {doc.filename}
                               </td>
-                              <td className="px-2 py-1 text-gray-500">
+                              <td className="px-3 py-2.5 text-sm text-[var(--text-secondary)]">
                                 {doc.doc_type || "—"}
                               </td>
-                              <td className="px-2 py-1">
+                              <td className="px-3 py-2.5 text-sm text-[var(--text-secondary)]">
                                 <ClassificationBadge
                                   level={doc.classification_level}
                                   confidence={doc.classification_confidence}
                                   showConfidence={false}
                                 />
                               </td>
-                              <td className="px-2 py-1 text-right text-gray-500">
-                                {typeof doc.classification_confidence ===
-                                "number"
+                              <td className="px-3 py-2.5 text-right text-sm text-[var(--text-secondary)]">
+                                {typeof doc.classification_confidence === "number"
                                   ? `${Math.round(
                                       doc.classification_confidence * 100,
                                     )}%`
@@ -502,86 +483,91 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
             )}
 
             {leftTab === "table" && (
-              <div className="flex-1 overflow-auto p-2">
-                {/* Панель управления колонками и экспортом */}
-                <div className="mb-2 flex items-center justify-between text-xs gap-2">
+              <div className="flex-1 overflow-auto bg-[var(--bg-surface)] p-2">
+                <div className="mb-3 flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     {!isSelectingColumns ? (
                       <>
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="secondary"
                           onClick={handleStartSelectingColumns}
-                          className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100"
                         >
                           Выбрать колонки
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="ghost"
                           onClick={handleResetColumns}
-                          className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100"
                         >
                           Сбросить по умолчанию
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <>
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="primary"
                           onClick={handleApplyColumns}
-                          className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
                           Применить
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="ghost"
                           onClick={() => setIsSelectingColumns(false)}
-                          className="px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100"
                         >
                           Отмена
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="secondary"
                       onClick={handleExportExcel}
-                      className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
                       title="Экспорт в Excel"
                     >
                       📊 Excel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="secondary"
                       onClick={handleExportWord}
-                      className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                       title="Экспорт в Word"
                     >
                       📝 Word
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="secondary"
                       onClick={handleExportPDF}
-                      className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                       title="Экспорт в PDF"
                     >
                       📄 PDF
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                {/* Панель чекбоксов (только в режиме выбора) */}
                 {isSelectingColumns && (
-                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                    <p className="font-semibold mb-2 text-blue-800">
+                  <div className="mb-3 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-2 text-xs">
+                    <p className="mb-2 font-semibold text-indigo-200">
                       Выберите колонки для отображения:
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {ALL_DOCUMENT_COLUMNS.map((col) => (
                         <label
                           key={col.id}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 p-1 rounded"
+                          className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 hover:bg-white/5"
                         >
                           <input
                             type="checkbox"
@@ -589,20 +575,22 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                             onChange={() => handleToggleColumnSelection(col.id)}
                             className="cursor-pointer"
                           />
-                          <span className="text-gray-700">{col.label}</span>
+                          <span className="text-[var(--text-secondary)]">
+                            {col.label}
+                          </span>
                         </label>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <table className="min-w-full text-xs border-collapse">
-                  <thead className="bg-gray-50">
+                <table className="w-full border-collapse">
+                  <thead className="border-b border-[var(--border)]">
                     <tr>
                       {visibleColumns.map((col) => (
                         <th
                           key={col.id}
-                          className="px-2 py-1 text-left font-semibold text-gray-600 border-b border-gray-200"
+                          className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                           title={col.description}
                         >
                           {col.label}
@@ -610,12 +598,15 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                       ))}
                     </tr>
                   </thead>
+
                   <tbody>
                     {documents.map((doc) => (
                       <tr
                         key={doc.id}
-                        className={`cursor-pointer hover:bg-gray-50 ${
-                          selectedDocId === doc.id ? "bg-blue-50" : ""
+                        className={`cursor-pointer border-b border-[var(--border)] transition-colors ${
+                          selectedDocId === doc.id
+                            ? "border-indigo-500/20 bg-indigo-500/8"
+                            : "hover:bg-white/3"
                         }`}
                         onClick={() => {
                           setSelectedDocId(doc.id);
@@ -626,8 +617,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                         {visibleColumns.map((col) => {
                           let value: unknown;
 
-                          // Сначала обрабатываем специальные ID колонок, которые не мапятся напрямую на поля Document.
-                          // Для composition-колонок работаем через отдельный helper.
                           if (
                             col.id === "composition_type" ||
                             col.id === "segment_count" ||
@@ -636,13 +625,12 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                           ) {
                             value = getCompositionCellValue(col.id, doc);
                           } else {
-                            // Для остальных колонок используем существующую логику, основанную на col.field.
                             switch (col.field) {
                               case "applicable_triggers_count":
                                 value = doc.applicable_triggers?.length ?? 0;
                                 break;
+
                               case "status": {
-                                // Берём человекочитаемый текст статуса из единого конфига.
                                 const baseLabel =
                                   doc.status &&
                                   DOCUMENT_STATUS_CONFIG[doc.status]
@@ -650,24 +638,26 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                     : doc.status || "";
 
                                 if (hasProcessingError(doc)) {
-                                  // Добавляем небольшой индикатор ошибки.
                                   value = `${baseLabel} ⚠`;
                                 } else {
                                   value = baseLabel;
                                 }
                                 break;
                               }
+
                               case "risk_level":
                                 value = formatRiskLevel(doc.risk_level);
                                 break;
+
                               case "created_at":
                                 value = formatDateTime(doc.created_at);
                                 break;
+
                               case "updated_at":
                                 value = formatDateTime(doc.updated_at);
                                 break;
+
                               default: {
-                                // col.field совпадает с ключами DocumentListItem
                                 type DocumentKey = keyof DocumentListItem;
                                 const fieldName = col.field as DocumentKey;
                                 value = doc[fieldName];
@@ -705,10 +695,16 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                             title = value;
                           }
 
+                          const isPrimaryCell = col.id === "filename";
+
                           return (
                             <td
                               key={col.id}
-                              className="px-2 py-1 border-b border-gray-100 text-gray-800 max-w-xs truncate"
+                              className={`px-3 py-2.5 text-sm ${
+                                isPrimaryCell
+                                  ? "font-medium text-[var(--text-primary)]"
+                                  : "text-[var(--text-secondary)]"
+                              }`}
                               title={title}
                             >
                               {(() => {
@@ -731,11 +727,12 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                         })}
                       </tr>
                     ))}
+
                     {documents.length === 0 && (
                       <tr>
                         <td
                           colSpan={visibleColumns.length}
-                          className="px-2 py-4 text-center text-xs text-gray-400"
+                          className="px-3 py-4 text-center text-xs text-[var(--text-muted)]"
                         >
                           Документов пока нет.
                         </td>
@@ -756,8 +753,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
         />
       )}
 
-      {/* Правая колонка: детали документа */}
-      <div className="flex-1">
+      <div className="flex-1 bg-[var(--bg-base)]">
         {selectedDocId ? (
           <DocumentDetailsContainer
             docId={selectedDocId}
@@ -769,7 +765,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
             }}
           />
         ) : (
-          <div className="h-full flex items-center justify-center text-sm text-gray-400">
+          <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
             Выберите документ слева
           </div>
         )}
@@ -779,4 +775,6 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 };
 
 export default DocumentsTab;
+
+
 

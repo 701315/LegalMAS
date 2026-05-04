@@ -3,7 +3,9 @@
 // =============================================================
 
 import React from "react";
+import { ExternalLink, FileText } from "lucide-react";
 import type { PdfPreviewDTO, PipelineStageViewDTO } from "../../../types";
+import Button from "../../ui/Button";
 
 interface Props {
   stage: PipelineStageViewDTO;
@@ -15,7 +17,7 @@ interface Props {
  * Показывает PDF-артефакт стадии:
  * - если есть inline_url — в iframe;
  * - если нет — сообщение, что встроенный просмотр недоступен;
- * - всегда оставляет ссылку "Открыть в новой вкладке", если есть download_url.
+ * - всегда оставляет действие "Открыть в новой вкладке", если есть download_url.
  *
  * Название/описание стадии рендерятся в шапке модалки,
  * поэтому здесь они не дублируются.
@@ -25,41 +27,70 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
 
   if (!preview) {
     return (
-      <div className="text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
         PDF-превью недоступно.
       </div>
     );
   }
 
+  const inlineUrl = preview.inline_url ?? undefined;
+  const downloadUrl = preview.download_url ?? undefined;
+  const hasInline = Boolean(inlineUrl);
+  const hasDownload = Boolean(downloadUrl);
+
+  const handleOpenInNewTab = () => {
+    if (!downloadUrl) return;
+    window.open(downloadUrl, "_blank", "noopener,noreferrer");
+  };
+
   return (
-    <div className="h-full flex flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs text-gray-500">
-          {/* Небольшая подсказка вместо повторения title/description */}
-          Исходный PDF этого этапа.
+        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+          <FileText size={14} className="shrink-0 text-[var(--text-faint)]" />
+          <span>Исходный PDF этого этапа.</span>
         </div>
 
-        {preview.download_url && (
-          <a
-            href={preview.download_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 rounded border text-xs font-medium text-gray-700 border-gray-200 hover:bg-gray-50"
+        {hasDownload && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleOpenInNewTab}
+            className="inline-flex items-center gap-1.5"
           >
-            Открыть в новой вкладке
-          </a>
+            <ExternalLink size={13} aria-hidden="true" />
+            <span>Открыть в новой вкладке</span>
+            <span className="sr-only">(откроется в новой вкладке)</span>
+          </Button>
         )}
       </div>
 
-      {preview.inline_url ? (
-        <iframe
-          title={`pipeline-stage-${stage.code}`}
-          src={preview.inline_url}
-          className="w-full flex-1 min-h-[70vh] border rounded-lg bg-white"
-        />
+      {hasInline ? (
+        <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm">
+          <iframe
+            title={`pipeline-stage-${stage.code}`}
+            src={inlineUrl}
+            className="h-full w-full"
+          />
+        </div>
       ) : (
-        <div className="text-sm text-gray-500">
-          PDF недоступен для встроенного просмотра.
+        <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 text-center">
+          <div>
+            <p className="text-sm font-medium text-[var(--text-primary)]">
+              PDF недоступен для встроенного просмотра
+            </p>
+            {hasDownload && (
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Вы всё ещё можете открыть исходный файл по кнопке выше.
+              </p>
+            )}
+            {!hasDownload && (
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Для этой стадии не найдено URL для скачивания PDF-артефакта.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -67,4 +98,5 @@ export const PdfStageViewer: React.FC<Props> = ({ stage }) => {
 };
 
 export default PdfStageViewer;
+
 

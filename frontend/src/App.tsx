@@ -37,8 +37,8 @@ import { useDeal } from "./api/deals";
 import { useAuth } from "./hooks/useAuth";
 import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import ScrollToAnchor from "./components/routing/ScrollToAnchor";
+import AppShell from "./components/layout/AppShell";
 
-// Временная обёртка для страницы проекта
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
@@ -50,29 +50,36 @@ function DealRouteWrapper() {
 
   if (isLoading || !deal) {
     return (
-      <div className="p-6 text-center text-gray-500">
-        Загружаем данные проекта…
+      <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
+        <div className="mx-auto max-w-7xl animate-fadein">
+          <div className="skeleton h-5 w-48" />
+          <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
+            <div className="skeleton mb-4 h-6 w-64" />
+            <div className="skeleton mb-3 h-4 w-full" />
+            <div className="skeleton mb-3 h-4 w-11/12" />
+            <div className="skeleton h-4 w-9/12" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="px-4 pt-4">
+    <>
+      <div className="mb-4">
         <button
           type="button"
           onClick={handleBackToDashboard}
-          className="text-sm text-blue-600 hover:underline"
+          className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] shadow-sm transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
         >
           ← Вернуться к списку проектов
         </button>
       </div>
       <DealPage deal={deal} />
-    </div>
+    </>
   );
 }
 
-// Простая защита маршрутов: требует авторизации
 function RequireAuth({ children }: { children: React.ReactElement }) {
   const { userId } = useAuth();
 
@@ -83,7 +90,6 @@ function RequireAuth({ children }: { children: React.ReactElement }) {
   return children;
 }
 
-// Защита маршрута только для superadmin
 function RequireSuperadmin({ children }: { children: React.ReactElement }) {
   const { userId, globalRole } = useAuth();
 
@@ -98,7 +104,6 @@ function RequireSuperadmin({ children }: { children: React.ReactElement }) {
   return children;
 }
 
-// Защита маршрута для admin или superadmin
 function RequireAdminOrSuperadmin({
   children,
 }: {
@@ -119,12 +124,11 @@ function RequireAdminOrSuperadmin({
 
 function App() {
   return (
-    <div className="min-h-screen w-full">
-      {/* Глобальный обработчик якорей */}
+    <div className="min-h-screen w-full bg-[var(--bg-base)] text-[var(--text-primary)]">
       <ScrollToAnchor />
 
       <Routes>
-        {/* ── Публичные маршруты (без авторизации) ────────── */}
+        {/* Публичные маршруты (без AppShell) */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/security" element={<SecurityPage />} />
@@ -134,12 +138,14 @@ function App() {
         <Route path="/demo" element={<DemoPage />} />
         <Route path="/about" element={<AboutPage />} />
 
-        {/* ── Защищённые маршруты ──────────────────────────── */}
+        {/* Защищённые маршруты с общим AppShell */}
         <Route
           path="/dashboard"
           element={
             <RequireAuth>
-              <DashboardPage />
+              <AppShell>
+                <DashboardPage />
+              </AppShell>
             </RequireAuth>
           }
         />
@@ -148,7 +154,9 @@ function App() {
           path="/projects/:dealId"
           element={
             <RequireAuth>
-              <DealRouteWrapper />
+              <AppShell>
+                <DealRouteWrapper />
+              </AppShell>
             </RequireAuth>
           }
         />
@@ -157,7 +165,9 @@ function App() {
           path="/projects/new"
           element={
             <RequireSuperadmin>
-              <NewProjectPage />
+              <AppShell>
+                <NewProjectPage />
+              </AppShell>
             </RequireSuperadmin>
           }
         />
@@ -166,7 +176,9 @@ function App() {
           path="/deals"
           element={
             <RequireAuth>
-              <DealListPage />
+              <AppShell>
+                <DealListPage />
+              </AppShell>
             </RequireAuth>
           }
         />
@@ -175,9 +187,11 @@ function App() {
           path="/projects/:dealId/upload"
           element={
             <RequireAuth>
-              <ProjectRouteGuard requiredCapability="canUploadDocuments">
-                <ProjectUploadPage />
-              </ProjectRouteGuard>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canUploadDocuments">
+                  <ProjectUploadPage />
+                </ProjectRouteGuard>
+              </AppShell>
             </RequireAuth>
           }
         />
@@ -186,9 +200,11 @@ function App() {
           path="/projects/:dealId/members"
           element={
             <RequireAuth>
-              <ProjectRouteGuard requiredCapability="canManageRequests">
-                <ProjectMembersPage />
-              </ProjectRouteGuard>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <ProjectMembersPage />
+                </ProjectRouteGuard>
+              </AppShell>
             </RequireAuth>
           }
         />
@@ -197,9 +213,11 @@ function App() {
           path="/projects/:dealId/playbook"
           element={
             <RequireAuth>
-              <ProjectRouteGuard requiredCapability="canViewOverview">
-                <DealPlaybookSelectorPage />
-              </ProjectRouteGuard>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canViewOverview">
+                  <DealPlaybookSelectorPage />
+                </ProjectRouteGuard>
+              </AppShell>
             </RequireAuth>
           }
         />
@@ -208,19 +226,22 @@ function App() {
           path="/projects/:dealId/playbooks/admin"
           element={
             <RequireAuth>
-              <ProjectRouteGuard requiredCapability="canManageRequests">
-                <AdminPlaybookLinesPage />
-              </ProjectRouteGuard>
+              <AppShell>
+                <ProjectRouteGuard requiredCapability="canManageRequests">
+                  <AdminPlaybookLinesPage />
+                </ProjectRouteGuard>
+              </AppShell>
             </RequireAuth>
           }
         />
 
-        {/* ── Админ-маршруты ───────────────────────────────── */}
         <Route
           path="/admin/model-configs"
           element={
             <RequireAdminOrSuperadmin>
-              <ModelConfigsAdminPage />
+              <AppShell>
+                <ModelConfigsAdminPage />
+              </AppShell>
             </RequireAdminOrSuperadmin>
           }
         />
@@ -229,12 +250,13 @@ function App() {
           path="/admin/playbook-versions"
           element={
             <RequireAdminOrSuperadmin>
-              <AdminPlaybookVersionsPage />
+              <AppShell>
+                <AdminPlaybookVersionsPage />
+              </AppShell>
             </RequireAdminOrSuperadmin>
           }
         />
 
-        {/* ── Fallback ─────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
@@ -242,4 +264,3 @@ function App() {
 }
 
 export default App;
-

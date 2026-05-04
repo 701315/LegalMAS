@@ -44,7 +44,6 @@ import type {
   DocumentReviewView,
 } from "./DocumentDetails";
 
-
 interface Props {
   docId: string;
   dealId: string;
@@ -70,27 +69,26 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   ddMatrix,
   onOpenReviewCell,
 }) => {
-  // --- Стейт документа (детали + классификация) ---
+  // --- Основной state документа ---
   const detailsState = useDocumentDetailsState(docId);
 
-  // --- Structured-data (извлечённые значения) ---
+  // --- Structured-data / extracted values ---
   const structuredState = useStructuredDataState(docId);
 
-  // --- Типы документов для выпадающего списка переклассификации ---
+  // --- Справочник типов документов ---
   const { data: docTypesData } = useDocumentTypes();
   const availableDocTypes = docTypesData ?? [];
 
-  // --- Дополнительные данные (DTO-хуки) ---
+  // --- Дополнительные DTO-данные ---
   const { data: familyDto } = useDocumentFamily(docId);
   const { data: pdfData } = useDocumentPdfUrl(docId);
 
-  // --- Права доступа по сделке ---
+  // --- Права доступа ---
   const {
     canDownloadDocuments,
     canReclassifyDocuments,
   } = useDealPermissions(dealId);
 
-  // --- Capabilities ---
   const canDownload = canDownloadDocuments;
   const canOpenPdf = canDownloadDocuments;
   const canReclassify = canReclassifyDocuments;
@@ -99,23 +97,35 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const reclassifyMutation = useReclassifyDocument(docId);
   const setReviewedMutation = useSetDocumentReviewed(docId, dealId);
 
-  // --- Адаптация стейтов к view-модели ---
+  // --- Базовая view-model ---
   const doc: Document | null = detailsState.doc;
   const classification: DocumentDetailsViewClassification | null =
     detailsState.classification;
 
-  const family: DocumentFamilyView | null = adaptFamilyFromDto(familyDto);
+  const family: DocumentFamilyView | null = useMemo(
+    () => adaptFamilyFromDto(familyDto),
+    [familyDto],
+  );
 
-  let structuredData: StructuredDataView | null = null;
-  if (!structuredState.isLoading && structuredState.total > 0 && doc) {
-    structuredData = {
+  const structuredData: StructuredDataView | null = useMemo(() => {
+    if (structuredState.isLoading || structuredState.total <= 0 || !doc) {
+      return null;
+    }
+
+    return {
       document_id: docId,
       filename: doc.filename,
       doc_type: doc.doc_type ?? undefined,
       extracted_values: structuredState.items,
       total_extracted: structuredState.total,
     };
-  }
+  }, [
+    doc,
+    docId,
+    structuredState.isLoading,
+    structuredState.items,
+    structuredState.total,
+  ]);
 
   const structuredNotAvailable = structuredState.notAvailable;
 
@@ -141,6 +151,9 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   };
 
   const isLoading = detailsState.isLoading;
+  const lastReclassifyResult = reclassifyMutation.isSuccess
+    ? reclassifyMutation.data ?? undefined
+    : undefined;
 
   return (
     <DocumentDetailsView
@@ -163,11 +176,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       isSetReviewedPending={setReviewedMutation.isPending}
       onReclassify={handleReclassify}
       isReclassifyPending={reclassifyMutation.isPending}
-      lastReclassifyResult={
-        reclassifyMutation.isSuccess
-          ? reclassifyMutation.data ?? undefined
-          : undefined
-      }
+      lastReclassifyResult={lastReclassifyResult}
       onNavigateToGrid={onNavigateToGrid}
       onOpenAtLocation={onOpenAtLocation}
       onOpenReviewCell={onOpenReviewCell}
@@ -179,5 +188,6 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
 };
 
 export default DocumentDetailsContainer;
+
 
 

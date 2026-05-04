@@ -4,8 +4,10 @@
 // =============================================================
 
 import React from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import Button from "../ui/Button";
 
 type RequiredCapability =
   | "canViewOverview"
@@ -57,18 +59,34 @@ export const ProjectRouteGuard: React.FC<ProjectRouteGuardProps> = ({
     return children;
   }
 
-  // Если нужного права нет — показываем экран "Нет доступа".
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white border rounded-lg px-6 py-4 text-center max-w-sm">
-        <h1 className="text-lg font-semibold text-gray-900 mb-2">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--bg-subtle)] px-4">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-6 py-6 text-center shadow-sm">
+        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]">
+          <Lock size={18} aria-hidden="true" />
+        </div>
+
+        <h1 className="text-lg font-semibold text-[var(--text-primary)]">
           Нет доступа
         </h1>
-        <p className="text-sm text-gray-600 mb-4">
+
+        <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
           У вас нет прав для просмотра этой страницы. Обратитесь к
           администратору проекта, если считаете, что это ошибка.
         </p>
+
+        <div className="mt-5 flex justify-center">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => window.history.back()}
+          >
+            Назад
+          </Button>
+        </div>
       </div>
     </div>
   );
 };
+

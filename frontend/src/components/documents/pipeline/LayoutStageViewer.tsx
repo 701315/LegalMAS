@@ -3,10 +3,25 @@
 // =============================================================
 
 import React from "react";
+import { FileText, Braces, Layers } from "lucide-react";
 import type { LayoutPreviewDTO, PipelineStageViewDTO } from "../../../types";
 
 interface Props {
   stage: PipelineStageViewDTO;
+}
+
+type TabKey = "view" | "json";
+
+function cn(...classes: Array<string | false | null | undefined>): string {
+  return classes.filter(Boolean).join(" ");
+}
+
+function MetaPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-1 text-[11px] leading-none text-[var(--text-secondary)]">
+      {children}
+    </span>
+  );
 }
 
 /**
@@ -21,82 +36,161 @@ interface Props {
  */
 export const LayoutStageViewer: React.FC<Props> = ({ stage }) => {
   const preview = stage.preview as LayoutPreviewDTO | null | undefined;
-  const [tab, setTab] = React.useState<"view" | "json">("view");
+  const [tab, setTab] = React.useState<TabKey>("view");
+
+  const tablistId = React.useId();
+  const viewTabId = `${tablistId}-tab-view`;
+  const jsonTabId = `${tablistId}-tab-json`;
+  const viewPanelId = `${tablistId}-panel-view`;
+  const jsonPanelId = `${tablistId}-panel-json`;
 
   if (!preview) {
     return (
-      <div className="text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
         Layout-превью недоступно.
       </div>
     );
   }
 
+  const pages = Array.isArray(preview.pages) ? preview.pages : [];
   const jsonText = JSON.stringify(preview.raw_json ?? null, null, 2);
+  const totalElements = pages.reduce(
+    (sum, page) => sum + (page.element_count ?? 0),
+    0,
+  );
 
   return (
-    <div className="h-full flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setTab("view")}
-          className={`px-3 py-1.5 rounded text-xs border ${
-            tab === "view"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white text-gray-700 border-gray-200"
-          }`}
-        >
-          Просмотр
-        </button>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <MetaPill>
+            <Layers size={12} className="mr-1" />
+            Страниц: {pages.length}
+          </MetaPill>
+          <MetaPill>
+            <FileText size={12} className="mr-1" />
+            Элементов: {totalElements}
+          </MetaPill>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setTab("json")}
-          className={`px-3 py-1.5 rounded text-xs border ${
-            tab === "json"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white text-gray-700 border-gray-200"
-          }`}
+        <div
+          role="tablist"
+          aria-label="Режим просмотра layout-артефакта"
+          className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-1"
         >
-          JSON
-        </button>
+          <button
+            id={viewTabId}
+            type="button"
+            role="tab"
+            aria-selected={tab === "view"}
+            aria-controls={viewPanelId}
+            tabIndex={tab === "view" ? 0 : -1}
+            onClick={() => setTab("view")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              tab === "view"
+                ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+            )}
+          >
+            <FileText size={14} />
+            Просмотр
+          </button>
+
+          <button
+            id={jsonTabId}
+            type="button"
+            role="tab"
+            aria-selected={tab === "json"}
+            aria-controls={jsonPanelId}
+            tabIndex={tab === "json" ? 0 : -1}
+            onClick={() => setTab("json")}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              tab === "json"
+                ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+            )}
+          >
+            <Braces size={14} />
+            JSON
+          </button>
+        </div>
       </div>
 
       {tab === "view" ? (
-        <div className="flex-1 overflow-y-auto space-y-3">
-          {preview.pages.length > 0 ? (
-            preview.pages.map((page) => (
-              <div
-                key={page.page}
-                className="border border-gray-100 rounded-lg p-3 bg-gray-50"
-              >
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <p className="text-sm font-medium text-gray-800">
-                    Страница {page.page}
-                  </p>
-                  <p className="text-[11px] text-gray-400">
-                    Элементов: {page.element_count}
-                  </p>
-                </div>
+        <section
+          id={viewPanelId}
+          role="tabpanel"
+          aria-labelledby={viewTabId}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
+          {pages.length > 0 ? (
+            <div className="space-y-3">
+              {pages.map((page) => (
+                <article
+                  key={page.page}
+                  className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-sm"
+                >
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        Страница {page.page}
+                      </p>
+                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                        Layout snapshot для страницы документа
+                      </p>
+                    </div>
 
-                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-gray-700 font-sans">
-                  {page.text || "—"}
-                </pre>
-              </div>
-            ))
+                    <MetaPill>Элементов: {page.element_count}</MetaPill>
+                  </div>
+
+                  <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+                    <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
+                      {page.text || "—"}
+                    </pre>
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : (
-            <div className="text-sm text-gray-500">
-              Нет страниц для отображения.
+            <div className="flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 text-center">
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Нет страниц для отображения
+                </p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Layout-артефакт не содержит page preview для этого документа.
+                </p>
+              </div>
             </div>
           )}
-        </div>
+        </section>
       ) : (
-        <pre className="flex-1 overflow-auto text-xs leading-5 bg-gray-900 text-gray-100 rounded-lg p-4">
-          {jsonText}
-        </pre>
+        <section
+          id={jsonPanelId}
+          role="tabpanel"
+          aria-labelledby={jsonTabId}
+          className="min-h-0 flex-1 overflow-hidden"
+        >
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] shadow-sm">
+            <div className="border-b border-white/10 px-4 py-2">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-white/60">
+                Raw payload
+              </p>
+            </div>
+
+            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-[var(--text-inverse,#f9fafb)]">
+              {jsonText}
+            </pre>
+          </div>
+        </section>
       )}
     </div>
   );
 };
 
 export default LayoutStageViewer;
+
+
 

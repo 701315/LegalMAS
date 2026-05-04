@@ -1,6 +1,7 @@
 // src/components/ui/Drawer.tsx
 
 import React from "react";
+import { X } from "lucide-react";
 import Button from "./Button";
 
 interface DrawerProps {
@@ -12,6 +13,9 @@ interface DrawerProps {
   footer?: React.ReactNode;
 }
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 const Drawer: React.FC<DrawerProps> = ({
   open,
   title,
@@ -20,63 +24,136 @@ const Drawer: React.FC<DrawerProps> = ({
   children,
   footer,
 }) => {
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
+  const previousFocusedElementRef = React.useRef<HTMLElement | null>(null);
+
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || typeof document === "undefined") {
+      return;
+    }
+
+    previousFocusedElementRef.current =
+      document.activeElement as HTMLElement | null;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const frame = window.requestAnimationFrame(() => {
+      const focusable = panelRef.current?.querySelector<HTMLElement>(
+        FOCUSABLE_SELECTOR,
+      );
+      focusable?.focus();
+    });
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!panelRef.current) {
+        return;
+      }
+
       if (event.key === "Escape") {
+        event.preventDefault();
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => !element.hasAttribute("disabled"));
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (active === first || !panelRef.current.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocusedElementRef.current?.focus();
+    };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z-40 flex">
-      {/* Backdrop */}
-      <button
-        type="button"
-        aria-label="Закрыть панель"
+    <div className="fixed inset-0 z-40 flex bg-black/45 backdrop-blur-[2px]">
+      <div
+        aria-hidden="true"
         onClick={onClose}
-        className="flex-1 bg-black/20"
+        className="flex-1 transition-colors duration-150"
       />
 
-      {/* Panel */}
       <aside
-        className="relative w-full max-w-xl h-full bg-white shadow-xl border-l border-gray-200 flex flex-col"
         aria-modal="true"
         role="dialog"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className="relative h-full w-full max-w-xl shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl"
       >
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-            {description && (
-              <p className="mt-1 text-xs text-gray-500">{description}</p>
-            )}
+        <div ref={panelRef} className="flex h-full flex-col outline-none">
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+            <div className="min-w-0">
+              <h2
+                id={titleId}
+                className="text-base font-semibold tracking-[-0.01em] text-[var(--text-primary)]"
+              >
+                {title}
+              </h2>
+
+              {description ? (
+                <p
+                  id={descriptionId}
+                  className="mt-1 text-xs leading-5 text-[var(--text-muted)]"
+                >
+                  {description}
+                </p>
+              ) : null}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              aria-label="Закрыть"
+              className="px-2 py-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            >
+              <X size={16} />
+            </Button>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            aria-label="Закрыть"
-            className="px-2 py-1 text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </Button>
-        </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-200 bg-gray-50">
-          {footer}
+          {footer ? (
+            <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-3">
+              {footer}
+            </div>
+          ) : null}
         </div>
       </aside>
     </div>
@@ -84,4 +161,5 @@ const Drawer: React.FC<DrawerProps> = ({
 };
 
 export default Drawer;
+
 

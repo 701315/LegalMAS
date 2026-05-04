@@ -7,19 +7,14 @@ const ScrollToAnchor: React.FC = () => {
 
   useEffect(() => {
     const { hash } = location;
-    const HEADER_OFFSET = 72;
 
     if (!hash) {
-      window.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: "auto",
-      });
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       lastHashRef.current = "";
       return;
     }
 
-    const id = hash.replace("#", "");
+    const id = hash.slice(1);
     lastHashRef.current = id;
 
     let retries = 0;
@@ -29,17 +24,6 @@ const ScrollToAnchor: React.FC = () => {
     let secondPassTimeout: number | undefined;
     let rafId: number | undefined;
 
-    const scrollToTarget = (element: HTMLElement) => {
-      const elementTop = element.getBoundingClientRect().top + window.scrollY;
-      const targetTop = Math.max(elementTop - HEADER_OFFSET, 0);
-
-      window.scrollTo({
-        top: targetTop,
-        left: 0,
-        behavior: "auto",
-      });
-    };
-
     const tryScroll = () => {
       const currentId = lastHashRef.current;
       if (!currentId) return;
@@ -48,13 +32,18 @@ const ScrollToAnchor: React.FC = () => {
 
       if (element) {
         rafId = window.requestAnimationFrame(() => {
-          scrollToTarget(element);
+          element.scrollIntoView({
+            block: "start",
+            inline: "nearest",
+            behavior: "auto",
+          });
 
           secondPassTimeout = window.setTimeout(() => {
-            const refreshedElement = document.getElementById(currentId);
-            if (refreshedElement) {
-              scrollToTarget(refreshedElement);
-            }
+            document.getElementById(currentId)?.scrollIntoView({
+              block: "start",
+              inline: "nearest",
+              behavior: "auto",
+            });
             lastHashRef.current = "";
           }, 220);
         });
@@ -72,18 +61,9 @@ const ScrollToAnchor: React.FC = () => {
 
     return () => {
       window.clearTimeout(initialTimeout);
-
-      if (retryTimeout) {
-        window.clearTimeout(retryTimeout);
-      }
-
-      if (secondPassTimeout) {
-        window.clearTimeout(secondPassTimeout);
-      }
-
-      if (rafId) {
-        window.cancelAnimationFrame(rafId);
-      }
+      if (retryTimeout) window.clearTimeout(retryTimeout);
+      if (secondPassTimeout) window.clearTimeout(secondPassTimeout);
+      if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [location]);
 

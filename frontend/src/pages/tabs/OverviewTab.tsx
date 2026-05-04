@@ -10,32 +10,24 @@
 //   3. RunProgressCard — статус / прогресс текущего / последнего
 //      запуска.
 //
-// Правая колонка (не изменяется):
+// Правая колонка:
 //   AnalysisActionsPanel + LaunchOverlayPanel.
 // =============================================================
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Deal, DealDetail, RunStatus } from "../../types";
-import {
-  useRun,
-  useStartRun,
-} from "../../api/runs";
+import { useRun, useStartRun } from "../../api/runs";
 import { useDeal, useSetPrimaryLanguage } from "../../api/deals";
 import { useDocumentsCount } from "../../api/documents";
 import { resultApi } from "../../api/results";
-import { useQuery } from "@tanstack/react-query";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useSSEProgress } from "../../hooks/useSSE";
 import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
 import Button from "../../components/ui/Button";
 import { useAuditLog } from "../../api/audit";
 import type { AuditLogEntry } from "../../types";
-
-// -------------------------------------------------------------
-// Types
-// -------------------------------------------------------------
 
 type ChecksMode = "global_only" | "doc_type_only" | "global_and_doc_type";
 
@@ -45,16 +37,8 @@ interface OverviewTabProps {
   onOpenModelConfig?: () => void;
 }
 
-// -------------------------------------------------------------
-// Constants
-// -------------------------------------------------------------
-
 const SECONDARY_ACTION_BUTTON_CLASS =
   "w-[220px] shrink-0 justify-center whitespace-nowrap text-sm font-semibold";
-
-// -------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -80,10 +64,6 @@ function formatDateShort(iso: string | null | undefined): string {
   });
 }
 
-// -------------------------------------------------------------
-// Sub-component: InfoRow — одна строка метаданных
-// -------------------------------------------------------------
-
 const InfoRow: React.FC<{
   label: string;
   children: React.ReactNode;
@@ -91,24 +71,22 @@ const InfoRow: React.FC<{
 }> = ({ label, children, tone = "neutral" }) => {
   const valueClass =
     tone === "ok"
-      ? "text-green-700"
+      ? "text-emerald-600"
       : tone === "warn"
-      ? "text-amber-700"
+      ? "text-amber-600"
       : tone === "error"
-      ? "text-red-600"
-      : "text-gray-700";
+      ? "text-rose-600"
+      : "text-[var(--text-primary)]";
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-gray-500">{label}</span>
-      <span className={`text-sm ${valueClass}`}>{children}</span>
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        {label}
+      </span>
+      <span className={`text-sm leading-5 ${valueClass}`}>{children}</span>
     </div>
   );
 };
-
-// -------------------------------------------------------------
-// Sub-component: StatusRow — строка готовности (правая панель)
-// -------------------------------------------------------------
 
 const StatusRow: React.FC<{
   label: string;
@@ -117,67 +95,90 @@ const StatusRow: React.FC<{
 }> = ({ label, value, tone = "neutral" }) => {
   const toneClass =
     tone === "ok"
-      ? "text-green-700"
+      ? "text-emerald-600"
       : tone === "warn"
-      ? "text-amber-700"
-      : "text-gray-700";
+      ? "text-amber-600"
+      : "text-[var(--text-primary)]";
 
   return (
-    <div className="flex flex-col gap-0.5">
-      <p className="text-xs text-gray-500">{label}</p>
+    <div className="flex flex-col gap-1 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+        {label}
+      </p>
       <p className={`text-sm ${toneClass}`}>{value}</p>
     </div>
   );
 };
 
-// -------------------------------------------------------------
-// Sub-component: DealInfoCard — "О проекте"
-// -------------------------------------------------------------
+const CardShell: React.FC<{
+  title: string;
+  eyebrow?: string;
+  children: React.ReactNode;
+  rightSlot?: React.ReactNode;
+}> = ({ title, eyebrow, children, rightSlot }) => (
+  <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+      <div className="min-w-0">
+        {eyebrow && (
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            {eyebrow}
+          </p>
+        )}
+        <h2 className="text-base font-semibold text-[var(--text-primary)]">
+          {title}
+        </h2>
+      </div>
+      {rightSlot}
+    </div>
+    <div className="px-5 py-4">{children}</div>
+  </section>
+);
 
 const DealInfoCard: React.FC<{
   deal: Deal;
   detail: DealDetail | null | undefined;
-}> = ({
-  deal,
-  detail,
-}) => {
-
-  // description / counterparty берём из DealDetail, если загружен
+}> = ({ deal, detail }) => {
   const description = detail?.description ?? null;
   const counterparty = detail?.counterparty ?? null;
   const contactPerson = deal.metadata_?.contact_person ?? null;
 
   return (
-    <div className="rounded-lg border bg-white p-5">
-      {/* Заголовок */}
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-900">{deal.name}</h2>
-        <p className="mt-0.5 text-sm text-gray-500">
-          статус:{" "}
-          <span className="font-medium text-gray-700">{deal.status}</span>
+    <CardShell
+      eyebrow="Проект"
+      title={deal.name}
+      rightSlot={
+        <div className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
+          {deal.status}
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2 text-[12px] text-[var(--text-secondary)]">
           {deal.deal_type && (
-            <>
-              {" "}· тип:{" "}
-              <span className="font-medium text-gray-700">
-                {deal.deal_type}
-              </span>
-            </>
+            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2.5 py-1">
+              Тип: {deal.deal_type}
+            </span>
           )}
-        </p>
-      </div>
+          {deal.jurisdiction && (
+            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2.5 py-1">
+              Юрисдикция: {deal.jurisdiction}
+            </span>
+          )}
+        </div>
 
-      {/* Описание проекта */}
-      {(description || counterparty || contactPerson || deal.jurisdiction) && (
-        <div className="mb-4 space-y-2 border-b border-gray-100 pb-4">
-          {description && (
-            <div>
-              <p className="text-xs text-gray-500">Описание</p>
-              <p className="mt-0.5 text-sm leading-5 text-gray-700">
-                {description}
-              </p>
-            </div>
-          )}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {description && (
+          <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              Описание
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+              {description}
+            </p>
+          </div>
+        )}
+
+        {(counterparty || contactPerson || deal.jurisdiction) && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {counterparty && (
               <InfoRow label="Контрагент">{counterparty}</InfoRow>
             )}
@@ -188,17 +189,11 @@ const DealInfoCard: React.FC<{
               <InfoRow label="Юрисдикция">{deal.jurisdiction}</InfoRow>
             )}
           </div>
-        </div>
-      )}
-
-
-    </div>
+        )}
+      </div>
+    </CardShell>
   );
 };
-
-// -------------------------------------------------------------
-// Sub-component: ProjectTimelineCard — "Хроника проекта"
-// -------------------------------------------------------------
 
 function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   const imports = entries.filter((e) => e.action === "IMPORT");
@@ -212,7 +207,6 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
     (e) => e.action === "DOCUMENT_RECLASSIFIED_API",
   );
 
-  // IMPORT приходят с корректным deal_id, сортируем по created_at: новые сверху
   const sortedImports = imports
     .slice()
     .sort(
@@ -226,7 +220,8 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
 
   const totalImported = imports.reduce((sum, e) => {
     const d = (e.details ?? {}) as Record<string, unknown>;
-    const importedCount = typeof d.imported_count === "number" ? d.imported_count : 0;
+    const importedCount =
+      typeof d.imported_count === "number" ? d.imported_count : 0;
     return sum + importedCount;
   }, 0);
 
@@ -241,12 +236,35 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   };
 }
 
+const TimelineEvent: React.FC<{
+  icon: string;
+  label: string;
+  date?: string;
+  children?: React.ReactNode;
+}> = ({ icon, label, date, children }) => (
+  <li className="relative flex gap-3">
+    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] text-sm">
+      {icon}
+    </span>
+    <div className="min-w-0 pt-0.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-sm font-medium text-[var(--text-primary)]">
+          {label}
+        </span>
+        {date && (
+          <span className="text-[11px] text-[var(--text-muted)]">{date}</span>
+        )}
+      </div>
+      {children}
+    </div>
+  </li>
+);
+
 const ProjectTimelineCard: React.FC<{
   deal: Deal;
   latestRunId?: string | null;
   documentsCount?: number;
 }> = ({ deal, latestRunId, documentsCount }) => {
-  // История всех запусков — используем тот же resultApi, что и useLatestRun
   const { data: allRuns } = useQuery({
     queryKey: ["all-runs", deal.id],
     queryFn: () => resultApi.listRuns(deal.id, false),
@@ -261,9 +279,8 @@ const ProjectTimelineCard: React.FC<{
   const auditAgg = buildProjectTimelineFromAudit(auditEntries);
 
   const totalRuns = allRuns?.length ?? 0;
-  const firstRun = allRuns && allRuns.length > 0
-    ? allRuns[allRuns.length - 1]
-    : null;
+  const firstRun =
+    allRuns && allRuns.length > 0 ? allRuns[allRuns.length - 1] : null;
 
   const lastRunDate = latestRun?.completed_at ?? latestRun?.started_at ?? null;
 
@@ -271,15 +288,15 @@ const ProjectTimelineCard: React.FC<{
     const s = latestRun?.status;
     if (!s) return null;
     if (s === "completed") return { text: "Завершён успешно", tone: "ok" };
-    if (s === "completed_with_errors")
+    if (s === "completed_with_errors") {
       return { text: "Завершён с ошибками", tone: "warn" };
+    }
     if (s === "failed") return { text: "Завершился с ошибкой", tone: "error" };
     if (s === "running") return { text: "Выполняется", tone: "neutral" };
     if (s === "pending") return { text: "В очереди", tone: "neutral" };
     return { text: s, tone: "neutral" };
   })();
 
-  // Итоги последнего анализа
   const totalChecks = latestRun?.total_checks ?? 0;
   const failedDocs = latestRun?.failed_docs_count ?? 0;
   const quarantineDocs = latestRun?.quarantine_docs_count ?? 0;
@@ -291,56 +308,58 @@ const ProjectTimelineCard: React.FC<{
   }
 
   return (
-    <div className="rounded-lg border bg-white p-5">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-        Хроника проекта
-      </p>
-
-      <ol className="space-y-3">
-        {/* Создан */}
+    <CardShell eyebrow="Активность" title="Хроника проекта">
+      <ol className="space-y-4">
         <TimelineEvent
           icon="🗂"
           label="Проект создан"
           date={formatDate(deal.created_at)}
         />
 
-        {/* Первая загрузка */}
         {auditAgg.firstUpload && (
           <TimelineEvent
             icon="📤"
             label="Первая загрузка документов"
             date={formatDateShort(auditAgg.firstUpload.created_at)}
           >
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
               Через импорт‑пайплайн началась работа с документами.
             </p>
           </TimelineEvent>
         )}
 
-        {/* Последняя загрузка + агрегаты по последнему IMPORT */}
         {auditAgg.lastUpload && (
           <TimelineEvent
             icon="📥"
             label={
               auditAgg.totalUploads > 1
-                ? `Последняя загрузка (из ${auditAgg.totalUploads})`
+                ? `Последняя загрузка (${auditAgg.totalUploads})`
                 : "Загрузка документов"
             }
             date={formatDateShort(auditAgg.lastUpload.created_at)}
           >
             {(() => {
-              const d = (auditAgg.lastUpload.details ?? {}) as Record<string, unknown>;
+              const d = (auditAgg.lastUpload.details ?? {}) as Record<
+                string,
+                unknown
+              >;
               const totalFiles =
                 typeof d.total_files === "number" ? d.total_files : undefined;
               const importedCount =
-                typeof d.imported_count === "number" ? d.imported_count : undefined;
+                typeof d.imported_count === "number"
+                  ? d.imported_count
+                  : undefined;
               const quarantineCount =
-                typeof d.quarantine_count === "number" ? d.quarantine_count : undefined;
+                typeof d.quarantine_count === "number"
+                  ? d.quarantine_count
+                  : undefined;
               const duplicateCount =
-                typeof d.duplicate_count === "number" ? d.duplicate_count : undefined;
+                typeof d.duplicate_count === "number"
+                  ? d.duplicate_count
+                  : undefined;
 
               return (
-                <p className="mt-0.5 text-xs text-gray-500">
+                <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
                   {typeof totalFiles === "number" && (
                     <>
                       Загрузка: {totalFiles} файл(ов)
@@ -350,9 +369,10 @@ const ProjectTimelineCard: React.FC<{
                   {typeof importedCount === "number" && (
                     <>принято {importedCount}</>
                   )}
-                  {typeof quarantineCount === "number" && quarantineCount > 0 && (
-                    <> · карантин {quarantineCount}</>
-                  )}
+                  {typeof quarantineCount === "number" &&
+                    quarantineCount > 0 && (
+                      <> · карантин {quarantineCount}</>
+                    )}
                   {typeof duplicateCount === "number" && duplicateCount > 0 && (
                     <> · дубликатов {duplicateCount}</>
                   )}
@@ -362,13 +382,9 @@ const ProjectTimelineCard: React.FC<{
           </TimelineEvent>
         )}
 
-        {/* Сводка по карантину / неподдерживаемым форматам по всем загрузкам */}
         {(auditAgg.totalQuarantined > 0 || auditAgg.totalUnsupported > 0) && (
-          <TimelineEvent
-            icon="⚠️"
-            label="Проблемные файлы при загрузках"
-          >
-            <p className="mt-0.5 text-xs text-gray-500">
+          <TimelineEvent icon="⚠️" label="Проблемные файлы при загрузках">
+            <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
               В карантине: {auditAgg.totalQuarantined}
               {auditAgg.totalUnsupported > 0 && (
                 <> · неподдерживаемых форматов: {auditAgg.totalUnsupported}</>
@@ -377,7 +393,6 @@ const ProjectTimelineCard: React.FC<{
           </TimelineEvent>
         )}
 
-        {/* Уже существующие блоки — документы, первый run, последний анализ */}
         {typeof documentsCount === "number" && (
           <TimelineEvent
             icon="📚"
@@ -387,7 +402,7 @@ const ProjectTimelineCard: React.FC<{
                 : "Документы ещё не загружены"
             }
           >
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
               Сейчас в проекте {documentsCount} документ(ов).
             </p>
           </TimelineEvent>
@@ -401,7 +416,6 @@ const ProjectTimelineCard: React.FC<{
           />
         )}
 
-        {/* Последний анализ */}
         {latestRun && (
           <TimelineEvent
             icon={
@@ -413,26 +427,17 @@ const ProjectTimelineCard: React.FC<{
                 ? "❌"
                 : "🔄"
             }
-            label={
-              totalRuns > 1
-                ? `Последний анализ (${totalRuns} из ${totalRuns})`
-                : "Последний анализ"
-            }
+            label="Последний анализ"
             date={lastRunDate ? formatDateShort(lastRunDate) : "—"}
           >
-            {/* Итоги */}
             {totalChecks > 0 && (
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                <span className="text-green-700">
-                  ✓ проверено: {totalChecks}
-                </span>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+                <span className="text-emerald-600">проверено: {totalChecks}</span>
                 {successDocs > 0 && (
-                  <span className="text-green-600">успешно: {successDocs}</span>
+                  <span className="text-emerald-500">успешно: {successDocs}</span>
                 )}
                 {failedDocs > 0 && (
-                  <span className="text-red-600">
-                    с ошибкой: {failedDocs}
-                  </span>
+                  <span className="text-rose-600">с ошибкой: {failedDocs}</span>
                 )}
                 {quarantineDocs > 0 && (
                   <span className="text-amber-600">
@@ -441,16 +446,17 @@ const ProjectTimelineCard: React.FC<{
                 )}
               </div>
             )}
+
             {lastRunStatusLabel && (
               <p
-                className={`mt-0.5 text-xs font-medium ${
+                className={`mt-1 text-[12px] font-medium ${
                   lastRunStatusLabel.tone === "ok"
-                    ? "text-green-700"
+                    ? "text-emerald-600"
                     : lastRunStatusLabel.tone === "warn"
-                    ? "text-amber-700"
+                    ? "text-amber-600"
                     : lastRunStatusLabel.tone === "error"
-                    ? "text-red-600"
-                    : "text-gray-500"
+                    ? "text-rose-600"
+                    : "text-[var(--text-secondary)]"
                 }`}
               >
                 {lastRunStatusLabel.text}
@@ -460,36 +466,23 @@ const ProjectTimelineCard: React.FC<{
         )}
       </ol>
 
-      {totalRuns > 1 && (
-        <p className="mt-3 text-xs text-gray-400">
-          Всего запусков анализа: {totalRuns}
-        </p>
+      {(totalRuns > 1 || auditAgg.manualReclassifications > 0) && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {totalRuns > 1 && (
+            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+              Запусков анализа: {totalRuns}
+            </span>
+          )}
+          {auditAgg.manualReclassifications > 0 && (
+            <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+              Ручных переклассификаций: {auditAgg.manualReclassifications}
+            </span>
+          )}
+        </div>
       )}
-    </div>
+    </CardShell>
   );
 };
-
-const TimelineEvent: React.FC<{
-  icon: string;
-  label: string;
-  date?: string;
-  children?: React.ReactNode;
-}> = ({ icon, label, date, children }) => (
-  <li className="flex gap-3">
-    <span className="mt-0.5 shrink-0 text-base leading-none">{icon}</span>
-    <div className="min-w-0">
-      <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="text-sm font-medium text-gray-800">{label}</span>
-        {date && <span className="text-xs text-gray-400">{date}</span>}
-      </div>
-      {children}
-    </div>
-  </li>
-);
-
-// -------------------------------------------------------------
-// Sub-component: RunProgressCard — статус / прогресс анализа
-// -------------------------------------------------------------
 
 const RunProgressCard: React.FC<{
   latestRunId?: string | null;
@@ -500,14 +493,11 @@ const RunProgressCard: React.FC<{
 
   if (!runId) {
     return (
-      <div className="rounded-lg border bg-white p-5">
-        <h3 className="mb-1 text-sm font-semibold text-gray-900">
-          Статус анализа
-        </h3>
-        <p className="text-xs text-gray-500">
+      <CardShell eyebrow="Pipeline" title="Статус анализа">
+        <p className="text-sm leading-6 text-[var(--text-secondary)]">
           Анализ ещё не запускался для этой сделки.
         </p>
-      </div>
+      </CardShell>
     );
   }
 
@@ -524,41 +514,43 @@ const RunProgressCard: React.FC<{
 
   const progressColor =
     effectiveStatus === "failed"
-      ? "bg-red-500"
+      ? "bg-rose-500"
       : effectiveStatus === "completed"
-      ? "bg-green-500"
+      ? "bg-emerald-500"
       : effectiveStatus === "completed_with_errors"
-      ? "bg-yellow-500"
-      : "bg-blue-500";
+      ? "bg-amber-500"
+      : "bg-[var(--accent-primary)]";
 
   return (
-    <div className="rounded-lg border bg-white p-5">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Статус анализа</h3>
-
-        {isLoading && !run ? (
-          <span className="text-xs text-gray-400">Загружаем…</span>
+    <CardShell
+      eyebrow="Pipeline"
+      title="Статус анализа"
+      rightSlot={
+        isLoading && !run ? (
+          <span className="text-[11px] text-[var(--text-muted)]">Загружаем…</span>
         ) : (
-          <span className="text-xs text-gray-500">
+          <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
             {effectiveStatus
-              ? (RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus)
+              ? RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus
               : "—"}
           </span>
-        )}
-      </div>
-
+        )
+      }
+    >
       {effectiveTotal > 0 ? (
-        <>
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="text-gray-500">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="text-[var(--text-secondary)]">
               {effectiveCompleted} / {effectiveTotal} проверок
             </span>
-            <span className="font-semibold text-gray-700">{percent}%</span>
+            <span className="font-semibold text-[var(--text-primary)]">
+              {percent}%
+            </span>
           </div>
 
-          <div className="h-2 w-full rounded bg-gray-100">
+          <div className="h-2.5 w-full rounded-full bg-[var(--bg-elevated-soft)]">
             <div
-              className={`h-2 rounded transition-all duration-300 ${progressColor}`}
+              className={`h-2.5 rounded-full transition-all duration-300 ${progressColor}`}
               style={{ width: `${Math.min(100, percent)}%` }}
             />
           </div>
@@ -566,57 +558,55 @@ const RunProgressCard: React.FC<{
           {(effectiveStatus === "failed" ||
             effectiveStatus === "completed_with_errors") &&
             run && (
-              <p
-                className={`mt-2 text-xs ${
+              <div
+                className={`rounded-xl border px-3 py-2 text-[12px] leading-5 ${
                   effectiveStatus === "failed"
-                    ? "text-red-600"
-                    : "text-amber-700"
+                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
                 }`}
               >
-                {effectiveStatus === "failed"
-                  ? "Анализ завершился с ошибкой."
-                  : "Анализ завершён, но есть документы с ошибками."}
-                {effectiveStatus === "completed_with_errors" && (
-                  <>
-                    {typeof run.failed_docs_count === "number" &&
-                      run.failed_docs_count > 0 && (
-                        <> Проблемных: {run.failed_docs_count}.</>
-                      )}
-                    {typeof run.quarantine_docs_count === "number" &&
-                      run.quarantine_docs_count > 0 && (
-                        <> Карантин: {run.quarantine_docs_count}.</>
-                      )}
-                  </>
-                )}
-                {(() => {
-                  const details = run.error_details;
-                  if (
-                    details &&
-                    typeof details === "object" &&
-                    "message" in details &&
-                    typeof (details as { message: unknown }).message === "string"
-                  ) {
-                    return (
-                      <> Детали: {(details as { message: string }).message}</>
-                    );
-                  }
-                  return null;
-                })()}
-              </p>
+                <p>
+                  {effectiveStatus === "failed"
+                    ? "Анализ завершился с ошибкой."
+                    : "Анализ завершён, но есть документы с ошибками."}
+                  {effectiveStatus === "completed_with_errors" && (
+                    <>
+                      {typeof run.failed_docs_count === "number" &&
+                        run.failed_docs_count > 0 && (
+                          <> Проблемных: {run.failed_docs_count}.</>
+                        )}
+                      {typeof run.quarantine_docs_count === "number" &&
+                        run.quarantine_docs_count > 0 && (
+                          <> Карантин: {run.quarantine_docs_count}.</>
+                        )}
+                    </>
+                  )}
+                  {(() => {
+                    const details = run.error_details;
+                    if (
+                      details &&
+                      typeof details === "object" &&
+                      "message" in details &&
+                      typeof (details as { message: unknown }).message === "string"
+                    ) {
+                      return (
+                        <> Детали: {(details as { message: string }).message}</>
+                      );
+                    }
+                    return null;
+                  })()}
+                </p>
+              </div>
             )}
-        </>
+        </div>
       ) : (
-        <p className="text-xs text-gray-500">
+        <p className="text-sm leading-6 text-[var(--text-secondary)]">
           Документы для анализа ещё не готовы или пайплайн не запущен.
         </p>
       )}
-    </div>
+    </CardShell>
   );
 };
-
-// -------------------------------------------------------------
-// Sub-component: LaunchOverlayPanel (правая панель, не меняется)
-// -------------------------------------------------------------
 
 const LaunchOverlayPanel: React.FC<{
   open: boolean;
@@ -665,7 +655,10 @@ const LaunchOverlayPanel: React.FC<{
   const hasPlaybook = !!deal.playbook_version_id;
 
   const canLaunchRun =
-    canStartRun && hasPlaybook && hasValidPrimaryLanguageSelection && !isSubmitting;
+    canStartRun &&
+    hasPlaybook &&
+    hasValidPrimaryLanguageSelection &&
+    !isSubmitting;
 
   const readinessLabel = !hasPlaybook
     ? "Нужно выбрать playbook, чтобы запустить анализ."
@@ -676,55 +669,51 @@ const LaunchOverlayPanel: React.FC<{
   if (!open) return null;
 
   const panelContent = (
-    <div className="flex max-h-[calc(100vh-7rem)] flex-col rounded-lg border border-gray-200 bg-white shadow-xl">
-      {/* Header */}
-      <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4">
+    <div className="flex max-h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
+      <div className="flex items-start justify-between border-b border-[var(--border-soft)] px-5 py-4">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">
             Запуск анализа
           </h3>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Проверьте параметры анализа для этой сделки.
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
           aria-label="Закрыть панель запуска"
         >
           ✕
         </button>
       </div>
 
-      {/* Body */}
       <div className="space-y-3 overflow-y-auto px-5 py-4">
-        {/* Readiness banner */}
-        <div className="rounded border border-gray-200 bg-gray-50 px-3 py-2">
-          <p className="text-xs font-semibold text-gray-800">
+        <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+          <p className="text-xs font-semibold text-[var(--text-primary)]">
             {readinessLabel}
           </p>
           {latestRunId && (
-            <p className="mt-1 text-[11px] text-gray-500">
+            <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
               Последний анализ уже запускался. Новый запуск обновит результаты
               по текущим документам.
             </p>
           )}
         </div>
 
-        {/* Documents */}
-        <section className="rounded-lg border border-gray-200 p-4">
+        <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900">
+              <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                 Документы
               </h4>
-              <p className="mt-1 text-xs text-gray-600">
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
                 {typeof documentsCount === "number"
                   ? `В проект загружено ${documentsCount} документ(ов).`
                   : "Загружаем информацию о документах…"}
               </p>
-              <p className="mt-1 text-[11px] text-gray-500">
+              <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                 Для добавления новых документов используйте отдельный сценарий
                 загрузки.
               </p>
@@ -741,9 +730,8 @@ const LaunchOverlayPanel: React.FC<{
           </div>
         </section>
 
-        {/* Checks mode */}
-        <section className="rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-semibold text-gray-900">
+        <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
+          <h4 className="text-sm font-semibold text-[var(--text-primary)]">
             Режим проверки
           </h4>
           <div className="mt-3 space-y-2">
@@ -768,7 +756,11 @@ const LaunchOverlayPanel: React.FC<{
             ).map(({ value, title, hint }) => (
               <label
                 key={value}
-                className="flex cursor-pointer items-start gap-2 rounded border border-gray-200 px-3 py-2 transition hover:bg-gray-50"
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                  checksMode === value
+                    ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
+                    : "border-[var(--border-soft)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]"
+                }`}
               >
                 <input
                   type="radio"
@@ -779,10 +771,10 @@ const LaunchOverlayPanel: React.FC<{
                   disabled={isSubmitting || !canStartRun}
                 />
                 <span>
-                  <span className="block text-[13px] font-medium text-gray-900">
+                  <span className="block text-[13px] font-medium text-[var(--text-primary)]">
                     {title}
                   </span>
-                  <span className="block text-[11px] text-gray-500">
+                  <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
                     {hint}
                   </span>
                 </span>
@@ -791,14 +783,13 @@ const LaunchOverlayPanel: React.FC<{
           </div>
         </section>
 
-        {/* Playbook */}
-        <section className="rounded-lg border border-gray-200 p-4">
+        <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900">
+              <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                 Playbook проекта
               </h4>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Используется для формирования проверок и DD Grid.
               </p>
             </div>
@@ -811,14 +802,14 @@ const LaunchOverlayPanel: React.FC<{
               Открыть Playbook
             </Button>
           </div>
-          <p className="mt-3 text-xs">
+          <p className="mt-3 text-xs leading-5">
             {hasPlaybook ? (
-              <span className="text-gray-700">
+              <span className="text-[var(--text-secondary)]">
                 Playbook выбран. При необходимости вы можете изменить его перед
                 запуском.
               </span>
             ) : (
-              <span className="text-red-600">
+              <span className="text-rose-600">
                 Playbook не выбран. Нельзя запустить анализ без выбранного
                 playbook.
               </span>
@@ -826,14 +817,13 @@ const LaunchOverlayPanel: React.FC<{
           </p>
         </section>
 
-        {/* Model profile */}
-        <section className="rounded-lg border border-gray-200 p-4">
+        <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-gray-900">
+              <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                 Профиль модели
               </h4>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Настройка профиля модели для специальных сценариев анализа.
               </p>
             </div>
@@ -848,21 +838,20 @@ const LaunchOverlayPanel: React.FC<{
               </Button>
             )}
           </div>
-          <p className="mt-3 text-xs text-gray-700">
+          <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
             {deal.model_config_name
               ? `Текущий профиль: ${deal.model_config_name}.`
               : "Будет использован профиль, привязанный к проекту или playbook."}
           </p>
         </section>
 
-        {/* Primary language */}
-        <section className="rounded-lg border border-gray-200 p-4">
-          <h4 className="text-sm font-semibold text-gray-900">
+        <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
+          <h4 className="text-sm font-semibold text-[var(--text-primary)]">
             Основной язык анализа
           </h4>
           <div className="mt-3 flex items-center gap-2">
             <select
-              className="rounded border bg-white px-2 py-1 text-xs text-gray-700 disabled:opacity-50"
+              className="min-w-[220px] rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-50"
               value={selectedPrimaryLanguage}
               onChange={(e) => onPrimaryLanguageChange(e.target.value)}
               disabled={documentLanguages.length === 0 || isSubmitting}
@@ -879,29 +868,30 @@ const LaunchOverlayPanel: React.FC<{
               ))}
             </select>
             {isSubmitting && (
-              <span className="text-[11px] text-gray-400">Сохраняем…</span>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                Сохраняем…
+              </span>
             )}
           </div>
           {documentLanguages.length > 0 && (
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">
               Языки документов: {documentLanguages.join(", ")}
             </p>
           )}
           {hasMultipleDocumentLanguages && !selectedPrimaryLanguage && (
-            <p className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
               В сделке есть документы на нескольких языках. Перед запуском
               анализа выберите основной язык.
             </p>
           )}
         </section>
 
-        {/* Force reclassify */}
         {deal.has_pending_manual_reclassifications && (
-          <section className="rounded-lg border border-gray-200 p-4">
-            <h4 className="text-sm font-semibold text-gray-900">
+          <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
               Дополнительные параметры
             </h4>
-            <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-gray-700">
+            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] px-3 py-3 text-xs text-[var(--text-secondary)]">
               <input
                 type="checkbox"
                 className="mt-[2px]"
@@ -910,10 +900,10 @@ const LaunchOverlayPanel: React.FC<{
                 disabled={isSubmitting}
               />
               <span>
-                <span className="block text-[13px] font-medium text-gray-900">
+                <span className="block text-[13px] font-medium text-[var(--text-primary)]">
                   Принудительно переклассифицировать документы
                 </span>
-                <span className="block text-[11px] text-gray-500">
+                <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
                   Используйте после ручной переклассификации, чтобы обновить
                   типы документов.
                 </span>
@@ -923,14 +913,15 @@ const LaunchOverlayPanel: React.FC<{
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between border-t border-gray-200 px-5 py-4">
+      <div className="flex items-center justify-between border-t border-[var(--border-soft)] px-5 py-4">
         <Button variant="secondary" size="sm" onClick={onClose}>
           Отмена
         </Button>
         <div className="flex items-center gap-3">
           {!canLaunchRun && (
-            <span className="text-[11px] text-gray-500">{readinessLabel}</span>
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {readinessLabel}
+            </span>
           )}
           <Button
             variant="primary"
@@ -948,53 +939,49 @@ const LaunchOverlayPanel: React.FC<{
 
   return (
     <>
-      {/* Backdrop — desktop */}
       <div
-        className="absolute inset-0 z-20 rounded-lg bg-white/55 backdrop-blur-[1px]"
+        className="absolute inset-0 z-20 rounded-2xl bg-white/55 backdrop-blur-[1px]"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel — desktop (слева от правой колонки) */}
       <div className="absolute inset-y-0 right-[calc(100%+1rem)] z-30 hidden w-[760px] max-w-[calc(100vw-24rem)] xl:block">
         {panelContent}
       </div>
 
-      {/* Backdrop — mobile */}
       <div
         className="fixed inset-0 z-40 bg-black/20 xl:hidden"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel — mobile (full-screen sheet) */}
-      <div className="fixed inset-x-4 bottom-4 top-20 z-50 flex flex-col rounded-lg border border-gray-200 bg-white shadow-xl xl:hidden">
-        <div className="flex items-start justify-between border-b border-gray-200 px-4 py-4">
+      <div className="fixed inset-x-4 bottom-4 top-20 z-50 flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl xl:hidden">
+        <div className="flex items-start justify-between border-b border-[var(--border-soft)] px-4 py-4">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">
               Запуск анализа
             </h3>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Проверьте параметры анализа для этой сделки.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
             aria-label="Закрыть панель запуска"
           >
             ✕
           </button>
         </div>
         <div className="space-y-4 overflow-y-auto p-4">
-          <section className="rounded-lg border border-gray-200 p-4">
+          <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-4">
             <div className="flex flex-col gap-3">
               <div>
-                <h4 className="text-sm font-semibold text-gray-900">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                   Документы
                 </h4>
-                <p className="mt-1 text-xs text-gray-600">
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
                   {typeof documentsCount === "number"
                     ? `В проект загружено ${documentsCount} документ(ов).`
                     : "Загружаем информацию о документах…"}
@@ -1017,10 +1004,6 @@ const LaunchOverlayPanel: React.FC<{
   );
 };
 
-// -------------------------------------------------------------
-// Sub-component: AnalysisActionsPanel (правая панель, не меняется)
-// -------------------------------------------------------------
-
 const AnalysisActionsPanel: React.FC<{
   deal: Deal;
   latestRunExists: boolean;
@@ -1034,13 +1017,16 @@ const AnalysisActionsPanel: React.FC<{
   const primaryLanguageSelected = !!deal.primary_language;
 
   return (
-    <div className="self-start rounded-lg border bg-white p-5 xl:sticky xl:top-6">
-      <div className="flex h-full flex-col">
+    <aside className="self-start rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm xl:sticky xl:top-6">
+      <div className="flex h-full flex-col px-5 py-5">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            Действия
+          </p>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">
             Анализ документов
           </h3>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
+          <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
             {!latestRunExists
               ? "Настройте параметры и запустите первый анализ документов по этому проекту."
               : "Вы можете запустить повторный анализ, чтобы обновить результаты по текущему набору документов."}
@@ -1048,7 +1034,7 @@ const AnalysisActionsPanel: React.FC<{
         </div>
 
         {showReclassBanner && (
-          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3">
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
             <p className="text-xs font-semibold text-amber-900">
               Требуется обновление результатов
             </p>
@@ -1060,9 +1046,8 @@ const AnalysisActionsPanel: React.FC<{
           </div>
         )}
 
-        {/* Текущая готовность */}
-        <div className="mt-5 rounded-md border border-gray-200 px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+        <div className="mt-5 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Текущая готовность
           </p>
           <div className="mt-3 space-y-2">
@@ -1116,13 +1101,9 @@ const AnalysisActionsPanel: React.FC<{
           </Button>
         </div>
       </div>
-    </div>
+    </aside>
   );
 };
-
-// -------------------------------------------------------------
-// Main: OverviewTab
-// -------------------------------------------------------------
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
   deal,
@@ -1132,12 +1113,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  // Загружаем DealDetail для description / counterparty.
-  // Данные скорее всего уже в React Query кэше от родительского
-  // компонента (ProjectPage), поэтому дополнительного сетевого
-  // запроса в большинстве случаев не будет.
   const { data: dealDetail } = useDeal(deal.id);
-
   const { data: latestRun } = useRun(latestRunId ?? null, false);
   const { data: documentsCount } = useDocumentsCount(deal.id);
 
@@ -1222,7 +1198,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     );
   };
 
-  // Escape закрывает панель запуска
   React.useEffect(() => {
     if (!isLaunchPanelOpen) return;
 
@@ -1235,26 +1210,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
   return (
     <div className="relative grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(320px,1fr)]">
-      {/* ── Левая колонка ── */}
       <div className="relative space-y-4">
-        {/* 1. О проекте */}
-        <DealInfoCard
-          deal={deal}
-          detail={dealDetail}
-        />
+        <DealInfoCard deal={deal} detail={dealDetail} />
 
-        {/* 2. Хроника проекта */}
         <ProjectTimelineCard
           deal={deal}
           latestRunId={latestRunId}
           documentsCount={documentsCount}
         />
 
-        {/* 3. Статус / прогресс анализа */}
         <RunProgressCard latestRunId={latestRunId} />
       </div>
 
-      {/* ── Правая колонка (не меняется) ── */}
       <div className="relative">
         <AnalysisActionsPanel
           deal={deal}

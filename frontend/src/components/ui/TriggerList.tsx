@@ -1,26 +1,18 @@
-// =============================================================
 // src/components/ui/TriggerList.tsx
-// Список применимых триггеров документа (applicable_triggers).
-// =============================================================
 
 import React from "react";
-
-// Простая версия функции объединения className (как в ClassificationBadge)
-function cn(...classes: (string | false | null | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
+import { twMerge } from "tailwind-merge";
 
 interface Props {
-  triggers: string[];
+  triggers?: string[] | null;
   maxVisible?: number;
   className?: string;
 }
 
-/**
- * Показывает список YAML-триггеров.
- * Пример:
- *   <TriggerList triggers={document.applicable_triggers ?? []} />
- */
+function cn(...classes: Array<string | false | null | undefined>) {
+  return twMerge(classes.filter(Boolean).join(" "));
+}
+
 export const TriggerList: React.FC<Props> = ({
   triggers,
   maxVisible = 3,
@@ -28,30 +20,45 @@ export const TriggerList: React.FC<Props> = ({
 }) => {
   if (!triggers || triggers.length === 0) {
     return (
-      <span className="text-xs text-gray-400 italic">Нет триггеров</span>
+      <span className="text-xs italic text-[var(--text-tertiary,#9ca3af)]">
+        —
+      </span>
     );
   }
 
-  const visible = triggers.slice(0, maxVisible);
-  const hidden = triggers.length - maxVisible;
+  const normalizedMaxVisible = Number.isFinite(maxVisible)
+    ? Math.max(1, Math.floor(maxVisible))
+    : 3;
+
+  const visible = triggers.slice(0, normalizedMaxVisible);
+  const hidden = triggers.length - visible.length;
 
   return (
-    <div className={cn("flex flex-wrap gap-1", className)}>
-      {visible.map((t) => (
+    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+      {visible.map((trigger) => (
         <span
-          key={t}
-          className="inline-block px-1.5 py-0.5 bg-purple-50
-                     text-purple-700 text-xs rounded border border-purple-200"
-          title={`Условный триггер: ${t}`}
+          key={trigger}
+          title={trigger}
+          className={cn(
+            "inline-flex max-w-full items-center rounded-full border px-2 py-0.5",
+            "text-[11px] font-medium leading-none",
+            "border-[var(--color-blue,#1d4ed8)]/15 bg-[var(--color-blue-highlight,#eff6ff)] text-[var(--color-blue,#1d4ed8)]",
+          )}
         >
-          ⚡ {t}
+          <span className="truncate">{trigger}</span>
         </span>
       ))}
-      {hidden > 0 && (
-        <span className="text-xs text-gray-400 self-center">
-          +{hidden} ещё
+
+      {hidden > 0 ? (
+        <span className="text-xs text-[var(--text-tertiary,#9ca3af)]">
+          +{hidden}
         </span>
-      )}
+      ) : null}
     </div>
   );
 };
+
+export default TriggerList;
+
+
+

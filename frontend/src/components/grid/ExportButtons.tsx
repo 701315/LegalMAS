@@ -12,6 +12,7 @@ import {
   exportResultsToPdf,
   exportResultsToWord,
 } from "../../utils/exportResults";
+import Button from "../ui/Button";
 
 interface ExportButtonsProps {
   allResults: CheckResult[];
@@ -44,6 +45,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
 }) => {
   const hasSelection = selectedResults.length > 0;
   const baseResults = hasSelection ? selectedResults : allResults;
+  const isDisabled = baseResults.length === 0;
 
   const commonMeta = {
     dealName,
@@ -68,35 +70,46 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
   };
 
   const labelSuffix = hasSelection
-    ? `(${selectedResults.length} selected)`
-    : "(all)";
+    ? `${selectedResults.length} selected`
+    : "all";
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-2">
-      <span className="text-xs text-gray-600">
-        Export {labelSuffix}
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2">
+      <span className="text-xs text-[var(--text-secondary)]">
+        Export ({labelSuffix})
       </span>
-      <button
-        type="button"
-        onClick={handleExcel}
-        className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
-      >
-        Excel
-      </button>
-      <button
-        type="button"
-        onClick={handlePdf}
-        className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
-      >
-        PDF
-      </button>
-      <button
-        type="button"
-        onClick={handleWord}
-        className="px-2 py-1 text-xs border rounded hover:bg-gray-100"
-      >
-        Word
-      </button>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={handleExcel}
+          disabled={isDisabled}
+        >
+          Excel
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={handlePdf}
+          disabled={isDisabled}
+        >
+          PDF
+        </Button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={handleWord}
+          disabled={isDisabled}
+        >
+          Word
+        </Button>
+      </div>
     </div>
   );
 };

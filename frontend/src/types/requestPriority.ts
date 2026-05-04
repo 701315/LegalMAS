@@ -1,8 +1,8 @@
 // src/types/requestPriority.ts
 
 /**
- * Нормализованный приоритет DD‑запроса в UI.
- * Это то, с чем работают таблицы, side‑панели и badge.
+ * Нормализованный приоритет DD-запроса в UI.
+ * Это то, с чем работают таблицы, side-панели и badge.
  */
 export type RequestPriority = "critical" | "high" | "medium" | "low";
 
@@ -25,24 +25,12 @@ export const REQUEST_PRIORITY_ORDER: Record<RequestPriority, number> = {
 
 export const REQUEST_PRIORITY_META: Record<
   RequestPriority,
-  { label: string; colorClass: string }
+  { label: string }
 > = {
-  critical: {
-    label: "Критичный",
-    colorClass: "bg-red-100 text-red-800",
-  },
-  high: {
-    label: "Высокий",
-    colorClass: "bg-orange-100 text-orange-800",
-  },
-  medium: {
-    label: "Средний",
-    colorClass: "bg-yellow-100 text-yellow-800",
-  },
-  low: {
-    label: "Низкий",
-    colorClass: "bg-gray-100 text-gray-800",
-  },
+  critical: { label: "Критичный" },
+  high: { label: "Высокий" },
+  medium: { label: "Средний" },
+  low: { label: "Низкий" },
 };
 
 /**
@@ -59,15 +47,18 @@ export function normalizeRequestPriority(
 
   if (v === "critical") return "critical";
   if (v === "high") return "high";
-
-  // Если backend каким‑то образом прислал "low" — поддерживаем.
+  if (v === "medium") return "medium";
   if (v === "low") return "low";
 
-  // В review severity могут приходить pass/unclear — считаем их низким/средним приоритетом.
+  // В review severity могут приходить pass/unclear.
   if (v === "pass") return "low";
   if (v === "unclear") return "medium";
 
-  // Любое другое значение считаем средним.
+  // Мягкие/неопределённые варианты тоже считаем неблокирующими.
+  if (v === "warning") return "medium";
+  if (v === "info") return "low";
+
   return "medium";
 }
+
 

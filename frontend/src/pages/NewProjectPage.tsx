@@ -1,6 +1,7 @@
 // =============================================================
 // src/pages/NewProjectPage.tsx
 // Создание нового проекта (доступно только для superadmin).
+// Визуально согласовано с текущим DashboardPage.
 // =============================================================
 
 import React, { useEffect, useState } from "react";
@@ -8,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { useAuth } from "../hooks/useAuth";
 import type { ApiError } from "../types";
+import Button from "../components/ui/Button";
 
 interface CreateDealInput {
   name: string;
@@ -105,69 +107,176 @@ const NewProjectPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6 text-gray-900">
-      <div className="mx-auto max-w-xl rounded-lg border border-gray-200 bg-white p-6 text-gray-900 shadow-sm">
-        <h1 className="mb-4 text-xl font-bold text-gray-900">
-          Новый проект
-        </h1>
-        <p className="mb-4 text-sm text-gray-500">
-          Укажите основные данные проекта. Остальные настройки можно будет
-          задать позже.
-        </p>
-
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Название проекта
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder='Например: DD по покупке ООО «Ромашка»'
-            />
+    <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6 md:px-6">
+      <div className="mx-auto max-w-6xl animate-fadein space-y-5">
+        <header className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+                Новый проект
+              </h1>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Создайте новый проект и задайте базовые параметры рабочего
+                пространства. Все дополнительные настройки можно будет изменить
+                позже.
+              </p>
+            </div>
           </div>
+        </header>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Контактное лицо
-            </label>
-            <input
-              type="text"
-              value={contactPerson}
-              onChange={(e) => setContactPerson(e.target.value)}
-              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="ФИО или e-mail ответственного"
-            />
+        {errorText && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {errorText}
           </div>
+        )}
 
-          {errorText && (
-            <p className="text-sm text-red-600">{errorText}</p>
-          )}
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="project-name"
+                  className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                >
+                  Название проекта
+                </label>
+                <input
+                  id="project-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-base"
+                  placeholder='Например: DD по покупке ООО «Ромашка»'
+                  autoComplete="off"
+                />
+                <p className="text-xs text-[var(--text-muted)]">
+                  Лучше использовать короткое рабочее название, которое будет
+                  понятно в dashboard, списке проектов и внутри рабочего
+                  пространства.
+                </p>
+              </div>
 
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isSubmitting ? "Создаём..." : "Создать проект"}
-            </button>
-          </div>
-        </form>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="contact-person"
+                  className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                >
+                  Контактное лицо
+                </label>
+                <input
+                  id="contact-person"
+                  type="text"
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value)}
+                  className="input-base"
+                  placeholder="ФИО или e-mail ответственного"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-[var(--text-muted)]">
+                  Необязательное поле. Можно указать внутреннего координатора,
+                  ответственного юриста или основной контакт по проекту.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCancel}
+                >
+                  Отмена
+                </Button>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  isLoading={isSubmitting}
+                >
+                  {isSubmitting ? "Создаём…" : "Создать проект"}
+                </Button>
+              </div>
+            </form>
+          </section>
+
+          <aside className="space-y-4">
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Что произойдёт дальше
+              </h2>
+
+              <div className="mt-4 space-y-3">
+                <div className="subtle-panel px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    Шаг 1
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--text-primary)]">
+                    Создастся карточка проекта
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Проект появится в рабочем списке и будет готов к
+                    дальнейшей настройке.
+                  </p>
+                </div>
+
+                <div className="subtle-panel px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    Шаг 2
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--text-primary)]">
+                    Откроется загрузка документов
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Сразу после создания можно перейти к наполнению data room и
+                    первичному импорту материалов.
+                  </p>
+                </div>
+
+                <div className="subtle-panel px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    Шаг 3
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--text-primary)]">
+                    Настройка команды и workflow
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Позже можно назначить участников, выбрать playbook и
+                    настроить review-процесс.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-sm">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Подсказки по заполнению
+              </h2>
+
+              <div className="mt-4 space-y-3 text-sm text-[var(--text-secondary)]">
+                <p>
+                  Обязательное поле только одно — название проекта. Если детали
+                  ещё не согласованы, этого уже достаточно для старта.
+                </p>
+                <p>
+                  Название и контактное лицо можно изменить позже, поэтому
+                  сейчас не нужно добиваться финальной формулировки.
+                </p>
+                <p>
+                  Для удобства лучше использовать короткое рабочее название,
+                  которое команда быстро узнает в списке проектов.
+                </p>
+              </div>
+            </section>
+          </aside>
+        </div>
       </div>
     </div>
   );
 };
 
 export default NewProjectPage;
+
+
 
 

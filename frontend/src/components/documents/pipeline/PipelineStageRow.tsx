@@ -5,6 +5,7 @@
 import React from "react";
 import type { PipelineStageViewDTO } from "../../../types";
 import { StatusBadge } from "./StatusBadge";
+import Button from "../../ui/Button";
 
 interface Props {
   stage: PipelineStageViewDTO;
@@ -57,37 +58,40 @@ export const PipelineStageRow: React.FC<Props> = ({ stage, onOpen }) => {
   const metaLine = buildMetaLine(stage);
 
   return (
-    <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-white p-3">
+    <div className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 shadow-sm transition-shadow hover:shadow-md">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
             {stage.code}
           </span>
 
           <StatusBadge status={stage.status} />
         </div>
 
-        <p className="mt-1 text-sm font-medium text-gray-900">{stage.title}</p>
+        <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
+          {stage.title}
+        </p>
 
-        <p className="mt-1 text-xs leading-5 text-gray-500">
+        <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
           {stage.description}
         </p>
 
         {metaLine && (
-          <p className="mt-2 text-[11px] text-gray-400">{metaLine}</p>
+          <p className="mt-2 text-[11px] text-[var(--text-muted)]">{metaLine}</p>
         )}
       </div>
 
       <div className="shrink-0">
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={canOpen ? "secondary" : "ghost"}
           disabled={!canOpen}
           onClick={() => onOpen(stage)}
           title={canOpen ? "Открыть стадию" : getOpenDisabledReason(stage)}
-          className="rounded border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Открыть
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 // =============================================================
 // src/pages/ProjectUploadPage.tsx
-// Загрузка документов для проекта (admin + editor).
-// Упрощённый и понятный UI выбора файлов / папки.
+// Загрузка документов в проект.
+// Упрощённый UI в стиле workspace + explorer-like file list.
 // =============================================================
 
 import React, { useMemo, useRef, useState } from "react";
@@ -11,10 +11,42 @@ import axios from "axios";
 import { useDocuments, useUploadDocuments } from "../api/documents";
 import { useDealPermissions } from "../hooks/usePermissions";
 import { formatDate } from "../utils";
+import Button from "../components/ui/Button";
+import UploadDropzoneCard from "../components/upload/UploadDropzoneCard";
+import UploadWorkflowCard from "../components/upload/UploadWorkflowCard";
+import PreparedFilesTable, {
+  type PreparedFileRow,
+} from "../components/upload/PreparedFilesTable";
 
 type FileWithRelativePath = File & {
   webkitRelativePath?: string;
 };
+
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size >= 100 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function getFileExtension(filename: string): string {
+  const trimmed = filename.trim();
+  const idx = trimmed.lastIndexOf(".");
+  if (idx <= 0 || idx === trimmed.length - 1) return "—";
+  return trimmed.slice(idx + 1).toUpperCase();
+}
+
+function getRelativePath(file: FileWithRelativePath): string {
+  return file.webkitRelativePath?.trim() || "—";
+}
 
 const ProjectUploadPage: React.FC = () => {
   const { dealId } = useParams<{ dealId: string }>();
@@ -24,23 +56,25 @@ const ProjectUploadPage: React.FC = () => {
   const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolvedDealId = dealId ?? "";
-
   const { canUploadDocuments } = useDealPermissions(resolvedDealId);
+
   const {
     data: docsPage,
     isLoading: docsLoading,
     error: docsError,
   } = useDocuments(resolvedDealId, 1);
+
   const uploadMutation = useUploadDocuments(resolvedDealId);
 
   const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>([]);
-  const [selectionMode, setSelectionMode] = useState<"files" | "folder" | null>(null);
+  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<string[]>(
+    [],
+  );
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
   const documents = docsPage?.items ?? [];
   const isSubmitting = uploadMutation.isPending;
-  const hasDocuments = documents.length > 0;
   const canSubmit = !isSubmitting && selectedFiles.length > 0;
 
   const docsErrorText = useMemo(() => {
@@ -48,18 +82,28 @@ const ProjectUploadPage: React.FC = () => {
 
     if (axios.isAxiosError<{ detail?: string }>(docsError)) {
       return (
-        docsError.response?.data?.detail ||
-        docsError.message ||
-        "Не удалось загрузить список документов."
+        docsError.response?.data?.detail ??
+        docsError.message ??
+        "Ошибка загрузки документов."
       );
     }
 
     if (docsError instanceof Error) {
-      return docsError.message || "Не удалось загрузить список документов.";
+      return docsError.message || "Ошибка загрузки документов.";
     }
 
-    return "Не удалось загрузить список документов.";
+    return "Ошибка загрузки документов.";
   }, [docsError]);
+
+  const preparedRows = useMemo<PreparedFileRow[]>(() => {
+    return selectedFiles.map((file, index) => ({
+      id: `${file.name}-${file.size}-${index}`,
+      name: file.name,
+      extension: getFileExtension(file.name),
+      sizeLabel: formatFileSize(file.size),
+      pathLabel: getRelativePath(file),
+    }));
+  }, [selectedFiles]);
 
   if (!dealId) {
     return <Navigate to="/deals" replace />;
@@ -67,60 +111,65 @@ const ProjectUploadPage: React.FC = () => {
 
   if (!canUploadDocuments) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-6">
-        <div className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center">
-          <div className="w-full rounded-lg border bg-white p-6 text-center shadow-sm">
-            <p className="mb-4 text-sm text-gray-700">
-              У вас нет прав для загрузки документов в этот проект.
+      <div className="min-h-full bg-[var(--bg-base)] px-4 py-6">
+        <div className="mx-auto max-w-md">
+          <div className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
+            <p className="text-sm text-[var(--text-secondary)]">
+              У вас нет прав на загрузку документов в этот проект.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate(`/projects/${dealId}`)}
-              className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-            >
-              Вернуться к проекту
-            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  const goBackToProject = () => {
-    navigate(`/projects/${dealId}`);
-  };
-
-  const resetSelection = () => {
-    setSelectedFiles([]);
-    setSelectionMode(null);
-    setErrorText(null);
-
+  const resetInputs = () => {
     if (filesInputRef.current) {
       filesInputRef.current.value = "";
     }
-
     if (folderInputRef.current) {
       folderInputRef.current.value = "";
     }
   };
 
-  const applySelectedFiles = (
-    files: FileWithRelativePath[],
-    mode: "files" | "folder",
-  ) => {
+  const resetSelection = () => {
+    setSelectedFiles([]);
+    setSelectedPreparedRowIds([]);
     setErrorText(null);
-    setSelectionMode(mode);
+    resetInputs();
+  };
+
+  const applySelectedFiles = (files: FileWithRelativePath[]) => {
+    setErrorText(null);
+    setSelectedPreparedRowIds([]);
     setSelectedFiles(files);
   };
 
   const handleFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []) as FileWithRelativePath[];
-    applySelectedFiles(files, "files");
+    applySelectedFiles(files);
   };
 
   const handleFolderPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []) as FileWithRelativePath[];
-    applySelectedFiles(files, "folder");
+    applySelectedFiles(files);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -131,14 +180,50 @@ const ProjectUploadPage: React.FC = () => {
     const files = Array.from(e.dataTransfer.files ?? []) as FileWithRelativePath[];
     if (files.length === 0) return;
 
-    applySelectedFiles(files, "files");
+    applySelectedFiles(files);
+  };
+
+  const togglePreparedRow = (rowId: string) => {
+    setSelectedPreparedRowIds((prev) =>
+      prev.includes(rowId)
+        ? prev.filter((id) => id !== rowId)
+        : [...prev, rowId],
+    );
+  };
+
+  const toggleAllPreparedRows = () => {
+    setSelectedPreparedRowIds((prev) =>
+      prev.length === preparedRows.length ? [] : preparedRows.map((row) => row.id),
+    );
+  };
+
+  const removePreparedRows = (rowIds: string[]) => {
+    const rowIdSet = new Set(rowIds);
+
+    setSelectedFiles((prev) =>
+      prev.filter((file, index) => {
+        const rowId = `${file.name}-${file.size}-${index}`;
+        return !rowIdSet.has(rowId);
+      }),
+    );
+
+    setSelectedPreparedRowIds((prev) => prev.filter((id) => !rowIdSet.has(id)));
+  };
+
+  const handleRemovePreparedSelected = () => {
+    if (selectedPreparedRowIds.length === 0) return;
+    removePreparedRows(selectedPreparedRowIds);
+  };
+
+  const handleRemovePreparedSingle = (rowId: string) => {
+    removePreparedRows([rowId]);
   };
 
   const handleUpload = async () => {
     setErrorText(null);
 
     if (selectedFiles.length === 0) {
-      setErrorText("Выберите хотя бы один файл или папку для загрузки.");
+      setErrorText("Сначала выберите файлы или папку для загрузки.");
       return;
     }
 
@@ -152,262 +237,183 @@ const ProjectUploadPage: React.FC = () => {
     } catch (err: unknown) {
       if (axios.isAxiosError<{ detail?: string }>(err)) {
         setErrorText(
-          err.response?.data?.detail ||
-            err.message ||
-            "Не удалось загрузить документы. Попробуйте позже.",
+          err.response?.data?.detail ??
+            err.message ??
+            "Не удалось загрузить документы.",
         );
         return;
       }
 
       if (err instanceof Error) {
-        setErrorText(
-          err.message || "Не удалось загрузить документы. Попробуйте позже.",
-        );
+        setErrorText(err.message || "Не удалось загрузить документы.");
         return;
       }
 
-      setErrorText("Не удалось загрузить документы. Попробуйте позже.");
+      setErrorText("Не удалось загрузить документы.");
     }
   };
 
-  const topVisibleFiles = selectedFiles.slice(0, 10);
-  const hasMoreFiles = selectedFiles.length > topVisibleFiles.length;
-
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-start justify-between gap-4">
+    <div className="min-h-full bg-[var(--bg-base)] px-4 py-6 text-[var(--text-primary)]">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-[26px] font-semibold tracking-tight">
               Загрузка документов
             </h1>
-            <p className="text-sm text-gray-500">Проект: {dealId}</p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Подготовьте набор файлов и загрузите его в проект.
+            </p>
           </div>
 
-          <button
-            type="button"
-            onClick={goBackToProject}
-            className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            ← Назад к проекту
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(`/projects/${dealId}`)}
+            >
+              Назад в проект
+            </Button>
+          </div>
+        </header>
+
+        <input
+          ref={filesInputRef}
+          type="file"
+          multiple
+          onChange={handleFilesPicked}
+          className="hidden"
+        />
+
+        <input
+          ref={(node) => {
+            folderInputRef.current = node;
+
+            if (node) {
+              node.setAttribute("webkitdirectory", "");
+              node.setAttribute("directory", "");
+            }
+          }}
+          type="file"
+          multiple
+          onChange={handleFolderPicked}
+          className="hidden"
+        />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <UploadDropzoneCard
+            isDragActive={isDragActive}
+            isSubmitting={isSubmitting}
+            selectedCount={selectedFiles.length}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onPickFiles={() => filesInputRef.current?.click()}
+            onPickFolder={() => folderInputRef.current?.click()}
+          />
+
+          <UploadWorkflowCard />
         </div>
 
         {errorText && (
-          <div
-            className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-            role="alert"
-          >
+          <div className="rounded-[18px] border border-[color:rgba(161,53,68,0.22)] bg-[color:rgba(161,53,68,0.08)] px-4 py-3 text-sm text-[color:rgb(120,35,46)]">
             {errorText}
           </div>
         )}
 
-        {docsErrorText && (
-          <div
-            className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-            role="alert"
-          >
-            {docsErrorText}
-          </div>
-        )}
+        <PreparedFilesTable
+          rows={preparedRows}
+          selectedRowIds={selectedPreparedRowIds}
+          isUploading={isSubmitting}
+          canUpload={canSubmit}
+          onUpload={handleUpload}
+          onToggleRow={togglePreparedRow}
+          onToggleAll={toggleAllPreparedRows}
+          onRemoveSelected={handleRemovePreparedSelected}
+          onRemoveSingle={handleRemovePreparedSingle}
+        />
 
-        <div className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-gray-800">
-            Уже загруженные документы
-          </h2>
-
-          {docsLoading && (
-            <p className="text-sm text-gray-500">
-              Загружаем список документов…
-            </p>
-          )}
-
-          {!docsLoading && !docsErrorText && !hasDocuments && (
-            <p className="text-sm text-gray-500">
-              В этом проекте пока нет документов.
-            </p>
-          )}
-
-          {!docsLoading && hasDocuments && (
-            <ul className="divide-y divide-gray-100 text-sm">
-              {documents.map((doc) => (
-                <li
-                  key={doc.id}
-                  className="flex items-center justify-between gap-4 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-gray-800">{doc.filename}</p>
-                    <p className="text-xs text-gray-500">
-                      Статус: {doc.status} · Создан: {formatDate(doc.created_at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="rounded-lg border bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-gray-800">
-            Добавить новые документы
-          </h2>
-
-          <input
-            ref={filesInputRef}
-            type="file"
-            multiple
-            onChange={handleFilesPicked}
-            className="hidden"
-          />
-
-          <input
-            ref={(node) => {
-              folderInputRef.current = node;
-              if (node) {
-                node.setAttribute("webkitdirectory", "");
-              }
-            }}
-            type="file"
-            multiple
-            onChange={handleFolderPicked}
-            className="hidden"
-          />
-
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => filesInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                filesInputRef.current?.click();
-              }
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragActive(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsDragActive(false);
-            }}
-            onDrop={handleDrop}
-            className={`rounded-xl border-2 border-dashed p-8 text-center transition ${
-              isDragActive
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/40"
-            }`}
-            aria-label="Нажмите, чтобы выбрать файлы, или перетащите их сюда"
-          >
-            <div className="mx-auto max-w-xl space-y-3">
-              <div className="text-base font-semibold text-gray-900">
-                Перетащите файлы сюда или нажмите для выбора
-              </div>
-              <p className="text-sm text-gray-500">
-                Самый простой способ — нажать на область и выбрать документы в
-                проводнике.
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    filesInputRef.current?.click();
-                  }}
-                  disabled={isSubmitting}
-                  className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Выбрать файлы
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    folderInputRef.current?.click();
-                  }}
-                  disabled={isSubmitting}
-                  className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Выбрать папку
-                </button>
-              </div>
-
-              <p className="text-xs text-gray-500">
-                Если браузер поддерживает выбор папки, будут добавлены файлы из
-                выбранной директории и вложенных подпапок. [web:1434][web:1437]
+        <section className="rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+                Уже загруженные документы
+              </h2>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Документы, которые уже присутствуют в проекте.
               </p>
             </div>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => navigate(0)}
+            >
+              Обновить
+            </Button>
           </div>
 
-          {selectedFiles.length > 0 && (
-            <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-4">
-              <div className="mb-2 flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-medium text-gray-800">
-                    Готово к загрузке
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Режим:{" "}
-                    {selectionMode === "folder"
-                      ? "выбрана папка"
-                      : "выбраны файлы"}{" "}
-                    · Всего элементов: {selectedFiles.length}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={resetSelection}
-                  disabled={isSubmitting}
-                  className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-60"
-                >
-                  Очистить
-                </button>
+          <div className="px-5 py-4">
+            {docsLoading ? (
+              <div className="text-sm text-[var(--text-muted)]">Загрузка…</div>
+            ) : docsErrorText ? (
+              <div className="text-sm text-[color:rgb(120,35,46)]">
+                {docsErrorText}
               </div>
-
-              <ul className="space-y-1 text-xs text-gray-600">
-                {topVisibleFiles.map((file) => (
-                  <li key={`${file.name}-${file.size}-${file.lastModified}`}>
-                    {file.webkitRelativePath || file.name}
-                  </li>
-                ))}
-              </ul>
-
-              {hasMoreFiles && (
-                <div className="mt-2 text-xs text-gray-500">
-                  И ещё {selectedFiles.length - topVisibleFiles.length} файлов…
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleUpload}
-              disabled={!canSubmit}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isSubmitting ? "Загружаем..." : "Загрузить"}
-            </button>
-
-            <button
-              type="button"
-              onClick={goBackToProject}
-              disabled={isSubmitting}
-              className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Отмена
-            </button>
+            ) : documents.length === 0 ? (
+              <div className="text-sm text-[var(--text-muted)]">
+                В проекте пока нет загруженных документов.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] bg-[var(--bg-base)]">
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                        Имя файла
+                      </th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                        Статус
+                      </th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                        Загружен
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.map((doc) => (
+                      <tr
+                        key={doc.id}
+                        className="border-b border-[var(--border-soft)] last:border-b-0"
+                      >
+                        <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                          {doc.filename}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                          {doc.status}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                          {doc.created_at ? formatDate(doc.created_at) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
 };
 
 export default ProjectUploadPage;
+
+
+
+
+

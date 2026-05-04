@@ -89,11 +89,10 @@ export interface StructuredDataView {
   total_extracted: number;
 }
 
-
 export interface DocumentReviewCheckView {
   checkId: string;
   checkName: string;
-  result: string;                    // "fail" | "unclear" | "pass"
+  result: string; // "fail" | "unclear" | "pass"
   severity: SeverityLevel | null;
   snippet: string | null;
   page: number | null;
@@ -117,7 +116,7 @@ export interface DocumentReviewCheckView {
 }
 
 export interface DocumentReviewView {
-  checks: DocumentReviewCheckView[];  // только fail/unclear
+  checks: DocumentReviewCheckView[]; // только fail/unclear
   totalFail: number;
   totalUnclear: number;
   totalCritical: number;
@@ -314,7 +313,9 @@ function getCompositionBannerText(segments: StructuredSegmentGroup[]): string {
   return `Multi-document · ${actualSegments.length} segments`;
 }
 
-function getPrimarySegment(segments: StructuredSegmentGroup[]): StructuredSegmentGroup | null {
+function getPrimarySegment(
+  segments: StructuredSegmentGroup[],
+): StructuredSegmentGroup | null {
   return (
     segments.find((segment) => segment.isPrimarySegment) ??
     segments.find((segment) => segment.segmentId !== null) ??
@@ -322,7 +323,9 @@ function getPrimarySegment(segments: StructuredSegmentGroup[]): StructuredSegmen
   );
 }
 
-function getCompositionBannerDescription(segments: StructuredSegmentGroup[]): string {
+function getCompositionBannerDescription(
+  segments: StructuredSegmentGroup[],
+): string {
   const actualSegments = segments.filter((s) => s.segmentId !== null);
 
   if (actualSegments.length <= 1) {
@@ -331,7 +334,6 @@ function getCompositionBannerDescription(segments: StructuredSegmentGroup[]): st
 
   return "Файл содержит несколько логических сегментов. Извлечённые значения сгруппированы по сегментам.";
 }
-
 
 // =============================================================
 // View-компонент (чистый UI)
@@ -401,7 +403,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center text-gray-400">
+      <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
         <Loader2 className="mr-2 animate-spin" size={20} />
         Загрузка…
       </div>
@@ -410,7 +412,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
   if (notFound) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-400">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         Документ не найден
       </div>
     );
@@ -419,16 +421,18 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-        <AlertTriangle className="mb-2 text-red-500" size={20} />
-        <p className="mb-1 text-sm text-red-700">Ошибка загрузки документа</p>
-        <p className="max-w-sm text-xs text-gray-500">{error}</p>
+        <AlertTriangle className="mb-2 text-[var(--color-error)]" size={20} />
+        <p className="mb-1 text-sm text-[var(--color-error-strong)]">
+          Ошибка загрузки документа
+        </p>
+        <p className="max-w-sm text-xs text-[var(--text-muted)]">{error}</p>
       </div>
     );
   }
 
   if (!doc) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-400">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--text-muted)]">
         Документ не найден
       </div>
     );
@@ -504,7 +508,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
   const visibleReviewChecks = resolvedActiveSegmentKey
     ? sortedReviewChecks.filter(
         (check) =>
-          (check.segmentId ?? "__whole_document__") === resolvedActiveSegmentKey
+          (check.segmentId ?? "__whole_document__") === resolvedActiveSegmentKey,
       )
     : sortedReviewChecks;
 
@@ -516,54 +520,56 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
     onOpenAtLocation({
       documentId,
-      page: val.page ?? null,
-      clauseUid: val.clause_uid ?? null,
-      elementId: null,
-      segmentId: segment.segmentId ?? null,
-      chunkId: val.chunk_id ?? null,
-      chunkIndex: val.chunk_index ?? null,
+      page: val.page ?? undefined,
+      clauseUid: val.clause_uid ?? undefined,
+      elementId: undefined,
+      segmentId: segment.segmentId ?? undefined,
+      chunkId: val.chunk_id ?? undefined,
+      chunkIndex: val.chunk_index ?? undefined,
     });
   };
 
   return (
-    <div className="h-full space-y-6 overflow-y-auto p-5">
+    <div className="h-full space-y-5 overflow-y-auto bg-[var(--bg-base)] p-5">
+      {/* Хедер документа */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="break-words text-lg font-semibold text-gray-900">
+          <h3 className="break-words text-base font-semibold text-[var(--text-primary)]">
             {doc.filename}
           </h3>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">
             {doc.folder_path || "/"}
           </p>
         </div>
 
         <div className="shrink-0 space-y-1 text-right">
           <span
-            className={`inline-block rounded px-2.5 py-1 text-xs font-semibold ${
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
               statusConfig
                 ? statusConfig.color === "success"
-                  ? "bg-green-100 text-green-700"
+                  ? "bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]"
                   : statusConfig.color === "warning"
-                  ? "bg-yellow-100 text-yellow-800"
+                  ? "bg-[var(--badge-warning-bg)] text-[var(--badge-warning-fg)]"
                   : statusConfig.color === "error"
-                  ? "bg-red-100 text-red-700"
+                  ? "bg-[var(--badge-error-bg)] text-[var(--badge-error-fg)]"
                   : statusConfig.color === "info"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-gray-100 text-gray-600"
-                : "bg-gray-100 text-gray-600"
+                  ? "bg-[var(--badge-info-bg)] text-[var(--badge-info-fg)]"
+                  : "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-fg)]"
+                : "bg-[var(--badge-neutral-bg)] text-[var(--badge-neutral-fg)]"
             }`}
           >
             {statusConfig ? statusConfig.label : doc.status}
           </span>
 
           {statusHint && (
-            <p className="max-w-[220px] text-[11px] text-gray-500">
+            <p className="max-w-[220px] text-[11px] text-[var(--text-muted)]">
               {statusHint}
             </p>
           )}
         </div>
       </div>
 
+      {/* Информация */}
       <Section title="Информация">
         <InfoRow
           label="Тип документа"
@@ -584,10 +590,13 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         />
 
         {processingError && (
-          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+          <div className="mt-3 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2 text-xs text-[var(--color-error-strong)]">
             <div className="flex items-start gap-2">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <div className="space-y-0.5">
+              <AlertTriangle
+                size={14}
+                className="mt-0.5 shrink-0 text-[var(--color-error)]"
+              />
+              <div className="space-y-1">
                 <p className="font-semibold">
                   {processingError.type === "quarantine"
                     ? "Документ в карантине"
@@ -601,17 +610,19 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 </p>
 
                 {processingError.message && (
-                  <p className="break-words">{processingError.message}</p>
+                  <p className="break-words text-[var(--text-primary)]">
+                    {processingError.message}
+                  </p>
                 )}
 
-                <div className="flex flex-wrap gap-2 text-[11px] text-red-700">
+                <div className="flex flex-wrap gap-1 text-[11px]">
                   {processingError.reason && (
-                    <span className="rounded bg-red-100 px-1.5 py-0.5">
+                    <span className="rounded-full bg-[var(--color-error-chip-bg)] px-2 py-0.5 text-[var(--color-error-chip-fg)]">
                       Причина: {processingError.reason}
                     </span>
                   )}
                   {processingError.timestamp && (
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">
+                    <span className="rounded-full bg-[var(--badge-neutral-bg)] px-2 py-0.5 text-[var(--text-muted)]">
                       Время:{" "}
                       {new Date(processingError.timestamp).toLocaleString(
                         "ru-RU",
@@ -619,7 +630,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     </span>
                   )}
                   {processingError.run_id && (
-                    <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">
+                    <span className="rounded-full bg-[var(--badge-info-bg)] px-2 py-0.5 text-[var(--badge-info-fg)]">
                       Run: {processingError.run_id}
                     </span>
                   )}
@@ -630,13 +641,13 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         )}
 
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-sm text-gray-400">
+          <span className="text-xs text-[var(--text-muted)]">
             Проверка юриста не требуется
           </span>
           <label className="inline-flex items-center gap-2">
             <input
               type="checkbox"
-              className="rounded border-gray-300"
+              className="h-3.5 w-3.5 cursor-pointer rounded border-[var(--border-subtle)] text-[var(--color-blue)] focus:ring-[var(--color-blue-soft)]"
               checked={!!doc.reviewed_by_person}
               disabled={isSetReviewedPending}
               onChange={(e) => onSetReviewed(e.target.checked)}
@@ -645,23 +656,26 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </div>
       </Section>
 
+      {/* Требуется действие (язык) */}
       {doc.status === "language_selection_required" && (
         <Section title="Требуется действие">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <div className="rounded-2xl border border-[var(--color-gold-soft-border)] bg-[var(--color-gold-soft-bg)] px-3 py-2.5">
             <div className="flex items-start gap-2">
-              <span className="mt-0.5 text-amber-600">🌐</span>
+              <span className="mt-0.5 text-[var(--color-gold-strong)]">
+                🌐
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-amber-900">
+                <p className="text-sm font-semibold text-[var(--color-gold-strong)]">
                   Нужно выбрать основной язык проверки
                 </p>
-                <p className="mt-1 text-xs leading-5 text-amber-800">
+                <p className="mt-1 text-xs leading-5 text-[var(--color-gold-text)]">
                   {statusConfig?.description ||
-                    "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка — приведение к одноязычности по выбранному основному языку проверки, а также экстракция, санитизация, построение структуры, чанкинг и классификация — не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык."}
+                    "Загрузка документов завершена. Для документов, в которых определено несколько языков, дальнейшая обработка не будет продолжена, пока не выбран основной язык проверки. По умолчанию установлен русский язык."}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                    className="inline-flex items-center rounded-full bg-[var(--color-gold-strong)] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[var(--color-gold-deep)]"
                     onClick={() => {
                       // TODO: открыть модал/панель выбора основного языка документа
                     }}
@@ -669,7 +683,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     Выбрать основной язык
                   </button>
 
-                  <span className="text-[11px] text-amber-700">
+                  <span className="text-[11px] text-[var(--color-gold-text)]">
                     Текущий язык по умолчанию: русский
                   </span>
                 </div>
@@ -679,9 +693,10 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
       )}
 
+      {/* Классификация */}
       <Section title="Классификация документа">
         {classification ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <ClassificationBadge
                 level={classification.classification_level}
@@ -689,34 +704,34 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 showConfidence
               />
               {classification.doc_type && (
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-xs font-medium text-[var(--text-primary)]">
                   {classification.doc_type}
                 </span>
               )}
               {needsManualReview && (
-                <span className="inline-flex items-center rounded border border-yellow-200 bg-yellow-50 px-1.5 py-0.5 text-[11px] text-yellow-700">
+                <span className="inline-flex items-center rounded-full border border-[var(--color-gold-soft-border)] bg-[var(--color-gold-soft-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-gold-strong)]">
                   Нужна ручная проверка
                 </span>
               )}
             </div>
 
             {statusHint && (
-              <p className="text-xs text-gray-500">{statusHint}</p>
+              <p className="text-xs text-[var(--text-muted)]">{statusHint}</p>
             )}
 
             {classification.yaml_instruction_available ? (
-              <p className="flex items-center gap-1 text-xs text-green-600">
+              <p className="flex items-center gap-1 text-[11px] text-[var(--color-success)]">
                 ✅ YAML-инструкция загружена
               </p>
             ) : (
-              <p className="flex items-center gap-1 text-xs text-gray-400">
+              <p className="flex items-center gap-1 text-[11px] text-[var(--text-faint)]">
                 ⬜ YAML-инструкция не найдена
               </p>
             )}
 
             {lowConfidence && (
-              <div className="rounded border border-yellow-200 bg-yellow-50 p-2">
-                <p className="text-xs text-yellow-800">
+              <div className="rounded-2xl border border-[var(--color-gold-soft-border)] bg-[var(--color-gold-soft-bg)] px-3 py-2">
+                <p className="text-[11px] text-[var(--color-gold-strong)]">
                   ⚠️ Низкая уверенность классификации (
                   {Math.round(
                     (classification.classification_confidence || 0) * 100,
@@ -728,15 +743,15 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
             {classification.applicable_triggers &&
               classification.applicable_triggers.length > 0 && (
-                <div>
-                  <p className="mb-1 text-xs text-gray-400">
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-[var(--text-faint)]">
                     Активные триггеры (профиль документа):
                   </p>
                   <TriggerList
                     triggers={classification.applicable_triggers}
                     maxVisible={4}
                   />
-                  <p className="mt-1 text-[11px] text-gray-400">
+                  <p className="text-[11px] leading-4 text-[var(--text-faint)]">
                     Для непрофессионального пользователя: тип документа и эти
                     триггеры вместе описывают сценарии по документу (ипотека,
                     маткапитал, наследование, судебная продажа и т.п.).
@@ -746,31 +761,32 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
             {canReclassify && !showReclassifyForm && (
               <button
+                type="button"
                 onClick={() => {
                   setReclassifyDocType(classification.doc_type || "");
                   setShowReclassifyForm(true);
                 }}
-                className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-blue)] hover:underline"
               >
                 ✏️ Переклассифицировать вручную
               </button>
             )}
 
             {showReclassifyForm && (
-              <div className="mt-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                <p className="text-xs font-semibold text-blue-800">
+              <div className="mt-2.5 space-y-3 rounded-2xl border border-[var(--color-blue-soft-border)] bg-[var(--color-blue-soft-bg)] p-3">
+                <p className="text-xs font-semibold text-[var(--color-blue-strong)]">
                   Ручная переклассификация
                 </p>
 
-                <div>
-                  <label className="mb-1 block text-xs text-gray-500">
+                <div className="space-y-1">
+                  <label className="block text-[11px] text-[var(--text-muted)]">
                     Новый тип документа
                   </label>
 
                   <select
                     value={reclassifyDocType}
                     onChange={(e) => setReclassifyDocType(e.target.value)}
-                    className="w-full rounded border px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-input)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none ring-0 focus:border-[var(--color-blue)] focus:ring-1 focus:ring-[var(--color-blue-soft)]"
                   >
                     <option value="">
                       — Выберите тип документа —
@@ -783,14 +799,14 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                   </select>
 
                   {reclassifyDocType && (
-                    <p className="mt-1 text-[11px] text-gray-400">
+                    <p className="text-[11px] text-[var(--text-faint)]">
                       Выбран код типа: <code>{reclassifyDocType}</code>
                     </p>
                   )}
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-xs text-gray-500">
+                <div className="space-y-1">
+                  <label className="block text-[11px] text-[var(--text-muted)]">
                     Причина изменения
                   </label>
                   <textarea
@@ -798,12 +814,13 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     onChange={(e) => setReclassifyReason(e.target.value)}
                     rows={2}
                     placeholder="Опишите причину..."
-                    className="w-full resize-none rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-input)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none ring-0 focus:border-[var(--color-blue)] focus:ring-1 focus:ring-[var(--color-blue-soft)]"
                   />
                 </div>
 
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={async () => {
                       if (!reclassifyDocType.trim()) return;
                       try {
@@ -819,13 +836,14 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     disabled={
                       !reclassifyDocType.trim() || isReclassifyPending
                     }
-                    className="flex-1 rounded bg-blue-600 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 rounded-full bg-[var(--color-blue)] py-1.5 text-[11px] font-medium text-white transition hover:bg-[var(--color-blue-deep)] disabled:opacity-60"
                   >
                     {isReclassifyPending ? "Сохранение…" : "Применить"}
                   </button>
                   <button
+                    type="button"
                     onClick={() => setShowReclassifyForm(false)}
-                    className="rounded border px-3 text-xs text-gray-600 transition hover:bg-gray-50"
+                    className="rounded-full border border-[var(--border-subtle)] px-3 py-1.5 text-[11px] font-medium text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
                   >
                     Отмена
                   </button>
@@ -833,22 +851,19 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
                 {lastReclassifyResult && (
                   <>
-                    <p className="text-xs text-green-600">
-                      ✅ Тип изменён на «
-                      {lastReclassifyResult.new_doc_type}»
+                    <p className="text-[11px] text-[var(--color-success)]">
+                      ✅ Тип изменён на «{lastReclassifyResult.new_doc_type}»
                       {lastReclassifyResult.yaml_instruction_found
                         ? " · YAML-инструкция найдена"
                         : " · YAML-инструкция не найдена"}
                     </p>
 
-                    <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2">
-                      <p className="text-[11px] text-red-700">
+                    <div className="mt-2 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2">
+                      <p className="text-[11px] text-[var(--color-error-text)]">
                         Документ переклассифицирован. Анализ рисков по новому
-                        типу документа будет произведён только после
-                        перезапуска анализа рисков по всей сделке. Текущее
-                        состояние архитектуры. После будет внедрён механизм
-                        отдельного пересчёта рисков по отдельному документу
-                        после его переклассификации.
+                        типу будет произведён только после перезапуска анализа
+                        рисков по всей сделке. После будет внедрён механизм
+                        отдельного пересчёта рисков по одному документу.
                       </p>
                     </div>
                   </>
@@ -857,12 +872,13 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             )}
           </div>
         ) : (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-[var(--text-faint)]">
             Классификация не выполнена или документ в обработке
           </p>
         )}
       </Section>
 
+      {/* Семейство документов */}
       {hasFamily && family && (
         <Section title="Семейство документов">
           {family.master && (
@@ -880,37 +896,37 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
       )}
 
+      {/* Структурированные данные */}
       <Section title="Структурированные данные">
         {structuredNotAvailable ? (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-[var(--text-faint)]">
             Для этого документа пока нет извлечённых значений. Запустите анализ
             или обновите страницу после завершения проверки.
           </p>
         ) : structuredData && structuredData.extracted_values.length > 0 ? (
           (() => {
-
             return (
               <div className="space-y-3">
-                <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+                <div className="rounded-2xl border border-[var(--color-blue-soft-border)] bg-[var(--color-blue-soft-bg)] px-3 py-2.5">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-[11px] font-medium text-blue-800">
+                    <span className="text-[11px] font-medium text-[var(--color-blue-strong)]">
                       Состав файла
                     </span>
-                    <span className="text-[11px] text-blue-700">
+                    <span className="text-[11px] text-[var(--color-blue-text)]">
                       {compositionText}
                     </span>
                   </div>
 
-                  <p className="mt-1 text-[10px] leading-5 text-blue-600">
+                  <p className="mt-1 text-[10px] leading-5 text-[var(--color-blue-text)]">
                     {compositionDescription}
                   </p>
 
                   {primarySegmentLabel && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] text-blue-700">
+                      <span className="text-[10px] text-[var(--color-blue-text)]">
                         Основной сегмент:
                       </span>
-                      <span className="inline-flex items-center rounded-full border border-blue-200 bg-white px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                      <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-medium text-[var(--color-blue-strong)] shadow-sm">
                         {primarySegmentLabel}
                       </span>
                     </div>
@@ -918,12 +934,12 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                 </div>
 
                 {hasMultipleSegments && (
-                  <div className="space-y-2">
-                    <div className="text-[11px] font-medium text-gray-500">
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-medium text-[var(--text-muted)]">
                       Сегменты
                     </div>
 
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {structuredSegments.map((segment) => {
                         const label = getSegmentLabel(segment);
                         const isActive =
@@ -936,10 +952,10 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                             onClick={() =>
                               setActiveSegmentKey(segment.segmentKey)
                             }
-                            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition ${
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] transition ${
                               isActive
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                ? "bg-[var(--color-blue)] text-white shadow-sm"
+                                : "bg-[var(--badge-neutral-bg)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]"
                             }`}
                           >
                             <span>{label}</span>
@@ -948,7 +964,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                                   isActive
                                     ? "bg-white/20 text-white"
-                                    : "bg-blue-50 text-blue-700"
+                                    : "bg-[var(--color-blue-soft-bg)] text-[var(--color-blue-strong)]"
                                 }`}
                               >
                                 Основной
@@ -960,14 +976,16 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                     </div>
                   </div>
                 )}
+
                 <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
                   {visibleSegments.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-center">
-                      <p className="text-xs font-medium text-gray-500">
+                    <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-4 text-center">
+                      <p className="text-xs font-medium text-[var(--text-muted)]">
                         Для выбранного сегмента пока нет данных.
                       </p>
-                      <p className="mt-1 text-[11px] text-gray-400">
-                        Попробуйте выбрать другой сегмент или обновите страницу после завершения анализа.
+                      <p className="mt-1 text-[11px] text-[var(--text-faint)]">
+                        Попробуйте выбрать другой сегмент или обновите страницу
+                        после завершения анализа.
                       </p>
                     </div>
                   ) : (
@@ -980,37 +998,37 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                       return (
                         <div
                           key={segment.segmentKey}
-                          className="rounded-lg border border-gray-200 bg-gray-50/70 p-2.5"
+                          className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-2.5"
                         >
                           <div className="mb-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-xs font-semibold text-gray-800">
+                              <p className="text-xs font-semibold text-[var(--text-primary)]">
                                 {segmentLabel}
                               </p>
 
                               {segment.isPrimarySegment && (
-                                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                <span className="inline-flex items-center rounded-full bg-[var(--color-blue-soft-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-blue-strong)]">
                                   Основной сегмент
                                 </span>
                               )}
                             </div>
 
                             {segmentMeta && (
-                              <p className="mt-0.5 text-[11px] text-gray-400">
+                              <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">
                                 {segmentMeta}
                               </p>
                             )}
 
                             {segment.segmentId && (
-                              <p className="mt-0.5 text-[10px] text-gray-300">
+                              <p className="mt-0.5 text-[10px] text-[var(--text-faint)]">
                                 segment_id: {segment.segmentId}
                               </p>
                             )}
                           </div>
 
                           {groupEntries.length === 0 ? (
-                            <div className="rounded border border-dashed border-gray-200 bg-white px-3 py-3 text-center">
-                              <p className="text-xs text-gray-500">
+                            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-3 text-center">
+                              <p className="text-xs text-[var(--text-muted)]">
                                 В этом сегменте пока нет извлечённых значений.
                               </p>
                             </div>
@@ -1019,9 +1037,9 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                               {groupEntries.map(([groupTitle, values]) => (
                                 <div
                                   key={`${segment.segmentKey}-${groupTitle}`}
-                                  className="rounded border border-gray-100 bg-white p-2"
+                                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-2"
                                 >
-                                  <p className="mb-1 text-xs font-semibold text-gray-700">
+                                  <p className="mb-1 text-xs font-semibold text-[var(--text-primary)]">
                                     {groupTitle}
                                   </p>
 
@@ -1029,24 +1047,30 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                                     {values.map((val, idx) => (
                                       <div
                                         key={`${val.check_id}-${val.field_name}-${idx}`}
-                                        className="flex justify-between gap-3 border-b border-gray-100 py-1 text-[11px] last:border-0"
+                                        className="flex justify-between gap-3 border-b border-[var(--border-subtle)] py-1 text-[11px] last:border-0"
                                       >
                                         <div className="min-w-0 flex-1">
-                                          <span className="text-gray-400">
+                                          <span className="text-[var(--text-faint)]">
                                             {val.field_name.replace(/_/g, " ")}
                                           </span>
 
                                           {(val.page || val.clause_uid) && (
-                                            <div className="mt-0.5 text-[10px] text-gray-300">
-                                              {val.page ? `стр. ${val.page}` : ""}
-                                              {val.page && val.clause_uid ? " · " : ""}
-                                              {val.clause_uid ? `clause: ${val.clause_uid}` : ""}
+                                            <div className="mt-0.5 text-[10px] text-[var(--text-faint)]">
+                                              {val.page
+                                                ? `стр. ${val.page}`
+                                                : ""}
+                                              {val.page && val.clause_uid
+                                                ? " · "
+                                                : ""}
+                                              {val.clause_uid
+                                                ? `clause: ${val.clause_uid}`
+                                                : ""}
                                             </div>
                                           )}
                                         </div>
 
                                         <div className="flex max-w-[60%] shrink-0 items-start gap-2">
-                                          <span className="break-words text-right font-medium text-gray-700">
+                                          <span className="break-words text-right text-[11px] font-medium text-[var(--text-primary)]">
                                             {val.field_value}
                                           </span>
 
@@ -1054,9 +1078,12 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
                                             <button
                                               type="button"
                                               onClick={() =>
-                                                handleOpenExtractedValue(val, segment)
+                                                handleOpenExtractedValue(
+                                                  val,
+                                                  segment,
+                                                )
                                               }
-                                              className="inline-flex items-center rounded border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-blue-700 hover:border-blue-200 hover:bg-blue-50"
+                                              className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-blue)] hover:border-[var(--color-blue-soft-border)] hover:bg-[var(--color-blue-soft-bg)]"
                                               title="Открыть в документе"
                                             >
                                               Открыть в документе
@@ -1079,39 +1106,40 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             );
           })()
         ) : (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-[var(--text-faint)]">
             Структурированные данные находятся в обработке. Обновите страницу
             через несколько минут после завершения анализа.
           </p>
         )}
       </Section>
 
+      {/* Результаты проверки */}
       {reviewData && (
         <Section title="Результаты проверки">
           {!hasReviewData ? (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-[var(--text-faint)]">
               Для этого документа пока нет review-результатов в DD Matrix.
             </p>
           ) : (
             <div className="space-y-3">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {reviewData.totalCritical > 0 && (
-                  <span className="inline-flex items-center rounded border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                  <span className="inline-flex items-center rounded-full bg-[var(--badge-error-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--badge-error-fg)]">
                     Critical: {reviewData.totalCritical}
                   </span>
                 )}
                 {reviewData.totalHigh > 0 && (
-                  <span className="inline-flex items-center rounded border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+                  <span className="inline-flex items-center rounded-full bg-[var(--badge-warning-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--badge-warning-fg)]">
                     High: {reviewData.totalHigh}
                   </span>
                 )}
                 {reviewData.totalUnclear > 0 && (
-                  <span className="inline-flex items-center rounded border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-[11px] font-medium text-yellow-700">
+                  <span className="inline-flex items-center rounded-full bg-[var(--badge-info-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--badge-info-fg)]">
                     Unclear: {reviewData.totalUnclear}
                   </span>
                 )}
                 {reviewData.totalFail > 0 && (
-                  <span className="inline-flex items-center rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                  <span className="inline-flex items-center rounded-full bg-[var(--badge-neutral-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-primary)]">
                     Fail: {reviewData.totalFail}
                   </span>
                 )}
@@ -1120,7 +1148,9 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {visibleReviewChecks.map((check) => (
                   <ReviewCheckCard
-                    key={`${check.checkId}-${check.segmentId ?? "doc"}-${check.chunkId ?? "chunk"}`}
+                    key={`${check.checkId}-${check.segmentId ?? "doc"}-${
+                      check.chunkId ?? "chunk"
+                    }`}
                     check={check}
                     documentId={documentId}
                     onOpenCell={onOpenReviewCell}
@@ -1133,6 +1163,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </Section>
       )}
 
+      {/* Информационный блок по документу */}
       <Section title="Информационный блок по документу">
         <DocumentPipelinePanel
           documentId={documentId}
@@ -1140,6 +1171,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         />
       </Section>
 
+      {/* Действия */}
       <Section title="Действия">
         <div className="flex flex-col gap-2">
           {pdfUrl && canOpenPdf && (
@@ -1147,7 +1179,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="flex items-center justify-center gap-2 rounded-full bg-[var(--color-blue)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-[var(--color-blue-deep)]"
             >
               <FileText size={16} />
               Открыть PDF
@@ -1160,7 +1192,7 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
               download={doc.filename}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 rounded bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+              className="flex items-center justify-center gap-2 rounded-full bg-[var(--bg-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-elevated-soft)]"
             >
               <Download size={16} />
               Скачать
@@ -1169,8 +1201,9 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
 
           {onNavigateToGrid && (
             <button
+              type="button"
               onClick={() => onNavigateToGrid(dealId, doc.filename)}
-              className="mt-1 flex items-center gap-1 text-sm text-blue-600 hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-[var(--color-blue)] hover:underline"
             >
               Открыть в DD Grid <ExternalLink size={12} />
             </button>
@@ -1178,17 +1211,18 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
         </div>
       </Section>
 
+      {/* Карантин / повторная загрузка */}
       {doc.status === "quarantine" && (
         <Section title="Карантин / повторная загрузка">
-          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3">
+          <div className="mb-3 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] p-3">
             <div className="flex items-start gap-2">
               <AlertTriangle
                 size={16}
-                className="mt-0.5 shrink-0 text-red-500"
+                className="mt-0.5 shrink-0 text-[var(--color-error)]"
               />
-              <div className="text-sm text-red-800">
+              <div className="text-xs text-[var(--color-error-text)]">
                 <p className="mb-1 font-medium">Документ в карантине</p>
-                <p className="text-xs text-red-600">
+                <p className="text-[11px]">
                   Замените файл корректной версией, чтобы запустить повторную
                   обработку.
                 </p>
@@ -1203,17 +1237,20 @@ export const DocumentDetails: React.FC<DocumentDetailsViewProps> = ({
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`rounded-lg border-2 border-dashed p-8 text-center transition ${
+            className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
               isDragging
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 bg-gray-50"
+                ? "border-[var(--color-blue)] bg-[var(--color-blue-soft-bg)]"
+                : "border-[var(--border-subtle)] bg-[var(--bg-subtle)]"
             }`}
           >
-            <Upload className="mx-auto mb-2 text-gray-400" size={32} />
-            <p className="mb-3 text-sm text-gray-600">
+            <Upload
+              className="mx-auto mb-2 text-[var(--text-muted)]"
+              size={28}
+            />
+            <p className="mb-2 text-sm text-[var(--text-primary)]">
               Перетащите файл сюда
             </p>
-            <label className="inline-block cursor-pointer rounded bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700">
+            <label className="inline-flex cursor-pointer items-center rounded-full bg-[var(--color-blue)] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[var(--color-blue-deep)]">
               Выбрать файл
               <input
                 type="file"
@@ -1242,11 +1279,11 @@ interface SectionProps {
 }
 
 const Section: React.FC<SectionProps> = ({ title, children }) => (
-  <section>
-    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+  <section className="space-y-1.5">
+    <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
       {title}
     </h4>
-    <div className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
+    <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-3 shadow-xs">
       {children}
     </div>
   </section>
@@ -1258,9 +1295,9 @@ interface InfoRowProps {
 }
 
 const InfoRow: React.FC<InfoRowProps> = ({ label, value }) => (
-  <div className="flex justify-between py-0.5 text-sm">
-    <span className="text-gray-400">{label}</span>
-    <span className="max-w-[60%] break-words text-right font-medium text-gray-800">
+  <div className="flex justify-between py-0.5 text-[11px]">
+    <span className="text-[var(--text-faint)]">{label}</span>
+    <span className="max-w-[60%] break-words text-right font-medium text-[var(--text-primary)]">
       {value}
     </span>
   </div>
@@ -1273,12 +1310,12 @@ interface FamilyRowProps {
 }
 
 const FamilyRow: React.FC<FamilyRowProps> = ({ icon, label, doc }) => (
-  <div className="flex items-center justify-between border-b border-gray-100 py-1 text-sm last:border-0">
+  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] py-1 text-xs last:border-0">
     <div className="flex min-w-0 items-center gap-2">
-      <span className="text-lg">{icon}</span>
+      <span className="text-base">{icon}</span>
       <div className="min-w-0">
-        <p className="truncate text-gray-800">{doc.filename}</p>
-        <p className="truncate text-[11px] text-gray-400">
+        <p className="truncate text-[var(--text-primary)]">{doc.filename}</p>
+        <p className="truncate text-[10px] text-[var(--text-faint)]">
           {label} · {doc.doc_type || "тип не указан"}
         </p>
       </div>
