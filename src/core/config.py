@@ -152,19 +152,20 @@ class Settings(BaseSettings):
     # (обратные слэши меняются на прямые), чтобы работало и под WSL/Linux.
     LLM_LOCAL_MODEL_PATH: str = r"C:\LegalMAS\LLMmodel\model.gguf"
 
-    # Контекстное окно и слои для CPU/GPU при использовании llama-cpp.
-    LLM_LOCAL_N_CTX: int = 4096
+    # Контекстное окно и слои для CPU/GPU при использовании llama-cpp. Qwen2.5 обучена на 32768, использование 4096 = 12% capacity
+    LLM_LOCAL_N_CTX: int = 8192 # минимум для нормальной работы
     LLM_LOCAL_N_GPU_LAYERS: int = 0  # 0 = CPU only, >0 = GPU offload
 
     # --- LLM: контроль контекстного окна ---
     # Максимальный размер контекстного окна модели в токенах.
     # Для llamacpp должен совпадать с LLM_LOCAL_N_CTX.
     # Если None или 0 — бюджетная проверка отключена (небезопасно для llamacpp).
-    LLM_CONTEXT_LIMIT: int = 4096
+    LLM_CONTEXT_LIMIT: int = 8192 # ОБЯЗАН совпадать с N_CTX
 
     # Запас токенов между концом промпта и концом окна.
     # Компенсирует неточность подсчёта токенов и системные overhead'ы модели.
-    LLM_SAFETY_MARGIN_TOKENS: int = 256
+    # При n_ctx=8192: под context останется 8192 - 512 - 512 - 4252 = 2916 реальных токенов — это ~750 слов договора, нормально для extraction чека.
+    LLM_SAFETY_MARGIN_TOKENS: int = 512 # поднять: компенсирует ×2.5 vs ×3.8
 
     # Минимальный бюджет под ответ. Если после промпта остаётся меньше —
     # вызов блокируется с LLMContextLimitError.

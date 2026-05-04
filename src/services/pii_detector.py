@@ -20,6 +20,7 @@ PII Detector.
 """
 
 import re
+import threading  # ← добавить эту строку
 from dataclasses import dataclass
 from core.config import settings
 from core.constants import PIIEntityType
@@ -199,10 +200,19 @@ class PIIDetector:
         return _deduplicate_overlapping(sorted(entities, key=lambda e: (e.start, -len(e.text))))
 
     def _detect_person_names(self, text: str) -> list[PIIEntity]:
-        """Детекция имён через NER."""
+        """
+        Детекция имён через NER.
+        
+        ВАЖНО: natasha NamesExtractor возвращает Doc.matches как generator.
+        Материализуем в list сразу, чтобы избежать проблем с исчерпанием
+        генератора при повторном обращении или отладке.
+        """
         result = []
         try:
-            for match in self._ner(text).matches:
+            # Явная материализация generator → list для defensive coding
+            matches = list(self._ner(text).matches)
+            
+            for match in matches:
                 span = match.span
                 result.append(
                     PIIEntity(
@@ -249,32 +259,50 @@ def _deduplicate_overlapping(entities: list[PIIEntity]) -> list[PIIEntity]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Factory function
+# Factory function — thread-safe singleton with ner_enabled cache
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_detector_instance: PIIDetector | None = None
+_detector_instances: dict[bool, PIIDetector] = {}
+_detector_lock = threading.Lock()
 
 
 def get_pii_detector(ner_enabled: bool | None = None) -> PIIDetector:
     """
-    Получить singleton-экземпляр детектора.
-
+    Получить singleton-экземпляр детектора с учётом ner_enabled.
+    
+    Thread-safe: использует lock для защиты dict от race conditions.
+    Cache key: ner_enabled (True/False) — два независимых singleton.
+    
     Args:
         ner_enabled: Включить NER. None = использовать settings.PII_NER_ENABLED
+    
+    Returns:
+        PIIDetector: Кешированный экземпляр для данного ner_enabled.
     """
-    global _detector_instance
-
-    if _detector_instance is None:
-        if ner_enabled is None:
-
-            ner_enabled = settings.PII_NER_ENABLED
-
-        _detector_instance = PIIDetector(ner_enabled=ner_enabled)
-
-    return _detector_instance
+    # Нормализуем ner_enabled: None → значение из settings
+    if ner_enabled is None:
+        ner_enabled = settings.PII_NER_ENABLED
+    
+    # Double-checked locking pattern для thread safety
+    if ner_enabled not in _detector_instances:
+        with _detector_lock:
+            # Повторная проверка внутри lock (другой поток мог создать между проверками)
+            if ner_enabled not in _detector_instances:
+                _detector_instances[ner_enabled] = PIIDetector(ner_enabled=ner_enabled)
+                logger.debug(
+                    "Created PIIDetector singleton",
+                    ner_enabled=ner_enabled,
+                )
+    
+    return _detector_instances[ner_enabled]
 
 
 def reset_detector() -> None:
-    """Сбросить singleton (для тестов)."""
-    global _detector_instance
-    _detector_instance = None
+    """
+    Сбросить все singleton-экземпляры (для тестов).
+    
+    После вызова следующий get_pii_detector() создаст новые экземпляры.
+    """
+    global _detector_instances
+    with _detector_lock:
+        _detector_instances.clear()

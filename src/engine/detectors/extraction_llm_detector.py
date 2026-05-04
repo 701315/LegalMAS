@@ -184,11 +184,33 @@ class ExtractionLLMDetector:
         Выполнить LLM-извлечение structured_data.
 
         Возвращает словарь вида:
-          {
+        {
             "field_name": {"value": ..., "confidence": 0.0-1.0},
             ...
-          }
+        }
         или пустой dict при ошибке/отсутствии данных.
+
+        Архитектура бюджетирования токенов
+        -----------------------------------
+        Правильный порядок операций:
+        1. Собрать скелет промпта БЕЗ context (с пустым placeholder).
+        2. Измерить реальный размер скелета — это и есть overhead.
+        3. Вычесть overhead + max_tokens + safety из n_ctx → остаток под context.
+        4. Если остаток <= MIN_CONTEXT_WORDS — вернуть {} с предупреждением
+            (скелет не помещается; нужно упрощать llm_prompt_extraction чека).
+        5. Обрезать context по остатку.
+        6. Собрать финальный промпт с реальным context.
+
+        Почему НЕ используем старый хардкод _template_overhead = 300 слов:
+        - Реальный overhead для governing_law_and_forum без context = 1119 слов.
+        - Хардкод недооценивал в 3.7x, что приводило к overflow контекстного окна.
+
+        Почему коэффициент 3.8, а не 2.5:
+        - count_tokens() использует CYRILLIC_TOKEN_FACTOR = 2.5 (слово → токены).
+        - Для Qwen2.5 SentencePiece на юридическом русском реальный коэффициент
+            3.5–4.0 токена на слово (кириллица в UTF-8 → субтокены).
+        - 3.8 — консервативная оценка, даёт запас ~5–10% от реального значения.
+        - Долгосрочно нужно заменить на llm_model.tokenize() для точного подсчёта.
         """
         extraction_cfg: ExtractionConfig | None = getattr(check, "extraction", None)
         if not extraction_cfg or not extraction_cfg.enabled:
@@ -201,28 +223,82 @@ class ExtractionLLMDetector:
         if not text.strip():
             return {}
 
-        # Обрезаем текст до безопасного бюджета ДО сборки промпта.
+        # ------------------------------------------------------------------
+        # 1. БЮДЖЕТ: читаем лимиты из settings один раз
+        # ------------------------------------------------------------------
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
+        _max_out = int(getattr(settings, "LLM_MAX_TOKENS", 512))
+        _safety = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
+
         if _limit > 0:
-            from engine.retrieval.tokenization import count_tokens
-            _max_out = int(getattr(settings, "LLM_MAX_TOKENS", 512))
-            _safety = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
-            # Грубая оценка overhead шаблона промпта: ~300 слов
-            _template_overhead = 300
-            _text_budget = _limit - _max_out - _safety - _template_overhead
-            _text_budget = max(200, _text_budget)
-            # Обрезка по словам
+            # ------------------------------------------------------------------
+            # 2. СКЕЛЕТ ПРОМПТА: собираем промпт с пустым context,
+            #    чтобы точно измерить overhead всех остальных частей.
+            #    Это единственный способ учесть реальный размер:
+            #    - json_format_ru.txt шаблона,
+            #    - llm_prompt_extraction чека (может быть очень большим),
+            #    - fields_schema (список полей с описаниями),
+            #    - example_json (пример структуры ответа).
+            # ------------------------------------------------------------------
+            prompt_skeleton = self._build_prompt(
+                check, extraction_cfg, context_text=""
+            )
+            skeleton_words = len(prompt_skeleton.split())
+
+            # Консервативный коэффициент для Qwen2.5 на русском юр. тексте.
+            # count_tokens() использует 2.5, что занижает реальность на 40-60%.
+            # 3.8 даёт запас ~10% к реальному значению.
+            _TOKEN_FACTOR = 3.8
+            skeleton_tokens = int(skeleton_words * _TOKEN_FACTOR)
+
+            # ------------------------------------------------------------------
+            # 3. GRACEFUL FALLBACK: если скелет уже не помещается — выходим.
+            #    Это значит llm_prompt_extraction чека слишком велик для n_ctx.
+            #    Решение: увеличить LLM_LOCAL_N_CTX / LLM_CONTEXT_LIMIT в config,
+            #    или упростить llm_prompt_extraction конкретного чека.
+            # ------------------------------------------------------------------
+            _min_context_words = 50  # меньше этого — извлечение бессмысленно
+            _min_context_tokens = int(_min_context_words * _TOKEN_FACTOR)
+
+            available_for_context = _limit - _max_out - _safety - skeleton_tokens
+
+            if available_for_context < _min_context_tokens:
+                logger.warning(
+                    "ExtractionLLMDetector: prompt skeleton alone "
+                    "exhausts context window — skipping extraction. "
+                    "Action required: increase LLM_LOCAL_N_CTX / "
+                    "LLM_CONTEXT_LIMIT in config, or simplify "
+                    "llm_prompt_extraction for this check.",
+                    check_id=getattr(check, "id", None),
+                    check_name=getattr(check, "name", None),
+                    skeleton_words=skeleton_words,
+                    skeleton_tokens_estimated=skeleton_tokens,
+                    context_limit=_limit,
+                    available_for_context=available_for_context,
+                    min_context_tokens=_min_context_tokens,
+                )
+                return {}
+
+            # ------------------------------------------------------------------
+            # 4. ОБРЕЗКА CONTEXT: по реальному остатку бюджета.
+            # ------------------------------------------------------------------
+            max_context_words = int(available_for_context / _TOKEN_FACTOR)
             words = text.split()
-            max_words = int(_text_budget / 2.5)
-            if len(words) > max_words:
-                text = " ".join(words[:max_words])
+            if len(words) > max_context_words:
+                text = " ".join(words[:max_context_words])
                 logger.debug(
-                    "ExtractionLLMDetector: text truncated to fit token budget",
+                    "ExtractionLLMDetector: context truncated to fit token budget",
+                    check_id=getattr(check, "id", None),
                     original_words=len(words),
-                    truncated_words=max_words,
-                    budget=_text_budget,
+                    truncated_words=max_context_words,
+                    skeleton_tokens=skeleton_tokens,
+                    available_for_context=available_for_context,
+                    context_limit=_limit,
                 )
 
+        # ------------------------------------------------------------------
+        # 5. ФИНАЛЬНЫЙ ПРОМПТ: собираем с реальным (возможно обрезанным) context.
+        # ------------------------------------------------------------------
         prompt = self._build_prompt(check, extraction_cfg, text)
         grammar_path = getattr(settings, "LLM_EXTRACTION_JSON_GRAMMAR_PATH", None)
 
@@ -241,15 +317,15 @@ class ExtractionLLMDetector:
             )
             return {}
 
-        if response is None or not response.text.strip():
+        if not response.text.strip():
             return {}
 
-        # 1) парсим JSON в "сырую" структуру
+        # 6) парсим JSON в "сырую" структуру
         raw_fields = self._parse_response(response.text)
         if not raw_fields:
             return {}
 
-        # 2) нормализуем значения по схеме extraction_cfg
+        # 7) нормализуем значения по схеме extraction_cfg
         normalized = self._normalize_fields(raw_fields, extraction_cfg)
         return normalized
 

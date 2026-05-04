@@ -15,10 +15,13 @@
   одна Celery-таска = один UnitOfWork/AsyncSession.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ops.instrument import setup_metrics
+from core.logging import get_logger
+from classifiers.yaml_registry import YAMLRegistry
 
 from .endpoints import (
     admin,
@@ -44,10 +47,42 @@ from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
 from .endpoints.deals.router import router as deals_router
 
+logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager для FastAPI — управляет startup и shutdown событиями.
+
+    Для непрофессионального программиста:
+    - Этот код запускается один раз при старте приложения (до yield).
+    - После yield — код выполняется при завершении приложения (shutdown).
+    - Используем современный подход через context manager вместо deprecated @app.on_event().
+    
+    Что происходит при startup:
+    - Валидируем YAML Registry (все regex-паттерны в конфигах типов документов).
+    - Если есть кривой паттерн — приложение не стартует (fail-fast).
+    - Это критично для production: лучше упасть сразу, чем работать с неполными правилами.
+    """
+    # === STARTUP: валидация YAML Registry ===
+    logger.info("Validating YAML registry on API startup...")
+    registry = YAMLRegistry.get_instance(validate=True)
+    logger.info(
+        "YAML registry validation passed",
+        types_loaded=len(registry.list_types()),
+    )
+    
+    yield  # Здесь FastAPI запускается и обрабатывает запросы
+    
+    # === SHUTDOWN: cleanup (если потребуется в будущем) ===
+    logger.info("API shutdown — cleanup complete")
+
 
 app = FastAPI(
     title="LegalMAS API",
     version="0.1.0",
+    lifespan=lifespan,  # Подключаем lifespan context manager
 )
 
 setup_metrics(app)
@@ -127,3 +162,7 @@ app.include_router(exports.router, prefix="/api/v1")
 
 # Журнал аудита (GET /deals/{deal_id}/audit, POST /audit-log)
 app.include_router(audit.router, prefix="/api/v1")
+
+
+
+

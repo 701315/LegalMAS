@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-CYRILLIC_TOKEN_FACTOR = 2.5  # слово → ~2.5 токена модели для кириллицы
+CYRILLIC_TOKEN_FACTOR = 3.8  # слово → ~3.8 токена модели для кириллицы
 
 
 def count_tokens(text: str) -> int:

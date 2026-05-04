@@ -6,9 +6,7 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# полностью отдаём управление anyio, pytest-asyncio не нужен
-# asyncio_mode = "auto"
-# asyncio_default_fixture_loop_scope = "function"
+pythonpath = [".", "src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

@@ -29,7 +29,7 @@ import os
 from typing import Any, Dict
 
 from .base import BaseLLMClassifier, ClassificationResult
-from .registry_loader import get_doc_type_config, load_registry
+from .yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import ClassificationLevel
 from core.logging import get_logger
@@ -67,22 +67,29 @@ _CLASSIFY_PROMPT = (
 )
 
 
-def _build_types_list(registry_path: str) -> str:
-    """Собрать список известных типов для подстановки в промпт LLM."""
-    registry = load_registry(registry_path)
+def _build_types_list() -> str:
+    """
+    Собрать список известных типов для подстановки в промпт LLM.
+    
+    Для непрофессионального программиста:
+    - Получаем singleton YAMLRegistry (уже валидирован при старте).
+    - Строим строку вида:
+        - contract_1.1_spa: Договор купли-продажи акций
+        - contract_1.6_real_estate: Договор купли-продажи недвижимости
+        ...
+    - Эту строку подставляем в промпт для LLM.
+    """
+    registry = YAMLRegistry.get_instance(validate=False)
     lines: list[str] = []
-    for cfg in registry.get("document_types", []):
-        doc_type = cfg.get("type", "")
-        name = cfg.get("name", "")
-        if doc_type:
-            lines.append(f"  - {doc_type}: {name}")
+    
+    for cfg in registry.get_all_configs():
+        if cfg.type_code:
+            lines.append(f"  - {cfg.type_code}: {cfg.name}")
+    
     return "\n".join(lines)
 
 
-def _parse_llm_json(
-    raw_text: str,
-    registry: Dict[str, Any],
-) -> tuple[str, float, str]:
+def _parse_llm_json(raw_text: str) -> tuple[str, float, str]:
     """
     Аккуратно разобрать JSON из ответа LLM и привести к безопасным значениям.
 
@@ -94,6 +101,12 @@ def _parse_llm_json(
         * число 0–1, любые NaN/отрицательные/больше 1 обрезаются в [0, 1].
     - reasoning:
         * строка (даже если в JSON было что-то иное).
+    
+    Для непрофессионального программиста:
+    - LLM иногда возвращает текст с мусором до/после JSON.
+    - Ищем первую открывающую скобку { и последнюю закрывающую }.
+    - Парсим JSON между ними.
+    - Проверяем, что type_code есть в YAMLRegistry.
     """
     # 1. Вырезаем JSON-объект из текста (на случай, если модель добавила мусор).
     start_idx = raw_text.find("{")
@@ -120,7 +133,8 @@ def _parse_llm_json(
         raw_type = ""
 
     # Проверяем, что тип есть в YAML‑реестре.
-    allowed_types = {cfg.get("type", "") for cfg in registry.get("document_types", [])}
+    registry = YAMLRegistry.get_instance(validate=False)
+    allowed_types = {cfg.type_code for cfg in registry.get_all_configs()}
     best_type = raw_type if raw_type in allowed_types else "UNKNOWN"
 
     # 3. Нормализуем confidence.
@@ -141,10 +155,8 @@ def _parse_llm_json(
 
     return best_type, conf, reasoning
 
-def _build_llm_contract_payload(
-    raw_text: str,
-    registry: Dict[str, Any],
-) -> Dict[str, Any]:
+
+def _build_llm_contract_payload(raw_text: str) -> Dict[str, Any]:
     """
     Построить нормализованный L4‑контракт для результата классификации.
 
@@ -166,10 +178,7 @@ def _build_llm_contract_payload(
     }
 
     try:
-        best_type, confidence, reasoning = _parse_llm_json(
-            raw_text=text,
-            registry=registry,
-        )
+        best_type, confidence, reasoning = _parse_llm_json(raw_text=text)
         raw["parse_success"] = True
         raw["parsed_json"] = {
             "type_code": best_type,
@@ -194,6 +203,7 @@ def _build_llm_contract_payload(
         "raw": raw,
     }
 
+
 class LocalLLMClassifier(BaseLLMClassifier):
     """
     L4‑классификатор на базе локальной GGUF‑модели (llama‑cpp‑python).
@@ -201,7 +211,7 @@ class LocalLLMClassifier(BaseLLMClassifier):
     Особенности:
     - Модель загружается из файла LLM_LOCAL_MODEL_PATH.
     - Работает локально, поэтому безопасна для сырого текста (без анонимизации).
-    - Использует общий промпт _CLASSIFY_PROMPT и список типов из YAML‑реестра.
+    - Использует общий промпт _CLASSIFY_PROMPT и список типов из YAMLRegistry.
     """
 
     def __init__(
@@ -209,12 +219,10 @@ class LocalLLMClassifier(BaseLLMClassifier):
         model_path: str,
         n_ctx: int = 4096,
         n_gpu_layers: int = 0,
-        registry_path: str = "playbooks/document_types",
     ):
         self.model_path = model_path
         self.n_ctx = n_ctx
         self.n_gpu_layers = n_gpu_layers
-        self.registry_path = registry_path
         self._llm = None
 
     @property
@@ -282,10 +290,9 @@ class LocalLLMClassifier(BaseLLMClassifier):
                 method="local_llm_unavailable",
             )
 
-        registry = load_registry(self.registry_path)
         candidates = (metadata or {}).get("candidates", [])
         candidates_str = json.dumps(candidates, ensure_ascii=False)
-        types_list = _build_types_list(self.registry_path)
+        types_list = _build_types_list()
 
         prompt = _CLASSIFY_PROMPT.format(
             types_list=types_list,
@@ -306,18 +313,21 @@ class LocalLLMClassifier(BaseLLMClassifier):
             response_text = response["choices"][0]["text"].strip()
 
             # Строим нормализованный L4‑контракт (type_code/confidence/reasoning/raw)
-            contract = _build_llm_contract_payload(
-                raw_text=response_text,
-                registry=registry,
-            )
+            contract = _build_llm_contract_payload(raw_text=response_text)
 
             best_type = contract["type_code"]
             confidence = contract["confidence"]
             reasoning = contract["reasoning"]
 
             # Извлекаем метаданные для найденного типа из реестра.
-            cfg = get_doc_type_config(registry, best_type) or {}
-            doc_meta = cfg.get("metadata", {}) or {}
+            registry = YAMLRegistry.get_instance(validate=False)
+            cfg = registry.get_config(best_type)
+            
+            language = "ru"
+            jurisdiction = "RU"
+            if cfg:
+                language = cfg.language
+                jurisdiction = cfg.jurisdiction
 
             # Для непрофессионального программиста:
             # - основной результат остаётся таким же (doctype/confidence/evidence);
@@ -329,13 +339,13 @@ class LocalLLMClassifier(BaseLLMClassifier):
                 level=ClassificationLevel.L4_LLM,
                 method="local_gguf",
                 evidence=reasoning,
-                language=doc_meta.get("language", "ru"),
-                jurisdiction=doc_meta.get("jurisdiction", "RU"),
+                language=language,
+                jurisdiction=jurisdiction,
                 extra={
                     "llm_contract": contract,
                 },
             )
-        
+
         except (json.JSONDecodeError, ValueError) as e:
             # Типичная ситуация: LLM вернул текст без валидного JSON.
             logger.warning(
@@ -395,7 +405,6 @@ class AnthropicClassifier(BaseLLMClassifier):
 def create_llm_classifier(
     provider: str | None = None,
     pii_mode: str | None = None,
-    registry_path: str | None = None,
 ) -> BaseLLMClassifier | None:
     """
     Создать L4 LLM‑классификатор в зависимости от настроек.
@@ -405,8 +414,6 @@ def create_llm_classifier(
                       Если не задан, берётся из settings.LLM_PROVIDER.
     - pii_mode      : режим работы с персональными данными
                       (зарезервирован, текущая реализация не использует).
-    - registry_path : путь к YAML‑реестру типов документов.
-                      Если не задан, берётся из settings.CLASSIFIER_REGISTRY_PATH.
 
     Поведение:
     - "none"       → возвращает None, L4 отключён.
@@ -414,9 +421,12 @@ def create_llm_classifier(
     - "openai"     → возвращает заглушку OpenAIClassifier.
     - "anthropic"  → возвращает заглушку AnthropicClassifier.
     - Если модель/ключи не найдены, логирует предупреждение и возвращает None.
+    
+    Для непрофессионального программиста:
+    - YAMLRegistry уже загружен при старте FastAPI (через lifespan).
+    - Здесь мы только создаём объект классификатора, не грузим реестр заново.
     """
     provider = provider or settings.LLM_PROVIDER
-    reg_path = registry_path or settings.CLASSIFIER_REGISTRY_PATH
 
     if provider == "none":
         return None
@@ -430,7 +440,6 @@ def create_llm_classifier(
             model_path=model_path,
             n_ctx=settings.LLM_LOCAL_N_CTX,
             n_gpu_layers=settings.LLM_LOCAL_N_GPU_LAYERS,
-            registry_path=reg_path,
         )
 
     if provider == "openai":
@@ -440,7 +449,6 @@ def create_llm_classifier(
         return OpenAIClassifier(
             model=settings.LLM_CLOUD_MODEL,
             api_key=settings.LLM_CLOUD_API_KEY,
-            registry_path=reg_path,
         )
 
     if provider == "anthropic":
@@ -450,7 +458,8 @@ def create_llm_classifier(
         return AnthropicClassifier(
             model=settings.LLM_CLOUD_MODEL,
             api_key=settings.LLM_CLOUD_API_KEY,
-            registry_path=reg_path,
         )
 
     return None
+
+

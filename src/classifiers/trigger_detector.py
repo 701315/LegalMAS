@@ -42,7 +42,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-from .registry_loader import get_doc_type_config
+from .yaml_registry import YAMLRegistry
 
 
 def _is_trigger_active(trigger_cfg: dict, text_lower: str) -> bool:
@@ -89,16 +89,11 @@ def _is_trigger_active(trigger_cfg: dict, text_lower: str) -> bool:
     return False
 
 
-def detect_triggers(
-    registry: dict,
-    text: str,
-    doctype: str,
-) -> List[str]:
+def detect_triggers(text: str, doctype: str) -> List[str]:
     """
     Определить, какие триггеры активны для конкретного типа документа.
 
     Параметры:
-    - registry: результат загрузки реестра (load_registry).
     - text    : полный текст документа (или репрезентативный фрагмент).
     - doctype : код типа документа (например, "contract_1.6_real_estate").
 
@@ -108,12 +103,19 @@ def detect_triggers(
         * тип не найден в реестре,
         * у типа нет trigger_definitions,
         * или ни один триггер не сработал.
+    
+    Для непрофессионального программиста:
+    - Получаем singleton YAMLRegistry (уже валидирован при старте).
+    - Находим конфиг типа документа.
+    - Проверяем каждый триггер из trigger_definitions.
     """
-    cfg = get_doc_type_config(registry, doctype)
+    registry = YAMLRegistry.get_instance(validate=False)
+    cfg = registry.get_config(doctype)
+    
     if not cfg:
         return []
 
-    trigger_defs = cfg.get("trigger_definitions", {})
+    trigger_defs = cfg.trigger_definitions
     if not trigger_defs or not isinstance(trigger_defs, dict):
         return []
 
@@ -127,10 +129,7 @@ def detect_triggers(
     return triggered
 
 
-def detect_all_triggers(
-    registry: dict,
-    text: str,
-) -> Dict[str, List[str]]:
+def detect_all_triggers(text: str) -> Dict[str, List[str]]:
     """
     Определить активные триггеры сразу для ВСЕХ типов документов.
 
@@ -140,7 +139,6 @@ def detect_all_triggers(
       (например, ипотека, маткапитал, наследство, сельхозземли).
 
     Параметры:
-    - registry: результат загрузки реестра (load_registry).
     - text    : полный текст документа (или репрезентативный фрагмент).
 
     Возвращает:
@@ -151,16 +149,23 @@ def detect_all_triggers(
           ...
         }
       Только те типы, у которых реально нашли активные триггеры.
+    
+    Для непрофессионального программиста:
+    - Получаем singleton YAMLRegistry.
+    - Обходим все типы документов.
+    - Для каждого типа проверяем его триггеры.
+    - Возвращаем только те типы, у которых хоть один триггер сработал.
     """
+    registry = YAMLRegistry.get_instance(validate=False)
     result: Dict[str, List[str]] = {}
     text_lower = (text or "").lower()  # Оптимизация: приводим к нижнему регистру один раз
 
-    for cfg in registry.get("document_types", []):
-        doctype = cfg.get("type", "")
+    for cfg in registry.get_all_configs():
+        doctype = cfg.type_code
         if not doctype:
             continue
 
-        trigger_defs = cfg.get("trigger_definitions", {})
+        trigger_defs = cfg.trigger_definitions
         if not trigger_defs or not isinstance(trigger_defs, dict):
             continue
 
@@ -173,3 +178,5 @@ def detect_all_triggers(
             result[doctype] = triggered
 
     return result
+
+

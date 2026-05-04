@@ -83,18 +83,22 @@ class DocumentTypeConfig:
             runtime.get("trigger_definitions") or validation.get("trigger_definitions") or {}
         )
 
-        # --- filename_patterns / folder_patterns: для L1 ---
-        # Эти паттерны используются L1FilenameClassifier для быстрого матча по имени файла и пути.
-        self.filename_patterns: list = [
-            re.compile(p.lstrip("r").strip('"').strip("'"))
-            for p in rules.get("filename_patterns", [])
-            if isinstance(p, str)
-        ]
-        self.folder_patterns: list = [
-            re.compile(p.lstrip("r").strip('"').strip("'"))
-            for p in rules.get("folder_patterns", [])
-            if isinstance(p, str)
-        ]
+        # === FIX P2a: filename_patterns / folder_patterns через _compile_regex_list ===
+        # БЫЛО (UNPROTECTED):
+        #   self.filename_patterns = [re.compile(...) for p in ...]  # CRASH на invalid regex
+        # СТАЛО (PROTECTED):
+        #   self.filename_patterns = self._compile_regex_list(...)  # warning + skip на invalid
+        #
+        # Для непрофессионального программиста:
+        # - Раньше если в YAML был кривой regex в filename_patterns, программа падала.
+        # - Теперь используем защищённый метод _compile_regex_list(), который логирует
+        #   ошибку и пропускает кривой паттерн, не роняя весь сервис.
+        self.filename_patterns = self._compile_regex_list(
+            rules.get("filename_patterns", [])
+        )
+        self.folder_patterns = self._compile_regex_list(
+            rules.get("folder_patterns", [])
+        )
 
         # --- header_patterns: для L2 ---
         # 1) пытаемся взять явные header_patterns из YAML (runtime или корень)
@@ -184,6 +188,11 @@ class DocumentTypeConfig:
         - обрезаем обрамляющие кавычки и префикс r;
         - логируем, но НЕ падаем при ошибке компиляции, чтобы
           один кривой паттерн не клал весь сервис.
+        
+        Для непрофессионального программиста:
+        - Этот метод принимает список строк из YAML (например, keywords.high).
+        - Каждую строку превращает в скомпилированный regex-паттерн.
+        - Если паттерн невалидный — логируем warning и пропускаем его (не крашим приложение).
         """
         compiled: list[re.Pattern] = []
         for raw in items or []:
@@ -293,8 +302,90 @@ class YAMLRegistry:
 
         logger.info(
             "YAML registry loaded",
-            types=list(self._configs.keys()),
+            total_types=len(self._configs),
         )
+        logger.debug(
+            "YAML registry types preview",
+            sample_types=list(self._configs.keys())[:10],
+        )
+
+    # === FIX P2b: validate_all_patterns() — startup validation ===
+    def validate_all_patterns(self) -> tuple[bool, list[dict]]:
+        """
+        Валидация всех regex-паттернов в загруженных конфигах.
+
+        Returns:
+            (is_valid, errors_list)
+            
+        Для непрофессионального программиста:
+        - Этот метод вызывается при старте приложения (после _load).
+        - Обходит все загруженные типы документов (self._configs).
+        - Для каждого типа проверяет ВСЕ поля с regex-паттернами:
+          filename_patterns, folder_patterns, header_patterns, keywords, exclusions.
+        - Если хоть один паттерн невалиден → возвращаем False + список ошибок.
+        - Если всё валидно → возвращаем True + пустой список.
+        
+        Зачем это нужно:
+        - При загрузке через _compile_regex_list() кривые паттерны пропускаются молча (warning в логах).
+        - Это удобно для runtime tolerance (один кривой паттерн не роняет сервис).
+        - Но на старте мы хотим fail-fast: если YAML кривой — лучше упасть сразу с понятной ошибкой,
+          чем работать с неполными правилами классификации.
+        """
+        errors = []
+
+        for type_code, cfg in self._configs.items():
+            raw = cfg.raw or {}
+            runtime = raw.get("classification_runtime_v1") or {}
+            rules = runtime.get("rules") or raw.get("rules", {}) or {}
+
+            # Проверяем все поля с паттернами
+            pattern_fields = {
+                "filename_patterns": rules.get("filename_patterns", []),
+                "folder_patterns": rules.get("folder_patterns", []),
+                "header_patterns": (
+                    runtime.get("header_patterns")
+                    or raw.get("header_patterns")
+                    or rules.get("header_patterns")
+                    or rules.get("keywords", {}).get("high", [])
+                ),
+                "keywords.high": rules.get("keywords", {}).get("high", []),
+                "keywords.medium": rules.get("keywords", {}).get("medium", []),
+                "keywords.low": rules.get("keywords", {}).get("low", []),
+                "exclusions": rules.get("exclusions", []),
+            }
+
+            for field_name, patterns in pattern_fields.items():
+                for pattern_str in patterns or []:
+                    if not isinstance(pattern_str, str):
+                        continue
+                    clean = pattern_str.lstrip("r").strip('"').strip("'")
+                    if not clean:
+                        continue
+                    try:
+                        re.compile(clean)
+                    except re.error as e:
+                        errors.append(
+                            {
+                                "type_code": type_code,
+                                "field": field_name,
+                                "pattern": pattern_str,
+                                "error": str(e),
+                            }
+                        )
+
+        is_valid = len(errors) == 0
+
+        if not is_valid:
+            logger.error(
+                "YAML Registry validation FAILED",
+                extra={"total_errors": len(errors), "errors_sample": errors[:10]},
+            )
+        else:
+            logger.info(
+                "YAML Registry validation PASSED", total_types=len(self._configs)
+            )
+
+        return is_valid, errors
 
     def get_all_configs(self) -> list:
         return list(self._configs.values())
@@ -302,14 +393,66 @@ class YAMLRegistry:
     def get_config(self, type_code: str) -> DocumentTypeConfig | None:
         return self._configs.get(type_code)
 
+    # === FIX P5: get_instance() с параметром validate для fail-fast ===
     @classmethod
-    def get_instance(cls) -> "YAMLRegistry":
+    def get_instance(cls, validate: bool = True) -> "YAMLRegistry":
+        """
+        Получить singleton-экземпляр YAMLRegistry.
+        
+        Args:
+            validate: если True — после загрузки вызываем validate_all_patterns()
+                      и падаем с RuntimeError при наличии invalid regex-паттернов.
+                      Используйте validate=True при старте приложения (fail-fast).
+                      Используйте validate=False в тестах или для hot-reload.
+        
+        Для непрофессионального программиста:
+        - Это метод класса (не требует создания объекта).
+        - При первом вызове создаёт единственный экземпляр YAMLRegistry (singleton).
+        - Если validate=True (по умолчанию):
+          1) Загружаем все YAML-конфиги (метод _load).
+          2) Проверяем все regex-паттерны (метод validate_all_patterns).
+          3) Если есть кривые паттерны → падаем с RuntimeError и показываем, что именно сломано.
+          4) Если всё ОК → возвращаем registry.
+        
+        Зачем validate=True по умолчанию:
+        - При старте приложения мы хотим fail-fast: лучше упасть сразу, чем работать с кривыми правилами.
+        - В production это критично: если админ ошибся в YAML, сервис не должен стартовать.
+        
+        Когда используется validate=False:
+        - В unit-тестах, где специально тестируем поведение на кривых YAML.
+        - При hot-reload в Stage 6 (перезагрузка без падения сервиса).
+        """
         global _instance
         if _instance is None:
             with _lock:
                 if _instance is None:
-                    path = getattr(settings, "CLASSIFIER_REGISTRY_PATH", "playbooks/document_types")
+                    path = getattr(
+                        settings,
+                        "CLASSIFIER_REGISTRY_PATH",
+                        "playbooks/document_types",
+                    )
                     _instance = cls(path)
+
+                    # НОВОЕ: startup validation
+                    if validate:
+                        is_valid, errors = _instance.validate_all_patterns()
+                        if not is_valid:
+                            # Формируем понятное сообщение об ошибке с примерами
+                            error_summary = "\n".join(
+                                f"  • {e['type_code']}.{e['field']}: {e['pattern']!r} → {e['error']}"
+                                for e in errors[:5]  # показываем первые 5 ошибок
+                            )
+                            total_errors = len(errors)
+                            more_msg = (
+                                f"\n  ... and {total_errors - 5} more errors"
+                                if total_errors > 5
+                                else ""
+                            )
+                            raise RuntimeError(
+                                f"YAML Registry has {total_errors} invalid regex pattern(s):\n"
+                                f"{error_summary}{more_msg}\n"
+                                f"Fix YAML files before starting the service."
+                            )
         return _instance
 
     def get_master_doc_types(self) -> list[str]:
@@ -342,7 +485,6 @@ class YAMLRegistry:
             yaml_master_types=master_types,
         )
         return master_types
-
 
     def get_classification_rules(self, type_code: str) -> dict:
         """
@@ -399,3 +541,5 @@ class YAMLRegistry:
         global _instance
         with _lock:
             _instance = None
+
+
