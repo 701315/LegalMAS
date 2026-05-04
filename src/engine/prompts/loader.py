@@ -41,7 +41,7 @@ def _get_prompts_root() -> Path:
     - Если что-то пошло не так — fallback в ./prompts от текущей рабочей директории.
     """
     try:
-        prompts_dir = settings.PROMPTSDIR  # например, "prompts"
+        prompts_dir = settings.PROMPTS_DIR  # например, "prompts"
         if not prompts_dir:
             raise ValueError("PROMPTSDIR is empty")
 

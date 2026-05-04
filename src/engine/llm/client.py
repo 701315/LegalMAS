@@ -96,39 +96,23 @@ class LLMClient:
         requested_max_tokens: int,
     ) -> tuple[int, dict]:
         """
-        Посчитать эффективный max_tokens с учётом общего лимита модели.
-
-        Инвариант:
-            prompt_tokens + effective_max_tokens + safety_margin <= model_limit
-
-        Термины:
-        - prompt_tokens: токены входного prompt
-        - reserved_output_tokens: максимум токенов, который можно отдать под ответ
-          после вычета prompt и safety_margin
-        - effective_max_tokens: фактически используемый max_tokens для вызова модели
-
-        Raises:
-            LLMContextLimitError: если prompt уже превышает контекстное окно
-                                  или оставшийся бюджет слишком мал для ответа.
+        Fail-fast check: влезает ли prompt + requested_max_tokens в окно модели.
+        
+        Вызывающий код (LLMDetector) отвечает за то, чтобы prompt был правильного размера.
+        Этот метод только проверяет финальный инвариант и выбрасывает LLMContextLimitError.
         """
         model_limit = getattr(settings, "LLM_CONTEXT_LIMIT", None)
         safety_margin = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
         min_output_tokens = int(getattr(settings, "LLM_MIN_OUTPUT_TOKENS", 64))
 
-        diagnostics: dict[str, Any] = {
+        diagnostics = {
             "model_limit": model_limit,
             "requested_max_tokens": int(requested_max_tokens),
-            "effective_max_tokens": int(requested_max_tokens),
             "prompt_tokens": None,
-            "reserved_output_tokens": None,
-            "available_for_output": None,
+            "effective_max_tokens": int(requested_max_tokens),
             "safety_margin": safety_margin,
-            "min_output_tokens": min_output_tokens,
-            "budget_enforced": False,
-            "output_budget_reduced": False,
         }
 
-        # Если лимит не задан — ведём себя как раньше.
         if not isinstance(model_limit, int) or model_limit <= 0:
             return int(requested_max_tokens), diagnostics
 
@@ -136,66 +120,21 @@ class LLMClient:
         diagnostics["prompt_tokens"] = int(prompt_tokens)
 
         reserved_output_tokens = model_limit - prompt_tokens - safety_margin
-        diagnostics["reserved_output_tokens"] = int(reserved_output_tokens)
-        diagnostics["available_for_output"] = int(reserved_output_tokens)
-
-        # ── Жёсткий блок 1: промпт сам по себе превышает окно ──────────────
+        
         if reserved_output_tokens <= 0:
-            logger.warning(
-                "LLMClient: prompt exceeds model context window",
-                provider=self.provider,
-                model_limit=model_limit,
-                prompt_tokens=prompt_tokens,
-                requested_max_tokens=int(requested_max_tokens),
-                reserved_output_tokens=int(reserved_output_tokens),
-                safety_margin=safety_margin,
-            )
             raise LLMContextLimitError(
-                f"LLM prompt exceeds model context limit "
-                f"(prompt_tokens={prompt_tokens}, model_limit={model_limit}, "
-                f"safety_margin={safety_margin})"
+                f"Prompt exceeds model context (prompt={prompt_tokens}, "
+                f"limit={model_limit}, margin={safety_margin})"
             )
-
-        # ── Жёсткий блок 2: бюджет под ответ меньше минимума ───────────────
+        
         if reserved_output_tokens < min_output_tokens:
-            logger.warning(
-                "LLMClient: insufficient output token budget",
-                provider=self.provider,
-                model_limit=model_limit,
-                prompt_tokens=prompt_tokens,
-                requested_max_tokens=int(requested_max_tokens),
-                reserved_output_tokens=int(reserved_output_tokens),
-                min_output_tokens=int(min_output_tokens),
-                safety_margin=safety_margin,
-            )
             raise LLMContextLimitError(
-                f"LLM prompt leaves insufficient output token budget "
-                f"(reserved={reserved_output_tokens}, min_required={min_output_tokens})"
+                f"Insufficient output budget (reserved={reserved_output_tokens}, "
+                f"min_required={min_output_tokens})"
             )
 
-        effective_max_tokens = min(
-            int(requested_max_tokens),
-            int(reserved_output_tokens),
-        )
-
+        effective_max_tokens = min(int(requested_max_tokens), int(reserved_output_tokens))
         diagnostics["effective_max_tokens"] = int(effective_max_tokens)
-        diagnostics["budget_enforced"] = True
-        diagnostics["output_budget_reduced"] = (
-            int(effective_max_tokens) < int(requested_max_tokens)
-        )
-
-        logger.info(
-            "LLM token budget computed",
-            provider=self.provider,
-            model_limit=model_limit,
-            prompt_tokens=int(prompt_tokens),
-            requested_max_tokens=int(requested_max_tokens),
-            reserved_output_tokens=int(reserved_output_tokens),
-            effective_max_tokens=int(effective_max_tokens),
-            safety_margin=int(safety_margin),
-            min_output_tokens=int(min_output_tokens),
-            output_budget_reduced=diagnostics["output_budget_reduced"],
-        )
 
         return effective_max_tokens, diagnostics
 

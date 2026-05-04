@@ -161,17 +161,10 @@ class LLMDetector:
         self,
         config: LLMConfig,
         chunks: list[RetrievedChunk],
-        use_sanitized: bool = True,  # зарезервировано на будущее (PII)
+        use_sanitized: bool = True,
     ) -> DetectionResult | None:
         """
         Запустить LLM-детекцию по списку чанков.
-
-        Возвращает:
-        - DetectionResult: если удалось построить осмысленный результат
-          (даже если LLM дал ошибку — мы всё равно описываем её в details).
-        - None: только если совсем невозможно запустить LLM (нет провайдера,
-          нет промпта, нет чанков). В этом случае HybridDetector останется
-          на правилах (rules_only).
         """
         if not self.client.is_available():
             logger.debug("LLMDetector: LLM not available, skipping LLM detection")
@@ -198,7 +191,14 @@ class LLMDetector:
         context_chunks = chunks[: max(1, context_k)]
 
         # Считаем бюджет под контекст: окно - резерв под output - safety - шаблон промпта.
+        # В detect() нет extra_variables — только {context}, поэтому template уже финальный.
         _template_tokens = count_tokens(prompt_template)
+
+        logger.debug(
+            "LLMDetector.detect: template tokens calculated",
+            template_tokens=_template_tokens,
+        )
+
         _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         if _limit > 0:
@@ -209,8 +209,6 @@ class LLMDetector:
             context_text = self._build_context(context_chunks)
 
         # Рендерим промпт через безопасный _render_prompt().
-        # detect() подставляет только {context} — этого достаточно для
-        # простых промптов без дополнительных переменных.
         prompt, render_error = self._render_prompt(
             template=prompt_template,
             variables={"{context}": context_text},
@@ -259,16 +257,6 @@ class LLMDetector:
     ) -> DetectionResult | None:
         """
         Вариант detect, когда промпт ожидает дополнительные переменные.
-
-        Например, generic_presence.txt с плейсхолдерами:
-          {condition_name}, {legal_base}, {context}
-
-        extra_variables передаётся из HybridDetector и содержит значения
-        вроде {"condition_name": check.name, "legal_base": check.description}.
-
-        ВАЖНО: ключи в extra_variables должны быть БЕЗ фигурных скобок,
-        например: {"condition_name": "...", "legal_base": "..."}.
-        _render_prompt сам добавит скобки при подстановке.
         """
         if not self.client.is_available():
             logger.debug("LLMDetector: LLM not available, skipping detect_with_variables")
@@ -294,8 +282,27 @@ class LLMDetector:
         context_k = config.context_k if hasattr(config, "context_k") else 5
         context_chunks = chunks[: max(1, context_k)]
 
-        # Считаем бюджет под контекст: окно - резерв под output - safety - шаблон промпта.
-        _template_tokens = count_tokens(prompt_template)
+        # Собираем все переменные ДО расчёта template_tokens
+        variables: dict[str, str] = {"{context}": ""}  # Пустой context для расчёта template
+        for key, value in extra_variables.items():
+            normalized_key = key if key.startswith("{") else f"{{{key}}}"
+            variables[normalized_key] = str(value) if value is not None else ""
+
+        # Рендерим template со ВСЕМИ переменными кроме {context}
+        template_only_vars = {k: v for k, v in variables.items() if k != "{context}"}
+        template_rendered_no_context, _ = self._render_prompt(
+            prompt_template, 
+            template_only_vars
+        )
+        _template_tokens = count_tokens(template_rendered_no_context)
+
+        logger.debug(
+            "LLMDetector.detect_with_variables: template tokens calculated",
+            template_tokens=_template_tokens,
+            variables_count=len(template_only_vars),
+        )
+
+        # Считаем бюджет под контекст
         _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         if _limit > 0:
@@ -305,16 +312,10 @@ class LLMDetector:
         else:
             context_text = self._build_context(context_chunks)
 
-        # Собираем все переменные для подстановки.
-        # context всегда добавляется автоматически.
-        # extra_variables приходят без фигурных скобок → оборачиваем их.
-        variables: dict[str, str] = {"{context}": context_text}
-        for key, value in extra_variables.items():
-            # Ключи могут приходить как "condition_name" или "{condition_name}" —
-            # нормализуем к единому формату с фигурными скобками.
-            normalized_key = key if key.startswith("{") else f"{{{key}}}"
-            variables[normalized_key] = str(value) if value is not None else ""
+        # Обновляем {context} в variables реальным текстом
+        variables["{context}"] = context_text
 
+        # Рендерим финальный prompt
         prompt, render_error = self._render_prompt(
             template=prompt_template,
             variables=variables,
@@ -568,6 +569,16 @@ class LLMDetector:
 
             parts.append(entry)
             used += entry_tokens
+
+        logger.info(
+            "LLMDetector: context fitted to budget",
+            original_chunks=len(chunks),
+            kept_chunks=len(parts),
+            dropped_chunks=len(chunks) - len(parts),
+            used_tokens=used,
+            budget_tokens=token_budget,
+            utilization=f"{100 * used / token_budget:.1f}%",
+        )
 
         return "\n".join(parts)
 

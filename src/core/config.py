@@ -121,6 +121,18 @@ class Settings(BaseSettings):
     CLASSIFICATION_L4_PROMPT_PATH: str = "prompts/classification/classify_document.txt"
     CLASSIFICATION_L4_MAX_INPUT_CHARS: int = 6000
 
+    # NEW: L2 Extended Format — global defaults для scoring parameters
+    # Эти значения используются когда в YAML типа нет блока classification_runtime_v1.scoring
+    CLASSIFICATION_L2_ACCEPT_THRESHOLD: float = 0.75  # минимальный confidence для accept
+    CLASSIFICATION_L2_STRONG_THRESHOLD: float = 0.85   # порог для "strong signal" (early win)
+    CLASSIFICATION_L2_AMBIGUITY_MARGIN: float = 0.15   # минимальный отрыв top1-top2
+    CLASSIFICATION_L2_INPUT_QUALITY_WEIGHT: float = 1.0  # вес input_quality в формуле
+
+    # LEGACY: старые пороги для exclusions (теперь управляется через YAML severity)
+    # Оставлены для backwards compatibility с legacy форматом
+    CLASSIFICATION_L2_EXCL_HARD: int = 1   # количество hard exclusions для suppression (legacy)
+    CLASSIFICATION_L2_EXCL_SOFT: int = 1   # порог soft exclusions для penalty (legacy)
+
     # --- LLM Provider (Stage 6/8 L4) ---
     # Базовый провайдер LLM для Stage 6/8:
     #   "none"    — LLM полностью выключен.

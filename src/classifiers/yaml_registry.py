@@ -35,35 +35,11 @@ class DocumentTypeConfig:
       и детектора триггеров.
 
     Источник данных: YAML типа (например, contract_1.6_real_estate.yaml).
-
-    Основные блоки YAML, которые относятся к "classification rule-engine":
-
-      1) classification_runtime_v1.rules
-         - filename_patterns  → используются на L1 (по имени файла).
-         - folder_patterns    → используются на L1 (по пути к папке).
-         - header_patterns    → используются на L2 (заголовок договора).
-         - keywords.high/.medium/.low → используются на L2 (header/keywords)
-           и частично на L3 (семантика).
-         - phrases.high/.medium/.low  → используются на L3 (семантика).
-         - exclusions         → используются на L2 (подавление типа) и могут
-           учитываться в дополнительных правилах.
-
-      2) trigger_definitions (либо в classification_runtime_v1, либо в корне YAML)
-         - описывают триггеры (например, residential_property, mortgage_related).
-         - по ключам этого словаря строится список trigger_ids, который
-           используется HybridClassifier для формирования applicable_triggers.
-         - сами trigger_definitions затем использует TriggerDetector, чтобы
-           понять, какие триггеры реально сработали по тексту документа.
-
-    Этот класс:
-      - компилирует regex-паттерны для L1/L2;
-      - готовит нормализованные списки строк для L3 (rules_keywords / rules_phrases);
-      - вытаскивает метаданные (язык, юрисдикция, aliases, section_markers);
-      - сохраняет essential_elements для семантических алгоритмов и checks.
-
-    Итого:
-      - DocumentTypeConfig можно рассматривать как "спецификацию" для
-        classification rule-engine и системы триггеров по одному type_code.
+    
+    НОВОЕ в Sprint 3 (расширенный формат classification_runtime_v1):
+    - Поддержка структурированных сигналов с явными weight, distinctiveness, context
+    - Поддержка scoring параметров per-type
+    - Backwards compatibility с legacy форматом строк
     """
 
     def __init__(self, raw: dict):
@@ -83,16 +59,11 @@ class DocumentTypeConfig:
             runtime.get("trigger_definitions") or validation.get("trigger_definitions") or {}
         )
 
+        # === NEW: Scoring parameters ===
+        # Опциональные параметры для L2 engine, специфичные для данного типа документа
+        self.scoring = runtime.get("scoring") or {}
+
         # === FIX P2a: filename_patterns / folder_patterns через _compile_regex_list ===
-        # БЫЛО (UNPROTECTED):
-        #   self.filename_patterns = [re.compile(...) for p in ...]  # CRASH на invalid regex
-        # СТАЛО (PROTECTED):
-        #   self.filename_patterns = self._compile_regex_list(...)  # warning + skip на invalid
-        #
-        # Для непрофессионального программиста:
-        # - Раньше если в YAML был кривой regex в filename_patterns, программа падала.
-        # - Теперь используем защищённый метод _compile_regex_list(), который логирует
-        #   ошибку и пропускает кривой паттерн, не роняя весь сервис.
         self.filename_patterns = self._compile_regex_list(
             rules.get("filename_patterns", [])
         )
@@ -127,20 +98,40 @@ class DocumentTypeConfig:
                     extra={"type_code": self.type_code, "pattern": p},
                 )
 
-        # --- keywords.* и exclusions: для L2/L3 и TriggerDetector ---
+        # === UPDATED: keywords.* с поддержкой расширенного формата ===
         kw = rules.get("keywords", {}) or {}
+        
+        # NEW: Парсим расширенный формат для lexical_signals
+        self.lexical_signals = {
+            "high": self._parse_signal_list(kw.get("high", []), "high"),
+            "medium": self._parse_signal_list(kw.get("medium", []), "medium"),
+            "low": self._parse_signal_list(kw.get("low", []), "low"),
+        }
+        
+        # LEGACY: сохраняем старые compiled regex для обратной совместимости
+        # (на случай если где-то ещё используется keywords_high напрямую)
         self.keywords_high = self._compile_regex_list(kw.get("high", []))
         self.keywords_medium = self._compile_regex_list(kw.get("medium", []))
         self.keywords_low = self._compile_regex_list(kw.get("low", []))
+        
+        # === UPDATED: exclusions с поддержкой severity ===
+        self.negative_signals = self._parse_negative_signals(
+            rules.get("exclusions", [])
+        )
+        
+        # LEGACY: сохраняем старые compiled regex для обратной совместимости
         self.exclusions = self._compile_regex_list(rules.get("exclusions", []))
 
         # НОВОЕ: "сырые" keywords/phrases для семантического уровня (L3).
         # Здесь мы не компилируем ничего в regex, а просто храним строки,
         # чтобы L3 мог собрать текстовый прототип.
         self.rules_keywords: dict[str, list[str]] = {
-            "high": [str(x) for x in kw.get("high", []) or []],
-            "medium": [str(x) for x in kw.get("medium", []) or []],
-            "low": [str(x) for x in kw.get("low", []) or []],
+            "high": [str(x) if isinstance(x, str) else str(x.get("pattern", "")) 
+                     for x in kw.get("high", []) or []],
+            "medium": [str(x) if isinstance(x, str) else str(x.get("pattern", ""))
+                       for x in kw.get("medium", []) or []],
+            "low": [str(x) if isinstance(x, str) else str(x.get("pattern", ""))
+                    for x in kw.get("low", []) or []],
         }
 
         phrases = rules.get("phrases", {}) or {}
@@ -193,13 +184,22 @@ class DocumentTypeConfig:
         - Этот метод принимает список строк из YAML (например, keywords.high).
         - Каждую строку превращает в скомпилированный regex-паттерн.
         - Если паттерн невалидный — логируем warning и пропускаем его (не крашим приложение).
+        
+        UPDATED: теперь также поддерживает dict-элементы (расширенный формат),
+        извлекая из них поле "pattern".
         """
         compiled: list[re.Pattern] = []
         for raw in items or []:
-            if not isinstance(raw, str):
+            # NEW: поддержка dict-элементов
+            if isinstance(raw, dict):
+                pattern_str = raw.get("pattern", "")
+            elif isinstance(raw, str):
+                pattern_str = raw
+            else:
                 continue
+            
             # убираем возможный префикс r и внешние кавычки из YAML
-            pattern_str = raw.lstrip("r").strip('"').strip("'")
+            pattern_str = pattern_str.lstrip("r").strip('"').strip("'")
             if not pattern_str:
                 continue
             try:
@@ -211,6 +211,195 @@ class DocumentTypeConfig:
                     extra={"pattern": raw, "error": str(e)},
                 )
         return compiled
+
+    # === NEW: Парсинг расширенного формата lexical signals ===
+    def _parse_signal_list(self, items: list, group_level: str) -> list[dict]:
+        """
+        Парсит список сигналов из keywords.high/medium/low с поддержкой
+        расширенного формата.
+
+        Входные данные:
+        - items: список элементов из YAML (могут быть строками или dict)
+        - group_level: "high"/"medium"/"low" для дефолтных весов
+
+        Возвращает:
+        - список dict с полями:
+          {
+            "pattern": compiled re.Pattern,
+            "weight": float,
+            "distinctiveness": "high"|"medium"|"low",
+            "context": "header"|"body"|"any",
+            "description": str (optional)
+          }
+
+        Для непрофессионального программиста:
+        - Если в YAML элемент — простая строка, используем дефолтные значения
+        - Если элемент — dict с полями pattern/weight/distinctiveness/context,
+          используем явные значения
+        - Это позволяет плавно мигрировать: старые YAML работают как раньше,
+          новые получают точный контроль
+        """
+        # Дефолтные веса по уровням (для legacy строк)
+        default_weights = {
+            "high": 0.5,
+            "medium": 0.3,
+            "low": 0.15,
+        }
+
+        signals = []
+        for item in items or []:
+            if isinstance(item, str):
+                # Legacy формат: простая строка
+                pattern_str = item.lstrip("r").strip('"').strip("'")
+                if not pattern_str:
+                    continue
+                
+                try:
+                    compiled = re.compile(pattern_str, re.IGNORECASE)
+                except re.error as e:
+                    logger.warning(
+                        "Invalid regex pattern in lexical signals",
+                        extra={"pattern": item, "error": str(e)},
+                    )
+                    continue
+
+                signals.append({
+                    "pattern": compiled,
+                    "weight": default_weights.get(group_level, 0.3),
+                    "distinctiveness": "medium",  # консервативный дефолт
+                    "context": "any",
+                    "description": None,
+                })
+
+            elif isinstance(item, dict):
+                # NEW: расширенный формат
+                pattern_str = item.get("pattern", "")
+                if not pattern_str:
+                    continue
+
+                pattern_str = pattern_str.lstrip("r").strip('"').strip("'")
+                try:
+                    compiled = re.compile(pattern_str, re.IGNORECASE)
+                except re.error as e:
+                    logger.warning(
+                        "Invalid regex pattern in lexical signals",
+                        extra={"pattern": pattern_str, "error": str(e)},
+                    )
+                    continue
+
+                # Извлекаем явные значения с fallback на дефолты
+                weight = float(item.get("weight", default_weights.get(group_level, 0.3)))
+                distinctiveness = item.get("distinctiveness", "medium")
+                context = item.get("context", "any")
+                description = item.get("description")
+
+                # Валидация enum значений
+                if distinctiveness not in ("high", "medium", "low"):
+                    logger.warning(
+                        "Invalid distinctiveness value, using 'medium'",
+                        extra={"value": distinctiveness, "pattern": pattern_str},
+                    )
+                    distinctiveness = "medium"
+
+                if context not in ("header", "body", "any"):
+                    logger.warning(
+                        "Invalid context value, using 'any'",
+                        extra={"value": context, "pattern": pattern_str},
+                    )
+                    context = "any"
+
+                signals.append({
+                    "pattern": compiled,
+                    "weight": weight,
+                    "distinctiveness": distinctiveness,
+                    "context": context,
+                    "description": description,
+                })
+
+        return signals
+
+    # === NEW: Парсинг negative signals ===
+    def _parse_negative_signals(self, items: list) -> list[dict]:
+        """
+        Парсит список exclusions с поддержкой расширенного формата.
+
+        Входные данные:
+        - items: список элементов из YAML (строки или dict)
+
+        Возвращает:
+        - список dict с полями:
+          {
+            "pattern": compiled re.Pattern,
+            "severity": "hard"|"soft",
+            "weight": float (negative),
+            "description": str (optional)
+          }
+
+        Для непрофессионального программиста:
+        - severity: "hard" полностью блокирует тип при совпадении
+        - severity: "soft" снижает confidence, но не блокирует
+        - Legacy строки интерпретируются как soft с весом -0.3
+        """
+        signals = []
+        for item in items or []:
+            if isinstance(item, str):
+                # Legacy формат: простая строка → soft exclusion
+                pattern_str = item.lstrip("r").strip('"').strip("'")
+                if not pattern_str:
+                    continue
+
+                try:
+                    compiled = re.compile(pattern_str, re.IGNORECASE)
+                except re.error as e:
+                    logger.warning(
+                        "Invalid regex pattern in exclusions",
+                        extra={"pattern": item, "error": str(e)},
+                    )
+                    continue
+
+                signals.append({
+                    "pattern": compiled,
+                    "severity": "soft",
+                    "weight": -0.3,
+                    "description": None,
+                })
+
+            elif isinstance(item, dict):
+                # NEW: расширенный формат
+                pattern_str = item.get("pattern", "")
+                if not pattern_str:
+                    continue
+
+                pattern_str = pattern_str.lstrip("r").strip('"').strip("'")
+                try:
+                    compiled = re.compile(pattern_str, re.IGNORECASE)
+                except re.error as e:
+                    logger.warning(
+                        "Invalid regex pattern in exclusions",
+                        extra={"pattern": pattern_str, "error": str(e)},
+                    )
+                    continue
+
+                severity = item.get("severity", "soft")
+                weight = float(item.get("weight", -0.3))
+                description = item.get("description")
+
+                # Валидация severity
+                if severity not in ("hard", "soft"):
+                    logger.warning(
+                        "Invalid severity value, using 'soft'",
+                        extra={"value": severity, "pattern": pattern_str},
+                    )
+                    severity = "soft"
+
+                signals.append({
+                    "pattern": compiled,
+                    "severity": severity,
+                    "weight": weight,
+                    "description": description,
+                })
+
+        return signals
 
     @staticmethod
     def _build_party_role_keywords(raw: dict) -> dict[str, str]:
@@ -309,7 +498,7 @@ class YAMLRegistry:
             sample_types=list(self._configs.keys())[:10],
         )
 
-    # === FIX P2b: validate_all_patterns() — startup validation ===
+    # === UPDATED: validate_all_patterns() с поддержкой расширенного формата ===
     def validate_all_patterns(self) -> tuple[bool, list[dict]]:
         """
         Валидация всех regex-паттернов в загруженных конфигах.
@@ -317,19 +506,10 @@ class YAMLRegistry:
         Returns:
             (is_valid, errors_list)
             
-        Для непрофессионального программиста:
-        - Этот метод вызывается при старте приложения (после _load).
-        - Обходит все загруженные типы документов (self._configs).
-        - Для каждого типа проверяет ВСЕ поля с regex-паттернами:
-          filename_patterns, folder_patterns, header_patterns, keywords, exclusions.
-        - Если хоть один паттерн невалиден → возвращаем False + список ошибок.
-        - Если всё валидно → возвращаем True + пустой список.
-        
-        Зачем это нужно:
-        - При загрузке через _compile_regex_list() кривые паттерны пропускаются молча (warning в логах).
-        - Это удобно для runtime tolerance (один кривой паттерн не роняет сервис).
-        - Но на старте мы хотим fail-fast: если YAML кривой — лучше упасть сразу с понятной ошибкой,
-          чем работать с неполными правилами классификации.
+        UPDATED: теперь также валидирует:
+        - поля weight, distinctiveness, context в lexical signals
+        - поля severity, weight в negative signals
+        - параметры scoring
         """
         errors = []
 
@@ -338,7 +518,7 @@ class YAMLRegistry:
             runtime = raw.get("classification_runtime_v1") or {}
             rules = runtime.get("rules") or raw.get("rules", {}) or {}
 
-            # Проверяем все поля с паттернами
+            # Проверяем все поля с паттернами (legacy строки)
             pattern_fields = {
                 "filename_patterns": rules.get("filename_patterns", []),
                 "folder_patterns": rules.get("folder_patterns", []),
@@ -346,12 +526,8 @@ class YAMLRegistry:
                     runtime.get("header_patterns")
                     or raw.get("header_patterns")
                     or rules.get("header_patterns")
-                    or rules.get("keywords", {}).get("high", [])
+                    or []
                 ),
-                "keywords.high": rules.get("keywords", {}).get("high", []),
-                "keywords.medium": rules.get("keywords", {}).get("medium", []),
-                "keywords.low": rules.get("keywords", {}).get("low", []),
-                "exclusions": rules.get("exclusions", []),
             }
 
             for field_name, patterns in pattern_fields.items():
@@ -373,6 +549,115 @@ class YAMLRegistry:
                             }
                         )
 
+            # NEW: Валидация keywords с поддержкой расширенного формата
+            kw = rules.get("keywords", {}) or {}
+            for level in ("high", "medium", "low"):
+                for idx, item in enumerate(kw.get(level, []) or []):
+                    if isinstance(item, str):
+                        # Legacy строка
+                        clean = item.lstrip("r").strip('"').strip("'")
+                        if clean:
+                            try:
+                                re.compile(clean)
+                            except re.error as e:
+                                errors.append({
+                                    "type_code": type_code,
+                                    "field": f"keywords.{level}[{idx}]",
+                                    "pattern": item,
+                                    "error": str(e),
+                                })
+                    elif isinstance(item, dict):
+                        # Расширенный формат
+                        pattern_str = item.get("pattern", "")
+                        if pattern_str:
+                            clean = pattern_str.lstrip("r").strip('"').strip("'")
+                            try:
+                                re.compile(clean)
+                            except re.error as e:
+                                errors.append({
+                                    "type_code": type_code,
+                                    "field": f"keywords.{level}[{idx}].pattern",
+                                    "pattern": pattern_str,
+                                    "error": str(e),
+                                })
+                        
+                        # Валидация enum полей
+                        if "distinctiveness" in item and item["distinctiveness"] not in ("high", "medium", "low"):
+                            errors.append({
+                                "type_code": type_code,
+                                "field": f"keywords.{level}[{idx}].distinctiveness",
+                                "pattern": pattern_str,
+                                "error": f"Invalid value: {item['distinctiveness']}, expected 'high'|'medium'|'low'",
+                            })
+                        
+                        if "context" in item and item["context"] not in ("header", "body", "any"):
+                            errors.append({
+                                "type_code": type_code,
+                                "field": f"keywords.{level}[{idx}].context",
+                                "pattern": pattern_str,
+                                "error": f"Invalid value: {item['context']}, expected 'header'|'body'|'any'",
+                            })
+
+            # NEW: Валидация exclusions с поддержкой severity
+            for idx, item in enumerate(rules.get("exclusions", []) or []):
+                if isinstance(item, str):
+                    # Legacy строка
+                    clean = item.lstrip("r").strip('"').strip("'")
+                    if clean:
+                        try:
+                            re.compile(clean)
+                        except re.error as e:
+                            errors.append({
+                                "type_code": type_code,
+                                "field": f"exclusions[{idx}]",
+                                "pattern": item,
+                                "error": str(e),
+                            })
+                elif isinstance(item, dict):
+                    # Расширенный формат
+                    pattern_str = item.get("pattern", "")
+                    if pattern_str:
+                        clean = pattern_str.lstrip("r").strip('"').strip("'")
+                        try:
+                            re.compile(clean)
+                        except re.error as e:
+                            errors.append({
+                                "type_code": type_code,
+                                "field": f"exclusions[{idx}].pattern",
+                                "pattern": pattern_str,
+                                "error": str(e),
+                            })
+                    
+                    # Валидация severity
+                    if "severity" in item and item["severity"] not in ("hard", "soft"):
+                        errors.append({
+                            "type_code": type_code,
+                            "field": f"exclusions[{idx}].severity",
+                            "pattern": pattern_str,
+                            "error": f"Invalid value: {item['severity']}, expected 'hard'|'soft'",
+                        })
+
+            # NEW: Валидация scoring параметров
+            scoring = runtime.get("scoring", {})
+            if scoring:
+                for param, value in scoring.items():
+                    if param in ("accept_threshold", "strong_signal_threshold", "max_confidence"):
+                        if not isinstance(value, (int, float)) or not (0 < value <= 1):
+                            errors.append({
+                                "type_code": type_code,
+                                "field": f"scoring.{param}",
+                                "pattern": str(value),
+                                "error": f"Expected float in range (0, 1], got {value}",
+                            })
+                    elif param == "ambiguity_margin":
+                        if not isinstance(value, (int, float)) or not (0 <= value <= 1):
+                            errors.append({
+                                "type_code": type_code,
+                                "field": f"scoring.{param}",
+                                "pattern": str(value),
+                                "error": f"Expected float in range [0, 1], got {value}",
+                            })
+
         is_valid = len(errors) == 0
 
         if not is_valid:
@@ -393,7 +678,6 @@ class YAMLRegistry:
     def get_config(self, type_code: str) -> DocumentTypeConfig | None:
         return self._configs.get(type_code)
 
-    # === FIX P5: get_instance() с параметром validate для fail-fast ===
     @classmethod
     def get_instance(cls, validate: bool = True) -> "YAMLRegistry":
         """
@@ -404,23 +688,6 @@ class YAMLRegistry:
                       и падаем с RuntimeError при наличии invalid regex-паттернов.
                       Используйте validate=True при старте приложения (fail-fast).
                       Используйте validate=False в тестах или для hot-reload.
-        
-        Для непрофессионального программиста:
-        - Это метод класса (не требует создания объекта).
-        - При первом вызове создаёт единственный экземпляр YAMLRegistry (singleton).
-        - Если validate=True (по умолчанию):
-          1) Загружаем все YAML-конфиги (метод _load).
-          2) Проверяем все regex-паттерны (метод validate_all_patterns).
-          3) Если есть кривые паттерны → падаем с RuntimeError и показываем, что именно сломано.
-          4) Если всё ОК → возвращаем registry.
-        
-        Зачем validate=True по умолчанию:
-        - При старте приложения мы хотим fail-fast: лучше упасть сразу, чем работать с кривыми правилами.
-        - В production это критично: если админ ошибся в YAML, сервис не должен стартовать.
-        
-        Когда используется validate=False:
-        - В unit-тестах, где специально тестируем поведение на кривых YAML.
-        - При hot-reload в Stage 6 (перезагрузка без падения сервиса).
         """
         global _instance
         if _instance is None:
@@ -541,5 +808,7 @@ class YAMLRegistry:
         global _instance
         with _lock:
             _instance = None
+
+            
 
 
