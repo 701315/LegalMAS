@@ -1,11 +1,11 @@
 // =============================================================
 // src/pages/DealPage.tsx
 // Страница сделки / проекта.
-// Legal workspace shell: full-width layout, left sidebar,
-// project header, tabs for Overview / Documents / DD Grid / etc.
-// Логика запуска анализа перенесена в OverviewTab.
+// Внутри страницы зафиксированы:
+// 1) верхний хедер проекта,
+// 2) левая панель вкладок проекта.
+// Прокрутка происходит только в правой контентной области.
 // =============================================================
-
 
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -42,25 +42,34 @@ const TAB_KEYS: TabKey[] = [
   "settings",
 ];
 
+const TAB_LABELS: Record<TabKey, string> = {
+  overview: "Обзор",
+  documents: "Документы",
+  dd_grid: "DD Grid",
+  requests: "Запросы",
+  report: "Отчёт",
+  audit: "Аудит",
+  settings: "Настройки",
+};
+
+const sidebarItemBaseClassName =
+  "w-full rounded-xl px-3 py-2 text-left font-medium transition-colors " +
+  "text-[length:var(--font-size-ui-sm)] leading-[var(--line-height-ui-sm)]";
+
+const mobileTabBaseClassName =
+  "shrink-0 border-b-2 px-3 py-2 font-medium transition-colors " +
+  "text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)]";
+
 function isTabKey(value: string | null): value is TabKey {
   return !!value && TAB_KEYS.includes(value as TabKey);
 }
 
-function getReadableDealStatus(status: Deal["status"]): string {
-  if (status === "active") return "Активная";
-  if (status === "archived") return "В архиве";
-  if (status === "draft") return "Черновик";
-  return status;
+function getTabId(tabKey: TabKey) {
+  return `deal-tab-${tabKey}`;
 }
 
-function getReadableChecksMode(
-  mode?: Deal["last_run_checks_mode"] | null,
-): string | null {
-  if (!mode) return null;
-  if (mode === "global_and_doc_type") return "Плейбук и типы документов";
-  if (mode === "global_only") return "Только плейбук";
-  if (mode === "doc_type_only") return "Только типы документов";
-  return mode;
+function getTabPanelId(tabKey: TabKey) {
+  return `deal-tabpanel-${tabKey}`;
 }
 
 const DealPage: React.FC<DealPageProps> = ({ deal }) => {
@@ -74,7 +83,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     canViewOverview,
     canManageRequests,
     canUploadDocuments,
-    canStartRun,
   } = useDealPermissions(deal.id);
 
   const canManageProject = canUploadDocuments || canManageRequests;
@@ -90,7 +98,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const [activeTab, setActiveTab] = React.useState<TabKey>(initialTab);
   const [viewerLocation, setViewerLocation] =
     React.useState<OpenViewerAtPayload | null>(null);
-  const [showMobileRunHint, setShowMobileRunHint] = React.useState(false);
 
   React.useEffect(() => {
     setActiveTab(isTabKey(tabFromUrl) ? tabFromUrl : "overview");
@@ -118,22 +125,22 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     [location.pathname, location.search, navigate],
   );
 
-  const handleOpenMembers = () => {
+  const handleOpenMembers = React.useCallback(() => {
     if (!canManageProject) return;
     navigate(`/projects/${deal.id}/members`);
-  };
+  }, [canManageProject, deal.id, navigate]);
 
-  const handleOpenPlaybook = () => {
+  const handleOpenPlaybook = React.useCallback(() => {
     if (!canViewOverview) return;
     navigate(`/projects/${deal.id}/playbook`);
-  };
+  }, [canViewOverview, deal.id, navigate]);
 
-  const handleOpenPlaybookTemplates = () => {
+  const handleOpenPlaybookTemplates = React.useCallback(() => {
     if (!canViewOverview) return;
     navigate(`/projects/${deal.id}/playbooks/admin`);
-  };
+  }, [canViewOverview, deal.id, navigate]);
 
-  const handleOpenModelConfig = () => {
+  const handleOpenModelConfig = React.useCallback(() => {
     const params = new URLSearchParams();
     params.set("dealId", deal.id);
 
@@ -142,7 +149,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     }
 
     navigate(`/admin/model-configs?${params.toString()}`);
-  };
+  }, [deal.id, deal.playbook_version_id, navigate]);
 
   const handleOpenViewerAt = React.useCallback(
     (payload: OpenViewerAtPayload) => {
@@ -155,6 +162,48 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const handleViewerLocationConsumed = React.useCallback(() => {
     setViewerLocation(null);
   }, []);
+
+  const handleBackToProjects = React.useCallback(() => {
+    navigate("/dashboard");
+  }, [navigate]);
+
+  const handleMobileTabKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const currentIndex = TAB_KEYS.indexOf(activeTab);
+      if (currentIndex < 0) return;
+
+      let nextIndex = currentIndex;
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        nextIndex = (currentIndex + 1) % TAB_KEYS.length;
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        nextIndex = (currentIndex - 1 + TAB_KEYS.length) % TAB_KEYS.length;
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        nextIndex = 0;
+      } else if (event.key === "End") {
+        event.preventDefault();
+        nextIndex = TAB_KEYS.length - 1;
+      } else {
+        return;
+      }
+
+      const nextTab = TAB_KEYS[nextIndex];
+      if (nextTab === "settings" && !canManageProject) {
+        return;
+      }
+
+      handleSetTab(nextTab);
+
+      window.requestAnimationFrame(() => {
+        const nextElement = document.getElementById(getTabId(nextTab));
+        nextElement?.focus();
+      });
+    },
+    [activeTab, canManageProject, handleSetTab],
+  );
 
   const renderRunRequiredState = (title: string, description: string) => (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5">
@@ -241,116 +290,135 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     );
   };
 
-  const activeTabLabel = React.useMemo(() => {
-    const labels: Record<TabKey, string> = {
-      overview: "Обзор",
-      documents: "Документы",
-      dd_grid: "DD Grid",
-      requests: "Запросы",
-      report: "Отчёт",
-      audit: "Аудит",
-      settings: "Настройки",
-    };
+  const activeTabLabel = TAB_LABELS[activeTab];
 
-    return labels[activeTab];
-  }, [activeTab]);
+  const renderActiveTabPanel = () => {
+    if (activeTab === "overview") {
+      return (
+        <OverviewTab
+          deal={deal}
+          latestRunId={latestRunId}
+          onOpenModelConfig={handleOpenModelConfig}
+        />
+      );
+    }
 
-  const showRestartHint = deal.has_pending_manual_reclassifications;
+    if (activeTab === "documents") {
+      return hasLatestRun ? (
+        <DocumentsTab
+          deal={deal}
+          runId={latestRunId}
+          openViewerAt={viewerLocation}
+          onViewerLocationConsumed={handleViewerLocationConsumed}
+        />
+      ) : (
+        renderRunRequiredState(
+          "Список документов пока недоступен",
+          "Карточки документов в режиме review появятся после первого анализа проекта.",
+        )
+      );
+    }
+
+    if (activeTab === "dd_grid") {
+      return hasLatestRun ? (
+        <GridTab dealId={deal.id} runId={latestRunId} />
+      ) : (
+        renderRunRequiredState(
+          "DD Grid пока недоступен",
+          "Для этого проекта ещё не запускался анализ. Запустите первый анализ, чтобы открыть матрицу проверок.",
+        )
+      );
+    }
+
+    if (activeTab === "requests") {
+      return hasLatestRun ? (
+        <RequestsTab
+          dealId={deal.id}
+          runId={latestRunId}
+          onOpenViewerAt={handleOpenViewerAt}
+        />
+      ) : (
+        renderRunRequiredState(
+          "Запросы пока недоступны",
+          "Сначала нужен хотя бы один анализ, чтобы система сформировала follow‑up запросы по найденным рискам.",
+        )
+      );
+    }
+
+    if (activeTab === "report") {
+      return <ReportTab dealId={deal.id} />;
+    }
+
+    if (activeTab === "audit") {
+      return <AuditTab dealId={deal.id} />;
+    }
+
+    return renderSettingsTab();
+  };
 
   return (
-    <div className="min-h-screen w-full bg-[var(--bg-base)]">
-      {/* Desktop header */}
-      <header className="hidden border-b border-[var(--border)] bg-[var(--bg-card)] md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="border-r border-[var(--border)] p-4">
-          <div className="flex h-full min-h-[140px] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-base)] px-4 py-4 text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">
-            Project workspace
-          </div>
-        </div>
-
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[20px] bg-[var(--bg-card)]">
+      <header className="hidden shrink-0 border-b border-[var(--border)] bg-[var(--bg-card)] md:block">
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-1">
+            <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)]">
                 {deal.name}
               </h1>
-              <div className="flex flex-wrap gap-2 text-[11px] text-[var(--text-muted)]">
-                <span className="rounded-full bg-white/5 px-2 py-0.5 font-mono uppercase tracking-[0.18em]">
-                  {getReadableDealStatus(deal.status)}
-                </span>
-                {deal.metadata_?.contact_person && (
-                  <span className="rounded-full bg-white/5 px-2 py-0.5">
-                    Контакт: {deal.metadata_.contact_person}
-                  </span>
-                )}
-                {getReadableChecksMode(deal.last_run_checks_mode) && (
-                  <span className="rounded-full bg-white/5 px-2 py-0.5">
-                    Режим анализа:{" "}
-                    {getReadableChecksMode(deal.last_run_checks_mode)}
-                  </span>
-                )}
-              </div>
-              {showRestartHint && (
-                <p className="text-[11px] text-amber-300">
-                  После ручной переклассификации требуется повторный запуск
-                  анализа.
-                </p>
-              )}
             </div>
 
-            <div className="hidden md:flex items-center gap-2">
+            <div className="shrink-0">
               <Button
-                variant="primary"
+                variant="secondary"
                 size="sm"
-                disabled={!canStartRun}
-                onClick={() => handleSetTab("overview")}
+                onClick={handleBackToProjects}
               >
-                Запустить анализ
+                Вернуться к списку проектов
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex min-h-[calc(100vh-0px)] w-full">
-        {/* Desktop sidebar */}
-        <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-[var(--border)] md:bg-[var(--bg-card)]">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="hidden min-h-0 shrink-0 md:flex md:w-60 md:flex-col md:border-r md:border-[var(--border)] md:bg-[var(--bg-card)]">
           <nav
-            className="flex h-full flex-col px-3 py-4"
+            className="flex h-full flex-col overflow-y-auto px-3 py-4"
             aria-label="Навигация по проекту"
           >
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1">
               <SidebarItem
-                label="Обзор"
+                label={TAB_LABELS.overview}
                 tabKey="overview"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
               />
               <SidebarItem
-                label="Документы"
+                label={TAB_LABELS.documents}
                 tabKey="documents"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
               />
               <SidebarItem
-                label="DD Grid"
+                label={TAB_LABELS.dd_grid}
                 tabKey="dd_grid"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
               />
               <SidebarItem
-                label="Запросы"
+                label={TAB_LABELS.requests}
                 tabKey="requests"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
               />
               <SidebarItem
-                label="Отчёт"
+                label={TAB_LABELS.report}
                 tabKey="report"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
               />
               <SidebarItem
-                label="Аудит"
+                label={TAB_LABELS.audit}
                 tabKey="audit"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
@@ -359,7 +427,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <SidebarItem
-                label="Настройки"
+                label={TAB_LABELS.settings}
                 tabKey="settings"
                 activeTab={activeTab}
                 onSelect={handleSetTab}
@@ -369,109 +437,75 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
           </nav>
         </aside>
 
-        {/* Main workspace */}
-        <main className="flex min-w-0 flex-1 flex-col">
-          {/* Mobile header + tabs */}
-          <header className="border-b border-[var(--border)] bg-[var(--bg-card)] md:hidden">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-card)] md:hidden">
             <div className="px-4 py-4">
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                  {activeTabLabel}
-                </span>
-              </div>
-
-              <div className="mt-3">
-                <h1 className="text-base font-semibold text-[var(--text-primary)]">
-                  {deal.name}
-                </h1>
-
-                <div className="mt-2 flex flex-col gap-1 text-xs text-[var(--text-secondary)]">
-                  <span>Статус: {getReadableDealStatus(deal.status)}</span>
-
-                  {deal.metadata_?.contact_person && (
-                    <span>
-                      Контактное лицо: {deal.metadata_.contact_person}
-                    </span>
-                  )}
-
-                  {getReadableChecksMode(deal.last_run_checks_mode) && (
-                    <span>
-                      Режим анализа:{" "}
-                      {getReadableChecksMode(deal.last_run_checks_mode)}
-                    </span>
-                  )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[length:var(--font-size-ui-xs)] leading-[var(--line-height-ui-xs)] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                    {activeTabLabel}
+                  </span>
+                  <h1 className="mt-2 truncate text-base font-semibold text-[var(--text-primary)]">
+                    {deal.name}
+                  </h1>
                 </div>
 
-                {showRestartHint && (
-                  <p className="mt-2 text-[11px] text-amber-300">
-                    После ручной переклассификации требуется повторный запуск
-                    анализа.
-                  </p>
-                )}
-
-                <div className="mt-4">
+                <div className="shrink-0">
                   <Button
-                    variant="primary"
+                    variant="secondary"
                     size="sm"
-                    disabled={!canStartRun}
-                    onClick={() => setShowMobileRunHint(true)}
+                    onClick={handleBackToProjects}
                   >
-                    Запустить анализ документов
+                    Назад
                   </Button>
-                  {showMobileRunHint && (
-                    <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-                      Параметры запуска доступны на вкладке «Обзор» в блоке
-                      «Анализ документов». На мобильных устройствах панели
-                      запуска открываются из этого раздела.
-                    </p>
-                  )}
                 </div>
               </div>
 
               <div className="mt-4">
                 <div
-                  className="flex overflow-x-auto border-t border-[var(--border)] pt-3 text-xs"
+                  className="flex overflow-x-auto border-t border-[var(--border)] pt-3"
                   role="tablist"
                   aria-label="Разделы проекта"
+                  onKeyDown={handleMobileTabKeyDown}
                 >
                   <MobileTab
-                    label="Обзор"
+                    label={TAB_LABELS.overview}
                     tabKey="overview"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="Документы"
+                    label={TAB_LABELS.documents}
                     tabKey="documents"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="DD Grid"
+                    label={TAB_LABELS.dd_grid}
                     tabKey="dd_grid"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="Запросы"
+                    label={TAB_LABELS.requests}
                     tabKey="requests"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="Отчёт"
+                    label={TAB_LABELS.report}
                     tabKey="report"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="Аудит"
+                    label={TAB_LABELS.audit}
                     tabKey="audit"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
                   />
                   <MobileTab
-                    label="Настройки"
+                    label={TAB_LABELS.settings}
                     tabKey="settings"
                     activeTab={activeTab}
                     onSelect={handleSetTab}
@@ -482,60 +516,14 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             </div>
           </header>
 
-          {/* Content area */}
-          <section className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-6">
-            {activeTab === "overview" && (
-              <OverviewTab
-                deal={deal}
-                latestRunId={latestRunId}
-                onOpenModelConfig={handleOpenModelConfig}
-              />
-            )}
-
-            {activeTab === "documents" &&
-              (hasLatestRun ? (
-                <DocumentsTab
-                  deal={deal}
-                  runId={latestRunId}
-                  openViewerAt={viewerLocation}
-                  onViewerLocationConsumed={handleViewerLocationConsumed}
-                />
-              ) : (
-                renderRunRequiredState(
-                  "Список документов пока недоступен",
-                  "Карточки документов в режиме review появятся после первого анализа проекта.",
-                )
-              ))}
-
-            {activeTab === "dd_grid" &&
-              (hasLatestRun ? (
-                <GridTab dealId={deal.id} runId={latestRunId} />
-              ) : (
-                renderRunRequiredState(
-                  "DD Grid пока недоступен",
-                  "Для этого проекта ещё не запускался анализ. Запустите первый анализ, чтобы открыть матрицу проверок.",
-                )
-              ))}
-
-            {activeTab === "requests" &&
-              (hasLatestRun ? (
-                <RequestsTab
-                  dealId={deal.id}
-                  runId={latestRunId}
-                  onOpenViewerAt={handleOpenViewerAt}
-                />
-              ) : (
-                renderRunRequiredState(
-                  "Запросы пока недоступны",
-                  "Сначала нужен хотя бы один анализ, чтобы система сформировала follow‑up запросы по найденным рискам.",
-                )
-              ))}
-
-            {activeTab === "report" && <ReportTab dealId={deal.id} />}
-
-            {activeTab === "audit" && <AuditTab dealId={deal.id} />}
-
-            {activeTab === "settings" && renderSettingsTab()}
+          <section
+            id={getTabPanelId(activeTab)}
+            role="tabpanel"
+            aria-labelledby={getTabId(activeTab)}
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6"
+            tabIndex={0}
+          >
+            {renderActiveTabPanel()}
           </section>
         </main>
       </div>
@@ -569,12 +557,12 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
       disabled={disabled}
       aria-current={isActive ? "page" : undefined}
       className={[
-        "w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors",
+        sidebarItemBaseClassName,
         disabled
-          ? "cursor-not-allowed text-[var(--text-muted)]/40"
+          ? "cursor-not-allowed text-[var(--text-muted)] opacity-50"
           : isActive
-          ? "bg-white/5 text-[var(--text-primary)]"
-          : "text-[var(--text-secondary)] hover:bg-white/3 hover:text-[var(--text-primary)]",
+            ? "bg-[var(--bg-elevated-soft)] text-[var(--text-primary)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]",
       ].join(" ")}
     >
       {label}
@@ -601,6 +589,7 @@ const MobileTab: React.FC<MobileTabProps> = ({
 
   return (
     <button
+      id={getTabId(tabKey)}
       type="button"
       onClick={() => {
         if (!disabled) onSelect(tabKey);
@@ -608,13 +597,15 @@ const MobileTab: React.FC<MobileTabProps> = ({
       disabled={disabled}
       role="tab"
       aria-selected={isActive}
+      aria-controls={getTabPanelId(tabKey)}
+      tabIndex={isActive ? 0 : -1}
       className={[
-        "shrink-0 border-b-2 px-3 py-2 text-[11px] font-medium transition-colors",
+        mobileTabBaseClassName,
         disabled
-          ? "cursor-not-allowed border-transparent text-[var(--text-muted)]/40"
+          ? "cursor-not-allowed border-transparent text-[var(--text-muted)] opacity-50"
           : isActive
-          ? "border-[var(--accent)] text-[var(--accent)]"
-          : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)] hover:text-[var(--text-secondary)]",
+            ? "border-[var(--accent-primary)] text-[var(--accent-primary)]"
+            : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)] hover:text-[var(--text-secondary)]",
       ].join(" ")}
     >
       {label}
@@ -623,7 +614,6 @@ const MobileTab: React.FC<MobileTabProps> = ({
 };
 
 export default DealPage;
-
 
 
 

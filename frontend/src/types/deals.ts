@@ -17,11 +17,21 @@ export interface DealPrimaryLanguageUpdatePayload {
   primary_language: string | null;
 }
 
+/** Payload для PATCH /deals/{deal_id} */
+export interface DealUpdatePayload {
+  summary?: string | null;
+}
+
+
 /** Краткая информация о сделке (для списка) */
 export interface Deal {
   id: string;
   name: string;
   status: DealStatus;
+
+  /** Краткое текстовое описание проекта, редактируемое в Overview */
+  summary?: string | null;
+
   deal_type?: string | null;
   bundle_id?: string | null;
 
@@ -53,16 +63,22 @@ export interface Deal {
   created_at: string;
   updated_at: string;
 
+  /** ID явно выбранного профиля модели на уровне сделки */
+  model_config_id?: string | null;
+
   /** Имя/код конфигурации модели, используемой для анализа сделки */
   model_config_name?: string | null;
 
+  
   /** Есть ли незавершённые ручные переклассификации */
   has_pending_manual_reclassifications: boolean;
 
-  metadata_?: {
-    contact_person?: string | null;
-    [key: string]: unknown;
-  } | null;
+  metadata_?:
+    | {
+        contact_person?: string | null;
+        [key: string]: unknown;
+      }
+    | null;
 }
 
 /** Детальная информация о сделке */

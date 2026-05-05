@@ -45,6 +45,7 @@ class DealRepository:
         profile: str = "full",
         playbook_version_id: uuid.UUID | None = None,
         metadata_: dict | None = None,
+        summary: str | None = None,
     ) -> Deal:
         """
         Создать новую сделку и сохранить её в БД.
@@ -66,6 +67,7 @@ class DealRepository:
         deal = Deal(
             tenant_id=tenant_id,
             name=name,
+            summary=summary,
             deal_type=deal_type,
             jurisdiction=jurisdiction,
             languages=languages,
@@ -293,3 +295,24 @@ class DealRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         
+    async def update_summary(
+        self,
+        deal_id: uuid.UUID,
+        summary: str | None,
+    ) -> Deal | None:
+        normalized = summary.strip() if summary is not None else None
+        normalized = normalized or None
+
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(summary=normalized)
+            .returning(Deal)
+        )
+        result = await self.session.execute(stmt)
+        deal = result.scalar_one_or_none()
+        if deal:
+            await self.session.flush()
+        return deal
+
+

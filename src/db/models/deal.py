@@ -24,7 +24,7 @@ ORM-модель Deal описывает сделку (проект due diligenc
 
 import uuid
 
-from sqlalchemy import Index, String, ForeignKey, Enum  # <— добавили Enum
+from sqlalchemy import Index, String, ForeignKey, Enum, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +44,12 @@ class Deal(Base):
     name: Mapped[str] = mapped_column(
         String(500),
         nullable=False,
+    )
+
+    summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="User-facing project summary maintained by project team",
     )
 
     deal_type: Mapped[str | None] = mapped_column(

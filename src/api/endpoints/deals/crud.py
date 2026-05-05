@@ -1,5 +1,7 @@
 # src/api/endpoints/deals/crud.py
 
+# src/api/endpoints/deals/crud.py
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -12,7 +14,7 @@ from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.project_role_repo import ProjectRoleRepository
 
 from api.schemas.pagination import PaginatedResponse
-from api.schemas.deals import DealResponse, DealCreate
+from api.schemas.deals import DealResponse, DealCreate, DealUpdate
 
 router = APIRouter()
 
@@ -80,6 +82,7 @@ async def create_deal(
     deal = await deal_repo.create(
         tenant_id=user.tenant_id,
         name=payload.name,
+        summary=payload.summary,
         deal_type=payload.deal_type,
         jurisdiction=payload.jurisdiction,
         languages=effective_languages,
@@ -135,6 +138,47 @@ async def get_deal(
 
     deal_resp.model_config_name = model_config_name
     return deal_resp
+
+
+@router.patch(
+    "/{deal_id}",
+    response_model=DealResponse,
+    summary="Частично обновить сделку",
+)
+async def update_deal(
+    deal_id: UUID,
+    payload: DealUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    deal_repo = DealRepository(db)
+    role_repo = ProjectRoleRepository(db)
+
+    deal = await deal_repo.get_by_id(deal_id)
+    if deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    project_role = await role_repo.get_role(user.id, deal_id)
+    global_role = getattr(user, "global_role", None) or getattr(user, "role", None)
+
+    if project_role not in ("admin", "editor") and global_role not in ("admin", "superadmin"):
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions to update deal",
+        )
+
+    update_data = payload.model_dump(exclude_unset=True)
+
+    updated_deal = deal
+
+    if "summary" in update_data:
+        updated = await deal_repo.update_summary(deal_id, update_data["summary"])
+        if updated is not None:
+            updated_deal = updated
+
+    await db.commit()
+
+    return DealResponse.model_validate(updated_deal)
 
 
 @router.delete(

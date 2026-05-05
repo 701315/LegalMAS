@@ -10,6 +10,7 @@ import type {
   DealDetail,
   PaginatedResponse,
   DealPrimaryLanguageUpdatePayload,
+  DealUpdatePayload,
 } from "../types";
 
 // -------------------------------------------------------------
@@ -40,6 +41,15 @@ export const dealApi = {
   get: (dealId: string) =>
     client
       .get<DealDetail>(`/api/v1/deals/${dealId}`)
+      .then((response) => response.data),
+
+  /**
+   * Частично обновить сделку.
+   * PATCH /api/v1/deals/{deal_id}
+   */
+  update: (dealId: string, payload: DealUpdatePayload) =>
+    client
+      .patch<DealDetail>(`/api/v1/deals/${dealId}`, payload)
       .then((response) => response.data),
 
   /**
@@ -81,6 +91,31 @@ export function useDeal(dealId: string | null) {
     queryKey: ["deal", dealId],
     queryFn: () => dealApi.get(dealId as string),
     enabled: !!dealId,
+  });
+}
+
+/**
+ * Хук для частичного обновления сделки.
+ * Пока используется для summary.
+ *
+ * Пример:
+ *   const updateDeal = useUpdateDeal(deal.id);
+ *   updateDeal.mutate({ summary: "Новое описание проекта" });
+ */
+export function useUpdateDeal(dealId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: DealUpdatePayload) => dealApi.update(dealId, payload),
+
+    onSuccess: async (updatedDeal) => {
+      queryClient.setQueryData<DealDetail>(["deal", dealId], updatedDeal);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["deal", dealId] }),
+        queryClient.invalidateQueries({ queryKey: ["deals"] }),
+      ]);
+    },
   });
 }
 

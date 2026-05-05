@@ -22,7 +22,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.constants import DealStatus, PIIMode
 
@@ -40,6 +40,7 @@ class DealResponse(BaseModel):
     tenant_id: UUID
 
     name: str
+    summary: str | None = None
     deal_type: str | None = None
     jurisdiction: str | None = None
     # Список языков документов сделки (из документов).
@@ -101,6 +102,7 @@ class DealCreate(BaseModel):
     """
 
     name: str
+    summary: str | None = Field(default=None, max_length=5000)
     deal_type: str | None = None
     jurisdiction: str | None = None
     languages: list[str] | None = None
@@ -117,6 +119,14 @@ class DealCreate(BaseModel):
     # Если захочешь — можно добавить сюда:
     # model_config_id: UUID | None = None
 
+
+class DealUpdate(BaseModel):
+    """
+    Частичное обновление сделки (PATCH /api/v1/deals/{deal_id}).
+    Пока поддерживаем только summary.
+    """
+    summary: str | None = Field(default=None, max_length=5000)
+    
 
 class DealPlaybookHistoryItem(BaseModel):
     """

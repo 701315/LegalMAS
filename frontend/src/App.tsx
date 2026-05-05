@@ -11,7 +11,6 @@ import {
   Route,
   Navigate,
   useParams,
-  useNavigate,
 } from "react-router-dom";
 
 import LoginPage from "./pages/LoginPage";
@@ -41,12 +40,7 @@ import AppShell from "./components/layout/AppShell";
 
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
-  const navigate = useNavigate();
   const { data: deal, isLoading } = useDeal(dealId ?? null);
-
-  const handleBackToDashboard = () => {
-    navigate("/dashboard");
-  };
 
   if (isLoading || !deal) {
     return (
@@ -64,20 +58,7 @@ function DealRouteWrapper() {
     );
   }
 
-  return (
-    <>
-      <div className="mb-4">
-        <button
-          type="button"
-          onClick={handleBackToDashboard}
-          className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] shadow-sm transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
-        >
-          ← Вернуться к списку проектов
-        </button>
-      </div>
-      <DealPage deal={deal} />
-    </>
-  );
+  return <DealPage deal={deal} />;
 }
 
 function RequireAuth({ children }: { children: React.ReactElement }) {

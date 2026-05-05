@@ -27,7 +27,7 @@ const PageSection: React.FC<PageSectionProps> = ({
   return (
     <section
       className={cn(
-        "rounded-xl border border-[var(--border,#e5e7eb)] bg-[var(--bg-elevated,#ffffff)] p-4 shadow-sm",
+        "min-w-0 rounded-xl border border-[var(--border,#e5e7eb)] bg-[var(--bg-elevated,#ffffff)] p-4 shadow-sm",
         className,
       )}
     >
@@ -51,7 +51,7 @@ const PageSection: React.FC<PageSectionProps> = ({
         </div>
       ) : null}
 
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0 flow-root">{children}</div>
     </section>
   );
 };

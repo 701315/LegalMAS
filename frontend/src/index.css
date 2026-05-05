@@ -2,6 +2,28 @@
 @import "tailwindcss";
 
 :root {
+  /* Typography */
+  --font-body: "Inter", system-ui, sans-serif;
+
+  --font-size-ui-xs: 0.75rem; /* 12px */
+  --font-size-ui-sm: 0.8125rem; /* 13px */
+  --font-size-body-sm: 0.875rem; /* 14px */
+  --font-size-body-md: 1rem; /* 16px */
+  --font-size-title-sm: 1rem; /* 16px */
+  --font-size-title-md: 1.125rem; /* 18px */
+
+  --line-height-ui-xs: 1rem;
+  --line-height-ui-sm: 1.125rem;
+  --line-height-body-sm: 1.25rem;
+  --line-height-body-md: 1.5rem;
+  --line-height-title-sm: 1.25rem;
+  --line-height-title-md: 1.5rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
   /* Base surfaces */
   --bg-base: #f5f7fb;
   --bg-surface: #eef2f7;
@@ -25,6 +47,8 @@
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
+  --text-faint: #cbd5e1;
+  --text-inverse: #ffffff;
 
   /* Semantic */
   --success: #059669;
@@ -42,6 +66,17 @@
   --color-gold-hover: #a16207;
   --color-gold-highlight: #fefce8;
 
+  --color-success: #059669;
+  --color-success-highlight: #ecfdf5;
+
+  --color-warning: #d97706;
+  --color-warning-highlight: #fffbeb;
+
+  /* Optional semantic token hooks */
+  --color-success-text: var(--success);
+  --color-success-bg: transparent;
+  --color-success-border: transparent;
+
   /* Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -57,6 +92,7 @@ html,
 body,
 #root {
   width: 100%;
+  min-width: 0;
   min-height: 100%;
   height: 100%;
   margin: 0;
@@ -70,7 +106,9 @@ html {
 
 body {
   min-height: 100vh;
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
   background:
     radial-gradient(
       circle at top left,
@@ -81,6 +119,7 @@ body {
   color: var(--text-primary);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   position: relative;
+  overflow: hidden;
 }
 
 body::after {
@@ -96,6 +135,7 @@ body::after {
 #root {
   position: relative;
   z-index: 1;
+  overflow: hidden;
 }
 
 *,
@@ -177,11 +217,12 @@ table {
 
 .input-base {
   width: 100%;
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
   color: var(--text-primary);
   transition:
     border-color 0.15s ease,

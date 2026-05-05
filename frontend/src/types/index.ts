@@ -59,6 +59,7 @@ export type {
   DealStatus,
   DealChecksMode,
   DealPrimaryLanguageUpdatePayload,
+  DealUpdatePayload,
   Deal,
   DealDetail,
   ImportStatus,
