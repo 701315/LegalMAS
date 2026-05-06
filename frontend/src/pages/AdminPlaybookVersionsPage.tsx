@@ -302,7 +302,7 @@ const AdminPlaybookVersionsPage: React.FC = () => {
                 <div className="flex items-center justify-end border-t border-[var(--border)] pt-3">
                   <Button
                     type="button"
-                    variant="primary"
+                    variant="secondary"
                     size="sm"
                     onClick={handleSave}
                     disabled={isSaving}

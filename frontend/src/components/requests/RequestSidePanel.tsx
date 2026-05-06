@@ -288,7 +288,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               <Button
                 type="button"
                 size="sm"
-                variant="primary"
+                variant="secondary"
                 className="inline-flex flex-1 items-center justify-center gap-1.5"
                 onClick={handleSave}
                 disabled={isSaving || !canManageRequests}
@@ -319,7 +319,7 @@ export const RequestSidePanel: React.FC<Props> = ({
               <Button
                 type="button"
                 size="sm"
-                variant="primary"
+                variant="secondary"
                 className="inline-flex flex-1 items-center justify-center gap-1.5"
                 onClick={() => canManageRequests && setEditing(true)}
                 disabled={!canManageRequests}

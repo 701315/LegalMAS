@@ -16,11 +16,14 @@ import type {
 } from "../../../types";
 import { getDocumentPipelineView } from "../../../api/documentPipelineView";
 import { PipelineStageRow } from "./PipelineStageRow";
-import { PipelineStageModal } from "./PipelineStageModal";
 
 interface Props {
   documentId: string;
   onOpenAtLocation?: OpenViewerAtFn;
+  onOpenStagePreview?: (
+    stage: PipelineStageViewDTO,
+    stages: PipelineStageViewDTO[],
+  ) => void;
 }
 
 function getErrorMessage(err: unknown): string {
@@ -41,14 +44,13 @@ function getErrorMessage(err: unknown): string {
 
 export const DocumentPipelinePanel: React.FC<Props> = ({
   documentId,
-  onOpenAtLocation,
+  onOpenAtLocation: _onOpenAtLocation,
+  onOpenStagePreview,
 }) => {
   const [data, setData] =
     React.useState<DocumentPipelineViewResponseDTO | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [selectedStage, setSelectedStage] =
-    React.useState<PipelineStageViewDTO | null>(null);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -56,7 +58,6 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
     async function load() {
       if (!documentId) {
         setData(null);
-        setSelectedStage(null);
         setError("Не указан идентификатор документа");
         setLoading(false);
         return;
@@ -66,16 +67,15 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
         setLoading(true);
         setError(null);
         setData(null);
-        setSelectedStage(null);
 
-        // Панель всегда загружает pipeline в canonical-режиме по умолчанию.
-        // Переключение в friendly будет происходить внутри modal конкретной стадии.
         const result = await getDocumentPipelineView(
           documentId,
           controller.signal,
         );
 
-        setData(result);
+        if (!controller.signal.aborted) {
+          setData(result);
+        }
       } catch (err) {
         if (controller.signal.aborted) {
           return;
@@ -95,72 +95,67 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
     };
   }, [documentId]);
 
-  const hasStages = !!data && data.stages.length > 0;
+  const stages = data?.stages ?? [];
+  const hasStages = stages.length > 0;
+
+  const handleStageOpen = React.useCallback(
+    (clickedStage: PipelineStageViewDTO) => {
+      if (!onOpenStagePreview) return;
+      onOpenStagePreview(clickedStage, stages);
+    },
+    [onOpenStagePreview, stages],
+  );
 
   return (
-    <>
-      <div className="space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
-              <GitBranch size={13} className="shrink-0" />
-              <span>Document pipeline</span>
-            </p>
-            <p className="text-xs text-[var(--text-muted)]">
-              SOURCE <ArrowRight className="inline h-3 w-3" /> PRIMARY{" "}
-              <ArrowRight className="inline h-3 w-3" /> EXTRACT{" "}
-              <ArrowRight className="inline h-3 w-3" /> PII{" "}
-              <ArrowRight className="inline h-3 w-3" /> STRUCTURE{" "}
-              <ArrowRight className="inline h-3 w-3" /> CHUNKS
-            </p>
-            <p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
-              Путь документа по стадиям обработки — от исходного PDF до
-              структуры и чанков.
-            </p>
-          </div>
+    <div className="space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">
+            <GitBranch size={13} className="shrink-0" />
+            <span>Document pipeline</span>
+          </p>
+
+          <p className="text-xs font-medium text-[var(--text-primary)]">
+            SOURCE <ArrowRight className="inline h-3 w-3" /> PRIMARY{" "}
+            <ArrowRight className="inline h-3 w-3" /> EXTRACT{" "}
+            <ArrowRight className="inline h-3 w-3" /> PII{" "}
+            <ArrowRight className="inline h-3 w-3" /> STRUCTURE{" "}
+            <ArrowRight className="inline h-3 w-3" /> CHUNKS
+          </p>
+
+          <p className="mt-1 text-xs leading-5 text-[var(--text-primary)]">
+            Путь документа по стадиям обработки — от исходного PDF до структуры
+            и чанков.
+          </p>
         </div>
-
-        {loading && (
-          <div className="flex items-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--text-faint)]" />
-            <span>Загрузка стадий обработки…</span>
-          </div>
-        )}
-
-        {!loading && error && (
-          <div className="flex items-start gap-2 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2 text-sm text-[var(--color-error-strong)]">
-            <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0 text-[var(--color-error)]" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {!loading && !error && hasStages && (
-          <div className="space-y-1.5">
-            {data!.stages.map((stage) => (
-              <PipelineStageRow
-                key={stage.code}
-                stage={stage}
-                onOpen={setSelectedStage}
-              />
-            ))}
-          </div>
-        )}
-
-        {!loading && !error && data && data.stages.length === 0 && (
-          <div className="flex items-center justify-between rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-muted)]">
-            <span>Стадии обработки пока недоступны.</span>
-          </div>
-        )}
       </div>
 
-      <PipelineStageModal
-        stage={selectedStage}
-        stages={data?.stages ?? []}
-        documentId={documentId}
-        onOpenAtLocation={onOpenAtLocation}
-        onClose={() => setSelectedStage(null)}
-      />
-    </>
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin text-[var(--text-faint)]" />
+          <span>Загрузка стадий обработки…</span>
+        </div>
+      ) : error ? (
+        <div className="flex items-start gap-2 rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] px-3 py-2 text-sm text-[var(--color-error-strong)]">
+          <AlertTriangle className="mt-[2px] h-4 w-4 shrink-0 text-[var(--color-error)]" />
+          <span>{error}</span>
+        </div>
+      ) : hasStages ? (
+        <div className="space-y-1.5">
+          {stages.map((stage) => (
+            <PipelineStageRow
+              key={stage.code}
+              stage={stage}
+              onOpen={handleStageOpen}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-muted)]">
+          <span>Стадии обработки пока недоступны.</span>
+        </div>
+      )}
+    </div>
   );
 };
 

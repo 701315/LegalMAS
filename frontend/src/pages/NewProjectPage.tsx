@@ -190,7 +190,7 @@ const NewProjectPage: React.FC = () => {
 
                 <Button
                   type="submit"
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   isLoading={isSubmitting}
                 >

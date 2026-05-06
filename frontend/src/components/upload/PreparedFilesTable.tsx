@@ -65,7 +65,7 @@ const PreparedFilesTable: React.FC<PreparedFilesTableProps> = ({
           <Button
             type="button"
             size="sm"
-            variant="primary"
+            variant="secondary"
             onClick={onUpload}
             disabled={!canUpload}
             isLoading={isUploading}

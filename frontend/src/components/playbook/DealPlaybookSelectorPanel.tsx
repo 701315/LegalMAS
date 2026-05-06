@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/playbook/DealPlaybookSelectorPanel.tsx
+// =============================================================
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -35,6 +39,7 @@ export interface DealPlaybookSelectorPanelProps {
   mode?: "page" | "embedded";
   onFinished?: () => void;
   onCancel?: () => void;
+  onDealPatched?: (patch: Partial<Deal>) => void;
 }
 
 const selectClassName =
@@ -46,6 +51,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   mode = "page",
   onFinished,
   onCancel,
+  onDealPatched,
 }) => {
   const navigate = useNavigate();
 
@@ -186,6 +192,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           : prev,
       );
 
+      onDealPatched?.({
+        playbook_version_id: selectedVersionId,
+      });
+
       await loadHistory();
       setSuccessText("Playbook успешно применён к проекту.");
       setIsApplyConfirmOpen(false);
@@ -209,7 +219,14 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     } finally {
       setIsApplying(false);
     }
-  }, [clearMessages, dealId, loadHistory, onFinished, selectedVersionId]);
+  }, [
+    clearMessages,
+    dealId,
+    loadHistory,
+    onFinished,
+    onDealPatched,
+    selectedVersionId,
+  ]);
 
   const handleApplyPlaybook = useCallback(async () => {
     if (!selectedVersionId) {
@@ -480,7 +497,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
               <p className="mb-4 text-sm text-[var(--text-secondary)]">
                 У вас нет прав для настройки playbook этого проекта.
               </p>
-              <Button variant="primary" size="md" onClick={handleBack}>
+              <Button variant="secondary" size="sm" onClick={handleBack}>
                 Вернуться назад
               </Button>
             </div>
@@ -641,7 +658,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
               <div className="flex justify-start">
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   onClick={handleCreateVersionForSelectedLine}
                   disabled={isCreatingVersion || !selectedModelConfigId}
@@ -687,7 +704,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
               <div className="mt-4 flex items-center justify-end border-t border-[var(--border-soft)] pt-3">
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   onClick={handleApplyPlaybook}
                   disabled={!selectedVersionId || isApplying || isSameAsCurrent}

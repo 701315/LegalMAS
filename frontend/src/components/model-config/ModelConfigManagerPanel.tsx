@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/model-config/ModelConfigManagerPanel.tsx
+// =============================================================
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../../api/client";
@@ -520,7 +524,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                 Список профилей
               </h2>
 
-              <Button size="sm" variant="primary" onClick={startCreate}>
+              <Button size="sm" variant="secondary" onClick={startCreate}>
                 + Новый профиль
               </Button>
             </div>
@@ -827,7 +831,7 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
                   <Button
                     type="submit"
                     size="sm"
-                    variant="primary"
+                    variant="secondary"
                     isLoading={isSubmitting}
                   >
                     {editorMode === "create"

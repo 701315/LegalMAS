@@ -88,8 +88,8 @@ const ProjectPlaybookPage: React.FC = () => {
               У вас нет прав для редактирования playbook этого проекта.
             </p>
             <Button
-              variant="primary"
-              size="md"
+              variant="secondary"
+              size="sm"
               onClick={() => navigate(`/projects/${dealId}`)}
             >
               Вернуться к проекту
@@ -235,8 +235,8 @@ const ProjectPlaybookPage: React.FC = () => {
                 Отмена
               </Button>
               <Button
-                variant="primary"
-                size="md"
+                variant="secondary"
+                size="sm"
                 onClick={handleSave}
                 disabled={isSaving || isLoading}
                 isLoading={isSaving}

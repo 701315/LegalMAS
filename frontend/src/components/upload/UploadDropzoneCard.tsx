@@ -59,7 +59,7 @@ const UploadDropzoneCard: React.FC<UploadDropzoneCardProps> = ({
             <Button
               type="button"
               size="sm"
-              variant="primary"
+              variant="secondary"
               onClick={onPickFiles}
               disabled={isSubmitting}
             >

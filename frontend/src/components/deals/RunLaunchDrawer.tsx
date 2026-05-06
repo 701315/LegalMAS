@@ -90,7 +90,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
               </span>
             )}
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               onClick={handleSubmit}
               disabled={!canLaunchRun}

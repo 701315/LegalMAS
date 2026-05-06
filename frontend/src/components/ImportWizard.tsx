@@ -200,7 +200,7 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
           {step === 1 && (
             <Button
               type="button"
-              variant="primary"
+              variant="secondary"
               size="sm"
               onClick={handleNext}
               disabled={!selectedFiles || selectedFiles.length === 0}
@@ -212,8 +212,8 @@ const ImportWizard: React.FC<ImportWizardProps> = ({ deal }) => {
           {step === 2 && (
             <Button
               type="button"
-              variant="primary"
-              size="md"
+              variant="secondary"
+              size="sm"
               onClick={handleSubmit}
             >
               Запустить импорт

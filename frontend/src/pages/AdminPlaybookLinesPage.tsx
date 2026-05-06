@@ -463,7 +463,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
               title="Шаблоны playbook"
               rightSlot={
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   onClick={handleCreateNew}
                   disabled={isUiLocked}
@@ -480,7 +480,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                   description="Создайте первый шаблон playbook, чтобы настроить набор тем и проверок для проектов."
                   action={
                     <Button
-                      variant="primary"
+                      variant="secondary"
                       size="sm"
                       onClick={handleCreateNew}
                       disabled={isUiLocked}
@@ -616,7 +616,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                     )}
 
                     <Button
-                      variant="primary"
+                      variant="secondary"
                       size="sm"
                       onClick={handleAddItem}
                       disabled={!canAddItems}
@@ -637,7 +637,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
                     description="Добавьте тему или проверку, чтобы сформировать содержимое playbook‑шаблона."
                     action={
                       <Button
-                        variant="primary"
+                        variant="secondary"
                         size="sm"
                         onClick={handleAddItem}
                         disabled={!canAddItems}
@@ -827,8 +827,8 @@ const AdminPlaybookLinesPage: React.FC = () => {
 
                 <div className="ml-auto flex items-center gap-3">
                   <Button
-                    variant="primary"
-                    size="md"
+                    variant="secondary"
+                    size="sm"
                     onClick={handleSave}
                     disabled={!canSave}
                     isLoading={isSaving}

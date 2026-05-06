@@ -124,7 +124,7 @@ export const RequestsTable: React.FC<Props> = ({
             <Button
               type="button"
               size="sm"
-              variant="primary"
+              variant="secondary"
               onClick={onCreateClick}
               className="inline-flex items-center gap-1"
             >

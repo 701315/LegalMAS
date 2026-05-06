@@ -33,6 +33,7 @@ import type {
   Document,
   ReclassifyInput,
   OpenViewerAtFn,
+  PipelineStageViewDTO,
 } from "../../types";
 import type { DDMatrixResponseDTO } from "../../types/dealReview";
 
@@ -54,6 +55,12 @@ interface Props {
   /** Опциональный callback для открытия viewer в точке документа. */
   onOpenAtLocation?: OpenViewerAtFn;
 
+  /** Открыть preview стадии pipeline в средней панели layout. */
+  onOpenPipelineStagePreview?: (
+    stage: PipelineStageViewDTO,
+    stages: PipelineStageViewDTO[],
+  ) => void;
+
   /** DD Matrix data, если контейнер используется в review-контексте. */
   ddMatrix?: DDMatrixResponseDTO | null;
 
@@ -66,6 +73,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   dealId,
   onNavigateToGrid,
   onOpenAtLocation,
+  onOpenPipelineStagePreview,
   ddMatrix,
   onOpenReviewCell,
 }) => {
@@ -84,10 +92,8 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
   const { data: pdfData } = useDocumentPdfUrl(docId);
 
   // --- Права доступа ---
-  const {
-    canDownloadDocuments,
-    canReclassifyDocuments,
-  } = useDealPermissions(dealId);
+  const { canDownloadDocuments, canReclassifyDocuments } =
+    useDealPermissions(dealId);
 
   const canDownload = canDownloadDocuments;
   const canOpenPdf = canDownloadDocuments;
@@ -155,6 +161,9 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
     ? reclassifyMutation.data ?? undefined
     : undefined;
 
+  const resolvedPdfUrl =
+    typeof pdfData === "string" ? pdfData : pdfData?.url ?? null;
+
   return (
     <DocumentDetailsView
       documentId={docId}
@@ -171,7 +180,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       canDownload={canDownload}
       canOpenPdf={canOpenPdf}
       canReclassify={canReclassify}
-      pdfUrl={pdfData?.url ?? null}
+      pdfUrl={resolvedPdfUrl}
       onSetReviewed={handleSetReviewed}
       isSetReviewedPending={setReviewedMutation.isPending}
       onReclassify={handleReclassify}
@@ -179,6 +188,7 @@ export const DocumentDetailsContainer: React.FC<Props> = ({
       lastReclassifyResult={lastReclassifyResult}
       onNavigateToGrid={onNavigateToGrid}
       onOpenAtLocation={onOpenAtLocation}
+      onOpenPipelineStagePreview={onOpenPipelineStagePreview}
       onOpenReviewCell={onOpenReviewCell}
       onReplaceFile={handleReplaceFile}
       availableDocTypes={availableDocTypes}

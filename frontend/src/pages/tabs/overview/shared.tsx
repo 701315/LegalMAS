@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/overview/shared.tsx
+// =============================================================
+
 import React from "react";
 
 export const StatusRow: React.FC<{

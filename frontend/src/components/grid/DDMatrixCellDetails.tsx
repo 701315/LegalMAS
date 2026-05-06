@@ -213,7 +213,7 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
               Закрыть
             </Button>
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               onClick={handleOpenInViewer}
               disabled={!canOpenInViewer}

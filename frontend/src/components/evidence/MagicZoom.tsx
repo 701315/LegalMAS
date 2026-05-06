@@ -395,7 +395,7 @@ export const MagicZoom: React.FC<MagicZoomProps> = ({
 
             <Button
               type="button"
-              variant="primary"
+              variant="secondary"
               size="sm"
               onClick={handleOpenFull}
               disabled={!onOpenFull}

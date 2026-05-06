@@ -214,7 +214,7 @@ const ProjectMembersPage: React.FC = () => {
             <Button
               type="button"
               size="sm"
-              variant="primary"
+              variant="secondary"
               onClick={openCreateForm}
             >
               Добавить участника
@@ -386,7 +386,7 @@ const ProjectMembersPage: React.FC = () => {
                 >
                   Отмена
                 </Button>
-                <Button type="submit" size="sm" variant="primary">
+                <Button type="submit" size="sm" variant="secondary">
                   Сохранить
                 </Button>
               </div>

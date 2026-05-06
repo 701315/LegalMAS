@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/overview/AnalysisActionsPanel.tsx
+// =============================================================
+
 import React from "react";
 import type { Deal } from "../../../types";
 import Button from "../../../components/ui/Button";
@@ -99,7 +103,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
 
         <div className="mt-5">
           <Button
-            variant="primary"
+            variant="secondary"
             size="sm"
             onClick={onOpenRunPanel}
             disabled={!canStartRun}

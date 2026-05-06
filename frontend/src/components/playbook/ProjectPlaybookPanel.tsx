@@ -1,3 +1,7 @@
+// =============================================================
+// src/components/playbook/ProjectPlaybookPanel.tsx
+// =============================================================
+
 import React, { useEffect, useState } from "react";
 import client from "../../api/client";
 import { useDealPermissions } from "../../hooks/usePermissions";
@@ -140,7 +144,7 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
             </p>
 
             {onCancel && (
-              <Button variant="primary" size="md" onClick={onCancel}>
+              <Button variant="secondary" size="sm" onClick={onCancel}>
                 Вернуться назад
               </Button>
             )}
@@ -275,8 +279,8 @@ const ProjectPlaybookPanel: React.FC<ProjectPlaybookPanelProps> = ({
               )}
 
               <Button
-                variant="primary"
-                size="md"
+                variant="secondary"
+                size="sm"
                 onClick={handleSave}
                 disabled={isSaving || isLoading}
                 isLoading={isSaving}

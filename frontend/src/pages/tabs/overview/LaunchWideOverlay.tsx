@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/overview/LaunchWideOverlay.tsx
+// =============================================================
+
 import React from "react";
 import type { Deal } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
@@ -179,6 +183,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
             mode="embedded"
             onCancel={handleBackToPipeline}
             onFinished={handleBackToPipeline}
+            onDealPatched={onDealPatched}
           />
         </div>
       </div>
@@ -275,7 +280,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       "
       style={{ width: overlayWidth }}
     >
-      <section className="flex h-full min-h-[720px] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
+      <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
         <div className="shrink-0 border-b border-[var(--border-soft)] px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -338,7 +343,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
             )}
 
             <Button
-              variant="primary"
+              variant="secondary"
               size="sm"
               onClick={onSubmit}
               disabled={!canLaunchRun}

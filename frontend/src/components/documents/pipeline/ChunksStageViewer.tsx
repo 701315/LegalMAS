@@ -317,29 +317,42 @@ function groupChunksBySegment(preview: ChunksPreviewDTO | null): SegmentGroup[] 
   return result;
 }
 
-function InfoPanel({
-  title,
-  description,
-  children,
-}: {
+/* ===== shared ui ===== */
+
+const PanelHeader: React.FC<{
   title: string;
   description?: string;
-  children: React.ReactNode;
-}) {
+}> = ({ title, description }) => {
   return (
-    <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-sm">
-      <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
+    <div className="mb-3 h-[72px] border-b border-[var(--border-subtle)] pb-2">
+      <div className="flex h-full flex-col items-start justify-start">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           {title}
         </p>
         {description ? (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">{description}</p>
+          <p className="mt-1 text-xs leading-4 text-[var(--text-faint)]">
+            {description}
+          </p>
         ) : null}
       </div>
-      <div className="min-h-0">{children}</div>
+    </div>
+  );
+};
+
+const InfoPanel: React.FC<{
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}> = ({ title, description, children }) => {
+  return (
+    <section className="min-h-0 min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)]">
+      <div className="flex h-full min-h-0 flex-col px-3 pt-3">
+        <PanelHeader title={title} description={description} />
+        <div className="min-h-0 flex-1 overflow-hidden pb-3">{children}</div>
+      </div>
     </section>
   );
-}
+};
 
 function Pill({
   children,
@@ -358,7 +371,7 @@ function Pill({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2 py-1 text-[11px] leading-none",
+        "inline-flex items-center rounded-full border px-2 py-1 text-xs leading-none",
         toneClass,
       )}
     >
@@ -378,7 +391,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   if (status === "pending") {
     return (
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
         Чанки ещё не готовы в v2-формате. Попробуй позже.
       </div>
     );
@@ -386,7 +399,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   if (status === "missing") {
     return (
-      <div className="rounded-2xl border border-[var(--color-error-soft-border)] bg-[var(--color-error-soft-bg)] p-4 text-sm text-[var(--color-error-strong)] shadow-sm">
+      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
         CHUNKS-артефакт ожидается, но недоступен или повреждён. Проверь состояние
         пайплайна для стадии CHUNKS.
       </div>
@@ -555,7 +568,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   if (!preview) {
     return (
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)] shadow-sm">
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
         CHUNKS preview недоступен для этого этапа.
       </div>
     );
@@ -565,7 +578,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
     return (
       <div className="flex h-full min-h-0 flex-col gap-3">
         {traceLabel && (
-          <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[var(--color-primary-highlight)] px-3 py-2 text-[11px] text-[var(--color-primary)] shadow-sm">
+          <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-primary)_30%,transparent)] bg-[var(--color-primary-highlight)] px-3 py-2 text-xs text-[var(--color-primary)]">
             {traceLabel}
           </div>
         )}
@@ -578,7 +591,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
               : "Для выбранной секции не найдено связанных chunk’ов."
           }
         >
-          <div className="flex min-h-0 flex-1 flex-col p-4">
+          <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div />
               {hasLinkedChunks && (
@@ -666,148 +679,150 @@ export const ChunksStageViewer: React.FC<Props> = ({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[25%_30%_45%]">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-3">
       <InfoPanel
-        title="Chunks"
+        title="CHUNKS: materialized chunks"
         description="Материализованные чанки этапа, сгруппированные по сегментам или уровню."
       >
-        <div className="min-h-0 flex-1 overflow-auto">
-          {hasChunks ? (
-            <div className="divide-y divide-[var(--border-subtle)]">
-              {hasSegmentGroups
-                ? segmentGroups.map((group) => {
-                    const isExpanded = expandedSegments[group.segmentId] ?? true;
-                    const count = group.items.length;
-                    if (count === 0) return null;
+        <div className="min-h-0 flex h-full flex-col">
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl">
+            {hasChunks ? (
+              <div className="divide-y divide-[var(--border-subtle)]">
+                {hasSegmentGroups
+                  ? segmentGroups.map((group) => {
+                      const isExpanded = expandedSegments[group.segmentId] ?? true;
+                      const count = group.items.length;
+                      if (count === 0) return null;
 
-                    return (
-                      <div key={group.segmentId}>
-                        <button
-                          type="button"
-                          onClick={() => toggleSegment(group.segmentId)}
-                          className="flex w-full items-center justify-between gap-2 bg-[var(--bg-elevated-soft)] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-subtle)]"
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-card)] text-[9px] leading-none text-[var(--text-muted)]">
-                              {isExpanded ? "−" : "+"}
+                      return (
+                        <div key={group.segmentId}>
+                          <button
+                            type="button"
+                            onClick={() => toggleSegment(group.segmentId)}
+                            className="flex w-full items-center justify-between gap-2 rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-subtle)]"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-card)] text-[10px] leading-none text-[var(--text-muted)]">
+                                {isExpanded ? "−" : "+"}
+                              </span>
+                              <span className="truncate">{group.label}</span>
                             </span>
-                            <span className="truncate">{group.label}</span>
-                          </span>
-                          <span className="text-[10px] font-normal text-[var(--text-muted)]">
-                            {count}
-                          </span>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="border-t border-[var(--border-subtle)]">
-                            {group.items.map((chunk) => {
-                              const isSelected = selectedIndex === chunk.index;
-                              return (
-                                <button
-                                  key={chunk.index}
-                                  ref={(el) => {
-                                    if (el) listItemRefs.current.set(chunk.index, el);
-                                    else listItemRefs.current.delete(chunk.index);
-                                  }}
-                                  type="button"
-                                  onClick={() => setSelectedIndex(chunk.index)}
-                                  className={cn(
-                                    "w-full px-3 py-2.5 text-left transition-colors",
-                                    isSelected
-                                      ? "bg-[var(--color-primary-highlight)]"
-                                      : "bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
-                                  )}
-                                  aria-pressed={isSelected}
-                                  title={chunkMetaLine(chunk)}
-                                >
-                                  <div className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {chunkTitle(chunk)}
-                                  </div>
-                                  <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                                    {chunkMetaLine(chunk)}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                : chunkGroups.map((group) => {
-                    const isExpanded = expandedGroups[group.key];
-                    const count = group.items.length;
-                    if (count === 0) return null;
-
-                    return (
-                      <div key={group.key}>
-                        <button
-                          type="button"
-                          onClick={() => toggleGroup(group.key)}
-                          className="flex w-full items-center justify-between gap-2 bg-[var(--bg-elevated-soft)] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-subtle)]"
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-card)] text-[9px] leading-none text-[var(--text-muted)]">
-                              {isExpanded ? "−" : "+"}
+                            <span className="text-xs font-normal text-[var(--text-muted)]">
+                              {count}
                             </span>
-                            <span className="truncate">{group.label}</span>
-                          </span>
-                          <span className="text-[10px] font-normal text-[var(--text-muted)]">
-                            {count}
-                          </span>
-                        </button>
+                          </button>
 
-                        {isExpanded && (
-                          <div className="border-t border-[var(--border-subtle)]">
-                            {group.items.map((chunk) => {
-                              const isSelected = selectedIndex === chunk.index;
+                          {isExpanded && (
+                            <div className="mt-1 border-t border-[var(--border-subtle)]">
+                              {group.items.map((chunk) => {
+                                const isSelected = selectedIndex === chunk.index;
+                                return (
+                                  <button
+                                    key={chunk.index}
+                                    ref={(el) => {
+                                      if (el) listItemRefs.current.set(chunk.index, el);
+                                      else listItemRefs.current.delete(chunk.index);
+                                    }}
+                                    type="button"
+                                    onClick={() => setSelectedIndex(chunk.index)}
+                                    className={cn(
+                                      "w-full px-3 py-2.5 text-left transition-colors",
+                                      isSelected
+                                        ? "bg-[var(--color-primary-highlight)]"
+                                        : "bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
+                                    )}
+                                    aria-pressed={isSelected}
+                                    title={chunkMetaLine(chunk)}
+                                  >
+                                    <div className="text-sm font-semibold text-[var(--text-primary)]">
+                                      {chunkTitle(chunk)}
+                                    </div>
+                                    <div className="mt-0.5 text-xs text-[var(--text-muted)]">
+                                      {chunkMetaLine(chunk)}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  : chunkGroups.map((group) => {
+                      const isExpanded = expandedGroups[group.key];
+                      const count = group.items.length;
+                      if (count === 0) return null;
 
-                              return (
-                                <button
-                                  key={chunk.index}
-                                  ref={(el) => {
-                                    if (el) listItemRefs.current.set(chunk.index, el);
-                                    else listItemRefs.current.delete(chunk.index);
-                                  }}
-                                  type="button"
-                                  onClick={() => setSelectedIndex(chunk.index)}
-                                  className={cn(
-                                    "w-full px-3 py-2.5 text-left transition-colors",
-                                    isSelected
-                                      ? "bg-[var(--color-primary-highlight)]"
-                                      : "bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
-                                  )}
-                                  aria-pressed={isSelected}
-                                  title={chunkMetaLine(chunk)}
-                                >
-                                  <div className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {chunkTitle(chunk)}
-                                  </div>
-                                  <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                                    {chunkMetaLine(chunk)}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-            </div>
-          ) : (
-            <div className="px-4 py-4 text-sm text-[var(--text-muted)]">
-              В v2-артефакте CHUNKS нет сегментов или чанков.
-            </div>
-          )}
+                      return (
+                        <div key={group.key}>
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(group.key)}
+                            className="flex w-full items-center justify-between gap-2 rounded-xl bg-[var(--bg-elevated-soft)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-subtle)]"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--border)] bg-[var(--bg-card)] text-[10px] leading-none text-[var(--text-muted)]">
+                                {isExpanded ? "−" : "+"}
+                              </span>
+                              <span className="truncate">{group.label}</span>
+                            </span>
+                            <span className="text-xs font-normal text-[var(--text-muted)]">
+                              {count}
+                            </span>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="mt-1 border-t border-[var(--border-subtle)]">
+                              {group.items.map((chunk) => {
+                                const isSelected = selectedIndex === chunk.index;
+
+                                return (
+                                  <button
+                                    key={chunk.index}
+                                    ref={(el) => {
+                                      if (el) listItemRefs.current.set(chunk.index, el);
+                                      else listItemRefs.current.delete(chunk.index);
+                                    }}
+                                    type="button"
+                                    onClick={() => setSelectedIndex(chunk.index)}
+                                    className={cn(
+                                      "w-full px-3 py-2.5 text-left transition-colors",
+                                      isSelected
+                                        ? "bg-[var(--color-primary-highlight)]"
+                                        : "bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]",
+                                    )}
+                                    aria-pressed={isSelected}
+                                    title={chunkMetaLine(chunk)}
+                                  >
+                                    <div className="text-sm font-semibold text-[var(--text-primary)]">
+                                      {chunkTitle(chunk)}
+                                    </div>
+                                    <div className="mt-0.5 text-xs text-[var(--text-muted)]">
+                                      {chunkMetaLine(chunk)}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+              </div>
+            ) : (
+              <div className="px-1 py-2 text-sm text-[var(--text-muted)]">
+                В v2-артефакте CHUNKS нет сегментов или чанков.
+              </div>
+            )}
+          </div>
         </div>
       </InfoPanel>
 
       <InfoPanel
         title="Выбранный chunk"
-        description="Canonical-представление materialized chunks."
+        description="Canonical‑представление materialized chunks."
       >
-        <div className="min-h-0 flex h-full flex-col overflow-hidden p-4">
+        <div className="flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1 overflow-auto">
             {selectedChunk ? (
               <div className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4">
@@ -815,7 +830,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
                     {chunkTitle(selectedChunk)}
                   </p>
-                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  <p className="mt-1 text-xs text-[var(--text-faint)]">
                     {chunkMetaLine(selectedChunk)}
                   </p>
 
@@ -837,12 +852,14 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       </Pill>
                     )}
 
-                    <Pill>chars: {normalizeChunkText(selectedChunk.text).length}</Pill>
+                    <Pill>
+                      chars: {normalizeChunkText(selectedChunk.text).length}
+                    </Pill>
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
                     Текст chunk’а
                   </p>
                   <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
@@ -852,7 +869,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
                 {reconstructedText ? (
                   <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-faint)]">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
                       Контекст stage
                     </p>
                     <p className="text-xs leading-5 text-[var(--text-muted)]">
@@ -896,14 +913,14 @@ export const ChunksStageViewer: React.FC<Props> = ({
             : "Полный canonical snapshot CHUNKS; выделен фрагмент текста выбранного chunk’а."
         }
       >
-        <div className="flex h-full min-h-0 flex-col p-4">
+        <div className="flex h-full min-h-0 flex-col">
           <div className="mb-3 flex items-center justify-end">
             <div className="inline-flex rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-1">
               <button
                 type="button"
                 onClick={() => setJsonMode("chunk")}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-[11px] leading-none transition-colors",
+                  "rounded-full px-2.5 py-1 text-xs leading-none transition-colors",
                   jsonMode === "chunk"
                     ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -915,7 +932,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 type="button"
                 onClick={() => setJsonMode("snapshot")}
                 className={cn(
-                  "rounded-full px-2.5 py-1 text-[11px] leading-none transition-colors",
+                  "rounded-full px-2.5 py-1 text-xs leading-none transition-colors",
                   jsonMode === "snapshot"
                     ? "bg-[var(--text-primary)] text-[var(--bg-card)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
@@ -928,8 +945,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
           {jsonMode === "chunk" ? (
             selectedChunk ? (
-              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] p-3">
-                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[var(--text-inverse,#f9fafb)]">
+              <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3">
+                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb]">
                   {chunkJson(selectedChunk)}
                 </pre>
               </div>
@@ -941,10 +958,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
           ) : (
             <div
               ref={snapshotRef}
-              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-inverse,#111827)] p-3"
+              className="min-h-0 flex-1 overflow-auto rounded-2xl border border-[var(--border-subtle)] bg-[#050816] p-3"
             >
               <pre
-                className="whitespace-pre-wrap break-words text-xs leading-5 text-[var(--text-inverse,#f9fafb)] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1 [&_mark[data-snapshot-chunk='true']]:text-[var(--text-inverse,#f9fafb)]"
+                className="whitespace-pre-wrap break-words text-xs leading-5 text-[#f9fafb] [&_mark[data-snapshot-chunk='true']]:rounded [&_mark[data-snapshot-chunk='true']]:bg-[var(--color-warning)]/25 [&_mark[data-snapshot-chunk='true']]:px-1"
                 dangerouslySetInnerHTML={highlightedSnapshot}
               />
             </div>

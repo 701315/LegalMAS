@@ -20,15 +20,18 @@ import Button from "../../components/ui/Button";
 import AnalysisActionsPanel from "./overview/AnalysisActionsPanel";
 import LaunchWideOverlay from "./overview/LaunchWideOverlay";
 
+
 export type ChecksMode =
   | "global_only"
   | "doc_type_only"
   | "global_and_doc_type";
 
+
 interface OverviewTabProps {
   deal: Deal;
   latestRunId?: string | null;
 }
+
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -40,6 +43,7 @@ function formatDate(iso: string | null | undefined): string {
     year: "numeric",
   });
 }
+
 
 function formatDateShort(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -53,6 +57,7 @@ function formatDateShort(iso: string | null | undefined): string {
     minute: "2-digit",
   });
 }
+
 
 function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   const imports = entries.filter((e) => e.action === "IMPORT");
@@ -86,6 +91,7 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   };
 }
 
+
 const CardShell: React.FC<{
   title: string;
   eyebrow?: string;
@@ -93,7 +99,7 @@ const CardShell: React.FC<{
   rightSlot?: React.ReactNode;
 }> = ({ title, eyebrow, children, rightSlot }) => (
   <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-    <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
       <div className="min-w-0">
         {eyebrow && (
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
@@ -109,6 +115,7 @@ const CardShell: React.FC<{
     <div className="px-5 py-4">{children}</div>
   </section>
 );
+
 
 const DealInfoCard: React.FC<{
   deal: Deal;
@@ -126,7 +133,7 @@ const DealInfoCard: React.FC<{
   onSaveSummary,
 }) => (
   <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-    <div className="border-b border-[var(--border-soft)] px-5 py-4">
+    <div className="border-b border-[var(--border-subtle)] px-5 py-4">
       <h2 className="text-base font-semibold text-[var(--text-primary)]">
         О проекте
       </h2>
@@ -159,7 +166,7 @@ const DealInfoCard: React.FC<{
         </p>
 
         <Button
-          variant="primary"
+          variant="secondary"
           size="sm"
           onClick={onSaveSummary}
           isLoading={isSaving}
@@ -172,6 +179,7 @@ const DealInfoCard: React.FC<{
   </section>
 );
 
+
 const TimelineEvent: React.FC<{
   icon: string;
   label: string;
@@ -179,7 +187,7 @@ const TimelineEvent: React.FC<{
   children?: React.ReactNode;
 }> = ({ icon, label, date, children }) => (
   <li className="relative flex gap-3">
-    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] text-sm">
+    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-sm">
       {icon}
     </span>
     <div className="min-w-0 pt-0.5">
@@ -195,6 +203,16 @@ const TimelineEvent: React.FC<{
     </div>
   </li>
 );
+
+
+// Утилита: класс цвета текста для статуса run
+function runStatusTextClass(tone: "ok" | "warn" | "error" | "neutral"): string {
+  if (tone === "ok")      return "text-[var(--color-success)]";
+  if (tone === "warn")    return "text-[var(--color-warning)]";
+  if (tone === "error")   return "text-[var(--color-error)]";
+  return "text-[var(--text-secondary)]";
+}
+
 
 const ProjectTimelineCard: React.FC<{
   deal: Deal;
@@ -220,15 +238,16 @@ const ProjectTimelineCard: React.FC<{
   const lastRunStatusLabel = (() => {
     const s = latestRun?.status;
     if (!s) return null;
-    if (s === "completed") return { text: "Завершён успешно", tone: "ok" as const };
-    if (s === "completed_with_errors") {
+    if (s === "completed")
+      return { text: "Завершён успешно", tone: "ok" as const };
+    if (s === "completed_with_errors")
       return { text: "Завершён с ошибками", tone: "warn" as const };
-    }
-    if (s === "failed") {
+    if (s === "failed")
       return { text: "Завершился с ошибкой", tone: "error" as const };
-    }
-    if (s === "running") return { text: "Выполняется", tone: "neutral" as const };
-    if (s === "pending") return { text: "В очереди", tone: "neutral" as const };
+    if (s === "running")
+      return { text: "Выполняется", tone: "neutral" as const };
+    if (s === "pending")
+      return { text: "В очереди", tone: "neutral" as const };
     return { text: s, tone: "neutral" as const };
   })();
 
@@ -327,30 +346,30 @@ const ProjectTimelineCard: React.FC<{
           >
             {totalChecks > 0 && (
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
-                <span className="text-emerald-600">проверено: {totalChecks}</span>
+                <span className="text-[var(--color-success)]">
+                  проверено: {totalChecks}
+                </span>
                 {successDocs > 0 && (
-                  <span className="text-emerald-500">успешно: {successDocs}</span>
+                  <span className="text-[var(--color-success)]">
+                    успешно: {successDocs}
+                  </span>
                 )}
                 {failedDocs > 0 && (
-                  <span className="text-rose-600">с ошибкой: {failedDocs}</span>
+                  <span className="text-[var(--color-error)]">
+                    с ошибкой: {failedDocs}
+                  </span>
                 )}
                 {quarantineDocs > 0 && (
-                  <span className="text-amber-600">карантин: {quarantineDocs}</span>
+                  <span className="text-[var(--color-warning)]">
+                    карантин: {quarantineDocs}
+                  </span>
                 )}
               </div>
             )}
 
             {lastRunStatusLabel && (
               <p
-                className={`mt-1 text-[12px] font-medium ${
-                  lastRunStatusLabel.tone === "ok"
-                    ? "text-emerald-600"
-                    : lastRunStatusLabel.tone === "warn"
-                      ? "text-amber-600"
-                      : lastRunStatusLabel.tone === "error"
-                        ? "text-rose-600"
-                        : "text-[var(--text-secondary)]"
-                }`}
+                className={`mt-1 text-[12px] font-medium ${runStatusTextClass(lastRunStatusLabel.tone)}`}
               >
                 {lastRunStatusLabel.text}
               </p>
@@ -361,6 +380,16 @@ const ProjectTimelineCard: React.FC<{
     </CardShell>
   );
 };
+
+
+// Прогресс-бар: цвет через CSS-переменные состояний
+function progressBarClass(status: RunStatus | undefined): string {
+  if (status === "failed")                return "bg-[var(--color-error)]";
+  if (status === "completed")             return "bg-[var(--color-success)]";
+  if (status === "completed_with_errors") return "bg-[var(--color-warning)]";
+  return "bg-[var(--accent-primary)]";
+}
+
 
 const RunProgressCard: React.FC<{
   latestRunId?: string | null;
@@ -390,15 +419,6 @@ const RunProgressCard: React.FC<{
       ? Math.round((effectiveCompleted / effectiveTotal) * 100)
       : 0;
 
-  const progressColor =
-    effectiveStatus === "failed"
-      ? "bg-rose-500"
-      : effectiveStatus === "completed"
-        ? "bg-emerald-500"
-        : effectiveStatus === "completed_with_errors"
-          ? "bg-amber-500"
-          : "bg-[var(--accent-primary)]";
-
   return (
     <CardShell
       eyebrow="Pipeline"
@@ -409,7 +429,7 @@ const RunProgressCard: React.FC<{
             Загружаем…
           </span>
         ) : (
-          <span className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
             {effectiveStatus
               ? RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus
               : "—"}
@@ -430,7 +450,7 @@ const RunProgressCard: React.FC<{
 
           <div className="h-2.5 w-full rounded-full bg-[var(--bg-elevated-soft)]">
             <div
-              className={`h-2.5 rounded-full transition-all duration-300 ${progressColor}`}
+              className={`h-2.5 rounded-full transition-all duration-300 ${progressBarClass(effectiveStatus)}`}
               style={{ width: `${Math.min(100, percent)}%` }}
             />
           </div>
@@ -441,8 +461,8 @@ const RunProgressCard: React.FC<{
               <div
                 className={`rounded-xl border px-3 py-2 text-[12px] leading-5 ${
                   effectiveStatus === "failed"
-                    ? "border-rose-200 bg-rose-50 text-rose-700"
-                    : "border-amber-200 bg-amber-50 text-amber-800"
+                    ? "border-[var(--color-error-border)] bg-[var(--color-error-subtle)] text-[var(--color-error)]"
+                    : "border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] text-[var(--color-warning)]"
                 }`}
               >
                 <p>
@@ -461,6 +481,7 @@ const RunProgressCard: React.FC<{
     </CardShell>
   );
 };
+
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
   deal,
@@ -669,6 +690,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             onPrimaryLanguageChange={handlePrimaryLanguageChange}
             onSubmit={handleStartRun}
             onClose={() => setIsLaunchPanelOpen(false)}
+            onDealPatched={async () => {
+              await Promise.all([
+                qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
+                qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
+                qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
+              ]);
+            }}
           />
         )}
       </div>

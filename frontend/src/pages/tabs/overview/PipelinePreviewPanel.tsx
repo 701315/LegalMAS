@@ -1,3 +1,7 @@
+// =============================================================
+// src/pages/tabs/overview/PipelinePreviewPanel.tsx
+// =============================================================
+
 import React from "react";
 import type { Deal } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
