@@ -1,15 +1,7 @@
-// =============================================================
-// src/components/requests/RequestSidePanel.tsx
-// Side panel деталей DD-запроса для юриста (legacy CRUD mode).
-// Поддерживает редактирование, удаление, управление статусом.
-// Использует shared presentation components и adapter.
-// НЕ показывает segment context (legacy DDRequest не имеет этих полей).
-// =============================================================
-
 import React, { useEffect, useState, useMemo } from "react";
 import type { DDRequest } from "../../types";
 import { toRequestPanelViewFromLegacy } from "../../viewAdapters/requestPresentation";
-import { X, Clipboard, Check, Trash2, Pencil, Loader2 } from "lucide-react";
+import { Clipboard, Check, Trash2, Pencil, Loader2 } from "lucide-react";
 
 import { RequestDocumentsList } from "./shared/RequestDocumentsList";
 import { RequestStructuredValuesList } from "./shared/RequestStructuredValuesList";
@@ -24,6 +16,18 @@ interface Props {
   canManageRequests: boolean;
   documentNameById?: Record<string, string>;
 }
+
+const PRIORITY_OPTIONS: { value: DDRequest["priority"]; label: string }[] = [
+  { value: "critical", label: "Критичный" },
+  { value: "high", label: "Высокий" },
+  { value: "medium", label: "Средний" },
+];
+
+const STATUS_OPTIONS: { value: DDRequest["status"]; label: string }[] = [
+  { value: "open", label: "Открыт" },
+  { value: "in_progress", label: "В работе" },
+  { value: "resolved", label: "Закрыт" },
+];
 
 export const RequestSidePanel: React.FC<Props> = ({
   request,
@@ -65,9 +69,13 @@ export const RequestSidePanel: React.FC<Props> = ({
   if (!viewModel || !request) return null;
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fail-silent
+    }
   };
 
   const handleSave = async () => {
@@ -83,18 +91,6 @@ export const RequestSidePanel: React.FC<Props> = ({
     onClose();
   };
 
-  const PRIORITY_OPTIONS: { value: DDRequest["priority"]; label: string }[] = [
-    { value: "critical", label: "Критичный" },
-    { value: "high", label: "Высокий" },
-    { value: "medium", label: "Средний" },
-  ];
-
-  const STATUS_OPTIONS: { value: DDRequest["status"]; label: string }[] = [
-    { value: "open", label: "Открыт" },
-    { value: "in_progress", label: "В работе" },
-    { value: "resolved", label: "Закрыт" },
-  ];
-
   const documentsWithNames = viewModel.documents.map((doc) => ({
     ...doc,
     name: documentNameById?.[doc.id!] ?? doc.name,
@@ -103,245 +99,244 @@ export const RequestSidePanel: React.FC<Props> = ({
   const canEdit = editing && canManageRequests;
 
   return (
-    <>
-      {/* Затемнение */}
-      <div
-        className="fixed inset-0 z-40 bg-[oklch(0.2_0.03_260/0.5)] backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Панель */}
-      <div className="fixed right-0 top-0 z-50 flex h-full w-[440px] flex-col border-l border-[var(--border)] bg-[var(--bg-panel)] shadow-[0_0_40px_rgba(15,23,42,0.7)] animate-in slide-in-from-right">
-        {/* Шапка */}
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-          <div>
-            <h3 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-              {viewModel.title}
-            </h3>
-            {viewModel.checkId && (
-              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                Проверка: {viewModel.checkId}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
-            aria-label="Закрыть"
+    <aside
+      className="flex min-h-0 flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+      aria-labelledby="request-panel-title"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+            DD‑запрос
+          </p>
+          <h2
+            id="request-panel-title"
+            className="mt-1 text-sm font-semibold text-[var(--text-primary)]"
           >
-            <X size={18} />
-          </button>
+            {viewModel.title}
+          </h2>
+          {viewModel.checkId && (
+            <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+              Проверка: {viewModel.checkId}
+            </p>
+          )}
         </div>
 
-        {/* Тело */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {/* Приоритет */}
-          <Field label="Приоритет">
-            <select
-              value={priority}
-              onChange={(e) =>
-                setPriority(e.target.value as DDRequest["priority"])
-              }
-              disabled={!canEdit}
-              className="input-base"
-            >
-              {PRIORITY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрыть панель запроса"
+          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+        >
+          ✕
+        </button>
+      </div>
 
-          {/* Статус */}
-          <Field label="Статус">
-            <select
-              value={status}
-              onChange={(e) =>
-                setStatus(e.target.value as DDRequest["status"])
-              }
-              disabled={!canEdit}
-              className="input-base"
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+      {/* Body */}
+      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
+        {/* Priority */}
+        <Field label="Приоритет">
+          <select
+            value={priority}
+            onChange={(e) =>
+              setPriority(e.target.value as DDRequest["priority"])
+            }
+            disabled={!canEdit}
+            className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {PRIORITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </Field>
 
-          {/* Адресат */}
-          {viewModel.addressee && (
-            <Field label="Адресат">
-              <p className="text-sm font-medium text-[var(--text-secondary)]">
-                {viewModel.addressee}
+        {/* Status */}
+        <Field label="Статус">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as DDRequest["status"])}
+            disabled={!canEdit}
+            className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {/* Addressee */}
+        {viewModel.addressee && (
+          <Field label="Адресат">
+            <p className="mt-1 text-sm font-medium text-[var(--text-secondary)]">
+              {viewModel.addressee}
+            </p>
+          </Field>
+        )}
+
+        {/* Source */}
+        {viewModel.source && (
+          <Field label="Источник">
+            <span
+              className={[
+                "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                viewModel.source.colorClass,
+              ].join(" ")}
+            >
+              <span>{viewModel.source.label}</span>
+            </span>
+            {viewModel.source.helperText && (
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {viewModel.source.helperText}
               </p>
-            </Field>
-          )}
+            )}
+          </Field>
+        )}
 
-          {/* Источник */}
-          {viewModel.source && (
-            <Field label="Источник">
-              <span
-                className={[
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                  viewModel.source.colorClass,
-                ].join(" ")}
-              >
-                <span>{viewModel.source.label}</span>
-              </span>
-              {viewModel.source.helperText && (
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {viewModel.source.helperText}
-                </p>
-              )}
-            </Field>
-          )}
+        {/* Request text */}
+        <Field label="Текст запроса">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={8}
+            disabled={!canEdit}
+            className="mt-1 w-full resize-y rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-sm leading-6 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        </Field>
 
-          {/* Текст запроса */}
-          <Field label="Текст запроса">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={8}
-              disabled={!canEdit}
-              className="input-base resize-y"
+        {/* Documents */}
+        {documentsWithNames.length > 0 && (
+          <Field label={`Документы (${documentsWithNames.length})`}>
+            <RequestDocumentsList
+              documents={documentsWithNames}
+              maxVisible={10}
             />
           </Field>
+        )}
 
-          {/* Документы */}
-          {documentsWithNames.length > 0 && (
-            <Field label={`Документы (${documentsWithNames.length})`}>
-              <RequestDocumentsList
-                documents={documentsWithNames}
-                maxVisible={10}
-              />
-            </Field>
-          )}
+        {/* YAML link */}
+        {viewModel.checkId && viewModel.source?.code === "yaml_template" && (
+          <Field label="Связь с проверкой">
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Связано с YAML‑проверкой (check_id: {viewModel.checkId}).
+            </p>
+          </Field>
+        )}
 
-          {/* Связь с проверкой (YAML) */}
-          {viewModel.checkId && viewModel.source?.code === "yaml_template" && (
-            <Field label="Связь с проверкой">
-              <p className="text-xs text-[var(--text-muted)]">
-                Связано с YAML‑проверкой (check_id: {viewModel.checkId}).
-              </p>
-            </Field>
-          )}
+        {/* Evidence refs */}
+        {viewModel.evidenceRefs.length > 0 && (
+          <Field label={`Источники (${viewModel.evidenceRefs.length})`}>
+            <div className="mt-1 max-h-32 space-y-1 overflow-y-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2">
+              {viewModel.evidenceRefs.map((ref, i) => (
+                <div
+                  key={ref ?? i}
+                  className="rounded-lg bg-[var(--bg-card)]/90 p-2 text-xs leading-relaxed text-[var(--text-secondary)]"
+                >
+                  {ref}
+                </div>
+              ))}
+            </div>
+          </Field>
+        )}
 
-          {/* Источники (evidence_refs) */}
-          {viewModel.evidenceRefs.length > 0 && (
-            <Field label={`Источники (${viewModel.evidenceRefs.length})`}>
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-xl bg-[var(--bg-elevated-soft)] p-2">
-                {viewModel.evidenceRefs.map((ref, i) => (
-                  <div
-                    key={ref ?? i}
-                    className="rounded-lg bg-[var(--bg-card)]/80 p-2 text-xs leading-relaxed text-[var(--text-secondary)]"
-                  >
-                    {ref}
-                  </div>
-                ))}
-              </div>
-            </Field>
-          )}
-
-          {/* Извлечённые данные */}
-          {viewModel.structuredValues.length > 0 && (
-            <Field
-              label={`Извлечённые данные (${viewModel.structuredValues.length})`}
-            >
-              <RequestStructuredValuesList
-                values={viewModel.structuredValues}
-                maxHeight="10rem"
-              />
-            </Field>
-          )}
-        </div>
-
-        {/* Подвал */}
-        <div className="flex flex-col gap-2 border-t border-[var(--border)] px-4 py-3">
-          {/* Копирование */}
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={handleCopy}
-            className="inline-flex w-full items-center justify-center gap-1.5"
+        {/* Structured values */}
+        {viewModel.structuredValues.length > 0 && (
+          <Field
+            label={`Извлечённые данные (${viewModel.structuredValues.length})`}
           >
-            {copied ? (
-              <>
-                <Check size={14} className="text-[var(--success)]" />
-                <span>Скопировано!</span>
-              </>
-            ) : (
-              <>
-                <Clipboard size={14} />
-                <span>Копировать текст</span>
-              </>
-            )}
-          </Button>
-
-          {/* Редактирование / сохранение */}
-          {editing ? (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="inline-flex flex-1 items-center justify-center gap-1.5"
-                onClick={handleSave}
-                disabled={isSaving || !canManageRequests}
-              >
-                {isSaving ? (
-                  <Loader2 className="animate-spin" size={14} />
-                ) : (
-                  <Check size={14} />
-                )}
-                Сохранить
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setText(request.text);
-                  setPriority(request.priority);
-                  setStatus(request.status);
-                  setEditing(false);
-                }}
-              >
-                Отмена
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="inline-flex flex-1 items-center justify-center gap-1.5"
-                onClick={() => canManageRequests && setEditing(true)}
-                disabled={!canManageRequests}
-              >
-                <Pencil size={14} />
-                Редактировать
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="danger"
-                onClick={handleDelete}
-                disabled={!canManageRequests}
-                className="inline-flex items-center justify-center gap-1.5"
-              >
-                <Trash2 size={14} />
-              </Button>
-            </div>
-          )}
-        </div>
+            <RequestStructuredValuesList
+              values={viewModel.structuredValues}
+              maxHeight="10rem"
+            />
+          </Field>
+        )}
       </div>
-    </>
+
+      {/* Footer */}
+      <div className="flex flex-col gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+        {/* Copy */}
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={handleCopy}
+          className="inline-flex w-full items-center justify-center gap-1.5"
+        >
+          {copied ? (
+            <>
+              <Check className="h-4 w-4" />
+              <span>Скопировано</span>
+            </>
+          ) : (
+            <>
+              <Clipboard className="h-4 w-4" />
+              <span>Копировать текст</span>
+            </>
+          )}
+        </Button>
+
+        {/* Edit / Save */}
+        {editing ? (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              className="inline-flex flex-1 items-center justify-center gap-1.5"
+              onClick={handleSave}
+              disabled={isSaving || !canManageRequests}
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              <span>Сохранить</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setText(request.text);
+                setPriority(request.priority);
+                setStatus(request.status);
+                setEditing(false);
+              }}
+            >
+              Отмена
+            </Button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="inline-flex flex-1 items-center justify-center gap-1.5"
+              onClick={() => canManageRequests && setEditing(true)}
+              disabled={!canManageRequests}
+            >
+              <Pencil className="h-4 w-4" />
+              <span>Редактировать</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="danger"
+              onClick={handleDelete}
+              disabled={!canManageRequests}
+              className="inline-flex items-center justify-center gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 };
 
@@ -354,7 +349,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+      <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
         {label}
       </label>
       {children}
@@ -363,6 +358,4 @@ function Field({
 }
 
 export default RequestSidePanel;
-
-
 

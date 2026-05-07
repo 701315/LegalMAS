@@ -200,6 +200,13 @@ class Document(Base):
         comment="PlaybookVersion used for DD checks in this analysis",
     )
 
+    doc_type_instruction_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_type_instruction_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Persisted YAML instruction snapshot used for document classification",
+    )
+
     applicable_triggers: Mapped[list[str] | None] = mapped_column(
         PG_ARRAY(String(100)),
         nullable=True,
@@ -209,6 +216,7 @@ class Document(Base):
     __table_args__ = (
         Index("idx_documents_deal_status", "deal_id", "status"),
         Index("idx_documents_deal_sha256", "deal_id", "sha256_file"),
+        Index("idx_documents_instruction_version", "doc_type_instruction_version_id"),
         Index("idx_documents_bundle", "bundle_id"),
         Index(
             "idx_documents_classification",
@@ -560,6 +568,13 @@ class DocumentSegment(Base):
         ),
     )
 
+    segment_doc_type_instruction_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_type_instruction_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Persisted YAML instruction snapshot used for segment classification",
+    )
+
     segment_classification_confidence: Mapped[float | None] = mapped_column(
         Float,
         nullable=True,
@@ -623,6 +638,10 @@ class DocumentSegment(Base):
             "idx_document_segments_primary",
             "document_version_id",
             postgresql_where="is_primary = true",
+        ),
+        Index(
+            "idx_document_segments_instruction_version",
+            "segment_doc_type_instruction_version_id",
         ),
     )
 

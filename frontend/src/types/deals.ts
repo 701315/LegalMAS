@@ -20,6 +20,8 @@ export interface DealPrimaryLanguageUpdatePayload {
 /** Payload для PATCH /deals/{deal_id} */
 export interface DealUpdatePayload {
   summary?: string | null;
+  languages?: string[] | null;
+  primary_language?: string | null;
 }
 
 
@@ -41,7 +43,7 @@ export interface Deal {
   /** Список языков документов по сделке (как в DealResponse.languages). */
   languages?: string[] | null;
 
-  /** Основной язык сделки, выбираемый юристом. */
+  /** Основной язык анализа, который юрист обязан выбрать вручную до запуска анализа. */
   primary_language?: string | null;
 
   /** ID последнего запуска анализа по сделке (если был) */

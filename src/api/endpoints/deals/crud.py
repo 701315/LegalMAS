@@ -1,7 +1,5 @@
 # src/api/endpoints/deals/crud.py
 
-# src/api/endpoints/deals/crud.py
-
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -74,10 +72,22 @@ async def create_deal(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Создание сделки без автоматического выбора языка.
+
+    Для непрофессионального программиста:
+    - раньше код сам подставлял languages = ["ru"], если пользователь
+      ничего не указал;
+    - теперь мы НЕ делаем никаких догадок за пользователя;
+    - если фронт хочет задать языки или основной язык — он обязан
+      передать их явно в payload.
+    """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
 
-    effective_languages = payload.languages or ["ru"]
+    # Никакого auto-default ["ru"] — используем то, что пришло с фронта
+    languages = payload.languages
+    primary_language = payload.primary_language
 
     deal = await deal_repo.create(
         tenant_id=user.tenant_id,
@@ -85,12 +95,20 @@ async def create_deal(
         summary=payload.summary,
         deal_type=payload.deal_type,
         jurisdiction=payload.jurisdiction,
-        languages=effective_languages,
+        languages=languages,
         pii_mode=payload.pii_mode,
         profile=payload.profile,
         playbook_version_id=payload.playbook_version_id,
         metadata_=payload.metadata_,
     )
+
+    # Если пользователь сразу передал primary_language,
+    # сохраняем его через отдельный метод репозитория.
+    if primary_language is not None:
+        await deal_repo.update_primary_language(deal.id, primary_language)
+
+        # Обновляем deal объект в памяти, чтобы ответ был консистентным
+        deal.primary_language = primary_language
 
     await role_repo.create_member(
         deal_id=deal.id,
@@ -151,6 +169,20 @@ async def update_deal(
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
+    """
+    Частичное обновление сделки.
+
+    Теперь поддерживаем:
+    - summary;
+    - languages;
+    - primary_language.
+
+    Контракты:
+    - менять сделку могут только admin/editor или глобальный admin/superadmin;
+    - если переданы и languages, и primary_language, то консистентность уже
+      проверена на уровне pydantic схемы (DealUpdate);
+    - здесь мы просто аккуратно применяем изменения к БД.
+    """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
 
@@ -161,7 +193,10 @@ async def update_deal(
     project_role = await role_repo.get_role(user.id, deal_id)
     global_role = getattr(user, "global_role", None) or getattr(user, "role", None)
 
-    if project_role not in ("admin", "editor") and global_role not in ("admin", "superadmin"):
+    if project_role not in ("admin", "editor") and global_role not in (
+        "admin",
+        "superadmin",
+    ):
         raise HTTPException(
             status_code=403,
             detail="Not enough permissions to update deal",
@@ -169,12 +204,26 @@ async def update_deal(
 
     update_data = payload.model_dump(exclude_unset=True)
 
+    # Начинаем с текущей версии сделки
     updated_deal = deal
 
+    # Обновляем summary при необходимости
     if "summary" in update_data:
         updated = await deal_repo.update_summary(deal_id, update_data["summary"])
         if updated is not None:
             updated_deal = updated
+
+    # Обновляем список языков, если он передан
+    if "languages" in update_data:
+        languages = update_data["languages"]
+        await deal_repo.update_languages(deal_id, languages or [])
+        updated_deal.languages = languages
+
+    # Обновляем основной язык, если он передан
+    if "primary_language" in update_data:
+        primary_language = update_data["primary_language"]
+        await deal_repo.update_primary_language(deal_id, primary_language)
+        updated_deal.primary_language = primary_language
 
     await db.commit()
 
@@ -205,5 +254,8 @@ async def delete_deal(
 
     await db.delete(deal)
     await db.commit()
+
+
+    
 
     

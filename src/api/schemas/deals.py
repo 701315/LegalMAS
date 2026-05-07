@@ -22,9 +22,52 @@ from uuid import UUID
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from core.constants import DealStatus, PIIMode
+from core.constants import PIIMode
+
+
+def _normalize_language_code(value: str | None) -> str | None:
+    """
+    Привести код языка к единому виду.
+
+    Для непрофессионального программиста:
+    - пользователь или фронт могут прислать "ru", "Ru", " en ";
+    - в БД и API мы хотим хранить единый формат: "RU", "EN";
+    - пустые строки здесь не допускаются.
+    """
+    if value is None:
+        return None
+
+    normalized = value.strip().upper()
+    if not normalized:
+        raise ValueError("Language code must not be empty.")
+
+    return normalized
+
+
+def _normalize_languages_list(value: list[str] | None) -> list[str] | None:
+    """
+    Нормализовать список языков:
+    - убрать None/пустые строки,
+    - привести к UPPERCASE,
+    - убрать дубликаты с сохранением порядка.
+    """
+    if value is None:
+        return None
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for item in value:
+        lang = _normalize_language_code(item)
+        if lang is None:
+            continue
+        if lang not in seen:
+            normalized.append(lang)
+            seen.add(lang)
+
+    return normalized or None
 
 
 class DealResponse(BaseModel):
@@ -43,21 +86,20 @@ class DealResponse(BaseModel):
     summary: str | None = None
     deal_type: str | None = None
     jurisdiction: str | None = None
-    # Список языков документов сделки (из документов).
+
+    # Список языков документов сделки (из документов или выбора пользователя).
     languages: list[str] | None = None
-    # Новый атрибут: основной язык сделки, выбирается пользователем
-    # из списка languages на отдельном шаге.
+
+    # Основной язык анализа сделки.
+    # Это значение должно задаваться человеком явно, а не определяться автоматически.
     primary_language: str | None = None
 
-    # Можно оставить как str, чтобы не тянуть enum на фронт
-    status: str  # или DealStatus
-    pii_mode: str  # или PIIMode
+    status: str
+    pii_mode: str
     profile: str
 
-    # Связанные настройки анализа
     playbook_version_id: UUID | None = None
 
-    # Новый явный выбор профиля модели на уровне сделки
     model_config_id: UUID | None = None
 
     # Человекочитаемое имя профиля, который фактически будет использоваться:
@@ -75,8 +117,6 @@ class DealResponse(BaseModel):
 
     # ID последнего запуска анализа по сделке (если был)
     last_run_id: UUID | None = None
-
-    # НОВОЕ: агрегированная информация о последнем Run
 
     # Режим проверок последнего запуска:
     # - "global_only"         — только глобальный плейбук;
@@ -98,7 +138,10 @@ class DealResponse(BaseModel):
 class DealCreate(BaseModel):
     """
     Данные для создания новой сделки (проекта) через API.
-    Используется фронтом на экране "Новый проект".
+
+    Production-правило:
+    - основной язык анализа выбирает человек;
+    - backend не должен определять его автоматически.
     """
 
     name: str
@@ -107,26 +150,90 @@ class DealCreate(BaseModel):
     jurisdiction: str | None = None
     languages: list[str] | None = None
 
-    # по умолчанию — локальный режим ПДн
+    # Явный выбор человека: основной язык анализа.
+    primary_language: str | None = None
+
+    # По умолчанию — локальный режим ПДн
     pii_mode: str = PIIMode.LOCAL_ONLY.value
-    # профиль проверок
+
+    # Профиль проверок
     profile: str = "full"
 
     playbook_version_id: UUID | None = None
     metadata_: dict | None = None
-    # Профиль модели при создании можно пока не задавать,
-    # выбор делаем уже после, через PATCH /deals/{id}/model-config.
-    # Если захочешь — можно добавить сюда:
-    # model_config_id: UUID | None = None
+
+    @field_validator("primary_language")
+    @classmethod
+    def validate_primary_language(cls, value: str | None) -> str | None:
+        return _normalize_language_code(value)
+
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, value: list[str] | None) -> list[str] | None:
+        return _normalize_languages_list(value)
+
+    @model_validator(mode="after")
+    def validate_language_consistency(self) -> "DealCreate":
+        """
+        Проверка согласованности языков.
+
+        Для непрофессионального программиста:
+        - если пользователь указал список languages и отдельно primary_language,
+          основной язык должен входить в этот список;
+        - это защищает от нелогичных данных.
+        """
+        if (
+            self.primary_language is not None
+            and self.languages is not None
+            and self.primary_language not in self.languages
+        ):
+            raise ValueError(
+                "primary_language must be one of the values from languages."
+            )
+
+        return self
 
 
 class DealUpdate(BaseModel):
     """
     Частичное обновление сделки (PATCH /api/v1/deals/{deal_id}).
-    Пока поддерживаем только summary.
+
+    Теперь поддерживаем:
+    - summary;
+    - languages;
+    - primary_language.
+
+    Это нужно, чтобы UI мог принудительно требовать от человека
+    выбор основного языка анализа.
     """
+
     summary: str | None = Field(default=None, max_length=5000)
-    
+    languages: list[str] | None = None
+    primary_language: str | None = None
+
+    @field_validator("primary_language")
+    @classmethod
+    def validate_primary_language(cls, value: str | None) -> str | None:
+        return _normalize_language_code(value)
+
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, value: list[str] | None) -> list[str] | None:
+        return _normalize_languages_list(value)
+
+    @model_validator(mode="after")
+    def validate_language_consistency(self) -> "DealUpdate":
+        if (
+            self.primary_language is not None
+            and self.languages is not None
+            and self.primary_language not in self.languages
+        ):
+            raise ValueError(
+                "primary_language must be one of the values from languages."
+            )
+
+        return self
+
 
 class DealPlaybookHistoryItem(BaseModel):
     """
@@ -142,3 +249,5 @@ class DealPlaybookHistoryItem(BaseModel):
     playbook_id: UUID | None = None
     playbook_name: str | None = None
     semver: str | None = None
+
+

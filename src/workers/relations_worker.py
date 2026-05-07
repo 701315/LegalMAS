@@ -1,7 +1,5 @@
 # src/workers/relations_worker.py
 
-# src/workers/relations_worker.py
-
 """
 Relations Worker — построение дедупликации, связей и семей документов по сделке.
 
@@ -35,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ops.metrics import get_metrics
 
+from classifiers.yaml_registry import YAMLRegistry
 from core.config import settings
 from core.constants import DocumentStatus
 from core.logging import get_logger
@@ -225,9 +224,23 @@ async def _build_relations_async(
 
 
 async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
-    """Load all non‑quarantined documents for a deal, with classification info."""
+    """
+    Load all non‑quarantined documents for a deal, with classification info.
+
+    Для непрофессионального программиста:
+    - Здесь мы подготавливаем упрощённый список документов для relations pipeline.
+    - Важно: yaml_instruction_available больше НЕ читается из колонки БД.
+    - Вместо этого мы вычисляем его runtime через YAMLRegistry по текущему doc_type.
+    - Это делает поведение единым для всех частей системы и убирает риск рассинхрона.
+    """
     repo = DocumentRepository(db)
     docs = await repo.get_by_deal(uuid.UUID(deal_id))
+
+    # Берём registry один раз на весь список документов.
+    # validate=False:
+    # - не запускаем повторную тяжёлую валидацию паттернов на каждом вызове;
+    # - используем уже загруженный singleton-реестр.
+    registry = YAMLRegistry.get_instance(validate=False)
 
     return [
         {
@@ -241,9 +254,7 @@ async def _load_deal_documents(deal_id: str, db: AsyncSession) -> list[dict]:
             # Classification fields from HybridClassifier (Stage 6)
             "classification_level": d.classification_level or "L0",
             "classification_confidence": float(d.classification_confidence or 0.0),
-            "yaml_instruction_available": bool(
-                getattr(d, "yaml_instruction_available", False)
-            ),
+            "yaml_instruction_available": registry.get_config(d.doc_type or "") is not None,
             "applicable_triggers": d.applicable_triggers or [],
         }
         for d in docs

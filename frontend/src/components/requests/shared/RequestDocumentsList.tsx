@@ -4,6 +4,7 @@
 // =============================================================
 
 import React from "react";
+import { FileText } from "lucide-react";
 import type { DocumentView } from "../../../viewAdapters/requestPresentation";
 
 interface RequestDocumentsListProps {
@@ -26,58 +27,79 @@ export const RequestDocumentsList: React.FC<RequestDocumentsListProps> = ({
 }) => {
   if (documents.length === 0) {
     return (
-      <div className="py-2 text-xs text-[var(--text-faint)]">
-        Документы не указаны
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 py-3">
+        <p className="text-[12px] text-[var(--text-muted)]">
+          Документы не указаны
+        </p>
       </div>
     );
   }
 
   const visibleDocuments = documents.slice(0, maxVisible);
-  const remainingCount = documents.length - maxVisible;
+  const remainingCount = Math.max(0, documents.length - visibleDocuments.length);
 
   return (
     <div
       className={cn(
-        "space-y-1 overflow-y-auto",
-        compact ? "max-h-32" : "max-h-48",
+        "rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-2",
       )}
     >
-      {visibleDocuments.map((doc, index) => {
-        const displayName = doc.name;
-        const hasRawId = doc.rawId && doc.rawId !== doc.name;
+      <ul
+        role="list"
+        className={cn(
+          "space-y-1 overflow-y-auto",
+          compact ? "max-h-32" : "max-h-48",
+        )}
+      >
+        {visibleDocuments.map((doc, index) => {
+          const displayName = doc.name;
+          const hasRawId = doc.rawId && doc.rawId !== doc.name;
 
-        return (
-          <div
-            key={doc.id ?? doc.rawId ?? index}
-            className={cn(
-              "flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]",
-              compact ? "px-2 py-1.5" : "px-2.5 py-2",
-            )}
-            title={hasRawId ? doc.rawId || undefined : undefined}
-          >
-            <span
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--bg-card)] text-[11px] text-[var(--text-muted)]"
-              aria-hidden="true"
-            >
-              📄
-            </span>
+          return (
+            <li key={doc.id ?? doc.rawId ?? index}>
+              <div
+                className={cn(
+                  "flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)]",
+                  compact ? "px-2.5 py-2" : "px-3 py-2.5",
+                )}
+                title={hasRawId ? doc.rawId || undefined : undefined}
+              >
+                <span
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]"
+                  aria-hidden="true"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                </span>
 
-            <span
-              className={cn(
-                "truncate text-[var(--text-primary)]",
-                compact ? "text-xs" : "text-sm",
-              )}
-            >
-              {displayName}
-            </span>
-          </div>
-        );
-      })}
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      "truncate text-[var(--text-primary)]",
+                      compact ? "text-xs" : "text-sm",
+                    )}
+                  >
+                    {displayName}
+                  </p>
+
+                  {hasRawId && (
+                    <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                      ID: {doc.rawId}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
 
       {remainingCount > 0 && (
-        <p className="py-1 text-center text-xs text-[var(--text-muted)]">
-          … и ещё {remainingCount}
-        </p>
+        <div className="px-2 pt-2">
+          <p className="text-center text-[12px] text-[var(--text-muted)]">
+            Показано {visibleDocuments.length} из {documents.length} · ещё{" "}
+            {remainingCount}
+          </p>
+        </div>
       )}
     </div>
   );

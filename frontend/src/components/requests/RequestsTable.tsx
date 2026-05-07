@@ -6,7 +6,7 @@
 // Поиск, сортировка, кнопки экспорта.
 // =============================================================
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import type { DDRequest } from "../../types";
 import { toRequestTableRowFromLegacy } from "../../viewAdapters/requestPresentation";
 import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
@@ -16,7 +16,8 @@ import { REQUEST_PRIORITY_ORDER } from "../../types/requestPriority";
 
 interface Props {
   requests: DDRequest[];
-  onRowClick: (request: DDRequest) => void;
+  selectedRequestId?: string | null;
+  onRowClick: (request: DDRequest, rowElement: HTMLElement | null) => void;
   onCreateClick: () => void;
   onExportWord: () => Promise<void>;
   onExportExcel: () => Promise<void>;
@@ -37,15 +38,23 @@ const statusToneClass = (statusLabel?: string | null): string => {
   const value = statusLabel.toLowerCase();
 
   if (value.includes("open") || value.includes("открыт")) {
-    return "border-[color:color-mix(in_srgb,var(--color-blue)_22%,transparent)] bg-[var(--color-blue-highlight)] text-[var(--color-blue)]";
+    return "border-[color:color-mix(in_oklab,var(--color-blue)_22%,transparent)] bg-[var(--color-blue-highlight)] text-[var(--color-blue)]";
   }
 
-  if (value.includes("progress") || value.includes("работ") || value.includes("processing")) {
-    return "border-[color:color-mix(in_srgb,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]";
+  if (
+    value.includes("progress") ||
+    value.includes("работ") ||
+    value.includes("processing")
+  ) {
+    return "border-[color:color-mix(in_oklab,var(--color-orange)_22%,transparent)] bg-[var(--color-orange-highlight)] text-[var(--color-orange)]";
   }
 
-  if (value.includes("resolved") || value.includes("done") || value.includes("закрыт")) {
-    return "border-[color:color-mix(in_srgb,var(--color-success)_22%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]";
+  if (
+    value.includes("resolved") ||
+    value.includes("done") ||
+    value.includes("закрыт")
+  ) {
+    return "border-[color:color-mix(in_oklab,var(--color-success)_22%,transparent)] bg-[var(--color-success-highlight)] text-[var(--color-success)]";
   }
 
   return "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
@@ -53,6 +62,7 @@ const statusToneClass = (statusLabel?: string | null): string => {
 
 export const RequestsTable: React.FC<Props> = ({
   requests,
+  selectedRequestId,
   onRowClick,
   onCreateClick,
   onExportWord,
@@ -109,15 +119,23 @@ export const RequestsTable: React.FC<Props> = ({
   }, [viewModels, searchText, sortBy]);
 
   return (
-    <div className="space-y-3">
+    <section className="space-y-3" aria-labelledby="requests-table-title">
       {/* Шапка */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-          Запросы{" "}
-          <span className="ml-1 text-[var(--text-muted)]">
-            ({requests.length})
-          </span>
-        </h2>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+            Requests
+          </p>
+          <h2
+            id="requests-table-title"
+            className="mt-1 text-sm font-semibold text-[var(--text-primary)]"
+          >
+            Запросы
+            <span className="ml-1 text-[var(--text-muted)]">
+              ({requests.length})
+            </span>
+          </h2>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           {canManageRequests && (
@@ -126,9 +144,8 @@ export const RequestsTable: React.FC<Props> = ({
               size="sm"
               variant="secondary"
               onClick={onCreateClick}
-              className="inline-flex items-center gap-1"
+              leftIcon={<Plus className="h-4 w-4" />}
             >
-              <Plus size={14} />
               Новый запрос
             </Button>
           )}
@@ -136,22 +153,20 @@ export const RequestsTable: React.FC<Props> = ({
           <Button
             type="button"
             size="sm"
-            variant="secondary"
+            variant="outline"
             onClick={onExportWord}
-            className="inline-flex items-center gap-1"
+            leftIcon={<FileText className="h-4 w-4" />}
           >
-            <FileText size={14} />
             Word
           </Button>
 
           <Button
             type="button"
             size="sm"
-            variant="secondary"
+            variant="outline"
             onClick={onExportExcel}
-            className="inline-flex items-center gap-1"
+            leftIcon={<Download className="h-4 w-4" />}
           >
-            <Download size={14} />
             Excel
           </Button>
         </div>
@@ -162,34 +177,37 @@ export const RequestsTable: React.FC<Props> = ({
         <Search
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
           size={16}
+          aria-hidden="true"
         />
         <input
           type="text"
           placeholder="Поиск по тексту запроса или ID проверки…"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="input-base !pl-9"
+          className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-9 py-2 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
+          aria-label="Поиск по DD-запросам"
         />
       </div>
 
       {/* Таблица */}
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
-        <table className="w-full border-collapse">
-          <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]/60">
+        <table className="w-full border-collapse text-left">
+          <thead className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]/60">
             <tr>
               {(
                 [
                   ["priority", "Приоритет", "w-28"],
                   ["text", "Текст запроса", ""],
-                  ["docs", "Документы", "w-24"],
+                  ["docs", "Документы", "w-28"],
                   ["status", "Статус", "w-32"],
-                  ["source", "Источник", "w-36"],
+                  ["source", "Источник", "w-40"],
                 ] as const
               ).map(([key, label, width]) => (
                 <th
                   key={key}
+                  scope="col"
                   className={cn(
-                    "px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]",
+                    "px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]",
                     width,
                   )}
                 >
@@ -198,12 +216,12 @@ export const RequestsTable: React.FC<Props> = ({
                       type="button"
                       onClick={() => setSortBy(key as SortKey)}
                       className={cn(
-                        "transition-colors hover:text-[var(--text-secondary)]",
+                        "inline-flex items-center gap-1 transition-colors hover:text-[var(--text-secondary)]",
                         sortBy === key &&
                           "text-[var(--accent-primary)] underline underline-offset-4",
                       )}
                     >
-                      {label}
+                      <span>{label}</span>
                     </button>
                   ) : (
                     label
@@ -216,15 +234,30 @@ export const RequestsTable: React.FC<Props> = ({
           <tbody>
             {filtered.map((item) => {
               const { dto, view } = item;
+              const isSelected = selectedRequestId === view.id;
+              const rowRef = useRef<HTMLTableRowElement | null>(null);
 
               return (
                 <tr
                   key={view.id}
-                  className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-b-0 hover:bg-[var(--bg-elevated-soft)]/55"
-                  onClick={() => onRowClick(dto)}
+                  ref={rowRef}
+                  className={cn(
+                    "cursor-pointer border-b border-[var(--border-subtle)] transition-colors last:border-b-0",
+                    isSelected
+                      ? "bg-[var(--bg-elevated-soft)]"
+                      : "hover:bg-[var(--bg-elevated-soft)]/60",
+                  )}
+                  onClick={() => onRowClick(dto, rowRef.current)}
+                  aria-selected={isSelected}
                 >
                   {/* Приоритет */}
-                  <td className="px-3 py-2.5 align-top">
+                  <td
+                    className={cn(
+                      "px-3 py-2.5 align-top",
+                      isSelected &&
+                        "shadow-[inset_3px_0_0_var(--accent-primary)]",
+                    )}
+                  >
                     <RequestPriorityBadge priority={view.priority} size="sm" />
                   </td>
 
@@ -234,7 +267,7 @@ export const RequestsTable: React.FC<Props> = ({
                       {view.text}
                     </p>
                     {view.checkLabel && (
-                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                      <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
                         Проверка: {view.checkLabel}
                       </p>
                     )}
@@ -250,11 +283,11 @@ export const RequestsTable: React.FC<Props> = ({
                     {view.statusLabel ? (
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                          "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium",
                           statusToneClass(view.statusLabel),
                         )}
                       >
-                        {view.statusLabel}
+                        <span className="truncate">{view.statusLabel}</span>
                       </span>
                     ) : (
                       <span className="text-xs text-[var(--text-muted)]">—</span>
@@ -266,11 +299,11 @@ export const RequestsTable: React.FC<Props> = ({
                     {view.sourceLabel && view.sourceColorClass ? (
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                          "inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-xs font-medium",
                           view.sourceColorClass,
                         )}
                       >
-                        {view.sourceLabel}
+                        <span className="truncate">{view.sourceLabel}</span>
                       </span>
                     ) : (
                       <span className="text-xs text-[var(--text-muted)]">—</span>
@@ -283,23 +316,24 @@ export const RequestsTable: React.FC<Props> = ({
         </table>
 
         {filtered.length === 0 && (
-          <div className="border-t border-[var(--border)] py-10 text-center">
+          <div className="border-t border-[var(--border-subtle)] px-6 py-10 text-center">
             <p className="mb-1 text-sm text-[var(--text-secondary)]">
               Запросы не найдены
             </p>
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-[12px] text-[var(--text-muted)]">
               {requests.length === 0
-                ? "Запросы появятся после анализа с найденными проблемами."
-                : "Попробуйте изменить поиск."}
+                ? "Запросы появятся после анализа с найденными проблемами или ручного добавления."
+                : "Попробуйте изменить условия поиска или сбросить фильтр."}
             </p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 };
 
 export default RequestsTable;
+
 
 
 

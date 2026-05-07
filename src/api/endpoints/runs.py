@@ -86,6 +86,24 @@ async def _start_run_core(
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 
+    # 1.1. Принудительная проверка основного языка анализа.
+    #       Язык должен быть выбран человеком до запуска анализа.
+    if not getattr(deal, "primary_language", None):
+        # Логируем как бизнес-блокировку, а не системную ошибку
+        logger.info(
+            "Run start blocked: deal has no primary_language selected",
+            extra={
+                "deal_id": str(deal_uuid),
+                "tenant_id": str(getattr(deal, "tenant_id", "")),
+                "requested_by": str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown",
+            },
+        )
+        raise HTTPException(
+            status_code=422,
+            detail="Cannot start analysis: primary_language is not selected for this deal.",
+        )
+
+
     # 2. Берём playbook для сделки (привязанный или default)
     playbook = await playbook_repo.get_for_deal(deal_uuid)
     if not playbook:

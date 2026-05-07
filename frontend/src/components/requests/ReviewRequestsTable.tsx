@@ -5,7 +5,7 @@
 // Использует adapter для преобразования DTO в UI read-model.
 // =============================================================
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import type { DDRequestDTO } from "../../types/dealReview";
 import { toRequestTableRowFromReview } from "../../viewAdapters/requestPresentation";
 import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
@@ -14,7 +14,8 @@ import { REQUEST_PRIORITY_ORDER } from "../../types/requestPriority";
 
 interface Props {
   requests: DDRequestDTO[];
-  onRowClick: (request: DDRequestDTO) => void;
+  selectedRequestId?: string | null;
+  onRowClick: (request: DDRequestDTO, rowElement: HTMLElement | null) => void;
 }
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -23,6 +24,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
 
 export const ReviewRequestsTable: React.FC<Props> = ({
   requests,
+  selectedRequestId,
   onRowClick,
 }) => {
   const [searchText, setSearchText] = useState("");
@@ -73,141 +75,166 @@ export const ReviewRequestsTable: React.FC<Props> = ({
   }, [viewModels, searchText]);
 
   return (
-    <div className="space-y-3">
-      {/* Шапка */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-          Запросы — Review{" "}
-          <span className="ml-1 text-[var(--text-muted)]">
-            ({requests.length})
-          </span>
-        </h2>
-      </div>
-
+    <section className="space-y-2">
       {/* Поиск */}
       <div className="relative">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
           size={16}
+          aria-hidden="true"
         />
         <input
           type="text"
           placeholder="Поиск по тексту, проверке или документу…"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="input-base !pl-9"
+          className="mt-1 w-full rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-9 py-2 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)]"
+          aria-label="Поиск по review-запросам"
         />
       </div>
 
       {/* Таблица */}
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
         <table className="w-full table-fixed border-collapse">
-          <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]/60">
+          <thead className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)]/60">
             <tr>
-              <th className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <th
+                scope="col"
+                className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                aria-sort="ascending"
+              >
                 Приоритет
               </th>
-              <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <th
+                scope="col"
+                className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+              >
                 Текст запроса
               </th>
-              <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <th
+                scope="col"
+                className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+              >
                 Документы
               </th>
-              <th className="w-36 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <th
+                scope="col"
+                className="w-36 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+              >
                 Сегмент
               </th>
             </tr>
           </thead>
 
           <tbody>
-            {filtered.map(({ dto, view }) => (
-              <tr
-                key={view.id}
-                className="cursor-pointer border-b border-[var(--border)] transition-colors last:border-b-0 hover:bg-[var(--bg-elevated-soft)]/55"
-                onClick={() => onRowClick(dto)}
-              >
-                {/* Приоритет */}
-                <td className="px-3 py-2.5 align-top">
-                  <RequestPriorityBadge priority={view.priority} size="sm" />
-                </td>
+            {filtered.map(({ dto, view }) => {
+              const isSelected = selectedRequestId === view.id;
+              const rowRef = useRef<HTMLTableRowElement | null>(null);
 
-                {/* Текст */}
-                <td className="px-3 py-2.5 align-top">
-                  <p className="line-clamp-2 text-sm text-[var(--text-primary)]">
-                    {view.text}
-                  </p>
+              return (
+                <tr
+                  key={view.id}
+                  ref={rowRef}
+                  className={cn(
+                    "cursor-pointer border-b border-[var(--border-subtle)] transition-colors last:border-b-0",
+                    isSelected
+                      ? "bg-[var(--bg-elevated-soft)]"
+                      : "hover:bg-[var(--bg-elevated-soft)]/60",
+                  )}
+                  onClick={() => onRowClick(dto, rowRef.current)}
+                  aria-selected={isSelected}
+                >
+                  {/* Приоритет */}
+                  <td
+                    className={cn(
+                      "px-3 py-2.5 align-top",
+                      isSelected &&
+                        "shadow-[inset_3px_0_0_var(--accent-primary)]",
+                    )}
+                  >
+                    <RequestPriorityBadge priority={view.priority} size="sm" />
+                  </td>
 
-                  {view.checkLabel && (
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                      {view.checkLabel}
+                  {/* Текст */}
+                  <td className="px-3 py-2.5 align-top">
+                    <p className="line-clamp-2 text-sm text-[var(--text-primary)]">
+                      {view.text}
                     </p>
-                  )}
 
-                  {view.addressee && (
-                    <p className="mt-1 text-xs text-[var(--accent-primary)]">
-                      → {view.addressee}
-                    </p>
-                  )}
-                </td>
+                    {view.checkLabel && (
+                      <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                        {view.checkLabel}
+                      </p>
+                    )}
 
-                {/* Документы */}
-                <td className="px-3 py-2.5 align-top">
-                  {view.documentsLabel ? (
-                    <span className="line-clamp-2 text-xs text-[var(--text-secondary)]">
-                      {view.documentsLabel}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-[var(--text-muted)]">—</span>
-                  )}
-                </td>
+                    {view.addressee && (
+                      <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
+                        Адресат: {view.addressee}
+                      </p>
+                    )}
+                  </td>
 
-                {/* Сегмент */}
-                <td className="px-3 py-2.5 align-top">
-                  {view.hasSegmentContext ? (
-                    <div className="flex flex-col gap-1">
-                      {view.segmentTitle && (
-                        <span className="line-clamp-1 text-xs text-[var(--text-secondary)]">
-                          {view.segmentTitle}
-                        </span>
-                      )}
+                  {/* Документы */}
+                  <td className="px-3 py-2.5 align-top">
+                    {view.documentsLabel ? (
+                      <span className="line-clamp-2 text-[12px] leading-5 text-[var(--text-secondary)]">
+                        {view.documentsLabel}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[var(--text-muted)]">—</span>
+                    )}
+                  </td>
 
-                      {view.chunkIndex != null && (
-                        <span
-                          className={cn(
-                            "inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
-                            "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
-                          )}
-                        >
-                          Chunk #{view.chunkIndex}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[var(--text-muted)]">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  {/* Сегмент */}
+                  <td className="px-3 py-2.5 align-top">
+                    {view.hasSegmentContext ? (
+                      <div className="flex flex-col gap-1">
+                        {view.segmentTitle && (
+                          <span className="line-clamp-1 text-[12px] text-[var(--text-secondary)]">
+                            {view.segmentTitle}
+                          </span>
+                        )}
+
+                        {view.chunkIndex != null && (
+                          <span
+                            className={cn(
+                              "inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-medium",
+                              "border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-muted)]",
+                            )}
+                          >
+                            Chunk #{view.chunkIndex}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-[var(--text-muted)]">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
         {filtered.length === 0 && (
-          <div className="border-t border-[var(--border)] py-10 text-center">
+          <div className="border-t border-[var(--border-subtle)] px-4 py-10 text-center">
             <p className="mb-1 text-sm text-[var(--text-secondary)]">
               Запросы не найдены
             </p>
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-[12px] text-[var(--text-muted)]">
               {requests.length === 0
                 ? "Запросы появятся после анализа документов."
-                : "Попробуйте изменить поиск."}
+                : "Попробуйте изменить условия поиска."}
             </p>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 };
 
 export default ReviewRequestsTable;
+
+
 
 

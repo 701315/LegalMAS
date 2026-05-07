@@ -25,7 +25,13 @@ from sqlalchemy import delete, select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.document import DocumentSegment
+from core.logging import get_logger
+from classifiers.yaml_registry import YAMLRegistry
+from db.repositories.document_type_instruction_version_repo import (
+    DocumentTypeInstructionVersionRepository,
+)
 
+logger = get_logger(__name__)
 
 class DocumentSegmentRepository:
     """
@@ -471,6 +477,9 @@ class DocumentSegmentRepository:
         segment_confidence_zone: str | None,
         segment_applicable_triggers: list[str] | None,
         segment_details: dict | None,
+        registry: YAMLRegistry | None = None,
+        git_commit: str | None = None,
+        semver: str | None = None,
     ) -> DocumentSegment | None:
         """
         Обновить поля segment-level классификации для одного сегмента.
@@ -480,9 +489,16 @@ class DocumentSegmentRepository:
           вернул результат для конкретного segment_id;
         - мы аккуратно записываем только итоговые агрегированные поля:
           segment_doc_type, уверенность, уровень, зону уверенности,
-          список сработавших триггеров и полный JSON details.
-        - метод работает в рамках текущей транзакции UoW и не делает commit.
+          список сработавших триггеров и полный JSON details,
+          а также ссылку на версию YAML-инструкции, по которой классифицировали сегмент.
         """
+        instruction_version_id = await self._resolve_segment_instruction_version_id(
+            segment_doc_type=segment_doc_type,
+            registry=registry,
+            git_commit=git_commit,
+            semver=semver,
+        )
+
         values: dict[str, object] = {
             "segment_doc_type": segment_doc_type,
             "segment_classification_confidence": float(segment_confidence or 0.0)
@@ -492,6 +508,7 @@ class DocumentSegmentRepository:
             "segment_confidence_zone": segment_confidence_zone,
             "segment_applicable_triggers": list(segment_applicable_triggers or []),
             "segment_classification_details": segment_details or {},
+            "segment_doc_type_instruction_version_id": instruction_version_id,
         }
 
         stmt = (
@@ -507,7 +524,60 @@ class DocumentSegmentRepository:
         row = result.scalar_one_or_none()
         if row:
             await self.session.flush()
+            logger.info(
+                "Segment classification saved",
+                extra={
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment_id,
+                    "segment_doc_type": segment_doc_type,
+                    "segment_level": segment_level,
+                    "segment_confidence": float(segment_confidence or 0.0)
+                    if segment_confidence is not None
+                    else None,
+                    "instruction_version_id": str(instruction_version_id)
+                    if instruction_version_id
+                    else None,
+                },
+            )
         return row
     
     
+    async def _resolve_segment_instruction_version_id(
+        self,
+        *,
+        segment_doc_type: str | None,
+        registry: YAMLRegistry | None = None,
+        git_commit: str | None = None,
+        semver: str | None = None,
+    ):
+        """
+        Resolve persisted instruction version id for segment-level doc_type.
+
+        Правила:
+        - если segment_doc_type пустой или UNKNOWN -> None;
+        - если cfg не найден в YAMLRegistry -> None;
+        - иначе resolve/create запись в document_type_instruction_versions
+          и вернуть её UUID.
+        """
+        if not isinstance(segment_doc_type, str) or not segment_doc_type.strip():
+            return None
+
+        normalized = segment_doc_type.strip()
+        if normalized == "UNKNOWN":
+            return None
+
+        effective_registry = registry or YAMLRegistry.get_instance()
+        cfg = effective_registry.get_config(normalized)
+        if cfg is None:
+            return None
+
+        repo = DocumentTypeInstructionVersionRepository(self.session)
+        resolved = await repo.resolve_or_create_from_config(
+            cfg,
+            git_commit=git_commit,
+            semver=semver,
+        )
+        return resolved.version.id
+    
+
         

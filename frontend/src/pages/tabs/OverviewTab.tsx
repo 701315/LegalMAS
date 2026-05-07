@@ -562,9 +562,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const normalizedDraftSummary = projectSummary.trim();
   const isSummaryDirty = normalizedDraftSummary !== normalizedOriginalSummary;
 
-  const documentLanguages = deal.languages ?? [];
-  const hasMultipleDocumentLanguages = documentLanguages.length > 1;
-
   const showReclassBanner =
     deal.has_pending_manual_reclassifications &&
     (!!latestRun || !hasRestartedAfterReclass);
@@ -572,7 +569,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const canLaunchRun =
     canStartRun &&
     !!deal.playbook_version_id &&
-    (!hasMultipleDocumentLanguages || !!deal.primary_language) &&
+    !!deal.primary_language &&
     !startRun.isPending &&
     !setPrimaryLanguage.isPending;
 

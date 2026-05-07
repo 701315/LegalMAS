@@ -3,10 +3,11 @@
 // Read-only side panel для DD-запроса в review-режиме.
 // Работает ИСКЛЮЧИТЕЛЬНО поверх DDRequestDTO из run-scoped API.
 // Использует shared presentation components и adapter для DTO.
+// Embedded-режим: рендерится внутри layout, без fullscreen drawer.
 // =============================================================
 
 import React, { useEffect, useMemo, useCallback } from "react";
-import { X } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { DDRequestDTO } from "../../types/dealReview";
 import type { OpenViewerAtFn, OpenViewerAtPayload } from "../../types";
 import {
@@ -18,6 +19,7 @@ import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
 import { RequestDocumentsList } from "./shared/RequestDocumentsList";
 import { RequestStructuredValuesList } from "./shared/RequestStructuredValuesList";
 import { RequestSegmentSummary } from "./shared/RequestSegmentSummary";
+import Button from "../ui/Button";
 
 interface Props {
   request: DDRequestDTO | null;
@@ -31,12 +33,15 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
   onOpenAtLocation,
 }) => {
   useEffect(() => {
+    if (!request) return;
+
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
+
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [request, onClose]);
 
   const viewModel = useMemo(() => {
     if (!request) return null;
@@ -67,6 +72,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
     const hasSegmentContext = !!(
       viewerTarget.segmentId || viewerTarget.chunkId
     );
+
     if (!hasSegmentContext) {
       return "Segment context отсутствует — переход невозможен.";
     }
@@ -93,115 +99,146 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
   if (!viewModel) return null;
 
   return (
-    <>
-      {/* Затемнение */}
-      <div
-        className="fixed inset-0 z-40 bg-[oklch(0.2_0.03_260/0.5)] backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Панель */}
-      <div className="fixed right-0 top-0 z-50 flex h-full w-[440px] flex-col border-l border-[var(--border)] bg-[var(--bg-panel)] shadow-[0_0_40px_rgba(15,23,42,0.7)] animate-in slide-in-from-right">
-        {/* Шапка */}
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-          <div className="flex flex-col gap-0.5">
-            <h3 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-              {viewModel.title}
-            </h3>
-            {viewModel.addressee && (
-              <p className="text-xs text-[var(--accent-primary)]">
-                → {viewModel.addressee}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-secondary)]"
-            aria-label="Закрыть"
+    <aside
+      className="flex min-h-0 flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] shadow-[inset_3px_0_0_var(--accent-primary)]"
+      aria-labelledby="review-request-panel-title"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+            Review-запрос
+          </p>
+          <h2
+            id="review-request-panel-title"
+            className="mt-1 text-sm font-semibold text-[var(--text-primary)]"
           >
-            <X size={18} />
-          </button>
+            {viewModel.title}
+          </h2>
+          {viewModel.addressee && (
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Адресат: {viewModel.addressee}
+            </p>
+          )}
         </div>
 
-        {/* Тело */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {/* Приоритет */}
-          <Field label="Приоритет">
-            <RequestPriorityBadge priority={viewModel.priority} />
-          </Field>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Закрыть панель запроса"
+          className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+        >
+          ✕
+        </button>
+      </div>
 
-          {/* Текст запроса */}
-          <Field label="Текст запроса">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text-secondary)]">
+      {/* Body */}
+      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+            Режим
+          </p>
+          <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+            Только просмотр
+          </p>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Запрос сформирован в review-контексте run-scoped API и не
+            редактируется из этой панели.
+          </p>
+        </div>
+
+        <Field label="Приоритет">
+          <div className="mt-1">
+            <RequestPriorityBadge priority={viewModel.priority} />
+          </div>
+        </Field>
+
+        <Field label="Текст запроса">
+          <div className="mt-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
+            <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">
               {viewModel.text}
             </p>
-          </Field>
+          </div>
+        </Field>
 
-          {/* Документы */}
-          {viewModel.documents.length > 0 && (
-            <Field label={`Документы (${viewModel.documents.length})`}>
+        {viewModel.documents.length > 0 && (
+          <Field label={`Документы (${viewModel.documents.length})`}>
+            <div className="mt-1">
               <RequestDocumentsList documents={viewModel.documents} />
-            </Field>
-          )}
+            </div>
+          </Field>
+        )}
 
-          {/* Типы документов */}
-          {viewModel.docTypes.length > 0 && (
-            <Field label="Типы документов">
-              <div className="flex flex-wrap gap-1">
-                {viewModel.docTypes.map((dt, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-xs text-[var(--text-secondary)]"
-                  >
-                    {dt}
-                  </span>
-                ))}
-              </div>
-            </Field>
-          )}
+        {viewModel.docTypes.length > 0 && (
+          <Field label="Типы документов">
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {viewModel.docTypes.map((dt, i) => (
+                <span
+                  key={`${dt}-${i}`}
+                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                >
+                  {dt}
+                </span>
+              ))}
+            </div>
+          </Field>
+        )}
 
-          {/* Segment context */}
-          {viewModel.segment && (
-            <Field label="Контекст сегмента">
+        {viewModel.segment && (
+          <Field label="Контекст сегмента">
+            <div className="mt-1 space-y-3">
               <RequestSegmentSummary
                 segment={viewModel.segment}
                 onJumpToViewer={handleJumpToViewer}
                 viewerJumpDisabled={!canJumpToViewer}
                 viewerJumpDisabledReason={viewerJumpDisabledReason}
               />
-            </Field>
-          )}
 
-          {/* Проверка */}
-          {viewModel.checkId && (
-            <Field label="Проверка (check_id)">
+              {onOpenAtLocation && (
+                <div className="flex justify-start">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleJumpToViewer}
+                    disabled={!canJumpToViewer}
+                    leftIcon={<ExternalLink className="h-4 w-4" />}
+                  >
+                    Открыть в viewer
+                  </Button>
+                </div>
+              )}
+
+              {!canJumpToViewer && viewerJumpDisabledReason && (
+                <div className="rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[12px] leading-5 text-[var(--color-warning)]">
+                  {viewerJumpDisabledReason}
+                </div>
+              )}
+            </div>
+          </Field>
+        )}
+
+        {viewModel.checkId && (
+          <Field label="Проверка (check_id)">
+            <div className="mt-1 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-4 py-3">
               <p className="font-mono text-sm text-[var(--text-secondary)]">
                 {viewModel.checkId}
               </p>
-            </Field>
-          )}
+            </div>
+          </Field>
+        )}
 
-          {/* Structured values */}
-          {viewModel.structuredValues.length > 0 && (
-            <Field
-              label={`Извлечённые данные (${viewModel.structuredValues.length})`}
-            >
-              <RequestStructuredValuesList
-                values={viewModel.structuredValues}
-              />
-            </Field>
-          )}
-        </div>
-
-        {/* Подвал */}
-        <div className="border-t border-[var(--border)] px-5 py-3">
-          <p className="text-center text-xs text-[var(--text-muted)]">
-            Review-режим · только просмотр
-          </p>
-        </div>
+        {viewModel.structuredValues.length > 0 && (
+          <Field
+            label={`Извлечённые данные (${viewModel.structuredValues.length})`}
+          >
+            <div className="mt-1">
+              <RequestStructuredValuesList values={viewModel.structuredValues} />
+            </div>
+          </Field>
+        )}
       </div>
-    </>
+    </aside>
   );
 };
 
@@ -213,17 +250,14 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+    <section>
+      <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
         {label}
       </label>
       {children}
-    </div>
+    </section>
   );
 }
 
 export default ReviewRequestSidePanel;
-
-
-
 

@@ -13,12 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
+from api.schemas.documents import ReclassifyRequest, ReclassifyResponse
 from classifiers.yaml_registry import YAMLRegistry
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.session import get_db
-from api.schemas.documents import ReclassifyRequest, ReclassifyResponse
 
 router = APIRouter()
 
@@ -48,10 +48,16 @@ async def reclassify_document(
 
     previous_doc_type = doc.doc_type
 
-    registry = YAMLRegistry.get_instance()
+    # Проверяем новый doc_type через YAMLRegistry.
+    # Для непрофессионального программиста:
+    # - registry хранит все загруженные YAML-конфиги типов документов;
+    # - если get_config(...) вернул объект, значит инструкция существует;
+    # - если вернул None, значит такого типа сейчас нет в реестре.
+    registry = YAMLRegistry.get_instance(validate=False)
     cfg = registry.get_config(data.doc_type)
+    yaml_found = cfg is not None
 
-    if cfg is None:
+    if not yaml_found:
         raise HTTPException(
             status_code=422,
             detail=(
@@ -59,8 +65,6 @@ async def reclassify_document(
                 "Проверьте, что тип существует в YAML-реестре."
             ),
         )
-
-    yaml_found = True
 
     trigger_ids = getattr(cfg, "trigger_ids", None)
     if trigger_ids is not None:

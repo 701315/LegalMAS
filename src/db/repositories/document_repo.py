@@ -58,8 +58,14 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DocumentStatus
+from core.logging import get_logger
+from classifiers.yaml_registry import YAMLRegistry
 from ..models.document import Document
+from .document_type_instruction_version_repo import (
+    DocumentTypeInstructionVersionRepository,
+)
 
+logger = get_logger(__name__)
 
 class DocumentRepository:
     def __init__(self, session: AsyncSession):
@@ -271,52 +277,43 @@ class DocumentRepository:
         language: str | None = None,
         jurisdiction: str | None = None,
         playbook_version_id: uuid.UUID | None = None,
+        registry: YAMLRegistry | None = None,
+        git_commit: str | None = None,
+        semver: str | None = None,
     ) -> Document | None:
         """
-        Обновить результаты классификации документа.
+        Backward-compatible wrapper over save_classification_result().
 
-        Это вызывается после успешной работы классификатора:
-        - сохранение типа договора (doc_type);
-        - уровня (L0–L4) и уверенности;
-        - детальной информации о том, почему выбрана такая классификация;
-        - языковых и юрисдикционных метаданных;
-        - ID версии плейбука, по которому классифицировали документ.
-        - classification_requires_review:
-            флаг, который приходит из HybridClassifier.details["requires_manual_review"]
-            и сохраняется в Document.classification_requires_review для UX.
+        Исторически этот метод использовался старым кодом репозитория.
+        Теперь он сохраняется как совместимый API-слой и делегирует
+        в новый canonical flow save_classification_result(), чтобы:
+        - не ломать существующие вызовы;
+        - гарантировать заполнение doc_type_instruction_version_id;
+        - иметь одну точку правды для сохранения classification result.
         """
-        values = {
-            "doc_type": doc_type,
-            "classification_confidence": float(classification_confidence),
-            "classification_level": classification_level,
-            "classification_details": classification_details,
-            "applicable_triggers": applicable_triggers,
+        classification_result = {
+            "final_type": doc_type,
+            "final_confidence": float(classification_confidence),
+            "level": classification_level,
+            "language": language,
+            "jurisdiction": jurisdiction,
+            "applicable_triggers": list(applicable_triggers or []),
+            "details": classification_details or {},
         }
 
         if classification_requires_review is not None:
-            values["classification_requires_review"] = classification_requires_review
-            
-        # Обновляем язык и юрисдикцию, если они переданы.
-        if language:
-            values["language"] = language
-        if jurisdiction:
-            values["jurisdiction_guess"] = jurisdiction
+            classification_result["requires_manual_review"] = classification_requires_review
 
-        if playbook_version_id is not None:
-            values["playbook_version_id"] = playbook_version_id
-
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .values(**values)
-            .returning(Document)
+        return await self.save_classification_result(
+            document_id=doc_id,
+            classification_result=classification_result,
+            playbook_version_id=playbook_version_id,
+            registry=registry,
+            git_commit=git_commit,
+            semver=semver,
         )
-        result = await self.session.execute(stmt)
-        doc = result.scalar_one_or_none()
-        if doc:
-            await self.session.flush()
-        return doc
-
+    
+    
     async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
         """
         Посчитать количество документов по статусам для сделки.
@@ -518,3 +515,120 @@ class DocumentRepository:
         count = result.scalar_one() or 0
         return count > 0
 
+    async def _resolve_doc_type_instruction_version_id(
+        self,
+        *,
+        final_type: str | None,
+        registry: YAMLRegistry | None = None,
+        git_commit: str | None = None,
+        semver: str | None = None,
+    ):
+        """
+        Resolve persisted instruction version id for final classified doc_type.
+
+        Правила:
+        - если final_type пустой или UNKNOWN -> None;
+        - если cfg не найден в YAMLRegistry -> None;
+        - иначе resolve/create запись в document_type_instruction_versions
+          и вернуть её UUID.
+        """
+        if not isinstance(final_type, str) or not final_type.strip():
+            return None
+
+        normalized = final_type.strip()
+        if normalized == "UNKNOWN":
+            return None
+
+        effective_registry = registry or YAMLRegistry.get_instance()
+        cfg = effective_registry.get_config(normalized)
+        if cfg is None:
+            return None
+
+        repo = DocumentTypeInstructionVersionRepository(self.session)
+        resolved = await repo.resolve_or_create_from_config(
+            cfg,
+            git_commit=git_commit,
+            semver=semver,
+        )
+        return resolved.version.id
+    
+
+    async def save_classification_result(
+        self,
+        *,
+        document_id,
+        classification_result: dict,
+        playbook_version_id=None,
+        registry: YAMLRegistry | None = None,
+        git_commit: str | None = None,
+        semver: str | None = None,
+    ) -> Document:
+        """
+        Persist final document-level classification result.
+
+        Ожидает payload уровня HybridClassifier/ResultBuilder:
+        {
+            "final_type": ...,
+            "final_confidence": ...,
+            "level": ...,
+            "language": ...,
+            "jurisdiction": ...,
+            "applicable_triggers": [...],
+            "details": {...},
+        }
+        """
+        stmt = select(Document).where(Document.id == document_id)
+        result = await self.session.execute(stmt)
+        document = result.scalar_one_or_none()
+        if document is None:
+            raise ValueError(f"Document not found: {document_id}")
+
+        final_type = classification_result.get("final_type")
+        final_confidence = float(classification_result.get("final_confidence") or 0.0)
+        level = classification_result.get("level")
+        language = classification_result.get("language")
+        jurisdiction = classification_result.get("jurisdiction")
+        applicable_triggers = list(classification_result.get("applicable_triggers") or [])
+        details = classification_result.get("details") or {}
+
+        requires_review = bool(
+            classification_result.get("requires_manual_review")
+            or details.get("requires_manual_review")
+        )
+
+        instruction_version_id = await self._resolve_doc_type_instruction_version_id(
+            final_type=final_type,
+            registry=registry,
+            git_commit=git_commit,
+            semver=semver,
+        )
+
+        document.doc_type = final_type
+        document.classification_confidence = final_confidence
+        document.classification_level = level
+        document.language = language
+        document.jurisdiction_guess = jurisdiction
+        document.applicable_triggers = applicable_triggers
+        document.classification_details = classification_result
+        document.classification_requires_review = requires_review
+        document.doc_type_instruction_version_id = instruction_version_id
+
+        if playbook_version_id is not None:
+            document.playbook_version_id = playbook_version_id
+
+        logger.info(
+            "Document classification saved",
+            extra={
+                "document_id": str(document_id),
+                "final_type": final_type,
+                "final_confidence": final_confidence,
+                "classification_level": level,
+                "instruction_version_id": str(instruction_version_id) if instruction_version_id else None,
+                "playbook_version_id": str(playbook_version_id) if playbook_version_id else None,
+            },
+        )
+
+        return document
+    
+
+    

@@ -77,21 +77,18 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 
   if (!open || overlayWidth <= 0) return null;
 
-  const documentLanguages = deal.languages ?? [];
-  const hasMultipleDocumentLanguages = documentLanguages.length > 1;
-  const hasValidPrimaryLanguageSelection =
-    !hasMultipleDocumentLanguages || !!deal.primary_language;
   const hasPlaybook = !!deal.playbook_version_id;
+  const hasPrimaryLanguage = !!deal.primary_language;
 
   const canLaunchRun =
     canStartRun &&
     hasPlaybook &&
-    hasValidPrimaryLanguageSelection &&
+    hasPrimaryLanguage &&
     !isSubmitting;
 
   const readinessLabel = !hasPlaybook
     ? "Нужно выбрать playbook, чтобы запустить анализ."
-    : !hasValidPrimaryLanguageSelection
+    : !hasPrimaryLanguage
       ? "Нужно выбрать основной язык анализа."
       : "Параметры готовы к запуску анализа.";
 

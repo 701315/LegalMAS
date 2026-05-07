@@ -22,7 +22,7 @@ from api.schemas.documents import (
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.relation_repo import RelationRepository
-
+from classifiers.yaml_registry import YAMLRegistry
 
 async def load_document_detail(
     db: AsyncSession,
@@ -56,10 +56,15 @@ async def load_document_detail(
 
     family_id = await relation_repo.get_document_family_id(doc_id)
 
+    # Определяем, есть ли сейчас YAML-инструкция для doc.doc_type через YAMLRegistry.
+    # Для непрофессионального программиста:
+    # - YAMLRegistry при старте приложения загружает все YAML-конфиги документов.
+    # - Если конфиг для данного doc_type успешно загружен, get_config вернёт объект.
+    # - Если конфиг отсутствует или не смог загрузиться, вернётся None.
     yaml_instruction_available = False
     if doc.doc_type:
-        yaml_path = Path(f"playbooks/document_types/{doc.doc_type}.yaml")
-        yaml_instruction_available = yaml_path.exists()
+        registry = YAMLRegistry.get_instance(validate=False)
+        yaml_instruction_available = registry.get_config(doc.doc_type) is not None
 
     low_confidence = False
     if doc.classification_confidence is not None:
@@ -84,3 +89,6 @@ async def load_document_detail(
         family_id=family_id,
         classification=classification_block,
     )
+
+
+

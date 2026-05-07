@@ -4,7 +4,9 @@
 // =============================================================
 
 import React from "react";
+import { ExternalLink } from "lucide-react";
 import type { SegmentProvenanceView } from "../../../viewAdapters/requestPresentation";
+import Button from "../../ui/Button";
 
 interface RequestSegmentSummaryProps {
   segment: SegmentProvenanceView;
@@ -18,10 +20,6 @@ function formatSegmentOrder(segmentOrder: number | null): string | null {
   return `#${segmentOrder + 1}`;
 }
 
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
   segment,
   onJumpToViewer,
@@ -32,88 +30,90 @@ export const RequestSegmentSummary: React.FC<RequestSegmentSummaryProps> = ({
   const showViewerJumpButton = !!onJumpToViewer;
 
   return (
-    <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] p-3">
-      {segment.segmentTitle && (
-        <div className="flex items-start justify-between gap-3 text-xs">
-          <span className="shrink-0 text-[var(--text-muted)]">Сегмент</span>
-          <span className="text-right font-medium text-[var(--text-primary)]">
-            {segment.segmentTitle}
-          </span>
+    <section className="space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-3">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
+            Контекст сегмента
+          </p>
+          {segment.segmentTitle && (
+            <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+              {segment.segmentTitle}
+            </p>
+          )}
         </div>
-      )}
 
-      {segment.segmentType && (
-        <div className="flex items-start justify-between gap-3 text-xs">
-          <span className="shrink-0 text-[var(--text-muted)]">
-            Тип сегмента
+        {segment.isPrimarySegment && (
+          <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_oklab,var(--accent-primary)_20%,transparent)] bg-[var(--bg-card)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--accent-primary)]">
+            Основной сегмент
           </span>
-          <span className="text-right text-[var(--text-secondary)]">
-            {segment.segmentType}
-          </span>
-        </div>
-      )}
+        )}
+      </header>
 
-      {humanSegmentOrder && (
-        <div className="flex items-start justify-between gap-3 text-xs">
-          <span className="shrink-0 text-[var(--text-muted)]">Порядок</span>
-          <span className="text-right text-[var(--text-secondary)]">
-            {humanSegmentOrder}
-          </span>
-        </div>
-      )}
+      <div className="space-y-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2.5 text-[12px]">
+        {segment.segmentType && (
+          <Row label="Тип сегмента">
+            <span className="text-[var(--text-secondary)]">
+              {segment.segmentType}
+            </span>
+          </Row>
+        )}
 
-      {segment.chunkIndex != null && (
-        <div className="flex items-start justify-between gap-3 text-xs">
-          <span className="shrink-0 text-[var(--text-muted)]">Chunk</span>
-          <span className="font-mono text-right text-[var(--text-secondary)]">
-            #{segment.chunkIndex}
-          </span>
-        </div>
-      )}
+        {humanSegmentOrder && (
+          <Row label="Порядок">
+            <span className="text-[var(--text-secondary)]">
+              {humanSegmentOrder}
+            </span>
+          </Row>
+        )}
 
-      {segment.isPrimarySegment && (
-        <div className="pt-1">
-          <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--accent-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-primary)]">
-            Основной сегмент документа
-          </span>
-        </div>
-      )}
+        {segment.chunkIndex != null && (
+          <Row label="Chunk">
+            <span className="font-mono text-[var(--text-secondary)]">
+              #{segment.chunkIndex}
+            </span>
+          </Row>
+        )}
+      </div>
 
       {showViewerJumpButton && (
-        <button
-          type="button"
-          disabled={viewerJumpDisabled}
-          title={
-            viewerJumpDisabled
-              ? viewerJumpDisabledReason
-              : "Открыть в документе"
-          }
-          className={cn(
-            "mt-2 inline-flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-xs transition",
-            viewerJumpDisabled
-              ? "cursor-not-allowed border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-faint)]"
-              : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--accent-primary)] hover:bg-[var(--bg-card-hover)]",
-          )}
-          onClick={() => {
-            if (viewerJumpDisabled || !onJumpToViewer) return;
-            onJumpToViewer();
-          }}
-        >
-          <span>Открыть в документе</span>
-          <span aria-hidden="true">→</span>
-        </button>
-      )}
+        <div className="space-y-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (viewerJumpDisabled || !onJumpToViewer) return;
+              onJumpToViewer();
+            }}
+            disabled={viewerJumpDisabled}
+            leftIcon={<ExternalLink className="h-4 w-4" />}
+            className="w-full justify-center"
+          >
+            Открыть в viewer
+          </Button>
 
-      {viewerJumpDisabled && viewerJumpDisabledReason && (
-        <p className="text-[10px] italic text-[var(--text-faint)]">
-          {viewerJumpDisabledReason}
-        </p>
+          {viewerJumpDisabled && viewerJumpDisabledReason && (
+            <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+              {viewerJumpDisabledReason}
+            </p>
+          )}
+        </div>
       )}
-    </div>
+    </section>
   );
 };
 
-export default RequestSegmentSummary;
+const Row: React.FC<{ label: string; children: React.ReactNode }> = ({
+  label,
+  children,
+}) => (
+  <div className="flex items-start justify-between gap-3">
+    <span className="shrink-0 text-[var(--text-muted)]">{label}</span>
+    <div className="min-w-0 text-right">{children}</div>
+  </div>
+);
 
+export default RequestSegmentSummary;
 
 

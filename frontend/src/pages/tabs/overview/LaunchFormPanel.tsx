@@ -246,29 +246,14 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
             {documentLanguages.length === 0 ? (
               <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                Языки документов ещё не определены. После загрузки и анализа
-                документов основной язык будет выбран автоматически.
+                Языки документов ещё не определены. Сначала загрузите документы и
+                дождитесь определения языков, затем выберите основной язык анализа вручную.
               </p>
-            ) : null}
-
-            {documentLanguages.length === 1 ? (
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                Обнаружен единственный язык документов:{" "}
-                <span className="font-medium text-[var(--text-primary)]">
-                  {formatLanguageName(documentLanguages[0])}
-                </span>{" "}
-                <span className="text-[var(--text-muted)]">
-                  ({formatLanguageCode(documentLanguages[0])})
-                </span>
-                . Основной язык будет определён автоматически.
-              </p>
-            ) : null}
-
-            {documentLanguages.length > 1 ? (
+            ) : (
               <>
                 <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                  В документах проекта обнаружено несколько языков. Выберите, на
-                  каком языке считать анализ основным.
+                  В документах проекта обнаружены следующие языки. Выберите, на каком
+                  языке считать анализ основным.
                 </p>
 
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -310,24 +295,21 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
                 {!selectedPrimaryLanguage ? (
                   <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning)]">
-                    В сделке есть документы на нескольких языках. Перед запуском
-                    анализа выберите основной язык.
+                    Перед запуском анализа выберите основной язык анализа.
                   </p>
                 ) : null}
-              </>
-            ) : null}
 
-            {documentLanguages.length > 0 ? (
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                Языки документов:{" "}
-                {documentLanguages
-                  .map(
-                    (lang) =>
-                      `${formatLanguageName(lang)} (${formatLanguageCode(lang)})`,
-                  )
-                  .join(", ")}
-              </p>
-            ) : null}
+                <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                  Языки документов:{" "}
+                  {documentLanguages
+                    .map(
+                      (lang) =>
+                        `${formatLanguageName(lang)} (${formatLanguageCode(lang)})`,
+                    )
+                    .join(", ")}
+                </p>
+              </>
+            )}
           </section>
 
           {deal.has_pending_manual_reclassifications ? (

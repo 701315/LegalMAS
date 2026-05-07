@@ -37,6 +37,32 @@ def _merge_ui_explanation_into_quality_flags(
     normalized["quality_flags"] = quality_flags
 
 
+def _resolve_persisted_check_name(
+    *,
+    check_id: str,
+    check_name: str | None,
+) -> str:
+    """
+    Гарантирует, что в БД всегда уйдёт валидный check_name.
+
+    Для непрофессионального программиста:
+    - в таблице check_results поле check_name обязательное (NOT NULL);
+    - иногда upstream-код не знает "красивое" имя проверки
+      (например, в кейсе check_not_applicable);
+    - в таком случае мы не имеем права писать NULL в БД;
+    - поэтому используем безопасный fallback: сам check_id.
+
+    Почему это правильно:
+    - check_id всегда есть;
+    - это стабильный идентификатор проверки;
+    - это лучше, чем падение пайплайна из-за пустого имени.
+    """
+    cleaned_name = (check_name or "").strip()
+    if cleaned_name:
+        return cleaned_name
+    return check_id
+
+
 async def save_check_result(
     *,
     repo,
@@ -61,6 +87,11 @@ async def save_check_result(
       код (run_single_check / Celery) решит, ретраить задачу или считать
       ошибку постоянной.
     """
+    # Сохраняем doc_id заранее как обычное значение.
+    # Это важно: в except-блоке нельзя лишний раз трогать ORM-объект,
+    # потому что после DB-ошибки это может вызвать вторичную async/ORM ошибку.
+    doc_id = getattr(doc, "id", None)
+
     # Нормализуем «сырые» exec_result + check в единый словарь.
     normalized = normalize_check_result(exec_result, check)
 
@@ -75,6 +106,12 @@ async def save_check_result(
     )
     _merge_ui_explanation_into_quality_flags(normalized, ui_explanation)
 
+    # Гарантируем валидное имя проверки для записи в БД.
+    persisted_check_name = _resolve_persisted_check_name(
+        check_id=exec_result["check_id"],
+        check_name=exec_result.get("check_name"),
+    )
+
     try:
         # Пишем в репозиторий. Здесь важно НИЧЕГО не глушить:
         # - repo.upsert_single_check_result уже делает rollback при DB-ошибках;
@@ -82,9 +119,9 @@ async def save_check_result(
         #   до уровня Celery-task, чтобы там решить, что делать с задачей.
         return await repo.upsert_single_check_result(
             run_id=run_id,
-            document_id=doc.id,
+            document_id=doc_id,
             check_id=exec_result["check_id"],
-            check_name=exec_result["check_name"],
+            check_name=persisted_check_name,
             result=exec_result["result"],
             severity=exec_result["severity"],
             value_text=normalized["value_text"],
@@ -115,7 +152,7 @@ async def save_check_result(
             "save_check_result: failed to upsert check result",
             extra={
                 "run_id": str(run_id),
-                "doc_id": str(getattr(doc, "id", None)),
+                "doc_id": str(doc_id) if doc_id is not None else None,
                 "check_id": exec_result.get("check_id"),
                 "execution_status": execution_status,
                 "error": str(e),
@@ -151,10 +188,18 @@ async def save_not_applicable_result(
     на отдельный доменный статус, например "not_applicable"
     или "missing_required_clause" — но это уже отдельный этап.
     """
+    # Сохраняем doc_id заранее как обычное значение.
+    # Это защищает logging/error-path от вторичных ORM async ошибок.
+    doc_id = getattr(doc, "id", None)
+
     exec_result: dict[str, Any] = {
-        "doc_id": str(getattr(doc, "id", None)),
+        "doc_id": str(doc_id) if doc_id is not None else None,
         "check_id": check_id,
-        "check_name": None,
+        # ВАЖНО:
+        # Даже если у нас нет "красивого" имени проверки,
+        # мы обязаны сохранить в БД непустой check_name.
+        # Для этого используем стабильный безопасный fallback = check_id.
+        "check_name": check_id,
         "result": "unclear",
         "severity": "unclear",
         "confidence": None,
@@ -184,12 +229,19 @@ async def save_not_applicable_result(
     )
     _merge_ui_explanation_into_quality_flags(normalized, ui_explanation)
 
+    # Дополнительная защита: даже если кто-то в будущем снова поменяет
+    # exec_result["check_name"], в БД всё равно уйдёт безопасное значение.
+    persisted_check_name = _resolve_persisted_check_name(
+        check_id=check_id,
+        check_name=exec_result.get("check_name"),
+    )
+
     try:
         return await repo.upsert_single_check_result(
             run_id=run_id,
-            document_id=doc.id,
+            document_id=doc_id,
             check_id=check_id,
-            check_name=exec_result["check_name"],
+            check_name=persisted_check_name,
             result=exec_result["result"],
             severity=exec_result["severity"],
             value_text=normalized["value_text"],
@@ -222,7 +274,7 @@ async def save_not_applicable_result(
             "save_not_applicable_result: failed to upsert not-applicable check result",
             extra={
                 "run_id": str(run_id),
-                "doc_id": str(getattr(doc, "id", None)),
+                "doc_id": str(doc_id) if doc_id is not None else None,
                 "check_id": check_id,
                 "error": str(e),
             },
