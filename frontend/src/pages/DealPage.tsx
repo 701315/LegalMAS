@@ -140,17 +140,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     navigate(`/projects/${deal.id}/playbooks/admin`);
   }, [canViewOverview, deal.id, navigate]);
 
-  const handleOpenModelConfig = React.useCallback(() => {
-    const params = new URLSearchParams();
-    params.set("dealId", deal.id);
-
-    if (deal.playbook_version_id) {
-      params.set("playbookVersionId", deal.playbook_version_id);
-    }
-
-    navigate(`/admin/model-configs?${params.toString()}`);
-  }, [deal.id, deal.playbook_version_id, navigate]);
-
   const handleOpenViewerAt = React.useCallback(
     (payload: OpenViewerAtPayload) => {
       setViewerLocation(payload);
@@ -298,7 +287,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
         <OverviewTab
           deal={deal}
           latestRunId={latestRunId}
-          onOpenModelConfig={handleOpenModelConfig}
         />
       );
     }
@@ -523,7 +511,9 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6"
             tabIndex={0}
           >
-            {renderActiveTabPanel()}
+            <div className="flex min-h-full flex-col">
+              {renderActiveTabPanel()}
+            </div>
           </section>
         </main>
       </div>

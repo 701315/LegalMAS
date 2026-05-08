@@ -20,18 +20,15 @@ import Button from "../../components/ui/Button";
 import AnalysisActionsPanel from "./overview/AnalysisActionsPanel";
 import LaunchWideOverlay from "./overview/LaunchWideOverlay";
 
-
 export type ChecksMode =
   | "global_only"
   | "doc_type_only"
   | "global_and_doc_type";
 
-
 interface OverviewTabProps {
   deal: Deal;
   latestRunId?: string | null;
 }
-
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -43,7 +40,6 @@ function formatDate(iso: string | null | undefined): string {
     year: "numeric",
   });
 }
-
 
 function formatDateShort(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -57,7 +53,6 @@ function formatDateShort(iso: string | null | undefined): string {
     minute: "2-digit",
   });
 }
-
 
 function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   const imports = entries.filter((e) => e.action === "IMPORT");
@@ -91,7 +86,7 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   };
 }
 
-
+// Универсальная карточка с заголовком и подзаголовком
 const CardShell: React.FC<{
   title: string;
   eyebrow?: string;
@@ -99,24 +94,35 @@ const CardShell: React.FC<{
   rightSlot?: React.ReactNode;
 }> = ({ title, eyebrow, children, rightSlot }) => (
   <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-    <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] px-5 py-4">
-      <div className="min-w-0">
-        {eyebrow && (
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-            {eyebrow}
-          </p>
-        )}
-        <h2 className="text-base font-semibold text-[var(--text-primary)]">
-          {title}
-        </h2>
+    <div className="px-5">
+      <div className="flex items-start justify-between gap-4 py-4">
+        <div className="min-w-0">
+          {eyebrow ? (
+            <>
+              <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                {eyebrow}
+              </h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                {title}
+              </p>
+            </>
+          ) : (
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              {title}
+            </h2>
+          )}
+        </div>
+        {rightSlot}
       </div>
-      {rightSlot}
+
+      <div className="border-t border-[var(--border-subtle)]" />
     </div>
+
     <div className="px-5 py-4">{children}</div>
   </section>
 );
 
-
+// Карточка "О проекте"
 const DealInfoCard: React.FC<{
   deal: Deal;
   projectSummary: string;
@@ -133,22 +139,21 @@ const DealInfoCard: React.FC<{
   onSaveSummary,
 }) => (
   <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-    <div className="border-b border-[var(--border-subtle)] px-5 py-4">
-      <h2 className="text-base font-semibold text-[var(--text-primary)]">
-        О проекте
-      </h2>
-      <p className="mt-1 text-sm text-[var(--text-secondary)]">
-        Краткое описание проекта для рабочей команды.
-      </p>
+    <div className="px-5">
+      <div className="py-4">
+        <h2 className="text-base font-semibold text-[var(--text-primary)]">
+          О проекте
+        </h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          Краткое описание проекта для рабочей команды.
+        </p>
+      </div>
+
+      {/* inset-divider, не до краёв карточки */}
+      <div className="border-t border-[var(--border-subtle)]" />
     </div>
 
     <div className="px-5 py-4">
-      <label
-        htmlFor={`deal-summary-${deal.id}`}
-        className="block text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-      >
-        Описание проекта
-      </label>
 
       <textarea
         id={`deal-summary-${deal.id}`}
@@ -179,7 +184,6 @@ const DealInfoCard: React.FC<{
   </section>
 );
 
-
 const TimelineEvent: React.FC<{
   icon: string;
   label: string;
@@ -204,16 +208,15 @@ const TimelineEvent: React.FC<{
   </li>
 );
 
-
 // Утилита: класс цвета текста для статуса run
 function runStatusTextClass(tone: "ok" | "warn" | "error" | "neutral"): string {
-  if (tone === "ok")      return "text-[var(--color-success)]";
-  if (tone === "warn")    return "text-[var(--color-warning)]";
-  if (tone === "error")   return "text-[var(--color-error)]";
+  if (tone === "ok") return "text-[var(--color-success)]";
+  if (tone === "warn") return "text-[var(--color-warning)]";
+  if (tone === "error") return "text-[var(--color-error)]";
   return "text-[var(--text-secondary)]";
 }
 
-
+// Карточка "Активность / Хроника действий по проекту"
 const ProjectTimelineCard: React.FC<{
   deal: Deal;
   latestRunId?: string | null;
@@ -260,7 +263,7 @@ const ProjectTimelineCard: React.FC<{
   if (!deal.created_at && !latestRunId) return null;
 
   return (
-    <CardShell eyebrow="Активность" title="Хроника проекта">
+    <CardShell eyebrow="Активность" title="Хроника действий по проекту">
       <ol className="space-y-4">
         <TimelineEvent
           icon="🗂"
@@ -381,16 +384,15 @@ const ProjectTimelineCard: React.FC<{
   );
 };
 
-
 // Прогресс-бар: цвет через CSS-переменные состояний
 function progressBarClass(status: RunStatus | undefined): string {
-  if (status === "failed")                return "bg-[var(--color-error)]";
-  if (status === "completed")             return "bg-[var(--color-success)]";
+  if (status === "failed") return "bg-[var(--color-error)]";
+  if (status === "completed") return "bg-[var(--color-success)]";
   if (status === "completed_with_errors") return "bg-[var(--color-warning)]";
   return "bg-[var(--accent-primary)]";
 }
 
-
+// Карточка "Статус проверок"
 const RunProgressCard: React.FC<{
   latestRunId?: string | null;
 }> = ({ latestRunId }) => {
@@ -400,7 +402,10 @@ const RunProgressCard: React.FC<{
 
   if (!runId) {
     return (
-      <CardShell eyebrow="Pipeline" title="Статус анализа">
+      <CardShell
+        eyebrow="Статус проверок"
+        title="Количество и статус проведённых проверок в проекте"
+      >
         <p className="text-sm leading-6 text-[var(--text-secondary)]">
           Анализ ещё не запускался для этой сделки.
         </p>
@@ -421,8 +426,8 @@ const RunProgressCard: React.FC<{
 
   return (
     <CardShell
-      eyebrow="Pipeline"
-      title="Статус анализа"
+      eyebrow="Статус проверок"
+      title="Количество и статус проведённых проверок в проекте"
       rightSlot={
         isLoading && !run ? (
           <span className="text-[11px] text-[var(--text-muted)]">
@@ -439,7 +444,7 @@ const RunProgressCard: React.FC<{
     >
       {effectiveTotal > 0 ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-[12px]">
+          <div className="flex items-center justify между gap-2 text-[12px]">
             <span className="text-[var(--text-secondary)]">
               {effectiveCompleted} / {effectiveTotal} проверок
             </span>
@@ -482,7 +487,6 @@ const RunProgressCard: React.FC<{
   );
 };
 
-
 const OverviewTab: React.FC<OverviewTabProps> = ({
   deal,
   latestRunId,
@@ -503,7 +507,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const [forceReclassify, setForceReclassify] = React.useState(false);
   const [hasRestartedAfterReclass, setHasRestartedAfterReclass] =
     React.useState(false);
-  const [projectSummary, setProjectSummary] = React.useState(deal.summary ?? "");
+  const [projectSummary, setProjectSummary] = React.useState(
+    deal.summary ?? "",
+  );
 
   // измерение ширины layout
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
@@ -593,7 +599,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
     updateDeal.mutate(
       {
-        summary: normalizedDraftSummary.length > 0 ? normalizedDraftSummary : null,
+        summary:
+          normalizedDraftSummary.length > 0 ? normalizedDraftSummary : null,
       },
       {
         onSuccess: async () => {
@@ -661,7 +668,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         <RunProgressCard latestRunId={latestRunId} />
       </div>
 
-      <div ref={railRef} className="relative hidden xl:block">
+      <div ref={railRef} className="relative hidden xl:block px-1 pb-2">
         <AnalysisActionsPanel
           deal={deal}
           latestRunExists={!!latestRun}
@@ -691,7 +698,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               await Promise.all([
                 qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
                 qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-                qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
+                qc.invalidateQueries({
+                  queryKey: ["latest-run", deal.id, false],
+                }),
               ]);
             }}
           />

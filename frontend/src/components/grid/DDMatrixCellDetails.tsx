@@ -1,5 +1,6 @@
-// =============================================================
 // src/components/grid/DDMatrixCellDetails.tsx
+
+// =============================================================
 // Side panel с подробностями по ячейке DD Matrix.
 // Используется только в review-режиме поверх dd-matrix DTO.
 // =============================================================
@@ -115,24 +116,45 @@ function getSegmentMeta(cell: MatrixCellDetailsCell): string | null {
 
 function Section({
   title,
+  subtitle,
   children,
 }: {
   title: string;
+  subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-        {title}
-      </h4>
+    <section className="space-y-3">
+      <div>
+        <h4 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          {title}
+        </h4>
+        {subtitle ? (
+          <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+            {subtitle}
+          </p>
+        ) : null}
+      </div>
       {children}
     </section>
   );
 }
 
-function InfoCard({ children }: { children: React.ReactNode }) {
+function InfoCard({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "subtle";
+}) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3 shadow-sm">
+    <div
+      className={
+        tone === "subtle"
+          ? "subtle-panel p-3"
+          : "card-surface p-3"
+      }
+    >
       {children}
     </div>
   );
@@ -152,6 +174,27 @@ function InfoRow({
         {value}
       </span>
     </div>
+  );
+}
+
+function MetaPill({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "accent";
+}) {
+  const toneClass =
+    tone === "accent"
+      ? "border-[var(--border-accent-soft)] bg-[var(--bg-elevated-soft)] text-[var(--accent-primary)]"
+      : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)]";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${toneClass}`}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -196,12 +239,17 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
     });
   };
 
+  const drawerTitle = checkName || checkId || "Без названия проверки";
+  const drawerDescription = documentName
+    ? `Документ: ${documentName}`
+    : `Документ ID: ${documentId}`;
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
-      title={checkName || checkId || "Без названия проверки"}
-      description={`Документ: ${documentName || documentId}`}
+      title={drawerTitle}
+      description={drawerDescription}
       footer={
         <div className="flex items-center justify-between gap-3">
           <div className="text-[11px] text-[var(--text-muted)]">
@@ -230,45 +278,50 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
       }
     >
       <div className="space-y-5">
-        <Section title="Результат">
+        <Section
+          title="Результат"
+          subtitle="Статус проверки, severity и базовые сигналы качества."
+        >
           <InfoCard>
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                {cell.severity && <SeverityBadge severity={cell.severity} />}
+                {cell.severity ? (
+                  <SeverityBadge severity={cell.severity} />
+                ) : null}
+
                 <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {humanResultText}
                 </span>
+
                 <span className="text-[11px] text-[var(--text-faint)]">
                   ({cell.result})
                 </span>
+
+                {cell.conditionalTriggered ? (
+                  <MetaPill tone="accent">Conditional</MetaPill>
+                ) : null}
               </div>
 
               <div className="space-y-2">
-                <InfoRow
-                  label="Severity"
-                  value={cell.severity || "—"}
-                />
-                <InfoRow
-                  label="QC статус"
-                  value={cell.qcStatus || "—"}
-                />
-                <InfoRow
-                  label="Confidence"
-                  value={confidenceText}
-                />
-                {cell.conditionalTriggered && (
+                <InfoRow label="Severity" value={cell.severity || "—"} />
+                <InfoRow label="QC статус" value={cell.qcStatus || "—"} />
+                <InfoRow label="Confidence" value={confidenceText} />
+                {cell.conditionalTriggered ? (
                   <InfoRow
                     label="Trigger"
                     value={cell.triggerName || "Conditional check triggered"}
                   />
-                )}
+                ) : null}
               </div>
             </div>
           </InfoCard>
         </Section>
 
-        <Section title="Evidence">
-          <InfoCard>
+        <Section
+          title="Evidence"
+          subtitle="Фрагмент текста и привязка к странице или clause UID."
+        >
+          <InfoCard tone="subtle">
             <div className="space-y-3">
               {cell.snippet ? (
                 <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">
@@ -280,9 +333,9 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
                 </p>
               )}
 
-              <div className="flex flex-wrap gap-3 text-[11px] text-[var(--text-muted)]">
-                <span>Страница: {cell.page ?? "—"}</span>
-                <span>Clause UID: {cell.clauseUid || "—"}</span>
+              <div className="flex flex-wrap gap-2">
+                <MetaPill>Страница: {cell.page ?? "—"}</MetaPill>
+                <MetaPill>Clause UID: {cell.clauseUid || "—"}</MetaPill>
               </div>
             </div>
           </InfoCard>
@@ -293,50 +346,50 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           cell.segmentType ||
           cell.chunkId ||
           cell.chunkIndex != null) && (
-          <Section title="Segment / Chunk">
+          <Section
+            title="Segment / Chunk"
+            subtitle="Provenance для сегмента и чанка, если backend передал эти данные."
+          >
             <InfoCard>
-              <div className="space-y-2 text-[11px]">
+              <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-[var(--text-primary)]">
                     {segmentHeading}
                   </span>
 
-                  {cell.isPrimarySegment && (
-                    <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
-                      Основной сегмент
-                    </span>
-                  )}
+                  {cell.isPrimarySegment ? (
+                    <MetaPill tone="accent">Основной сегмент</MetaPill>
+                  ) : null}
                 </div>
 
-                {segmentMeta && (
-                  <p className="text-[10px] text-[var(--text-muted)]">
+                {segmentMeta ? (
+                  <p className="text-[11px] text-[var(--text-muted)]">
                     {segmentMeta}
                   </p>
-                )}
+                ) : null}
 
-                {cell.segmentId && (
-                  <p className="text-[10px] text-[var(--text-faint)]">
-                    segment_id: {cell.segmentId}
-                  </p>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {cell.segmentId ? (
+                    <MetaPill>segment_id: {cell.segmentId}</MetaPill>
+                  ) : null}
 
-                {cell.chunkId && (
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    chunk_id: {cell.chunkId}
-                  </p>
-                )}
+                  {cell.chunkId ? (
+                    <MetaPill>chunk_id: {cell.chunkId}</MetaPill>
+                  ) : null}
 
-                {cell.chunkIndex != null && (
-                  <p className="text-[10px] text-[var(--text-muted)]">
-                    Chunk #{cell.chunkIndex}
-                  </p>
-                )}
+                  {cell.chunkIndex != null ? (
+                    <MetaPill>Chunk #{cell.chunkIndex}</MetaPill>
+                  ) : null}
+                </div>
               </div>
             </InfoCard>
           </Section>
         )}
 
-        <Section title="Извлечённые поля">
+        <Section
+          title="Извлечённые поля"
+          subtitle="Нормализованные значения, извлечённые из evidence."
+        >
           <InfoCard>
             {cell.extractedFields.length === 0 ? (
               <p className="text-xs text-[var(--text-faint)]">
@@ -354,17 +407,17 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
                         {field.fieldName}
                       </div>
 
-                      {field.fieldFormat && (
+                      {field.fieldFormat ? (
                         <div className="text-[10px] text-[var(--text-faint)]">
                           {field.fieldFormat}
                         </div>
-                      )}
+                      ) : null}
 
-                      {field.fieldSource && (
+                      {field.fieldSource ? (
                         <div className="text-[10px] text-[var(--text-faint)]">
                           {field.fieldSource}
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
                     <div className="max-w-[55%] break-words text-right text-[11px] font-semibold text-[var(--text-primary)]">

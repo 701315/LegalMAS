@@ -9,6 +9,8 @@ interface PageSectionProps {
   rightSlot?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  contentClassName?: string;
+  bodyClassName?: string;
 }
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -21,37 +23,54 @@ const PageSection: React.FC<PageSectionProps> = ({
   rightSlot,
   children,
   className,
+  contentClassName,
+  bodyClassName,
 }) => {
   const hasHeader = Boolean(title || subtitle || rightSlot);
 
   return (
     <section
       className={cn(
-        "min-w-0 rounded-xl border border-[var(--border,#e5e7eb)] bg-[var(--bg-elevated,#ffffff)] p-4 shadow-sm",
+        "min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm",
+        "flex flex-col min-h-0",
         className,
       )}
     >
       {hasHeader ? (
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            {title ? (
-              <h2 className="text-sm font-semibold leading-6 text-[var(--text-primary,#111827)]">
-                {title}
-              </h2>
-            ) : null}
+        <div className="shrink-0 px-5">
+          <div className="flex items-start justify-between gap-4 py-4">
+            <div className="min-w-0">
+              {title ? (
+                <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                  {title}
+                </h2>
+              ) : null}
 
-            {subtitle ? (
-              <p className="mt-1 text-xs leading-5 text-[var(--text-secondary,#6b7280)]">
-                {subtitle}
-              </p>
-            ) : null}
+              {subtitle ? (
+                <p className="mt-1 text-sm text-[var(--text-muted)]">
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
+
+            {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
           </div>
 
-          {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
+          <div className="border-t border-[var(--border-subtle)]" />
         </div>
       ) : null}
 
-      <div className="min-w-0 flow-root">{children}</div>
+      <div
+        className={cn(
+          "min-w-0 px-5 py-4",
+          "flex-1 min-h-0",
+          contentClassName,
+        )}
+      >
+        <div className={cn("min-w-0 min-h-0", bodyClassName ?? "flow-root")}>
+          {children}
+        </div>
+      </div>
     </section>
   );
 };

@@ -413,8 +413,8 @@ export const RequestsTab: React.FC<Props> = ({
             <p className="mt-1 text-sm text-[var(--text-muted)]">
               {isReviewMode
                 ? visibleCount > 0
-                  ? `Сформированы запросы по результатам анализа: ${visibleCount}.`
-                  : "Запросы по результатам анализа пока не сформированы."
+                  ? `Сформированы запросы по результатам анализа: ${visibleCount}`
+                  : "Запросы по результатам анализа пока не сформированы"
                 : visibleCount > 0
                   ? `Рабочий список DD-запросов по сделке: ${visibleCount}.`
                   : "Запросы по сделке пока не добавлены."}

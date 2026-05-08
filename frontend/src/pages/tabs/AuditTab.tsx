@@ -2,6 +2,7 @@
 // src/pages/tabs/AuditTab.tsx
 // Вкладка «Аудит» (только admin / reviewer как security role).
 // Журнал действий: кто, когда, что сделал, с фильтром по действию.
+// Приведено к единому стилю PageSection / Overview / Documents.
 // =============================================================
 
 import React, { useState } from "react";
@@ -10,15 +11,92 @@ import { AUDIT_ACTION_LABEL } from "../../constants";
 import { Loader2, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
 import { useDealPermissions } from "../../hooks/usePermissions";
+import PageSection from "../../components/ui/PageSection";
+import Button from "../../components/ui/Button";
 
 interface Props {
   dealId: string;
 }
 
+const FILTER_BUTTON_ACTIVE_CLASS =
+  "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--accent-muted)]";
+
+const ROW_HIGHLIGHT_RECLASSIFY =
+  "bg-[color:color-mix(in_srgb,var(--accent-primary)_6%,transparent)]";
+
+const ROW_HIGHLIGHT_PLAYBOOK =
+  "bg-[color:color-mix(in_srgb,var(--color-blue,#3b82f6)_6%,transparent)]";
+
+const AuditActionFilterInlinePanel: React.FC<{
+  selectedAction: string;
+  onSelect: (value: string) => void;
+  onReset: () => void;
+  onClose: () => void;
+}> = ({ selectedAction, onSelect, onReset, onClose }) => (
+  <div className="border-b border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 py-3">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+      <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">
+          Фильтр по действиям
+        </p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          Выберите действие, чтобы показать только соответствующие записи журнала
+        </p>
+      </div>
+
+      <div className="px-4 py-4">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={selectedAction === "" ? "outline" : "secondary"}
+            onClick={() => onSelect("")}
+            aria-pressed={selectedAction === ""}
+            className={selectedAction === "" ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+          >
+            Все действия
+          </Button>
+
+          {Object.entries(AUDIT_ACTION_LABEL).map(([key, label]) => {
+            const isSelected = selectedAction === key;
+
+            return (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant={isSelected ? "outline" : "secondary"}
+                onClick={() => onSelect(key)}
+                aria-pressed={isSelected}
+                className={isSelected ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+        <Button size="sm" variant="ghost" onClick={onReset}>
+          Сбросить
+        </Button>
+
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export const AuditTab: React.FC<Props> = ({ dealId }) => {
   const { canViewAuditLog } = useDealPermissions(dealId);
   const [filterAction, setFilterAction] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [isActionFilterOpen, setIsActionFilterOpen] = useState(false);
 
   const { data: auditData, isLoading } = useAuditLog(dealId, {
     action: filterAction || undefined,
@@ -29,168 +107,215 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   const items = auditData?.items ?? [];
   const totalPages = auditData?.total_pages ?? 1;
 
-  // Нет доступа
+  const currentFilterLabel =
+    filterAction && AUDIT_ACTION_LABEL[filterAction]
+      ? `Действие: ${AUDIT_ACTION_LABEL[filterAction]}`
+      : "Все действия";
+
   if (!canViewAuditLog) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-16 text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/5">
-          <Shield size={32} className="text-[var(--text-muted)]" />
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div className="px-6 py-10">
+          <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--bg-elevated-soft)]">
+              <Shield size={30} className="text-[var(--text-muted)]" />
+            </div>
+
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              Доступ к журналу ограничен
+            </h2>
+
+            <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">
+              Журнал аудита доступен только администраторам и ответственным за
+              безопасность в рамках этого проекта.
+            </p>
+          </div>
         </div>
-        <h2 className="mb-1 text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-          Доступ к журналу ограничен
-        </h2>
-        <p className="max-w-md text-xs text-[var(--text-muted)]">
-          Журнал аудита доступен только администраторам и ответственным за
-          безопасность в рамках этого проекта.
-        </p>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Шапка */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
-            Журнал аудита
-          </h2>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Кто, когда и какие действия выполнял в рамках сделки.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={filterAction}
-            onChange={(e) => {
-              setFilterAction(e.target.value);
-              setPage(1);
-            }}
-            className="input-base h-8 w-56 text-xs"
+    <div className="space-y-6">
+      <PageSection
+        title="Журнал аудита"
+        subtitle="Кто, когда и какие действия выполнял в рамках сделки."
+        rightSlot={
+          <Button
+            type="button"
+            size="sm"
+            variant={isActionFilterOpen ? "outline" : "secondary"}
+            onClick={() => setIsActionFilterOpen((prev) => !prev)}
+            aria-expanded={isActionFilterOpen}
+            aria-controls="audit-action-filter-panel"
+            className={isActionFilterOpen ? FILTER_BUTTON_ACTIVE_CLASS : ""}
           >
-            <option value="">Все действия</option>
-            {Object.entries(AUDIT_ACTION_LABEL).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Таблица / loading */}
-      {isLoading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
-          <Loader2 className="mr-3 animate-spin text-[var(--accent)]" size={20} />
-          <span className="text-sm text-[var(--text-muted)]">
-            Загружаем журнал…
-          </span>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
-            <table className="w-full table-fixed border-collapse">
-              <thead className="border-b border-[var(--border)] bg-white/2">
-                <tr>
-                  <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Время
-                  </th>
-                  <th className="w-32 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Действие
-                  </th>
-                  <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Пользователь
-                  </th>
-                  <th className="w-24 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Роль
-                  </th>
-                  <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    Детали
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((log) => (
-                  <tr
-                    key={log.id}
-                    className={cn(
-                      "border-b border-[var(--border)] transition-colors hover:bg-white/3",
-                      log.action === "RECLASSIFY" && "bg-purple-950/20",
-                      log.action === "SET_DEAL_PLAYBOOK" && "bg-sky-950/20",
-                    )}
-                  >
-                    <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
-                      {new Date(log.created_at).toLocaleString("ru-RU", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className="rounded-full bg-sky-900/40 px-2 py-0.5 text-[11px] font-medium text-sky-200">
-                        {AUDIT_ACTION_LABEL[log.action] || log.action}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]">
-                      {log.actor}
-                    </td>
-                    <td className="px-3 py-2.5 text-[11px] text-[var(--text-muted)]">
-                      {log.actor_role}
-                    </td>
-                    <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
-                      <span className="line-clamp-2">
-                        {formatDetails(
-                          log.action,
-                          log.details as Record<string, unknown> | null,
-                        )}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {items.length === 0 && (
-              <div className="py-10 text-center">
-                <p className="mb-1 text-sm text-[var(--text-secondary)]">
-                  Записи не найдены
-                </p>
-                <p className="text-xs text-[var(--text-muted)]">
-                  Журнал пока пуст или не подходит под текущий фильтр.
-                </p>
-              </div>
-            )}
+            {currentFilterLabel}
+          </Button>
+        }
+      >
+        {isActionFilterOpen && (
+          <div id="audit-action-filter-panel" className="mb-4">
+            <AuditActionFilterInlinePanel
+              selectedAction={filterAction}
+              onSelect={(value) => {
+                setFilterAction(value);
+                setPage(1);
+              }}
+              onReset={() => {
+                setFilterAction("");
+                setPage(1);
+              }}
+              onClose={() => setIsActionFilterOpen(false)}
+            />
           </div>
+        )}
 
-          {/* Пагинация */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/5 disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-xs text-[var(--text-muted)]">
-                Страница {page} из {totalPages}
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
+              <Loader2
+                className="mr-3 animate-spin text-[var(--accent)]"
+                size={20}
+              />
+              <span className="text-sm text-[var(--text-muted)]">
+                Загружаем журнал…
               </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/5 disabled:opacity-40"
-              >
-                <ChevronRight size={16} />
-              </button>
             </div>
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+                <table className="w-full table-fixed border-collapse">
+                  <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+                    <tr>
+                      <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                        Время
+                      </th>
+                      <th className="w-52 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                        Действие
+                      </th>
+                      <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                        Пользователь
+                      </th>
+                      <th className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                        Роль
+                      </th>
+                      <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                        Детали
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {items.map((log) => (
+                      <tr
+                        key={log.id}
+                        className={cn(
+                          "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
+                          log.action === "RECLASSIFY" && ROW_HIGHLIGHT_RECLASSIFY,
+                          log.action === "SET_DEAL_PLAYBOOK" && ROW_HIGHLIGHT_PLAYBOOK,
+                        )}
+                      >
+                        <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
+                          {new Date(log.created_at).toLocaleString("ru-RU", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </td>
+
+                        <td className="px-3 py-2.5">
+                          <div className="min-w-0">
+                            <span
+                              className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
+                              title={AUDIT_ACTION_LABEL[log.action] || log.action}
+                            >
+                              {AUDIT_ACTION_LABEL[log.action] || log.action}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td
+                          className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
+                          title={log.actor}
+                        >
+                          {log.actor}
+                        </td>
+
+                        <td
+                          className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
+                          title={log.actor_role}
+                        >
+                          {log.actor_role}
+                        </td>
+
+                        <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
+                          <span
+                            className="block truncate"
+                            title={formatDetails(
+                              log.action,
+                              log.details as Record<string, unknown> | null,
+                            )}
+                          >
+                            {formatDetails(
+                              log.action,
+                              log.details as Record<string, unknown> | null,
+                            )}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {items.length === 0 && (
+                  <div className="py-10 text-center">
+                    <p className="mb-1 text-sm text-[var(--text-secondary)]">
+                      Записи не найдены
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Журнал пока пуст или не подходит под текущий фильтр.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    leftIcon={<ChevronLeft size={14} />}
+                  >
+                    Назад
+                  </Button>
+
+                  <span className="text-xs text-[var(--text-muted)]">
+                    Страница {page} из {totalPages}
+                  </span>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    rightIcon={<ChevronRight size={14} />}
+                  >
+                    Вперёд
+                  </Button>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
+        </div>
+      </PageSection>
     </div>
   );
 };
@@ -243,6 +368,5 @@ function formatDetails(
 }
 
 export default AuditTab;
-
 
 

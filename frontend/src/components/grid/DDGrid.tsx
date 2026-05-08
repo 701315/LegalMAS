@@ -12,14 +12,14 @@ import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
   ICellRendererParams,
+  ITooltipParams,
   SelectionChangedEvent,
-  ValueGetterParams,
   ValueFormatterParams,
+  ValueGetterParams,
 } from "ag-grid-community";
 
 import type {
   CheckResult,
-  ClassificationLevel,
   DocumentCompositionMeta,
   OpenViewerAtFn,
   SeverityLevel,
@@ -30,17 +30,35 @@ import { ClassificationBadge } from "../ui/ClassificationBadge";
 import {
   getCompositionBadgeDataFromMeta,
   getCompositionCellValueFromMeta,
-  toCompositionMetaFromLegacyMatrixRow,
 } from "../../utils/compositionHelpers";
 import { buildViewerLocationPayload } from "../../utils/viewerLocation";
 import QCCellRenderer from "../qc/QCCellRenderer";
 import QualityFlagRenderer from "../qc/QualityFlagRenderer";
 
+import type {
+  BaseCellParams,
+  GridContext,
+  MatrixColumnMeta,
+  MatrixRow,
+} from "./gridTypes";
+import {
+  getLegacyManualReviewFlag,
+  getLegacyPageInfo,
+  getRowCompositionMeta,
+} from "./gridLegacyHelpers";
+import {
+  buildMatrixCellTooltip,
+  buildSeverityTooltip,
+  getMatrixResultLabel,
+  getSelectedDocumentIds,
+  getSelectedResultIds,
+} from "./gridHelpers";
+
 import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
+import "../../styles/ag-theme-legalmas.css";
 
 // -------------------------------------------------------------
-// Props / context
+// Props
 // -------------------------------------------------------------
 
 interface DDGridProps {
@@ -79,139 +97,6 @@ interface DDGridProps {
   onlyMultiDocument?: boolean;
 }
 
-interface GridContext {
-  onEyeClick?: (result: CheckResult) => void;
-  onDocumentClick?: (result: CheckResult) => void;
-  onCheckClick?: (result: CheckResult) => void;
-  onQcChange?: (
-    result: CheckResult,
-    newStatus: "approved" | "rejected",
-  ) => void;
-  onOpenAtLocation?: OpenViewerAtFn;
-}
-
-// -------------------------------------------------------------
-// Matrix types
-// -------------------------------------------------------------
-
-interface MatrixRowBase {
-  documentId: string;
-  documentName: string;
-  docType?: string | null;
-  classificationLevel?: ClassificationLevel | null;
-  classificationConfidence?: number | null;
-  requiresManualReview?: boolean;
-
-  totalCritical: number;
-  totalHigh: number;
-  totalMedium: number;
-  totalUnclear: number;
-
-  // Composition — опциональные, заполняются только из compositionByDocId
-  compositionType?: "single" | "multi" | null;
-  segmentCount?: number | null;
-  primarySegmentLabel?: string | null;
-  isCompositeFile?: boolean | null;
-}
-
-type MatrixRow = MatrixRowBase & {
-  [key: `risk_${string}`]: CheckResult | undefined;
-};
-
-interface MatrixColumnMeta {
-  checkId: string;
-  checkName: string;
-  origin?: string | null;
-}
-
-// -------------------------------------------------------------
-// Narrow legacy helpers
-// -------------------------------------------------------------
-
-interface LegacyResultWithManualReview extends CheckResult {
-  doc_requires_manual_review?: boolean;
-  classification_requires_review?: boolean;
-}
-
-interface LegacyResultWithPageInfo extends CheckResult {
-  page?: number | null;
-  clause_uid?: string | null;
-}
-
-function getRowCompositionMeta(
-  row: MatrixRowBase | null | undefined,
-): DocumentCompositionMeta | null {
-  return toCompositionMetaFromLegacyMatrixRow(
-    row
-      ? {
-          compositionType: row.compositionType ?? null,
-          segmentCount: row.segmentCount ?? null,
-          primarySegmentLabel: row.primarySegmentLabel ?? null,
-          isCompositeFile: row.isCompositeFile ?? null,
-        }
-      : null,
-  );
-}
-
-function getLegacyManualReviewFlag(result: CheckResult): boolean {
-  const typed = result as LegacyResultWithManualReview;
-  return Boolean(
-    typed.doc_requires_manual_review ??
-      typed.classification_requires_review ??
-      false,
-  );
-}
-
-function getLegacyPageInfo(result: CheckResult): {
-  page?: number;
-  clauseUid?: string;
-} {
-  const typed = result as LegacyResultWithPageInfo;
-
-  return {
-    page:
-      typeof typed.page === "number"
-        ? typed.page
-        : undefined,
-    clauseUid:
-      typeof typed.clause_uid === "string" && typed.clause_uid.trim()
-        ? typed.clause_uid
-        : undefined,
-  };
-}
-
-function getMatrixResultLabel(result: CheckResult): string {
-  if (result.result === "fail") {
-    return result.severity
-      ? `Идентифицирован (${result.severity})`
-      : "Идентифицирован";
-  }
-
-  if (result.result === "unclear") {
-    return "Требует внимания юриста";
-  }
-
-  return "Не найден";
-}
-
-function getSelectedDocumentIds(
-  event: SelectionChangedEvent<MatrixRow>,
-): string[] {
-  return event.api
-    .getSelectedNodes()
-    .map((node) => node.data?.documentId)
-    .filter((value): value is string => Boolean(value));
-}
-
-function getSelectedResultIds(
-  event: SelectionChangedEvent<CheckResult>,
-): string[] {
-  return event.api
-    .getSelectedNodes()
-    .map((node) => node.data?.id)
-    .filter((value): value is string => Boolean(value));
-}
-
 // -------------------------------------------------------------
 // Main component
 // -------------------------------------------------------------
@@ -225,6 +110,12 @@ export const DDGrid: React.FC<DDGridProps> = ({ mode = "matrix", ...rest }) => {
 };
 
 export default DDGrid;
+
+// -------------------------------------------------------------
+// Shared layout
+// -------------------------------------------------------------
+
+const GRID_MIN_HEIGHT_PX = 240;
 
 // -------------------------------------------------------------
 // Matrix grid: документ × риск
@@ -274,7 +165,8 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           documentName: result.document_name || "[no name]",
           docType: result.doc_type ?? null,
           classificationLevel: result.doc_classification_level ?? null,
-          classificationConfidence: result.doc_classification_confidence ?? null,
+          classificationConfidence:
+            result.doc_classification_confidence ?? null,
           requiresManualReview: getLegacyManualReviewFlag(result),
 
           totalCritical: 0,
@@ -345,10 +237,15 @@ const MatrixGrid: React.FC<DDGridProps> = ({
         flex: 2,
         pinned: "left",
         cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
-          const value = params.value as string | null | undefined;
+          const value =
+            typeof params.value === "string" ? params.value : undefined;
 
           if (!value) {
-            return <span className="text-xs text-[var(--text-faint)]">[no name]</span>;
+            return (
+              <span className="text-xs text-[var(--text-faint)]">
+                [no name]
+              </span>
+            );
           }
 
           if (!onDocumentClick || legacyResultByDocumentId.size === 0) {
@@ -377,6 +274,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               onClick={handleClick}
               className="text-xs text-[var(--accent-primary)] hover:underline"
               title="Показать все результаты по документу"
+              aria-label={`Показать все результаты по документу ${value}`}
             >
               {value}
             </button>
@@ -388,7 +286,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
         field: "docType",
         width: 140,
         valueFormatter: (params: ValueFormatterParams<MatrixRow>) =>
-          (params.value as string | null | undefined) || "—",
+          typeof params.value === "string" && params.value ? params.value : "—",
       },
       {
         headerName: "Классификация",
@@ -399,7 +297,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           const confidence = params.data?.classificationConfidence;
 
           if (!level) {
-            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
           }
 
           return (
@@ -419,12 +319,14 @@ const MatrixGrid: React.FC<DDGridProps> = ({
           const value = params.data?.requiresManualReview;
 
           if (!value) {
-            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
           }
 
           return (
             <span
-              className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[11px] font-medium border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]"
+              className="inline-flex items-center rounded-full border border-[var(--border-warning-soft)] bg-[var(--bg-warning-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-warning-strong)]"
               title="Классификатор пометил документ как требующий ручной проверки"
             >
               Нужна проверка
@@ -462,7 +364,7 @@ const MatrixGrid: React.FC<DDGridProps> = ({
                 return (
                   <div className="flex items-center gap-1 py-0.5">
                     {badges.showMultiBadge && (
-                      <span className="inline-flex items-center rounded-full border border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
+                      <span className="inline-flex items-center rounded-full border border-[var(--border-accent-soft)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
                         multi
                       </span>
                     )}
@@ -476,9 +378,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               },
             },
             {
-              headerName: "Primary segment",
+              headerName: "Основной сегмент",
               colId: "primary_segment_label",
-              width: 160,
+              width: 180,
               valueGetter: (params: ValueGetterParams<MatrixRow>) => {
                 const meta = getRowCompositionMeta(params.data);
                 const value = getCompositionCellValueFromMeta(
@@ -522,9 +424,19 @@ const MatrixGrid: React.FC<DDGridProps> = ({
 
         return {
           headerName: meta.checkName,
+          headerTooltip: [
+            meta.checkName,
+            meta.origin ? `Источник: ${meta.origin}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
           field,
           minWidth: 180,
           flex: 1,
+          tooltipValueGetter: (params: ITooltipParams<MatrixRow>): string => {
+            const result = params.data?.[field];
+            return result ? buildMatrixCellTooltip(result) : "";
+          },
           valueFormatter: (params: ValueFormatterParams<MatrixRow>) => {
             const result = params.data?.[field];
             if (!result) return "";
@@ -539,7 +451,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
             const result = params.data?.[field];
 
             if (!result) {
-              return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
+              return (
+                <span className="text-[11px] text-[var(--text-faint)]">—</span>
+              );
             }
 
             const pageInfo = getLegacyPageInfo(result);
@@ -563,7 +477,10 @@ const MatrixGrid: React.FC<DDGridProps> = ({
               const firstFieldWithLocation = result.structured_data
                 ? Object.values(
                     result.structured_data as Record<string, StructuredField>,
-                  ).find((field): field is StructuredField => Boolean(field?.location))
+                  ).find(
+                    (fieldValue): fieldValue is StructuredField =>
+                      Boolean(fieldValue?.location),
+                  )
                 : null;
 
               const location = firstFieldWithLocation?.location;
@@ -578,7 +495,8 @@ const MatrixGrid: React.FC<DDGridProps> = ({
                   type="button"
                   onClick={handleEyeClick}
                   className="w-full text-left"
-                  title={result.value_text || ""}
+                  title={buildMatrixCellTooltip(result)}
+                  aria-label={`Открыть подробности риска для проверки ${meta.checkName}`}
                 >
                   <span className="text-[11px] text-[var(--text-primary)]">
                     {getMatrixResultLabel(result)}
@@ -644,13 +562,17 @@ const MatrixGrid: React.FC<DDGridProps> = ({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      <div
+        className="ag-theme-legalmas w-full"
+        style={{ minHeight: GRID_MIN_HEIGHT_PX, width: "100%" }}
+      >
         <AgGridReact<MatrixRow>
           rowData={filteredRowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           context={context}
+          domLayout="autoHeight"
           rowSelection={{
             mode: "multiRow",
             enableSelectionWithoutKeys: true,
@@ -658,9 +580,9 @@ const MatrixGrid: React.FC<DDGridProps> = ({
             headerCheckbox: true,
           }}
           suppressCellFocus
+          suppressRowClickSelection
           onSelectionChanged={handleSelectionChanged}
           getRowId={(params) => params.data.documentId}
-          theme="legacy"
         />
       </div>
     </div>
@@ -705,6 +627,8 @@ const ListGrid: React.FC<DDGridProps> = ({
         field: "severity",
         width: 170,
         pinned: "left",
+        tooltipValueGetter: (params: ITooltipParams<CheckResult>) =>
+          params.data ? buildSeverityTooltip(params.data) : "",
         cellRenderer: SeverityCellRenderer,
       },
       {
@@ -744,7 +668,9 @@ const ListGrid: React.FC<DDGridProps> = ({
           const confidence = params.data?.doc_classification_confidence;
 
           if (!level) {
-            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
           }
 
           return (
@@ -766,7 +692,8 @@ const ListGrid: React.FC<DDGridProps> = ({
         field: "confidence",
         width: 90,
         valueFormatter: (params: ValueFormatterParams<CheckResult>) => {
-          const value = params.value as number | null | undefined;
+          const value =
+            typeof params.value === "number" ? params.value : undefined;
           if (value == null) return "";
           return `${Math.round(value * 100)}%`;
         },
@@ -809,12 +736,14 @@ const ListGrid: React.FC<DDGridProps> = ({
           const name = params.data?.trigger_name;
 
           if (!triggered) {
-            return <span className="text-[11px] text-[var(--text-faint)]">—</span>;
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
           }
 
           return (
             <span
-              className="inline-flex items-center gap-1 rounded-full border border-[color:color-mix(in_srgb,var(--color-purple)_20%,transparent)] bg-[var(--color-purple-highlight)] px-1.5 py-0.5 text-[11px] text-[var(--color-purple)]"
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--border-conditional-soft)] bg-[var(--bg-conditional-soft)] px-1.5 py-0.5 text-[11px] text-[var(--text-conditional-strong)]"
               title={name || "Conditional check triggered"}
             >
               ⚡ {name || "Conditional"}
@@ -871,7 +800,7 @@ const ListGrid: React.FC<DDGridProps> = ({
         hide: true,
         valueFormatter: (params: ValueFormatterParams<CheckResult>) => {
           if (!params.value) return "";
-          const date = new Date(params.value as string);
+          const date = new Date(String(params.value));
           return date.toLocaleString();
         },
       },
@@ -896,13 +825,17 @@ const ListGrid: React.FC<DDGridProps> = ({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      <div
+        className="ag-theme-legalmas w-full"
+        style={{ minHeight: GRID_MIN_HEIGHT_PX, width: "100%" }}
+      >
         <AgGridReact<CheckResult>
           rowData={results}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           context={context}
+          domLayout="autoHeight"
           rowSelection={{
             mode: "multiRow",
             enableSelectionWithoutKeys: true,
@@ -910,9 +843,9 @@ const ListGrid: React.FC<DDGridProps> = ({
             headerCheckbox: true,
           }}
           suppressCellFocus
+          suppressRowClickSelection
           onSelectionChanged={handleSelectionChanged}
           getRowId={(params) => params.data.id}
-          theme="legacy"
         />
       </div>
     </div>
@@ -922,12 +855,6 @@ const ListGrid: React.FC<DDGridProps> = ({
 // -------------------------------------------------------------
 // List mode cell renderers
 // -------------------------------------------------------------
-
-interface BaseCellParams
-  extends ICellRendererParams<CheckResult, SeverityLevel | undefined> {
-  context: GridContext;
-  data: CheckResult;
-}
 
 const SeverityCellRenderer: React.FC<BaseCellParams> = ({
   value,
@@ -940,12 +867,14 @@ const SeverityCellRenderer: React.FC<BaseCellParams> = ({
   };
 
   const showConditional = data.conditional_check_triggered;
+  const severityValue =
+    typeof value === "string" ? (value as SeverityLevel) : undefined;
 
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1">
-        {value ? (
-          <SeverityBadge severity={value} />
+        {severityValue ? (
+          <SeverityBadge severity={severityValue} />
         ) : (
           <span className="text-[11px] text-[var(--text-faint)]">—</span>
         )}
@@ -965,6 +894,7 @@ const SeverityCellRenderer: React.FC<BaseCellParams> = ({
         className="rounded-md border border-[var(--border-subtle)] px-1 py-0.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
         onClick={handleEyeClick}
         title="Открыть подробности"
+        aria-label="Открыть подробности результата"
       >
         👁
       </button>
@@ -982,7 +912,9 @@ const DocumentCellRenderer: React.FC<BaseCellParams> = ({
     context.onDocumentClick?.(data);
   };
 
-  if (!value) {
+  const documentName = typeof value === "string" ? value : "";
+
+  if (!documentName) {
     return <span className="text-[var(--text-faint)]">[no name]</span>;
   }
 
@@ -992,8 +924,9 @@ const DocumentCellRenderer: React.FC<BaseCellParams> = ({
       onClick={handleClick}
       className="text-xs text-[var(--accent-primary)] hover:underline"
       title="Показать все результаты по документу"
+      aria-label={`Показать все результаты по документу ${documentName}`}
     >
-      {value}
+      {documentName}
     </button>
   );
 };
@@ -1008,7 +941,9 @@ const CheckNameCellRenderer: React.FC<BaseCellParams> = ({
     context.onCheckClick?.(data);
   };
 
-  if (!value) {
+  const checkName = typeof value === "string" ? value : "";
+
+  if (!checkName) {
     return null;
   }
 
@@ -1018,8 +953,9 @@ const CheckNameCellRenderer: React.FC<BaseCellParams> = ({
       onClick={handleClick}
       className="text-xs text-[var(--accent-primary)] hover:underline"
       title="Показать все результаты этой проверки"
+      aria-label={`Показать все результаты проверки ${checkName}`}
     >
-      {value}
+      {checkName}
     </button>
   );
 };
@@ -1034,7 +970,7 @@ const ConditionalCellRenderer: React.FC<BaseCellParams> = ({ data }) => {
 
   return (
     <span
-      className="text-[11px] text-[var(--color-purple)]"
+      className="text-[11px] text-[var(--text-conditional-strong)]"
       title={triggerName || "Conditional check triggered"}
     >
       ⚡
@@ -1116,6 +1052,7 @@ const StructuredDataCellRenderer: React.FC<BaseCellParams> = ({
                   handleOpen(structuredField);
                 }}
                 title="Открыть фрагмент документа"
+                aria-label={`Открыть фрагмент документа для поля ${name}`}
               >
                 Фрагмент
               </button>

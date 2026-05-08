@@ -1,27 +1,33 @@
 // =============================================================
 // src/components/grid/DDMatrixGrid.tsx
-// Review-only DD Matrix grid.
-// Работает ИСКЛЮЧИТЕЛЬНО поверх DDMatrixResponseDTO и не зависит
-// от legacy CheckResult[] модели.
-//
-// Основные задачи:
-// - рендер document × check matrix из backend dd-matrix DTO;
-// - открыть side panel с деталями ячейки;
-// - открыть viewer в evidence context;
-// - показать segment/chunk provenance, если backend его отдает.
+// Review DD Matrix (run-scoped документ × проверка).
+// Продакшн-версия с autoHeight (без debug-лейаута).
 // =============================================================
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
+  GridApi,
+  GridReadyEvent,
   ICellRendererParams,
   ITooltipParams,
   SelectionChangedEvent,
   ValueFormatterParams,
+  ValueGetterParams,
 } from "ag-grid-community";
 
-import type { OpenViewerAtFn, SeverityLevel } from "../../types";
+import type {
+  ClassificationLevel,
+  OpenViewerAtFn,
+  SeverityLevel,
+} from "../../types";
 import type {
   DDMatrixResponseDTO,
   DocumentMatrixRowDTO,
@@ -30,18 +36,16 @@ import type {
 } from "../../types/dealReview";
 
 import { SeverityBadge } from "../ui/SeverityBadge";
+import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { getCompositionBadgeDataFromMeta } from "../../utils/compositionHelpers";
 import DDMatrixCellDetails, {
   type MatrixCellDetailsCell,
 } from "./DDMatrixCellDetails";
 
-// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
+import "../../styles/ag-theme-legalmas.css";
 
-// -------------------------------------------------------------
-// Composition helper для MatrixRow
-// -------------------------------------------------------------
+const MATRIX_MIN_HEIGHT_PX = 240;
 
 function getRowCompositionBadgeData(row: MatrixRowBase) {
   if (row.isMultiDocument == null && row.segmentCount == null) {
@@ -57,20 +61,13 @@ function getRowCompositionBadgeData(row: MatrixRowBase) {
   });
 }
 
-// -------------------------------------------------------------
-// Props
-// -------------------------------------------------------------
-
 export interface DDMatrixGridProps {
   data: DDMatrixResponseDTO | null | undefined;
-
   onOpenAtLocation?: OpenViewerAtFn;
-
   onOpenDocument?: (params: {
     documentId: string;
     documentName?: string | null;
   }) => void;
-
   onOpenCell?: (params: {
     documentId: string;
     documentName?: string | null;
@@ -78,21 +75,10 @@ export interface DDMatrixGridProps {
     checkName?: string | null;
     cell: MatrixCellDetailsCell;
   }) => void;
-
   onSelectionChange?: (documentIds: string[]) => void;
-
-  /** Если true — показываем только строки с isMultiDocument === true */
   multiDocumentOnly?: boolean;
-
-  /** Если true — показываем только строки, где есть хотя бы один critical */
   criticalOnly?: boolean;
-
-  height?: number;
 }
-
-// -------------------------------------------------------------
-// Internal row/view models
-// -------------------------------------------------------------
 
 interface MatrixRowBase {
   documentId: string;
@@ -100,7 +86,7 @@ interface MatrixRowBase {
   docType?: string | null;
   folderPath?: string | null;
 
-  classificationLevel?: string | null;
+  classificationLevel?: ClassificationLevel | string | null;
   classificationConfidence?: number | null;
   requiresManualReview?: boolean;
 
@@ -133,10 +119,6 @@ interface SelectedCellState {
   checkName: string | null;
   cell: MatrixCellDetailsCell | null;
 }
-
-// -------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------
 
 function isRiskSeverity(
   value: string | null | undefined,
@@ -229,42 +211,72 @@ function buildMatrixRows(data: DDMatrixResponseDTO): {
     severity: check.severity ?? null,
   }));
 
-  const rowData: MatrixRow[] = data.documents.map((doc: DocumentMatrixRowDTO) => {
-    const cells = Object.values(doc.results ?? {});
+  const rowData: MatrixRow[] = data.documents.map(
+    (doc: DocumentMatrixRowDTO) => {
+      const cells = Object.values(doc.results ?? {});
 
-    const row: MatrixRow = {
-      documentId: doc.document_id,
-      documentName: doc.document_name || "[no name]",
-      docType: doc.doc_type ?? null,
-      folderPath: doc.folder_path ?? null,
+      const row: MatrixRow = {
+        documentId: doc.document_id,
+        documentName: doc.document_name || "[no name]",
+        docType: doc.doc_type ?? null,
+        folderPath: doc.folder_path ?? null,
 
-      classificationLevel: doc.classification_level ?? null,
-      classificationConfidence: doc.classification_confidence ?? null,
-      requiresManualReview: doc.requires_manual_review ?? false,
+        classificationLevel: doc.classification_level ?? null,
+        classificationConfidence: doc.classification_confidence ?? null,
+        requiresManualReview: doc.requires_manual_review ?? false,
 
-      isMultiDocument: doc.is_multi_document ?? false,
-      segmentCount: doc.segment_count ?? null,
-      primarySegmentLabel: doc.primary_segment_label ?? null,
+        isMultiDocument: doc.is_multi_document ?? false,
+        segmentCount: doc.segment_count ?? null,
+        primarySegmentLabel: doc.primary_segment_label ?? null,
 
-      totalCritical: cells.filter((c) => c?.severity === "critical").length,
-      totalHigh: cells.filter((c) => c?.severity === "high").length,
-      totalMedium: cells.filter((c) => c?.severity === "medium").length,
-      totalUnclear: cells.filter((c) => c?.result === "unclear").length,
-    };
+        totalCritical: cells.filter((c) => c?.severity === "critical").length,
+        totalHigh: cells.filter((c) => c?.severity === "high").length,
+        totalMedium: cells.filter((c) => c?.severity === "medium").length,
+        totalUnclear: cells.filter((c) => c?.result === "unclear").length,
+      };
 
-    for (const check of data.checks) {
-      const colKey = `risk_${check.check_id}` as const;
-      row[colKey] = doc.results?.[check.check_id];
-    }
+      for (const check of data.checks) {
+        const colKey = `risk_${check.check_id}` as const;
+        row[colKey] = doc.results?.[check.check_id];
+      }
 
-    return row;
-  });
+      return row;
+    },
+  );
 
   return { rowData, riskColumns };
 }
 
+function buildCellTooltip(cell: MatrixCellDTO): string {
+  return (
+    cell.snippet ||
+    getCellLocationText(cell) ||
+    getCellSegmentText(cell) ||
+    getCellStatusText(cell)
+  );
+}
+
+function getHeaderTooltip(meta: MatrixColumnMeta): string {
+  return [
+    meta.checkName,
+    meta.origin ? `Источник: ${meta.origin}` : null,
+    meta.severity ? `Severity baseline: ${meta.severity}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function getSelectedDocumentIds(
+  event: SelectionChangedEvent<MatrixRow>,
+): string[] {
+  return event.api
+    .getSelectedNodes()
+    .map((node) => node.data?.documentId)
+    .filter((value): value is string => Boolean(value));
+}
+
 // -------------------------------------------------------------
-// Main component
+// Component
 // -------------------------------------------------------------
 
 export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
@@ -275,8 +287,11 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   onSelectionChange,
   multiDocumentOnly = false,
   criticalOnly = false,
-  height = 600,
 }) => {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [rootWidth, setRootWidth] = useState<number>(0);
+  const [gridApi, setGridApi] = useState<GridApi<MatrixRow> | null>(null);
+
   const [selectedCell, setSelectedCell] = useState<SelectedCellState>({
     open: false,
     documentId: null,
@@ -286,8 +301,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     cell: null,
   });
 
+  const hasValidData = Boolean(
+    data && Array.isArray(data.documents) && Array.isArray(data.checks),
+  );
+
   const { rowData, riskColumns } = useMemo(() => {
-    if (!data || !Array.isArray(data.documents) || !Array.isArray(data.checks)) {
+    if (!hasValidData || !data) {
       return {
         rowData: [] as MatrixRow[],
         riskColumns: [] as MatrixColumnMeta[],
@@ -305,8 +324,32 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       filtered = filtered.filter((row) => row.totalCritical > 0);
     }
 
-    return { rowData: filtered, riskColumns: built.riskColumns };
-  }, [data, multiDocumentOnly, criticalOnly]);
+    return {
+      rowData: filtered,
+      riskColumns: built.riskColumns,
+    };
+  }, [data, hasValidData, multiDocumentOnly, criticalOnly]);
+
+  useEffect(() => {
+    const node = rootRef.current;
+    if (!node) return;
+
+    const update = () => {
+      setRootWidth(Math.round(node.getBoundingClientRect().width));
+    };
+
+    update();
+
+    const ro = new ResizeObserver(() => update());
+    ro.observe(node);
+
+    const raf = requestAnimationFrame(update);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, []);
 
   const closeDetails = useCallback(() => {
     setSelectedCell({
@@ -318,6 +361,11 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       cell: null,
     });
   }, []);
+
+  useEffect(() => {
+    if (!selectedCell.open) return;
+    closeDetails();
+  }, [data, multiDocumentOnly, criticalOnly, closeDetails, selectedCell.open]);
 
   const handleCellOpen = useCallback(
     (params: {
@@ -367,7 +415,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         pinned: "left",
         sortable: false,
         filter: false,
-        valueGetter: (params) =>
+        valueGetter: (params: ValueGetterParams<MatrixRow>) =>
           params.node?.rowIndex != null ? params.node.rowIndex + 1 : "",
       },
       {
@@ -399,7 +447,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                   documentName,
                 });
               }}
-              title="Открыть документ"
             >
               {documentName}
             </button>
@@ -412,6 +459,29 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
         width: 150,
         valueFormatter: (params: ValueFormatterParams<MatrixRow>) =>
           (params.value as string | null | undefined) || "—",
+      },
+      {
+        headerName: "Классификация",
+        field: "classificationLevel",
+        width: 150,
+        cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
+          const level = params.data?.classificationLevel;
+          const confidence = params.data?.classificationConfidence;
+
+          if (!level) {
+            return (
+              <span className="text-[11px] text-[var(--text-faint)]">—</span>
+            );
+          }
+
+          return (
+            <ClassificationBadge
+              level={level as ClassificationLevel}
+              confidence={confidence ?? undefined}
+              showConfidence={false}
+            />
+          );
+        },
       },
       {
         headerName: "Состав",
@@ -439,19 +509,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
           return (
             <div className="flex items-center gap-1 py-0.5">
               {badges.showMultiBadge && (
-                <span
-                  className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium border-[color:color-mix(in_srgb,var(--accent-primary)_20%,transparent)] bg-[var(--bg-elevated-soft)] text-[var(--accent-primary)]"
-                  title="Файл содержит несколько логических документов"
-                >
+                <span className="inline-flex items-center rounded-full border border-[var(--border-accent-soft)] bg-[var(--bg-elevated-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent-primary)]">
                   multi
                 </span>
               )}
-
               {badges.showSegmentCount && (
-                <span
-                  className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
-                  title="Количество сегментов"
-                >
+                <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]">
                   {badges.segmentCount} seg
                 </span>
               )}
@@ -459,53 +522,10 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
           );
         },
       },
-      {
-        headerName: "Primary segment",
-        field: "primarySegmentLabel",
-        width: 160,
-        valueFormatter: (params: ValueFormatterParams<MatrixRow>) =>
-          (params.value as string | null | undefined) || "—",
-      },
-      {
-        headerName: "Нужна проверка",
-        field: "requiresManualReview",
-        width: 145,
-        cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
-          const value = params.data?.requiresManualReview;
-
-          if (!value) {
-            return (
-              <span className="text-[11px] text-[var(--text-faint)]">—</span>
-            );
-          }
-
-          return (
-            <span className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[11px] font-medium border-[color:color-mix(in_srgb,var(--color-gold)_20%,transparent)] bg-[var(--color-gold-highlight)] text-[var(--color-gold-hover)]">
-              Нужна проверка
-            </span>
-          );
-        },
-      },
-      {
-        headerName: "Crit",
-        field: "totalCritical",
-        width: 72,
-      },
-      {
-        headerName: "High",
-        field: "totalHigh",
-        width: 72,
-      },
-      {
-        headerName: "Med",
-        field: "totalMedium",
-        width: 72,
-      },
-      {
-        headerName: "Unclear",
-        field: "totalUnclear",
-        width: 88,
-      },
+      { headerName: "Crit", field: "totalCritical", width: 72 },
+      { headerName: "High", field: "totalHigh", width: 72 },
+      { headerName: "Med", field: "totalMedium", width: 72 },
+      { headerName: "Unclear", field: "totalUnclear", width: 88 },
     ],
     [onOpenDocument],
   );
@@ -517,20 +537,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
         return {
           headerName: meta.checkName,
+          headerTooltip: getHeaderTooltip(meta),
           field,
           minWidth: 220,
-          flex: 1,
           tooltipValueGetter: (params: ITooltipParams<MatrixRow>): string => {
             const cell = params.data?.[field];
-            return cell?.snippet || "";
-          },
-          valueFormatter: (params: ValueFormatterParams<MatrixRow>) => {
-            const cell = params.data?.[field];
-            if (!cell) return "";
-            if (cell.result === "fail") {
-              return cell.severity ? `fail (${cell.severity})` : "fail";
-            }
-            return cell.result;
+            return cell ? buildCellTooltip(cell) : "";
           },
           cellRenderer: (params: ICellRendererParams<MatrixRow>) => {
             const row = params.data;
@@ -544,15 +556,12 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 
             const statusText = getCellStatusText(cell);
             const severity = getCellSeverity(cell);
-            const locationText = getCellLocationText(cell);
-            const segmentText = getCellSegmentText(cell);
 
             return (
               <div className="flex w-full flex-col items-start gap-1 py-1 text-left">
                 <button
                   type="button"
                   className="w-full text-left"
-                  title={cell.snippet || ""}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCellOpen({
@@ -567,52 +576,18 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                   <div className="text-[11px] text-[var(--text-primary)]">
                     {statusText}
                   </div>
-
                   {severity && (
                     <div className="mt-1 origin-left scale-90">
                       <SeverityBadge severity={severity} />
                     </div>
                   )}
                 </button>
-
-                <div className="flex w-full items-center justify-between gap-2">
-                  <div className="min-w-0 truncate text-[10px] text-[var(--text-muted)]">
-                    {locationText || "—"}
-                  </div>
-
-                  {onOpenAtLocation && (
-                    <button
-                      type="button"
-                      className="shrink-0 text-[10px] text-[var(--accent-primary)] hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenAtLocation({
-                          documentId: row.documentId,
-                          page: cell.page ?? undefined,
-                          clauseUid: cell.clause_uid ?? undefined,
-                          elementId: undefined,
-                          segmentId: cell.segment_id ?? undefined,
-                          chunkId: cell.chunk_id ?? undefined,
-                          chunkIndex: cell.chunk_index ?? undefined,
-                        });
-                      }}
-                    >
-                      В документ
-                    </button>
-                  )}
-                </div>
-
-                {segmentText && (
-                  <div className="text-[10px] text-[var(--text-muted)]">
-                    {segmentText}
-                  </div>
-                )}
               </div>
             );
           },
         } satisfies ColDef<MatrixRow>;
       }),
-    [handleCellOpen, onOpenAtLocation, riskColumns],
+    [handleCellOpen, riskColumns],
   );
 
   const columnDefs = useMemo<ColDef<MatrixRow>[]>(
@@ -623,43 +598,84 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   const handleSelectionChanged = useCallback(
     (event: SelectionChangedEvent<MatrixRow>) => {
       if (!onSelectionChange) return;
-
-      const ids = event.api
-        .getSelectedNodes()
-        .map((node) => node.data?.documentId)
-        .filter((value): value is string => Boolean(value));
-
-      onSelectionChange(ids);
+      onSelectionChange(getSelectedDocumentIds(event));
     },
     [onSelectionChange],
   );
 
-  if (!data || !rowData.length) {
+  const handleGridReady = useCallback((event: GridReadyEvent<MatrixRow>) => {
+    setGridApi(event.api);
+    requestAnimationFrame(() => {
+      try {
+        event.api.sizeColumnsToFit();
+      } catch {
+        /* noop */
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!gridApi) return;
+    const id = requestAnimationFrame(() => {
+      try {
+        gridApi.sizeColumnsToFit();
+      } catch {
+        /* noop */
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [gridApi, rootWidth, rowData.length, columnDefs.length]);
+
+  if (!hasValidData) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
-        Нет данных для отображения в DD Matrix.
+        Нет данных review-матрицы для отображения.
+      </div>
+    );
+  }
+
+  if (!rowData.length) {
+    return (
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
+        По выбранным фильтрам в DD Matrix ничего не найдено.
       </div>
     );
   }
 
   return (
     <>
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="ag-theme-alpine" style={{ height, width: "100%" }}>
-          <AgGridReact<MatrixRow>
-            rowData={rowData}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            rowSelection={{
-              mode: "multiRow",
-              enableSelectionWithoutKeys: true,
-              checkboxes: true,
-              headerCheckbox: true,
+      <div
+        ref={rootRef}
+        className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+      >
+        <div className="overflow-x-auto">
+          <div
+            className="ag-theme-legalmas w-full"
+            style={{
+              minHeight: MATRIX_MIN_HEIGHT_PX,
+              minWidth: 1200,
             }}
-            suppressCellFocus
-            onSelectionChanged={handleSelectionChanged}
-            getRowId={(params) => params.data.documentId}
-          />
+          >
+            <AgGridReact<MatrixRow>
+              rowData={rowData}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              rowSelection={{
+                mode: "multiRow",
+                enableSelectionWithoutKeys: true,
+                checkboxes: true,
+                headerCheckbox: true,
+                enableClickSelection: false,
+              }}
+              suppressCellFocus
+              tooltipShowDelay={200}
+              onSelectionChanged={handleSelectionChanged}
+              onGridReady={handleGridReady}
+              getRowId={(params) => params.data.documentId}
+              domLayout="autoHeight"
+              theme="legacy"
+            />
+          </div>
         </div>
       </div>
 
@@ -691,5 +707,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
 };
 
 export default DDMatrixGrid;
+
 
 

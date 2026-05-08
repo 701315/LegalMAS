@@ -593,8 +593,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                     {documents.length > 0
                       ? `В проекте анализируется ${documents.length} ${getDocumentsCountLabel(
                           documents.length,
-                        )}.`
-                      : "В проекте пока нет загруженных документов."}
+                        )}`
+                      : "В проекте пока нет загруженных документов"}
                   </p>
                 </div>
 

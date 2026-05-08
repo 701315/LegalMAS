@@ -22,8 +22,8 @@ interface ExportButtonsProps {
 
   /**
    * Дополнительный контекст запуска анализа для экспорта:
-   *  - режим проверок (global_only / doc_type_only / global_and_doc_type)
-   *  - стратегия пайплайна (REUSE_STRUCTURE / FULL_RERUN / ...)
+   * - режим проверок (global_only / doc_type_only / global_and_doc_type)
+   * - стратегия пайплайна (REUSE_STRUCTURE / FULL_RERUN / ...)
    *
    * Эти поля не обязательны: если их нет, экспорт просто не будет
    * добавлять эту информацию в имя файла/шапку.
@@ -69,49 +69,45 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({
     await exportResultsToWord(baseResults, commonMeta);
   };
 
-  const labelSuffix = hasSelection
-    ? `${selectedResults.length} selected`
-    : "all";
-
   return (
-    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2">
-      <span className="text-xs text-[var(--text-secondary)]">
-        Export ({labelSuffix})
-      </span>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={handleExcel}
+        disabled={isDisabled}
+        title={isDisabled ? "Нет данных для экспорта" : "Экспорт в Excel"}
+      >
+        Excel
+      </Button>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={handleExcel}
-          disabled={isDisabled}
-        >
-          Excel
-        </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={handlePdf}
+        disabled={isDisabled}
+        title={isDisabled ? "Нет данных для экспорта" : "Экспорт в PDF"}
+      >
+        PDF
+      </Button>
 
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={handlePdf}
-          disabled={isDisabled}
-        >
-          PDF
-        </Button>
-
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={handleWord}
-          disabled={isDisabled}
-        >
-          Word
-        </Button>
-      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={handleWord}
+        disabled={isDisabled}
+        title={isDisabled ? "Нет данных для экспорта" : "Экспорт в Word"}
+      >
+        Word
+      </Button>
     </div>
   );
 };
 
 export default ExportButtons;
+
+
+

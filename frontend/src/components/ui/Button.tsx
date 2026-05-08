@@ -124,6 +124,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             >
               Загрузка…
             </span>
+            <span className="sr-only">Кнопка занята, идёт выполнение действия</span>
           </span>
         ) : (
           <span className="inline-flex items-center justify-center gap-2">
@@ -150,4 +151,3 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export default Button;
-

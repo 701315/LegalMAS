@@ -1,0 +1,292 @@
+/* ============================================================
+   AG Grid theme — LegalMAS
+   Подключается классом .ag-theme-legalmas в React-компонентах.
+   Основано на design tokens приложения.
+   ============================================================ */
+
+/* ВАЖНО:
+   Базовый ag-grid.css импортируй только в одном месте.
+   Если он уже импортируется в TSX-компонентах, здесь @import не нужен. */
+
+/* ============================================================
+   Grid-specific tokens
+   ============================================================ */
+
+:root {
+  --border-accent-soft: color-mix(in srgb, var(--accent-primary) 20%, transparent);
+
+  --border-warning-soft: color-mix(in srgb, var(--color-gold) 22%, transparent);
+  --bg-warning-soft: var(--color-gold-highlight);
+  --text-warning-strong: var(--color-gold-hover);
+
+  --border-conditional-soft: color-mix(in srgb, var(--color-orange) 22%, transparent);
+  --bg-conditional-soft: var(--color-orange-highlight);
+  --text-conditional-strong: var(--color-orange);
+
+  --grid-shell-radius: 1rem;
+  --grid-header-radius: calc(var(--grid-shell-radius) - 1px);
+}
+
+/* ============================================================
+   Base AG Grid theme variables
+   ============================================================ */
+
+.ag-theme-legalmas {
+  --ag-foreground-color: var(--text-primary);
+  --ag-secondary-foreground-color: var(--text-secondary);
+  --ag-data-color: var(--text-primary);
+  --ag-muted-foreground-color: var(--text-muted);
+
+  --ag-background-color: var(--bg-card);
+  --ag-header-background-color: var(--bg-elevated-soft);
+  --ag-odd-row-background-color: var(--bg-card);
+  --ag-row-hover-color: color-mix(in oklab, var(--accent-muted) 45%, transparent);
+  --ag-selected-row-background-color: color-mix(
+    in oklab,
+    var(--accent-muted) 65%,
+    transparent
+  );
+
+  --ag-header-cell-hover-background-color: color-mix(
+    in oklab,
+    var(--bg-elevated-soft) 72%,
+    var(--accent-muted)
+  );
+  --ag-header-cell-moving-background-color: color-mix(
+    in oklab,
+    var(--bg-elevated-soft) 58%,
+    var(--accent-muted)
+  );
+
+  --ag-border-color: var(--border);
+  --ag-header-column-separator-color: var(--border-subtle);
+  --ag-row-border-color: var(--border-subtle);
+
+  --ag-font-family: var(--font-body);
+  --ag-font-size: 12px;
+  --ag-header-font-size: 11px;
+
+  --ag-grid-size: 4px;
+  --ag-row-height: 40px;
+  --ag-header-height: 40px;
+  --ag-cell-horizontal-padding: 12px;
+
+  --ag-header-foreground-color: var(--text-muted);
+  --ag-header-icon-color: var(--text-muted);
+
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-height: 50%;
+  --ag-header-column-separator-width: 1px;
+  --ag-header-column-resize-handle-display: block;
+  --ag-header-column-resize-handle-height: 40%;
+  --ag-header-column-resize-handle-width: 2px;
+  --ag-header-column-resize-handle-color: var(--border-subtle);
+
+  --ag-checkbox-unchecked-color: var(--border-subtle);
+  --ag-checkbox-checked-color: var(--accent-primary);
+  --ag-input-border-color: var(--border-subtle);
+  --ag-input-focus-border-color: var(--accent-primary);
+
+  --ag-focus-border-color: var(--accent-primary);
+
+  --ag-range-selection-border-color: var(--accent-primary);
+  --ag-range-selection-background-color: color-mix(
+    in oklab,
+    var(--accent-muted) 55%,
+    transparent
+  );
+
+  --ag-pinned-column-background-color: var(--bg-card);
+
+  --ag-disabled-foreground-color: var(--text-muted);
+  --ag-subheader-background-color: var(--bg-elevated-soft);
+}
+
+/* ============================================================
+   Structural polish
+   ============================================================ */
+
+.ag-theme-legalmas.ag-root-wrapper,
+.ag-theme-legalmas .ag-root-wrapper {
+  border: 0;
+  border-radius: var(--grid-shell-radius);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.ag-theme-legalmas .ag-root-wrapper-body {
+  border-radius: 0 0 var(--grid-shell-radius) var(--grid-shell-radius);
+}
+
+.ag-theme-legalmas .ag-header,
+.ag-theme-legalmas .ag-header-viewport,
+.ag-theme-legalmas .ag-pinned-left-header,
+.ag-theme-legalmas .ag-pinned-right-header {
+  background: var(--bg-elevated-soft);
+}
+
+.ag-theme-legalmas .ag-header {
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--grid-header-radius) var(--grid-header-radius) 0 0;
+}
+
+.ag-theme-legalmas .ag-header-cell,
+.ag-theme-legalmas .ag-header-group-cell {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ag-theme-legalmas .ag-header-cell-label {
+  gap: 6px;
+}
+
+.ag-theme-legalmas .ag-header-cell-text,
+.ag-theme-legalmas .ag-header-group-text {
+  color: var(--text-muted);
+}
+
+.ag-theme-legalmas .ag-row {
+  transition: background-color 140ms ease;
+}
+
+.ag-theme-legalmas .ag-row:last-child .ag-cell {
+  border-bottom-color: transparent;
+}
+
+.ag-theme-legalmas .ag-cell {
+  color: var(--text-primary);
+}
+
+.ag-theme-legalmas .ag-cell-wrapper {
+  width: 100%;
+}
+
+.ag-theme-legalmas .ag-row-hover,
+.ag-theme-legalmas .ag-row-hover .ag-cell,
+.ag-theme-legalmas .ag-row-hover .ag-cell.ag-cell-not-inline-editing {
+  background-color: var(--ag-row-hover-color);
+}
+
+.ag-theme-legalmas .ag-row-selected::before {
+  background-color: var(--ag-selected-row-background-color);
+}
+
+.ag-theme-legalmas .ag-row-hover.ag-row-selected::before {
+  background-color: color-mix(
+    in oklab,
+    var(--accent-muted) 78%,
+    transparent
+  );
+}
+
+.ag-theme-legalmas .ag-row-selected,
+.ag-theme-legalmas .ag-row-selected .ag-cell {
+  background-color: var(--ag-selected-row-background-color);
+}
+
+.ag-theme-legalmas .ag-row-selected .ag-cell:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+
+.ag-theme-legalmas .ag-pinned-left-cols-container .ag-cell,
+.ag-theme-legalmas .ag-pinned-right-cols-container .ag-cell,
+.ag-theme-legalmas .ag-floating-filter-body,
+.ag-theme-legalmas .ag-floating-filter-full-body {
+  background-color: var(--ag-pinned-column-background-color);
+}
+
+.ag-theme-legalmas .ag-pinned-left-header,
+.ag-theme-legalmas .ag-pinned-left-cols-container,
+.ag-theme-legalmas .ag-pinned-right-header,
+.ag-theme-legalmas .ag-pinned-right-cols-container {
+  box-shadow: inset -1px 0 0 var(--border-subtle);
+}
+
+.ag-theme-legalmas .ag-selection-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ag-theme-legalmas .ag-text-field-input,
+.ag-theme-legalmas .ag-picker-field-wrapper,
+.ag-theme-legalmas .ag-input-field-input {
+  border-radius: 0.625rem;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.ag-theme-legalmas .ag-text-field-input:focus,
+.ag-theme-legalmas .ag-input-field-input:focus,
+.ag-theme-legalmas .ag-picker-field-wrapper:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-primary) 18%, transparent);
+}
+
+.ag-theme-legalmas .ag-menu,
+.ag-theme-legalmas .ag-popup,
+.ag-theme-legalmas .ag-dialog,
+.ag-theme-legalmas .ag-filter-wrapper {
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  background: var(--bg-card);
+  box-shadow: 0 12px 30px color-mix(in oklab, black 10%, transparent);
+  color: var(--text-primary);
+}
+
+.ag-theme-legalmas .ag-panel,
+.ag-theme-legalmas .ag-tool-panel-wrapper {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.ag-theme-legalmas .ag-disabled,
+.ag-theme-legalmas .ag-disabled * {
+  color: var(--text-muted);
+}
+
+.ag-theme-legalmas .ag-range-selected,
+.ag-theme-legalmas .ag-cell-range-selected {
+  background-color: var(--ag-range-selection-background-color);
+}
+
+.ag-theme-legalmas .ag-body-viewport::-webkit-scrollbar,
+.ag-theme-legalmas .ag-center-cols-viewport::-webkit-scrollbar,
+.ag-theme-legalmas .ag-body-horizontal-scroll-viewport::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.ag-theme-legalmas .ag-body-viewport::-webkit-scrollbar-thumb,
+.ag-theme-legalmas .ag-center-cols-viewport::-webkit-scrollbar-thumb,
+.ag-theme-legalmas .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: color-mix(in oklab, var(--text-muted) 35%, transparent);
+}
+
+.ag-theme-legalmas .ag-body-viewport::-webkit-scrollbar-track,
+.ag-theme-legalmas .ag-center-cols-viewport::-webkit-scrollbar-track,
+.ag-theme-legalmas .ag-body-horizontal-scroll-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ag-theme-legalmas .ag-overlay,
+.ag-theme-legalmas .ag-overlay-wrapper {
+  color: var(--text-muted);
+  background: color-mix(in oklab, var(--bg-card) 94%, transparent);
+}
+
+@media (max-width: 1024px) {
+  .ag-theme-legalmas {
+    --ag-row-height: 38px;
+    --ag-header-height: 34px;
+    --ag-font-size: 12px;
+    --ag-header-font-size: 10px;
+  }
+}
+
+

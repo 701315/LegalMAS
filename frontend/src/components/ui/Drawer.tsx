@@ -45,7 +45,11 @@ const Drawer: React.FC<DrawerProps> = ({
       const focusable = panelRef.current?.querySelector<HTMLElement>(
         FOCUSABLE_SELECTOR,
       );
-      focusable?.focus();
+      if (focusable) {
+        focusable.focus();
+      } else {
+        panelRef.current?.focus();
+      }
     });
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -69,6 +73,7 @@ const Drawer: React.FC<DrawerProps> = ({
 
       if (focusableElements.length === 0) {
         event.preventDefault();
+        panelRef.current.focus();
         return;
       }
 
@@ -116,7 +121,11 @@ const Drawer: React.FC<DrawerProps> = ({
         aria-describedby={description ? descriptionId : undefined}
         className="relative h-full w-full max-w-xl shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-card)] shadow-2xl"
       >
-        <div ref={panelRef} className="flex h-full flex-col outline-none">
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          className="flex h-full flex-col outline-none"
+        >
           <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
             <div className="min-w-0">
               <h2
@@ -161,5 +170,7 @@ const Drawer: React.FC<DrawerProps> = ({
 };
 
 export default Drawer;
+
+
 
 
