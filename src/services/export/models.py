@@ -237,6 +237,9 @@ class ExportRow:
     detector_used: str = ""
     quality_flags: str = ""
     qc_status: str = "pending"
+    qc_by: str | None = None
+    qc_comment: str | None = None
+    qc_at: str | None = None  # ISO string
     document_id: str = ""
     run_id: str = ""
     structured_data_preview: str = ""

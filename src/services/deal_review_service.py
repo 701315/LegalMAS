@@ -488,6 +488,9 @@ def build_dd_matrix(
                 extracted=extracted,
                 confidence=best.confidence or 0.0,
                 qc_status=best.qc_status or "pending",
+                qc_by=best.qc_by or None,
+                qc_comment=best.qc_comment or None,
+                qc_at=best.qc_at.isoformat() if best.qc_at else None,
                 conditional_check_triggered=best.conditional_check_triggered,
                 trigger_name=best.trigger_name or "",
                 segment_id=best.segment_id or None,
@@ -546,6 +549,9 @@ def build_dd_matrix(
                 extracted=sv_index.get((doc_id, check_id), []),
                 confidence=export_row.confidence or 0.0,
                 qc_status=export_row.qc_status or "pending",
+                qc_by=export_row.qc_by,           # ← ИСПРАВЛЕНО
+                qc_comment=export_row.qc_comment, # ← ИСПРАВЛЕНО
+                qc_at=export_row.qc_at,           # ← ИСПРАВЛЕНО
                 conditional_check_triggered=export_row.conditional_check_triggered,
                 trigger_name=export_row.trigger_name or "",
                 # segment_* / chunk_* здесь можно не заполнять, т.к. этот слой legacy;

@@ -136,6 +136,11 @@ class MatrixCellDTO(BaseModel):
     extracted: list[ExtractedFieldDTO]
     confidence: float
     qc_status: str               # "pending" / "approved" / "rejected" / "needs_review"
+
+    qc_by: str | None = None
+    qc_comment: str | None = None
+    qc_at: str | None = None
+
     conditional_check_triggered: bool
     trigger_name: str
 

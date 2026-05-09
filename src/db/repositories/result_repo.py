@@ -1,3 +1,5 @@
+# src/db/repositories/result_repo.py
+
 """
 Repository for CheckResult operations.
 
@@ -22,11 +24,11 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update, distinct, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import DBAPIError  # важно для обработки DB-ошибок
+from sqlalchemy.exc import DBAPIError
 
-from core.constants import CheckExecutionStatus  # новый enum для execution_status
+from core.constants import CheckExecutionStatus
 from ..models.result import CheckResult
-from ..models.document import Document  # подтягиваем документы к результатам
+from ..models.document import Document
 from db.repositories.check_result_persist_error_repo import CheckResultPersistErrorRepository
 
 
@@ -46,15 +48,12 @@ def normalize_origin_type(origin: str | None) -> str | None:
     raw = origin
     upper = raw.upper()
 
-    # Глобальный плейбук (старые и новые варианты)
     if upper == "GLOBAL_PLAYBOOK" or raw == "global_playbook" or raw == "project_playbook":
         return "global"
 
-    # Проверки по типу документа
     if upper == "DOCUMENT_TYPE":
         return "doctype"
 
-    # Всё остальное считаем кастомным/прочим источником
     return "custom"
 
 
@@ -71,19 +70,12 @@ def is_permanent_db_error(err: DBAPIError) -> bool:
     ВАЖНО: здесь мы сознательно делаем минимальную классификацию.
     Потом её можно вынести в отдельный модуль ошибок и расширить.
     """
-    # У DBAPIError часто есть атрибут .orig с "сырой" ошибкой драйвера.
-    # Для asyncpg, например, там может быть asyncpg.exceptions.*.
     orig = getattr(err, "orig", None)
-
-    # Если это asyncpg и есть SQLSTATE, можно использовать его:
-    # 22001 — string_data_right_truncation (слишком длинная строка).
     sqlstate = getattr(orig, "sqlstate", None)
+
     if sqlstate == "22001":
-        # StringDataRightTruncationError — data error, permanent
         return True
 
-    # Можно добавить сюда другие коды data errors (22xxx), если нужно.
-    # Пока считаем все прочие ошибки transient, чтобы не угадать лишнего.
     return False
 
 
@@ -127,7 +119,6 @@ class ResultRepository:
             confidence=confidence,
             detector_used=detector_used,
             quality_flags=quality_flags or {},
-            # ВАЖНО: сюда раннер кладёт JSON формата StructuredDataDict
             structured_data=structured_data,
             conditional_check_triggered=conditional_check_triggered,
             trigger_name=trigger_name,
@@ -135,8 +126,6 @@ class ResultRepository:
         )
 
         self.session.add(cr)
-        # Здесь flush оставляем "как есть", но по-хорошему,
-        # для единообразия тоже стоит обернуть в try/except, как в upsert.
         await self.session.flush()
         return cr
 
@@ -186,7 +175,6 @@ class ResultRepository:
             doc_conf,
             doc_requires_manual_review,
         ) in rows:
-            # cr — ORM-объект CheckResult; берём его поля как есть
             item = {
                 "id": cr.id,
                 "run_id": cr.run_id,
@@ -204,19 +192,13 @@ class ResultRepository:
                 "qc_comment": cr.qc_comment,
                 "qc_at": cr.qc_at,
                 "created_at": cr.created_at,
-                # исходное "сырое" origin
                 "origin": cr.origin,
-                # нормализованный тип источника для фронта и API
                 "origin_type": normalize_origin_type(cr.origin),
-                # обогащение из Document
                 "document_name": document_name,
                 "doc_type": doc_type,
-                # доп. поля, которые уже ждёт фронт (через types)
                 "doc_classification_level": doc_level,
                 "doc_classification_confidence": doc_conf,
                 "doc_requires_manual_review": doc_requires_manual_review,
-                # structured_data и conditional
-                # ОЖИДАНИЕ: cr.structured_data уже в формате StructuredDataDict
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
@@ -226,7 +208,6 @@ class ResultRepository:
                 "segment_order": cr.segment_order,
                 "is_primary_segment": cr.is_primary_segment,
             }
-
             out.append(item)
 
         return out
@@ -288,6 +269,53 @@ class ResultRepository:
         await self.session.flush()
         return result.rowcount
 
+    async def update_review_qc(
+        self,
+        run_id: uuid.UUID,
+        document_id: uuid.UUID,
+        check_id: str,
+        segment_id: str | None,
+        qc_status: str,
+        qc_by: str,
+        qc_comment: str | None,
+    ) -> int:  # ← ВАЖНО: int, не list[CheckResult]
+        """
+        Обновить QC-статус для одной review-находки.
+
+        Простыми словами:
+        - review finding в новой DD Matrix может состоять не из одной строки БД,
+          а из нескольких строк CheckResult;
+        - такое бывает, когда один и тот же check представлен несколькими
+          кусками/сегментами одного физического файла;
+        - поэтому для review QC мы обновляем НЕ одну строку по result_id,
+          а ВСЮ группу строк по ключу:
+              (run_id, document_id, check_id, segment_id)
+
+        Правило segment_id:
+        - single-document файл -> segment_id is None -> ищем segment_id IS NULL
+        - multi-document файл  -> segment_id = "seg-..." -> ищем точное совпадение
+
+        Возвращает:
+        - количество обновлённых строк.
+        """
+        stmt = (
+            update(CheckResult)
+            .where(
+                CheckResult.run_id == run_id,
+                CheckResult.document_id == document_id,
+                CheckResult.check_id == check_id,
+                CheckResult.segment_id == segment_id if segment_id else CheckResult.segment_id.is_(None),
+            )
+            .values(
+                qc_status=qc_status,
+                qc_by=qc_by,
+                qc_comment=qc_comment,
+                qc_at=func.now(),
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.rowcount  # ← Возвращаем int, не список
+
     async def count_by_severity(self, run_id: uuid.UUID) -> dict[str, int]:
         """
         Посчитать количество результатов по severity для run.
@@ -345,11 +373,9 @@ class ResultRepository:
         if has_structured_data is True:
             base_stmt = base_stmt.where(CheckResult.structured_data.isnot(None))
 
-        # total
         count_stmt = select(func.count()).select_from(base_stmt.subquery())
         total = (await self.session.execute(count_stmt)).scalar_one()
 
-        # сортировка + пагинация
         stmt = (
             base_stmt.order_by(CheckResult.created_at.desc())
             .offset((page - 1) * per_page)
@@ -385,16 +411,13 @@ class ResultRepository:
                 "qc_comment": cr.qc_comment,
                 "qc_at": cr.qc_at,
                 "created_at": cr.created_at,
-                # исходное "сырое" origin
                 "origin": cr.origin,
-                # нормализованный тип источника
                 "origin_type": normalize_origin_type(cr.origin),
                 "document_name": document_name,
                 "doc_type": doc_type_value,
                 "doc_classification_level": doc_level,
                 "doc_classification_confidence": doc_conf,
                 "doc_requires_manual_review": doc_requires_manual_review,
-                # structured_data должно быть совместимо с StructuredDataDict
                 "structured_data": cr.structured_data,
                 "conditional_check_triggered": cr.conditional_check_triggered,
                 "trigger_name": cr.trigger_name,
@@ -404,7 +427,6 @@ class ResultRepository:
                 "segment_order": cr.segment_order,
                 "is_primary_segment": cr.is_primary_segment,
             }
-
             items.append(item)
 
         return items, total
@@ -436,7 +458,6 @@ class ResultRepository:
 
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
-
 
     async def has_success_for_doc_check(
         self,
@@ -516,7 +537,6 @@ class ResultRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-
     async def upsert_single_check_result(
         self,
         *,
@@ -540,7 +560,6 @@ class ResultRepository:
         clause_uid: str | None,
         element_id: str | None,
         bbox: dict | None,
-        # новые поля сегмента
         segment_id: str | None = None,
         segment_type: str | None = None,
         segment_title: str | None = None,
@@ -562,7 +581,7 @@ class ResultRepository:
             CheckExecutionStatus.PENDING.value,
             CheckExecutionStatus.RUNNING.value,
             CheckExecutionStatus.SUCCESS.value,
-            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.FAILED.value,
             CheckExecutionStatus.COMPUTE_FAILED.value,
             CheckExecutionStatus.PERSIST_FAILED.value,
             CheckExecutionStatus.TIMEOUT.value,
@@ -570,30 +589,24 @@ class ResultRepository:
 
         finished_statuses = {
             CheckExecutionStatus.SUCCESS.value,
-            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.FAILED.value,
             CheckExecutionStatus.COMPUTE_FAILED.value,
             CheckExecutionStatus.PERSIST_FAILED.value,
             CheckExecutionStatus.TIMEOUT.value,
         }
 
-        # Приводим входной execution_status к Enum/строке из CheckExecutionStatus.
-        # Это защищает от опечаток в строках выше по стэку.
         if isinstance(execution_status, CheckExecutionStatus):
             status_value = execution_status.value
         else:
             try:
                 status_value = CheckExecutionStatus(execution_status).value
             except ValueError:
-                # Неизвестный статус не должен ронять persist-слой.
-                # Для обратной совместимости деградируем в legacy FAILED.
                 status_value = CheckExecutionStatus.FAILED.value
 
         try:
-            # ВАЖНО: теперь get_one учитывает segment_id.
             existing = await self.get_one(run_id, document_id, check_id, segment_id)
 
             if existing is None:
-                # Создаём новую строку результата.
                 cr = CheckResult(
                     run_id=run_id,
                     document_id=document_id,
@@ -615,7 +628,6 @@ class ResultRepository:
                     clause_uid=clause_uid,
                     element_id=element_id,
                     bbox=bbox,
-                    # новые поля segment-aware provenance:
                     segment_id=segment_id,
                     segment_type=segment_type,
                     segment_title=segment_title,
@@ -630,7 +642,6 @@ class ResultRepository:
                 await self.session.flush()
                 return cr
 
-            # Обновляем существующую запись (например, после partial failure/timeout).
             existing.check_name = check_name
             existing.result = result
             existing.severity = severity
@@ -648,7 +659,6 @@ class ResultRepository:
             existing.clause_uid = clause_uid
             existing.element_id = element_id
             existing.bbox = bbox
-            # новые поля сегмента:
             existing.segment_id = segment_id
             existing.segment_type = segment_type
             existing.segment_title = segment_title
@@ -657,8 +667,6 @@ class ResultRepository:
             existing.execution_status = status_value
             existing.error_details = error_details
 
-            # started_at не трогаем, если уже был старт;
-            # finished_at обновляем только для финальных статусов.
             if existing.started_at is None and status_value in started_statuses:
                 existing.started_at = now
 
@@ -669,8 +677,6 @@ class ResultRepository:
             return existing
 
         except DBAPIError as err:
-            # После любой ошибки flush/commit сессию нужно откатить,
-            # иначе она останется в PendingRollback.
             await self.session.rollback()
 
             permanent = is_permanent_db_error(err)
@@ -723,9 +729,6 @@ class ResultRepository:
                 retryable=not permanent,
             )
 
-            # Здесь мы поднимаем RuntimeError с понятным сообщением.
-            # В реальном коде ты можешь заменить это на свои кастомные
-            # исключения, например PermanentDBError/TransientDBError.
             if permanent:
                 raise RuntimeError(
                     f"Permanent DB error while upserting check_result "
@@ -772,7 +775,7 @@ class ResultRepository:
         """
         finished_statuses = [
             CheckExecutionStatus.SUCCESS.value,
-            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.FAILED.value,
             CheckExecutionStatus.COMPUTE_FAILED.value,
             CheckExecutionStatus.PERSIST_FAILED.value,
             CheckExecutionStatus.TIMEOUT.value,
@@ -808,7 +811,7 @@ class ResultRepository:
         """
         finished_statuses = [
             CheckExecutionStatus.SUCCESS.value,
-            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.FAILED.value,
             CheckExecutionStatus.COMPUTE_FAILED.value,
             CheckExecutionStatus.PERSIST_FAILED.value,
             CheckExecutionStatus.TIMEOUT.value,
@@ -844,7 +847,7 @@ class ResultRepository:
         Есть ли по run хотя бы один check с неуспешным финальным статусом.
         """
         problematic_statuses = [
-            CheckExecutionStatus.FAILED.value,          # legacy
+            CheckExecutionStatus.FAILED.value,
             CheckExecutionStatus.COMPUTE_FAILED.value,
             CheckExecutionStatus.PERSIST_FAILED.value,
             CheckExecutionStatus.TIMEOUT.value,

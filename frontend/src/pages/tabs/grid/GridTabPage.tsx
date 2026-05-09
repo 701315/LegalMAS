@@ -3,6 +3,7 @@
 // Вкладка "DD Grid":
 // - legacy режим: поиск + фильтры + Magic Zoom + bulk QC поверх CheckResult[]
 // - review режим: backend dd-matrix DTO поверх run-scoped review API
+//   + unified DDMatrixCellDetails для evidence (без MagicZoom/EvidencePanel)
 // Приведено к общему дизайну workspace LegalMAS.
 // =============================================================
 
@@ -17,7 +18,7 @@ import {
 import { useDealReviewDdMatrix } from "../../../api/dealReview";
 import { useRun } from "../../../api/runs";
 import { useDocuments } from "../../../api/documents";
-
+import ReviewGridFilters from "../../../components/grid/ReviewGridFilters";
 import type {
   CheckResult,
   QCStatus,
@@ -43,11 +44,11 @@ import DocumentViewerModal, {
 } from "../../../components/viewer/DocumentViewerModal";
 
 import { useDealPermissions } from "../../../hooks/usePermissions";
-
 import {
-  INLINE_PANEL_ACTIVE_CLASS,
-  REVIEW_FILTER_CHECKBOX_CLASS,
-} from "./gridTab.constants";
+  filterReviewFindings,
+  filterReviewRows,
+} from "./reviewGrid.filters";
+import { INLINE_PANEL_ACTIVE_CLASS } from "./gridTab.constants";
 import {
   ExportStatCard,
   ScopeInlinePanel,
@@ -61,7 +62,7 @@ import type {
   GridTabProps,
   ViewerState,
 } from "./gridTab.types";
-import { getReviewSummary, humanChecksMode } from "./gridTab.utils";
+import { humanChecksMode } from "./gridTab.utils";
 import {
   filterLegacyResults,
   getDoctypeResults,
@@ -70,6 +71,14 @@ import {
   getScopeResults,
   getSelectedResults,
 } from "./gridTab.filters";
+import {
+  DEFAULT_REVIEW_FILTER_STATE,
+  type ReviewFilterState,
+  type ReviewSelectionItem,
+} from "./reviewGrid.types";
+import { selectReviewGridData } from "./reviewGrid.selectors";
+import ReviewExportButtons from "./ReviewExportButtons";
+import { getReviewQcDisabledNote } from "./reviewGrid.qc";
 
 const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [dataSource, setDataSource] =
@@ -84,8 +93,14 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [legacyMultiDocOnly] = React.useState(false);
 
-  const [reviewMultiDocOnly, setReviewMultiDocOnly] = React.useState(false);
-  const [reviewCriticalOnly, setReviewCriticalOnly] = React.useState(false);
+  const [reviewFilterState, setReviewFilterState] =
+    React.useState<ReviewFilterState>(DEFAULT_REVIEW_FILTER_STATE);
+
+  const [reviewSelection, setReviewSelection] = React.useState<
+    ReviewSelectionItem[]
+  >([]);
+  const [isReviewFiltersPanelOpen, setIsReviewFiltersPanelOpen] =
+    React.useState(false);
 
   const [gridScope, setGridScope] = React.useState<GridScope>("all");
   const [selectedScopeDocTypes, setSelectedScopeDocTypes] = React.useState<
@@ -224,9 +239,34 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [scopeResults, selectedIds],
   );
 
-  const reviewSummary = React.useMemo(
-    () => getReviewSummary(ddMatrix),
+  const reviewDerived = React.useMemo(
+    () => selectReviewGridData(ddMatrix ?? null),
     [ddMatrix],
+  );
+
+  const filteredReviewFindings = React.useMemo(
+    () =>
+      filterReviewFindings(
+        reviewDerived.findings,
+        reviewDerived.rows,
+        reviewFilterState,
+      ),
+    [reviewDerived.findings, reviewDerived.rows, reviewFilterState],
+  );
+
+  const filteredReviewRows = React.useMemo(
+    () => filterReviewRows(reviewDerived.rows, filteredReviewFindings),
+    [reviewDerived.rows, filteredReviewFindings],
+  );
+
+  const reviewSummary = React.useMemo(
+    () => reviewDerived.stats,
+    [reviewDerived.stats],
+  );
+
+  const reviewQcDisabledNote = React.useMemo(
+    () => getReviewQcDisabledNote(reviewSelection),
+    [reviewSelection],
   );
 
   const checksModeLabel = humanChecksMode(run?.checks_mode);
@@ -242,6 +282,16 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   const filtersButtonLabel =
     quickFilter === "all" && !searchText.trim()
+      ? "Фильтры"
+      : "Фильтры применены";
+
+  const reviewFiltersButtonLabel =
+    reviewFilterState.quickFilter === "all" &&
+    !reviewFilterState.searchText.trim() &&
+    !reviewFilterState.selectedDocTypes.length &&
+    !reviewFilterState.selectedOrigins.length &&
+    !reviewFilterState.multiDocumentOnly &&
+    !reviewFilterState.criticalOnly
       ? "Фильтры"
       : "Фильтры применены";
 
@@ -325,6 +375,17 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   const resetScopeDocTypes = () => {
     setSelectedScopeDocTypes([]);
+  };
+
+  const handleResetReviewFilters = () => {
+    setReviewFilterState(DEFAULT_REVIEW_FILTER_STATE);
+  };
+
+  const handleReviewSelectionChange = (rowIds: string[]) => {
+    const items: ReviewSelectionItem[] = rowIds.map((rowId) => ({
+      rowId,
+    }));
+    setReviewSelection(items);
   };
 
   const openViewerAt: OpenViewerAtFn = async (loc) => {
@@ -510,7 +571,7 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             label="Документы"
             value={
               dataSource === "review"
-                ? reviewSummary.documentCount
+                ? reviewSummary.documentsCount
                 : uniqueDocCount
             }
           />
@@ -519,7 +580,7 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
             label="Проверки"
             value={
               dataSource === "review"
-                ? reviewSummary.checkCount
+                ? reviewSummary.checksCount
                 : scopeResults.length
             }
             tone="accent"
@@ -558,8 +619,20 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               runPipelineStrategy={run?.pipeline_strategy}
             />
           ) : (
-            <StatCard label="Экспорт" value="Доступен в legacy" />
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-sm">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Экспорт review findings
+              </div>
+              <div className="mt-3">
+                <ReviewExportButtons
+                  findings={filteredReviewFindings}
+                  dealName={dealId}
+                  runId={runId ?? undefined}
+                />
+              </div>
+            </div>
           )}
+
         </div>
       </PageSection>
 
@@ -698,40 +771,75 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       {dataSource === "review" && (
         <>
           <SectionCard
-            title="Фильтры review matrix"
-            description="Фильтрация review-матрицы без обратного маппинга в legacy-результаты."
-          >
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    className={REVIEW_FILTER_CHECKBOX_CLASS}
-                    checked={reviewMultiDocOnly}
-                    onChange={(e) => setReviewMultiDocOnly(e.target.checked)}
-                  />
-                  <span>Только multi-document</span>
-                </label>
-
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    className={REVIEW_FILTER_CHECKBOX_CLASS}
-                    checked={reviewCriticalOnly}
-                    onChange={(e) => setReviewCriticalOnly(e.target.checked)}
-                  />
-                  <span className="font-medium text-[var(--color-error)]">
-                    Только Critical
-                  </span>
-                </label>
+            title="Review matrix controls"
+            description="Фильтрация, экспорт и review-context для run-scoped матрицы документов и проверок."
+            actions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isReviewFiltersPanelOpen ? "outline" : "secondary"}
+                  onClick={() => setIsReviewFiltersPanelOpen((prev) => !prev)}
+                  className={
+                    isReviewFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
+                  }
+                >
+                  {reviewFiltersButtonLabel}
+                </Button>
               </div>
+            }
+          >
+            <div className="flex flex-col gap-4">
+              {isReviewFiltersPanelOpen && (
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+                  <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      Фильтры review matrix
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                      Поиск, quick filters и ограничения по типу документа / origin.
+                    </p>
+                  </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Документов" value={reviewSummary.documentCount} />
+                  <div className="px-4 py-4">
+                    <ReviewGridFilters
+                      filterState={reviewFilterState}
+                      onFilterStateChange={setReviewFilterState}
+                      availableDocTypes={reviewDerived.availableDocTypes}
+                      availableOrigins={reviewDerived.availableOrigins}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleResetReviewFilters}
+                    >
+                      Сбросить
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setIsReviewFiltersPanelOpen(false)}
+                    >
+                      Закрыть
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <StatCard label="Документов" value={reviewSummary.documentsCount} />
                 <StatCard
                   label="Проверок"
-                  value={reviewSummary.checkCount}
+                  value={reviewSummary.checksCount}
                   tone="accent"
+                />
+                <StatCard
+                  label="Findings"
+                  value={reviewSummary.findingsCount}
                 />
                 <StatCard
                   label="Critical"
@@ -742,8 +850,13 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               </div>
 
               <div className="rounded-xl border border-[var(--accent-primary)]/10 bg-[var(--accent-muted)] px-4 py-3 text-sm leading-6 text-[var(--text-secondary)]">
-                Review mode отображает run-scoped матрицу проверок. Legacy-фильтры,
-                bulk QC, Magic Zoom и export пока доступны только в legacy-режиме.
+                Review mode теперь использует unified DDMatrixCellDetails для
+                evidence и document context. Legacy MagicZoom / EvidencePanel
+                отключены в review mode — весь evidence flow идёт через detail drawer.
+              </div>
+
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                {reviewQcDisabledNote}
               </div>
             </div>
           </SectionCard>
@@ -761,16 +874,17 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
             <div className="px-6 py-5">
               <DDMatrixGrid
-                data={ddMatrix ?? null}
+                runId={runId}
+                rows={filteredReviewRows}
+                columns={reviewDerived.columns}
                 onOpenAtLocation={openViewerAt}
                 onOpenDocument={({ documentId, documentName }) => {
-                  console.log("Open review document", { documentId, documentName });
+                  console.log("Open review document", {
+                    documentId,
+                    documentName,
+                  });
                 }}
-                onSelectionChange={() => {
-                  // Review bulk actions будут добавлены отдельным инкрементом.
-                }}
-                multiDocumentOnly={reviewMultiDocOnly}
-                criticalOnly={reviewCriticalOnly}
+                onSelectionChange={handleReviewSelectionChange}
               />
             </div>
           </section>
@@ -819,3 +933,7 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 };
 
 export default GridTabPage;
+
+
+
+

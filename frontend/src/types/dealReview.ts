@@ -146,6 +146,11 @@ export interface MatrixCellDTO extends SegmentProvenanceDTO {
   confidence: number | null;
   qc_status: ReviewQcStatus | null;
 
+  // QC audit trail
+  qc_by: string | null;
+  qc_comment: string | null;
+  qc_at: string | null;
+
   conditional_check_triggered: boolean;
   trigger_name: string | null;
 }
@@ -173,6 +178,32 @@ export interface DocumentMatrixRowDTO {
 }
 
 /**
+ * NEW:
+ * Строка матрицы = один logical document / segment row.
+ * Это целевой primary row model для review-only DD Grid.
+ */
+export interface SegmentMatrixRowDTO {
+  document_id: string;
+  document_name: string;
+  doc_type: string;
+  folder_path?: string | null;
+
+  segment_id?: string | null;
+  segment_type?: string | null;
+  segment_title?: string | null;
+  segment_order?: number | null;
+  is_primary_segment?: boolean | null;
+
+  status: string;
+
+  classification_level: string;
+  classification_confidence: number;
+  requires_manual_review?: boolean;
+
+  results: Record<string, MatrixCellDTO>;
+}
+
+/**
  * Основной ответ backend dd-matrix endpoint.
  */
 export interface DDMatrixResponseDTO {
@@ -185,6 +216,14 @@ export interface DDMatrixResponseDTO {
   doc_type_check_ids: Record<string, string[]>;
 
   documents: DocumentMatrixRowDTO[];
+
+  /**
+   * NEW:
+   * Segment-oriented rows returned by backend.
+   * Это primary source для review matrix.
+   * Optional до полного выравнивания frontend/backend контрактов.
+   */
+  segment_documents?: SegmentMatrixRowDTO[];
 
   total_documents: number;
   total_checks: number;
@@ -217,12 +256,12 @@ export interface DocumentDetailDTO {
 
 /**
  * DD Request / follow-up request в рамках review.
- * 
+ *
  * Для непрофессионального программиста:
  * Это запрос юриста или автоматически сформированный follow-up вопрос
  * по результатам проверки документов. Содержит текст запроса, приоритет,
  * список документов и segment/chunk provenance для навигации в viewer.
- * 
+ *
  * ВАЖНО для MR4:
  * - document_ids содержит UUID документов для прямой навигации в viewer
  * - document_names содержит человекочитаемые имена файлов для отображения
@@ -242,14 +281,14 @@ export interface DDRequestDTO extends SegmentProvenanceDTO {
   text: string;
 
   document_names: string[];
-  
+
   /**
    * UUID документов, соответствующие document_names по индексу.
    * Если backend ещё не обновлён — может быть пустым массивом.
    * Если есть хотя бы один id — можно строить viewer navigation.
    */
   document_ids: string[];
-  
+
   doc_types: string[];
 
   structured_values: Array<
@@ -322,6 +361,5 @@ export interface DocumentStructuredDataDTO {
   total_values: number;
   values: ExtractedValueDTO[];
 }
-
 
 

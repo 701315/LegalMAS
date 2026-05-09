@@ -36,6 +36,7 @@ from .endpoints import (
     playbook_runs,
     playbooks,
     project_members,
+    qc,
     requests,
     results,
     runner,
@@ -123,6 +124,9 @@ app.include_router(deal_review.router, prefix="/api/v1")
 
 # Запуски (runs).
 app.include_router(runs.router, prefix="/api/v1")
+
+# QC actions for review mode.
+app.include_router(qc.router, prefix="/api/v1")
 
 # Результаты проверок.
 app.include_router(results.router, prefix="/api/v1")
