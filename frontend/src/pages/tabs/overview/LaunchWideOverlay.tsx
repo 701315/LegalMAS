@@ -304,7 +304,10 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-2">
+        <div
+          className="grid min-h-0 flex-1"
+          style={{ gridTemplateColumns: "3fr 2fr" }}
+        >
           {renderLeftPane()}
 
           <div className={rightPaneClass}>

@@ -1,5 +1,11 @@
 // =============================================================
 // src/components/playbook/DealPlaybookSelectorPanel.tsx
+// Выбор и применение playbook для сделки.
+// Поддерживает два режима:
+// - page: самостоятельная страница
+// - embedded: встроенный workspace-блок внутри другой вкладки
+// Внутри страницы позволяет inline-редактирование шаблона
+// под блоком "Состав playbook".
 // =============================================================
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,10 +21,7 @@ import LoadingBlock from "../ui/LoadingBlock";
 import InlineAlert from "../InlineAlert";
 import ConfirmDialog from "../ConfirmDialog";
 
-import {
-  getApiErrorMessage,
-  isApiErrorStatus,
-} from "../../utils/apiErrors";
+import { getApiErrorMessage, isApiErrorStatus } from "../../utils/apiErrors";
 
 import type {
   Deal,
@@ -32,6 +35,7 @@ import type {
   DealPlaybookHistoryItem,
   ModelConfig,
 } from "../../types";
+import AdminPlaybookLinesPage from "../../pages/AdminPlaybookLinesPage";
 
 export interface DealPlaybookSelectorPanelProps {
   dealId: string;
@@ -40,10 +44,23 @@ export interface DealPlaybookSelectorPanelProps {
   onFinished?: () => void;
   onCancel?: () => void;
   onDealPatched?: (patch: Partial<Deal>) => void;
+  headerActions?: React.ReactNode;
 }
 
 const selectClassName =
   "w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition focus:border-[var(--accent-primary)] focus:bg-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const cardButtonBaseClassName =
+  "w-full rounded-2xl border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60";
+
+const cardButtonIdleClassName =
+  "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated-soft)]";
+
+const cardButtonActiveClassName =
+  "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-primary)]";
+
+const metaLabelClassName =
+  "text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]";
 
 const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   dealId,
@@ -52,6 +69,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   onFinished,
   onCancel,
   onDealPatched,
+  headerActions,
 }) => {
   const navigate = useNavigate();
 
@@ -92,6 +110,9 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
   const [isApplyConfirmOpen, setIsApplyConfirmOpen] = useState(false);
 
+  const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+
   const effectiveDeal = useMemo(
     () => dealDetail ?? deal ?? null,
     [dealDetail, deal],
@@ -99,6 +120,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
   const visibleVersions = useMemo(() => {
     if (!selectedLineId) return [];
+
     return versions.filter(
       (version) =>
         version.playbook_id === selectedLineId &&
@@ -122,6 +144,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       onCancel();
       return;
     }
+
     navigate(`/projects/${dealId}`);
   }, [dealId, navigate, onCancel]);
 
@@ -146,6 +169,17 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     }
   }, [dealId]);
 
+  const loadLineDetail = useCallback(async (lineId: string) => {
+    try {
+      const res = await client.get<PlaybookLineDetail>(
+        `/api/v1/playbooks/lines/${lineId}`,
+      );
+      setSelectedLineDetail(res.data);
+    } catch {
+      setSelectedLineDetail(null);
+    }
+  }, []);
+
   const handleSelectLine = useCallback(
     (lineId: string) => {
       if (isUiLocked) return;
@@ -155,8 +189,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
       setSelectedVersionId(null);
       setVersionDetail(null);
       setCreateVersionError(null);
+
+      if (isTemplateEditorOpen && editingTemplateId !== lineId) {
+        setEditingTemplateId(lineId);
+      }
     },
-    [clearMessages, isUiLocked],
+    [clearMessages, editingTemplateId, isTemplateEditorOpen, isUiLocked],
   );
 
   const handleSelectVersion = useCallback(
@@ -223,8 +261,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     clearMessages,
     dealId,
     loadHistory,
-    onFinished,
     onDealPatched,
+    onFinished,
     selectedVersionId,
   ]);
 
@@ -299,8 +337,23 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 
   const handleEditSelectedLine = useCallback(() => {
     if (!selectedLineId) return;
-    navigate(`/projects/${dealId}/playbooks/admin?playbook_id=${selectedLineId}`);
-  }, [dealId, navigate, selectedLineId]);
+
+    setEditingTemplateId(selectedLineId);
+    setIsTemplateEditorOpen(true);
+  }, [selectedLineId]);
+
+  const handleCloseTemplateEditor = useCallback(() => {
+    setIsTemplateEditorOpen(false);
+    setEditingTemplateId(null);
+  }, []);
+
+  const handleTemplateEditorFinished = useCallback(async () => {
+    if (editingTemplateId) {
+      await loadLineDetail(editingTemplateId);
+    }
+
+    setSuccessText("Шаблон обновлён.");
+  }, [editingTemplateId, loadLineDetail]);
 
   useEffect(() => {
     let cancelled = false;
@@ -384,7 +437,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [dealId, effectiveDeal?.playbook_version_id]);
+  }, [effectiveDeal?.playbook_version_id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -460,7 +513,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
   useEffect(() => {
     let cancelled = false;
 
-    async function loadLineDetail(lineId: string) {
+    async function loadSelectedLine(lineId: string) {
       setSelectedLineDetail(null);
 
       try {
@@ -478,7 +531,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     }
 
     if (selectedLineId) {
-      void loadLineDetail(selectedLineId);
+      void loadSelectedLine(selectedLineId);
     } else {
       setSelectedLineDetail(null);
     }
@@ -497,6 +550,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
               <p className="mb-4 text-sm text-[var(--text-secondary)]">
                 У вас нет прав для настройки playbook этого проекта.
               </p>
+
               <Button variant="secondary" size="sm" onClick={handleBack}>
                 Вернуться назад
               </Button>
@@ -507,23 +561,33 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
     }
 
     return (
-      <div className="min-w-0 rounded-[24px] border border-[var(--border)] bg-[var(--bg-card)] p-6 text-sm text-[var(--text-secondary)] shadow-sm">
-        У вас нет прав для настройки playbook этого проекта.
-      </div>
+      <PageSection
+        title="Playbook проекта"
+        subtitle="Выбор, применение и просмотр состава playbook для текущей сделки."
+        rightSlot={headerActions}
+      >
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
+          <p className="text-sm text-[var(--text-secondary)]">
+            У вас нет прав для настройки playbook этого проекта.
+          </p>
+        </div>
+      </PageSection>
     );
   }
 
   const content = (
     <>
-      {mode === "page" && (
+      {mode === "page" ? (
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center rounded-full border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
               Playbook setup
             </div>
+
             <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-[var(--text-primary)]">
               Playbook проекта
             </h1>
+
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Проект: {effectiveDeal?.name || dealId}
             </p>
@@ -546,7 +610,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             ← Назад к проекту
           </Button>
         </div>
-      )}
+      ) : null}
 
       {errorText ? <InlineAlert tone="error" message={errorText} /> : null}
       {successText ? <InlineAlert tone="success" message={successText} /> : null}
@@ -579,25 +643,26 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                       onClick={() => handleSelectLine(line.id)}
                       disabled={isUiLocked}
                       className={[
-                        "w-full rounded-2xl border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60",
+                        cardButtonBaseClassName,
                         isSelected
-                          ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-                          : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated-soft)]",
+                          ? cardButtonActiveClassName
+                          : cardButtonIdleClassName,
                       ].join(" ")}
                     >
                       <div className="font-semibold">{line.title}</div>
 
-                      {line.description && (
+                      {line.description ? (
                         <div className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                           {line.description}
                         </div>
-                      )}
+                      ) : null}
 
                       <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                        {line.deal_type && `Тип: ${line.deal_type} · `}
-                        {line.jurisdiction &&
-                          `Юрисдикция: ${line.jurisdiction} · `}
-                        {line.language && `Язык: ${line.language}`}
+                        {line.deal_type ? `Тип: ${line.deal_type} · ` : ""}
+                        {line.jurisdiction
+                          ? `Юрисдикция: ${line.jurisdiction} · `
+                          : ""}
+                        {line.language ? `Язык: ${line.language}` : ""}
                       </div>
                     </button>
                   </li>
@@ -642,8 +707,8 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                   <select
                     className={selectClassName}
                     value={selectedModelConfigId ?? ""}
-                    onChange={(e) =>
-                      setSelectedModelConfigId(e.target.value || null)
+                    onChange={(event) =>
+                      setSelectedModelConfigId(event.target.value || null)
                     }
                     disabled={isUiLocked}
                   >
@@ -681,10 +746,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                         onClick={() => handleSelectVersion(version.id)}
                         disabled={isUiLocked}
                         className={[
-                          "w-full rounded-2xl border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60",
+                          cardButtonBaseClassName,
                           isSelected
-                            ? "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--accent-primary)]"
-                            : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated-soft)]",
+                            ? cardButtonActiveClassName
+                            : cardButtonIdleClassName,
                         ].join(" ")}
                       >
                         <div className="font-semibold">
@@ -693,6 +758,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                             ({version.semver})
                           </span>
                         </div>
+
                         <div className="mt-1 text-[11px] text-[var(--text-muted)]">
                           Статус: {version.status}
                         </div>
@@ -741,9 +807,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             ) : selectedVersionId && versionDetail ? (
               <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                    Общая информация
-                  </div>
+                  <div className={metaLabelClassName}>Общая информация</div>
                   <div className="mt-1 text-[var(--text-secondary)]">
                     Версия: {versionDetail.name} ({versionDetail.semver})
                   </div>
@@ -753,9 +817,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                 </div>
 
                 <div>
-                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <div className={`mt-2 ${metaLabelClassName}`}>
                     Секции / профили
                   </div>
+
                   {versionDetail.section_markers ? (
                     <pre className="mt-1 overflow-x-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
                       {JSON.stringify(versionDetail.section_markers, null, 2)}
@@ -768,9 +833,10 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                 </div>
 
                 <div>
-                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <div className={`mt-2 ${metaLabelClassName}`}>
                     DD-запросы
                   </div>
+
                   {versionDetail.dd_request_templates ? (
                     <pre className="mt-1 overflow-x-auto rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] p-2 text-[11px] text-[var(--text-secondary)]">
                       {JSON.stringify(
@@ -789,9 +855,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
             ) : selectedLineDetail ? (
               <div className="max-h-80 space-y-3 overflow-y-auto text-xs text-[var(--text-primary)]">
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
-                    Общая информация
-                  </div>
+                  <div className={metaLabelClassName}>Общая информация</div>
                   <div className="mt-1 text-[var(--text-secondary)]">
                     Имя: {selectedLineDetail.title}
                   </div>
@@ -805,15 +869,15 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     Язык: {selectedLineDetail.language || "не задан"}
                   </div>
 
-                  {selectedLineDetail.description && (
+                  {selectedLineDetail.description ? (
                     <div className="mt-1 text-[var(--text-secondary)]">
                       Описание: {selectedLineDetail.description}
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 <div>
-                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <div className={`mt-2 ${metaLabelClassName}`}>
                     Состав шаблона (темы / проверки)
                   </div>
 
@@ -828,16 +892,18 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                           <div className="text-[var(--text-secondary)]">
                             Тип: {item.kind}
                           </div>
-                          {item.topic_code && (
+
+                          {item.topic_code ? (
                             <div className="text-[var(--text-muted)]">
                               Topic: {item.topic_code}
                             </div>
-                          )}
-                          {item.check_code && (
+                          ) : null}
+
+                          {item.check_code ? (
                             <div className="text-[var(--text-muted)]">
                               Check: {item.check_code}
                             </div>
-                          )}
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -875,11 +941,11 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                     >
                       <div className="text-[var(--text-secondary)]">
                         {new Date(item.created_at).toLocaleString()} — {item.actor}{" "}
-                        {item.actor_role && (
+                        {item.actor_role ? (
                           <span className="text-[var(--text-muted)]">
                             ({item.actor_role})
                           </span>
-                        )}
+                        ) : null}
                       </div>
 
                       <div className="text-[var(--text-muted)]">
@@ -894,12 +960,12 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
                           : "Стало: не задано"}
                       </div>
 
-                      {(item.playbook_name || item.semver) && (
+                      {item.playbook_name || item.semver ? (
                         <div className="text-[var(--text-muted)]">
-                          {item.playbook_name && `${item.playbook_name} `}
-                          {item.semver && `(${item.semver})`}
+                          {item.playbook_name ? `${item.playbook_name} ` : ""}
+                          {item.semver ? `(${item.semver})` : ""}
                         </div>
-                      )}
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -908,6 +974,26 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           </PageSection>
         </div>
       </div>
+
+      {isTemplateEditorOpen && editingTemplateId ? (
+        <div className="mt-4">
+          <AdminPlaybookLinesPage
+            mode="embedded"
+            initialPlaybookId={editingTemplateId}
+            headerActions={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCloseTemplateEditor}
+              >
+                Скрыть редактор
+              </Button>
+            }
+            onCancel={handleCloseTemplateEditor}
+            onFinished={handleTemplateEditorFinished}
+          />
+        </div>
+      ) : null}
     </>
   );
 
@@ -918,7 +1004,13 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
           <div className="mx-auto max-w-6xl space-y-5">{content}</div>
         </div>
       ) : (
-        <div className="min-w-0 text-[var(--text-primary)]">{content}</div>
+        <PageSection
+          title="Playbook проекта"
+          subtitle="Выбор, применение и просмотр состава playbook для текущей сделки."
+          rightSlot={headerActions}
+        >
+          <div className="min-w-0 text-[var(--text-primary)]">{content}</div>
+        </PageSection>
       )}
 
       <ConfirmDialog
@@ -940,5 +1032,7 @@ const DealPlaybookSelectorPanel: React.FC<DealPlaybookSelectorPanelProps> = ({
 };
 
 export default DealPlaybookSelectorPanel;
+
+
 
 

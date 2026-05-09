@@ -1,6 +1,4 @@
-// src/pages/AdminPlaybookLinesPage.tsx
-
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import client from "../api/client";
@@ -29,37 +27,53 @@ const smallSelectClassName =
 const fullSelectClassName =
   "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
 
-const AdminPlaybookLinesPage: React.FC = () => {
+interface AdminPlaybookLinesPageProps {
+  mode?: "page" | "embedded";
+  headerActions?: React.ReactNode;
+  onCancel?: () => void;
+  onFinished?: () => void;
+  initialPlaybookId?: string | null;
+}
+
+const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
+  mode = "page",
+  headerActions,
+  onCancel,
+  onFinished,
+  initialPlaybookId = null,
+}) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { dealId } = useParams<{ dealId: string }>();
-  const playbookIdFromQuery = searchParams.get("playbook_id");
 
-  const [lines, setLines] = useState<PlaybookLineShort[]>([]);
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-  const [currentLine, setCurrentLine] = useState<PlaybookLineDetail | null>(
+  const playbookIdFromQuery = searchParams.get("playbook_id");
+  const effectivePlaybookId = initialPlaybookId ?? playbookIdFromQuery;
+
+  const [lines, setLines] = React.useState<PlaybookLineShort[]>([]);
+  const [selectedLineId, setSelectedLineId] = React.useState<string | null>(null);
+  const [currentLine, setCurrentLine] = React.useState<PlaybookLineDetail | null>(
     null,
   );
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isCatalogLoading, setIsCatalogLoading] = React.useState(false);
+  const [isDetailLoading, setIsDetailLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const [successText, setSuccessText] = useState<string | null>(null);
+  const [errorText, setErrorText] = React.useState<string | null>(null);
+  const [successText, setSuccessText] = React.useState<string | null>(null);
 
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
 
   const [title, setTitle] = useState("");
   const [dealType, setDealType] = useState("");
   const [jurisdiction, setJurisdiction] = useState("");
   const [language, setLanguage] = useState("");
   const [description, setDescription] = useState("");
-  const [items, setItems] = useState<PlaybookLineItemPayload[]>([]);
+  const [items, setItems] = React.useState<PlaybookLineItemPayload[]>([]);
 
-  const [topics, setTopics] = useState<PlaybookTopicInfo[]>([]);
+  const [topics, setTopics] = React.useState<PlaybookTopicInfo[]>([]);
 
   const isBusy = isSaving || isDeleting;
   const isUiLocked = isBusy || isDetailLoading;
@@ -192,20 +206,20 @@ const AdminPlaybookLinesPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     void loadLines();
     void loadCatalog();
   }, []);
 
-  useEffect(() => {
-    if (!playbookIdFromQuery || lines.length === 0 || isBusy) return;
+  React.useEffect(() => {
+    if (!effectivePlaybookId || lines.length === 0 || isBusy) return;
 
-    const line = lines.find((entry) => entry.id === playbookIdFromQuery);
+    const line = lines.find((entry) => entry.id === effectivePlaybookId);
     if (!line) return;
 
     setSelectedLineId(line.id);
     void loadLineDetail(line.id);
-  }, [playbookIdFromQuery, lines]); // isBusy специально не включаем
+  }, [effectivePlaybookId, lines]);
 
   const handleCreateNew = () => {
     if (isUiLocked) return;
@@ -367,6 +381,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
 
       await loadLines();
       setSuccessText("Шаблон сохранён.");
+      onFinished?.();
     } catch (err) {
       setErrorText(
         getApiErrorMessage(err, "Не удалось сохранить шаблон playbook."),
@@ -401,6 +416,7 @@ const AdminPlaybookLinesPage: React.FC = () => {
       resetForm();
       await loadLines();
       setSuccessText("Шаблон удалён.");
+      onFinished?.();
     } catch (err) {
       if (isApiErrorStatus(err, 409)) {
         setErrorText(
@@ -427,420 +443,441 @@ const AdminPlaybookLinesPage: React.FC = () => {
     }
   };
 
-  return (
-    <>
-      <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
-        <div className="mx-auto max-w-6xl space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Admin · Playbook
-              </p>
-              <h1 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
-                Конструктор шаблонов Playbook
-              </h1>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Настройка логических линий (шаблонов) и их состава для проектов.
-              </p>
-            </div>
+  const handleBackFromPage = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
 
+    if (dealId) {
+      navigate(`/projects/${dealId}`);
+    } else {
+      navigate("/projects");
+    }
+  };
+
+  const pageHeader =
+    mode === "page" ? (
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            Admin · Playbook
+          </p>
+          <h1 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
+            Конструктор шаблонов Playbook
+          </h1>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Настройка логических линий (шаблонов) и их состава для проектов.
+          </p>
+        </div>
+
+        <Button variant="secondary" size="sm" onClick={handleBackFromPage}>
+          ← Вернуться к проектам
+        </Button>
+      </div>
+    ) : null;
+
+  const mainContent = (
+    <>
+      <InlineAlert tone="error" message={errorText} />
+      <InlineAlert tone="success" message={successText} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <PageSection
+          title="Шаблоны playbook"
+          rightSlot={
             <Button
               variant="secondary"
               size="sm"
-              onClick={() =>
-                dealId ? navigate(`/projects/${dealId}`) : navigate("/projects")
-              }
+              onClick={handleCreateNew}
+              disabled={isUiLocked}
             >
-              ← Вернуться к проектам
+              + Новый
             </Button>
-          </div>
-
-          <InlineAlert tone="error" message={errorText} />
-          <InlineAlert tone="success" message={successText} />
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <PageSection
-              title="Шаблоны playbook"
-              rightSlot={
+          }
+        >
+          {isLoading ? (
+            <LoadingBlock text="Загружаем список шаблонов..." rows={6} />
+          ) : lines.length === 0 ? (
+            <EmptyState
+              title="Шаблоны ещё не созданы"
+              description="Создайте первый шаблон playbook, чтобы настроить набор тем и проверок для проектов."
+              action={
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={handleCreateNew}
                   disabled={isUiLocked}
                 >
-                  + Новый
+                  Создать шаблон
                 </Button>
               }
-            >
-              {isLoading ? (
-                <LoadingBlock text="Загружаем список шаблонов..." rows={6} />
-              ) : lines.length === 0 ? (
-                <EmptyState
-                  title="Шаблоны ещё не созданы"
-                  description="Создайте первый шаблон playbook, чтобы настроить набор тем и проверок для проектов."
-                  action={
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleCreateNew}
-                      disabled={isUiLocked}
-                    >
-                      Создать шаблон
-                    </Button>
-                  }
-                />
-              ) : (
-                <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
-                  {lines.map((line) => (
-                    <li key={line.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectLine(line)}
-                        disabled={isUiLocked}
-                        className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                          selectedLineId === line.id
-                            ? "border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
-                            : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]"
-                        }`}
-                      >
-                        <div className="font-semibold text-[var(--text-primary)]">
-                          {line.title}
-                        </div>
-
-                        {line.description && (
-                          <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                            {line.description}
-                          </div>
-                        )}
-
-                        <div className="mt-1 text-[11px] text-[var(--text-muted)]">
-                          {line.deal_type && `Тип: ${line.deal_type} · `}
-                          {line.jurisdiction &&
-                            `Юрисдикция: ${line.jurisdiction} · `}
-                          {line.language && `Язык: ${line.language}`}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </PageSection>
-
-            <PageSection
-              className="lg:col-span-2"
-              title={currentLine ? "Редактирование шаблона" : "Новый шаблон"}
-              rightSlot={
-                currentLine ? (
-                  <span className="text-[11px] text-[var(--text-muted)]">
-                    ID: {currentLine.id}
-                  </span>
-                ) : null
-              }
-            >
-              {isDetailLoading && (
-                <div className="mb-3">
-                  <LoadingBlock text="Загружаем данные шаблона..." rows={4} />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
-                <Field label="Название" required>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+            />
+          ) : (
+            <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
+              {lines.map((line) => (
+                <li key={line.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectLine(line)}
                     disabled={isUiLocked}
-                    className={inputClassName}
-                    placeholder="Например: Real estate RU / M&A RU..."
-                  />
-                </Field>
-
-                <Field label="Тип сделки">
-                  <input
-                    type="text"
-                    value={dealType}
-                    onChange={(e) => setDealType(e.target.value)}
-                    disabled={isUiLocked}
-                    className={inputClassName}
-                    placeholder="real_estate, mna, nda..."
-                  />
-                </Field>
-
-                <Field label="Юрисдикция">
-                  <input
-                    type="text"
-                    value={jurisdiction}
-                    onChange={(e) => setJurisdiction(e.target.value)}
-                    disabled={isUiLocked}
-                    className={inputClassName}
-                    placeholder="RU, EN, DE..."
-                  />
-                </Field>
-
-                <Field label="Язык">
-                  <input
-                    type="text"
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    disabled={isUiLocked}
-                    className={inputClassName}
-                    placeholder="ru, en..."
-                  />
-                </Field>
-
-                <div className="md:col-span-2">
-                  <Field label="Описание">
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      disabled={isUiLocked}
-                      className={inputClassName}
-                      rows={2}
-                      placeholder="Краткое описание, для каких проектов используется этот шаблон."
-                    />
-                  </Field>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-[var(--text-primary)]">
-                    Состав шаблона (темы / проверки)
-                  </h3>
-
-                  <div className="flex items-center gap-2">
-                    {!canAddItems && topics.length === 0 && (
-                      <span className="text-[11px] text-[var(--text-muted)]">
-                        Каталог тем не загружен
-                      </span>
-                    )}
-
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleAddItem}
-                      disabled={!canAddItems}
-                    >
-                      + Элемент
-                    </Button>
-                  </div>
-                </div>
-
-                {topics.length === 0 ? (
-                  <EmptyState
-                    title="Каталог тем недоступен"
-                    description="Каталог тем и проверок не загружен или пуст. Проверьте endpoint /playbooks/catalog."
-                  />
-                ) : items.length === 0 ? (
-                  <EmptyState
-                    title="Состав шаблона пуст"
-                    description="Добавьте тему или проверку, чтобы сформировать содержимое playbook‑шаблона."
-                    action={
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleAddItem}
-                        disabled={!canAddItems}
-                      >
-                        Добавить элемент
-                      </Button>
-                    }
-                  />
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
-                    <table className="w-full table-fixed border-collapse text-[11px]">
-                      <thead className="bg-[var(--bg-elevated-soft)]">
-                        <tr className="text-[var(--text-muted)]">
-                          <th className="w-8 px-2 py-1 text-left font-medium">
-                            #
-                          </th>
-                          <th className="w-24 px-2 py-1 text-left font-medium">
-                            Тип
-                          </th>
-                          <th className="w-64 px-2 py-1 text-left font-medium">
-                            Topic
-                          </th>
-                          <th className="px-2 py-1 text-left font-medium">
-                            Check
-                          </th>
-                          <th className="w-24 px-2 py-1 text-left font-medium">
-                            Порядок
-                          </th>
-                          <th className="w-16 px-2 py-1 text-left font-medium">
-                            Удалить
-                          </th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {items.map((item, index) => {
-                          const topic = item.topic_code
-                            ? topicByCode.get(item.topic_code)
-                            : undefined;
-                          const checks = topic?.checks || [];
-
-                          return (
-                            <tr
-                              key={`${item.kind}-${item.topic_code || "empty"}-${index}`}
-                              className="border-t border-[var(--border)]/70 align-top"
-                            >
-                              <td className="px-2 py-1 text-[var(--text-muted)]">
-                                {index + 1}
-                              </td>
-
-                              <td className="px-2 py-1">
-                                <select
-                                  value={item.kind}
-                                  onChange={(e) =>
-                                    handleKindChange(
-                                      index,
-                                      e.target.value as "topic" | "check",
-                                    )
-                                  }
-                                  disabled={isUiLocked}
-                                  className={smallSelectClassName}
-                                >
-                                  <option value="topic">topic</option>
-                                  <option value="check">check</option>
-                                </select>
-                              </td>
-
-                              <td className="px-2 py-1">
-                                <select
-                                  value={item.topic_code || ""}
-                                  onChange={(e) =>
-                                    handleTopicChange(index, e.target.value)
-                                  }
-                                  disabled={isUiLocked}
-                                  className={fullSelectClassName}
-                                >
-                                  <option value="">— не выбрано —</option>
-                                  {topics.map((topicEntry) => (
-                                    <option
-                                      key={topicEntry.topic_code}
-                                      value={topicEntry.topic_code}
-                                    >
-                                      {topicEntry.topic_code} —{" "}
-                                      {topicEntry.topic_name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-
-                              <td className="px-2 py-1">
-                                {item.kind === "topic" ? (
-                                  <span className="text-[11px] text-[var(--text-muted)]">
-                                    Для типа topic check не используется
-                                  </span>
-                                ) : checks.length === 0 ? (
-                                  <span className="text-[11px] text-[var(--text-muted)]">
-                                    Нет проверок для выбранной темы
-                                  </span>
-                                ) : (
-                                  <select
-                                    value={item.check_code || ""}
-                                    onChange={(e) =>
-                                      handleItemChange(
-                                        index,
-                                        "check_code",
-                                        e.target.value,
-                                      )
-                                    }
-                                    disabled={isUiLocked}
-                                    className={fullSelectClassName}
-                                  >
-                                    <option value="">
-                                      — выберите проверку —
-                                    </option>
-                                    {checks.map((check) => (
-                                      <option
-                                        key={check.code}
-                                        value={check.code}
-                                      >
-                                        {check.code} — {check.title}
-                                      </option>
-                                    ))}
-                                  </select>
-                                )}
-                              </td>
-
-                              <td className="px-2 py-1">
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleMoveItemUp(index)}
-                                    disabled={index === 0 || isUiLocked}
-                                    className="px-2 py-1 text-[10px]"
-                                  >
-                                    ↑
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleMoveItemDown(index)}
-                                    disabled={
-                                      index === items.length - 1 || isUiLocked
-                                    }
-                                    className="px-2 py-1 text-[10px]"
-                                  >
-                                    ↓
-                                  </Button>
-                                </div>
-                              </td>
-
-                              <td className="px-2 py-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveItem(index)}
-                                  disabled={isUiLocked}
-                                  className="px-2 py-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                                >
-                                  ✕
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3">
-                {currentLine ? (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={openDeleteDialog}
-                    disabled={!canDelete}
+                    className={[
+                      "w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                      selectedLineId === line.id
+                        ? "border-[var(--accent)] bg-[var(--bg-elevated)] text-[var(--text-primary)]"
+                        : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated-soft)]",
+                    ].join(" ")}
                   >
-                    Удалить шаблон
-                  </Button>
-                ) : (
-                  <span className="text-[11px] text-[var(--text-muted)]">
-                    Сначала сохраните шаблон, затем его можно будет удалить.
-                  </span>
-                )}
+                    <div className="font-semibold text-[var(--text-primary)]">
+                      {line.title}
+                    </div>
 
-                <div className="ml-auto flex items-center gap-3">
+                    {line.description ? (
+                      <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                        {line.description}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      {line.deal_type ? `Тип: ${line.deal_type} · ` : ""}
+                      {line.jurisdiction
+                        ? `Юрисдикция: ${line.jurisdiction} · `
+                        : ""}
+                      {line.language ? `Язык: ${line.language}` : ""}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </PageSection>
+
+        <PageSection
+          className="lg:col-span-2"
+          title={currentLine ? "Редактирование шаблона" : "Новый шаблон"}
+          rightSlot={
+            currentLine ? (
+              <span className="text-[11px] text-[var(--text-muted)]">
+                ID: {currentLine.id}
+              </span>
+            ) : undefined
+          }
+        >
+          {isDetailLoading ? (
+            <div className="mb-3">
+              <LoadingBlock text="Загружаем данные шаблона..." rows={4} />
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+            <Field label="Название" required>
+              <input
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={isUiLocked}
+                className={inputClassName}
+                placeholder="Например: Real estate RU / M&A RU..."
+              />
+            </Field>
+
+            <Field label="Тип сделки">
+              <input
+                type="text"
+                value={dealType}
+                onChange={(event) => setDealType(event.target.value)}
+                disabled={isUiLocked}
+                className={inputClassName}
+                placeholder="real_estate, mna, nda..."
+              />
+            </Field>
+
+            <Field label="Юрисдикция">
+              <input
+                type="text"
+                value={jurisdiction}
+                onChange={(event) => setJurisdiction(event.target.value)}
+                disabled={isUiLocked}
+                className={inputClassName}
+                placeholder="RU, EN, DE..."
+              />
+            </Field>
+
+            <Field label="Язык">
+              <input
+                type="text"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+                disabled={isUiLocked}
+                className={inputClassName}
+                placeholder="ru, en..."
+              />
+            </Field>
+
+            <div className="md:col-span-2">
+              <Field label="Описание">
+                <textarea
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  disabled={isUiLocked}
+                  className={inputClassName}
+                  rows={2}
+                  placeholder="Краткое описание, для каких проектов используется этот шаблон."
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-[var(--text-primary)]">
+                Состав шаблона (темы / проверки)
+              </h3>
+
+              <div className="flex items-center gap-2">
+                {!canAddItems && topics.length === 0 ? (
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Каталог тем не загружен
+                  </span>
+                ) : null}
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAddItem}
+                  disabled={!canAddItems}
+                >
+                  + Элемент
+                </Button>
+              </div>
+            </div>
+
+            {topics.length === 0 ? (
+              <EmptyState
+                title="Каталог тем недоступен"
+                description="Каталог тем и проверок не загружен или пуст. Проверьте endpoint /playbooks/catalog."
+              />
+            ) : items.length === 0 ? (
+              <EmptyState
+                title="Состав шаблона пуст"
+                description="Добавьте тему или проверку, чтобы сформировать содержимое playbook‑шаблона."
+                action={
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={handleSave}
-                    disabled={!canSave}
-                    isLoading={isSaving}
+                    onClick={handleAddItem}
+                    disabled={!canAddItems}
                   >
-                    Сохранить шаблон
+                    Добавить элемент
                   </Button>
-                </div>
+                }
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+                <table className="w-full table-fixed border-collapse text-[11px]">
+                  <thead className="bg-[var(--bg-elevated-soft)]">
+                    <tr className="text-[var(--text-muted)]">
+                      <th className="w-8 px-2 py-1 text-left font-medium">#</th>
+                      <th className="w-24 px-2 py-1 text-left font-medium">
+                        Тип
+                      </th>
+                      <th className="w-64 px-2 py-1 text-left font-medium">
+                        Topic
+                      </th>
+                      <th className="px-2 py-1 text-left font-medium">Check</th>
+                      <th className="w-24 px-2 py-1 text-left font-medium">
+                        Порядок
+                      </th>
+                      <th className="w-16 px-2 py-1 text-left font-medium">
+                        Удалить
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {items.map((item, index) => {
+                      const topic = item.topic_code
+                        ? topicByCode.get(item.topic_code)
+                        : undefined;
+                      const checks = topic?.checks || [];
+
+                      return (
+                        <tr
+                          key={`${item.kind}-${item.topic_code || "empty"}-${index}`}
+                          className="border-t border-[var(--border)]/70 align-top"
+                        >
+                          <td className="px-2 py-1 text-[var(--text-muted)]">
+                            {index + 1}
+                          </td>
+
+                          <td className="px-2 py-1">
+                            <select
+                              value={item.kind}
+                              onChange={(event) =>
+                                handleKindChange(
+                                  index,
+                                  event.target.value as "topic" | "check",
+                                )
+                              }
+                              disabled={isUiLocked}
+                              className={smallSelectClassName}
+                            >
+                              <option value="topic">topic</option>
+                              <option value="check">check</option>
+                            </select>
+                          </td>
+
+                          <td className="px-2 py-1">
+                            <select
+                              value={item.topic_code || ""}
+                              onChange={(event) =>
+                                handleTopicChange(index, event.target.value)
+                              }
+                              disabled={isUiLocked}
+                              className={fullSelectClassName}
+                            >
+                              <option value="">— не выбрано —</option>
+                              {topics.map((topicEntry) => (
+                                <option
+                                  key={topicEntry.topic_code}
+                                  value={topicEntry.topic_code}
+                                >
+                                  {topicEntry.topic_code} —{" "}
+                                  {topicEntry.topic_name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          <td className="px-2 py-1">
+                            {item.kind === "topic" ? (
+                              <span className="text-[11px] text-[var(--text-muted)]">
+                                Для типа topic check не используется
+                              </span>
+                            ) : checks.length === 0 ? (
+                              <span className="text-[11px] text-[var(--text-muted)]">
+                                Нет проверок для выбранной темы
+                              </span>
+                            ) : (
+                              <select
+                                value={item.check_code || ""}
+                                onChange={(event) =>
+                                  handleItemChange(
+                                    index,
+                                    "check_code",
+                                    event.target.value,
+                                  )
+                                }
+                                disabled={isUiLocked}
+                                className={fullSelectClassName}
+                              >
+                                <option value="">— выберите проверку —</option>
+                                {checks.map((check) => (
+                                  <option key={check.code} value={check.code}>
+                                    {check.code} — {check.title}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+
+                          <td className="px-2 py-1">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleMoveItemUp(index)}
+                                disabled={index === 0 || isUiLocked}
+                                className="px-2 py-1 text-[10px]"
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleMoveItemDown(index)}
+                                disabled={
+                                  index === items.length - 1 || isUiLocked
+                                }
+                                className="px-2 py-1 text-[10px]"
+                              >
+                                ↓
+                              </Button>
+                            </div>
+                          </td>
+
+                          <td className="px-2 py-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveItem(index)}
+                              disabled={isUiLocked}
+                              className="px-2 py-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                            >
+                              ✕
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </PageSection>
+            )}
+
+            <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3">
+              {currentLine ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={openDeleteDialog}
+                  disabled={!canDelete}
+                >
+                  Удалить шаблон
+                </Button>
+              ) : (
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  Сначала сохраните шаблон, затем его можно будет удалить.
+                </span>
+              )}
+
+              <div className="ml-auto flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!canSave}
+                  isLoading={isSaving}
+                >
+                  Сохранить шаблон
+                </Button>
+              </div>
+            </div>
+          </div>
+        </PageSection>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {mode === "page" ? (
+        <div className="min-h-screen bg-[var(--bg-base)] px-4 py-6">
+          <div className="mx-auto max-w-6xl space-y-4">
+            {pageHeader}
+            {mainContent}
           </div>
         </div>
-      </div>
+      ) : (
+        <PageSection
+          title="Конструктор шаблонов playbook"
+          subtitle="Настройка логических линий (шаблонов) и их состава для проектов."
+          rightSlot={headerActions}
+          contentClassName="px-5 pt-2 pb-4"
+        >
+          {mainContent}
+        </PageSection>
+      )}
 
       <ConfirmDialog
         open={isDeleteDialogOpen}

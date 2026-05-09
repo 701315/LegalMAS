@@ -9,13 +9,17 @@
 
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
 import type { Deal, OpenViewerAtPayload } from "../types";
+
 import OverviewTab from "./tabs/OverviewTab";
 import GridTab from "./tabs/GridTab";
 import DocumentsTab from "./tabs/DocumentsTab";
 import { RequestsTab } from "./tabs/RequestsTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
+import SettingsTab from "./tabs/SettingsTab";
+
 import { useDealPermissions } from "../hooks/usePermissions";
 import Button from "../components/ui/Button";
 
@@ -79,11 +83,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const latestRunId = deal.last_run_id ?? null;
   const hasLatestRun = !!latestRunId;
 
-  const {
-    canViewOverview,
-    canManageRequests,
-    canUploadDocuments,
-  } = useDealPermissions(deal.id);
+  const { canViewOverview, canManageRequests, canUploadDocuments } =
+    useDealPermissions(deal.id);
 
   const canManageProject = canUploadDocuments || canManageRequests;
 
@@ -124,16 +125,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     },
     [location.pathname, location.search, navigate],
   );
-
-  const handleOpenMembers = React.useCallback(() => {
-    if (!canManageProject) return;
-    navigate(`/projects/${deal.id}/members`);
-  }, [canManageProject, deal.id, navigate]);
-
-  const handleOpenPlaybook = React.useCallback(() => {
-    if (!canViewOverview) return;
-    navigate(`/projects/${deal.id}/playbook`);
-  }, [canViewOverview, deal.id, navigate]);
 
   const handleOpenPlaybookTemplates = React.useCallback(() => {
     if (!canViewOverview) return;
@@ -203,92 +194,11 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     </div>
   );
 
-  const renderSettingsTab = () => {
-    if (!canManageProject) {
-      return (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5">
-          <p className="text-sm font-medium text-[var(--text-primary)]">
-            Настройки проекта недоступны
-          </p>
-          <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-            У вас нет прав на изменение участников, playbook или шаблонов
-            проекта.
-          </p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            Настройки проекта
-          </h2>
-          <p className="mt-1 max-w-2xl text-xs text-[var(--text-secondary)]">
-            Управление участниками и конфигурацией проекта вынесено отдельно от
-            рабочего review‑потока.
-          </p>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Участники проекта
-            </h3>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">
-              Управление составом команды проекта и доступами.
-            </p>
-            <div className="mt-4">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleOpenMembers}
-              >
-                Открыть участников проекта
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Playbook проекта
-            </h3>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">
-              Выбор и настройка playbook, используемого для анализа документов.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleOpenPlaybook}
-              >
-                Открыть playbook проекта
-              </Button>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleOpenPlaybookTemplates}
-              >
-                Конструктор шаблонов
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const activeTabLabel = TAB_LABELS[activeTab];
 
   const renderActiveTabPanel = () => {
     if (activeTab === "overview") {
-      return (
-        <OverviewTab
-          deal={deal}
-          latestRunId={latestRunId}
-        />
-      );
+      return <OverviewTab deal={deal} latestRunId={latestRunId} />;
     }
 
     if (activeTab === "documents") {
@@ -328,7 +238,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       ) : (
         renderRunRequiredState(
           "Запросы пока недоступны",
-          "Сначала нужен хотя бы один анализ, чтобы система сформировала follow‑up запросы по найденным рискам.",
+          "Сначала нужен хотя бы один анализ, чтобы система сформировала follow-up запросы по найденным рискам.",
         )
       );
     }
@@ -341,7 +251,13 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       return <AuditTab dealId={deal.id} />;
     }
 
-    return renderSettingsTab();
+    return (
+      <SettingsTab
+        dealId={deal.id}
+        canManageProject={canManageProject}
+        onOpenPlaybookTemplates={handleOpenPlaybookTemplates}
+      />
+    );
   };
 
   return (
