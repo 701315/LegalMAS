@@ -1,12 +1,21 @@
 // =============================================================
 // src/pages/tabs/grid/reviewGrid.types.ts
 // Типы review-only слоя для DD Grid / Review Matrix.
-// Нужны как единый контракт между selectors, filters, export,
-// QC и UI-слоем GridTabPage / DDMatrixGrid.
+//
+// Для непрофессионального программиста:
+// Этот файл задаёт единый "словарь" review grid:
+// - какие бывают строки матрицы;
+// - как выглядит один finding;
+// - какие фильтры есть у review mode;
+// - как выглядит selection;
+// - какие данные selectors возвращают в UI.
 // =============================================================
 
 import type { MatrixCellDTO } from "../../../types/dealReview";
 
+/**
+ * Быстрые фильтры review matrix.
+ */
 export type ReviewQuickFilter =
   | "all"
   | "critical"
@@ -17,6 +26,9 @@ export type ReviewQuickFilter =
   | "conditional"
   | "low_confidence";
 
+/**
+ * Метаданные одной check-колонки в review matrix.
+ */
 export interface ReviewCheckColumn {
   checkId: string;
   checkName: string;
@@ -24,8 +36,13 @@ export interface ReviewCheckColumn {
   severity?: string | null;
 }
 
-export interface ReviewGridCheckMeta extends ReviewCheckColumn {}
-
+/**
+ * Одна строка review grid.
+ *
+ * Для непрофессионального программиста:
+ * Это строка матрицы на уровне logical document / segment.
+ * Пользователь выбирает именно такие строки чекбоксами в grid.
+ */
 export interface ReviewGridRow {
   rowId: string;
 
@@ -56,6 +73,14 @@ export interface ReviewGridRow {
   cellsByCheckId: Record<string, MatrixCellDTO | undefined>;
 }
 
+/**
+ * Один finding внутри review mode.
+ *
+ * Для непрофессионального программиста:
+ * Если ReviewGridRow — это строка матрицы,
+ * то ReviewFinding — это одна конкретная проверка внутри этой строки.
+ * Именно findings удобно фильтровать, экспортировать и использовать в QC helpers.
+ */
 export interface ReviewFinding {
   findingId: string;
   rowId: string;
@@ -94,6 +119,9 @@ export interface ReviewFinding {
   cell: MatrixCellDTO;
 }
 
+/**
+ * Текущее состояние фильтров review mode.
+ */
 export interface ReviewFilterState {
   searchText: string;
   quickFilter: ReviewQuickFilter;
@@ -105,10 +133,20 @@ export interface ReviewFilterState {
   selectedOrigins: string[];
 }
 
+/**
+ * Один элемент selection в review grid.
+ *
+ * Для непрофессионального программиста:
+ * Selection в review mode хранится на уровне строк матрицы,
+ * поэтому здесь используется rowId, а не findingId.
+ */
 export interface ReviewSelectionItem {
   rowId: string;
 }
 
+/**
+ * Сводная статистика для review mode.
+ */
 export interface ReviewGridStats {
   documentsCount: number;
   rowsCount: number;
@@ -122,6 +160,9 @@ export interface ReviewGridStats {
   noQcCount: number;
 }
 
+/**
+ * Полный набор derived-данных, который selectors отдают в UI.
+ */
 export interface ReviewGridDerivedData {
   columns: ReviewCheckColumn[];
   rows: ReviewGridRow[];
@@ -131,15 +172,13 @@ export interface ReviewGridDerivedData {
   availableOrigins: string[];
 }
 
-export const DEFAULT_REVIEW_FILTER_STATE: ReviewFilterState = {
-  searchText: "",
-  quickFilter: "all",
-  multiDocumentOnly: false,
-  criticalOnly: false,
-  selectedDocTypes: [],
-  selectedOrigins: [],
-};
-
+/**
+ * Строка для review export.
+ *
+ * Для непрофессионального программиста:
+ * Это отдельная export-oriented форма finding,
+ * чтобы экспортный слой не зависел напрямую от всей внутренней модели grid.
+ */
 export interface ReviewExportRow {
   findingId: string;
 
@@ -173,5 +212,19 @@ export interface ReviewExportRow {
   chunkId?: string | null;
   chunkIndex?: number | null;
 }
+
+/**
+ * Значения фильтров review mode по умолчанию.
+ */
+export const DEFAULT_REVIEW_FILTER_STATE: ReviewFilterState = {
+  searchText: "",
+  quickFilter: "all",
+  multiDocumentOnly: false,
+  criticalOnly: false,
+  selectedDocTypes: [],
+  selectedOrigins: [],
+};
+
+
 
 

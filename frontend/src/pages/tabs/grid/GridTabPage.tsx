@@ -3,6 +3,8 @@
 // Вкладка "DD Grid":
 // - legacy режим: поиск + фильтры + Magic Zoom + bulk QC поверх CheckResult[]
 // - review режим: backend dd-matrix DTO поверх run-scoped review API
+//   + DDMatrixGrid для 2D matrix view
+//   + DDReviewListGrid для flat findings list view
 //   + unified DDMatrixCellDetails для evidence (без MagicZoom/EvidencePanel)
 // Приведено к общему дизайну workspace LegalMAS.
 // =============================================================
@@ -30,6 +32,7 @@ import type {
 
 import DDGrid from "../../../components/grid/DDGrid";
 import DDMatrixGrid from "../../../components/grid/DDMatrixGrid";
+import DDReviewListGrid from "../../../components/grid/DDReviewListGrid";
 import GridFilters, {
   type QuickFilter,
 } from "../../../components/grid/GridFilters";
@@ -160,12 +163,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       setGridScope("all");
     }
   }, [run]);
-
-  React.useEffect(() => {
-    if (dataSource === "review" && gridMode !== "matrix") {
-      setGridMode("matrix");
-    }
-  }, [dataSource, gridMode]);
 
   const confirmMutation = useConfirmResults();
   const rejectMutation = useRejectResults();
@@ -632,7 +629,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               </div>
             </div>
           )}
-
         </div>
       </PageSection>
 
@@ -786,6 +782,40 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                 >
                   {reviewFiltersButtonLabel}
                 </Button>
+
+                <div
+                  className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-1"
+                  role="tablist"
+                  aria-label="Review view mode"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={gridMode === "matrix"}
+                    onClick={() => setGridMode("matrix")}
+                    className={
+                      gridMode === "matrix"
+                        ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
+                        : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    }
+                  >
+                    Матрица
+                  </button>
+
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={gridMode === "list"}
+                    onClick={() => setGridMode("list")}
+                    className={
+                      gridMode === "list"
+                        ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
+                        : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    }
+                  >
+                    Список
+                  </button>
+                </div>
               </div>
             }
           >
@@ -794,7 +824,7 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
                   <div className="border-b border-[var(--border-subtle)] px-4 py-3">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Фильтры review matrix
+                      Фильтры review {gridMode === "list" ? "list" : "matrix"}
                     </p>
                     <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
                       Поиск, quick filters и ограничения по типу документа / origin.
@@ -830,6 +860,7 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                   </div>
                 </div>
               )}
+
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <StatCard label="Документов" value={reviewSummary.documentsCount} />
                 <StatCard
@@ -850,9 +881,10 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               </div>
 
               <div className="rounded-xl border border-[var(--accent-primary)]/10 bg-[var(--accent-muted)] px-4 py-3 text-sm leading-6 text-[var(--text-secondary)]">
-                Review mode теперь использует unified DDMatrixCellDetails для
-                evidence и document context. Legacy MagicZoom / EvidencePanel
-                отключены в review mode — весь evidence flow идёт через detail drawer.
+                Review mode теперь поддерживает matrix и list views. Матрица
+                отображает документы × проверки в 2D сетке; список — плоский audit
+                trail всех findings с filtering, sorting, export. Обе вьюхи используют
+                unified DDMatrixCellDetails для evidence.
               </div>
 
               <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
@@ -864,28 +896,48 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             <div className="px-6 pt-5">
               <h2 className="text-base font-semibold text-[var(--text-primary)]">
-                Review DD Matrix
+                {gridMode === "matrix"
+                  ? "Review DD Matrix"
+                  : "Review findings list"}
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
-                Run-scoped матрица документов и проверок для review-режима.
+                {gridMode === "matrix"
+                  ? "Run-scoped матрица документов и проверок для review-режима."
+                  : "Flat список всех findings из review matrix с filtering и export."}
               </p>
               <div className="mt-4 border-t border-[var(--border-subtle)]" />
             </div>
 
             <div className="px-6 py-5">
-              <DDMatrixGrid
-                runId={runId}
-                rows={filteredReviewRows}
-                columns={reviewDerived.columns}
-                onOpenAtLocation={openViewerAt}
-                onOpenDocument={({ documentId, documentName }) => {
-                  console.log("Open review document", {
-                    documentId,
-                    documentName,
-                  });
-                }}
-                onSelectionChange={handleReviewSelectionChange}
-              />
+              {gridMode === "matrix" ? (
+                <DDMatrixGrid
+                  runId={runId}
+                  rows={filteredReviewRows}
+                  columns={reviewDerived.columns}
+                  onOpenAtLocation={openViewerAt}
+                  onOpenDocument={({ documentId, documentName }) => {
+                    console.log("Open review document", {
+                      documentId,
+                      documentName,
+                    });
+                  }}
+                  onSelectionChange={handleReviewSelectionChange}
+                />
+              ) : (
+                <DDReviewListGrid
+                  runId={runId}
+                  rows={filteredReviewRows}
+                  columns={reviewDerived.columns}
+                  onOpenAtLocation={openViewerAt}
+                  onOpenDocument={({ documentId, documentName }) => {
+                    console.log("Open review document (list)", {
+                      documentId,
+                      documentName,
+                    });
+                  }}
+                  onSelectionChange={handleReviewSelectionChange}
+                />
+              )}
             </div>
           </section>
         </>

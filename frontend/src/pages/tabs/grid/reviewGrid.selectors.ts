@@ -1,13 +1,20 @@
 // =============================================================
 // src/pages/tabs/grid/reviewGrid.selectors.ts
 // Селекторы для преобразования DDMatrixResponseDTO в review domain модель.
-// Primary source of truth for grid rows/findings: dto.segment_documents.
-// Legacy fallback через dto.documents оставлен временно внутри этого модуля.
+//
+// Для непрофессионального программиста:
+// Этот файл берёт ответ backend dd-matrix API и превращает его
+// в удобную форму для review grid на фронтенде.
+//
+// ВАЖНО:
+// - единственный source of truth для review rows/findings — dto.segment_documents;
+// - legacy fallback через dto.documents удалён;
+// - если backend не прислал segment_documents, UI просто получит пустую модель,
+//   а не попытается "угадать" строки из другого формата.
 // =============================================================
 
 import type {
   DDMatrixResponseDTO,
-  DocumentMatrixRowDTO,
   MatrixCellDTO,
   SegmentMatrixRowDTO,
 } from "../../../types/dealReview";
@@ -19,20 +26,14 @@ import type {
   ReviewGridDerivedData,
 } from "./reviewGrid.types";
 
-interface SegmentBucket {
-  segmentKey: string;
-  segmentId: string | null;
-  segmentTitle: string | null;
-  segmentType: string | null;
-  segmentOrder: number | null;
-  isPrimarySegment: boolean | null;
-  cellsByCheckId: Record<string, MatrixCellDTO | undefined>;
-}
-
 const ROOT_SEGMENT_KEY = "__root__";
 
 /**
  * Главный селектор: берёт сырой DTO и возвращает полную derived модель.
+ *
+ * Для непрофессионального программиста:
+ * Если backend ещё не успел прислать данные или прислал некорректный объект,
+ * мы возвращаем безопасное пустое состояние для UI.
  */
 export function selectReviewGridData(
   dto: DDMatrixResponseDTO | null | undefined,
@@ -40,7 +41,7 @@ export function selectReviewGridData(
   if (
     !dto ||
     !Array.isArray(dto.checks) ||
-    (!Array.isArray(dto.segment_documents) && !Array.isArray(dto.documents))
+    !Array.isArray(dto.segment_documents)
   ) {
     return {
       columns: [],
@@ -98,11 +99,6 @@ function buildRowId(documentId: string, segmentKey: string): string {
   return `segment:${documentId}:${segmentKey}`;
 }
 
-function getCellSegmentKey(cell: MatrixCellDTO | undefined): string {
-  if (!cell) return ROOT_SEGMENT_KEY;
-  return cell.segment_id ?? ROOT_SEGMENT_KEY;
-}
-
 function getSegmentRowKey(row: SegmentMatrixRowDTO): string {
   return row.segment_id ?? ROOT_SEGMENT_KEY;
 }
@@ -147,7 +143,10 @@ function mapSegmentRowToReviewRow(row: SegmentMatrixRowDTO): ReviewGridRow {
     classificationConfidence: row.classification_confidence ?? null,
     requiresManualReview: row.requires_manual_review ?? false,
 
-    // Segment row DTO не несёт composition metadata напрямую.
+    // Для непрофессионального программиста:
+    // Если у строки есть segment_id, значит это часть multi-document файла.
+    // Полные composition-метаданные backend пока не присылает в этом DTO,
+    // поэтому здесь держим только аккуратный минимальный признак.
     isMultiDocument: row.segment_id != null,
     segmentCount: undefined,
     primarySegmentLabel: row.is_primary_segment
@@ -164,135 +163,14 @@ function mapSegmentRowToReviewRow(row: SegmentMatrixRowDTO): ReviewGridRow {
 }
 
 /**
- * Temporary fallback path: reconstruct segment rows from dto.documents.
- * Оставлено только пока backend/source contract может приходить без segment_documents.
- * Удалить после полного перехода на review-only stable contract.
- */
-function getSegmentBuckets(
-  doc: DocumentMatrixRowDTO,
-): Map<string, SegmentBucket> {
-  const buckets = new Map<string, SegmentBucket>();
-  const results = doc.results ?? {};
-
-  for (const [checkId, cell] of Object.entries(results)) {
-    const segmentKey = getCellSegmentKey(cell);
-    const existing = buckets.get(segmentKey);
-
-    if (existing) {
-      existing.cellsByCheckId[checkId] = cell;
-      continue;
-    }
-
-    buckets.set(segmentKey, {
-      segmentKey,
-      segmentId: cell.segment_id ?? null,
-      segmentTitle: cell.segment_title ?? null,
-      segmentType: cell.segment_type ?? null,
-      segmentOrder: cell.segment_order ?? null,
-      isPrimarySegment: cell.is_primary_segment ?? null,
-      cellsByCheckId: {
-        [checkId]: cell,
-      },
-    });
-  }
-
-  if (buckets.size === 0) {
-    buckets.set(ROOT_SEGMENT_KEY, {
-      segmentKey: ROOT_SEGMENT_KEY,
-      segmentId: null,
-      segmentTitle: null,
-      segmentType: null,
-      segmentOrder: null,
-      isPrimarySegment: null,
-      cellsByCheckId: {},
-    });
-  }
-
-  return buckets;
-}
-
-function compareSegmentBuckets(a: SegmentBucket, b: SegmentBucket): number {
-  const orderA = a.segmentOrder ?? Number.MAX_SAFE_INTEGER;
-  const orderB = b.segmentOrder ?? Number.MAX_SAFE_INTEGER;
-
-  if (orderA !== orderB) {
-    return orderA - orderB;
-  }
-
-  const primaryA = a.isPrimarySegment ? 0 : 1;
-  const primaryB = b.isPrimarySegment ? 0 : 1;
-
-  if (primaryA !== primaryB) {
-    return primaryA - primaryB;
-  }
-
-  const titleA = a.segmentTitle ?? a.segmentId ?? a.segmentKey;
-  const titleB = b.segmentTitle ?? b.segmentId ?? b.segmentKey;
-
-  return titleA.localeCompare(titleB);
-}
-
-function selectRowsFromDocumentsFallback(
-  dto: DDMatrixResponseDTO,
-): ReviewGridRow[] {
-  return dto.documents.flatMap((doc) => {
-    const buckets = Array.from(getSegmentBuckets(doc).values()).sort(
-      compareSegmentBuckets,
-    );
-
-    return buckets.map((bucket) => {
-      const cells = Object.values(bucket.cellsByCheckId);
-      const counts = countCellSeverities(cells);
-
-      return {
-        rowId: buildRowId(doc.document_id, bucket.segmentKey),
-
-        documentId: doc.document_id,
-        documentName: doc.document_name || "[no name]",
-        docType: doc.doc_type ?? null,
-        folderPath: doc.folder_path ?? null,
-
-        segmentId: bucket.segmentId,
-        segmentTitle: bucket.segmentTitle,
-        segmentType: bucket.segmentType,
-        segmentOrder: bucket.segmentOrder,
-        isPrimarySegment: bucket.isPrimarySegment,
-
-        classificationLevel: doc.classification_level ?? null,
-        classificationConfidence: doc.classification_confidence ?? null,
-        requiresManualReview: doc.requires_manual_review ?? false,
-
-        isMultiDocument: doc.results
-          ? Object.values(doc.results).some((cell) => !!cell?.segment_id)
-          : false,
-        segmentCount: buckets.length,
-        primarySegmentLabel: buckets.find((b) => b.isPrimarySegment)?.segmentTitle ?? null,
-
-        totalCritical: counts.totalCritical,
-        totalHigh: counts.totalHigh,
-        totalMedium: counts.totalMedium,
-        totalUnclear: counts.totalUnclear,
-
-        cellsByCheckId: bucket.cellsByCheckId,
-      };
-    });
-  });
-}
-
-/**
  * Строит строки review matrix.
  *
- * Primary row model:
- * - одна строка = один logical segment row из dto.segment_documents.
- * Fallback:
- * - если segment_documents пуст, временно восстанавливаем строки из dto.documents.
+ * Для непрофессионального программиста:
+ * Одна строка review grid = один logical document / segment row
+ * из dto.segment_documents.
  */
 function selectRows(dto: DDMatrixResponseDTO): ReviewGridRow[] {
-  if (dto.segment_documents && dto.segment_documents.length > 0) {
-    return dto.segment_documents.map(mapSegmentRowToReviewRow);
-  }
-
-  return selectRowsFromDocumentsFallback(dto);
+  return (dto.segment_documents ?? []).map(mapSegmentRowToReviewRow);
 }
 
 function mapSegmentRowFinding(
@@ -346,14 +224,18 @@ function mapSegmentRowFinding(
   };
 }
 
-function selectFindingsFromSegmentDocuments(
-  dto: DDMatrixResponseDTO,
-): ReviewFinding[] {
-  if (!dto.segment_documents) return [];
-
+/**
+ * Разворачивает segment-based матрицу в плоский список findings.
+ *
+ * Для непрофессионального программиста:
+ * Внутри одной строки матрицы может быть несколько проверок.
+ * Эта функция делает из таких строк обычный плоский список записей,
+ * который удобно фильтровать, экспортировать и считать.
+ */
+function selectFindings(dto: DDMatrixResponseDTO): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
 
-  for (const row of dto.segment_documents) {
+  for (const row of dto.segment_documents ?? []) {
     const results = row.results ?? {};
 
     for (const check of dto.checks) {
@@ -375,85 +257,6 @@ function selectFindingsFromSegmentDocuments(
 
   return findings;
 }
-
-/**
- * Temporary fallback path from dto.documents.
- */
-function selectFindingsFromDocumentsFallback(
-  dto: DDMatrixResponseDTO,
-): ReviewFinding[] {
-  const findings: ReviewFinding[] = [];
-
-  for (const doc of dto.documents) {
-    const results = doc.results ?? {};
-
-    for (const check of dto.checks) {
-      const cell = results[check.check_id];
-      if (!cell) continue;
-
-      const segmentKey = getCellSegmentKey(cell);
-      const rowId = buildRowId(doc.document_id, segmentKey);
-      const findingId = `${doc.document_id}__${check.check_id}__${segmentKey}__${cell.chunk_id ?? "none"}`;
-
-      findings.push({
-        findingId,
-        rowId,
-
-        documentId: doc.document_id,
-        documentName: doc.document_name || "[no name]",
-        docType: doc.doc_type ?? null,
-        folderPath: doc.folder_path ?? null,
-
-        segmentId: cell.segment_id ?? null,
-        segmentTitle: cell.segment_title ?? null,
-        segmentType: cell.segment_type ?? null,
-        segmentOrder: cell.segment_order ?? null,
-        isPrimarySegment: cell.is_primary_segment ?? null,
-
-        checkId: check.check_id,
-        checkName: check.check_name || check.check_id,
-        origin: check.origin ?? null,
-        checkSeverityBaseline: check.severity ?? null,
-
-        result: cell.result,
-        severity: cell.severity ?? null,
-        qcStatus: cell.qc_status ?? null,
-        confidence: cell.confidence ?? null,
-
-        snippet: cell.snippet ?? null,
-        page: cell.page ?? null,
-        clauseUid: cell.clause_uid ?? null,
-
-        conditionalTriggered: cell.conditional_check_triggered ?? false,
-        triggerName: cell.trigger_name ?? null,
-
-        chunkId: cell.chunk_id ?? null,
-        chunkIndex: cell.chunk_index ?? null,
-
-        cell,
-      });
-    }
-  }
-
-  return findings;
-}
-
-/**
- * Разворачивает матрицу в плоский список findings.
- *
- * Primary source:
- * - dto.segment_documents
- * Fallback:
- * - dto.documents
- */
-function selectFindings(dto: DDMatrixResponseDTO): ReviewFinding[] {
-  if (dto.segment_documents && dto.segment_documents.length > 0) {
-    return selectFindingsFromSegmentDocuments(dto);
-  }
-
-  return selectFindingsFromDocumentsFallback(dto);
-}
-
 
 /**
  * Вычисляет статистику по строкам и findings.
@@ -515,4 +318,7 @@ function selectAvailableOrigins(columns: ReviewCheckColumn[]): string[] {
 
   return Array.from(origins).sort();
 }
+
+
+
 

@@ -25,11 +25,16 @@ interface ReviewExportButtonsProps {
 /**
  * Review-native export buttons.
  *
+ * Для непрофессионального программиста:
+ * Этот компонент экспортирует все findings, которые ему передали.
+ * Обычно это уже отфильтрованный набор после поиска и review filters.
+ *
  * ВАЖНО:
- * - экспортируют все переданные findings (filtered set);
- * - НЕ поддерживают selected-only export пока, потому что
- *   DDMatrixGrid selection сейчас row-level (documentId), а не finding-level;
- * - используют review export pipeline, а не legacy exportResults utils.
+ * - экспортируются все переданные findings;
+ * - selected-only export пока не поддерживается,
+ *   потому что selection в DDMatrixGrid сейчас row-level;
+ * - используется review-specific export pipeline,
+ *   а не legacy exportResults utils.
  */
 export const ReviewExportButtons: React.FC<ReviewExportButtonsProps> = ({
   findings,
@@ -38,25 +43,28 @@ export const ReviewExportButtons: React.FC<ReviewExportButtonsProps> = ({
 }) => {
   const isEmpty = findings.length === 0;
 
-  const handleExportExcel = () => {
+  const runExport = async (
+    exporter: (rows: ReturnType<typeof buildReviewExportRows>, meta: {
+      dealName?: string;
+      runId?: string;
+    }) => void | Promise<void>,
+  ) => {
     if (isEmpty) return;
 
     const rows = buildReviewExportRows(findings);
-    exportReviewRowsToExcel(rows, { dealName, runId });
+    await exporter(rows, { dealName, runId });
+  };
+
+  const handleExportExcel = () => {
+    void runExport(exportReviewRowsToExcel);
   };
 
   const handleExportPdf = () => {
-    if (isEmpty) return;
-
-    const rows = buildReviewExportRows(findings);
-    exportReviewRowsToPdf(rows, { dealName, runId });
+    void runExport(exportReviewRowsToPdf);
   };
 
-  const handleExportWord = async () => {
-    if (isEmpty) return;
-
-    const rows = buildReviewExportRows(findings);
-    await exportReviewRowsToWord(rows, { dealName, runId });
+  const handleExportWord = () => {
+    void runExport(exportReviewRowsToWord);
   };
 
   return (
@@ -110,5 +118,7 @@ export const ReviewExportButtons: React.FC<ReviewExportButtonsProps> = ({
 };
 
 export default ReviewExportButtons;
+
+
 
 

@@ -11,9 +11,17 @@ import App from "./App";
 import "./index.css";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
+import {
+  ModuleRegistry,
+  AllCommunityModule,
+  provideGlobalGridOptions,
+} from "ag-grid-community";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+provideGlobalGridOptions({
+  theme: "legacy",
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,3 +40,4 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     </BrowserRouter>
   </React.StrictMode>,
 );
+

@@ -2,14 +2,13 @@
 // src/components/grid/DDMatrixCellDetails.tsx
 // Unified review detail drawer for DD Matrix cell details.
 // Production-grade side panel for legal review evidence context.
-// С встроенным QC редактированием (Фаза 6).
+// С встроенным QC редактированием.
 // =============================================================
 
 import React from "react";
 import type {
   SeverityLevel,
   OpenViewerAtPayload,
-  CheckResult,
   ClassificationLevel,
 } from "../../types";
 import type { ReviewQcStatus } from "../../types/dealReview";
@@ -21,13 +20,13 @@ import { ClassificationBadge } from "../ui/ClassificationBadge";
 import { useUpdateReviewQc } from "../../api/qc";
 
 export interface MatrixCellDetailsCell {
-  result: CheckResult["result"] | string;
+  result: "pass" | "fail" | "unclear" | string;
   severity: SeverityLevel | null;
   snippet: string | null;
   page: number | null;
   clauseUid: string | null;
   confidence: number | null;
-  qcStatus: CheckResult["qc_status"] | null;
+  qcStatus: ReviewQcStatus | null;
   conditionalTriggered: boolean;
   triggerName: string | null;
 
@@ -40,7 +39,6 @@ export interface MatrixCellDetailsCell {
   docClassificationLevel?: ClassificationLevel | string | null;
   docClassificationConfidence?: number | null;
 
-  // segment/chunk provenance
   segmentId?: string | null;
   segmentTitle?: string | null;
   segmentType?: string | null;
@@ -65,25 +63,13 @@ export interface MatrixCellDetailsCell {
 export interface MatrixCellDetailsProps {
   open: boolean;
   onClose: () => void;
-
-  // NEW: runId needed for QC mutation
   runId: string | null;
-
   documentName: string | null;
   documentId: string | null;
-
   checkName: string | null;
   checkId: string | null;
-
   cell: MatrixCellDetailsCell | null;
-
   onOpenInViewer?: (payload: OpenViewerAtPayload) => void;
-
-  // DEPRECATED: replaced by local QC edit UI
-  onApprove?: () => void;
-  onReject?: () => void;
-  qcActionsDisabled?: boolean;
-  qcActionsHint?: string | null;
 }
 
 function getHumanResultText(
@@ -292,23 +278,17 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
   checkId,
   cell,
   onOpenInViewer,
-  onApprove,
-  onReject,
-  qcActionsDisabled = false,
-  qcActionsHint,
 }) => {
   const updateQc = useUpdateReviewQc();
 
-  // NEW: Local QC draft state
   const [localQcStatus, setLocalQcStatus] = React.useState<ReviewQcStatus>(
     "pending",
   );
   const [localQcComment, setLocalQcComment] = React.useState<string>("");
 
-  // Sync local state when cell changes
   React.useEffect(() => {
     if (!cell) return;
-    setLocalQcStatus((cell.qcStatus as ReviewQcStatus) ?? "pending");
+    setLocalQcStatus(cell.qcStatus ?? "pending");
     setLocalQcComment(cell.qcComment ?? "");
   }, [cell]);
 
@@ -316,38 +296,40 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
     return null;
   }
 
+  const savedQcStatus = cell.qcStatus ?? "pending";
+  const savedQcComment = cell.qcComment ?? "";
+
   const isDirty =
-    localQcStatus !== ((cell.qcStatus as ReviewQcStatus) ?? "pending") ||
-    localQcComment !== (cell.qcComment ?? "");
+    localQcStatus !== savedQcStatus || localQcComment !== savedQcComment;
 
   const canSave = isDirty && !updateQc.isPending && !!runId && !!checkId;
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!runId || !checkId || !documentId || !canSave) {
+      return;
+    }
 
     try {
       await updateQc.mutateAsync({
         finding: {
-          run_id: runId!,
+          run_id: runId,
           document_id: documentId,
-          check_id: checkId!,
+          check_id: checkId,
           segment_id: cell.segmentId ?? null,
         },
         qc_status: localQcStatus,
-        comment: localQcComment || null,
+        comment: localQcComment.trim() ? localQcComment.trim() : null,
       });
 
-      // Close drawer after successful save
       onClose();
     } catch (error) {
       console.error("Failed to save QC update:", error);
-      // Optionally show error toast
     }
   };
 
   const handleCancel = () => {
-    setLocalQcStatus((cell.qcStatus as ReviewQcStatus) ?? "pending");
-    setLocalQcComment(cell.qcComment ?? "");
+    setLocalQcStatus(savedQcStatus);
+    setLocalQcComment(savedQcComment);
   };
 
   const confidenceText = getConfidenceText(cell.confidence);
@@ -366,9 +348,6 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
       !!cell.segmentId ||
       !!cell.chunkId ||
       cell.chunkIndex != null);
-
-  const canApprove = !!onApprove && !qcActionsDisabled;
-  const canReject = !!onReject && !qcActionsDisabled;
 
   const handleOpenInViewer = () => {
     if (!onOpenInViewer) return;
@@ -427,38 +406,6 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {onApprove ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={onApprove}
-                disabled={!canApprove}
-                title={
-                  canApprove
-                    ? "Подтвердить результат"
-                    : qcActionsHint || "QC-действие временно недоступно"
-                }
-              >
-                ✅ Согласен
-              </Button>
-            ) : null}
-
-            {onReject ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={onReject}
-                disabled={!canReject}
-                title={
-                  canReject
-                    ? "Отклонить результат"
-                    : qcActionsHint || "QC-действие временно недоступно"
-                }
-              >
-                ❌ Не согласен
-              </Button>
-            ) : null}
-
             <Button variant="secondary" size="sm" onClick={onClose}>
               Закрыть
             </Button>
@@ -481,7 +428,6 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
       }
     >
       <div className="space-y-5">
-        {/* NEW: QC Edit Section */}
         <Section
           title="QC Review"
           subtitle="Статус и комментарий юридического review. Изменения применяются после нажатия Save."
@@ -497,7 +443,8 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
                   onChange={(e) =>
                     setLocalQcStatus(e.target.value as ReviewQcStatus)
                   }
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  disabled={updateQc.isPending}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
@@ -513,7 +460,8 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
                 <textarea
                   value={localQcComment}
                   onChange={(e) => setLocalQcComment(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  disabled={updateQc.isPending}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] disabled:cursor-not-allowed disabled:opacity-60"
                   rows={3}
                   placeholder="Оставьте комментарий к review (опционально)"
                 />
@@ -543,6 +491,12 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
                   Нет изменений для сохранения.
                 </div>
               )}
+
+              {!runId || !checkId ? (
+                <div className="rounded-lg border border-[var(--color-gold)]/20 bg-[var(--color-gold-highlight)] px-3 py-2 text-xs text-[var(--color-gold-hover)]">
+                  Сохранение QC временно недоступно: отсутствует runId или checkId.
+                </div>
+              ) : null}
 
               {updateQc.isError ? (
                 <div className="rounded-lg border border-[var(--color-error)]/20 bg-[var(--color-error)]/10 px-3 py-2 text-xs text-[var(--color-error)]">
@@ -855,16 +809,9 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
             </div>
           </InfoCard>
         </Section>
-
-        {qcActionsHint ? (
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] leading-5 text-[var(--text-muted)]">
-            {qcActionsHint}
-          </div>
-        ) : null}
       </div>
     </Drawer>
   );
 };
 
 export default DDMatrixCellDetails;
-

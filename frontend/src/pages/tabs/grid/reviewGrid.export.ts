@@ -8,6 +8,64 @@
 import type { ReviewFinding, ReviewExportRow } from "./reviewGrid.types";
 
 /**
+ * Плоская строка таблицы для Excel / PDF / Word генераторов.
+ *
+ * Для непрофессионального программиста:
+ * Это уже не внутренняя модель приложения, а почти готовая строка таблицы,
+ * где все значения приведены к строкам для удобного вывода в файлы.
+ */
+export interface ReviewExportTableRow {
+  "Document": string;
+  "Doc Type": string;
+  "Folder": string;
+
+  "Segment Title": string;
+  "Segment Type": string;
+  "Segment Order": string;
+  "Primary Segment": string;
+
+  "Check": string;
+  "Origin": string;
+
+  "Result": string;
+  "Severity": string;
+  "QC": string;
+  "Confidence": string;
+
+  "Snippet": string;
+  "Page": string;
+  "Clause UID": string;
+
+  "Conditional": string;
+  "Trigger": string;
+
+  "Finding ID": string;
+  "Document ID": string;
+  "Segment ID": string;
+  "Check ID": string;
+  "Chunk ID": string;
+  "Chunk Index": string;
+}
+
+/**
+ * Форматирует булево значение для экспортной таблицы.
+ */
+function formatYesNo(value: boolean): string {
+  return value ? "Yes" : "No";
+}
+
+/**
+ * Форматирует confidence в проценты для экспортной таблицы.
+ */
+function formatConfidence(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "";
+  }
+
+  return `${Math.round(value * 100)}%`;
+}
+
+/**
  * Преобразует один ReviewFinding в canonical export row.
  *
  * ВАЖНО:
@@ -56,7 +114,10 @@ export function mapReviewFindingToExportRow(
 /**
  * Преобразует список review findings в canonical export rows.
  *
- * Это основной вход для review export buttons / export utils.
+ * Для непрофессионального программиста:
+ * Это главный вход для review export buttons и export utils.
+ * Сначала findings приводятся к стабильной review export форме,
+ * и только потом генераторы строят из неё файлы.
  */
 export function buildReviewExportRows(
   findings: ReviewFinding[],
@@ -70,11 +131,11 @@ export function buildReviewExportRows(
  *
  * ВАЖНО:
  * - это НЕ legacy CheckResult-формат;
- * - это простой presentation-ready table model для файлового экспорта.
+ * - это presentation-ready table model для файлового экспорта.
  */
 export function buildReviewExportTableRows(
   rows: ReviewExportRow[],
-): Array<Record<string, string>> {
+): ReviewExportTableRow[] {
   return rows.map((row) => ({
     "Document": row.documentName,
     "Doc Type": row.docType ?? "",
@@ -83,7 +144,7 @@ export function buildReviewExportTableRows(
     "Segment Title": row.segmentTitle ?? "",
     "Segment Type": row.segmentType ?? "",
     "Segment Order": row.segmentOrder != null ? String(row.segmentOrder) : "",
-    "Primary Segment": row.isPrimarySegment ? "Yes" : "No",
+    "Primary Segment": formatYesNo(Boolean(row.isPrimarySegment)),
 
     "Check": row.checkName,
     "Origin": row.origin ?? "",
@@ -91,16 +152,13 @@ export function buildReviewExportTableRows(
     "Result": row.result,
     "Severity": row.severity ?? "",
     "QC": row.qcStatus ?? "",
-    "Confidence":
-      typeof row.confidence === "number"
-        ? `${Math.round(row.confidence * 100)}%`
-        : "",
+    "Confidence": formatConfidence(row.confidence),
 
     "Snippet": row.snippet ?? "",
     "Page": row.page != null ? String(row.page) : "",
     "Clause UID": row.clauseUid ?? "",
 
-    "Conditional": row.conditionalTriggered ? "Yes" : "No",
+    "Conditional": formatYesNo(Boolean(row.conditionalTriggered)),
     "Trigger": row.triggerName ?? "",
 
     "Finding ID": row.findingId,

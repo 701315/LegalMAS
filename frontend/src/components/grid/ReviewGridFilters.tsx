@@ -28,6 +28,16 @@ const QUICK_FILTERS: Array<{ key: ReviewQuickFilter; label: string }> = [
   { key: "low_confidence", label: "Low confidence" },
 ];
 
+const ORIGIN_LABELS: Record<string, string> = {
+  GLOBAL_PLAYBOOK: "Глобальный плейбук",
+  DOCUMENT_TYPE: "По типу документа",
+  CONDITIONAL: "Условные проверки",
+};
+
+function getOriginLabel(origin: string): string {
+  return ORIGIN_LABELS[origin] ?? origin;
+}
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -186,7 +196,7 @@ const ReviewGridFilters: React.FC<ReviewGridFiltersProps> = ({
         {availableOrigins.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
-              Origin
+              Область проверок
             </div>
             <div className="flex flex-wrap gap-2">
               {availableOrigins.map((origin) => {
@@ -211,7 +221,7 @@ const ReviewGridFilters: React.FC<ReviewGridFiltersProps> = ({
                         : "border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]",
                     )}
                   >
-                    {origin}
+                    {getOriginLabel(origin)}
                   </button>
                 );
               })}
@@ -224,5 +234,8 @@ const ReviewGridFilters: React.FC<ReviewGridFiltersProps> = ({
 };
 
 export default ReviewGridFilters;
+
+
+
 
 

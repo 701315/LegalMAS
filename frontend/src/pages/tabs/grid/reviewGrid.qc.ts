@@ -1,20 +1,29 @@
 // =============================================================
 // src/pages/tabs/grid/reviewGrid.qc.ts
 // QC-помощники для review-only режима DD Grid.
+//
+// Для непрофессионального программиста:
+// Этот файл описывает, как review grid готовит выбранные строки
+// к возможному QC-процессу.
+//
 // ВАЖНО:
-// Текущий QC API LegalMAS принимает только legacy result_ids.
-// В review matrix backend DTO не содержит result_id, поэтому
-// прямой bulk QC для review-mode пока недоступен без backend support.
+// - selection в review grid сейчас row-level, то есть пользователь выбирает
+//   строки матрицы, а не отдельные findings;
+// - backend QC API LegalMAS пока принимает только legacy result_ids;
+// - review matrix backend DTO не содержит result_id,
+//   поэтому прямой bulk QC для review mode пока недоступен.
 // =============================================================
 
 import type { ReviewFinding, ReviewSelectionItem } from "./reviewGrid.types";
 
 /**
- * Тип причины, почему review selection пока нельзя отправить в legacy QC API.
+ * Причина, почему текущую review selection пока нельзя отправить в QC API.
+ *
+ * Для непрофессионального программиста:
+ * Сейчас причина только одна — backend ждёт legacy result_ids,
+ * а в review DTO таких идентификаторов нет.
  */
-export type ReviewQcUnsupportedReason =
-  | "missing_legacy_result_ids"
-  | "review_api_not_implemented";
+export type ReviewQcUnsupportedReason = "missing_legacy_result_ids";
 
 /**
  * Итог проверки возможности QC по текущему review selection.
@@ -27,11 +36,12 @@ export interface ReviewQcCapability {
 }
 
 /**
- * Строка выборки для будущего review-QC API.
+ * Нормализованная строка выборки для будущего review-QC API.
  *
- * ВАЖНО:
- * - selection в review grid сейчас row-level;
- * - поэтому QC targets строятся из findings, принадлежащих выбранным rows.
+ * Для непрофессионального программиста:
+ * Это не payload для текущего backend.
+ * Это аккуратная промежуточная структура, которую можно будет
+ * использовать в будущем review-specific endpoint.
  */
 export interface ReviewQcTarget {
   findingId: string;
@@ -53,12 +63,12 @@ export interface ReviewQcTarget {
 }
 
 /**
- * Возвращает выбранные findings по row-level selection item list.
+ * Возвращает findings, которые относятся к выбранным строкам review matrix.
  *
- * ВАЖНО:
- * - review selection сейчас хранит rowId, а не findingId;
- * - выбранная строка матрицы может содержать несколько findings;
- * - поэтому функция возвращает все findings выбранных rows.
+ * Для непрофессионального программиста:
+ * Одна выбранная строка матрицы может содержать несколько findings.
+ * Поэтому функция возвращает не одну запись на строку,
+ * а все findings, принадлежащие выбранным rowId.
  */
 export function getSelectedReviewFindings(
   findings: ReviewFinding[],
@@ -75,8 +85,9 @@ export function getSelectedReviewFindings(
 /**
  * Преобразует findings в нормализованный список review QC targets.
  *
- * Эта функция подготавливает selection-derived findings
- * к будущему review-specific QC endpoint.
+ * Для непрофессионального программиста:
+ * Эта функция нужна не для текущего legacy QC API,
+ * а для будущего review-specific QC API.
  */
 export function buildReviewQcTargets(
   findings: ReviewFinding[],
@@ -104,8 +115,10 @@ export function buildReviewQcTargets(
 /**
  * Проверяет, можно ли текущую review selection отправить в QC.
  *
+ * Для непрофессионального программиста:
  * Сейчас ответ всегда "нет", потому что backend QC API принимает только
- * result_ids из legacy CheckResult[], а review DTO таких id не содержит.
+ * legacy result_ids из старой модели CheckResult[],
+ * а review DTO таких id не содержит.
  */
 export function getReviewQcCapability(
   selection: ReviewSelectionItem[],
@@ -124,19 +137,17 @@ export function getReviewQcCapability(
     reason: "missing_legacy_result_ids",
     selectedCount: selection.length,
     message:
-      "QC для review-матрицы пока недоступен: выборка в review mode работает на уровне строк матрицы, а backend QC API принимает только legacy result_ids, которых в review DTO нет.",
+      "QC для review-матрицы пока недоступен: backend QC API принимает только legacy result_ids, а review DTO их не содержит.",
   };
 }
 
 /**
- * Возвращает текст для disabled-state / helper note в UI.
+ * Возвращает поясняющий текст для disabled-state в UI.
  */
 export function getReviewQcDisabledNote(
   selection: ReviewSelectionItem[],
 ): string {
-  const capability = getReviewQcCapability(selection);
-  return capability.message;
+  return getReviewQcCapability(selection).message;
 }
-
 
 

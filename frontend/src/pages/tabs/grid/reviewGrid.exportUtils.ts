@@ -2,6 +2,10 @@
 // src/pages/tabs/grid/reviewGrid.exportUtils.ts
 // Review-native utilities для экспорта ReviewExportRow[] в Excel / PDF / Word.
 // Без зависимости от legacy CheckResult[].
+//
+// Для непрофессионального программиста:
+// Этот файл берёт готовые ReviewExportRow[] и генерирует из них
+// конкретные файлы: XLSX, PDF, DOCX.
 // =============================================================
 
 import * as XLSX from "xlsx";
@@ -20,19 +24,23 @@ import {
 } from "docx";
 
 import type { ReviewExportRow } from "./reviewGrid.types";
-import {
-  buildReviewExportTableRows,
-} from "./reviewGrid.export";
+import { buildReviewExportTableRows } from "./reviewGrid.export";
 
 interface ReviewExportOptions {
   dealName?: string;
   runId?: string;
 }
 
+/**
+ * Убирает небезопасные символы из имени файла.
+ */
 function sanitizeFilePart(s: string): string {
   return s.replace(/[\\/:*?"<>|]+/g, "_").slice(0, 50);
 }
 
+/**
+ * Строит базовое имя файла для export.
+ */
 function buildBaseFilename(
   suffix: "xlsx" | "pdf" | "docx",
   opts?: ReviewExportOptions,
@@ -42,6 +50,9 @@ function buildBaseFilename(
   return `dd_review_results${deal}${run}.${suffix}`;
 }
 
+/**
+ * Строит подзаголовок для файла экспорта.
+ */
 function buildSubtitle(opts?: ReviewExportOptions): string {
   const parts: string[] = [];
   if (opts?.dealName) parts.push(`Deal: ${opts.dealName}`);
@@ -49,6 +60,9 @@ function buildSubtitle(opts?: ReviewExportOptions): string {
   return parts.join(" | ");
 }
 
+/**
+ * Создаёт TableCell для Word export.
+ */
 function wordCell(text: string, bold = false): TableCell {
   return new TableCell({
     children: [
@@ -59,6 +73,13 @@ function wordCell(text: string, bold = false): TableCell {
   });
 }
 
+/**
+ * Экспортирует review rows в Excel.
+ *
+ * Для непрофессионального программиста:
+ * Использует готовый buildReviewExportTableRows(),
+ * который уже привёл все значения к строковому виду.
+ */
 export function exportReviewRowsToExcel(
   rows: ReviewExportRow[],
   opts?: ReviewExportOptions,
@@ -73,6 +94,13 @@ export function exportReviewRowsToExcel(
   XLSX.writeFile(workbook, buildBaseFilename("xlsx", opts));
 }
 
+/**
+ * Экспортирует review rows в PDF.
+ *
+ * Для непрофессионального программиста:
+ * Использует jsPDF + autoTable для построения landscape-таблицы.
+ * Теперь берёт готовые ReviewExportTableRow[] для единообразия форматирования.
+ */
 export function exportReviewRowsToPdf(
   rows: ReviewExportRow[],
   opts?: ReviewExportOptions,
@@ -92,6 +120,8 @@ export function exportReviewRowsToPdf(
     doc.text(subtitle, 14, 22);
   }
 
+  const tableRows = buildReviewExportTableRows(rows);
+
   const head = [[
     "Document",
     "Segment",
@@ -107,21 +137,19 @@ export function exportReviewRowsToPdf(
     "Snippet",
   ]];
 
-  const body = rows.map((row) => [
-    row.documentName,
-    row.segmentTitle ?? row.segmentId ?? "",
-    row.checkName,
-    row.origin ?? "",
-    row.result,
-    row.severity ?? "",
-    row.qcStatus ?? "",
-    typeof row.confidence === "number"
-      ? `${Math.round(row.confidence * 100)}%`
-      : "",
-    row.page != null ? String(row.page) : "",
-    row.clauseUid ?? "",
-    row.conditionalTriggered ? "Yes" : "No",
-    (row.snippet ?? "").slice(0, 120),
+  const body = tableRows.map((row) => [
+    row["Document"],
+    row["Segment Title"] || row["Segment ID"],
+    row["Check"],
+    row["Origin"],
+    row["Result"],
+    row["Severity"],
+    row["QC"],
+    row["Confidence"],
+    row["Page"],
+    row["Clause UID"],
+    row["Conditional"],
+    (row["Snippet"] || "").slice(0, 120),
   ]);
 
   autoTable(doc, {
@@ -141,6 +169,13 @@ export function exportReviewRowsToPdf(
   doc.save(buildBaseFilename("pdf", opts));
 }
 
+/**
+ * Экспортирует review rows в Word.
+ *
+ * Для непрофессионального программиста:
+ * Использует docx library для построения Word-документа с таблицей.
+ * Теперь берёт готовые ReviewExportTableRow[] для единообразия форматирования.
+ */
 export async function exportReviewRowsToWord(
   rows: ReviewExportRow[],
   opts?: ReviewExportOptions,
@@ -170,6 +205,8 @@ export async function exportReviewRowsToWord(
     }),
   );
 
+  const tableRows = buildReviewExportTableRows(rows);
+
   const tableHeader = new TableRow({
     children: [
       wordCell("Document", true),
@@ -183,28 +220,24 @@ export async function exportReviewRowsToWord(
     ],
   });
 
-  const tableRows = rows.map(
+  const docxTableRows = tableRows.map(
     (row) =>
       new TableRow({
         children: [
-          wordCell(row.documentName),
-          wordCell(row.segmentTitle ?? row.segmentId ?? ""),
-          wordCell(row.checkName),
-          wordCell(row.result),
-          wordCell(row.severity ?? ""),
-          wordCell(row.qcStatus ?? ""),
-          wordCell(
-            typeof row.confidence === "number"
-              ? `${Math.round(row.confidence * 100)}%`
-              : "",
-          ),
-          wordCell(row.conditionalTriggered ? "Yes" : "No"),
+          wordCell(row["Document"]),
+          wordCell(row["Segment Title"] || row["Segment ID"]),
+          wordCell(row["Check"]),
+          wordCell(row["Result"]),
+          wordCell(row["Severity"]),
+          wordCell(row["QC"]),
+          wordCell(row["Confidence"]),
+          wordCell(row["Conditional"]),
         ],
       }),
   );
 
   const table = new Table({
-    rows: [tableHeader, ...tableRows],
+    rows: [tableHeader, ...docxTableRows],
     width: { size: 100, type: "pct" },
   });
 
@@ -219,5 +252,7 @@ export async function exportReviewRowsToWord(
   const blob = await Packer.toBlob(document);
   saveAs(blob, buildBaseFilename("docx", opts));
 }
+
+
 
 
