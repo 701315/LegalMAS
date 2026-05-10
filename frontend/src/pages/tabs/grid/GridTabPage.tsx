@@ -1,44 +1,20 @@
 // =============================================================
 // src/pages/tabs/grid/GridTabPage.tsx
-// Вкладка "DD Grid":
-// - legacy режим: поиск + фильтры + Magic Zoom + bulk QC поверх CheckResult[]
-// - review режим: backend dd-matrix DTO поверх run-scoped review API
-//   + DDMatrixGrid для 2D matrix view
-//   + DDReviewListGrid для flat findings list view
-//   + unified DDMatrixCellDetails для evidence (без MagicZoom/EvidencePanel)
-// Приведено к общему дизайну workspace LegalMAS.
+// Review-only DD Grid workspace:
+// - run-scoped review matrix API via useDealReviewDdMatrix
+// - DDMatrixGrid for 2D matrix view
+// - DDReviewListGrid for flat findings list view
+// - unified DocumentViewerModal for evidence navigation
+// - review filters, export, and selection state only
 // =============================================================
 
 import React from "react";
 
-import { useAllResults } from "../../../api/results";
-import {
-  useConfirmResults,
-  useRejectResults,
-  useOverrideResults,
-} from "../../../api/qc";
 import { useDealReviewDdMatrix } from "../../../api/dealReview";
 import { useRun } from "../../../api/runs";
-import { useDocuments } from "../../../api/documents";
 import ReviewGridFilters from "../../../components/grid/ReviewGridFilters";
-import type {
-  CheckResult,
-  QCStatus,
-  SeverityLevel,
-  CheckResultValue,
-  OpenViewerAtFn,
-  DocumentCompositionMeta,
-} from "../../../types";
-
-import DDGrid from "../../../components/grid/DDGrid";
 import DDMatrixGrid from "../../../components/grid/DDMatrixGrid";
 import DDReviewListGrid from "../../../components/grid/DDReviewListGrid";
-import GridFilters, {
-  type QuickFilter,
-} from "../../../components/grid/GridFilters";
-import MagicZoom from "../../../components/evidence/MagicZoom";
-import EvidencePanel from "../../../components/evidence/EvidencePanel";
-import BulkQCBar from "../../../components/qc/BulkQCBar";
 import Button from "../../../components/ui/Button";
 import PageSection from "../../../components/ui/PageSection";
 import DocumentViewerModal, {
@@ -46,34 +22,13 @@ import DocumentViewerModal, {
   type SizedChunkMeta,
 } from "../../../components/viewer/DocumentViewerModal";
 
-import { useDealPermissions } from "../../../hooks/usePermissions";
-import {
-  filterReviewFindings,
-  filterReviewRows,
-} from "./reviewGrid.filters";
+import type { OpenViewerAtFn } from "../../../types";
+
+import { filterReviewFindings, filterReviewRows } from "./reviewGrid.filters";
 import { INLINE_PANEL_ACTIVE_CLASS } from "./gridTab.constants";
-import {
-  ExportStatCard,
-  ScopeInlinePanel,
-  SectionCard,
-  StatCard,
-} from "./gridTab.sections";
-import type {
-  GridDataSource,
-  GridMode,
-  GridScope,
-  GridTabProps,
-  ViewerState,
-} from "./gridTab.types";
+import { SectionCard, StatCard } from "./gridTab.sections";
+import type { GridMode, GridTabProps, ViewerState } from "./gridTab.types";
 import { humanChecksMode } from "./gridTab.utils";
-import {
-  filterLegacyResults,
-  getDoctypeResults,
-  getGlobalResults,
-  getScopeDoctypes,
-  getScopeResults,
-  getSelectedResults,
-} from "./gridTab.filters";
 import {
   DEFAULT_REVIEW_FILTER_STATE,
   type ReviewFilterState,
@@ -83,61 +38,299 @@ import { selectReviewGridData } from "./reviewGrid.selectors";
 import ReviewExportButtons from "./ReviewExportButtons";
 import { getReviewQcDisabledNote } from "./reviewGrid.qc";
 
-const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
-  const [dataSource, setDataSource] =
-    React.useState<GridDataSource>("legacy");
+type LayoutElementApi = {
+  element_id: string;
+  page: number;
+  bbox: [number, number, number, number];
+};
 
-  const [searchText, setSearchText] = React.useState("");
-  const [quickFilter, setQuickFilter] = React.useState<QuickFilter>("all");
-  const [zoomResult, setZoomResult] = React.useState<CheckResult | null>(null);
-  const [panelResult, setPanelResult] = React.useState<CheckResult | null>(
-    null,
+type StatusStateCardProps = {
+  title: string;
+  description?: string;
+  tone?: "default" | "error";
+};
+
+type ModeToggleProps = {
+  value: GridMode;
+  onChange: (mode: GridMode) => void;
+};
+
+type FiltersPanelProps = {
+  open: boolean;
+  gridMode: GridMode;
+  filterState: ReviewFilterState;
+  availableDocTypes: string[];
+  availableOrigins: string[];
+  onFilterStateChange: React.Dispatch<React.SetStateAction<ReviewFilterState>>;
+  onReset: () => void;
+  onClose: () => void;
+};
+
+type FetchTextOptions = {
+  url: string;
+  errorMessage: string;
+  init?: RequestInit;
+};
+
+type FetchJsonOptions = {
+  url: string;
+  init?: RequestInit;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isBboxTuple(
+  value: unknown,
+): value is [number, number, number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every((item) => typeof item === "number")
   );
-  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
-  const [legacyMultiDocOnly] = React.useState(false);
+}
 
+function isLayoutElementApi(value: unknown): value is LayoutElementApi {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.element_id === "string" &&
+    typeof value.page === "number" &&
+    isBboxTuple(value.bbox)
+  );
+}
+
+function parseLayoutElements(payload: unknown): LayoutElement[] | undefined {
+  if (!isRecord(payload) || !Array.isArray(payload.elements)) {
+    return undefined;
+  }
+
+  return payload.elements
+    .filter(isLayoutElementApi)
+    .map((element) => ({
+      elementId: element.element_id,
+      page: element.page,
+      bbox: element.bbox,
+    }));
+}
+
+function parseSizedChunks(payload: unknown): SizedChunkMeta[] | undefined {
+  if (!isRecord(payload) || !Array.isArray(payload.chunks)) {
+    return undefined;
+  }
+
+  return payload.chunks
+    .filter(isRecord)
+    .map((chunk) => ({
+      id: String(chunk.id ?? ""),
+      elementIds: Array.isArray(chunk.element_ids)
+        ? chunk.element_ids.map(String)
+        : [],
+      clauseUids: Array.isArray(chunk.clause_uids)
+        ? chunk.clause_uids.map(String)
+        : [],
+    }))
+    .filter((chunk) => chunk.id.length > 0);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+async function fetchTextOrThrow({
+  url,
+  errorMessage,
+  init,
+}: FetchTextOptions): Promise<string> {
+  const response = await fetch(url, init);
+
+  if (!response.ok) {
+    throw new Error(errorMessage);
+  }
+
+  const text = await response.text();
+  if (!text) {
+    throw new Error(errorMessage);
+  }
+
+  return text;
+}
+
+async function fetchJsonIfOk({
+  url,
+  init,
+}: FetchJsonOptions): Promise<unknown | undefined> {
+  const response = await fetch(url, init);
+
+  if (!response.ok) {
+    return undefined;
+  }
+
+  return response.json();
+}
+
+const StatusStateCard: React.FC<StatusStateCardProps> = ({
+  title,
+  description,
+  tone = "default",
+}) => {
+  const contentClassName =
+    tone === "error"
+      ? "rounded-xl border border-[var(--color-error)]/20 bg-[var(--color-error)]/10 px-4 py-3 text-sm text-[var(--color-error)]"
+      : "text-sm text-[var(--text-muted)]";
+
+  return (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+      <div className="px-6 py-10">
+        <div
+          className={
+            tone === "error"
+              ? contentClassName
+              : "flex min-h-[280px] flex-col items-center justify-center text-center"
+          }
+        >
+          <div className={contentClassName}>
+            <div
+              className={
+                tone === "error"
+                  ? undefined
+                  : "text-base font-semibold text-[var(--text-primary)]"
+              }
+            >
+              {title}
+            </div>
+            {description ? (
+              <p
+                className={
+                  tone === "error"
+                    ? "mt-0"
+                    : "mt-2 max-w-md text-sm text-[var(--text-muted)]"
+                }
+              >
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ModeToggle: React.FC<ModeToggleProps> = ({ value, onChange }) => {
+  const getTabClassName = (mode: GridMode) =>
+    value === mode
+      ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
+      : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]";
+
+  return (
+    <div
+      className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-1"
+      role="tablist"
+      aria-label="Review view mode"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === "matrix"}
+        onClick={() => onChange("matrix")}
+        className={getTabClassName("matrix")}
+      >
+        Матрица
+      </button>
+
+      <button
+        type="button"
+        role="tab"
+        aria-selected={value === "list"}
+        onClick={() => onChange("list")}
+        className={getTabClassName("list")}
+      >
+        Список
+      </button>
+    </div>
+  );
+};
+
+const FiltersPanel: React.FC<FiltersPanelProps> = ({
+  open,
+  gridMode,
+  filterState,
+  availableDocTypes,
+  availableOrigins,
+  onFilterStateChange,
+  onReset,
+  onClose,
+}) => {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+      <div className="border-b border-[var(--border-subtle)] px-4 py-3">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">
+          Фильтры review {gridMode === "list" ? "list" : "matrix"}
+        </p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+          Поиск, quick filters и ограничения по типу документа / origin.
+        </p>
+      </div>
+
+      <div className="px-4 py-4">
+        <ReviewGridFilters
+          filterState={filterState}
+          onFilterStateChange={onFilterStateChange}
+          availableDocTypes={availableDocTypes}
+          availableOrigins={availableOrigins}
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={onReset}
+        >
+          Сбросить
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={onClose}
+        >
+          Закрыть
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   const [reviewFilterState, setReviewFilterState] =
     React.useState<ReviewFilterState>(DEFAULT_REVIEW_FILTER_STATE);
-
   const [reviewSelection, setReviewSelection] = React.useState<
     ReviewSelectionItem[]
   >([]);
   const [isReviewFiltersPanelOpen, setIsReviewFiltersPanelOpen] =
     React.useState(false);
-
-  const [gridScope, setGridScope] = React.useState<GridScope>("all");
-  const [selectedScopeDocTypes, setSelectedScopeDocTypes] = React.useState<
-    string[]
-  >([]);
   const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
-  const [isScopePanelOpen, setIsScopePanelOpen] = React.useState(false);
-  const [isFiltersPanelOpen, setIsFiltersPanelOpen] = React.useState(false);
-
   const [viewerState, setViewerState] = React.useState<ViewerState>(null);
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
   const [viewerError, setViewerError] = React.useState<string | null>(null);
-
-  const { canReclassifyDocuments } = useDealPermissions(dealId);
-  const canDoQc = canReclassifyDocuments;
-
-  const { data: documentsPage } = useDocuments(dealId);
-
-  const compositionByDocId = React.useMemo(() => {
-    const items = documentsPage?.items ?? [];
-    return new Map<string, DocumentCompositionMeta>(
-      items
-        .filter((d): d is typeof d & { composition: DocumentCompositionMeta } =>
-          d.composition != null,
-        )
-        .map((d) => [d.id, d.composition]),
-    );
-  }, [documentsPage]);
-
-  const {
-    data: allResults = [],
-    isLoading: isLegacyLoading,
-    error: legacyError,
-  } = useAllResults(runId);
 
   const {
     data: ddMatrix,
@@ -150,91 +343,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     isLoading: isRunLoading,
     error: runError,
   } = useRun(runId, false);
-
-  React.useEffect(() => {
-    if (!run) return;
-
-    const mode = run.checks_mode;
-    if (mode === "global_only") {
-      setGridScope("global");
-    } else if (mode === "doc_type_only") {
-      setGridScope("doctype");
-    } else {
-      setGridScope("all");
-    }
-  }, [run]);
-
-  const confirmMutation = useConfirmResults();
-  const rejectMutation = useRejectResults();
-  const overrideMutation = useOverrideResults();
-
-  const filteredResults = React.useMemo(
-    () =>
-      filterLegacyResults({
-        results: allResults,
-        searchText,
-        quickFilter,
-      }),
-    [allResults, searchText, quickFilter],
-  );
-
-  const globalResults = React.useMemo(
-    () => getGlobalResults(filteredResults),
-    [filteredResults],
-  );
-
-  const doctypeResults = React.useMemo(
-    () => getDoctypeResults(filteredResults),
-    [filteredResults],
-  );
-
-  const scopeDoctypes = React.useMemo(
-    () => getScopeDoctypes(doctypeResults),
-    [doctypeResults],
-  );
-
-  const scopeResults = React.useMemo(
-    () =>
-      getScopeResults({
-        gridScope,
-        filteredResults,
-        globalResults,
-        doctypeResults,
-        selectedScopeDocTypes,
-      }),
-    [
-      gridScope,
-      filteredResults,
-      globalResults,
-      doctypeResults,
-      selectedScopeDocTypes,
-    ],
-  );
-
-  const uniqueDocCount = React.useMemo(
-    () => new Set(scopeResults.map((r) => r.document_id)).size,
-    [scopeResults],
-  );
-
-  const importantCount = React.useMemo(
-    () =>
-      allResults.filter(
-        (r) =>
-          (r.severity === "critical" || r.severity === "high") &&
-          r.qc_status === "pending",
-      ).length,
-    [allResults],
-  );
-
-  const unclearCount = React.useMemo(
-    () => allResults.filter((r) => r.result === "unclear").length,
-    [allResults],
-  );
-
-  const selectedResults = React.useMemo(
-    () => getSelectedResults(scopeResults, selectedIds),
-    [scopeResults, selectedIds],
-  );
 
   const reviewDerived = React.useMemo(
     () => selectReviewGridData(ddMatrix ?? null),
@@ -268,20 +376,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 
   const checksModeLabel = humanChecksMode(run?.checks_mode);
 
-  const scopeButtonLabel =
-    gridScope === "all"
-      ? "Область: все"
-      : gridScope === "global"
-        ? "Область: глобальный плейбук"
-        : selectedScopeDocTypes.length > 0
-          ? `Типы документов: ${selectedScopeDocTypes.length}`
-          : "Область: по типу документа";
-
-  const filtersButtonLabel =
-    quickFilter === "all" && !searchText.trim()
-      ? "Фильтры"
-      : "Фильтры применены";
-
   const reviewFiltersButtonLabel =
     reviewFilterState.quickFilter === "all" &&
     !reviewFilterState.searchText.trim() &&
@@ -292,247 +386,97 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       ? "Фильтры"
       : "Фильтры применены";
 
-  const handleEyeClick = (result: CheckResult) => {
-    setZoomResult(result);
-  };
-
-  const handleCloseZoom = () => {
-    setZoomResult(null);
-  };
-
-  const handleOpenFull = (result: CheckResult) => {
-    setPanelResult(result);
-  };
-
-  const handleClosePanel = () => {
-    setPanelResult(null);
-  };
-
-  const handleZoomQcChange = (
-    result: CheckResult,
-    newStatus: Exclude<QCStatus, "pending">,
-  ) => {
-    if (!canDoQc) return;
-    console.log("QC change from MagicZoom", result.id, newStatus);
-  };
-
-  const handleSelectionChange = (ids: string[]) => {
-    if (!canDoQc) {
-      setSelectedIds([]);
-      return;
-    }
-
-    setSelectedIds(ids);
-  };
-
-  const handleBulkConfirm = (comment: string) => {
-    if (!canDoQc || !selectedIds.length) return;
-    confirmMutation.mutate({ ids: selectedIds, comment });
-  };
-
-  const handleBulkReject = (comment: string) => {
-    if (!canDoQc || !selectedIds.length) return;
-    rejectMutation.mutate({ ids: selectedIds, comment });
-  };
-
-  const handleBulkOverride = ({
-    newSeverity,
-    newResult,
-    comment,
-  }: {
-    newSeverity: SeverityLevel;
-    newResult?: CheckResultValue;
-    comment: string;
-  }) => {
-    if (!canDoQc || !selectedIds.length) return;
-
-    overrideMutation.mutate({
-      ids: selectedIds,
-      newSeverity,
-      comment,
-      newResult,
-    });
-  };
-
-  const handlePanelQcChange = (
-    result: CheckResult,
-    newStatus: Exclude<QCStatus, "pending">,
-  ) => {
-    if (!canDoQc) return;
-    console.log("QC change from EvidencePanel", result.id, newStatus);
-  };
-
-  const toggleScopeDocType = (docType: string) => {
-    setSelectedScopeDocTypes((prev) =>
-      prev.includes(docType)
-        ? prev.filter((d) => d !== docType)
-        : [...prev, docType],
-    );
-  };
-
-  const resetScopeDocTypes = () => {
-    setSelectedScopeDocTypes([]);
-  };
-
-  const handleResetReviewFilters = () => {
+  const handleResetReviewFilters = React.useCallback(() => {
     setReviewFilterState(DEFAULT_REVIEW_FILTER_STATE);
-  };
+  }, []);
 
-  const handleReviewSelectionChange = (rowIds: string[]) => {
-    const items: ReviewSelectionItem[] = rowIds.map((rowId) => ({
-      rowId,
-    }));
-    setReviewSelection(items);
-  };
+  const handleReviewSelectionChange = React.useCallback((rowIds: string[]) => {
+    setReviewSelection(rowIds.map((rowId) => ({ rowId })));
+  }, []);
 
-  const openViewerAt: OpenViewerAtFn = async (loc) => {
+  const handleCloseViewer = React.useCallback(() => {
+    setViewerState(null);
+  }, []);
+
+  const handleOpenFilters = React.useCallback(() => {
+    setIsReviewFiltersPanelOpen((prev) => !prev);
+  }, []);
+
+  const handleCloseFilters = React.useCallback(() => {
+    setIsReviewFiltersPanelOpen(false);
+  }, []);
+
+  const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
     try {
       setViewerError(null);
       setIsViewerLoading(true);
 
-      const resp = await fetch(
-        `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
-        { credentials: "include" },
-      );
+      const requestInit: RequestInit = { credentials: "include" };
 
-      if (!resp.ok) {
-        console.error("Failed to fetch pdf-url", resp.status);
-        setViewerError("Не удалось получить ссылку на PDF документа");
-        setIsViewerLoading(false);
-        return;
-      }
+      const pdfUrl = await fetchTextOrThrow({
+        url: `/api/v1/documents/${loc.documentId}/converted-pdf-url`,
+        errorMessage: "Не удалось получить ссылку на PDF документа",
+        init: requestInit,
+      });
 
-      const pdfUrl = await resp.text();
-
-      if (!pdfUrl) {
-        setViewerError("Сервер не вернул ссылку на PDF");
-        setIsViewerLoading(false);
-        return;
-      }
-
-      const [layoutResp, chunksResp] = await Promise.all([
-        fetch(`/api/v1/documents/${loc.documentId}/layout-for-viewer`, {
-          credentials: "include",
+      const [layoutJson, chunksJson] = await Promise.all([
+        fetchJsonIfOk({
+          url: `/api/v1/documents/${loc.documentId}/layout-for-viewer`,
+          init: requestInit,
         }),
-        fetch(`/api/v1/documents/${loc.documentId}/sized-chunks`, {
-          credentials: "include",
+        fetchJsonIfOk({
+          url: `/api/v1/documents/${loc.documentId}/sized-chunks`,
+          init: requestInit,
         }),
       ]);
-
-      let layoutElements: LayoutElement[] | undefined;
-      let sizedChunks: SizedChunkMeta[] | undefined;
-
-      if (layoutResp.ok) {
-        const layoutJson = await layoutResp.json();
-        layoutElements = (layoutJson.elements ?? []).map((el: any) => ({
-          elementId: el.element_id,
-          page: el.page,
-          bbox: el.bbox,
-        }));
-      }
-
-      if (chunksResp.ok) {
-        const chunksJson = await chunksResp.json();
-        const rawChunks = Array.isArray(chunksJson?.chunks)
-          ? chunksJson.chunks
-          : [];
-
-        sizedChunks = rawChunks.map((ch: any) => ({
-          id: String(ch.id),
-          elementIds: Array.isArray(ch.element_ids)
-            ? ch.element_ids.map(String)
-            : [],
-          clauseUids: Array.isArray(ch.clause_uids)
-            ? ch.clause_uids.map(String)
-            : [],
-        }));
-      }
 
       setViewerState({
         location: loc,
         pdfUrl,
-        layoutElements,
-        sizedChunks,
+        layoutElements: parseLayoutElements(layoutJson),
+        sizedChunks: parseSizedChunks(chunksJson),
       });
-    } catch (error) {
-      console.error("Error fetching viewer data", error);
-      setViewerError("Ошибка при запросе данных для просмотра документа");
+    } catch (error: unknown) {
+      setViewerError(
+        `Ошибка при запросе данных для просмотра документа: ${getErrorMessage(error)}`,
+      );
     } finally {
       setIsViewerLoading(false);
     }
-  };
+  }, []);
 
   if (!runId) {
     return (
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="px-6 py-10">
-          <div className="flex min-h-[280px] flex-col items-center justify-center text-center">
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              DD Grid станет доступен после запуска анализа
-            </h2>
-            <p className="mt-2 max-w-md text-sm text-[var(--text-muted)]">
-              Нет выбранного запуска анализа. Сначала запустите анализ на вкладке
-              «Обзор».
-            </p>
-          </div>
-        </div>
-      </section>
+      <StatusStateCard
+        title="DD Grid станет доступен после запуска анализа"
+        description="Нет выбранного запуска анализа. Сначала запустите анализ на вкладке «Обзор»."
+      />
     );
   }
 
   if (isRunLoading) {
-    return (
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="px-6 py-10">
-          <div className="text-sm text-[var(--text-muted)]">
-            Загружаем информацию о запуске анализа…
-          </div>
-        </div>
-      </section>
-    );
+    return <StatusStateCard title="Загружаем информацию о запуске анализа…" />;
   }
 
   if (runError) {
     return (
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="px-6 py-10">
-          <div className="rounded-xl border border-[var(--color-error)]/20 bg-[var(--color-error)]/10 px-4 py-3 text-sm text-[var(--color-error)]">
-            Не удалось загрузить информацию о запуске анализа.
-          </div>
-        </div>
-      </section>
+      <StatusStateCard
+        title="Не удалось загрузить информацию о запуске анализа."
+        tone="error"
+      />
     );
   }
 
-  const isGridLoading =
-    dataSource === "review" ? isReviewLoading : isLegacyLoading;
-  const gridError = dataSource === "review" ? reviewError : legacyError;
-
-  if (isGridLoading) {
-    return (
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="px-6 py-10">
-          <div className="text-sm text-[var(--text-muted)]">
-            {dataSource === "review"
-              ? "Загружаем review-матрицу…"
-              : "Загружаем результаты…"}
-          </div>
-        </div>
-      </section>
-    );
+  if (isReviewLoading) {
+    return <StatusStateCard title="Загружаем матрицу документов…" />;
   }
 
-  if (gridError) {
+  if (reviewError) {
     return (
-      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-        <div className="px-6 py-10">
-          <div className="rounded-xl border border-[var(--color-error)]/20 bg-[var(--color-error)]/10 px-4 py-3 text-sm text-[var(--color-error)]">
-            {dataSource === "review"
-              ? "Не удалось загрузить review-матрицу."
-              : "Не удалось загрузить результаты проверки."}
-          </div>
-        </div>
-      </section>
+      <StatusStateCard
+        title="Не удалось загрузить матрицу документов."
+        tone="error"
+      />
     );
   }
 
@@ -540,358 +484,96 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     <div className="flex min-h-full flex-col gap-6">
       <PageSection
         title="DD Grid"
-        subtitle="Матрица проверок и доказательств с переключением между legacy-результатами и review matrix."
-        rightSlot={
+        subtitle="Матрица документов и проверок с фильтрацией, экспортом и навигацией по evidence."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <StatCard label="Документы" value={reviewSummary.documentsCount} />
+          <StatCard
+            label="Проверки"
+            value={reviewSummary.checksCount}
+            tone="accent"
+          />
+          <StatCard label="Findings" value={reviewSummary.findingsCount} />
+          <StatCard
+            label="Critical / High"
+            value={`${reviewSummary.criticalCount} / ${reviewSummary.highCount}`}
+            tone="critical"
+          />
+          <StatCard label="Unclear" value={reviewSummary.unclearCount} />
+          <StatCard label="Режим проверок" value={checksModeLabel ?? "—"} />
+        </div>
+      </PageSection>
+
+      <SectionCard
+        title="DD Grid workspace"
+        description="Фильтрация, экспорт и просмотр evidence для run-scoped review matrix."
+        actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
-              variant={dataSource === "review" ? "primary" : "secondary"}
-              onClick={() => setDataSource("review")}
+              variant={isReviewFiltersPanelOpen ? "outline" : "secondary"}
+              onClick={handleOpenFilters}
+              className={
+                isReviewFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
+              }
             >
-              Review matrix
+              {reviewFiltersButtonLabel}
             </Button>
 
-            <Button
-              type="button"
-              size="sm"
-              variant={dataSource === "legacy" ? "primary" : "secondary"}
-              onClick={() => setDataSource("legacy")}
-            >
-              Legacy results
-            </Button>
+            <ModeToggle value={gridMode} onChange={setGridMode} />
           </div>
         }
       >
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <StatCard
-            label="Документы"
-            value={
-              dataSource === "review"
-                ? reviewSummary.documentsCount
-                : uniqueDocCount
-            }
+        <div className="flex flex-col gap-4">
+          <FiltersPanel
+            open={isReviewFiltersPanelOpen}
+            gridMode={gridMode}
+            filterState={reviewFilterState}
+            availableDocTypes={reviewDerived.availableDocTypes}
+            availableOrigins={reviewDerived.availableOrigins}
+            onFilterStateChange={setReviewFilterState}
+            onReset={handleResetReviewFilters}
+            onClose={handleCloseFilters}
           />
 
-          <StatCard
-            label="Проверки"
-            value={
-              dataSource === "review"
-                ? reviewSummary.checksCount
-                : scopeResults.length
-            }
-            tone="accent"
-          />
-
-          <StatCard
-            label="Critical / High"
-            value={
-              dataSource === "review"
-                ? `${reviewSummary.criticalCount} / ${reviewSummary.highCount}`
-                : `${allResults.filter((r) => r.severity === "critical").length} / ${
-                    allResults.filter((r) => r.severity === "high").length
-                  }`
-            }
-            tone="critical"
-          />
-
-          <StatCard
-            label={dataSource === "review" ? "Unclear" : "Без QC / Unclear"}
-            value={
-              dataSource === "review"
-                ? `${reviewSummary.unclearCount}`
-                : `${importantCount} / ${unclearCount}`
-            }
-          />
-
-          <StatCard label="Режим проверок" value={checksModeLabel ?? "—"} />
-
-          {dataSource === "legacy" ? (
-            <ExportStatCard
-              allResults={scopeResults}
-              selectedResults={selectedResults}
-              dealId={dealId}
-              runId={runId ?? undefined}
-              runChecksMode={run?.checks_mode}
-              runPipelineStrategy={run?.pipeline_strategy}
-            />
-          ) : (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-sm">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                Экспорт review findings
-              </div>
-              <div className="mt-3">
-                <ReviewExportButtons
-                  findings={filteredReviewFindings}
-                  dealName={dealId}
-                  runId={runId ?? undefined}
-                />
-              </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-sm">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Экспорт findings
             </div>
-          )}
-        </div>
-      </PageSection>
-
-      {dataSource === "legacy" && (
-        <SectionCard
-          title="Результаты DD Grid"
-          description="Сетка результатов проверки с доступом к Magic Zoom, Evidence Panel и массовым QC-действиям."
-          actions={
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                size="sm"
-                variant={isScopePanelOpen ? "outline" : "secondary"}
-                onClick={() => setIsScopePanelOpen((prev) => !prev)}
-                aria-expanded={isScopePanelOpen}
-                aria-controls="dd-grid-scope-panel"
-                className={isScopePanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
-              >
-                {scopeButtonLabel}
-              </Button>
-
-              <Button
-                type="button"
-                size="sm"
-                variant={isFiltersPanelOpen ? "outline" : "secondary"}
-                onClick={() => setIsFiltersPanelOpen((prev) => !prev)}
-                aria-expanded={isFiltersPanelOpen}
-                aria-controls="dd-grid-filters-panel"
-                className={isFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
-              >
-                {filtersButtonLabel}
-              </Button>
-
-              <div
-                className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-1"
-                role="tablist"
-                aria-label="Режим отображения DD Grid"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={gridMode === "matrix"}
-                  onClick={() => setGridMode("matrix")}
-                  className={
-                    gridMode === "matrix"
-                      ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
-                      : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                  }
-                >
-                  Матрица
-                </button>
-
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={gridMode === "list"}
-                  onClick={() => setGridMode("list")}
-                  className={
-                    gridMode === "list"
-                      ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
-                      : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                  }
-                >
-                  Список
-                </button>
-              </div>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            {isScopePanelOpen && (
-              <div id="dd-grid-scope-panel">
-                <ScopeInlinePanel
-                  gridScope={gridScope}
-                  setGridScope={setGridScope}
-                  scopeDoctypes={scopeDoctypes}
-                  selectedScopeDocTypes={selectedScopeDocTypes}
-                  toggleScopeDocType={toggleScopeDocType}
-                  resetScopeDocTypes={resetScopeDocTypes}
-                  onClose={() => setIsScopePanelOpen(false)}
-                />
-              </div>
-            )}
-
-            {isFiltersPanelOpen && (
-              <div
-                id="dd-grid-filters-panel"
-                className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]"
-              >
-                <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    Фильтры результатов
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                    Поиск и быстрые фильтры для legacy-результатов DD Grid
-                  </p>
-                </div>
-
-                <div className="px-4 py-4">
-                  <GridFilters
-                    searchText={searchText}
-                    onSearchChange={setSearchText}
-                    activeFilter={quickFilter}
-                    onFilterChange={setQuickFilter}
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setIsFiltersPanelOpen(false)}
-                  >
-                    Закрыть
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <div className="min-h-[480px]">
-              <DDGrid
-                results={scopeResults}
-                compositionByDocId={compositionByDocId}
-                onlyMultiDocument={legacyMultiDocOnly}
-                onEyeClick={handleEyeClick}
-                onSelectionChange={handleSelectionChange}
-                mode={gridMode}
-                onOpenAtLocation={openViewerAt}
+            <div className="mt-3">
+              <ReviewExportButtons
+                findings={filteredReviewFindings}
+                dealName={dealId}
+                runId={runId ?? undefined}
               />
             </div>
           </div>
-        </SectionCard>
-      )}
 
-      {dataSource === "review" && (
-        <>
-          <SectionCard
-            title="Review matrix controls"
-            description="Фильтрация, экспорт и review-context для run-scoped матрицы документов и проверок."
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={isReviewFiltersPanelOpen ? "outline" : "secondary"}
-                  onClick={() => setIsReviewFiltersPanelOpen((prev) => !prev)}
-                  className={
-                    isReviewFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
-                  }
-                >
-                  {reviewFiltersButtonLabel}
-                </Button>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <StatCard label="Документов" value={reviewSummary.documentsCount} />
+            <StatCard
+              label="Проверок"
+              value={reviewSummary.checksCount}
+              tone="accent"
+            />
+            <StatCard label="Findings" value={reviewSummary.findingsCount} />
+            <StatCard
+              label="Critical"
+              value={reviewSummary.criticalCount}
+              tone="critical"
+            />
+            <StatCard label="Unclear" value={reviewSummary.unclearCount} />
+          </div>
 
-                <div
-                  className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-1"
-                  role="tablist"
-                  aria-label="Review view mode"
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={gridMode === "matrix"}
-                    onClick={() => setGridMode("matrix")}
-                    className={
-                      gridMode === "matrix"
-                        ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
-                        : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                    }
-                  >
-                    Матрица
-                  </button>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Выберите view, примените фильтры и откройте finding для просмотра
+            evidence.
+          </div>
 
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={gridMode === "list"}
-                    onClick={() => setGridMode("list")}
-                    className={
-                      gridMode === "list"
-                        ? "rounded-lg bg-[var(--bg-card)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] shadow-sm"
-                        : "rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                    }
-                  >
-                    Список
-                  </button>
-                </div>
-              </div>
-            }
-          >
-            <div className="flex flex-col gap-4">
-              {isReviewFiltersPanelOpen && (
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-                  <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      Фильтры review {gridMode === "list" ? "list" : "matrix"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                      Поиск, quick filters и ограничения по типу документа / origin.
-                    </p>
-                  </div>
-
-                  <div className="px-4 py-4">
-                    <ReviewGridFilters
-                      filterState={reviewFilterState}
-                      onFilterStateChange={setReviewFilterState}
-                      availableDocTypes={reviewDerived.availableDocTypes}
-                      availableOrigins={reviewDerived.availableOrigins}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={handleResetReviewFilters}
-                    >
-                      Сбросить
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setIsReviewFiltersPanelOpen(false)}
-                    >
-                      Закрыть
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <StatCard label="Документов" value={reviewSummary.documentsCount} />
-                <StatCard
-                  label="Проверок"
-                  value={reviewSummary.checksCount}
-                  tone="accent"
-                />
-                <StatCard
-                  label="Findings"
-                  value={reviewSummary.findingsCount}
-                />
-                <StatCard
-                  label="Critical"
-                  value={reviewSummary.criticalCount}
-                  tone="critical"
-                />
-                <StatCard label="Unclear" value={reviewSummary.unclearCount} />
-              </div>
-
-              <div className="rounded-xl border border-[var(--accent-primary)]/10 bg-[var(--accent-muted)] px-4 py-3 text-sm leading-6 text-[var(--text-secondary)]">
-                Review mode теперь поддерживает matrix и list views. Матрица
-                отображает документы × проверки в 2D сетке; список — плоский audit
-                trail всех findings с filtering, sorting, export. Обе вьюхи используют
-                unified DDMatrixCellDetails для evidence.
-              </div>
-
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-                {reviewQcDisabledNote}
-              </div>
-            </div>
-          </SectionCard>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            {reviewQcDisabledNote}
+          </div>
 
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
             <div className="px-6 pt-5">
@@ -902,8 +584,8 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
                 {gridMode === "matrix"
-                  ? "Run-scoped матрица документов и проверок для review-режима."
-                  : "Flat список всех findings из review matrix с filtering и export."}
+                  ? "Run-scoped матрица документов и проверок."
+                  : "Плоский список findings из review matrix с фильтрацией и экспортом."}
               </p>
               <div className="mt-4 border-t border-[var(--border-subtle)]" />
             </div>
@@ -915,12 +597,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                   rows={filteredReviewRows}
                   columns={reviewDerived.columns}
                   onOpenAtLocation={openViewerAt}
-                  onOpenDocument={({ documentId, documentName }) => {
-                    console.log("Open review document", {
-                      documentId,
-                      documentName,
-                    });
-                  }}
                   onSelectionChange={handleReviewSelectionChange}
                 />
               ) : (
@@ -929,51 +605,17 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
                   rows={filteredReviewRows}
                   columns={reviewDerived.columns}
                   onOpenAtLocation={openViewerAt}
-                  onOpenDocument={({ documentId, documentName }) => {
-                    console.log("Open review document (list)", {
-                      documentId,
-                      documentName,
-                    });
-                  }}
                   onSelectionChange={handleReviewSelectionChange}
                 />
               )}
             </div>
           </section>
-        </>
-      )}
-
-      {dataSource === "legacy" && zoomResult && (
-        <MagicZoom
-          result={zoomResult}
-          onClose={handleCloseZoom}
-          onQcChange={handleZoomQcChange}
-          onOpenFull={handleOpenFull}
-          onOpenAtLocation={openViewerAt}
-        />
-      )}
-
-      {dataSource === "legacy" && panelResult && (
-        <EvidencePanel
-          result={panelResult}
-          onClose={handleClosePanel}
-          onQcChange={handlePanelQcChange}
-          onOpenAtLocation={openViewerAt}
-        />
-      )}
-
-      {dataSource === "legacy" && canDoQc && selectedIds.length > 0 && (
-        <BulkQCBar
-          selectedCount={selectedIds.length}
-          onConfirm={handleBulkConfirm}
-          onReject={handleBulkReject}
-          onOverride={handleBulkOverride}
-        />
-      )}
+        </div>
+      </SectionCard>
 
       <DocumentViewerModal
         open={Boolean(viewerState)}
-        onClose={() => setViewerState(null)}
+        onClose={handleCloseViewer}
         fileUrl={viewerState?.pdfUrl ?? null}
         location={viewerState?.location ?? null}
         title={viewerError ?? (isViewerLoading ? "Загрузка PDF…" : null)}
@@ -985,7 +627,6 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
 };
 
 export default GridTabPage;
-
 
 
 

@@ -13,9 +13,7 @@ export interface GridTabProps {
   runId: string | null;
 }
 
-export type GridScope = "all" | "global" | "doctype";
 export type GridMode = "matrix" | "list";
-export type GridDataSource = "legacy" | "review";
 export type NormalizedOrigin = "global" | "doctype" | "other";
 
 export type ViewerState = {
