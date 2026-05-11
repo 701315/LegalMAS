@@ -6,15 +6,49 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-from db.session import get_db
+from api.schemas.deals import DealCreate, DealResponse, DealUpdate
+from api.schemas.pagination import PaginatedResponse
 from db.repositories.deal_repo import DealRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.project_role_repo import ProjectRoleRepository
-
-from api.schemas.pagination import PaginatedResponse
-from api.schemas.deals import DealResponse, DealCreate, DealUpdate
+from db.session import get_db
 
 router = APIRouter()
+
+
+async def _build_deal_response(
+    *,
+    db: AsyncSession,
+    deal,
+) -> DealResponse:
+    """
+    Построить DealResponse с вычислением model_config_name.
+
+    Для непрофессионального программиста:
+    - сама ORM-модель сделки хранит model_config_id;
+    - для UI дополнительно нужен model_config_name;
+    - имя может приходить либо из явного model_config сделки,
+      либо из связанной playbook version.
+    """
+    deal_resp = DealResponse.model_validate(deal)
+
+    model_config_name: str | None = None
+    pb_repo = PlaybookRepository(db)
+
+    explicit_model_config_id = getattr(deal, "model_config_id", None)
+    if explicit_model_config_id is not None:
+        mc = await pb_repo.get_model_config(explicit_model_config_id)
+        if mc is not None:
+            model_config_name = mc.name
+    elif deal.playbook_version_id:
+        pv = await pb_repo.get_by_id(deal.playbook_version_id)
+        if pv is not None and getattr(pv, "model_config_id", None):
+            mc = await pb_repo.get_model_config(pv.model_config_id)
+            if mc is not None:
+                model_config_name = mc.name
+
+    deal_resp.model_config_name = model_config_name
+    return deal_resp
 
 
 @router.get(
@@ -48,7 +82,10 @@ async def list_deals(
     has_next = page < total_pages
     has_previous = page > 1
 
-    deal_items = [DealResponse.model_validate(deal) for deal in items]
+    deal_items = [
+        await _build_deal_response(db=db, deal=deal)
+        for deal in items
+    ]
 
     return PaginatedResponse[DealResponse](
         items=deal_items,
@@ -76,16 +113,13 @@ async def create_deal(
     Создание сделки без автоматического выбора языка.
 
     Для непрофессионального программиста:
-    - раньше код сам подставлял languages = ["ru"], если пользователь
-      ничего не указал;
-    - теперь мы НЕ делаем никаких догадок за пользователя;
-    - если фронт хочет задать языки или основной язык — он обязан
-      передать их явно в payload.
+    - backend не делает догадок за пользователя;
+    - если фронт хочет задать languages или primary_language,
+      он обязан передать их явно в payload.
     """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
 
-    # Никакого auto-default ["ru"] — используем то, что пришло с фронта
     languages = payload.languages
     primary_language = payload.primary_language
 
@@ -102,12 +136,8 @@ async def create_deal(
         metadata_=payload.metadata_,
     )
 
-    # Если пользователь сразу передал primary_language,
-    # сохраняем его через отдельный метод репозитория.
     if primary_language is not None:
         await deal_repo.update_primary_language(deal.id, primary_language)
-
-        # Обновляем deal объект в памяти, чтобы ответ был консистентным
         deal.primary_language = primary_language
 
     await role_repo.create_member(
@@ -119,7 +149,7 @@ async def create_deal(
 
     await db.commit()
 
-    return DealResponse.model_validate(deal)
+    return await _build_deal_response(db=db, deal=deal)
 
 
 @router.get(
@@ -137,25 +167,7 @@ async def get_deal(
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    deal_resp = DealResponse.model_validate(deal)
-
-    model_config_name: str | None = None
-    pb_repo = PlaybookRepository(db)
-
-    explicit_model_config_id = getattr(deal, "model_config_id", None)
-    if explicit_model_config_id is not None:
-        mc = await pb_repo.get_model_config(explicit_model_config_id)
-        if mc is not None:
-            model_config_name = mc.name
-    elif deal.playbook_version_id:
-        pv = await pb_repo.get_by_id(deal.playbook_version_id)
-        if pv is not None and getattr(pv, "model_config_id", None):
-            mc = await pb_repo.get_model_config(pv.model_config_id)
-            if mc is not None:
-                model_config_name = mc.name
-
-    deal_resp.model_config_name = model_config_name
-    return deal_resp
+    return await _build_deal_response(db=db, deal=deal)
 
 
 @router.patch(
@@ -172,7 +184,7 @@ async def update_deal(
     """
     Частичное обновление сделки.
 
-    Теперь поддерживаем:
+    Поддерживаем:
     - summary;
     - languages;
     - primary_language.
@@ -180,8 +192,8 @@ async def update_deal(
     Контракты:
     - менять сделку могут только admin/editor или глобальный admin/superadmin;
     - если переданы и languages, и primary_language, то консистентность уже
-      проверена на уровне pydantic схемы (DealUpdate);
-    - здесь мы просто аккуратно применяем изменения к БД.
+      проверена на уровне pydantic схемы;
+    - endpoint аккуратно применяет только переданные поля.
     """
     deal_repo = DealRepository(db)
     role_repo = ProjectRoleRepository(db)
@@ -204,22 +216,18 @@ async def update_deal(
 
     update_data = payload.model_dump(exclude_unset=True)
 
-    # Начинаем с текущей версии сделки
     updated_deal = deal
 
-    # Обновляем summary при необходимости
     if "summary" in update_data:
         updated = await deal_repo.update_summary(deal_id, update_data["summary"])
         if updated is not None:
             updated_deal = updated
 
-    # Обновляем список языков, если он передан
     if "languages" in update_data:
         languages = update_data["languages"]
         await deal_repo.update_languages(deal_id, languages or [])
         updated_deal.languages = languages
 
-    # Обновляем основной язык, если он передан
     if "primary_language" in update_data:
         primary_language = update_data["primary_language"]
         await deal_repo.update_primary_language(deal_id, primary_language)
@@ -227,7 +235,11 @@ async def update_deal(
 
     await db.commit()
 
-    return DealResponse.model_validate(updated_deal)
+    refreshed_deal = await deal_repo.get_by_id(deal_id)
+    if refreshed_deal is None:
+        raise HTTPException(status_code=404, detail="Deal not found after update")
+
+    return await _build_deal_response(db=db, deal=refreshed_deal)
 
 
 @router.delete(

@@ -21,6 +21,22 @@ interface AnalysisActionsPanelProps {
   showReclassBanner: boolean;
 }
 
+function normalizeLang(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizeDiscoveryStatus(value: string | null | undefined): string | null {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized || null;
+}
+
+function formatLangLabel(value: string): string {
+  const lang = normalizeLang(value);
+  if (lang === "RU") return "Русский (RU)";
+  if (lang === "EN") return "English (EN)";
+  return lang;
+}
+
 const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
   deal,
   latestRunExists,
@@ -29,9 +45,48 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
   showReclassBanner,
 }) => {
   const hasPlaybook = !!deal.playbook_version_id;
-  const documentLanguages = deal.languages ?? [];
-  const hasMultipleDocumentLanguages = documentLanguages.length > 1;
-  const primaryLanguageSelected = !!deal.primary_language;
+
+  const documentLanguages = Array.from(
+    new Set((deal.languages ?? []).map((lang) => normalizeLang(lang)).filter(Boolean)),
+  );
+
+  const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
+  const primaryLanguage = normalizeLang(deal.primary_language);
+  const primaryLanguageSelected = !!primaryLanguage;
+
+  const documentLanguagesValue =
+    documentLanguages.length > 0
+      ? documentLanguages.map(formatLangLabel).join(", ")
+      : discoveryStatus === "processing"
+        ? "Определяются…"
+        : discoveryStatus === "failed"
+          ? "Не удалось определить"
+          : discoveryStatus === "partial"
+            ? "Определены частично"
+            : "Ещё не определены";
+
+  const documentLanguagesTone =
+    documentLanguages.length > 0
+      ? "ok"
+      : discoveryStatus === "failed"
+        ? "warn"
+        : "neutral";
+
+  const primaryLanguageValue = primaryLanguageSelected
+    ? formatLangLabel(primaryLanguage)
+    : "Не выбран";
+
+  const primaryLanguageTone = primaryLanguageSelected ? "ok" : "warn";
+
+  const readinessText = canStartRun
+    ? "Проект готов к запуску анализа."
+    : !hasPlaybook
+      ? "Сначала выберите playbook проекта."
+      : !primaryLanguageSelected
+        ? "Перед запуском нужно выбрать основной язык анализа."
+        : documentLanguages.length === 0 && discoveryStatus === "processing"
+          ? "Языки документов ещё определяются."
+          : "Перед запуском проверьте параметры анализа в панели запуска.";
 
   return (
     <aside
@@ -88,38 +143,34 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
                 value={hasPlaybook ? "Выбран" : "Не выбран"}
                 tone={hasPlaybook ? "ok" : "warn"}
               />
+
               <StatusRow
                 label="Языки документов"
-                value={
-                  documentLanguages.length > 0
-                    ? documentLanguages.join(", ")
-                    : "Ещё не определены"
-                }
-                tone={documentLanguages.length > 0 ? "ok" : "neutral"}
+                value={documentLanguagesValue}
+                tone={documentLanguagesTone}
               />
+
               <StatusRow
                 label="Основной язык анализа"
-                value={
-                  deal.primary_language
-                    ? deal.primary_language
-                    : hasMultipleDocumentLanguages
-                      ? "Нужно выбрать перед запуском"
-                      : "Будет определён автоматически"
-                }
-                tone={
-                  primaryLanguageSelected
-                    ? "ok"
-                    : hasMultipleDocumentLanguages
-                      ? "warn"
-                      : "neutral"
-                }
+                value={primaryLanguageValue}
+                tone={primaryLanguageTone}
               />
+
               <StatusRow
                 label="Профиль модели"
                 value={deal.model_config_name || "Профиль проекта / playbook"}
                 tone={deal.model_config_name ? "ok" : "neutral"}
               />
             </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--bg-base)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+              Статус запуска
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+              {readinessText}
+            </p>
           </div>
 
           <div className="mt-5">

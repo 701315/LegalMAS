@@ -1,0 +1,513 @@
+# src/workers/detect_document_languages_ocr.py
+
+"""
+Document-level OCR language detection worker.
+
+Назначение:
+- Выполнить quick OCR-based language detection для одного документа;
+- Использовать scanned PDF / image source;
+- Сделать быстрый OCR только по ограниченному числу первых страниц/изображений;
+- Определить языки через shared document language detection service;
+- Записать результат в:
+    - Document.detected_languages
+    - Document.language_detection_status
+- Пересчитать aggregate language discovery state сделки через
+  deal_language_discovery_service.
+
+Важно:
+- Это document-level worker в pre-run language discovery pipeline.
+- Он не зависит от Run и не меняет основной Document.status.
+- Он должен быть идемпотентным и безопасным для повторного запуска.
+- Он согласован с MASBaseTask:
+    * transient ошибки пробрасываются вверх для retry;
+    * permanent ошибки фиксируют failed-state и затем бросаются как исключение;
+    * success-path возвращает нормальный result dict.
+
+Поток:
+- import_bundle
+- start_language_discovery
+- detect_document_languages_ocr (per document)
+- recompute_deal_language_discovery_state
+- UI показывает Deal.languages / Deal.language_discovery_status
+- пользователь выбирает Deal.primary_language
+- только после этого запускается Run
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config import settings
+from core.exceptions import PermanentError, TransientError
+from core.logging import get_logger
+from db.repositories.deal_repo import DealRepository
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.uow import db_uow
+from mas_queue.async_helpers import run_async
+from mas_queue.base_task import MASBaseTask
+from mas_queue.celery_app import celery_app
+from services.deal_language_discovery_service import (
+    recompute_deal_language_discovery_state,
+)
+from services.document_language_detection import (
+    detect_document_languages_from_text,
+)
+from services.document_ocr_language_detection import (
+    extract_quick_ocr_text_for_language_detection,
+)
+from storage.artifact_store import ArtifactStore
+
+logger = get_logger(__name__)
+
+QUICK_OCR_MAX_PAGES = 3
+QUICK_OCR_MAX_IMAGES = 3
+
+
+@celery_app.task(
+    base=MASBaseTask,
+    bind=True,
+    name="workers.detect_document_languages_ocr",
+    track_job=False,
+    queue="default",
+)
+def detect_document_languages_ocr(
+    self,
+    document_id: str,
+    document_version_id: str,
+    deal_id: str,
+    tenant_id: str,
+) -> dict[str, Any]:
+    """
+    Sync Celery entrypoint для OCR language detection одного документа.
+
+    Контракт:
+    - получает явные IDs документа, версии, сделки и арендатора;
+    - выполняет detection только по одному документу;
+    - пишет completed / failed на уровне document language detection;
+    - после завершения пересчитывает aggregate state сделки.
+    """
+    _ = self
+
+    async def _wrapper() -> dict[str, Any]:
+        async with db_uow() as uow:
+            return await _detect_document_languages_ocr_async(
+                document_id=document_id,
+                document_version_id=document_version_id,
+                deal_id=deal_id,
+                tenant_id=tenant_id,
+                db=uow.session,
+            )
+
+    return run_async(_wrapper())
+
+
+async def _detect_document_languages_ocr_async(
+    *,
+    document_id: str,
+    document_version_id: str,
+    deal_id: str,
+    tenant_id: str,
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """
+    Async-ядро OCR language detection для одного документа.
+
+    Семантика ошибок:
+    - TransientError:
+        пробрасывается вверх без записи failed, чтобы MASBaseTask выполнил retry;
+    - PermanentError:
+        записываем document.language_detection_status='failed',
+        пересчитываем aggregate state сделки,
+        затем пробрасываем ошибку вверх;
+    - success:
+        записываем completed и возвращаем result.
+
+    Идемпотентность:
+    - duplicate delivery одной и той же document task допустима;
+    - worker атомарно claim'ит переход pending -> processing;
+    - если документ уже completed, worker возвращает idempotent success;
+    - если документ уже processing другим worker'ом, текущий запуск
+      корректно выходит без повторной обработки;
+    - если документ уже failed, worker считает это terminal state и не пытается
+      снова выполнять detection в рамках этой же task delivery.
+    """
+    doc_uuid = uuid.UUID(document_id)
+    version_uuid = uuid.UUID(document_version_id)
+    deal_uuid = uuid.UUID(deal_id)
+    tenant_uuid = uuid.UUID(tenant_id)
+
+    logger.info(
+        "Starting OCR document language detection",
+        extra={
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": str(tenant_uuid),
+        },
+    )
+
+    doc_repo = DocumentRepository(db)
+    ver_repo = DocumentVersionRepository(db)
+    deal_repo = DealRepository(db)
+    store = ArtifactStore(settings)
+
+    document = await doc_repo.get_by_id(doc_uuid)
+    if not document:
+        raise PermanentError(
+            f"Document {document_id} not found for OCR language detection"
+        )
+
+    deal = await deal_repo.get_by_id(deal_uuid)
+    if not deal:
+        raise PermanentError(
+            f"Deal {deal_id} not found for OCR document language detection"
+        )
+
+    version = await ver_repo.get_by_id(version_uuid)
+    if not version:
+        raise PermanentError(
+            f"DocumentVersion {document_version_id} not found for OCR language detection"
+        )
+
+    version_document_id = getattr(version, "document_id", None)
+    if version_document_id != doc_uuid:
+        raise PermanentError(
+            "DocumentVersion does not belong to provided document_id "
+            f"(document_id={document_id}, document_version_id={document_version_id})"
+        )
+
+    current_status = getattr(document, "language_detection_status", None)
+    current_languages = list(getattr(document, "detected_languages", None) or [])
+
+    if current_status == "completed":
+        recomputed = await recompute_deal_language_discovery_state(
+            db=db,
+            deal_id=deal_uuid,
+        )
+        result = {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "detected_languages": current_languages,
+            "status": "completed",
+            "handled": True,
+            "executed": False,
+            "idempotent_replay": True,
+            "skipped_reason": "already_completed",
+            "deal_languages": list(recomputed.get("languages", [])),
+            "deal_language_discovery_status": str(
+                recomputed.get("language_discovery_status", "pending")
+            ),
+        }
+        logger.info(
+            "OCR document language detection skipped: already completed",
+            extra=result,
+        )
+        return result
+
+    if current_status == "processing":
+        recomputed = await recompute_deal_language_discovery_state(
+            db=db,
+            deal_id=deal_uuid,
+        )
+        result = {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "detected_languages": current_languages,
+            "status": "processing",
+            "handled": True,
+            "executed": False,
+            "idempotent_replay": False,
+            "skipped_reason": "already_processing",
+            "deal_languages": list(recomputed.get("languages", [])),
+            "deal_language_discovery_status": str(
+                recomputed.get("language_discovery_status", "pending")
+            ),
+        }
+        logger.info(
+            "OCR document language detection skipped: already processing",
+            extra=result,
+        )
+        return result
+
+    if current_status == "failed":
+        recomputed = await recompute_deal_language_discovery_state(
+            db=db,
+            deal_id=deal_uuid,
+        )
+        result = {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "detected_languages": current_languages,
+            "status": "failed",
+            "handled": True,
+            "executed": False,
+            "idempotent_replay": True,
+            "skipped_reason": "already_failed",
+            "deal_languages": list(recomputed.get("languages", [])),
+            "deal_language_discovery_status": str(
+                recomputed.get("language_discovery_status", "pending")
+            ),
+        }
+        logger.info(
+            "OCR document language detection skipped: already failed",
+            extra=result,
+        )
+        return result
+
+    claimed_doc = await doc_repo.try_mark_language_detection_processing(
+        doc_uuid,
+        expected_current_status="pending",
+        preserve_detected_languages=current_languages,
+    )
+
+    if not claimed_doc:
+        refreshed_document = await doc_repo.get_by_id(doc_uuid)
+        refreshed_status = (
+            getattr(refreshed_document, "language_detection_status", None)
+            if refreshed_document
+            else None
+        )
+        refreshed_languages = (
+            list(getattr(refreshed_document, "detected_languages", None) or [])
+            if refreshed_document
+            else []
+        )
+
+        recomputed = await recompute_deal_language_discovery_state(
+            db=db,
+            deal_id=deal_uuid,
+        )
+
+        result = {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "detected_languages": refreshed_languages,
+            "status": str(refreshed_status or "unknown"),
+            "handled": True,
+            "executed": False,
+            "idempotent_replay": False,
+            "skipped_reason": "claim_not_acquired",
+            "deal_languages": list(recomputed.get("languages", [])),
+            "deal_language_discovery_status": str(
+                recomputed.get("language_discovery_status", "pending")
+            ),
+        }
+
+        logger.info(
+            "OCR document language detection skipped: atomic processing claim not acquired",
+            extra=result,
+        )
+        return result
+
+    try:
+        source_ref = _resolve_source_ocr_ref(version)
+        if not source_ref:
+            raise PermanentError(
+                "No suitable OCR source ref for document language detection "
+                f"(document_id={document_id}, version_id={document_version_id})"
+            )
+
+        source_path = _s3_ref_to_store_path(source_ref, store.bucket)
+
+        logger.info(
+            "OCR language detection: reading source from storage",
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "source_ref": source_ref,
+                "source_path": source_path,
+            },
+        )
+
+        try:
+            source_bytes = store.get_file(source_path)
+        except TransientError:
+            raise
+        except Exception as e:
+            raise PermanentError(
+                f"Failed to read OCR source for language detection: {e}"
+            ) from e
+
+        if not source_bytes:
+            raise PermanentError(
+                "OCR source is empty for language detection "
+                f"(document_id={document_id}, version_id={document_version_id})"
+            )
+
+        ocr_text = extract_quick_ocr_text_for_language_detection(
+            source_bytes=source_bytes,
+            source_filename=getattr(version, "filename", None) or document_id,
+            origin_filetype=(getattr(version, "origin_filetype", None) or "").strip().lower(),
+            max_pages=QUICK_OCR_MAX_PAGES,
+            max_images=QUICK_OCR_MAX_IMAGES,
+        )
+
+        if not ocr_text or not ocr_text.strip():
+            raise PermanentError(
+                "Quick OCR produced empty text for language detection "
+                f"(document_id={document_id}, version_id={document_version_id})"
+            )
+
+        detection_result = detect_document_languages_from_text(
+            text=ocr_text,
+            document_id=document_id,
+            document_version_id=document_version_id,
+        )
+
+        detected_languages = list(detection_result.detected_languages or [])
+
+        await doc_repo.update_language_detection(
+            doc_uuid,
+            detected_languages=detected_languages,
+            status="completed",
+        )
+
+        recomputed = await recompute_deal_language_discovery_state(
+            db=db,
+            deal_id=deal_uuid,
+        )
+
+        result = {
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "source_ref": source_ref,
+            "detected_languages": detected_languages,
+            "status": "completed",
+            "handled": True,
+            "executed": True,
+            "idempotent_replay": False,
+            "deal_languages": list(recomputed.get("languages", [])),
+            "deal_language_discovery_status": str(
+                recomputed.get("language_discovery_status", "pending")
+            ),
+        }
+
+        logger.info(
+            "OCR document language detection completed successfully",
+            extra=result,
+        )
+        return result
+
+    except TransientError:
+        logger.warning(
+            "Transient error during OCR document language detection; re-raising for retry",
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
+        )
+        raise
+
+    except PermanentError:
+        logger.exception(
+            "Permanent failure during OCR document language detection",
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
+        )
+
+        await _mark_document_detection_failed_and_recompute(
+            db=db,
+            document_id=doc_uuid,
+            deal_id=deal_uuid,
+        )
+        raise
+
+    except Exception as e:
+        logger.exception(
+            "Unexpected error during OCR document language detection; re-raising for retry",
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "error": str(e),
+            },
+        )
+        raise
+
+
+async def _mark_document_detection_failed_and_recompute(
+    *,
+    db: AsyncSession,
+    document_id: uuid.UUID,
+    deal_id: uuid.UUID,
+) -> None:
+    """
+    Зафиксировать окончательный failed-state document language detection
+    и пересчитать aggregate состояние сделки.
+
+    Используется только для permanent failures.
+    """
+    doc_repo = DocumentRepository(db)
+
+    await doc_repo.update_language_detection(
+        document_id,
+        detected_languages=[],
+        status="failed",
+    )
+
+    await recompute_deal_language_discovery_state(
+        db=db,
+        deal_id=deal_id,
+    )
+
+
+def _resolve_source_ocr_ref(version) -> str | None:
+    """
+    Выбрать source для OCR language detection.
+
+    Базовые правила:
+    - для image/scanned input используем original_ref;
+    - для image-only PDF тоже можно использовать original_ref;
+    - если есть заранее подготовленный raster/preview ref в вашей модели,
+      его можно предпочесть здесь вместо original_ref.
+    """
+    original_ref = getattr(version, "original_ref", None)
+    converted_pdf_ref = getattr(version, "converted_pdf_ref", None)
+    origin_filetype = (getattr(version, "origin_filetype", None) or "").strip().lower()
+
+    if origin_filetype in {"png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"}:
+        return original_ref
+
+    if origin_filetype == "pdf":
+        return original_ref
+
+    return original_ref or converted_pdf_ref
+
+
+def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
+    """
+    Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
+
+    Если ссылка не начинается с ожидаемого bucket prefix,
+    явно падаем с PermanentError.
+    """
+    prefix = f"s3://{bucket}/"
+    if not s3_ref or not s3_ref.startswith(prefix):
+        raise PermanentError(
+            f"Invalid S3 ref for bucket '{bucket}': {s3_ref}"
+        )
+    return s3_ref.replace(prefix, "", 1)
+
+

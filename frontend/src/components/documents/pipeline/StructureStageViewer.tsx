@@ -88,24 +88,13 @@ function getSectionJson(section: StructureSectionPreviewDTO): string {
   }
 }
 
-/**
- * Canonical text секции:
- * - используется только structure_text;
- * - UI не использует дополнительные текстовые поля.
- */
-function getSectionTextCanonical(
-  section: StructureSectionPreviewDTO,
-): {
+function getSectionTextCanonical(section: StructureSectionPreviewDTO): {
   text: string;
   hasText: boolean;
 } {
   const structure = (section.structure_text ?? "").trim();
   const text = structure;
-
-  return {
-    text,
-    hasText: text.length > 0,
-  };
+  return { text, hasText: text.length > 0 };
 }
 
 function getSectionTextFriendly(section: StructureSectionPreviewDTO): string {
@@ -143,10 +132,6 @@ function getSectionMetaLine(section: StructureSectionPreviewDTO): string {
   return parts.join(" · ");
 }
 
-/**
- * Короткое описание для навигационного списка слева.
- * Используется только v2-логика: enriched -> structure.
- */
 function getSectionNavDescription(section: StructureSectionPreviewDTO): string {
   const enriched = (section.enriched_text ?? "").trim();
   const structure = (section.structure_text ?? "").trim();
@@ -211,6 +196,8 @@ function groupSectionsBySegment(
   return result;
 }
 
+/* ===== shared ui ===== */
+
 const PanelHeader: React.FC<{
   title: string;
   description?: string;
@@ -240,53 +227,29 @@ export const StructureStageViewer: React.FC<Props> = ({
   const status = structureStage.status;
   const preview = structureStage.preview;
 
-  if (status === "pending") {
-    return (
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        Структура документа ещё не готова в v2-формате. Попробуй позже.
-      </div>
-    );
-  }
+  // Флаги вычисляем до хуков — они не вызывают хуков сами по себе
+  const isPending = status === "pending";
+  const isMissing = status === "missing";
+  const structurePreview = isStructurePreview(preview) ? preview : null;
 
-  if (status === "missing") {
-    return (
-      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
-        Структурированный артефакт ожидается, но недоступен или повреждён.
-        Проверь состояние пайплайна для стадии STRUCTURE.
-      </div>
-    );
-  }
-
-  if (!isStructurePreview(preview)) {
-    return (
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        Для этой стадии нет STRUCTURE-превью.
-      </div>
-    );
-  }
-
-  const isCanonical = isCanonicalStructureView(structureStage);
+  // ── Все хуки безусловно наверху ──────────────────────────────────────────
 
   const segmentGroups = React.useMemo(
-    () => groupSectionsBySegment(preview),
-    [preview],
+    () =>
+      structurePreview ? groupSectionsBySegment(structurePreview) : [],
+    [structurePreview],
   );
 
   const hasSegmentGroups = segmentGroups.length > 0;
 
-  const sections: StructureSectionPreviewDTO[] = React.useMemo(() => {
-    if (!hasSegmentGroups) {
-      return [];
-    }
-
+  const sections = React.useMemo<StructureSectionPreviewDTO[]>(() => {
+    if (!hasSegmentGroups) return [];
     const all: StructureSectionPreviewDTO[] = [];
     for (const group of segmentGroups) {
       all.push(...group.sections);
     }
     return all;
   }, [hasSegmentGroups, segmentGroups]);
-
-  const sectionCount = structureStage.meta?.section_count ?? sections.length;
 
   const [activeSectionId, setActiveSectionId] = React.useState<string | null>(
     sections[0]?.id ?? null,
@@ -301,16 +264,51 @@ export const StructureStageViewer: React.FC<Props> = ({
     });
   }, [sections]);
 
-  const activeSection: StructureSectionPreviewDTO | null = React.useMemo(() => {
+  const activeSection = React.useMemo<StructureSectionPreviewDTO | null>(() => {
     if (!sections.length) return null;
     if (!activeSectionId) return sections[0];
     return sections.find((s) => s.id === activeSectionId) ?? sections[0];
   }, [sections, activeSectionId]);
 
+  // ── Ранние возвраты только после всех хуков ──────────────────────────────
+
+  if (isPending) {
+    return (
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
+        Структура документа ещё не готова в v2-формате. Попробуй позже.
+      </div>
+    );
+  }
+
+  if (isMissing) {
+    return (
+      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
+        Структурированный артефакт ожидается, но недоступен или повреждён.
+        Проверь состояние пайплайна для стадии STRUCTURE.
+      </div>
+    );
+  }
+
+  if (!structurePreview) {
+    return (
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
+        Для этой стадии нет STRUCTURE-превью.
+      </div>
+    );
+  }
+
+  // ── Derived values, не требующие хуков ───────────────────────────────────
+
+  const isCanonical = isCanonicalStructureView(structureStage);
+  const sectionCount =
+    structureStage.meta?.section_count ?? sections.length;
+
   const highlightedChunkIndices =
     activeSection && activeSection.source_mapping?.source_stage === "CHUNKS"
       ? activeSection.source_mapping.chunk_indices ?? []
       : [];
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-3">
@@ -419,6 +417,8 @@ export const StructureStageViewer: React.FC<Props> = ({
   );
 };
 
+/* ===== Sub-components ===================================================== */
+
 const SectionNavItem: React.FC<{
   section: StructureSectionPreviewDTO;
   isActive: boolean;
@@ -520,7 +520,11 @@ const CanonicalSectionPanel: React.FC<{
         <div>
           <p
             className="text-sm font-semibold text-[var(--text-primary)]"
-            title={section.clause_uid ? `clause_uid: ${section.clause_uid}` : undefined}
+            title={
+              section.clause_uid
+                ? `clause_uid: ${section.clause_uid}`
+                : undefined
+            }
           >
             {getSectionLabel(section)}
           </p>
@@ -649,7 +653,7 @@ const CanonicalSectionPanel: React.FC<{
           </div>
         )}
 
-        {onOpenAtLocation && section && (
+        {onOpenAtLocation && (
           <div className="mt-3 flex justify-end">
             <button
               type="button"
@@ -708,7 +712,11 @@ const FriendlySectionPanel: React.FC<{
         <div>
           <p
             className="text-sm font-semibold text-[var(--text-primary)]"
-            title={section.clause_uid ? `clause_uid: ${section.clause_uid}` : undefined}
+            title={
+              section.clause_uid
+                ? `clause_uid: ${section.clause_uid}`
+                : undefined
+            }
           >
             {getSectionLabel(section)}
           </p>
@@ -751,7 +759,7 @@ const FriendlySectionPanel: React.FC<{
           </div>
         )}
 
-        {onOpenAtLocation && section && (
+        {onOpenAtLocation && (
           <div className="mt-3 flex justify-end">
             <button
               type="button"

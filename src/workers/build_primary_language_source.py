@@ -31,7 +31,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.exceptions import PermanentError, TransientError
-
+from services.deal_language_service import update_deal_languages
 
 from core.config import settings
 from core.constants import DocumentStatus
@@ -50,9 +50,11 @@ from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
 from mas_queue.async_helpers import run_async
 from services.primary_pdf_builder import build_pdf_from_layout
-from services.quick_pdf_layout import build_quick_layout_from_pdf
 from storage.artifact_store import ArtifactPath, ArtifactStore
 from services.run_orchestrator_trigger import retrigger_run_pipeline
+from services.document_language_detection import detect_document_languages_from_pdf_bytes
+from services.deal_language_discovery_service import recompute_deal_language_discovery_state
+
 
 
 logger = get_logger(__name__)
@@ -310,11 +312,56 @@ async def _build_primary_language_source_async(
         )
         raise PermanentError(f"Failed to read source PDF: {e}")
 
-    # 2. Строим layout для раннего языкового анализа.
-    quick_layout = build_quick_layout_from_pdf(
+    # 2. Строим quick layout и определяем языки через общий shared-service.
+    detection_result = detect_document_languages_from_pdf_bytes(
         pdf_bytes=pdf_bytes,
         document_id=document_id,
         document_version_id=document_version_id,
+    )
+    quick_layout = detection_result.quick_layout
+    detected_languages = detection_result.detected_languages
+
+    logger.info(
+        "Primary source build: detected languages from quick layout",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        detected_languages=detected_languages,
+    )
+
+    await doc_repo.update_language_detection(
+        doc_uuid,
+        detected_languages=detected_languages,
+        status="completed",
+    )
+
+    if detected_languages:
+        await update_deal_languages(
+            db=db,
+            deal_id=deal_uuid,
+            new_languages=detected_languages,
+        )
+        logger.info(
+            "Primary source build: detected languages updated in deal",
+            document_id=document_id,
+            version_id=document_version_id,
+            deal_id=deal_id,
+            detected_languages=detected_languages,
+        )
+
+    await recompute_deal_language_discovery_state(
+        db=db,
+        deal_id=deal_uuid,
+    )
+
+    deal_repo = DealRepository(db)
+    deal_after_lang_update = await deal_repo.get_by_id(deal_uuid)
+    logger.info(
+        "Primary source build: deal languages after update",
+        document_id=document_id,
+        version_id=document_version_id,
+        deal_id=deal_id,
+        persisted_deal_languages=getattr(deal_after_lang_update, "languages", None),
     )
 
     quick_meta = (quick_layout.get("metadata") or {}).get("quick_layout") or {}
@@ -394,7 +441,7 @@ async def _build_primary_language_source_async(
             "source_ref": source_ref,
             "primary_source_ref": existing_primary_ref,
             "target_language": None,
-            "detected_languages": [],
+            "detected_languages": detected_languages,
             "requires_user_selection": True,
             "committed": False,
         }

@@ -1,136 +1,21 @@
 // =============================================================
 // src/api/qc.ts
-// QC API: legacy + review modes.
+// QC API: review-only mode для DD Matrix.
 //
-// ВАЖНО:
-// - legacy section используется старым DD Grid и CheckResult[]-флоу;
-// - review section используется новым DD Matrix / review-only UI;
-// - после завершения Фазы 9 legacy section будет удалён.
+// После завершения Phase 9 legacy QC API (CheckResult[]-флоу) удалён.
+// Здесь остался только review-aware QC контракт:
+//   POST /api/v1/qc/review        — single finding QC update
+//   POST /api/v1/qc/review/bulk   — bulk findings QC update
+//
+// Префикс путей:
+// - axios baseURL = http://localhost:8000 (без /api/v1),
+//   поэтому в каждом пути префикс /api/v1 указан явно.
 // =============================================================
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
-import type { CheckResult } from "../types";
+import { dealReviewKeys } from "./dealReview";
 import type { ReviewQcStatus } from "../types/dealReview";
-
-// -------------------------------------------------------------
-// LEGACY QC API
-// -------------------------------------------------------------
-
-/**
- * Общий тип ответа legacy QC-эндпоинтов.
- * В текущем контракте backend возвращает обновлённые CheckResult[].
- */
-export interface QCResponse {
-  updated_results: CheckResult[];
-}
-
-export const qcApi = {
-  /**
-   * Подтвердить результаты (QC: confirm).
-   * POST /api/v1/qc/confirm
-   */
-  confirm: (resultIds: string[], comment?: string) =>
-    client
-      .post<QCResponse>("/qc/confirm", {
-        result_ids: resultIds,
-        comment,
-      })
-      .then((r) => r.data),
-
-  /**
-   * Отклонить результаты (QC: reject).
-   * POST /api/v1/qc/reject
-   */
-  reject: (resultIds: string[], comment?: string) =>
-    client
-      .post<QCResponse>("/qc/reject", {
-        result_ids: resultIds,
-        comment,
-      })
-      .then((r) => r.data),
-
-  /**
-   * Переопределить результат (QC: override).
-   * POST /api/v1/qc/override
-   *
-   * newSeverity — новая серьёзность (например, "critical", "high", "medium", "low").
-   * newResult   — опционально новый результат: pass / fail / unclear.
-   */
-  override: (
-    resultIds: string[],
-    newSeverity: string,
-    comment: string,
-    newResult?: "pass" | "fail" | "unclear",
-  ) =>
-    client
-      .post<QCResponse>("/qc/override", {
-        result_ids: resultIds,
-        new_severity: newSeverity,
-        comment,
-        ...(newResult && { new_result: newResult }),
-      })
-      .then((r) => r.data),
-};
-
-// ===== Legacy React Query mutations =====
-
-/**
- * Хук для подтверждения legacy результатов.
- * Пример:
- * const confirm = useConfirmResults();
- * await confirm.mutateAsync({ ids: ["id1", "id2"], comment: "Ок" });
- */
-export function useConfirmResults() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ ids, comment }: { ids: string[]; comment?: string }) =>
-      qcApi.confirm(ids, comment),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["all-results"] });
-    },
-  });
-}
-
-/**
- * Хук для отклонения legacy результатов.
- */
-export function useRejectResults() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ ids, comment }: { ids: string[]; comment?: string }) =>
-      qcApi.reject(ids, comment),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["all-results"] });
-    },
-  });
-}
-
-/**
- * Хук для legacy override (смена severity и, при желании, результата).
- */
-export function useOverrideResults() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      ids,
-      newSeverity,
-      comment,
-      newResult,
-    }: {
-      ids: string[];
-      newSeverity: string;
-      comment: string;
-      newResult?: "pass" | "fail" | "unclear";
-    }) => qcApi.override(ids, newSeverity, comment, newResult),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["all-results"] });
-    },
-  });
-}
 
 // -------------------------------------------------------------
 // REVIEW QC API
@@ -224,7 +109,9 @@ export const reviewQcApi = {
    * POST /api/v1/qc/review
    */
   updateReviewQc: (payload: ReviewQCUpdateRequest) =>
-    client.post<ReviewQCUpdateResponse>("/qc/review", payload).then((r) => r.data),
+    client
+      .post<ReviewQCUpdateResponse>("/api/v1/qc/review", payload)
+      .then((r) => r.data),
 
   /**
    * Применить QC-действие к нескольким finding'ам review matrix.
@@ -232,7 +119,7 @@ export const reviewQcApi = {
    */
   bulkUpdateReviewQc: (payload: ReviewQCBulkUpdateRequest) =>
     client
-      .post<ReviewQCBulkUpdateResponse>("/qc/review/bulk", payload)
+      .post<ReviewQCBulkUpdateResponse>("/api/v1/qc/review/bulk", payload)
       .then((r) => r.data),
 };
 
@@ -241,7 +128,6 @@ export const reviewQcApi = {
 /**
  * Хук для QC-действия над одной review-ячейкой.
  *
- * ВАЖНО:
  * После успеха инвалидируем review dd-matrix query,
  * чтобы UI перечитал обновлённый single source of truth.
  */
@@ -252,7 +138,7 @@ export function useUpdateReviewQc() {
     mutationFn: reviewQcApi.updateReviewQc,
     onSuccess: async (data) => {
       await qc.invalidateQueries({
-        queryKey: ["deal-review", "dd-matrix", data.deal_id, data.run_id],
+        queryKey: dealReviewKeys.ddMatrix(data.deal_id, data.run_id),
       });
     },
   });
@@ -268,7 +154,7 @@ export function useBulkUpdateReviewQc() {
     mutationFn: reviewQcApi.bulkUpdateReviewQc,
     onSuccess: async (data) => {
       await qc.invalidateQueries({
-        queryKey: ["deal-review", "dd-matrix", data.deal_id, data.run_id],
+        queryKey: dealReviewKeys.ddMatrix(data.deal_id, data.run_id),
       });
     },
   });

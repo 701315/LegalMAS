@@ -457,23 +457,25 @@ async def _start_run_pipeline_async(
     deal_primary_language = getattr(deal, "primary_language", None)
 
     if not deal_primary_language:
-        # Язык ещё не выбран — пайплайн документов не стартуем.
-        # Run можно оставить RUNNING или пометить как FAILED/WAITING — на твой UX.
+        # IMPORTANT:
+        # Отсутствие primary_language не должно блокировать document pipeline целиком.
+        # Стадия build_primary_language_source сама:
+        # - строит quick-layout;
+        # - детектит языки документа;
+        # - обновляет Deal.languages;
+        # - может перевести документ в LANGUAGE_SELECTION_REQUIRED,
+        #   если нужен явный выбор языка пользователем.
+        #
+        # Поэтому оркестратор продолжает планирование стадий, передавая
+        # deal_primary_language (в том числе None) в _build_document_task_plan().
         logger.info(
-            "Run pipeline paused: deal has no primary_language selected",
+            "Deal has no primary_language selected yet; allowing language-discovery stages to proceed",
             extra={
                 "run_id": run_id,
                 "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
             },
         )
-        return {
-            "run_id": run_id,
-            "deal_id": deal_id_str,
-            "tenant_id": tenant_id_str,
-            "documents_total": 0,
-            "tasks_scheduled": 0,
-            "documents_with_plan": 0,
-        }
 
     docs = await doc_repo.get_by_deal(deal_uuid)
     if not docs:
@@ -746,6 +748,13 @@ async def _build_document_task_plan(
                 "run_id": run_id,
             },
         )
+        # NB:
+        # deal_primary_language может быть None. В этом случае
+        # build_primary_language_source обязан:
+        # - извлечь quick-layout;
+        # - детектировать языки;
+        # - обновить Deal.languages;
+        # - при необходимости перевести документ в LANGUAGE_SELECTION_REQUIRED.
         return TaskPlan(
             task_name="workers.build_primary_language_source",
             stage="build_primary_language_source",

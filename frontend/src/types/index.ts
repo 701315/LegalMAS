@@ -58,7 +58,7 @@ export type {
 export type {
   DealStatus,
   DealChecksMode,
-  DealPrimaryLanguageUpdatePayload,
+  DealLanguageDiscoveryStatus,
   DealUpdatePayload,
   Deal,
   DealDetail,
@@ -108,3 +108,4 @@ export type { UserRole, User } from "./auth";
 export type { DDRequest, DDRequestCreateInput } from "./ddRequests";
 
 export type { ExportType, ExportRecord, AuditLogEntry } from "./exports";
+

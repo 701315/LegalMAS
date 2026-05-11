@@ -29,6 +29,14 @@ Task registry — единая точка регистрации всех Celery
 from workers.import_worker import import_bundle  # noqa: F401
 from workers.convert_worker import convert_to_pdf  # noqa: F401
 
+# pre-run language discovery
+from workers.language_discovery_orchestrator import start_language_discovery  # noqa: F401
+from workers.detect_document_languages_native import detect_document_languages_native  # noqa: F401
+from workers.detect_document_languages_ocr import detect_document_languages_ocr  # noqa: F401
+
+# system / infrastructure workers
+from workers.outbox_dispatcher import outbox_dispatcher  # noqa: F401
+
 # оркестрация Run (запуск пайплайна по сделке)
 from workers.run_orchestrator import start_run_pipeline  # noqa: F401
 
@@ -40,7 +48,6 @@ from workers.structure_builder import build_structure  # noqa: F401
 from workers.classifier import classify_document  # noqa: F401
 from workers.chunk_builder import build_chunks  # noqa: F401
 from workers.segment_classifier import classify_document_segments  # noqa: F401
-
 
 # запуск checks: scheduler + атомарные checks + финализация run
 from workers.check_runner_worker import (  # noqa: F401

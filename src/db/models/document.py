@@ -148,6 +148,36 @@ class Document(Base):
         comment="RU, EN, etc.",
     )
 
+    # NEW (v2): Результаты pre-run language discovery на уровне документа.
+    #
+    # Для непрофессионального программиста:
+    # - detected_languages хранит список всех языков, которые автоматический
+    #   анализ нашёл в этом файле (например: ['ru', 'en']).
+    # - language_detection_status показывает состояние этапа определения
+    #   языков для этого документа.
+    #
+    # Эти поля нужны, чтобы:
+    # - оркестратор и воркеры не делали повторную дорогостоящую проверку
+    #   языков для одного и того же файла;
+    # - можно было понять, какие документы уже обработаны, а какие ещё нет;
+    # - фронт и админские инструменты могли отлаживать/диагностировать
+    #   language discovery независимо от основного пайплайна анализа.
+    detected_languages: Mapped[list[str] | None] = mapped_column(
+        PG_ARRAY(String(10)),
+        nullable=True,
+        comment="All languages detected in this document, e.g. ['ru', 'en'].",
+    )
+
+    language_detection_status: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment=(
+            "Status of pre-run language discovery for this document: "
+            "pending / processing / completed / failed"
+        ),
+    )
+
+
     jurisdiction_guess: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,

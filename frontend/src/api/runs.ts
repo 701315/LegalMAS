@@ -3,13 +3,23 @@
 // API-функции и React Query хуки для запусков анализа (runs).
 // =============================================================
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import client from "./client";
-import type { Run, RunCreateInput, ClassificationReport } from "../types";
+import type { ClassificationReport, Run, RunCreateInput } from "../types";
 
 // -------------------------------------------------------------
 // НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
 // -------------------------------------------------------------
+
+const RUN_POLL_INTERVAL_MS = 2000;
+
+function isTerminalRunStatus(status: Run["status"] | undefined): boolean {
+  return (
+    status === "completed" ||
+    status === "completed_with_errors" ||
+    status === "failed"
+  );
+}
 
 export const runApi = {
   /**
@@ -82,12 +92,14 @@ export function useRun(
       return runApi.get(runId, includeClassificationStats);
     },
     enabled: !!runId,
-    // Здесь query — это Query<Run | null, Error, ...>
+    staleTime: 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     refetchInterval: (query) => {
       const data = query.state.data as Run | null;
-      if (!data) return false;
-      if (data.status === "running" || data.status === "pending") return 2000;
-      return false;
+      if (!data) return RUN_POLL_INTERVAL_MS;
+      if (isTerminalRunStatus(data.status)) return false;
+      return RUN_POLL_INTERVAL_MS;
     },
   });
 }
@@ -100,6 +112,8 @@ export function useClassificationReport(runId: string | null) {
     queryKey: ["classification-report", runId],
     queryFn: () => runApi.getClassificationReport(runId!),
     enabled: !!runId,
-    staleTime: 10 * 60_000, // 10 минут — отчёт не меняется часто
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
   });
 }
+

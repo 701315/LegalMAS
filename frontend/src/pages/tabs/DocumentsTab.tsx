@@ -347,7 +347,6 @@ const ExportMenu: React.FC<{
 
 const DocumentsTab: React.FC<DocumentsTabProps> = ({
   deal,
-  runId: _runId,
   openViewerAt,
   onViewerLocationConsumed,
 }) => {
@@ -362,7 +361,10 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
-  const documents: DocumentListItem[] = data?.items ?? [];
+  const documents = useMemo<DocumentListItem[]>(
+    () => data?.items ?? [],
+    [data?.items],
+  );
 
   const selectedDocument = useMemo(
     () => documents.find((doc) => doc.id === selectedDocId) ?? null,

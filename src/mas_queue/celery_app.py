@@ -6,7 +6,7 @@
 Назначение:
   - создать единый экземпляр Celery (celery_app) для всего проекта;
   - настроить broker, backend результатов, сериализацию, очереди и надёжность;
-  - подключить регистрацию всех задач через модуль workers.tasks.
+  - подключить регистрацию всех задач через явный список worker-модулей.
 
 Все воркеры импортируют celery_app из этого файла и регистрируют задачи через
 @celery_app.task(...), используя общий экземпляр приложения.
@@ -15,8 +15,11 @@
 
   high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
   default        — основной пайплайн и лёгкая оркестрация
-                   (extract, pii, structure, classify, scheduler/finalizer).
+                   (extract, pii, structure, classify, scheduler/finalizer,
+                   language discovery).
                    x-max-priority=5.
+  system         — инфраструктурные и служебные задачи
+                   (outbox relay / maintenance / reconcile). x-max-priority=3.
   heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
                    Без приоритетов, отдельные soft/hard time limits.
   low_priority   — фоновые задачи (export, relations). x-max-priority=1.
@@ -37,6 +40,9 @@
   - SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
     иначе задача может остаться в RUNNING без корректного статуса в БД.
   - Для heavy_llm рекомендуется отдельный Celery worker-процесс.
+  - Для Redis visibility_timeout Celery рекомендует задавать это значение
+    согласованно в broker_transport_options, result_backend_transport_options
+    и visibility_timeout.
 
 Технический долг (актуальное):
   - Изолировать engine/session factory в тестах.
@@ -50,7 +56,6 @@ from kombu import Exchange, Queue
 
 from core.config import settings
 from core.logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -85,6 +90,7 @@ _result_backend = _make_result_backend(settings.REDIS_URL)
 
 QUEUE_HIGH_PRIORITY = "high_priority"
 QUEUE_DEFAULT = "default"
+QUEUE_SYSTEM = "system"
 QUEUE_HEAVY_LLM = "heavy_llm"
 QUEUE_LOW_PRIORITY = "low_priority"
 
@@ -119,15 +125,19 @@ celery_app.conf.update(
         "workers.chunk_builder",
         "workers.classifier",
         "workers.convert_worker",
+        "workers.detect_document_languages_native",
+        "workers.detect_document_languages_ocr",
         "workers.export_pending",
         "workers.exporter",
         "workers.extract_worker",
         "workers.import_worker",
+        "workers.language_discovery_orchestrator",
+        "workers.outbox_dispatcher",
         "workers.pii_sanitizer",
         "workers.relations_worker",
         "workers.run_orchestrator",
-        "workers.structure_builder",
         "workers.segment_classifier",
+        "workers.structure_builder",
     ],
 
     # --- Сериализация ---
@@ -161,6 +171,10 @@ celery_app.conf.update(
         "socket_timeout": 30,
         "socket_connect_timeout": 10,
     },
+    result_backend_transport_options={
+        "visibility_timeout": BROKER_VISIBILITY_TIMEOUT_SEC,
+    },
+    visibility_timeout=BROKER_VISIBILITY_TIMEOUT_SEC,
 
     # --- Управление жизненным циклом worker child process ---
     worker_max_tasks_per_child=200,
@@ -178,6 +192,12 @@ celery_app.conf.update(
             Exchange(QUEUE_DEFAULT),
             routing_key=QUEUE_DEFAULT,
             queue_arguments={"x-max-priority": 5},
+        ),
+        Queue(
+            QUEUE_SYSTEM,
+            Exchange(QUEUE_SYSTEM),
+            routing_key=QUEUE_SYSTEM,
+            queue_arguments={"x-max-priority": 3},
         ),
         Queue(
             QUEUE_LOW_PRIORITY,
@@ -199,6 +219,22 @@ celery_app.conf.update(
 
     # --- Маршрутизация задач ---
     task_routes={
+        "workers.start_language_discovery": {
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
+        "workers.detect_document_languages_native": {
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
+        "workers.detect_document_languages_ocr": {
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
+        "workers.outbox_dispatcher": {
+            "queue": QUEUE_SYSTEM,
+            "routing_key": QUEUE_SYSTEM,
+        },
         "workers.run_deal_checks": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
@@ -221,4 +257,7 @@ celery_app.conf.update(
         },
     },
 )
+
+
+
 

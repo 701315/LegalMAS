@@ -1,5 +1,8 @@
 // =============================================================
 // src/pages/tabs/overview/LaunchWideOverlay.tsx
+// Launch panel раскрывается до границы основной контентной колонки,
+// без backdrop и без перекрытия AnalysisActionsPanel.
+// Ширина overlay вычисляется от реального layout, а не от 100vw.
 // =============================================================
 
 import React from "react";
@@ -47,6 +50,15 @@ const leftPaneBodyClass =
 const rightPaneClass =
   "min-w-0 min-h-0 overflow-y-auto bg-[var(--bg-card)]";
 
+function normalizeLang(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizeDiscoveryStatus(value: string | null | undefined): string | null {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized || null;
+}
+
 const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   open,
   overlayWidth,
@@ -77,20 +89,52 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 
   if (!open || overlayWidth <= 0) return null;
 
+  const documentLanguages = (deal.languages ?? [])
+    .map((lang) => normalizeLang(lang))
+    .filter(Boolean);
+
+  const uniqueDocumentLanguages = Array.from(new Set(documentLanguages));
+  const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
+  const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
+
+  const hasLanguagesReady = uniqueDocumentLanguages.length > 0;
   const hasPlaybook = !!deal.playbook_version_id;
-  const hasPrimaryLanguage = !!deal.primary_language;
+  const hasPrimaryLanguage = !!selectedPrimaryLanguage;
+  const hasDocuments =
+    typeof documentsCount === "number" ? documentsCount > 0 : false;
 
-  const canLaunchRun =
-    canStartRun &&
-    hasPlaybook &&
-    hasPrimaryLanguage &&
-    !isSubmitting;
+  const readinessLabel = (() => {
+    if (!hasDocuments) {
+      return "Сначала загрузите документы в проект.";
+    }
 
-  const readinessLabel = !hasPlaybook
-    ? "Нужно выбрать playbook, чтобы запустить анализ."
-    : !hasPrimaryLanguage
-      ? "Нужно выбрать основной язык анализа."
-      : "Параметры готовы к запуску анализа.";
+    if (!hasPlaybook) {
+      return "Нужно выбрать playbook, чтобы запустить анализ.";
+    }
+
+    if (!hasLanguagesReady) {
+      if (discoveryStatus === "processing") {
+        return "Языки документов ещё определяются. Запуск станет доступен после завершения language discovery.";
+      }
+      if (discoveryStatus === "failed") {
+        return "Не удалось автоматически определить языки документов. Проверьте импорт или повторите подготовку.";
+      }
+      if (discoveryStatus === "partial") {
+        return "Языки определены частично. Проверьте набор документов перед запуском анализа.";
+      }
+      return "Подготавливаем языки документов. Запуск станет доступен после определения языка.";
+    }
+
+    if (!hasPrimaryLanguage) {
+      return "Нужно выбрать основной язык анализа.";
+    }
+
+    if (isSubmitting) {
+      return "Выполняем запрос…";
+    }
+
+    return "Параметры готовы к запуску анализа.";
+  })();
 
   const handleOpenUploadPanel = () => {
     if (!canUploadDocuments) return;
@@ -336,7 +380,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           </Button>
 
           <div className="flex items-center gap-3">
-            {!canLaunchRun && (
+            {!canStartRun && (
               <span className="text-[11px] text-[var(--text-muted)]">
                 {readinessLabel}
               </span>
@@ -346,7 +390,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
               variant="secondary"
               size="sm"
               onClick={onSubmit}
-              disabled={!canLaunchRun}
+              disabled={!canStartRun}
               isLoading={isSubmitting}
             >
               Запустить анализ

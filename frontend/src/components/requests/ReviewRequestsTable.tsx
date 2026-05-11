@@ -5,7 +5,7 @@
 // Использует adapter для преобразования DTO в UI read-model.
 // =============================================================
 
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import type { DDRequestDTO } from "../../types/dealReview";
 import { toRequestTableRowFromReview } from "../../viewAdapters/requestPresentation";
 import { RequestPriorityBadge } from "./shared/RequestPriorityBadge";
@@ -28,6 +28,8 @@ export const ReviewRequestsTable: React.FC<Props> = ({
   onRowClick,
 }) => {
   const [searchText, setSearchText] = useState("");
+
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
 
   const viewModels = useMemo(
     () =>
@@ -129,19 +131,26 @@ export const ReviewRequestsTable: React.FC<Props> = ({
           <tbody>
             {filtered.map(({ dto, view }) => {
               const isSelected = selectedRequestId === view.id;
-              const rowRef = useRef<HTMLTableRowElement | null>(null);
 
               return (
                 <tr
                   key={view.id}
-                  ref={rowRef}
+                  ref={(el) => {
+                    if (el) {
+                      rowRefs.current.set(view.id, el);
+                    } else {
+                      rowRefs.current.delete(view.id);
+                    }
+                  }}
                   className={cn(
                     "cursor-pointer border-b border-[var(--border-subtle)] transition-colors last:border-b-0",
                     isSelected
                       ? "bg-[var(--bg-elevated-soft)]"
                       : "hover:bg-[var(--bg-elevated-soft)]/60",
                   )}
-                  onClick={() => onRowClick(dto, rowRef.current)}
+                  onClick={() =>
+                    onRowClick(dto, rowRefs.current.get(view.id) ?? null)
+                  }
                   aria-selected={isSelected}
                 >
                   {/* Приоритет */}
@@ -234,6 +243,7 @@ export const ReviewRequestsTable: React.FC<Props> = ({
 };
 
 export default ReviewRequestsTable;
+
 
 
 

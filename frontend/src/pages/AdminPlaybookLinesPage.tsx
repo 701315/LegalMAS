@@ -1,4 +1,13 @@
-import React, { useMemo, useState } from "react";
+// =============================================================
+// src/pages/AdminPlaybookLinesPage.tsx
+// Конструктор шаблонов Playbook (admin UI).
+// Позволяет создавать, редактировать и удалять логические линии
+// (шаблоны) playbook, настраивая состав тем и проверок.
+// Может работать как отдельная страница (mode="page")
+// или встроенный блок (mode="embedded").
+// =============================================================
+
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import client from "../api/client";
@@ -27,6 +36,17 @@ const smallSelectClassName =
 const fullSelectClassName =
   "w-full rounded-md border border-[var(--border)] bg-[var(--bg-input)] px-1 py-0.5 text-[11px] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60";
 
+function normalizeLineItems(
+  rawItems: PlaybookLineItemPayload[] = [],
+): PlaybookLineItemPayload[] {
+  return [...rawItems]
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+    .map((item, index) => ({
+      ...item,
+      order_index: index,
+    }));
+}
+
 interface AdminPlaybookLinesPageProps {
   mode?: "page" | "embedded";
   headerActions?: React.ReactNode;
@@ -50,10 +70,11 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
   const effectivePlaybookId = initialPlaybookId ?? playbookIdFromQuery;
 
   const [lines, setLines] = React.useState<PlaybookLineShort[]>([]);
-  const [selectedLineId, setSelectedLineId] = React.useState<string | null>(null);
-  const [currentLine, setCurrentLine] = React.useState<PlaybookLineDetail | null>(
+  const [selectedLineId, setSelectedLineId] = React.useState<string | null>(
     null,
   );
+  const [currentLine, setCurrentLine] =
+    React.useState<PlaybookLineDetail | null>(null);
 
   const [isLoading, setIsLoading] = React.useState(true);
   const [isCatalogLoading, setIsCatalogLoading] = React.useState(false);
@@ -76,6 +97,9 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
   const [topics, setTopics] = React.useState<PlaybookTopicInfo[]>([]);
 
   const isBusy = isSaving || isDeleting;
+  const isBusyRef = React.useRef(isBusy);
+  isBusyRef.current = isBusy;
+
   const isUiLocked = isBusy || isDetailLoading;
   const canAddItems = !isCatalogLoading && topics.length > 0 && !isUiLocked;
   const canSave = !isUiLocked && !!title.trim();
@@ -89,10 +113,10 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
     return map;
   }, [topics]);
 
-  const clearMessages = () => {
+  const clearMessages = useCallback(() => {
     setErrorText(null);
     setSuccessText(null);
-  };
+  }, []);
 
   const resetForm = () => {
     setCurrentLine(null);
@@ -102,17 +126,6 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
     setJurisdiction("");
     setLanguage("");
     setItems([]);
-  };
-
-  const normalizeItems = (
-    rawItems: PlaybookLineItemPayload[] = [],
-  ): PlaybookLineItemPayload[] => {
-    return [...rawItems]
-      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
-      .map((item, index) => ({
-        ...item,
-        order_index: index,
-      }));
   };
 
   const buildPayload = () => {
@@ -154,7 +167,9 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
     setErrorText(null);
 
     try {
-      const res = await client.get<PlaybookLineShort[]>("/api/v1/playbooks/lines");
+      const res = await client.get<PlaybookLineShort[]>(
+        "/api/v1/playbooks/lines",
+      );
       setLines(res.data || []);
     } catch (err) {
       setErrorText(
@@ -181,30 +196,33 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
     }
   };
 
-  const loadLineDetail = async (lineId: string) => {
-    setIsDetailLoading(true);
-    clearMessages();
+  const loadLineDetail = useCallback(
+    async (lineId: string) => {
+      setIsDetailLoading(true);
+      clearMessages();
 
-    try {
-      const res = await client.get<PlaybookLineDetail>(
-        `/api/v1/playbooks/lines/${lineId}`,
-      );
+      try {
+        const res = await client.get<PlaybookLineDetail>(
+          `/api/v1/playbooks/lines/${lineId}`,
+        );
 
-      setCurrentLine(res.data);
-      setTitle(res.data.title || "");
-      setDescription(res.data.description || "");
-      setDealType(res.data.deal_type || "");
-      setJurisdiction(res.data.jurisdiction || "");
-      setLanguage(res.data.language || "");
-      setItems(normalizeItems(res.data.items || []));
-    } catch (err) {
-      setErrorText(
-        getApiErrorMessage(err, "Не удалось загрузить шаблон playbook."),
-      );
-    } finally {
-      setIsDetailLoading(false);
-    }
-  };
+        setCurrentLine(res.data);
+        setTitle(res.data.title || "");
+        setDescription(res.data.description || "");
+        setDealType(res.data.deal_type || "");
+        setJurisdiction(res.data.jurisdiction || "");
+        setLanguage(res.data.language || "");
+        setItems(normalizeLineItems(res.data.items || []));
+      } catch (err) {
+        setErrorText(
+          getApiErrorMessage(err, "Не удалось загрузить шаблон playbook."),
+        );
+      } finally {
+        setIsDetailLoading(false);
+      }
+    },
+    [clearMessages],
+  );
 
   React.useEffect(() => {
     void loadLines();
@@ -212,14 +230,16 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
   }, []);
 
   React.useEffect(() => {
-    if (!effectivePlaybookId || lines.length === 0 || isBusy) return;
+    if (!effectivePlaybookId || lines.length === 0 || isBusyRef.current) {
+      return;
+    }
 
     const line = lines.find((entry) => entry.id === effectivePlaybookId);
     if (!line) return;
 
     setSelectedLineId(line.id);
     void loadLineDetail(line.id);
-  }, [effectivePlaybookId, lines]);
+  }, [effectivePlaybookId, lines, loadLineDetail]);
 
   const handleCreateNew = () => {
     if (isUiLocked) return;
@@ -377,7 +397,7 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
       setDealType(res.data.deal_type || "");
       setJurisdiction(res.data.jurisdiction || "");
       setLanguage(res.data.language || "");
-      setItems(normalizeItems(res.data.items || []));
+      setItems(normalizeLineItems(res.data.items || []));
 
       await loadLines();
       setSuccessText("Шаблон сохранён.");
@@ -409,7 +429,9 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
     clearMessages();
 
     try {
-      await client.delete<void>(`/api/v1/playbooks/lines/${currentLine.id}`);
+      await client.delete<void>(
+        `/api/v1/playbooks/lines/${currentLine.id}`,
+      );
 
       setIsDeleteDialogOpen(false);
       setSelectedLineId(null);
@@ -677,14 +699,18 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                 <table className="w-full table-fixed border-collapse text-[11px]">
                   <thead className="bg-[var(--bg-elevated-soft)]">
                     <tr className="text-[var(--text-muted)]">
-                      <th className="w-8 px-2 py-1 text-left font-medium">#</th>
+                      <th className="w-8 px-2 py-1 text-left font-medium">
+                        #
+                      </th>
                       <th className="w-24 px-2 py-1 text-left font-medium">
                         Тип
                       </th>
                       <th className="w-64 px-2 py-1 text-left font-medium">
                         Topic
                       </th>
-                      <th className="px-2 py-1 text-left font-medium">Check</th>
+                      <th className="px-2 py-1 text-left font-medium">
+                        Check
+                      </th>
                       <th className="w-24 px-2 py-1 text-left font-medium">
                         Порядок
                       </th>
@@ -771,7 +797,9 @@ const AdminPlaybookLinesPage: React.FC<AdminPlaybookLinesPageProps> = ({
                                 disabled={isUiLocked}
                                 className={fullSelectClassName}
                               >
-                                <option value="">— выберите проверку —</option>
+                                <option value="">
+                                  — выберите проверку —
+                                </option>
                                 {checks.map((check) => (
                                   <option key={check.code} value={check.code}>
                                     {check.code} — {check.title}

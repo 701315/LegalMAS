@@ -8,9 +8,8 @@ import client from "./client";
 import type {
   Deal,
   DealDetail,
-  PaginatedResponse,
-  DealPrimaryLanguageUpdatePayload,
   DealUpdatePayload,
+  PaginatedResponse,
 } from "../types";
 
 // -------------------------------------------------------------
@@ -39,9 +38,7 @@ export const dealApi = {
    * GET /api/v1/deals/{deal_id}
    */
   get: (dealId: string) =>
-    client
-      .get<DealDetail>(`/api/v1/deals/${dealId}`)
-      .then((response) => response.data),
+    client.get<DealDetail>(`/api/v1/deals/${dealId}`).then((response) => response.data),
 
   /**
    * Частично обновить сделку.
@@ -50,18 +47,6 @@ export const dealApi = {
   update: (dealId: string, payload: DealUpdatePayload) =>
     client
       .patch<DealDetail>(`/api/v1/deals/${dealId}`, payload)
-      .then((response) => response.data),
-
-  /**
-   * Установить основной язык сделки.
-   * PATCH /api/v1/deals/{deal_id}/primary-language
-   */
-  setPrimaryLanguage: (
-    dealId: string,
-    payload: DealPrimaryLanguageUpdatePayload,
-  ) =>
-    client
-      .patch<DealDetail>(`/api/v1/deals/${dealId}/primary-language`, payload)
       .then((response) => response.data),
 };
 
@@ -96,7 +81,10 @@ export function useDeal(dealId: string | null) {
 
 /**
  * Хук для частичного обновления сделки.
- * Пока используется для summary.
+ * Подходит для:
+ * - summary;
+ * - languages;
+ * - primary_language.
  *
  * Пример:
  *   const updateDeal = useUpdateDeal(deal.id);
@@ -111,32 +99,33 @@ export function useUpdateDeal(dealId: string) {
     onSuccess: async (updatedDeal) => {
       queryClient.setQueryData<DealDetail>(["deal", dealId], updatedDeal);
 
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["deal", dealId] }),
-        queryClient.invalidateQueries({ queryKey: ["deals"] }),
-      ]);
+      await queryClient.invalidateQueries({ queryKey: ["deals"] });
     },
   });
 }
 
 /**
  * Хук для установки основного языка сделки.
+ *
+ * Важно:
+ * - backend больше не требует отдельный endpoint /primary-language;
+ * - используем единый PATCH /api/v1/deals/{deal_id}.
+ *
  * Пример:
  *   const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
- *   setPrimaryLanguage.mutate({ primary_language: "ru" });
+ *   setPrimaryLanguage.mutate({ primary_language: "RU" });
  */
 export function useSetPrimaryLanguage(dealId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: DealPrimaryLanguageUpdatePayload) =>
-      dealApi.setPrimaryLanguage(dealId, payload),
+    mutationFn: (payload: { primary_language: string | null }) =>
+      dealApi.update(dealId, payload),
 
     onSuccess: async (updatedDeal) => {
       queryClient.setQueryData<DealDetail>(["deal", dealId], updatedDeal);
 
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["deal", dealId] }),
         queryClient.invalidateQueries({ queryKey: ["deals"] }),
         queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, true] }),
         queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, false] }),
@@ -144,4 +133,6 @@ export function useSetPrimaryLanguage(dealId: string) {
     },
   });
 }
+
+
 

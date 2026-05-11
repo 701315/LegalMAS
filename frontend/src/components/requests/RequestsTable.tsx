@@ -72,6 +72,10 @@ export const RequestsTable: React.FC<Props> = ({
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("priority");
 
+  // Один ref на компонент: Map от id строки к её DOM-элементу.
+  // Регистрация/разрегистрация происходит через ref-callback на <tr>.
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
+
   const viewModels = useMemo(
     () =>
       requests.map((req) => ({
@@ -235,19 +239,26 @@ export const RequestsTable: React.FC<Props> = ({
             {filtered.map((item) => {
               const { dto, view } = item;
               const isSelected = selectedRequestId === view.id;
-              const rowRef = useRef<HTMLTableRowElement | null>(null);
 
               return (
                 <tr
                   key={view.id}
-                  ref={rowRef}
+                  ref={(el) => {
+                    if (el) {
+                      rowRefs.current.set(view.id, el);
+                    } else {
+                      rowRefs.current.delete(view.id);
+                    }
+                  }}
                   className={cn(
                     "cursor-pointer border-b border-[var(--border-subtle)] transition-colors last:border-b-0",
                     isSelected
                       ? "bg-[var(--bg-elevated-soft)]"
                       : "hover:bg-[var(--bg-elevated-soft)]/60",
                   )}
-                  onClick={() => onRowClick(dto, rowRef.current)}
+                  onClick={() =>
+                    onRowClick(dto, rowRefs.current.get(view.id) ?? null)
+                  }
                   aria-selected={isSelected}
                 >
                   {/* Приоритет */}
@@ -316,7 +327,7 @@ export const RequestsTable: React.FC<Props> = ({
         </table>
 
         {filtered.length === 0 && (
-          <div className="border-t border-[var(--border-subtle)] px-6 py-10 text-center">
+          <div className="border-t border-[var(--border-subtle)] pu-10 px-6 py-10 text-center">
             <p className="mb-1 text-sm text-[var(--text-secondary)]">
               Запросы не найдены
             </p>

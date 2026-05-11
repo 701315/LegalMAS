@@ -44,7 +44,6 @@ function getErrorMessage(err: unknown): string {
 
 export const DocumentPipelinePanel: React.FC<Props> = ({
   documentId,
-  onOpenAtLocation: _onOpenAtLocation,
   onOpenStagePreview,
 }) => {
   const [data, setData] =
@@ -95,7 +94,11 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
     };
   }, [documentId]);
 
-  const stages = data?.stages ?? [];
+  const stages = React.useMemo<PipelineStageViewDTO[]>(
+    () => data?.stages ?? [],
+    [data?.stages],
+  );
+
   const hasStages = stages.length > 0;
 
   const handleStageOpen = React.useCallback(
@@ -160,4 +163,6 @@ export const DocumentPipelinePanel: React.FC<Props> = ({
 };
 
 export default DocumentPipelinePanel;
+
+
 

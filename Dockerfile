@@ -12,6 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gcc \
     libpq-dev \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-rus \
+    tesseract-ocr-deu \
+    tesseract-ocr-fra \
+    tesseract-ocr-tur \
+    tesseract-ocr-ara \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
@@ -20,3 +28,5 @@ RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 COPY . /app
 
 EXPOSE 8000
+
+

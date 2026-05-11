@@ -97,6 +97,31 @@ function ExportCard({
   );
 }
 
+// Извлекает строковое сообщение из произвольного error-объекта,
+// который может содержать axios-подобную структуру response.data.detail.
+function extractErrorMessage(err: unknown): string | null {
+  if (err == null) return null;
+
+  if (typeof err === "object") {
+    const maybeAxios = err as {
+      response?: { data?: { detail?: unknown } };
+      message?: unknown;
+    };
+
+    const detail = maybeAxios.response?.data?.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+
+    const message = maybeAxios.message;
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
 export const ReportTab: React.FC<Props> = ({ dealId }) => {
   const { data: latestRun } = useLatestRun(dealId);
   const requestExport = useRequestExport();
@@ -117,10 +142,10 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
 
   const isGenerating = requestExport.isPending;
 
-  const statusErrorMessage = useMemo(() => {
-    const err = exportStatusError as any;
-    return err?.response?.data?.detail || err?.message || null;
-  }, [exportStatusError]);
+  const statusErrorMessage = useMemo(
+    () => extractErrorMessage(exportStatusError),
+    [exportStatusError],
+  );
 
   const exportTitle =
     exportData?.export_type
@@ -162,18 +187,19 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
       });
 
       setActiveExportId(exp.id);
-    } catch (error: any) {
-      const detail =
-        error?.response?.data?.detail ||
-        error?.message ||
-        "Ошибка запроса экспорта";
+    } catch (error: unknown) {
+      const detail = extractErrorMessage(error);
 
-      console.error("Export request failed:", error?.response?.status);
-      console.error("Export response data:", error?.response?.data);
-
-      setLastError(
-        typeof detail === "string" ? detail : "Ошибка запроса экспорта",
+      console.error(
+        "Export request failed:",
+        (error as { response?: { status?: unknown } })?.response?.status,
       );
+      console.error(
+        "Export response data:",
+        (error as { response?: { data?: unknown } })?.response?.data,
+      );
+
+      setLastError(detail ?? "Ошибка запроса экспорта");
     }
   };
 
@@ -344,4 +370,3 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
 };
 
 export default ReportTab;
-

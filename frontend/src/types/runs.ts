@@ -12,7 +12,7 @@ import type { ClassificationStats } from "./documents";
  * - completed — все документы успешно прошли checks;
  * - completed_with_errors — анализ завершён, но есть документы FAILED/QUARANTINE;
  * - failed   — критическая ошибка Run (конфигурация/инфраструктура);
- * - cancelled — зарезервирован для сценариев отмены Run из UI.
+ * - cancelled — зарезервирован для сценариев отмены Run из UI, если backend начнёт его возвращать.
  */
 export type RunStatus =
   | "pending"
@@ -22,6 +22,13 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
+export type RunProfile = "core" | "full" | "max";
+
+export type RunChecksMode =
+  | "global_only"
+  | "doc_type_only"
+  | "global_and_doc_type";
+
 /**
  * Входные данные для старта нового анализа.
  *
@@ -30,9 +37,11 @@ export type RunStatus =
  */
 export interface RunCreateInput {
   /** Профиль запуска: core / full / max */
-  profile?: string;
+  profile?: RunProfile;
+
   /** Режим проверок: global_only / doc_type_only / global_and_doc_type */
-  checks_mode?: "global_only" | "doc_type_only" | "global_and_doc_type";
+  checks_mode?: RunChecksMode;
+
   /** Если true — HybridClassifier перезапустится для всех документов */
   force_reclassify?: boolean;
 }
@@ -52,7 +61,7 @@ export interface Run {
   status: RunStatus;
 
   /** Профиль запуска: core / full / max */
-  profile: string;
+  profile: RunProfile;
 
   /**
    * Режим проверок, в котором выполнялся Run:
@@ -60,25 +69,28 @@ export interface Run {
    *  - "doc_type_only"
    *  - "global_and_doc_type"
    */
-  checks_mode: "global_only" | "doc_type_only" | "global_and_doc_type";
+  checks_mode: RunChecksMode;
 
   /**
    * Стратегия пайплайна:
    *  - REUSE_STRUCTURE — переиспользовать уже рассчитанное дерево/структуру;
    *  - FULL_RERUN      — пересчитать всё с нуля;
-   *  * другие значения по договорённости с backend.
+   *  - другие значения по договорённости с backend.
    */
   pipeline_strategy: string;
 
   /** Сколько документов должны пройти checks */
   total_checks: number;
+
   /** Сколько документов уже прошли checks */
   completed_checks: number;
 
   /** Есть ли FAILED/QUARANTINE документы */
   has_errors?: boolean;
+
   /** Сколько документов в статусе FAILED */
   failed_docs_count?: number;
+
   /** Сколько документов в статусе QUARANTINE */
   quarantine_docs_count?: number;
 
@@ -105,4 +117,6 @@ export interface ProgressEvent {
   current_document?: string;
   error?: string;
 }
+
+
 

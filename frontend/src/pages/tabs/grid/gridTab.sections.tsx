@@ -1,47 +1,11 @@
 // =============================================================
 // src/pages/tabs/grid/gridTab.sections.tsx
+// Презентационные UI-блоки для DD Grid workspace.
+// На текущем этапе содержит только StatCard — карточку KPI
+// для сводных метрик run-scoped review matrix.
 // =============================================================
 
 import React from "react";
-
-export function SectionCard({
-  title,
-  description,
-  actions,
-  children,
-}: {
-  title: string;
-  description?: string;
-  actions?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-      <div className="px-6 pt-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              {title}
-            </h2>
-            {description ? (
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {description}
-              </p>
-            ) : null}
-          </div>
-
-          {actions ? (
-            <div className="flex flex-wrap items-center gap-2">{actions}</div>
-          ) : null}
-        </div>
-
-        <div className="mt-4 border-t border-[var(--border-subtle)]" />
-      </div>
-
-      <div className="px-6 py-5">{children}</div>
-    </section>
-  );
-}
 
 export function StatCard({
   label,

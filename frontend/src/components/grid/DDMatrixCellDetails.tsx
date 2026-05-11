@@ -2,7 +2,7 @@
 // src/components/grid/DDMatrixCellDetails.tsx
 // Unified review detail drawer for DD Matrix cell details.
 // Production-grade side panel for legal review evidence context.
-// С встроенным QC редактированием.
+// With embedded QC editing.
 // =============================================================
 
 import React from "react";
@@ -299,8 +299,12 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
   const savedQcStatus = cell.qcStatus ?? "pending";
   const savedQcComment = cell.qcComment ?? "";
 
+  const normalizedLocalComment = localQcComment.trim();
+  const normalizedSavedComment = savedQcComment.trim();
+
   const isDirty =
-    localQcStatus !== savedQcStatus || localQcComment !== savedQcComment;
+    localQcStatus !== savedQcStatus ||
+    normalizedLocalComment !== normalizedSavedComment;
 
   const canSave = isDirty && !updateQc.isPending && !!runId && !!checkId;
 
@@ -318,10 +322,8 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
           segment_id: cell.segmentId ?? null,
         },
         qc_status: localQcStatus,
-        comment: localQcComment.trim() ? localQcComment.trim() : null,
+        comment: normalizedLocalComment ? normalizedLocalComment : null,
       });
-
-      onClose();
     } catch (error) {
       console.error("Failed to save QC update:", error);
     }
@@ -494,7 +496,8 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
 
               {!runId || !checkId ? (
                 <div className="rounded-lg border border-[var(--color-gold)]/20 bg-[var(--color-gold-highlight)] px-3 py-2 text-xs text-[var(--color-gold-hover)]">
-                  Сохранение QC временно недоступно: отсутствует runId или checkId.
+                  Сохранение QC временно недоступно: отсутствует runId или
+                  checkId.
                 </div>
               ) : null}
 
@@ -815,3 +818,5 @@ export const DDMatrixCellDetails: React.FC<MatrixCellDetailsProps> = ({
 };
 
 export default DDMatrixCellDetails;
+
+

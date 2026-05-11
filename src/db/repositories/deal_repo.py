@@ -151,6 +151,35 @@ class DealRepository:
             await self.session.flush()
         return deal
 
+
+    async def update_language_discovery_status(
+        self,
+        deal_id: uuid.UUID,
+        status: str | None,
+    ) -> None:
+        """
+        Обновить статус этапа pre-run определения языков для сделки.
+
+        Для непрофессионального программиста:
+        - это поле НЕ влияет на основной статус сделки (Deal.status);
+        - оно показывает, на каком этапе сейчас находится подпроцесс
+          определения языков документов:
+          - 'pending'    — импорт был, discovery ещё не начинался;
+          - 'processing' — discovery в процессе;
+          - 'completed'  — discovery завершён для всех документов;
+          - 'partial'    — часть документов обработана, часть упала с ошибкой;
+          - 'failed'     — ничего не удалось обработать успешно;
+          - None         — статус не задан (по умолчанию).
+        """
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(language_discovery_status=status)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+
+
     async def get_page(
         self,
         page: int,
@@ -271,6 +300,37 @@ class DealRepository:
             update(Deal)
             .where(Deal.id == deal_id)
             .values(languages=languages)
+        )
+        await self.session.execute(stmt)
+        await self.session.flush()
+
+    async def set_languages_and_discovery_status(
+        self,
+        deal_id: uuid.UUID,
+        *,
+        languages: list[str] | None,
+        discovery_status: str | None,
+    ) -> None:
+        """
+        Удобный метод для одновременного обновления:
+        - списка языков сделки (Deal.languages);
+        - статуса language discovery (Deal.language_discovery_status).
+
+        Для непрофессионального программиста:
+        - languages — готовый список строк (например ["ru", "en"]) или None;
+        - discovery_status — строка ('pending' / 'processing' / 'completed' /
+          'partial' / 'failed') или None;
+        - метод просто записывает эти два поля в одну сделку одним SQL-запросом.
+        """
+        values: dict[str, object] = {}
+        # languages может быть None — в этом случае записываем NULL в колонку.
+        values["languages"] = languages
+        values["language_discovery_status"] = discovery_status
+
+        stmt = (
+            update(Deal)
+            .where(Deal.id == deal_id)
+            .values(**values)
         )
         await self.session.execute(stmt)
         await self.session.flush()

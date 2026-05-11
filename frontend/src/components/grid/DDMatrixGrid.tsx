@@ -25,14 +25,12 @@ import type {
   ValueGetterParams,
 } from "ag-grid-community";
 
-import type {
-  ClassificationLevel,
-  OpenViewerAtFn,
-} from "../../types";
+import type { ClassificationLevel, OpenViewerAtFn } from "../../types";
 import type { MatrixCellDTO } from "../../types/dealReview";
 
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
+import { QcStatusBadge } from "../ui/QcStatusBadge";
 import { getCompositionBadgeDataFromMeta } from "../../utils/compositionHelpers";
 import DDMatrixCellDetails, {
   type MatrixCellDetailsCell,
@@ -88,6 +86,38 @@ function getRowCompositionBadgeData(row: ReviewGridRow) {
   });
 }
 
+/**
+ * Сериализует ключевые поля cell в string-key для ag-Grid value diff.
+ *
+ * При наличии только valueGetter (без field) ag-Grid использует возвращаемую
+ * строку для сравнения старого и нового значения ячейки. Если строка
+ * изменилась — cellRenderer вызывается заново. Это надёжный способ
+ * гарантировать перерисовку после QC update / result update.
+ *
+ * Включаем только поля, реально влияющие на отображение ячейки.
+ */
+function buildRiskCellDiffKey(
+  cell: MatrixCellDTO | null | undefined,
+): string | null {
+  if (!cell) return null;
+  return [
+    cell.result ?? "",
+    cell.severity ?? "",
+    cell.qc_status ?? "",
+    cell.confidence ?? "",
+  ].join("|");
+}
+
+function areDetailsCellsEquivalent(
+  a: MatrixCellDetailsCell | null | undefined,
+  b: MatrixCellDetailsCell | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export interface DDMatrixGridProps {
   runId: string;
   rows: ReviewGridRow[];
@@ -105,6 +135,12 @@ export interface DDMatrixGridProps {
     cell: MatrixCellDetailsCell;
   }) => void;
   onSelectionChange?: (rowIds: string[]) => void;
+  /**
+   * Когда родитель меняет это значение, грид сбрасывает selection через
+   * gridApi.deselectAll(). Удобно для очистки чекбоксов после bulk-операций
+   * (например, после bulk QC update).
+   */
+  clearSelectionToken?: number;
 }
 
 interface SelectedCellState {
@@ -143,6 +179,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
   onOpenDocument,
   onOpenCell,
   onSelectionChange,
+  clearSelectionToken,
 }) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [rootWidth, setRootWidth] = useState<number>(0);
@@ -161,6 +198,75 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     () => rows.map(toMatrixGridRow),
     [rows],
   );
+
+  // Derived: панель открыта только если выбранная строка и колонка
+  // всё ещё присутствуют в текущих данных. Никакого useEffect + setState.
+  const isSelectedCellValid =
+    selectedCell.open &&
+    selectedCell.documentId != null &&
+    selectedCell.checkId != null &&
+    rows.some((row) => row.documentId === selectedCell.documentId) &&
+    columns.some((col) => col.checkId === selectedCell.checkId);
+
+  // ---------------------------------------------------------------------------
+  // Ref-based синхронизация selectedCell для useEffect ниже.
+  //
+  // Проблема: после QC save → invalidateQueries → refetch приходят новые rows,
+  // но selectedCell.cell содержит snapshot момента открытия ячейки. Если drawer
+  // остаётся открытым (пользователь не нажал "Закрыть"), он показывает устаревший
+  // qcStatus из snapshot, а не актуальный из refetch.
+  //
+  // Решение: синхронизировать selectedCell.cell с актуальными rows при каждом
+  // их изменении. Чтобы не добавлять selectedCell в deps effect'а (что вызвало
+  // бы бесконечный цикл setSelectedCell → selectedCell меняется → effect →
+  // setSelectedCell), читаем актуальный selectedCell через ref внутри effect.
+  // ---------------------------------------------------------------------------
+  const selectedCellRef = useRef<SelectedCellState>(selectedCell);
+  useEffect(() => {
+    selectedCellRef.current = selectedCell;
+  }, [selectedCell]);
+
+  // Синхронизирует selectedCell.cell с актуальными данными из rows после refetch.
+  // Зависимости [rows, columns] — достаточны: именно они меняются после refetch.
+  // selectedCell намеренно не в deps — читается через ref, чтобы избежать цикла.
+  useEffect(() => {
+    const sc = selectedCellRef.current;
+
+    if (!sc.open || !sc.documentId || !sc.checkId) {
+      return;
+    }
+
+    const currentRow = rows.find((row) => row.documentId === sc.documentId);
+    if (!currentRow) return;
+
+    const currentCell = currentRow.cellsByCheckId[sc.checkId];
+    if (!currentCell) return;
+
+    const currentColumn = columns.find((col) => col.checkId === sc.checkId);
+    if (!currentColumn) return;
+
+    const freshDetailsCell = mapReviewCellToDetailsCell(
+      currentRow,
+      currentColumn,
+      currentCell,
+    );
+
+    setSelectedCell((prev) => {
+      if (
+        !prev.open ||
+        prev.documentId !== currentRow.documentId ||
+        prev.checkId !== currentColumn.checkId
+      ) {
+        return prev;
+      }
+
+      if (areDetailsCellsEquivalent(prev.cell, freshDetailsCell)) {
+        return prev;
+      }
+
+      return { ...prev, cell: freshDetailsCell };
+    });
+  }, [rows, columns]);
 
   useEffect(() => {
     const node = rootRef.current;
@@ -193,36 +299,6 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       cell: null,
     });
   }, []);
-
-  useEffect(() => {
-    if (!selectedCell.open || !selectedCell.documentId || !selectedCell.checkId) {
-      return;
-    }
-
-    const rowStillExists = rows.some(
-      (row) => row.documentId === selectedCell.documentId,
-    );
-    const columnStillExists = columns.some(
-      (col) => col.checkId === selectedCell.checkId,
-    );
-
-    if (!rowStillExists || !columnStillExists) {
-      setSelectedCell({
-        open: false,
-        documentId: null,
-        documentName: null,
-        checkId: null,
-        checkName: null,
-        cell: null,
-      });
-    }
-  }, [
-    rows,
-    columns,
-    selectedCell.open,
-    selectedCell.documentId,
-    selectedCell.checkId,
-  ]);
 
   const handleCellOpen = useCallback(
     (params: {
@@ -449,15 +525,25 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
           colId: field,
           headerName: meta.checkName,
           headerTooltip: getHeaderTooltip(meta),
-          field,
+          // `field` намеренно отсутствует. При одновременном наличии `field`
+          // и `valueGetter` ag-Grid может использовать data[field] (ссылку на объект
+          // MatrixCellDTO) для change detection, игнорируя valueGetter. Поскольку
+          // MatrixCellDTO — объект, ссылка на который может не меняться при
+          // partial update, cellRenderer не вызывался бы повторно после QC save.
+          // Без `field` ag-Grid использует строку из valueGetter как diff-ключ:
+          // если buildRiskCellDiffKey вернул другую строку — ячейка перерисуется.
           minWidth: 220,
           cellDataType: false,
+          valueGetter: (params: ValueGetterParams<MatrixGridRow>) => {
+            const cell = params.data?.[field];
+            return buildRiskCellDiffKey(cell);
+          },
           valueFormatter: (
-            params: ValueFormatterParams<
-              MatrixGridRow,
-              MatrixCellDTO | null | undefined
-            >,
-          ): string => formatRiskCellValue(params.value),
+            params: ValueFormatterParams<MatrixGridRow>,
+          ): string => {
+            const cell = params.data?.[field];
+            return formatRiskCellValue(cell ?? null);
+          },
           tooltipValueGetter: (
             params: ITooltipParams<MatrixGridRow>,
           ): string => {
@@ -484,19 +570,22 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
                   className="w-full text-left"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleCellOpen({
-                      row,
-                      meta,
-                      cell,
-                    });
+                    handleCellOpen({ row, meta, cell });
                   }}
                 >
                   <div className="text-[11px] text-[var(--text-primary)]">
                     {statusText}
                   </div>
-                  {severity && (
-                    <div className="mt-1 origin-left scale-90">
-                      <SeverityBadge severity={severity} />
+                  {(severity || cell.qc_status) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {severity && (
+                        <div className="origin-left scale-90">
+                          <SeverityBadge severity={severity} />
+                        </div>
+                      )}
+                      {cell.qc_status ? (
+                        <QcStatusBadge status={cell.qc_status} />
+                      ) : null}
                     </div>
                   )}
                 </button>
@@ -549,6 +638,21 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
     return () => cancelAnimationFrame(id);
   }, [gridApi, rootWidth, rowData.length, columnDefs.length]);
 
+  // Внешний триггер сброса selection. Skip первого рендера — токен не должен
+  // вызывать deselectAll сам по себе при mount, только при последующих изменениях.
+  const lastClearTokenRef = useRef<number | undefined>(clearSelectionToken);
+
+  useEffect(() => {
+    if (!gridApi) return;
+    if (clearSelectionToken === lastClearTokenRef.current) return;
+    lastClearTokenRef.current = clearSelectionToken;
+    try {
+      gridApi.deselectAll();
+    } catch {
+      /* noop */
+    }
+  }, [gridApi, clearSelectionToken]);
+
   if (!rowData.length) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 text-center text-sm text-[var(--text-secondary)] shadow-sm">
@@ -589,7 +693,7 @@ export const DDMatrixGrid: React.FC<DDMatrixGridProps> = ({
       </div>
 
       <DDMatrixCellDetails
-        open={selectedCell.open}
+        open={isSelectedCellValid}
         onClose={closeDetails}
         runId={runId}
         documentName={selectedCell.documentName}

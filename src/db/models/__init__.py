@@ -1,5 +1,3 @@
-# src/db/models/__init__.py
-
 """
 Import all ORM models so Alembic can discover them for autogenerate.
 """
@@ -12,17 +10,19 @@ from .deal_member import DealMember
 from .document import Document, DocumentVersion
 from .export import Export
 from .ops import AuditLog, DLQRecord, IdempotencyKey
+from .outbox import OutboxMessage
 from .playbook import ModelConfig, Playbook, PlaybookLineItem, PlaybookVersion
 from .relation import DocumentFamily, DocumentFamilyMember, DocumentRelation
 from .result import CheckResult
 from .run import Job, Run
-from .check_result_persist_error import CheckResultPersistError  # NEW
+from .check_result_persist_error import CheckResultPersistError
+
 
 __all__ = [
     "AuditLog",
     "Bundle",
     "CheckResult",
-    "CheckResultPersistError",  # NEW
+    "CheckResultPersistError",
     "ClassificationCalibration",
     "DDRequest",
     "DLQRecord",
@@ -37,6 +37,7 @@ __all__ = [
     "IdempotencyKey",
     "Job",
     "ModelConfig",
+    "OutboxMessage",
     "Playbook",
     "PlaybookLineItem",
     "PlaybookVersion",

@@ -9,7 +9,7 @@ Repository for Document CRUD and classification operations.
 - получение документов:
   - по id;
   - по сделке;
-  - по SHA‑256 (для дедупликации);
+  - по SHA-256 (для дедупликации);
 - обновление статуса документа (pending, extracting, extracted, sanitized,
   structured, classified, completed, quarantine, failed и т.д.);
 - обновление результатов классификации:
@@ -26,10 +26,10 @@ Repository for Document CRUD and classification operations.
 
 Отдельно важен единый контракт по ошибкам обработки:
 
-- processing_error_details — JSON‑поле в Document, куда мы пишем,
+- processing_error_details — JSON-поле в Document, куда мы пишем,
   что именно пошло не так по конкретному документу;
 - методы set_failed / set_quarantined — единственные точки,
-  через которые бизнес‑логика и воркеры должны помечать документ
+  через которые бизнес-логика и воркеры должны помечать документ
   как "FAILED" или "QUARANTINE" и записывать детали ошибки.
 
 Структура processing_error_details:
@@ -52,20 +52,24 @@ Repository for Document CRUD and classification operations.
   поэтому фронт не должен подстраиваться под разные схемы.
 """
 
-import uuid
+from __future__ import annotations
 
-from sqlalchemy import func, select, update
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from classifiers.yaml_registry import YAMLRegistry
 from core.constants import DocumentStatus
 from core.logging import get_logger
-from classifiers.yaml_registry import YAMLRegistry
 from ..models.document import Document
 from .document_type_instruction_version_repo import (
     DocumentTypeInstructionVersionRepository,
 )
 
 logger = get_logger(__name__)
+
 
 class DocumentRepository:
     def __init__(self, session: AsyncSession):
@@ -131,9 +135,51 @@ class DocumentRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_for_language_discovery(
+        self,
+        deal_id: uuid.UUID,
+        *,
+        document_ids: list[uuid.UUID] | None = None,
+        include_statuses: list[str | None] | None = None,
+    ) -> list[Document]:
+        """
+        Вернуть документы сделки для этапа определения языков.
+
+        Для непрофессионального программиста:
+        - этот метод нужен language discovery оркестратору,
+          чтобы понять, какие документы нужно обработать;
+        - мы можем:
+          - ограничить выборку конкретными document_ids;
+          - отфильтровать документы по статусу language_detection_status.
+
+        Примеры вызова:
+        - get_for_language_discovery(deal_id, include_statuses=['pending', None])
+          -> взять только те документы, для которых discovery ещё не делали;
+        - get_for_language_discovery(deal_id, document_ids=[...])
+          -> взять конкретный набор только что импортированных документов.
+        """
+        stmt = select(Document).where(Document.deal_id == deal_id)
+
+        if document_ids:
+            stmt = stmt.where(Document.id.in_(document_ids))
+
+        if include_statuses is not None:
+            conditions = []
+            for st in include_statuses:
+                if st is None:
+                    conditions.append(Document.language_detection_status.is_(None))
+                else:
+                    conditions.append(Document.language_detection_status == st)
+
+            if conditions:
+                stmt = stmt.where(or_(*conditions))
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_by_sha256(self, deal_id: uuid.UUID, sha256: str) -> Document | None:
         """
-        Найти документ по SHA256‑хэшу внутри сделки (для дедупликации).
+        Найти документ по SHA256-хэшу внутри сделки (для дедупликации).
 
         Используется, чтобы:
         - не создавать дубликаты документов;
@@ -147,7 +193,12 @@ class DocumentRepository:
         )
         return result.scalar_one_or_none()
 
-    async def update_status(self, doc_id: uuid.UUID, status: str, **kwargs) -> Document | None:
+    async def update_status(
+        self,
+        doc_id: uuid.UUID,
+        status: str,
+        **kwargs,
+    ) -> Document | None:
         """
         Обновить статус документа и дополнительные поля.
 
@@ -161,6 +212,118 @@ class DocumentRepository:
             update(Document)
             .where(Document.id == doc_id)
             .values(**values)
+            .returning(Document)
+        )
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+        return doc
+
+    async def update_language_detection(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        detected_languages: list[str] | None,
+        status: str,
+    ) -> Document | None:
+        """
+        Обновить результат pre-run определения языков для документа.
+
+        Для непрофессионального программиста:
+        - этот метод НЕ меняет основной статус документа (Document.status),
+          он трогает только два специальных поля:
+          - detected_languages — список найденных языков в этом файле;
+          - language_detection_status — состояние шага discovery
+            ('pending' / 'processing' / 'completed' / 'failed').
+
+        Используется language discovery worker'ом, чтобы:
+        - записать результат анализа языков;
+        - пометить документ как обработанный или упавший на этапе discovery.
+        """
+        values: dict[str, object] = {
+            "language_detection_status": status,
+            "detected_languages": detected_languages,
+        }
+
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(**values)
+            .returning(Document)
+        )
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+        return doc
+
+    async def try_mark_language_detection_pending(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        allowed_current_statuses: list[str | None],
+        preserve_detected_languages: list[str] | None = None,
+    ) -> Document | None:
+        """
+        Атомарно перевести document language discovery в pending,
+        только если текущее состояние ещё допускает dispatch.
+
+        Используется orchestrator'ом как duplicate-safe claim step перед enqueue.
+
+        Контракт:
+        - если текущее language_detection_status входит в allowed_current_statuses,
+          документ "захватывается" orchestrator'ом и переводится в pending;
+        - если состояние уже изменилось другим worker'ом / orchestrator'ом,
+          метод вернёт None — значит enqueue делать нельзя.
+        """
+        conditions = []
+        for st in allowed_current_statuses:
+            if st is None:
+                conditions.append(Document.language_detection_status.is_(None))
+            else:
+                conditions.append(Document.language_detection_status == st)
+
+        if not conditions:
+            raise ValueError("allowed_current_statuses must not be empty")
+
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .where(or_(*conditions))
+            .values(
+                language_detection_status="pending",
+                detected_languages=preserve_detected_languages,
+            )
+            .returning(Document)
+        )
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+        return doc
+
+    async def try_mark_language_detection_processing(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        expected_current_status: str = "pending",
+        preserve_detected_languages: list[str] | None = None,
+    ) -> Document | None:
+        """
+        Атомарно перевести document language discovery в processing
+        только из ожидаемого текущего состояния.
+
+        Используется document-level worker'ом как duplicate-safe claim step.
+        """
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .where(Document.language_detection_status == expected_current_status)
+            .values(
+                language_detection_status="processing",
+                detected_languages=preserve_detected_languages,
+            )
             .returning(Document)
         )
         result = await self.session.execute(stmt)
@@ -189,8 +352,6 @@ class DocumentRepository:
         Поле stage должно отражать стадию пайплайна, на которой остановился документ:
         - "import", "extract", "pii", "structure", "classify", "checks", "export" и т.п.
         """
-        from datetime import datetime, UTC
-
         details: dict[str, object] = {
             "stage": stage,
             "type": "failed",
@@ -198,10 +359,8 @@ class DocumentRepository:
             "timestamp": datetime.now(UTC).isoformat(),
         }
         if reason is not None:
-            # reason — короткий машинный код причины (например, "pdf_corrupted").
             details["reason"] = reason
         if run_id is not None:
-            # run_id — чтобы фронт мог показать, в рамках какого Run произошла ошибка.
             details["run_id"] = str(run_id)
 
         return await self.update_status(
@@ -230,8 +389,6 @@ class DocumentRepository:
         Для юриста это выглядит как отдельный статус "quarantine" с пояснением,
         что именно вызывает сомнение.
         """
-        from datetime import datetime, UTC
-
         details: dict[str, object] = {
             "stage": stage,
             "type": "quarantine",
@@ -263,7 +420,6 @@ class DocumentRepository:
             doc_id,
             DocumentStatus.COMPLETED.value,
         )
-
 
     async def update_classification(
         self,
@@ -302,7 +458,9 @@ class DocumentRepository:
         }
 
         if classification_requires_review is not None:
-            classification_result["requires_manual_review"] = classification_requires_review
+            classification_result["requires_manual_review"] = (
+                classification_requires_review
+            )
 
         return await self.save_classification_result(
             document_id=doc_id,
@@ -312,8 +470,7 @@ class DocumentRepository:
             git_commit=git_commit,
             semver=semver,
         )
-    
-    
+
     async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
         """
         Посчитать количество документов по статусам для сделки.
@@ -450,7 +607,6 @@ class DocumentRepository:
         """
         offset = (page - 1) * per_page
 
-        # 1) total
         count_stmt = select(func.count(Document.id)).where(Document.deal_id == deal_id)
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one() or 0
@@ -458,7 +614,6 @@ class DocumentRepository:
         if total == 0:
             return [], 0
 
-        # 2) страница
         stmt = select(Document).where(Document.deal_id == deal_id)
 
         if include_classification:
@@ -503,7 +658,6 @@ class DocumentRepository:
         Для первого этапа считаем, что "ручная классификация" = уровень L_manual.
         В будущем можно уточнить логику (учитывать последний run, дату изменения и т.п.).
         """
-
         stmt = (
             select(func.count(Document.id))
             .where(
@@ -551,14 +705,13 @@ class DocumentRepository:
             semver=semver,
         )
         return resolved.version.id
-    
 
     async def save_classification_result(
         self,
         *,
-        document_id,
+        document_id: uuid.UUID,
         classification_result: dict,
-        playbook_version_id=None,
+        playbook_version_id: uuid.UUID | None = None,
         registry: YAMLRegistry | None = None,
         git_commit: str | None = None,
         semver: str | None = None,
@@ -588,7 +741,9 @@ class DocumentRepository:
         level = classification_result.get("level")
         language = classification_result.get("language")
         jurisdiction = classification_result.get("jurisdiction")
-        applicable_triggers = list(classification_result.get("applicable_triggers") or [])
+        applicable_triggers = list(
+            classification_result.get("applicable_triggers") or []
+        )
         details = classification_result.get("details") or {}
 
         requires_review = bool(
@@ -623,8 +778,12 @@ class DocumentRepository:
                 "final_type": final_type,
                 "final_confidence": final_confidence,
                 "classification_level": level,
-                "instruction_version_id": str(instruction_version_id) if instruction_version_id else None,
-                "playbook_version_id": str(playbook_version_id) if playbook_version_id else None,
+                "instruction_version_id": (
+                    str(instruction_version_id) if instruction_version_id else None
+                ),
+                "playbook_version_id": (
+                    str(playbook_version_id) if playbook_version_id else None
+                ),
             },
         )
 

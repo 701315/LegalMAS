@@ -10,6 +10,8 @@
 // - stable row IDs for AG Grid getRowId
 // - legacy AG Grid theme mode to stay compatible with CSS theme imports
 // - object-valued review cells are rendered through explicit getters/formatters
+// - AG Grid v32+ selection API via rowSelection / selectionColumnDef
+// - selected drawer state is updated only when details payload really changed
 // =============================================================
 
 import React, {
@@ -27,14 +29,12 @@ import type {
   GridReadyEvent,
   ICellRendererParams,
   SelectionChangedEvent,
+  SelectionColumnDef,
   ValueFormatterParams,
   ValueGetterParams,
 } from "ag-grid-community";
 
-import type {
-  ClassificationLevel,
-  OpenViewerAtFn,
-} from "../../types";
+import type { ClassificationLevel, OpenViewerAtFn } from "../../types";
 
 import { SeverityBadge } from "../ui/SeverityBadge";
 import { ClassificationBadge } from "../ui/ClassificationBadge";
@@ -63,6 +63,8 @@ import "ag-grid-community/styles/ag-grid.css";
 import "../../styles/ag-theme-legalmas.css";
 
 const GRID_MIN_HEIGHT_PX = 240;
+const GRID_MIN_WIDTH_PX = 1200;
+const SELECTION_COLUMN_WIDTH_PX = 52;
 
 export interface DDReviewListGridProps {
   runId: string;
@@ -105,6 +107,120 @@ function formatPercent(value: number | null | undefined): string {
   return typeof value === "number" ? `${Math.round(value * 100)}%` : "—";
 }
 
+function normalizeComparable(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  return String(value);
+}
+
+function areStringArraysEqual(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined,
+): boolean {
+  const a = left ?? [];
+  const b = right ?? [];
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
+function areDetailsCellsEquivalent(
+  left: MatrixCellDetailsCell | null | undefined,
+  right: MatrixCellDetailsCell | null | undefined,
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return false;
+
+  const leftFlags = left.qualityFlags ?? {};
+  const rightFlags = right.qualityFlags ?? {};
+  const leftFlagKeys = Object.keys(leftFlags).sort();
+  const rightFlagKeys = Object.keys(rightFlags).sort();
+
+  if (!areStringArraysEqual(leftFlagKeys, rightFlagKeys)) {
+    return false;
+  }
+
+  if (
+    !leftFlagKeys.every(
+      (key) => Boolean(leftFlags[key]) === Boolean(rightFlags[key]),
+    )
+  ) {
+    return false;
+  }
+
+  const leftFields = left.extractedFields ?? [];
+  const rightFields = right.extractedFields ?? [];
+
+  if (leftFields.length !== rightFields.length) {
+    return false;
+  }
+
+  for (let index = 0; index < leftFields.length; index += 1) {
+    const lf = leftFields[index];
+    const rf = rightFields[index];
+
+    if (
+      normalizeComparable(lf.fieldName) !==
+        normalizeComparable(rf.fieldName) ||
+      normalizeComparable(lf.fieldValue) !==
+        normalizeComparable(rf.fieldValue) ||
+      normalizeComparable(lf.fieldFormat) !==
+        normalizeComparable(rf.fieldFormat) ||
+      normalizeComparable(lf.fieldSource) !==
+        normalizeComparable(rf.fieldSource) ||
+      normalizeComparable(lf.page) !== normalizeComparable(rf.page) ||
+      normalizeComparable(lf.clauseUid) !==
+        normalizeComparable(rf.clauseUid) ||
+      normalizeComparable(lf.segmentId) !==
+        normalizeComparable(rf.segmentId) ||
+      normalizeComparable(lf.chunkId) !== normalizeComparable(rf.chunkId) ||
+      normalizeComparable(lf.chunkIndex) !==
+        normalizeComparable(rf.chunkIndex)
+    ) {
+      return false;
+    }
+  }
+
+  return (
+    normalizeComparable(left.result) === normalizeComparable(right.result) &&
+    normalizeComparable(left.severity) === normalizeComparable(right.severity) &&
+    normalizeComparable(left.snippet) === normalizeComparable(right.snippet) &&
+    normalizeComparable(left.page) === normalizeComparable(right.page) &&
+    normalizeComparable(left.clauseUid) ===
+      normalizeComparable(right.clauseUid) &&
+    normalizeComparable(left.confidence) ===
+      normalizeComparable(right.confidence) &&
+    normalizeComparable(left.qcStatus) ===
+      normalizeComparable(right.qcStatus) &&
+    normalizeComparable(left.conditionalTriggered) ===
+      normalizeComparable(right.conditionalTriggered) &&
+    normalizeComparable(left.triggerName) ===
+      normalizeComparable(right.triggerName) &&
+    normalizeComparable(left.origin) === normalizeComparable(right.origin) &&
+    normalizeComparable(left.createdAt) ===
+      normalizeComparable(right.createdAt) &&
+    normalizeComparable(left.qcComment) ===
+      normalizeComparable(right.qcComment) &&
+    normalizeComparable(left.docType) === normalizeComparable(right.docType) &&
+    normalizeComparable(left.docClassificationLevel) ===
+      normalizeComparable(right.docClassificationLevel) &&
+    normalizeComparable(left.docClassificationConfidence) ===
+      normalizeComparable(right.docClassificationConfidence) &&
+    normalizeComparable(left.segmentId) ===
+      normalizeComparable(right.segmentId) &&
+    normalizeComparable(left.segmentTitle) ===
+      normalizeComparable(right.segmentTitle) &&
+    normalizeComparable(left.segmentType) ===
+      normalizeComparable(right.segmentType) &&
+    normalizeComparable(left.segmentOrder) ===
+      normalizeComparable(right.segmentOrder) &&
+    normalizeComparable(left.isPrimarySegment) ===
+      normalizeComparable(right.isPrimarySegment) &&
+    normalizeComparable(left.chunkId) === normalizeComparable(right.chunkId) &&
+    normalizeComparable(left.chunkIndex) ===
+      normalizeComparable(right.chunkIndex)
+  );
+}
+
 export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
   runId,
   rows,
@@ -132,13 +248,65 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
     [rows, columns],
   );
 
+  const isSelectedCellValid =
+    selectedCell.open &&
+    selectedCell.documentId != null &&
+    selectedCell.checkId != null &&
+    rowData.some(
+      (row) =>
+        row.documentId === selectedCell.documentId &&
+        row.checkId === selectedCell.checkId,
+    );
+
+  const selectedCellRef = useRef<SelectedCellState>(selectedCell);
+  useEffect(() => {
+    selectedCellRef.current = selectedCell;
+  }, [selectedCell]);
+
+  useEffect(() => {
+    const sc = selectedCellRef.current;
+
+    if (!sc.open || !sc.documentId || !sc.checkId) {
+      return;
+    }
+
+    const currentListRow = rowData.find(
+      (row) =>
+        row.documentId === sc.documentId && row.checkId === sc.checkId,
+    );
+    if (!currentListRow) {
+      return;
+    }
+
+    const freshDetailsCell = mapReviewCellToDetailsCell(
+      currentListRow.sourceRow,
+      currentListRow.sourceColumn,
+      currentListRow.cell,
+    );
+
+    setSelectedCell((prev) => {
+      if (
+        !prev.open ||
+        prev.documentId !== currentListRow.documentId ||
+        prev.checkId !== currentListRow.checkId
+      ) {
+        return prev;
+      }
+
+      if (areDetailsCellsEquivalent(prev.cell, freshDetailsCell)) {
+        return prev;
+      }
+
+      return { ...prev, cell: freshDetailsCell };
+    });
+  }, [rowData]);
+
   const defaultColDef = useMemo<ColDef<FindingListRow>>(
     () => ({
       sortable: true,
       filter: true,
       resizable: true,
       suppressHeaderMenuButton: false,
-      tooltipShowDelay: 200,
     }),
     [],
   );
@@ -146,10 +314,26 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
   const rowSelection = useMemo(
     () => ({
       mode: "multiRow" as const,
-      enableSelectionWithoutKeys: true,
       checkboxes: true,
       headerCheckbox: true,
+      selectAll: "filtered" as const,
+      enableSelectionWithoutKeys: true,
       enableClickSelection: false,
+    }),
+    [],
+  );
+
+  const selectionColumnDef = useMemo<SelectionColumnDef>(
+    () => ({
+      width: SELECTION_COLUMN_WIDTH_PX,
+      minWidth: SELECTION_COLUMN_WIDTH_PX,
+      maxWidth: SELECTION_COLUMN_WIDTH_PX,
+      resizable: false,
+      sortable: false,
+      pinned: "left",
+      suppressHeaderMenuButton: true,
+      suppressMovable: true,
+      lockPosition: "left",
     }),
     [],
   );
@@ -186,28 +370,6 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
     });
   }, []);
 
-  useEffect(() => {
-    if (!selectedCell.open || !selectedCell.documentId || !selectedCell.checkId) {
-      return;
-    }
-
-    const findingStillExists = rowData.some(
-      (row) =>
-        row.documentId === selectedCell.documentId &&
-        row.checkId === selectedCell.checkId,
-    );
-
-    if (!findingStillExists) {
-      closeDetails();
-    }
-  }, [
-    rowData,
-    selectedCell.open,
-    selectedCell.documentId,
-    selectedCell.checkId,
-    closeDetails,
-  ]);
-
   const handleCellOpen = useCallback(
     (row: FindingListRow) => {
       const detailsCell = mapReviewCellToDetailsCell(
@@ -243,8 +405,6 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         field: "documentName",
         minWidth: 260,
         pinned: "left",
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
         tooltipValueGetter: (params) => params.data?.documentName ?? "",
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const row = params.data;
@@ -295,7 +455,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         valueGetter: (params: ValueGetterParams<FindingListRow>) =>
           params.data?.cell ?? null,
         valueFormatter: (
-          params: ValueFormatterParams<FindingListRow>
+          params: ValueFormatterParams<FindingListRow>,
         ): string => formatRiskCellValue(params.value),
         tooltipValueGetter: (params) => buildCellTooltip(params.data?.cell),
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
@@ -340,7 +500,8 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         headerName: "Confidence",
         minWidth: 110,
         valueGetter: (params) => params.data?.cell.confidence ?? null,
-        valueFormatter: (params) => formatPercent(params.value as number | null),
+        valueFormatter: (params) =>
+          formatPercent(params.value as number | null),
       },
       {
         headerName: "Evidence",
@@ -348,7 +509,8 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         flex: 1,
         sortable: false,
         valueGetter: (params) => params.data?.cell.snippet?.trim() ?? "",
-        tooltipValueGetter: (params) => params.data?.cell.snippet?.trim() ?? "",
+        tooltipValueGetter: (params) =>
+          params.data?.cell.snippet?.trim() ?? "",
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const snippet = params.data?.cell.snippet?.trim();
           return snippet ? (
@@ -396,7 +558,8 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         headerName: "Классификация",
         field: "classificationLevel",
         minWidth: 150,
-        tooltipValueGetter: (params) => params.data?.classificationLevel ?? "",
+        tooltipValueGetter: (params) =>
+          params.data?.classificationLevel ?? "",
         cellRenderer: (params: ICellRendererParams<FindingListRow>) => {
           const row = params.data;
           if (!row?.classificationLevel) {
@@ -439,7 +602,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
         try {
           event.api.sizeColumnsToFit();
         } catch {
-          /* noop */
+          // noop
         }
       });
     },
@@ -453,7 +616,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
       try {
         gridApi.sizeColumnsToFit();
       } catch {
-        /* noop */
+        // noop
       }
     });
 
@@ -479,7 +642,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
             className="ag-theme-legalmas w-full"
             style={{
               minHeight: GRID_MIN_HEIGHT_PX,
-              minWidth: 1200,
+              minWidth: GRID_MIN_WIDTH_PX,
             }}
           >
             <AgGridReact<FindingListRow>
@@ -488,6 +651,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
               rowSelection={rowSelection}
+              selectionColumnDef={selectionColumnDef}
               suppressCellFocus
               tooltipShowDelay={200}
               onSelectionChanged={handleSelectionChanged}
@@ -500,7 +664,7 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
       </div>
 
       <DDMatrixCellDetails
-        open={selectedCell.open}
+        open={isSelectedCellValid}
         onClose={closeDetails}
         runId={runId}
         documentName={selectedCell.documentName}
@@ -528,6 +692,5 @@ export const DDReviewListGrid: React.FC<DDReviewListGridProps> = ({
 };
 
 export default DDReviewListGrid;
-
 
 

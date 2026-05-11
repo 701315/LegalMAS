@@ -153,6 +153,22 @@ class Deal(Base):
         ),
     )
 
+    # Новый атрибут: статус pre-run определения языков документов по сделке.
+    # Возможные значения:
+    # - 'pending'    — импорт был, language discovery ещё не начинался;
+    # - 'processing' — discovery в процессе для одного или нескольких документов;
+    # - 'completed'  — discovery завершён для всех документов;
+    # - 'partial'    — часть документов обработана, часть завершилась ошибкой;
+    # - 'failed'     — ни один документ не удалось обработать успешно.
+    language_discovery_status: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment=(
+            "Status of pre-run language discovery for this deal: "
+            "pending / processing / completed / partial / failed"
+        ),
+    )
+
     metadata_: Mapped[dict | None] = mapped_column(
         "metadata",
         JSONB,

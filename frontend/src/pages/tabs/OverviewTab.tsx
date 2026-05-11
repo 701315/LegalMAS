@@ -9,7 +9,7 @@ import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditLogEntry, Deal, RunStatus } from "../../types";
 import { useRun, useStartRun } from "../../api/runs";
-import { useSetPrimaryLanguage, useUpdateDeal } from "../../api/deals";
+import { useUpdateDeal } from "../../api/deals";
 import { useDocumentsCount } from "../../api/documents";
 import { resultApi } from "../../api/results";
 import { useDealPermissions } from "../../hooks/usePermissions";
@@ -86,7 +86,6 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   };
 }
 
-// Универсальная карточка с заголовком и подзаголовком
 const CardShell: React.FC<{
   title: string;
   eyebrow?: string;
@@ -122,7 +121,6 @@ const CardShell: React.FC<{
   </section>
 );
 
-// Карточка "О проекте"
 const DealInfoCard: React.FC<{
   deal: Deal;
   projectSummary: string;
@@ -149,12 +147,10 @@ const DealInfoCard: React.FC<{
         </p>
       </div>
 
-      {/* inset-divider, не до краёв карточки */}
       <div className="border-t border-[var(--border-subtle)]" />
     </div>
 
     <div className="px-5 py-4">
-
       <textarea
         id={`deal-summary-${deal.id}`}
         value={projectSummary}
@@ -208,7 +204,6 @@ const TimelineEvent: React.FC<{
   </li>
 );
 
-// Утилита: класс цвета текста для статуса run
 function runStatusTextClass(tone: "ok" | "warn" | "error" | "neutral"): string {
   if (tone === "ok") return "text-[var(--color-success)]";
   if (tone === "warn") return "text-[var(--color-warning)]";
@@ -216,7 +211,6 @@ function runStatusTextClass(tone: "ok" | "warn" | "error" | "neutral"): string {
   return "text-[var(--text-secondary)]";
 }
 
-// Карточка "Активность / Хроника действий по проекту"
 const ProjectTimelineCard: React.FC<{
   deal: Deal;
   latestRunId?: string | null;
@@ -241,16 +235,21 @@ const ProjectTimelineCard: React.FC<{
   const lastRunStatusLabel = (() => {
     const s = latestRun?.status;
     if (!s) return null;
-    if (s === "completed")
+    if (s === "completed") {
       return { text: "Завершён успешно", tone: "ok" as const };
-    if (s === "completed_with_errors")
+    }
+    if (s === "completed_with_errors") {
       return { text: "Завершён с ошибками", tone: "warn" as const };
-    if (s === "failed")
+    }
+    if (s === "failed") {
       return { text: "Завершился с ошибкой", tone: "error" as const };
-    if (s === "running")
+    }
+    if (s === "running") {
       return { text: "Выполняется", tone: "neutral" as const };
-    if (s === "pending")
+    }
+    if (s === "pending") {
       return { text: "В очереди", tone: "neutral" as const };
+    }
     return { text: s, tone: "neutral" as const };
   })();
 
@@ -384,7 +383,6 @@ const ProjectTimelineCard: React.FC<{
   );
 };
 
-// Прогресс-бар: цвет через CSS-переменные состояний
 function progressBarClass(status: RunStatus | undefined): string {
   if (status === "failed") return "bg-[var(--color-error)]";
   if (status === "completed") return "bg-[var(--color-success)]";
@@ -392,7 +390,6 @@ function progressBarClass(status: RunStatus | undefined): string {
   return "bg-[var(--accent-primary)]";
 }
 
-// Карточка "Статус проверок"
 const RunProgressCard: React.FC<{
   latestRunId?: string | null;
 }> = ({ latestRunId }) => {
@@ -444,7 +441,7 @@ const RunProgressCard: React.FC<{
     >
       {effectiveTotal > 0 ? (
         <div className="space-y-3">
-          <div className="flex items-center justify между gap-2 text-[12px]">
+          <div className="flex items-center justify-between gap-2 text-[12px]">
             <span className="text-[var(--text-secondary)]">
               {effectiveCompleted} / {effectiveTotal} проверок
             </span>
@@ -498,7 +495,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const { canStartRun, canUploadDocuments } = useDealPermissions(deal.id);
 
   const startRun = useStartRun(deal.id);
-  const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
   const updateDeal = useUpdateDeal(deal.id);
 
   const [isLaunchPanelOpen, setIsLaunchPanelOpen] = React.useState(false);
@@ -511,7 +507,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     deal.summary ?? "",
   );
 
-  // измерение ширины layout
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const [overlayWidth, setOverlayWidth] = React.useState<number | null>(null);
@@ -572,45 +567,30 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     deal.has_pending_manual_reclassifications &&
     (!!latestRun || !hasRestartedAfterReclass);
 
+  const hasDocuments =
+    typeof documentsCount === "number" ? documentsCount > 0 : false;
+
   const canLaunchRun =
     canStartRun &&
+    hasDocuments &&
     !!deal.playbook_version_id &&
     !!deal.primary_language &&
     !startRun.isPending &&
-    !setPrimaryLanguage.isPending;
+    !updateDeal.isPending;
 
   const handlePrimaryLanguageChange = (value: string) => {
-    setPrimaryLanguage.mutate(
-      { primary_language: value || null },
-      {
-        onSuccess: async () => {
-          await Promise.all([
-            qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
-            qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-            qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
-          ]);
-        },
-      },
-    );
+    updateDeal.mutate({
+      primary_language: value || null,
+    });
   };
 
   const handleSaveSummary = () => {
     if (!isSummaryDirty) return;
 
-    updateDeal.mutate(
-      {
-        summary:
-          normalizedDraftSummary.length > 0 ? normalizedDraftSummary : null,
-      },
-      {
-        onSuccess: async () => {
-          await Promise.all([
-            qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
-            qc.invalidateQueries({ queryKey: ["deals"] }),
-          ]);
-        },
-      },
-    );
+    updateDeal.mutate({
+      summary:
+        normalizedDraftSummary.length > 0 ? normalizedDraftSummary : null,
+    });
   };
 
   const handleStartRun = () => {
@@ -688,9 +668,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             onChecksModeChange={setChecksMode}
             forceReclassify={forceReclassify}
             onForceReclassifyChange={setForceReclassify}
-            canStartRun={canStartRun}
+            canStartRun={canLaunchRun}
             canUploadDocuments={canUploadDocuments}
-            isSubmitting={startRun.isPending || setPrimaryLanguage.isPending}
+            isSubmitting={startRun.isPending || updateDeal.isPending}
             onPrimaryLanguageChange={handlePrimaryLanguageChange}
             onSubmit={handleStartRun}
             onClose={() => setIsLaunchPanelOpen(false)}
@@ -698,9 +678,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               await Promise.all([
                 qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
                 qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-                qc.invalidateQueries({
-                  queryKey: ["latest-run", deal.id, false],
-                }),
+                qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
               ]);
             }}
           />
@@ -721,6 +699,5 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
-
 
 

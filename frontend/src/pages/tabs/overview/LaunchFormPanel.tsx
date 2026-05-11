@@ -3,7 +3,7 @@
 // =============================================================
 
 import React from "react";
-import type { Deal } from "../../../types";
+import type { Deal, DealLanguageDiscoveryStatus } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
 import Button from "../../../components/ui/Button";
 
@@ -24,39 +24,6 @@ interface LaunchFormPanelProps {
   onOpenModelConfig?: () => void;
   onOpenUpload: () => void;
   onPrimaryLanguageChange: (value: string) => void;
-}
-
-const LANGUAGE_LABELS: Record<string, string> = {
-  ru: "Русский",
-  rus: "Русский",
-  en: "English",
-  eng: "English",
-  de: "Deutsch",
-  deu: "Deutsch",
-  ger: "Deutsch",
-  fr: "Français",
-  fra: "Français",
-  fre: "Français",
-  es: "Español",
-  spa: "Español",
-  it: "Italiano",
-  ita: "Italiano",
-  tr: "Türkçe",
-  tur: "Türkçe",
-  ar: "العربية",
-  ara: "العربية",
-  chi: "中文",
-  ja: "日本語",
-  jpn: "日本語",
-};
-
-function formatLanguageCode(language: string): string {
-  return String(language).trim().toUpperCase();
-}
-
-function formatLanguageName(language: string): string {
-  const normalized = String(language).trim().toLowerCase();
-  return LANGUAGE_LABELS[normalized] ?? formatLanguageCode(language);
 }
 
 const CHECKS_MODE_OPTIONS: Array<{
@@ -81,6 +48,91 @@ const CHECKS_MODE_OPTIONS: Array<{
   },
 ];
 
+function normalizeLang(value: string | null | undefined): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizeDiscoveryStatus(
+  value: string | null | undefined,
+): DealLanguageDiscoveryStatus | string | null {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized || null;
+}
+
+function formatLangCode(value: string | null | undefined): string {
+  const v = String(value ?? "").trim().toUpperCase();
+  return v || "";
+}
+
+function formatLangTitle(value: string): string {
+  const normalized = normalizeLang(value);
+  if (normalized === "RU") return "Русский";
+  if (normalized === "EN") return "English";
+  return formatLangCode(normalized);
+}
+
+function formatLangHint(value: string): string {
+  const normalized = normalizeLang(value);
+  if (normalized === "RU") {
+    return "Primary source и проверки будут ориентированы на русский язык.";
+  }
+  if (normalized === "EN") {
+    return "Primary source и проверки будут ориентированы на английский язык.";
+  }
+  return "Выберите этот язык как основной для анализа.";
+}
+
+function getDiscoveryBanner(
+  status: string | null,
+  hasLanguages: boolean,
+): {
+  tone: "info" | "warning" | "error" | "success";
+  text: string;
+} | null {
+  if (status === "processing") {
+    return {
+      tone: "info",
+      text: "Языки документов ещё определяются автоматически. Список языков может обновиться.",
+    };
+  }
+
+  if (status === "failed") {
+    return {
+      tone: "error",
+      text: "Автоопределение языков завершилось ошибкой. Проверьте документы или повторите подготовку.",
+    };
+  }
+
+  if (status === "partial") {
+    return {
+      tone: "warning",
+      text: "Языки определены частично: часть документов могла не пройти language discovery.",
+    };
+  }
+
+  if (status === "completed" && hasLanguages) {
+    return {
+      tone: "success",
+      text: "Языки документов определены. Выберите основной язык анализа.",
+    };
+  }
+
+  return null;
+}
+
+function getBannerClassName(tone: "info" | "warning" | "error" | "success"): string {
+  if (tone === "error") {
+    return "border border-[var(--color-error-border)] bg-[var(--color-error-subtle)] text-[var(--color-error)]";
+  }
+  if (tone === "warning") {
+    return "border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] text-[var(--color-warning)]";
+  }
+  if (tone === "success") {
+    return "border border-[var(--color-success-border)] bg-[var(--color-success-subtle)] text-[var(--color-success)]";
+  }
+  return "border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
+}
+
 const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   deal,
   documentsCount,
@@ -96,9 +148,28 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   onOpenUpload,
   onPrimaryLanguageChange,
 }) => {
-  const documentLanguages = deal.languages ?? [];
-  const selectedPrimaryLanguage = deal.primary_language ?? "";
+  const rawDocumentLanguages = deal.languages ?? [];
+  const normalizedDocumentLanguages = Array.from(
+    new Set(rawDocumentLanguages.map((l) => normalizeLang(l)).filter(Boolean)),
+  );
+
+  const selectedPrimaryLanguage = normalizeLang(deal.primary_language ?? "");
+  const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
+  const discoveryBanner = getDiscoveryBanner(
+    typeof discoveryStatus === "string" ? discoveryStatus : null,
+    normalizedDocumentLanguages.length > 0,
+  );
+
   const hasPlaybook = !!deal.playbook_version_id;
+  const hasLanguages = normalizedDocumentLanguages.length > 0;
+  const canSelectPrimaryLanguage = hasLanguages && !isSubmitting;
+
+  const handleLanguageSelect = (lang: string) => {
+    const normalized = normalizeLang(lang);
+    if (!normalized || isSubmitting) return;
+    if (selectedPrimaryLanguage === normalized) return;
+    onPrimaryLanguageChange(normalized);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
@@ -198,9 +269,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
             <p className="mt-3 text-xs leading-5">
               {hasPlaybook ? (
-                <span className="text-[var(--text-secondary)]">
-                  Playbook выбран.
-                </span>
+                <span className="text-[var(--text-secondary)]">Playbook выбран.</span>
               ) : (
                 <span className="text-[var(--color-error)]">
                   Playbook не выбран. Нельзя запустить анализ без playbook.
@@ -244,70 +313,86 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
               Основной язык анализа
             </h4>
 
-            {documentLanguages.length === 0 ? (
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                Языки документов ещё не определены. Сначала загрузите документы и
-                дождитесь определения языков, затем выберите основной язык анализа вручную.
-              </p>
-            ) : (
-              <>
-                <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                  В документах проекта обнаружены следующие языки. Выберите, на каком
-                  языке считать анализ основным.
-                </p>
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">
+              Выберите основной язык, на котором будет строиться primary source и
+              выполняться анализ.
+            </p>
 
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {documentLanguages.map((lang) => {
+            {discoveryBanner ? (
+              <p
+                className={`mt-3 rounded-xl px-3 py-2 text-[11px] leading-5 ${getBannerClassName(
+                  discoveryBanner.tone,
+                )}`}
+              >
+                {discoveryBanner.text}
+              </p>
+            ) : null}
+
+            {hasLanguages ? (
+              <>
+                <div className="mt-3 space-y-2">
+                  {normalizedDocumentLanguages.map((lang) => {
                     const checked = selectedPrimaryLanguage === lang;
 
                     return (
                       <label
                         key={lang}
-                        className={[
-                          "flex cursor-pointer items-center gap-3 rounded-2xl border px-3 py-2 text-xs transition",
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
                           checked
-                            ? "border-[var(--accent-primary)] bg-[var(--accent-muted)]"
-                            : "border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]",
-                        ].join(" ")}
+                            ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
+                            : "border-[var(--border-subtle)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]"
+                        } ${!canSelectPrimaryLanguage ? "opacity-70" : ""}`}
                       >
                         <input
                           type="radio"
                           name="primary_language"
+                          className="mt-[2px]"
                           value={lang}
                           checked={checked}
-                          onChange={() => onPrimaryLanguageChange(lang)}
-                          disabled={isSubmitting}
-                          className="h-4 w-4 shrink-0 accent-[var(--accent-primary)]"
+                          onChange={() => handleLanguageSelect(lang)}
+                          disabled={!canSelectPrimaryLanguage}
                         />
 
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-semibold text-[var(--text-primary)]">
-                            {formatLanguageCode(lang)}
-                          </div>
-                          <div className="text-[11px] text-[var(--text-muted)]">
-                            {formatLanguageName(lang)}
-                          </div>
-                        </div>
+                        <span>
+                          <span className="block text-[13px] font-medium text-[var(--text-primary)]">
+                            {formatLangTitle(lang)} ({formatLangCode(lang)})
+                          </span>
+                          <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
+                            {formatLangHint(lang)}
+                          </span>
+                        </span>
                       </label>
                     );
                   })}
                 </div>
 
-                {!selectedPrimaryLanguage ? (
+                {!selectedPrimaryLanguage && (
                   <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning)]">
                     Перед запуском анализа выберите основной язык анализа.
                   </p>
-                ) : null}
+                )}
 
                 <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                  Языки документов:{" "}
-                  {documentLanguages
-                    .map(
-                      (lang) =>
-                        `${formatLanguageName(lang)} (${formatLanguageCode(lang)})`,
-                    )
+                  Автоопределённые языки документов:{" "}
+                  {normalizedDocumentLanguages
+                    .map((l) => `${formatLangTitle(l)} (${formatLangCode(l)})`)
                     .join(", ")}
+                  .
                 </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-xs text-[var(--text-secondary)]">
+                  {discoveryStatus === "failed"
+                    ? "Список языков пока недоступен, потому что автоопределение завершилось ошибкой."
+                    : "Языки документов ещё не определены автоматически. После завершения подготовки языков вы сможете выбрать основной язык."}
+                </p>
+
+                {!selectedPrimaryLanguage && (
+                  <p className="mt-2 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning)]">
+                    Основной язык ещё не выбран. Выберите его, когда языки документов будут готовы.
+                  </p>
+                )}
               </>
             )}
           </section>
@@ -345,5 +430,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 };
 
 export default LaunchFormPanel;
+
+
 
 

@@ -8,7 +8,6 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-  type MutationFunctionContext,
   type QueryClient,
   type UseQueryOptions,
 } from "@tanstack/react-query";
@@ -123,10 +122,8 @@ export function useCreateProjectMember(dealId: string) {
 
   return useMutation({
     mutationKey: projectMembersKeys.create(dealId),
-    mutationFn: (
-      data: CreateProjectMemberInput,
-      _context: MutationFunctionContext,
-    ) => projectMembersApi.create(dealId, data),
+    mutationFn: (data: CreateProjectMemberInput) =>
+      projectMembersApi.create(dealId, data),
     onSuccess: async () => {
       await invalidateProjectMembers(queryClient, dealId);
     },
@@ -138,10 +135,8 @@ export function useUpdateProjectMember(dealId: string) {
 
   return useMutation({
     mutationKey: projectMembersKeys.update(dealId),
-    mutationFn: (
-      { memberId, data }: UpdateProjectMemberParams,
-      _context: MutationFunctionContext,
-    ) => projectMembersApi.update(dealId, memberId, data),
+    mutationFn: ({ memberId, data }: UpdateProjectMemberParams) =>
+      projectMembersApi.update(dealId, memberId, data),
     onSuccess: async () => {
       await invalidateProjectMembers(queryClient, dealId);
     },
@@ -153,10 +148,8 @@ export function useDeleteProjectMember(dealId: string) {
 
   return useMutation({
     mutationKey: projectMembersKeys.remove(dealId),
-    mutationFn: (
-      memberId: string,
-      _context: MutationFunctionContext,
-    ) => projectMembersApi.remove(dealId, memberId),
+    mutationFn: (memberId: string) =>
+      projectMembersApi.remove(dealId, memberId),
     onSuccess: async () => {
       await invalidateProjectMembers(queryClient, dealId);
     },

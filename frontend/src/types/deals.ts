@@ -12,10 +12,12 @@ export type DealChecksMode =
   | "doc_type_only"
   | "global_and_doc_type";
 
-/** Payload для PATCH /deals/{deal_id}/primary-language */
-export interface DealPrimaryLanguageUpdatePayload {
-  primary_language: string | null;
-}
+export type DealLanguageDiscoveryStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "partial";
 
 /** Payload для PATCH /deals/{deal_id} */
 export interface DealUpdatePayload {
@@ -24,10 +26,11 @@ export interface DealUpdatePayload {
   primary_language?: string | null;
 }
 
-
 /** Краткая информация о сделке (для списка) */
 export interface Deal {
   id: string;
+  tenant_id?: string;
+
   name: string;
   status: DealStatus;
 
@@ -42,6 +45,15 @@ export interface Deal {
 
   /** Список языков документов по сделке (как в DealResponse.languages). */
   languages?: string[] | null;
+
+  /**
+   * Deal-level статус language discovery.
+   * Нужен UI, чтобы различать:
+   * - discovery ещё идёт;
+   * - discovery завершён;
+   * - есть partial/failed состояние.
+   */
+  language_discovery_status?: DealLanguageDiscoveryStatus | string | null;
 
   /** Основной язык анализа, который юрист обязан выбрать вручную до запуска анализа. */
   primary_language?: string | null;
@@ -63,7 +75,7 @@ export interface Deal {
   playbook_version_id?: string | null;
 
   created_at: string;
-  updated_at: string;
+  updated_at?: string | null;
 
   /** ID явно выбранного профиля модели на уровне сделки */
   model_config_id?: string | null;
@@ -71,7 +83,6 @@ export interface Deal {
   /** Имя/код конфигурации модели, используемой для анализа сделки */
   model_config_name?: string | null;
 
-  
   /** Есть ли незавершённые ручные переклассификации */
   has_pending_manual_reclassifications: boolean;
 
@@ -111,4 +122,6 @@ export interface ImportJob {
   created_at: string;
   completed_at?: string | null;
 }
+
+
 

@@ -2,28 +2,29 @@
 // src/pages/tabs/grid/reviewGrid.qc.ts
 // QC-помощники для review-only режима DD Grid.
 //
-// Для непрофессионального программиста:
-// Этот файл описывает, как review grid готовит выбранные строки
-// к возможному QC-процессу.
+// Backend контракт:
+//   POST /api/v1/qc/review        — single finding QC update
+//   POST /api/v1/qc/review/bulk   — bulk findings QC update
 //
-// ВАЖНО:
-// - selection в review grid сейчас row-level, то есть пользователь выбирает
-//   строки матрицы, а не отдельные findings;
-// - backend QC API LegalMAS пока принимает только legacy result_ids;
-// - review matrix backend DTO не содержит result_id,
-//   поэтому прямой bulk QC для review mode пока недоступен.
+// Все findings в bulk-операции должны принадлежать одному run_id —
+// это требование backend-схемы ReviewQCBulkUpdateRequest.
 // =============================================================
+
+import type {
+  ReviewFindingKey,
+  ReviewQCBulkUpdateRequest,
+} from "../../../api/qc";
+import type { ReviewQcStatus } from "../../../types/dealReview";
 
 import type { ReviewFinding, ReviewSelectionItem } from "./reviewGrid.types";
 
 /**
- * Причина, почему текущую review selection пока нельзя отправить в QC API.
- *
- * Для непрофессионального программиста:
- * Сейчас причина только одна — backend ждёт legacy result_ids,
- * а в review DTO таких идентификаторов нет.
+ * Причины, по которым текущая review-selection не может быть отправлена в QC.
  */
-export type ReviewQcUnsupportedReason = "missing_legacy_result_ids";
+export type ReviewQcUnsupportedReason =
+  | "empty_selection"
+  | "no_findings_in_selection"
+  | "mixed_run_ids";
 
 /**
  * Итог проверки возможности QC по текущему review selection.
@@ -31,44 +32,36 @@ export type ReviewQcUnsupportedReason = "missing_legacy_result_ids";
 export interface ReviewQcCapability {
   supported: boolean;
   reason: ReviewQcUnsupportedReason | null;
-  message: string;
-  selectedCount: number;
+  message: string | null;
+  selectedRowsCount: number;
+  selectedFindingsCount: number;
 }
 
 /**
- * Нормализованная строка выборки для будущего review-QC API.
- *
- * Для непрофессионального программиста:
- * Это не payload для текущего backend.
- * Это аккуратная промежуточная структура, которую можно будет
- * использовать в будущем review-specific endpoint.
+ * Один target QC-операции: достаточно для ReviewFindingKey.
  */
 export interface ReviewQcTarget {
   findingId: string;
   rowId: string;
 
+  runId: string;
   documentId: string;
   documentName: string;
 
   checkId: string;
   checkName: string;
 
-  segmentId?: string | null;
-  chunkId?: string | null;
-  chunkIndex?: number | null;
+  segmentId: string | null;
+  chunkId: string | null;
+  chunkIndex: number | null;
 
   result: string;
-  severity?: string | null;
-  qcStatus?: string | null;
+  severity: string | null;
+  qcStatus: string | null;
 }
 
 /**
- * Возвращает findings, которые относятся к выбранным строкам review matrix.
- *
- * Для непрофессионального программиста:
- * Одна выбранная строка матрицы может содержать несколько findings.
- * Поэтому функция возвращает не одну запись на строку,
- * а все findings, принадлежащие выбранным rowId.
+ * Возвращает findings, относящиеся к выбранным строкам review matrix.
  */
 export function getSelectedReviewFindings(
   findings: ReviewFinding[],
@@ -83,19 +76,17 @@ export function getSelectedReviewFindings(
 }
 
 /**
- * Преобразует findings в нормализованный список review QC targets.
- *
- * Для непрофессионального программиста:
- * Эта функция нужна не для текущего legacy QC API,
- * а для будущего review-specific QC API.
+ * Преобразует ReviewFinding[] в нормализованный список targets.
  */
 export function buildReviewQcTargets(
   findings: ReviewFinding[],
+  runId: string,
 ): ReviewQcTarget[] {
   return findings.map((finding) => ({
     findingId: finding.findingId,
     rowId: finding.rowId,
 
+    runId,
     documentId: finding.documentId,
     documentName: finding.documentName,
 
@@ -113,41 +104,137 @@ export function buildReviewQcTargets(
 }
 
 /**
- * Проверяет, можно ли текущую review selection отправить в QC.
- *
- * Для непрофессионального программиста:
- * Сейчас ответ всегда "нет", потому что backend QC API принимает только
- * legacy result_ids из старой модели CheckResult[],
- * а review DTO таких id не содержит.
+ * Маппинг ReviewFinding -> backend ReviewFindingKey.
  */
-export function getReviewQcCapability(
-  selection: ReviewSelectionItem[],
-): ReviewQcCapability {
-  if (!selection.length) {
-    return {
-      supported: false,
-      reason: "missing_legacy_result_ids",
-      message: "Не выбраны строки review-матрицы для QC.",
-      selectedCount: 0,
-    };
-  }
-
+function toReviewFindingKey(
+  finding: ReviewFinding,
+  runId: string,
+): ReviewFindingKey {
   return {
-    supported: false,
-    reason: "missing_legacy_result_ids",
-    selectedCount: selection.length,
-    message:
-      "QC для review-матрицы пока недоступен: backend QC API принимает только legacy result_ids, а review DTO их не содержит.",
+    run_id: runId,
+    document_id: finding.documentId,
+    check_id: finding.checkId,
+    segment_id: finding.segmentId ?? null,
   };
 }
 
 /**
- * Возвращает поясняющий текст для disabled-state в UI.
+ * Дедупликация одинаковых ReviewFindingKey, чтобы не слать backend
+ * избыточные записи, если несколько findings ссылаются на одну ячейку.
+ */
+function dedupeFindingKeys(keys: ReviewFindingKey[]): ReviewFindingKey[] {
+  const seen = new Set<string>();
+  const out: ReviewFindingKey[] = [];
+
+  for (const key of keys) {
+    const dedupKey = [
+      key.run_id,
+      key.document_id,
+      key.check_id,
+      key.segment_id ?? "",
+    ].join("|");
+
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+    out.push(key);
+  }
+
+  return out;
+}
+
+/**
+ * Проверяет, можно ли текущую review selection отправить в QC.
+ */
+export function getReviewQcCapability(
+  selection: ReviewSelectionItem[],
+  selectedFindings: ReviewFinding[],
+  runId: string | null | undefined,
+): ReviewQcCapability {
+  if (!selection.length) {
+    return {
+      supported: false,
+      reason: "empty_selection",
+      message: null,
+      selectedRowsCount: 0,
+      selectedFindingsCount: 0,
+    };
+  }
+
+  if (!selectedFindings.length) {
+    return {
+      supported: false,
+      reason: "no_findings_in_selection",
+      message:
+        "В выбранных строках нет findings, к которым можно применить QC-действие.",
+      selectedRowsCount: selection.length,
+      selectedFindingsCount: 0,
+    };
+  }
+
+  if (!runId) {
+    return {
+      supported: false,
+      reason: "mixed_run_ids",
+      message: "Не определён run для QC-действия.",
+      selectedRowsCount: selection.length,
+      selectedFindingsCount: selectedFindings.length,
+    };
+  }
+
+  return {
+    supported: true,
+    reason: null,
+    message: null,
+    selectedRowsCount: selection.length,
+    selectedFindingsCount: selectedFindings.length,
+  };
+}
+
+/**
+ * Сообщение-плейсхолдер для UI, когда QC недоступен.
+ * Возвращает null, если действие доступно или selection пуст.
+ *
+ * Для пустой selection UI должен показывать собственный empty-state,
+ * а не дублировать его как ноту.
  */
 export function getReviewQcDisabledNote(
-  selection: ReviewSelectionItem[],
-): string {
-  return getReviewQcCapability(selection).message;
+  capability: ReviewQcCapability,
+): string | null {
+  if (capability.supported) return null;
+  if (capability.reason === "empty_selection") return null;
+  return capability.message;
+}
+
+/**
+ * Собирает payload для POST /api/v1/qc/review/bulk.
+ *
+ * Возвращает null, если payload собрать невозможно
+ * (например, нет findings или не задан runId).
+ */
+export function buildReviewQcBulkPayload(
+  findings: ReviewFinding[],
+  runId: string | null | undefined,
+  qcStatus: ReviewQcStatus,
+  comment?: string | null,
+): ReviewQCBulkUpdateRequest | null {
+  if (!runId || !findings.length) return null;
+
+  const keys = dedupeFindingKeys(
+    findings.map((finding) => toReviewFindingKey(finding, runId)),
+  );
+
+  if (!keys.length) return null;
+
+  const normalizedComment =
+    typeof comment === "string" && comment.trim().length > 0
+      ? comment.trim()
+      : null;
+
+  return {
+    findings: keys,
+    qc_status: qcStatus,
+    comment: normalizedComment,
+  };
 }
 
 

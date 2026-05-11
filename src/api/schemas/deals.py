@@ -11,16 +11,16 @@ Pydantic‑схемы для работы со сделками в REST API.
 Основные схемы:
 - DealResponse — полное представление сделки для UI: базовые атрибуты,
   playbook, выбранный профиль модели (model_config_id / model_config_name),
-  технические поля (created_at, last_run_id и т.п.).
+  языковые поля сделки, технические поля (created_at, last_run_id и т.п.).
 - DealCreate — данные, которые фронтенд отправляет при создании новой сделки
   на экране "Новый проект".
 - DealPlaybookHistoryItem — отдельная запись истории смены playbook‑версии
   для сделки, построенная на основе записей аудита.
 """
 
-from uuid import UUID
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -49,7 +49,7 @@ def _normalize_language_code(value: str | None) -> str | None:
 def _normalize_languages_list(value: list[str] | None) -> list[str] | None:
     """
     Нормализовать список языков:
-    - убрать None/пустые строки,
+    - убрать пустые строки,
     - привести к UPPERCASE,
     - убрать дубликаты с сохранением порядка.
     """
@@ -76,7 +76,8 @@ class DealResponse(BaseModel):
 
     Используется:
     - в списке сделок на главной странице;
-    - на странице "Обзор сделки" (там же отображаются playbook и профиль модели).
+    - на странице "Обзор сделки";
+    - в launch/overview UI для показа языков сделки и статуса language discovery.
     """
 
     id: UUID
@@ -87,11 +88,15 @@ class DealResponse(BaseModel):
     deal_type: str | None = None
     jurisdiction: str | None = None
 
-    # Список языков документов сделки (из документов или выбора пользователя).
+    # Список языков документов сделки (обновляется deal-level discovery).
     languages: list[str] | None = None
 
+    # Deal-level статус pre-run language discovery:
+    # pending / processing / completed / failed / partial.
+    language_discovery_status: str | None = None
+
     # Основной язык анализа сделки.
-    # Это значение должно задаваться человеком явно, а не определяться автоматически.
+    # Это значение выбирает человек явно.
     primary_language: str | None = None
 
     status: str
@@ -99,7 +104,6 @@ class DealResponse(BaseModel):
     profile: str
 
     playbook_version_id: UUID | None = None
-
     model_config_id: UUID | None = None
 
     # Человекочитаемое имя профиля, который фактически будет использоваться:
@@ -131,6 +135,16 @@ class DealResponse(BaseModel):
     # Тип str оставлен более широким, чтобы новые стратегии
     # не требовали немедленных правок на фронте.
     last_run_pipeline_strategy: str | None = None
+
+    @field_validator("primary_language")
+    @classmethod
+    def validate_primary_language(cls, value: str | None) -> str | None:
+        return _normalize_language_code(value)
+
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, value: list[str] | None) -> list[str] | None:
+        return _normalize_languages_list(value)
 
     model_config = {"from_attributes": True}
 
@@ -198,7 +212,7 @@ class DealUpdate(BaseModel):
     """
     Частичное обновление сделки (PATCH /api/v1/deals/{deal_id}).
 
-    Теперь поддерживаем:
+    Поддерживаем:
     - summary;
     - languages;
     - primary_language.

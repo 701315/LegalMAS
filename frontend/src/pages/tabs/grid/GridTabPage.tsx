@@ -5,10 +5,12 @@
 // - DDMatrixGrid for 2D matrix view
 // - DDReviewListGrid for flat findings list view
 // - unified DocumentViewerModal for evidence navigation
-// - review filters, export, and selection state only
+// - review filters, export, selection state
+// - bulk QC actions for selected review findings
 // =============================================================
 
 import React from "react";
+import { ChevronRight, Download, SlidersHorizontal } from "lucide-react";
 
 import { useDealReviewDdMatrix } from "../../../api/dealReview";
 import { useRun } from "../../../api/runs";
@@ -26,7 +28,7 @@ import type { OpenViewerAtFn } from "../../../types";
 
 import { filterReviewFindings, filterReviewRows } from "./reviewGrid.filters";
 import { INLINE_PANEL_ACTIVE_CLASS } from "./gridTab.constants";
-import { SectionCard, StatCard } from "./gridTab.sections";
+import { StatCard } from "./gridTab.sections";
 import type { GridMode, GridTabProps, ViewerState } from "./gridTab.types";
 import { humanChecksMode } from "./gridTab.utils";
 import {
@@ -36,7 +38,12 @@ import {
 } from "./reviewGrid.types";
 import { selectReviewGridData } from "./reviewGrid.selectors";
 import ReviewExportButtons from "./ReviewExportButtons";
-import { getReviewQcDisabledNote } from "./reviewGrid.qc";
+import ReviewQcBulkActions from "./ReviewQcBulkActions";
+import {
+  getReviewQcCapability,
+  getReviewQcDisabledNote,
+  getSelectedReviewFindings,
+} from "./reviewGrid.qc";
 
 type LayoutElementApi = {
   element_id: string;
@@ -64,6 +71,13 @@ type FiltersPanelProps = {
   onFilterStateChange: React.Dispatch<React.SetStateAction<ReviewFilterState>>;
   onReset: () => void;
   onClose: () => void;
+};
+
+type ExportPanelProps = {
+  open: boolean;
+  findings: ReturnType<typeof selectReviewGridData>["findings"];
+  dealName: string;
+  runId?: string;
 };
 
 type FetchTextOptions = {
@@ -298,22 +312,57 @@ const FiltersPanel: React.FC<FiltersPanelProps> = ({
       </div>
 
       <div className="flex items-center justify-end gap-2 border-t border-[var(--border-subtle)] px-4 py-3">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={onReset}
-        >
+        <Button type="button" size="sm" variant="secondary" onClick={onReset}>
           Сбросить
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={onClose}
-        >
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>
           Закрыть
         </Button>
+      </div>
+    </div>
+  );
+};
+
+// Inline-выезжающая панель экспорта.
+// Семантически — disclosure region, не overlay: не использует position/z-index.
+const ExportPanel: React.FC<ExportPanelProps> = ({
+  open,
+  findings,
+  dealName,
+  runId,
+}) => {
+  return (
+    <div
+      id="dd-grid-export-panel"
+      aria-hidden={!open}
+      className={`grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+        open
+          ? "mt-3 grid-rows-[1fr] opacity-100"
+          : "mt-0 grid-rows-[0fr] opacity-0"
+      }`}
+    >
+      <div className="min-h-0">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                Экспорт findings
+              </p>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                Файл будет сформирован по текущему набору отфильтрованных
+                findings.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <ReviewExportButtons
+                findings={findings}
+                dealName={dealName}
+                runId={runId}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -327,6 +376,7 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
   >([]);
   const [isReviewFiltersPanelOpen, setIsReviewFiltersPanelOpen] =
     React.useState(false);
+  const [isExportPanelOpen, setIsExportPanelOpen] = React.useState(false);
   const [gridMode, setGridMode] = React.useState<GridMode>("matrix");
   const [viewerState, setViewerState] = React.useState<ViewerState>(null);
   const [isViewerLoading, setIsViewerLoading] = React.useState(false);
@@ -369,9 +419,21 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     [reviewDerived.stats],
   );
 
+  const selectedReviewFindings = React.useMemo(
+    () =>
+      getSelectedReviewFindings(reviewDerived.findings, reviewSelection),
+    [reviewDerived.findings, reviewSelection],
+  );
+
+  const reviewQcCapability = React.useMemo(
+    () =>
+      getReviewQcCapability(reviewSelection, selectedReviewFindings, runId),
+    [reviewSelection, selectedReviewFindings, runId],
+  );
+
   const reviewQcDisabledNote = React.useMemo(
-    () => getReviewQcDisabledNote(reviewSelection),
-    [reviewSelection],
+    () => getReviewQcDisabledNote(reviewQcCapability),
+    [reviewQcCapability],
   );
 
   const checksModeLabel = humanChecksMode(run?.checks_mode);
@@ -398,12 +460,16 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     setViewerState(null);
   }, []);
 
-  const handleOpenFilters = React.useCallback(() => {
+  const handleToggleFilters = React.useCallback(() => {
     setIsReviewFiltersPanelOpen((prev) => !prev);
   }, []);
 
   const handleCloseFilters = React.useCallback(() => {
     setIsReviewFiltersPanelOpen(false);
+  }, []);
+
+  const handleToggleExportPanel = React.useCallback(() => {
+    setIsExportPanelOpen((prev) => !prev);
   }, []);
 
   const openViewerAt: OpenViewerAtFn = React.useCallback(async (loc) => {
@@ -480,6 +546,14 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
     );
   }
 
+  const matrixSectionTitle =
+    gridMode === "matrix" ? "Review DD Matrix" : "Review findings list";
+
+  const matrixSectionSubtitle =
+    gridMode === "matrix"
+      ? "Run-scoped матрица документов и проверок."
+      : "Плоский список findings из review matrix с фильтрацией и экспортом.";
+
   return (
     <div className="flex min-h-full flex-col gap-6">
       <PageSection
@@ -504,16 +578,26 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
         </div>
       </PageSection>
 
-      <SectionCard
-        title="DD Grid workspace"
-        description="Фильтрация, экспорт и просмотр evidence для run-scoped review matrix."
-        actions={
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
+              {matrixSectionTitle}
+            </h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {matrixSectionSubtitle}
+            </p>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
               variant={isReviewFiltersPanelOpen ? "outline" : "secondary"}
-              onClick={handleOpenFilters}
+              onClick={handleToggleFilters}
+              leftIcon={<SlidersHorizontal className="h-4 w-4" />}
+              aria-expanded={isReviewFiltersPanelOpen}
+              aria-controls="dd-grid-filters-panel"
               className={
                 isReviewFiltersPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""
               }
@@ -521,97 +605,88 @@ const GridTabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
               {reviewFiltersButtonLabel}
             </Button>
 
+            <Button
+              type="button"
+              size="sm"
+              variant={isExportPanelOpen ? "outline" : "secondary"}
+              onClick={handleToggleExportPanel}
+              aria-expanded={isExportPanelOpen}
+              aria-controls="dd-grid-export-panel"
+              leftIcon={<Download className="h-4 w-4" />}
+              rightIcon={
+                <ChevronRight
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    isExportPanelOpen ? "rotate-90" : "rotate-0"
+                  }`}
+                />
+              }
+              className={isExportPanelOpen ? INLINE_PANEL_ACTIVE_CLASS : ""}
+            >
+              Экспорт данных
+            </Button>
+
             <ModeToggle value={gridMode} onChange={setGridMode} />
           </div>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <FiltersPanel
-            open={isReviewFiltersPanelOpen}
-            gridMode={gridMode}
-            filterState={reviewFilterState}
-            availableDocTypes={reviewDerived.availableDocTypes}
-            availableOrigins={reviewDerived.availableOrigins}
-            onFilterStateChange={setReviewFilterState}
-            onReset={handleResetReviewFilters}
-            onClose={handleCloseFilters}
+        </div>
+
+        <div className="px-6 pt-3">
+          <div id="dd-grid-filters-panel">
+            <FiltersPanel
+              open={isReviewFiltersPanelOpen}
+              gridMode={gridMode}
+              filterState={reviewFilterState}
+              availableDocTypes={reviewDerived.availableDocTypes}
+              availableOrigins={reviewDerived.availableOrigins}
+              onFilterStateChange={setReviewFilterState}
+              onReset={handleResetReviewFilters}
+              onClose={handleCloseFilters}
+            />
+          </div>
+
+          <ExportPanel
+            open={isExportPanelOpen}
+            findings={filteredReviewFindings}
+            dealName={dealId}
+            runId={runId ?? undefined}
           />
 
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-4 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-              Экспорт findings
-            </div>
-            <div className="mt-3">
-              <ReviewExportButtons
-                findings={filteredReviewFindings}
-                dealName={dealId}
-                runId={runId ?? undefined}
+          {reviewQcCapability.supported && runId ? (
+            <div className="mt-4">
+              <ReviewQcBulkActions
+                selectedRowsCount={reviewQcCapability.selectedRowsCount}
+                selectedFindings={selectedReviewFindings}
+                runId={runId}
               />
             </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <StatCard label="Документов" value={reviewSummary.documentsCount} />
-            <StatCard
-              label="Проверок"
-              value={reviewSummary.checksCount}
-              tone="accent"
-            />
-            <StatCard label="Findings" value={reviewSummary.findingsCount} />
-            <StatCard
-              label="Critical"
-              value={reviewSummary.criticalCount}
-              tone="critical"
-            />
-            <StatCard label="Unclear" value={reviewSummary.unclearCount} />
-          </div>
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-            Выберите view, примените фильтры и откройте finding для просмотра
-            evidence.
-          </div>
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-            {reviewQcDisabledNote}
-          </div>
-
-          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
-            <div className="px-6 pt-5">
-              <h2 className="text-base font-semibold text-[var(--text-primary)]">
-                {gridMode === "matrix"
-                  ? "Review DD Matrix"
-                  : "Review findings list"}
-              </h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {gridMode === "matrix"
-                  ? "Run-scoped матрица документов и проверок."
-                  : "Плоский список findings из review matrix с фильтрацией и экспортом."}
-              </p>
-              <div className="mt-4 border-t border-[var(--border-subtle)]" />
+          ) : reviewQcDisabledNote ? (
+            <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+              {reviewQcDisabledNote}
             </div>
+          ) : null}
 
-            <div className="px-6 py-5">
-              {gridMode === "matrix" ? (
-                <DDMatrixGrid
-                  runId={runId}
-                  rows={filteredReviewRows}
-                  columns={reviewDerived.columns}
-                  onOpenAtLocation={openViewerAt}
-                  onSelectionChange={handleReviewSelectionChange}
-                />
-              ) : (
-                <DDReviewListGrid
-                  runId={runId}
-                  rows={filteredReviewRows}
-                  columns={reviewDerived.columns}
-                  onOpenAtLocation={openViewerAt}
-                  onSelectionChange={handleReviewSelectionChange}
-                />
-              )}
-            </div>
-          </section>
+          <div className="mt-4 border-t border-[var(--border-subtle)]" />
         </div>
-      </SectionCard>
+
+        <div className="px-6 py-5">
+          {gridMode === "matrix" ? (
+            <DDMatrixGrid
+              runId={runId}
+              rows={filteredReviewRows}
+              columns={reviewDerived.columns}
+              onOpenAtLocation={openViewerAt}
+              onSelectionChange={handleReviewSelectionChange}
+            />
+          ) : (
+            <DDReviewListGrid
+              runId={runId}
+              rows={filteredReviewRows}
+              columns={reviewDerived.columns}
+              onOpenAtLocation={openViewerAt}
+              onSelectionChange={handleReviewSelectionChange}
+            />
+          )}
+        </div>
+      </section>
 
       <DocumentViewerModal
         open={Boolean(viewerState)}

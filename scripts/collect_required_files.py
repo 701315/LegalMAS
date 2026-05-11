@@ -12,18 +12,20 @@ PROJECT_ROOT = "/home/vladi/projects/LegalMAS"
 OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_heading_dump.txt"
 
 FILES = [
-    "src/services/structure/builder.py",
-    "src/services/structure/crossrefs.py",
-    "src/services/structure/heading_builder.py",
-    "src/services/structure/heading_candidates.py",
-    "src/services/structure/heading_features.py",
-    "src/services/structure/heading_llm_refiner.py",
-    "src/services/structure/heading_patterns.py",
-    "src/services/structure/heading_scoring.py",
-    "src/services/structure/hierarchy_builder.py",
-    "src/services/structure/models.py",
-    "src/services/structure/pipeline.py",
-    "src/workers/structure_builder.py"
+    "src/api/endpoints/deals/crud.py",
+    "src/api/endpoints/deals/settings.py",
+    "src/api/endpoints/deal_review.py",
+    "src/api/endpoints/runs.py",
+    "src/db/models/deal.py",
+    "src/db/repositories/bundle_repo.py",
+    "src/db/repositories/deal_repo.py",
+    "src/services/deal_language_service.py",
+    "src/services/document_language_pipeline.py",
+    "src/services/quick_pdf_layout.py",
+    "src/workers/build_primary_language_source.py",
+    "src/workers/import_worker.py",
+    "src/workers/convert_worker.py",
+    "src/workers/run_orchestrator.py"
 ]
 
 # ===================================

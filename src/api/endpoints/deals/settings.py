@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-from api.schemas.deals import DealResponse
+from api.schemas.deals import DealResponse, _normalize_language_code
 from core.constants import DocumentStatus
 from db.models.playbook import PlaybookVersion
 from db.repositories.audit_repo import AuditRepository
@@ -17,9 +17,11 @@ from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
 from mas_queue.celery_app import celery_app
-
+from core.logging import get_logger
 
 router = APIRouter()
+
+logger = get_logger(__name__)
 
 
 class DealPlaybookUpdate(BaseModel):
@@ -243,16 +245,31 @@ async def set_deal_primary_language(
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    new_lang = payload.primary_language
+    logger.info(
+        "DEBUG_primary_language_patch",
+        deal_id=str(deal.id),
+        deal_languages=list(deal.languages or []),
+        raw_lang=payload.primary_language,
+        current_primary_language=deal.primary_language,
+    )
+    
+    raw_lang = payload.primary_language
+    new_lang = _normalize_language_code(raw_lang) if raw_lang is not None else None
+
     deal_languages = list(deal.languages or [])
+    normalized_deal_languages = [
+        _normalize_language_code(l)
+        for l in deal_languages
+        if l is not None and str(l).strip()
+    ]
 
     if new_lang is not None:
-        if not deal_languages:
+        if not normalized_deal_languages:
             raise HTTPException(
                 status_code=400,
                 detail="Cannot set primary_language when deal has no languages",
             )
-        if new_lang not in deal_languages:
+        if new_lang not in normalized_deal_languages:
             raise HTTPException(
                 status_code=400,
                 detail="primary_language must be one of deal languages",
@@ -286,6 +303,18 @@ async def set_deal_primary_language(
     await db.commit()
     await db.refresh(deal)
 
+    if restart_items:
+        logger.info(
+            "Restarting LANGUAGE_SELECTION_REQUIRED documents after primary_language change",
+            extra={
+                "deal_id": str(deal.id),
+                "tenant_id": str(deal.tenant_id),
+                "new_primary_language": new_lang,
+                "documents_count": len(restart_items),
+            },
+        )
+
+
     for document_id_str, version_id_str in restart_items:
         celery_app.send_task(
             "workers.build_primary_language_source",
@@ -295,6 +324,7 @@ async def set_deal_primary_language(
                 "deal_id": str(deal.id),
                 "tenant_id": str(deal.tenant_id),
                 "run_id": None,
+                "target_language": new_lang,
             },
         )
 

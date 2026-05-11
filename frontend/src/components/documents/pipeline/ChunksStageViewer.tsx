@@ -217,7 +217,6 @@ function getChunkClauseDepth(chunk: ChunkPreviewDTO): number {
 
 function getChunkGroupKey(chunk: ChunkPreviewDTO): ChunkGroupKey {
   const depth = getChunkClauseDepth(chunk);
-
   if (depth === 0) return "sections";
   if (depth <= 2) return "clauses";
   return "subclauses";
@@ -263,7 +262,9 @@ function groupChunks(chunks: ChunkPreviewDTO[]): ChunkGroup[] {
 
 /* ===== grouping by segments v2 ===== */
 
-function groupChunksBySegment(preview: ChunksPreviewDTO | null): SegmentGroup[] {
+function groupChunksBySegment(
+  preview: ChunksPreviewDTO | null,
+): SegmentGroup[] {
   if (
     !preview ||
     !Array.isArray(preview.segments) ||
@@ -288,7 +289,8 @@ function groupChunksBySegment(preview: ChunksPreviewDTO | null): SegmentGroup[] 
     const segmentId = s.segment_id;
     const title = s.segment_title || "(без заголовка)";
     const type = s.segment_type || "primary";
-    const order = typeof s.segment_order === "number" ? s.segment_order : null;
+    const order =
+      typeof s.segment_order === "number" ? s.segment_order : null;
     const isPrimary = !!s.is_primary;
 
     const labelParts: string[] = [];
@@ -388,23 +390,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
   onOpenAtLocation,
 }) => {
   const status = stage.status;
-
-  if (status === "pending") {
-    return (
-      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
-        Чанки ещё не готовы в v2-формате. Попробуй позже.
-      </div>
-    );
-  }
-
-  if (status === "missing") {
-    return (
-      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
-        CHUNKS-артефакт ожидается, но недоступен или повреждён. Проверь состояние
-        пайплайна для стадии CHUNKS.
-      </div>
-    );
-  }
+  const isPending = status === "pending";
+  const isMissing = status === "missing";
+  const isStageReady = !isPending && !isMissing;
 
   const preview = useMemo(
     () => (isChunksPreviewDTO(stage.preview) ? stage.preview : null),
@@ -434,7 +422,10 @@ export const ChunksStageViewer: React.FC<Props> = ({
   const hasChunks = allChunks.length > 0;
 
   const chunkGroups = useMemo(() => groupChunks(allChunks), [allChunks]);
-  const segmentGroups = useMemo(() => groupChunksBySegment(preview), [preview]);
+  const segmentGroups = useMemo(
+    () => groupChunksBySegment(preview),
+    [preview],
+  );
   const hasSegmentGroups = segmentGroups.length > 0;
 
   const highlightedSet = useMemo(
@@ -449,6 +440,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   const hasLinkedChunks = highlightedChunks.length > 0;
 
+  // User intent: какой индекс выбрал пользователь кликом.
+  // Не синхронизируется эффектом — только явный onClick.
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [jsonMode, setJsonMode] = useState<"chunk" | "snapshot">("chunk");
 
@@ -464,9 +457,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
     subclauses: false,
   });
 
-  const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [expandedSegments, setExpandedSegments] = useState<
+    Record<string, boolean>
+  >({});
 
   const toggleGroup = (key: ChunkGroupKey) => {
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -479,49 +472,62 @@ export const ChunksStageViewer: React.FC<Props> = ({
     }));
   };
 
-  useEffect(() => {
-    if (!hasChunks) {
-      setSelectedIndex(null);
-      return;
+  // Derived: актуальный выбранный индекс с учётом текущих данных.
+  // selectedIndex — user intent, который может устареть при смене данных.
+  // effectiveSelectedIndex — то, что реально используется в рендере и scroll.
+  const effectiveSelectedIndex = useMemo(() => {
+    if (!isStageReady || !hasChunks) {
+      return null;
     }
 
     if (isSourcePaneMode) {
-      setSelectedIndex((prev) => {
-        if (prev != null && highlightedSet.has(prev)) return prev;
-        return highlightedChunks[0]?.index ?? null;
-      });
-      return;
+      if (selectedIndex != null && highlightedSet.has(selectedIndex)) {
+        return selectedIndex;
+      }
+      return highlightedChunks[0]?.index ?? null;
     }
 
-    setSelectedIndex((prev) => {
-      if (prev != null && allChunks.some((chunk) => chunk.index === prev)) {
-        return prev;
-      }
-      return allChunks[0]?.index ?? null;
-    });
-  }, [allChunks, hasChunks, highlightedChunks, highlightedSet, isSourcePaneMode]);
+    if (
+      selectedIndex != null &&
+      allChunks.some((chunk) => chunk.index === selectedIndex)
+    ) {
+      return selectedIndex;
+    }
 
+    return allChunks[0]?.index ?? null;
+  }, [
+    allChunks,
+    hasChunks,
+    highlightedChunks,
+    highlightedSet,
+    isSourcePaneMode,
+    isStageReady,
+    selectedIndex,
+  ]);
+
+  // Scroll к активному элементу при смене effectiveSelectedIndex.
   useEffect(() => {
-    if (selectedIndex == null) return;
+    if (effectiveSelectedIndex == null) return;
 
-    const listButton = listItemRefs.current.get(selectedIndex);
+    const listButton = listItemRefs.current.get(effectiveSelectedIndex);
     if (listButton) {
       listButton.scrollIntoView({ block: "nearest", behavior: "smooth" });
       return;
     }
 
-    const inlineButton = inlineHighlightRefs.current.get(selectedIndex);
+    const inlineButton =
+      inlineHighlightRefs.current.get(effectiveSelectedIndex);
     if (inlineButton) {
       inlineButton.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
-  }, [selectedIndex]);
+  }, [effectiveSelectedIndex]);
 
   const selectedChunk = useMemo(
     () =>
-      selectedIndex == null
+      effectiveSelectedIndex == null
         ? undefined
-        : allChunks.find((c) => c.index === selectedIndex),
-    [allChunks, selectedIndex],
+        : allChunks.find((c) => c.index === effectiveSelectedIndex),
+    [allChunks, effectiveSelectedIndex],
   );
 
   const reconstructedText = useMemo(() => {
@@ -552,7 +558,9 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
   const highlightedSnapshot = useMemo(
     () =>
-      preview ? buildHighlightedSnapshot(preview, selectedChunk) : { __html: "" },
+      preview
+        ? buildHighlightedSnapshot(preview, selectedChunk)
+        : { __html: "" },
     [preview, selectedChunk],
   );
 
@@ -565,6 +573,23 @@ export const ChunksStageViewer: React.FC<Props> = ({
       mark.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   }, [jsonMode, highlightedSnapshot.__html, selectedChunk?.index]);
+
+  if (isPending) {
+    return (
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 text-sm text-[var(--text-muted)]">
+        Чанки ещё не готовы в v2-формате. Попробуй позже.
+      </div>
+    );
+  }
+
+  if (isMissing) {
+    return (
+      <div className="rounded-2xl border border-[color:color-mix(in_oklab,var(--color-error)_40%,transparent)] bg-[var(--color-error-highlight)] p-4 text-sm text-[var(--color-error)]">
+        CHUNKS-артефакт ожидается, но недоступен или повреждён. Проверь
+        состояние пайплайна для стадии CHUNKS.
+      </div>
+    );
+  }
 
   if (!preview) {
     return (
@@ -588,14 +613,16 @@ export const ChunksStageViewer: React.FC<Props> = ({
           description={
             hasLinkedChunks
               ? "Связанные с выбранной секцией чанки подсвечены inline."
-              : "Для выбранной секции не найдено связанных chunk’ов."
+              : "Для выбранной секции не найдено связанных chunk'ов."
           }
         >
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div />
               {hasLinkedChunks && (
-                <Pill tone="warning">Подсвечено: {highlightedChunks.length}</Pill>
+                <Pill tone="warning">
+                  Подсвечено: {highlightedChunks.length}
+                </Pill>
               )}
             </div>
 
@@ -604,7 +631,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
                   {renderSegments.map((segment) => {
                     if (segment.type === "highlight") {
-                      const isSelected = selectedIndex === segment.chunk.index;
+                      const isSelected =
+                        effectiveSelectedIndex === segment.chunk.index;
                       const titleParts = [
                         chunkTitle(segment.chunk),
                         `стр. ${pageLabel(segment.chunk)}`,
@@ -668,7 +696,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
                 </p>
               ) : (
                 <p className="text-xs text-[var(--text-muted)]">
-                  Нет активного chunk’а для подсветки.
+                  Нет активного chunk'а для подсветки.
                 </p>
               )}
             </div>
@@ -690,7 +718,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
               <div className="divide-y divide-[var(--border-subtle)]">
                 {hasSegmentGroups
                   ? segmentGroups.map((group) => {
-                      const isExpanded = expandedSegments[group.segmentId] ?? true;
+                      const isExpanded =
+                        expandedSegments[group.segmentId] ?? true;
                       const count = group.items.length;
                       if (count === 0) return null;
 
@@ -715,16 +744,27 @@ export const ChunksStageViewer: React.FC<Props> = ({
                           {isExpanded && (
                             <div className="mt-1 border-t border-[var(--border-subtle)]">
                               {group.items.map((chunk) => {
-                                const isSelected = selectedIndex === chunk.index;
+                                const isSelected =
+                                  effectiveSelectedIndex === chunk.index;
                                 return (
                                   <button
                                     key={chunk.index}
                                     ref={(el) => {
-                                      if (el) listItemRefs.current.set(chunk.index, el);
-                                      else listItemRefs.current.delete(chunk.index);
+                                      if (el) {
+                                        listItemRefs.current.set(
+                                          chunk.index,
+                                          el,
+                                        );
+                                      } else {
+                                        listItemRefs.current.delete(
+                                          chunk.index,
+                                        );
+                                      }
                                     }}
                                     type="button"
-                                    onClick={() => setSelectedIndex(chunk.index)}
+                                    onClick={() =>
+                                      setSelectedIndex(chunk.index)
+                                    }
                                     className={cn(
                                       "w-full px-3 py-2.5 text-left transition-colors",
                                       isSelected
@@ -774,17 +814,28 @@ export const ChunksStageViewer: React.FC<Props> = ({
                           {isExpanded && (
                             <div className="mt-1 border-t border-[var(--border-subtle)]">
                               {group.items.map((chunk) => {
-                                const isSelected = selectedIndex === chunk.index;
+                                const isSelected =
+                                  effectiveSelectedIndex === chunk.index;
 
                                 return (
                                   <button
                                     key={chunk.index}
                                     ref={(el) => {
-                                      if (el) listItemRefs.current.set(chunk.index, el);
-                                      else listItemRefs.current.delete(chunk.index);
+                                      if (el) {
+                                        listItemRefs.current.set(
+                                          chunk.index,
+                                          el,
+                                        );
+                                      } else {
+                                        listItemRefs.current.delete(
+                                          chunk.index,
+                                        );
+                                      }
                                     }}
                                     type="button"
-                                    onClick={() => setSelectedIndex(chunk.index)}
+                                    onClick={() =>
+                                      setSelectedIndex(chunk.index)
+                                    }
                                     className={cn(
                                       "w-full px-3 py-2.5 text-left transition-colors",
                                       isSelected
@@ -860,7 +911,7 @@ export const ChunksStageViewer: React.FC<Props> = ({
 
                 <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-faint)]">
-                    Текст chunk’а
+                    Текст chunk'а
                   </p>
                   <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-[var(--text-secondary)]">
                     {normalizeChunkText(selectedChunk.text) || "—"}
@@ -873,8 +924,8 @@ export const ChunksStageViewer: React.FC<Props> = ({
                       Контекст stage
                     </p>
                     <p className="text-xs leading-5 text-[var(--text-muted)]">
-                      Справа можно переключаться между JSON выбранного chunk’а и
-                      полным snapshot этапа, прокручиваемым к этому chunk’у.
+                      Справа можно переключаться между JSON выбранного chunk'а и
+                      полным snapshot этапа, прокручиваемым к этому chunk'у.
                     </p>
                   </div>
                 ) : null}
@@ -906,11 +957,11 @@ export const ChunksStageViewer: React.FC<Props> = ({
       </InfoPanel>
 
       <InfoPanel
-        title={jsonMode === "chunk" ? "JSON chunk’а" : "JSON snapshot"}
+        title={jsonMode === "chunk" ? "JSON chunk'а" : "JSON snapshot"}
         description={
           jsonMode === "chunk"
-            ? "Текущий объект materialized chunk’а из snapshot CHUNKS."
-            : "Полный canonical snapshot CHUNKS; выделен фрагмент текста выбранного chunk’а."
+            ? "Текущий объект materialized chunk'а из snapshot CHUNKS."
+            : "Полный canonical snapshot CHUNKS; выделен фрагмент текста выбранного chunk'а."
         }
       >
         <div className="flex h-full min-h-0 flex-col">

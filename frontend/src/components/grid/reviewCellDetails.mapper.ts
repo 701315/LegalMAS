@@ -18,6 +18,38 @@ type ExtractedFieldDTO = MatrixCellDTO["extracted"] extends Array<infer T>
   ? T
   : never;
 
+function normalizeString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizeNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeBooleanRecord(
+  value: unknown,
+): Record<string, boolean> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value).filter(
+    ([key, flag]) => typeof key === "string" && typeof flag === "boolean",
+  );
+
+  if (!entries.length) {
+    return null;
+  }
+
+  const result: Record<string, boolean> = {};
+  for (const [key, flag] of entries) {
+    result[key] = flag;
+  }
+  return result;
+}
+
 /**
  * Type guard for supported risk severities.
  */
@@ -28,9 +60,38 @@ export function isRiskSeverity(
 }
 
 /**
+ * Признак того, что юрист уже принял решение по этому finding.
+ * pending / null означают, что review ещё не проводился.
+ *
+ * Используется в getCellStatusText для перекрытия machine-generated текста
+ * единым "Просмотрено юристом" — детализация решения доступна в отдельной
+ * колонке "QC" и в drawer.
+ */
+function isQcReviewed(cell: MatrixCellDTO): boolean {
+  return (
+    cell.qc_status === "approved" ||
+    cell.qc_status === "rejected" ||
+    cell.qc_status === "needs_review"
+  );
+}
+
+/**
  * Human-readable status for matrix/list presentation.
+ *
+ * Приоритет: QC review status перекрывает machine-generated результат.
+ * Если юрист уже посмотрел finding (qc_status != pending/null), показываем
+ * единый маркер "Просмотрено юристом". Конкретное решение (approved /
+ * rejected / needs_review) видно в отдельной колонке "QC" и в drawer.
+ *
+ * Это соответствует legal review workflow:
+ * - "Требует внимания юриста" — нужно посмотреть
+ * - "Просмотрено юристом" — посмотрено, детали в QC
  */
 export function getCellStatusText(cell: MatrixCellDTO): string {
+  if (isQcReviewed(cell)) {
+    return "Просмотрено юристом";
+  }
+
   if (cell.result === "fail") {
     if (cell.severity === "critical" || cell.severity === "high") {
       return "Требует внимания юриста";
@@ -59,7 +120,7 @@ export function getCellResultKey(
   cell: MatrixCellDTO | null | undefined,
 ): string {
   if (!cell) return "missing";
-  return cell.result || "unknown";
+  return normalizeString(cell.result) || "unknown";
 }
 
 /**
@@ -68,7 +129,7 @@ export function getCellResultKey(
  */
 export function getCellLocationText(cell: MatrixCellDTO): string {
   const pageText = cell.page != null ? `стр. ${cell.page}` : "";
-  const clauseText = cell.clause_uid ? cell.clause_uid : "";
+  const clauseText = normalizeString(cell.clause_uid) || "";
 
   if (pageText && clauseText) return `${pageText} · ${clauseText}`;
   return pageText || clauseText || "";
@@ -79,7 +140,10 @@ export function getCellLocationText(cell: MatrixCellDTO): string {
  * Example: "Schedule A · Chunk #2"
  */
 export function getCellSegmentText(cell: MatrixCellDTO): string {
-  const segmentText = cell.segment_title || cell.segment_id || "";
+  const segmentText =
+    normalizeString(cell.segment_title) ||
+    normalizeString(cell.segment_id) ||
+    "";
   const chunkText =
     cell.chunk_index != null ? `Chunk #${cell.chunk_index}` : "";
 
@@ -92,7 +156,7 @@ export function getCellSegmentText(cell: MatrixCellDTO): string {
  */
 export function getCellCreatedAt(cell: MatrixCellDTO): string | null {
   const candidate = (cell as { created_at?: unknown }).created_at;
-  return typeof candidate === "string" ? candidate : null;
+  return normalizeString(candidate);
 }
 
 /**
@@ -100,7 +164,7 @@ export function getCellCreatedAt(cell: MatrixCellDTO): string | null {
  */
 export function getCellQcComment(cell: MatrixCellDTO): string | null {
   const candidate = (cell as { qc_comment?: unknown }).qc_comment;
-  return typeof candidate === "string" ? candidate : null;
+  return normalizeString(candidate);
 }
 
 /**
@@ -110,15 +174,7 @@ export function getCellQualityFlags(
   cell: MatrixCellDTO,
 ): Record<string, boolean> | null {
   const candidate = (cell as { quality_flags?: unknown }).quality_flags;
-  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
-    return null;
-  }
-
-  return Object.fromEntries(
-    Object.entries(candidate).filter(
-      ([, value]) => typeof value === "boolean",
-    ),
-  ) as Record<string, boolean>;
+  return normalizeBooleanRecord(candidate);
 }
 
 /**
@@ -150,7 +206,7 @@ export function buildCellTooltip(
   if (!cell) return "";
 
   return (
-    cell.snippet?.trim() ||
+    normalizeString(cell.snippet) ||
     getCellLocationText(cell) ||
     getCellSegmentText(cell) ||
     getCellStatusText(cell)
@@ -187,33 +243,23 @@ function mapExtractedField(
   field: ExtractedFieldDTO,
 ): MatrixCellDetailsCell["extractedFields"][number] {
   return {
-    fieldName: field.field_name,
-    fieldValue: field.field_value,
-    fieldFormat: field.field_format ?? null,
-    fieldSource:
-      typeof (field as { field_source?: unknown }).field_source === "string"
-        ? ((field as { field_source?: string }).field_source ?? null)
-        : null,
-    page:
-      typeof (field as { page?: unknown }).page === "number"
-        ? ((field as { page?: number }).page ?? null)
-        : null,
-    clauseUid:
-      typeof (field as { clause_uid?: unknown }).clause_uid === "string"
-        ? ((field as { clause_uid?: string }).clause_uid ?? null)
-        : null,
-    segmentId:
-      typeof (field as { segment_id?: unknown }).segment_id === "string"
-        ? ((field as { segment_id?: string }).segment_id ?? null)
-        : null,
-    chunkId:
-      typeof (field as { chunk_id?: unknown }).chunk_id === "string"
-        ? ((field as { chunk_id?: string }).chunk_id ?? null)
-        : null,
-    chunkIndex:
-      typeof (field as { chunk_index?: unknown }).chunk_index === "number"
-        ? ((field as { chunk_index?: number }).chunk_index ?? null)
-        : null,
+    fieldName: normalizeString(field.field_name) || "—",
+    fieldValue: normalizeString(field.field_value) || "—",
+    fieldFormat: normalizeString(field.field_format),
+    fieldSource: normalizeString(
+      (field as { field_source?: unknown }).field_source,
+    ),
+    page: normalizeNumber((field as { page?: unknown }).page),
+    clauseUid: normalizeString(
+      (field as { clause_uid?: unknown }).clause_uid,
+    ),
+    segmentId: normalizeString(
+      (field as { segment_id?: unknown }).segment_id,
+    ),
+    chunkId: normalizeString((field as { chunk_id?: unknown }).chunk_id),
+    chunkIndex: normalizeNumber(
+      (field as { chunk_index?: unknown }).chunk_index,
+    ),
   };
 }
 
@@ -227,32 +273,41 @@ export function mapReviewCellToDetailsCell(
   cell: MatrixCellDTO,
 ): MatrixCellDetailsCell {
   return {
-    result: cell.result,
+    result: normalizeString(cell.result) || "unknown",
     severity: getCellSeverity(cell),
-    snippet: cell.snippet ?? null,
-    page: cell.page ?? null,
-    clauseUid: cell.clause_uid ?? null,
-    confidence: cell.confidence ?? null,
+    snippet: normalizeString(cell.snippet),
+    page: normalizeNumber(cell.page),
+    clauseUid: normalizeString(cell.clause_uid),
+    confidence: normalizeNumber(cell.confidence),
     qcStatus: cell.qc_status ?? null,
-    conditionalTriggered: !!cell.conditional_check_triggered,
-    triggerName: cell.trigger_name ?? null,
+    conditionalTriggered: Boolean(cell.conditional_check_triggered),
+    triggerName: normalizeString(cell.trigger_name),
 
-    origin: meta.origin ?? null,
+    origin: normalizeString(meta.origin),
     createdAt: getCellCreatedAt(cell),
     qcComment: getCellQcComment(cell),
     qualityFlags: getCellQualityFlags(cell),
 
-    docType: row.docType ?? null,
-    docClassificationLevel: row.classificationLevel ?? null,
-    docClassificationConfidence: row.classificationConfidence ?? null,
+    docType: normalizeString(row.docType),
+    docClassificationLevel: normalizeString(row.classificationLevel),
+    docClassificationConfidence: normalizeNumber(row.classificationConfidence),
 
-    segmentId: cell.segment_id ?? row.segmentId ?? null,
-    segmentTitle: cell.segment_title ?? row.segmentTitle ?? null,
-    segmentType: cell.segment_type ?? row.segmentType ?? null,
-    segmentOrder: cell.segment_order ?? row.segmentOrder ?? null,
-    isPrimarySegment: cell.is_primary_segment ?? row.isPrimarySegment ?? null,
-    chunkId: cell.chunk_id ?? null,
-    chunkIndex: cell.chunk_index ?? null,
+    segmentId:
+      normalizeString(cell.segment_id) || normalizeString(row.segmentId),
+    segmentTitle:
+      normalizeString(cell.segment_title) || normalizeString(row.segmentTitle),
+    segmentType:
+      normalizeString(cell.segment_type) || normalizeString(row.segmentType),
+    segmentOrder:
+      normalizeNumber(cell.segment_order) ?? normalizeNumber(row.segmentOrder),
+    isPrimarySegment:
+      typeof cell.is_primary_segment === "boolean"
+        ? cell.is_primary_segment
+        : typeof row.isPrimarySegment === "boolean"
+          ? row.isPrimarySegment
+          : null,
+    chunkId: normalizeString(cell.chunk_id),
+    chunkIndex: normalizeNumber(cell.chunk_index),
 
     extractedFields: Array.isArray(cell.extracted)
       ? cell.extracted.map(mapExtractedField)

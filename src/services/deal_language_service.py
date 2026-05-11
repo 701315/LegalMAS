@@ -16,6 +16,12 @@ Production policy:
 - Нормализуем входные коды языков: trim + lower.
 - По умолчанию оставляем только поддерживаемые языки документа ("ru", "en"),
   чтобы не тащить в сделку шумовые/случайные значения.
+
+Важно:
+- Этот сервис предназначен для системного фонового обновления языков сделки
+  из результатов detection/layout pipeline.
+- Явный выбор пользователя через API имеет приоритет и не должен
+  перезаписываться автоматически этим сервисом.
 """
 
 from __future__ import annotations
@@ -26,7 +32,6 @@ from typing import Iterable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.repositories.deal_repo import DealRepository
-
 
 SUPPORTED_DOCUMENT_LANGUAGES = {"ru", "en"}
 
@@ -68,15 +73,23 @@ async def update_deal_languages(
     if not merged_languages:
         return
 
-    await repo.update_languages(
-        deal_id=deal_id,
-        languages=merged_languages,
-    )
-
     new_primary = _select_primary_language(
         languages=merged_languages,
         current_primary=current_primary,
     )
+
+    existing_languages_sorted = sorted(existing_languages)
+    if (
+        merged_languages == existing_languages_sorted
+        and new_primary == current_primary
+    ):
+        return
+
+    if merged_languages != existing_languages_sorted:
+        await repo.update_languages(
+            deal_id=deal_id,
+            languages=merged_languages,
+        )
 
     if new_primary != current_primary:
         await repo.update_primary_language(
