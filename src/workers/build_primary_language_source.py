@@ -379,8 +379,16 @@ async def _build_primary_language_source_async(
         )
 
     # 3. Резолвим целевой язык:
-    #    1) target_language из kwargs (от оркестратора, если он его пробросил);
-    #    2) Deal.primary_language из БД.
+    #     1) target_language из kwargs;
+    #     2) Deal.primary_language из БД.
+    #
+    # Нормальный production-сценарий:
+    # - primary language сделки уже выбран ДО запуска этого worker;
+    # - worker получает target_language явно или резолвит его из Deal.primary_language.
+    #
+    # Если язык не найден даже здесь — это уже не штатный путь,
+    # а fallback / recovery для неконсистентного состояния,
+    # legacy-запуска или ручного перезапуска старого документа.
     resolved_target_language = _normalize_lang(target_language)
 
     if not resolved_target_language:
@@ -392,12 +400,13 @@ async def _build_primary_language_source_async(
 
     if not resolved_target_language:
         logger.warning(
-            "Primary source build called without target language; "
-            "pausing pipeline until user selects language",
+            "Primary source build entered fallback mode: target language is missing; "
+            "document will be paused until primary language is selected",
             document_id=document_id,
             version_id=document_version_id,
             deal_id=deal_id,
             tenant_id=tenant_id,
+            run_id=run_id,
         )
         updated_doc = await doc_repo.update_status(
             doc_uuid,
@@ -423,7 +432,7 @@ async def _build_primary_language_source_async(
                     "run_id": run_id,
                     "source_ref": source_ref,
                     "primary_source_ref": existing_primary_ref,
-                    "reason": "no_target_language",
+                    "reason": "missing_target_language_fallback",
                 },
             )
         except Exception:
@@ -801,6 +810,12 @@ async def _build_primary_language_source_async(
             document_id=document_id,
             document_version_id=document_version_id,
         )
+
+        # Важно:
+        # это fallback-поведение сохранено намеренно для безопасного recovery.
+        # В штатной новой архитектуре сюда попадать не должны:
+        # Run и continuation pipeline теперь обязаны работать только
+        # после выбора Deal.primary_language.
 
     return {
         "document_id": document_id,

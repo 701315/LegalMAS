@@ -38,15 +38,39 @@ export const dealApi = {
    * GET /api/v1/deals/{deal_id}
    */
   get: (dealId: string) =>
-    client.get<DealDetail>(`/api/v1/deals/${dealId}`).then((response) => response.data),
+    client
+      .get<DealDetail>(`/api/v1/deals/${dealId}`)
+      .then((response) => response.data),
 
   /**
    * Частично обновить сделку.
    * PATCH /api/v1/deals/{deal_id}
+   *
+   * Используется только для обычных полей сделки,
+   * которые не требуют отдельной бизнес-логики продолжения пайплайна.
    */
   update: (dealId: string, payload: DealUpdatePayload) =>
     client
       .patch<DealDetail>(`/api/v1/deals/${dealId}`, payload)
+      .then((response) => response.data),
+
+  /**
+   * Установить основной язык сделки.
+   * PATCH /api/v1/deals/{deal_id}/primary-language
+   *
+   * Это отдельная доменная операция:
+   * backend валидирует язык, может реактивировать документы
+   * и перезапустить нужный участок пайплайна.
+   */
+  setPrimaryLanguage: (
+    dealId: string,
+    payload: { primary_language: string | null },
+  ) =>
+    client
+      .patch<DealDetail>(
+        `/api/v1/deals/${dealId}/primary-language`,
+        payload,
+      )
       .then((response) => response.data),
 };
 
@@ -81,10 +105,13 @@ export function useDeal(dealId: string | null) {
 
 /**
  * Хук для частичного обновления сделки.
- * Подходит для:
+ * Подходит для обычных полей, например:
  * - summary;
- * - languages;
- * - primary_language.
+ * - другие простые поля сделки.
+ *
+ * Не используем этот хук для primary_language,
+ * потому что выбор основного языка запускает отдельную
+ * backend-логику продолжения пайплайна.
  *
  * Пример:
  *   const updateDeal = useUpdateDeal(deal.id);
@@ -108,8 +135,9 @@ export function useUpdateDeal(dealId: string) {
  * Хук для установки основного языка сделки.
  *
  * Важно:
- * - backend больше не требует отдельный endpoint /primary-language;
- * - используем единый PATCH /api/v1/deals/{deal_id}.
+ * - используем специальный endpoint /primary-language;
+ * - backend сам выполнит всю нужную continuation logic;
+ * - после успешного ответа обновляем deal и связанные run-query.
  *
  * Пример:
  *   const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
@@ -120,12 +148,13 @@ export function useSetPrimaryLanguage(dealId: string) {
 
   return useMutation({
     mutationFn: (payload: { primary_language: string | null }) =>
-      dealApi.update(dealId, payload),
+      dealApi.setPrimaryLanguage(dealId, payload),
 
     onSuccess: async (updatedDeal) => {
       queryClient.setQueryData<DealDetail>(["deal", dealId], updatedDeal);
 
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["deal", dealId] }),
         queryClient.invalidateQueries({ queryKey: ["deals"] }),
         queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, true] }),
         queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, false] }),

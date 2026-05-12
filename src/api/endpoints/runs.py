@@ -86,22 +86,18 @@ async def _start_run_core(
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    # 1.1. Ранее здесь была принудительная проверка primary_language:
-    #       Run запрещалось запускать, пока пользователь явно не выберет язык сделки.
+    # 1.1. Для запуска анализа основной язык сделки должен быть выбран заранее.
     #
-    #       После перехода на новый пайплайн порядок другой:
-    #       - build_primary_language_source сам детектирует языки из layout;
-    #       - update_deal_languages() добавляет их в Deal.languages;
-    #       - если целевой язык ещё не выбран, документы переводятся в
-    #         LANGUAGE_SELECTION_REQUIRED и пайплайн осознанно останавливается
-    #         до выбора языка человеком.
+    # Архитектурное правило системы:
+    # - сначала выполняется pre-run language discovery;
+    # - затем пользователь выбирает primary_language сделки;
+    # - только после этого разрешён запуск Run.
     #
-    #       Поэтому отсутствие Deal.primary_language больше НЕ является
-    #       блокирующим условием для старта Run: первый запуск может служить
-    #       как раз для обнаружения языков.
+    # Поэтому backend здесь жёстко запрещает запуск анализа,
+    # если основной язык сделки ещё не задан.
     if not getattr(deal, "primary_language", None):
-        logger.info(
-            "Starting run without primary_language; language-discovery stages will run first",
+        logger.warning(
+            "Run start rejected: primary_language is not set",
             extra={
                 "deal_id": str(deal_uuid),
                 "tenant_id": str(getattr(deal, "tenant_id", "")),
@@ -111,6 +107,12 @@ async def _start_run_core(
                     else "unknown"
                 ),
             },
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Primary language must be selected before starting analysis"
+            ),
         )
 
 

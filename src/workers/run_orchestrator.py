@@ -5,30 +5,88 @@ Run Orchestrator Worker.
 
 Назначение:
 - Единый центр оркестрации document-level пайплайна для конкретного Run.
-- По статусу документа и наличию артефактов решает, какую ИМЕННО одну следующую
-  stage-task нужно поставить в очередь.
+- По текущему статусу документа и наличию артефактов версии решает, какую
+  ИМЕННО одну следующую stage-task нужно поставить в очередь.
 - Не вызывает downstream-воркеры напрямую и не полагается на chaining внутри воркеров.
-  Stage-воркеры после фиксации результата могут только заново будить оркестратор
-  тем же run_id.
+  Stage-воркеры после фиксации результата могут только повторно будить оркестратор
+  с тем же run_id.
+
+Архитектурный инвариант:
+- Этот orchestrator работает только в post-selection фазе.
+- К моменту запуска Run у сделки уже должны быть завершены:
+  1) document language discovery;
+  2) aggregation в Deal.languages;
+  3) выбор Deal.primary_language пользователем (если он required).
+- Поэтому run_orchestrator не должен инициировать deal-level language discovery,
+  не должен строить UI-waiting flow вокруг LANGUAGE_SELECTION_REQUIRED
+  и не должен считаться источником истины для выбора языка сделки.
+
+Роль build_primary_language_source в этой модели:
+- Это stage-worker построения primary source для УЖЕ выбранного target_language.
+- Он получает target_language из Deal.primary_language.
+- В нормальном happy-path run flow он не используется как fallback-механизм
+  language discovery / language selection.
+- Если target language отсутствует к моменту orchestration, это считается
+  нарушением pre-run контракта, а не штатным сценарием document pipeline.
 
 Актуальная последовательность стадий:
-- PENDING           -> workers.convert_to_pdf (для конвертируемых типов без PDF)
-                      -> workers.build_primary_language_source
-- PRIMARY_READY     -> workers.extract_document
-- EXTRACTED         -> pii.sanitize_document
-- SANITIZED         -> workers.build_structure
-- STRUCTURED        -> workers.build_chunks
-- CHUNKED           -> workers.classify_document
-- CLASSIFIED/COMPLETED -> reuse или reclassify по стратегии Run
+- PENDING
+    -> workers.convert_to_pdf
+       (для конвертируемых типов, если ещё нет converted_pdf_ref)
+    -> workers.build_primary_language_source
+       (только при уже выбранном Deal.primary_language)
+- PRIMARY_READY
+    -> workers.extract_document
+- EXTRACTED
+    -> pii.sanitize_document
+- SANITIZED
+    -> workers.build_structure
+- STRUCTURED
+    -> workers.build_chunks
+- CHUNKED
+    -> workers.classify_document
+- CLASSIFIED
+    -> reuse classification
+    -> либо workers.classify_document при reclassify strategy
+    -> либо workers.classify_document_segments для multi-document,
+       если segment-level классификация ещё не завершена
+- COMPLETED
+    -> reuse
+    -> либо workers.classify_document при explicit rerun / reclassification
 
-Ключевой принцип:
-- Каждый stage-worker отвечает только за свою стадию и фиксацию её результата.
+Ключевой принцип orchestration:
+- Каждый stage-worker отвечает только за свою стадию и за фиксацию её результата.
 - Только run_orchestrator решает, что запускать дальше.
+- На один проход orchestrator для одного документа ставится не более одной
+  следующей стадии.
+- Решение принимается по status + readiness артефактов версии.
+- Отсутствие необходимых артефактов трактуется как "ждём commit предыдущей стадии",
+  а не как повод перескочить дальше.
 
-Дополнительно (после введения document_stage_executions):
-- Для каждой постановки stage-task создаётся execution-запись.
+Execution model:
+- Для каждой постановки stage-task создаётся execution-запись
+  в document_stage_executions.
 - Активный execution (planned / dispatched / started) блокирует
-  повторное планирование той же стадии для той же версии.
+  повторное планирование той же стадии для той же версии документа.
+- Это делает orchestration re-entrant и защищает от duplicate scheduling
+  при повторных пробуждениях orchestrator.
+
+Run lifecycle semantics:
+- При первом входе Run переводится из PENDING в RUNNING.
+- Повторный вход для RUNNING допустим и используется как штатный re-entry механизм.
+- Для terminal statuses (COMPLETED / FAILED / CANCELLED) orchestration не выполняется.
+- После прохода orchestrator может запускать maybe_start_run_checks(),
+  но только если выполнен пред-гейт готовности, включая segment-level readiness
+  для multi-document кейсов.
+
+Границы ответственности:
+- Pre-run flow отвечает за:
+  - import completion;
+  - language discovery;
+  - deal language aggregation;
+  - выбор primary language;
+  - run gating до выполнения этих условий.
+- Этот файл отвечает только за post-run-start document pipeline orchestration.
 """
 
 from __future__ import annotations
@@ -243,6 +301,7 @@ async def _start_run_pipeline_async(
 ) -> dict:
     """
     Async-ядро оркестрации Run.
+
     Правило:
     - на один проход оркестратора для одного документа ставим не более ОДНОЙ
       следующей стадии;
@@ -252,6 +311,14 @@ async def _start_run_pipeline_async(
     После введения document_stage_executions:
     - перед постановкой задачи мы пытаемся создать execution-запись;
     - если активная запись уже есть, задачу повторно не ставим.
+
+    ВАЖНО:
+    - В новой pre-run архитектуре определение языков документов и выбор
+      primary_language сделки происходят ДО старта анализа.
+    - Поэтому run_orchestrator НЕ должен запускать document pipeline,
+      если deal.primary_language ещё не выбран.
+    - build_primary_language_source в рамках Run больше не используется
+      как fallback-механизм deal-level language discovery / language selection.
     """
 
     logger.info(
@@ -322,15 +389,14 @@ async def _start_run_pipeline_async(
                 extra={"run_id": run_id},
             )
         else:
-            # Run успешно стартовал из PENDING → RUNNING — пишем аудит запуска анализа.
             deal_uuid_for_audit = run_obj.deal_id
             try:
                 await audit_repo.log(
                     tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
                     deal_id=deal_uuid_for_audit,
                     action="ANALYSIS_STARTED",
-                    actor="system",          # TODO: подставить реального пользователя из токена
-                    actor_role="worker",     # или "user", если запускался из UI
+                    actor="system",
+                    actor_role="worker",
                     details={
                         "run_id": run_id,
                         "deal_id": str(deal_uuid_for_audit) if deal_uuid_for_audit else None,
@@ -338,8 +404,6 @@ async def _start_run_pipeline_async(
                         "force_reclassify": force_reclassify,
                     },
                 )
-                # commit делать не нужно — оркестратор работает в рамках одного uow,
-                # и audit-запись закоммитится вместе с другими изменениями позже.
             except Exception:
                 logger.warning(
                     "Failed to write audit log for ANALYSIS_STARTED",
@@ -426,7 +490,6 @@ async def _start_run_pipeline_async(
         db=db,
     )
 
-    # Читаем сделку и проверяем выбранный язык
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_uuid)
 
@@ -457,25 +520,25 @@ async def _start_run_pipeline_async(
     deal_primary_language = getattr(deal, "primary_language", None)
 
     if not deal_primary_language:
-        # IMPORTANT:
-        # Отсутствие primary_language не должно блокировать document pipeline целиком.
-        # Стадия build_primary_language_source сама:
-        # - строит quick-layout;
-        # - детектит языки документа;
-        # - обновляет Deal.languages;
-        # - может перевести документ в LANGUAGE_SELECTION_REQUIRED,
-        #   если нужен явный выбор языка пользователем.
-        #
-        # Поэтому оркестратор продолжает планирование стадий, передавая
-        # deal_primary_language (в том числе None) в _build_document_task_plan().
-        logger.info(
-            "Deal has no primary_language selected yet; allowing language-discovery stages to proceed",
+        logger.warning(
+            "Run pipeline blocked: deal.primary_language is not selected",
             extra={
                 "run_id": run_id,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
+                "language_discovery_status": getattr(deal, "language_discovery_status", None),
+                "deal_languages": getattr(deal, "languages", None),
             },
         )
+        return {
+            "run_id": run_id,
+            "deal_id": deal_id_str,
+            "tenant_id": tenant_id_str,
+            "documents_total": 0,
+            "tasks_scheduled": 0,
+            "documents_with_plan": 0,
+            "blocked_reason": "primary_language_not_selected",
+        }
 
     docs = await doc_repo.get_by_deal(deal_uuid)
     if not docs:
@@ -510,6 +573,7 @@ async def _start_run_pipeline_async(
                 "status": status,
                 "doc_type": getattr(doc, "doc_type", None),
                 "classification_level": getattr(doc, "classification_level", None),
+                "deal_primary_language": deal_primary_language,
             },
         )
 
@@ -544,10 +608,8 @@ async def _start_run_pipeline_async(
             )
             continue
 
-        # Для V2_ONLY мира orchestration_strategy фиксируем явно.
         orchestration_strategy = ORCHESTRATION_STRATEGY_V2_ONLY
 
-        # Пытаемся создать execution-запись для этой стадии.
         execution = await dse_repo.create_planned_or_none_on_conflict(
             run_id=run_uuid,
             document_id=doc.id,
@@ -599,7 +661,7 @@ async def _start_run_pipeline_async(
             document_version_id=str(version.id),
             orchestration_strategy=orchestration_strategy,
         )
-        await dse_repo.mark_dispatched(execution.id, celery_task_id=celery_task_id)  # ← новая строка
+        await dse_repo.mark_dispatched(execution.id, celery_task_id=celery_task_id)
         tasks_scheduled += 1
         documents_with_plan += 1
 
@@ -615,8 +677,6 @@ async def _start_run_pipeline_async(
         },
     )
 
-    # Пред-гейт: не дергаем maybe_start_run_checks, пока у multi-document
-    # документов не завершена segment-level классификация.
     seg_repo_for_checks = DocumentSegmentRepository(db)
     can_start_checks = await _can_start_checks_for_run(
         run_obj=run_obj,
@@ -657,10 +717,16 @@ def _target_status_for_stage(stage: str) -> str:
     """
     Map internal stage name to *intended* DocumentStatus
     on successful completion of this stage.
+
     Это не исчерпывающий список всех возможных финальных статусов.
-    Например, build_primary_language_source может перевести документ
-    в LANGUAGE_SELECTION_REQUIRED или QUARANTINE, но целевой happy-path
-    остаётся PRIMARY_READY.
+    В частности, stage-воркеры могут в error / edge-кейсах переводить
+    документ в другие статусы (например, QUARANTINE), но здесь мы
+    фиксируем именно целевой happy-path для orchestration.
+
+    В новой pre-run архитектуре:
+    - build_primary_language_source получает уже выбранный target_language
+      сделки и работает как стадия построения primary source, а не как
+      механизм deal-level language discovery / LANGUAGE_SELECTION_REQUIRED.
     """
     if stage == "convert_to_pdf":
         return DocumentStatus.PENDING.value
@@ -681,7 +747,7 @@ def _target_status_for_stage(stage: str) -> str:
     if stage == "classify_document_segments":
         # Segment-level классификация — это подстадия внутри document-level CLASSIFIED.
         # Статус документа не меняем, чтобы не ломать существующие контракты.
-        return DocumentStatus.CLASSIFIED.value    
+        return DocumentStatus.CLASSIFIED.value
     return stage
 
 async def _build_document_task_plan(
@@ -697,7 +763,34 @@ async def _build_document_task_plan(
     seg_repo: DocumentSegmentRepository,
     deal_primary_language: str | None,
 ) -> TaskPlan | None:
+    """
+    Строит план следующей document-level стадии для одного документа в рамках Run.
+
+    ВАЖНО:
+    - В новой pre-run архитектуре deal_primary_language обязан быть выбран
+      ДО запуска run_orchestrator.
+    - Поэтому эта функция больше не поддерживает fallback-модель, где
+      build_primary_language_source сам определяет языки документа и инициирует
+      deal-level language selection flow.
+    - build_primary_language_source здесь используется только как stage worker,
+      который строит primary source для уже выбранного target_language.
+    """
     doc_id_str = str(doc.id)
+
+    if not deal_primary_language:
+        logger.error(
+            "Invariant violation: _build_document_task_plan called without deal_primary_language",
+            extra={
+                "document_id": doc_id_str,
+                "run_id": run_id,
+                "deal_id": deal_id_str,
+                "tenant_id": tenant_id_str,
+                "status": status,
+            },
+        )
+        raise ValueError(
+            "deal_primary_language must be selected before building run task plan"
+        )
 
     if status == DocumentStatus.PENDING.value:
         if not version:
@@ -738,7 +831,7 @@ async def _build_document_task_plan(
 
         source_kind = "converted_pdf_ref" if has_converted_pdf else "original_ref"
         logger.info(
-            "PENDING document ready for primary source build",
+            "PENDING document ready for primary source build with preselected deal primary language",
             extra={
                 "document_id": doc_id_str,
                 "document_version_id": str(version.id),
@@ -746,19 +839,13 @@ async def _build_document_task_plan(
                 "has_converted_pdf": has_converted_pdf,
                 "source_kind": source_kind,
                 "run_id": run_id,
+                "target_language": deal_primary_language,
             },
         )
-        # NB:
-        # deal_primary_language может быть None. В этом случае
-        # build_primary_language_source обязан:
-        # - извлечь quick-layout;
-        # - детектировать языки;
-        # - обновить Deal.languages;
-        # - при необходимости перевести документ в LANGUAGE_SELECTION_REQUIRED.
         return TaskPlan(
             task_name="workers.build_primary_language_source",
             stage="build_primary_language_source",
-            reason="pending_document_has_pdf_source",
+            reason="pending_document_has_pdf_source_and_deal_primary_language_selected",
             kwargs={
                 "document_version_id": str(version.id),
                 "document_id": doc_id_str,
@@ -1031,7 +1118,6 @@ async def _build_document_task_plan(
             )
             return None
 
-        # 1) явный запрос на ре-классификацию всегда выигрывает.
         if is_full_rerun or force_reclassify:
             logger.info(
                 "CLASSIFIED document scheduled for reclassification",
@@ -1054,8 +1140,6 @@ async def _build_document_task_plan(
                 },
             )
 
-        # 2) multi-document: после document-level классификации требуется
-        # обязательная segment-level стадия, если она еще не завершена.
         if _is_multi_document(version):
             all_segments_classified = await _are_all_segments_classified(
                 seg_repo, version
@@ -1082,7 +1166,6 @@ async def _build_document_task_plan(
                     },
                 )
 
-        # 3) single-document или уже завершённая segment-level классификация.
         logger.info(
             "Document already classified, reusing classification for this run",
             extra={
@@ -1131,6 +1214,7 @@ async def _build_document_task_plan(
         },
     )
     return None
+
 
 def _send_task(
     *,

@@ -9,7 +9,7 @@ import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AuditLogEntry, Deal, RunStatus } from "../../types";
 import { useRun, useStartRun } from "../../api/runs";
-import { useUpdateDeal } from "../../api/deals";
+import { useSetPrimaryLanguage, useUpdateDeal } from "../../api/deals";
 import { useDocumentsCount } from "../../api/documents";
 import { resultApi } from "../../api/results";
 import { useDealPermissions } from "../../hooks/usePermissions";
@@ -496,6 +496,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const startRun = useStartRun(deal.id);
   const updateDeal = useUpdateDeal(deal.id);
+  const setPrimaryLanguage = useSetPrimaryLanguage(deal.id);
 
   const [isLaunchPanelOpen, setIsLaunchPanelOpen] = React.useState(false);
   const [checksMode, setChecksMode] =
@@ -576,10 +577,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     !!deal.playbook_version_id &&
     !!deal.primary_language &&
     !startRun.isPending &&
-    !updateDeal.isPending;
+    !updateDeal.isPending &&
+    !setPrimaryLanguage.isPending;
 
   const handlePrimaryLanguageChange = (value: string) => {
-    updateDeal.mutate({
+    setPrimaryLanguage.mutate({
       primary_language: value || null,
     });
   };
@@ -670,7 +672,11 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             onForceReclassifyChange={setForceReclassify}
             canStartRun={canLaunchRun}
             canUploadDocuments={canUploadDocuments}
-            isSubmitting={startRun.isPending || updateDeal.isPending}
+            isSubmitting={
+              startRun.isPending ||
+              updateDeal.isPending ||
+              setPrimaryLanguage.isPending
+            }
             onPrimaryLanguageChange={handlePrimaryLanguageChange}
             onSubmit={handleStartRun}
             onClose={() => setIsLaunchPanelOpen(false)}
