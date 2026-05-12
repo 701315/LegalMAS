@@ -15,7 +15,7 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.deal import Deal
-
+from core.exceptions import PermanentError
 
 class DealRepository:
     """
@@ -93,6 +93,42 @@ class DealRepository:
         """
         result = await self.session.execute(select(Deal).where(Deal.id == deal_id))
         return result.scalar_one_or_none()
+
+
+    async def assert_tenant_owns_deal(
+        self,
+        *,
+        deal_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+    ) -> Deal:
+        """
+        Проверить, что сделка существует и принадлежит указанному tenant.
+
+
+        Используется на границах application/background-job слоёв:
+        - перед созданием Run;
+        - перед запуском import pipeline;
+        - в других tenant-scoped use cases.
+        """
+        deal = await self.get_by_id(deal_id)
+        if deal is None:
+            raise PermanentError(
+                f"Deal not found: {deal_id}",
+                details={"deal_id": str(deal_id)},
+            )
+
+        if deal.tenant_id != tenant_id:
+            raise PermanentError(
+                "Deal does not belong to tenant",
+                details={
+                    "deal_id": str(deal_id),
+                    "tenant_id": str(tenant_id),
+                    "deal_tenant_id": str(deal.tenant_id),
+                },
+            )
+
+        return deal
+
 
     async def get_by_tenant(
         self,

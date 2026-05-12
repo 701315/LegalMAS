@@ -1,52 +1,54 @@
-# src/mas_queue/celery_app.py
-
 """
 Конфигурация Celery-приложения.
 
 Назначение:
-  - создать единый экземпляр Celery (celery_app) для всего проекта;
-  - настроить broker, backend результатов, сериализацию, очереди и надёжность;
-  - подключить регистрацию всех задач через явный список worker-модулей.
+ - создать единый экземпляр Celery (celery_app) для всего проекта;
+ - настроить broker, backend результатов, сериализацию, очереди и надёжность;
+ - подключить регистрацию всех задач через явный список worker-модулей;
+ - настроить периодический запуск служебных задач через Celery Beat.
 
 Все воркеры импортируют celery_app из этого файла и регистрируют задачи через
 @celery_app.task(...), используя общий экземпляр приложения.
 
 Конфигурация очередей:
 
-  high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
-  default        — основной пайплайн и лёгкая оркестрация
-                   (extract, pii, structure, classify, scheduler/finalizer,
-                   language discovery).
-                   x-max-priority=5.
-  system         — инфраструктурные и служебные задачи
-                   (outbox relay / maintenance / reconcile). x-max-priority=3.
-  heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
-                   Без приоритетов, отдельные soft/hard time limits.
-  low_priority   — фоновые задачи (export, relations). x-max-priority=1.
+ high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
+ default        — основной пайплайн и лёгкая оркестрация
+                  (extract, pii, structure, classify, scheduler/finalizer,
+                  language discovery).
+                  x-max-priority=5.
+ system         — инфраструктурные и служебные задачи
+                  (outbox relay / maintenance / reconcile). x-max-priority=3.
+ heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
+                  Без приоритетов, отдельные soft/hard time limits.
+ low_priority   — фоновые задачи (export, relations). x-max-priority=1.
 
 Политика надёжности (ключевые настройки):
 
-  task_acks_late=True              — ACK только после успешного выполнения.
-  worker_prefetch_multiplier=1     — воркер берёт ровно одну задачу за раз.
-  task_reject_on_worker_lost=True  — при падении воркера задача возвращается.
-  task_soft_time_limit             — мягкий лимит времени, даёт шанс записать
-                                     TIMEOUT / error_details до hard kill.
-  task_time_limit                  — жёсткий лимит времени.
-  visibility_timeout               — должен быть существенно больше максимального
-                                     task_time_limit, иначе Redis может отдать
-                                     задачу повторно до завершения воркера.
+ task_acks_late=True              — ACK только после успешного выполнения.
+ worker_prefetch_multiplier=1     — воркер берёт ровно одну задачу за раз.
+ task_reject_on_worker_lost=True  — при падении воркера задача возвращается.
+ task_soft_time_limit             — мягкий лимит времени, даёт шанс записать
+                                    TIMEOUT / error_details до hard kill.
+ task_time_limit                  — жёсткий лимит времени.
+ visibility_timeout               — должен быть существенно больше максимального
+                                    task_time_limit, иначе Redis может отдать
+                                    задачу повторно до завершения воркера.
 
 Важно:
-  - SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
-    иначе задача может остаться в RUNNING без корректного статуса в БД.
-  - Для heavy_llm рекомендуется отдельный Celery worker-процесс.
-  - Для Redis visibility_timeout Celery рекомендует задавать это значение
-    согласованно в broker_transport_options, result_backend_transport_options
-    и visibility_timeout.
+ - SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
+   иначе задача может остаться в RUNNING без корректного статуса в БД.
+ - Для heavy_llm рекомендуется отдельный Celery worker-процесс.
+ - Для Redis visibility_timeout Celery рекомендует задавать это значение
+   согласованно в broker_transport_options, result_backend_transport_options
+   и visibility_timeout.
+ - Для outbox relay нужен отдельный worker, который слушает очередь `system`,
+   и отдельный процесс `celery beat`, который будет регулярно ставить
+   `workers.outbox_dispatcher` в эту очередь.
 
 Технический долг (актуальное):
-  - Изолировать engine/session factory в тестах.
-  - Покрыть run_async unit-тестами.
+ - Изолировать engine/session factory в тестах.
+ - Покрыть run_async unit-тестами.
 """
 
 from urllib.parse import urlparse, urlunparse
@@ -110,6 +112,22 @@ RUN_SINGLE_CHECK_TIME_LIMIT_SEC = 3600
 BROKER_VISIBILITY_TIMEOUT_SEC = 7200
 
 # ---------------------------------------------------------------------------
+# Периодические служебные задачи
+# ---------------------------------------------------------------------------
+
+# Как часто Celery Beat должен запускать outbox relay.
+# 5 секунд — хороший старт для локальной разработки и dev-среды:
+# события из outbox публикуются быстро, но без лишней нагрузки.
+OUTBOX_DISPATCHER_INTERVAL_SEC = 5
+
+# Сколько сообщений пытаться публиковать за один запуск dispatcher.
+OUTBOX_DISPATCHER_BATCH_SIZE = 100
+
+# Нужно ли перед publish сначала возвращать зависшие processing-сообщения
+# обратно в pending.
+OUTBOX_DISPATCHER_REQUEUE_STUCK = True
+
+# ---------------------------------------------------------------------------
 # Конфигурация
 # ---------------------------------------------------------------------------
 
@@ -132,6 +150,8 @@ celery_app.conf.update(
         "workers.extract_worker",
         "workers.import_worker",
         "workers.language_discovery_orchestrator",
+        "workers.prepare_document_for_language_discovery",
+        "workers.convert_document_for_language_discovery",
         "workers.outbox_dispatcher",
         "workers.pii_sanitizer",
         "workers.relations_worker",
@@ -223,6 +243,14 @@ celery_app.conf.update(
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
         },
+        "workers.prepare_document_for_language_discovery": {
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
+        "workers.convert_document_for_language_discovery": {
+            "queue": QUEUE_DEFAULT,
+            "routing_key": QUEUE_DEFAULT,
+        },
         "workers.detect_document_languages_native": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
@@ -246,6 +274,28 @@ celery_app.conf.update(
         "workers.finalize_run_if_ready": {
             "queue": QUEUE_DEFAULT,
             "routing_key": QUEUE_DEFAULT,
+        },
+    },
+
+    # --- Периодические задачи Celery Beat ---
+    #
+    # Celery Beat будет каждые 5 секунд ставить workers.outbox_dispatcher
+    # в очередь system. Дальше system-worker заберёт эту задачу и:
+    # 1) вернёт stuck processing messages обратно в pending;
+    # 2) заберёт batch pending messages;
+    # 3) опубликует их в Celery.
+    beat_schedule={
+        "outbox-dispatcher-every-5-seconds": {
+            "task": "workers.outbox_dispatcher",
+            "schedule": OUTBOX_DISPATCHER_INTERVAL_SEC,
+            "kwargs": {
+                "batch_size": OUTBOX_DISPATCHER_BATCH_SIZE,
+                "requeue_stuck": OUTBOX_DISPATCHER_REQUEUE_STUCK,
+            },
+            "options": {
+                "queue": QUEUE_SYSTEM,
+                "routing_key": QUEUE_SYSTEM,
+            },
         },
     },
 

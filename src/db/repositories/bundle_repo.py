@@ -20,7 +20,7 @@ BundleRepository — репозиторий для работы с пакета�
 
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +43,9 @@ class BundleRepository:
         deal_id: uuid.UUID,
         source_type: str = "local",
         idempotency_key: str | None = None,
+        *,
+        status: str = "pending",
+        file_count: int = 0,
     ) -> Bundle:
         """
         Создать новый bundle для сделки.
@@ -55,9 +58,9 @@ class BundleRepository:
         bundle = Bundle(
             deal_id=deal_id,
             source_type=source_type,
-            status="pending",
+            status=status,
             idempotency_key=idempotency_key,
-            file_count=0,
+            file_count=file_count,
             completed_at=None,
             error_details=None,
         )
@@ -81,17 +84,22 @@ class BundleRepository:
             await self.session.flush()
         return bundle
 
-    async def mark_completed(self, bundle_id: uuid.UUID) -> Bundle | None:
-        """
-        Пометить bundle как завершённый (status='completed', completed_at=now()).
-        """
+    async def get_by_id(self, bundle_id: uuid.UUID) -> Bundle | None:
+        result = await self.session.execute(
+            select(Bundle).where(Bundle.id == bundle_id)
+        )
+        return result.scalar_one_or_none()
+
+
+    async def update(
+        self,
+        bundle_id: uuid.UUID,
+        **values,
+    ) -> Bundle | None:
         stmt = (
             update(Bundle)
             .where(Bundle.id == bundle_id)
-            .values(
-                status="completed",
-                completed_at=datetime.utcnow(),
-            )
+            .values(**values)
             .returning(Bundle)
         )
         result = await self.session.execute(stmt)
@@ -99,3 +107,37 @@ class BundleRepository:
         if bundle:
             await self.session.flush()
         return bundle
+
+
+    async def mark_completed(
+        self,
+        bundle_id: uuid.UUID,
+        *,
+        file_count: int | None = None,
+    ) -> Bundle | None:
+        """
+        Пометить bundle как завершённый.
+        При необходимости одновременно обновить итоговый file_count.
+        """
+        values: dict[str, object] = {
+            "status": "completed",
+            "completed_at": datetime.now(UTC),
+        }
+        if file_count is not None:
+            values["file_count"] = file_count
+
+        return await self.update(bundle_id, **values)
+
+    async def mark_failed(
+        self,
+        bundle_id: uuid.UUID,
+        *,
+        error_details: dict,
+    ) -> Bundle | None:
+        return await self.update(
+            bundle_id,
+            status="failed",
+            error_details=error_details,
+            completed_at=datetime.now(UTC),
+        )
+

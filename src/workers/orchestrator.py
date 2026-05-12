@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.constants import RunStatus
 from core.exceptions import PermanentError
 from core.logging import get_logger
-from db.repositories import PlaybookRepository, RunRepository
+from db.repositories import DealRepository, PlaybookRepository, RunRepository
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.celery_app import celery_app
@@ -142,10 +142,17 @@ async def _create_run(*, deal_id: str, tenant_id: str) -> str:
     async with db_uow() as uow:
         db: AsyncSession = uow.session
 
+        deal_repo = DealRepository(db)
         playbook_repo = PlaybookRepository(db)
         run_repo = RunRepository(db)
 
         deal_uuid = uuid.UUID(deal_id)
+        tenant_uuid = uuid.UUID(tenant_id)
+
+        await deal_repo.assert_tenant_owns_deal(
+            deal_id=deal_uuid,
+            tenant_id=tenant_uuid,
+        )
 
         playbook = await playbook_repo.get_for_deal(deal_uuid)
         if playbook is None:

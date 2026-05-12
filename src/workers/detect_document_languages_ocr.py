@@ -26,6 +26,7 @@ Document-level OCR language detection worker.
 Поток:
 - import_bundle
 - start_language_discovery
+- prepare_document_for_language_discovery (для office форматов)
 - detect_document_languages_ocr (per document)
 - recompute_deal_language_discovery_state
 - UI показывает Deal.languages / Deal.language_discovery_status
@@ -65,6 +66,32 @@ logger = get_logger(__name__)
 
 QUICK_OCR_MAX_PAGES = 3
 QUICK_OCR_MAX_IMAGES = 3
+
+OFFICE_FILETYPES = {
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "odt",
+    "ods",
+    "odp",
+    "rtf",
+    "csv",
+    "html",
+    "htm",
+}
+
+IMAGE_FILETYPES = {
+    "png",
+    "jpg",
+    "jpeg",
+    "tif",
+    "tiff",
+    "bmp",
+    "webp",
+}
 
 
 @celery_app.task(
@@ -316,10 +343,9 @@ async def _detect_document_languages_ocr_async(
         if not source_ref:
             raise PermanentError(
                 "No suitable OCR source ref for document language detection "
-                f"(document_id={document_id}, version_id={document_version_id})"
+                f"(document_id={document_id}, version_id={document_version_id}, "
+                f"origin_filetype={getattr(version, 'origin_filetype', None)})"
             )
-
-        source_path = _s3_ref_to_store_path(source_ref, store.bucket)
 
         logger.info(
             "OCR language detection: reading source from storage",
@@ -328,12 +354,11 @@ async def _detect_document_languages_ocr_async(
                 "document_version_id": document_version_id,
                 "deal_id": deal_id,
                 "source_ref": source_ref,
-                "source_path": source_path,
             },
         )
 
         try:
-            source_bytes = store.get_file(source_path)
+            source_bytes = store.get_file(source_ref)
         except TransientError:
             raise
         except Exception as e:
@@ -477,37 +502,27 @@ def _resolve_source_ocr_ref(version) -> str | None:
     """
     Выбрать source для OCR language detection.
 
-    Базовые правила:
-    - для image/scanned input используем original_ref;
-    - для image-only PDF тоже можно использовать original_ref;
-    - если есть заранее подготовленный raster/preview ref в вашей модели,
-      его можно предпочесть здесь вместо original_ref.
+    Production contract:
+    - для image input используем original_ref;
+    - для PDF input используем original_ref;
+    - для office formats используем только converted_pdf_ref;
+    - для неизвестных форматов допускаем только converted_pdf_ref.
+
+    Это исключает ошибочный путь, когда OCR worker пытается читать raw DOCX/XLSX/PPTX
+    вместо уже подготовленного PDF.
     """
     original_ref = getattr(version, "original_ref", None)
     converted_pdf_ref = getattr(version, "converted_pdf_ref", None)
     origin_filetype = (getattr(version, "origin_filetype", None) or "").strip().lower()
 
-    if origin_filetype in {"png", "jpg", "jpeg", "tif", "tiff", "bmp", "webp"}:
+    if origin_filetype in IMAGE_FILETYPES:
         return original_ref
 
     if origin_filetype == "pdf":
         return original_ref
 
-    return original_ref or converted_pdf_ref
+    if origin_filetype in OFFICE_FILETYPES:
+        return converted_pdf_ref
 
-
-def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
-    """
-    Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
-
-    Если ссылка не начинается с ожидаемого bucket prefix,
-    явно падаем с PermanentError.
-    """
-    prefix = f"s3://{bucket}/"
-    if not s3_ref or not s3_ref.startswith(prefix):
-        raise PermanentError(
-            f"Invalid S3 ref for bucket '{bucket}': {s3_ref}"
-        )
-    return s3_ref.replace(prefix, "", 1)
-
+    return converted_pdf_ref
 

@@ -33,6 +33,8 @@ from workers.convert_worker import convert_to_pdf  # noqa: F401
 from workers.language_discovery_orchestrator import start_language_discovery  # noqa: F401
 from workers.detect_document_languages_native import detect_document_languages_native  # noqa: F401
 from workers.detect_document_languages_ocr import detect_document_languages_ocr  # noqa: F401
+from workers.prepare_document_for_language_discovery import prepare_document_for_language_discovery  # noqa: F401
+from workers.convert_document_for_language_discovery import convert_document_for_language_discovery_task  # noqa: F401
 
 # system / infrastructure workers
 from workers.outbox_dispatcher import outbox_dispatcher  # noqa: F401

@@ -25,6 +25,7 @@ Document-level native language detection worker.
 Поток:
 - import_bundle
 - start_language_discovery
+- prepare_document_for_language_discovery (для office форматов)
 - detect_document_languages_native (per document)
 - recompute_deal_language_discovery_state
 - UI показывает Deal.languages / Deal.language_discovery_status
@@ -58,6 +59,32 @@ from services.document_language_detection import (
 from storage.artifact_store import ArtifactStore
 
 logger = get_logger(__name__)
+
+OFFICE_FILETYPES = {
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "odt",
+    "ods",
+    "odp",
+    "rtf",
+    "csv",
+    "html",
+    "htm",
+}
+
+IMAGE_FILETYPES = {
+    "png",
+    "jpg",
+    "jpeg",
+    "tif",
+    "tiff",
+    "bmp",
+    "webp",
+}
 
 
 @celery_app.task(
@@ -320,10 +347,9 @@ async def _detect_document_languages_native_async(
         if not source_ref:
             raise PermanentError(
                 "No suitable PDF source ref for native language detection "
-                f"(document_id={document_id}, version_id={document_version_id})"
+                f"(document_id={document_id}, version_id={document_version_id}, "
+                f"origin_filetype={getattr(version, 'origin_filetype', None)})"
             )
-
-        source_path = _s3_ref_to_store_path(source_ref, store.bucket)
 
         logger.info(
             "Native language detection: reading PDF source from storage",
@@ -332,12 +358,11 @@ async def _detect_document_languages_native_async(
                 "document_version_id": document_version_id,
                 "deal_id": deal_id,
                 "source_ref": source_ref,
-                "source_path": source_path,
             },
         )
 
         try:
-            pdf_bytes = store.get_file(source_path)
+            pdf_bytes = store.get_file(source_ref)
         except TransientError:
             raise
         except Exception as e:
@@ -468,10 +493,11 @@ def _resolve_source_pdf_ref(version) -> str | None:
     """
     Выбрать PDF source для native language detection.
 
-    Правила:
+    Production contract:
     - если исходный тип = PDF -> берем original_ref;
-    - если исходный тип = DOC/DOCX -> берем converted_pdf_ref;
-    - для остальных типов сначала пробуем converted_pdf_ref, затем original_ref.
+    - если исходный тип = office format -> берем только converted_pdf_ref;
+    - если исходный тип = image -> native route недопустим, возвращаем None;
+    - для неизвестных форматов допускаем только converted_pdf_ref.
 
     Возвращает:
     - S3 ref на PDF-файл, либо None, если подходящего источника нет.
@@ -483,26 +509,13 @@ def _resolve_source_pdf_ref(version) -> str | None:
     if origin_filetype == "pdf":
         return original_ref
 
-    if origin_filetype in {"doc", "docx"}:
+    if origin_filetype in OFFICE_FILETYPES:
         return converted_pdf_ref
 
-    return converted_pdf_ref or original_ref
+    if origin_filetype in IMAGE_FILETYPES:
+        return None
 
-
-def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
-    """
-    Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
-
-    Если ссылка не начинается с ожидаемого bucket prefix,
-    явно падаем с PermanentError.
-    """
-    prefix = f"s3://{bucket}/"
-    if not s3_ref or not s3_ref.startswith(prefix):
-        raise PermanentError(
-            f"Invalid S3 ref for bucket '{bucket}': {s3_ref}"
-        )
-    return s3_ref.replace(prefix, "", 1)
-
+    return converted_pdf_ref
 
 
 

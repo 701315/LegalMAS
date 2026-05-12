@@ -17,6 +17,7 @@ Language Discovery Orchestrator.
   2) выбирает нужные документы;
   3) находит их latest versions;
   4) ставит document-level tasks:
+     - prepare_document_for_language_discovery
      - detect_document_languages_native
      - detect_document_languages_ocr
   5) синхронизирует deal-level aggregate state в processing-совместимое состояние.
@@ -50,12 +51,13 @@ Language Discovery Orchestrator.
 - это нужно закрывать отдельным reconcile / stuck-pending repair job.
 
 Routing policy:
-- pipeline_strategy — главный источник истины;
-- extraction_strategy — secondary hint;
-- ocr_confidence — tertiary hint;
-- origin_filetype — последний fallback;
-- если route неоднозначен, предпочитаем OCR worker как более безопасный путь
-  для language discovery.
+- office filetypes всегда идут через prepare_document_for_language_discovery;
+- PDF идёт в native detector;
+- image filetypes идут в OCR detector;
+- pipeline_strategy / extraction_strategy / ocr_confidence используются
+  только как secondary hints, если origin_filetype не даёт однозначный ответ;
+- если route неоднозначен, предпочитаем prepare stage как safest path для
+  conversion-first language discovery.
 """
 
 from __future__ import annotations
@@ -81,6 +83,7 @@ from services.deal_language_discovery_service import (
 
 logger = get_logger(__name__)
 
+PREPARE_LANGUAGE_DISCOVERY_TASK_NAME = "workers.prepare_document_for_language_discovery"
 NATIVE_LANGUAGE_DISCOVERY_TASK_NAME = "workers.detect_document_languages_native"
 OCR_LANGUAGE_DISCOVERY_TASK_NAME = "workers.detect_document_languages_ocr"
 
@@ -98,6 +101,22 @@ OCR_FILETYPES = {
     "tiff",
     "bmp",
     "webp",
+}
+
+OFFICE_FILETYPES = {
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "odt",
+    "ods",
+    "odp",
+    "rtf",
+    "csv",
+    "html",
+    "htm",
 }
 
 OCR_PIPELINE_STRATEGIES = {
@@ -151,15 +170,12 @@ def _select_language_discovery_task_name(version: Any) -> str:
     """
     Выбрать worker для language discovery на уровне документа.
 
-    Порядок принятия решения:
-    1) pipeline_strategy — самый надёжный route hint;
-    2) extraction_strategy — вторичный route hint;
-    3) ocr_confidence — дополнительный operational hint;
-    4) origin_filetype — fallback по типу исходного файла.
-
-    Правило безопасности:
-    - если тип/стратегия неизвестны, предпочитаем OCR worker как более
-      универсальный путь для language discovery.
+    Production contract:
+    1) Office filetypes -> prepare_document_for_language_discovery;
+    2) PDF -> native detector;
+    3) image filetypes -> OCR detector;
+    4) strategy hints используются только как secondary fallback;
+    5) если route всё ещё неоднозначен, выбираем prepare stage как safest path.
     """
     pipeline_strategy = _normalize_route_value(
         getattr(version, "pipeline_strategy", None)
@@ -173,6 +189,15 @@ def _select_language_discovery_task_name(version: Any) -> str:
     ocr_confidence = _normalize_ocr_confidence(
         getattr(version, "ocr_confidence", None)
     )
+
+    if origin_filetype in OFFICE_FILETYPES:
+        return PREPARE_LANGUAGE_DISCOVERY_TASK_NAME
+
+    if origin_filetype == "pdf":
+        return NATIVE_LANGUAGE_DISCOVERY_TASK_NAME
+
+    if origin_filetype in OCR_FILETYPES:
+        return OCR_LANGUAGE_DISCOVERY_TASK_NAME
 
     if pipeline_strategy in OCR_PIPELINE_STRATEGIES:
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
@@ -189,13 +214,7 @@ def _select_language_discovery_task_name(version: Any) -> str:
     if ocr_confidence is not None and ocr_confidence < DEFAULT_OCR_CONFIDENCE_THRESHOLD:
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if origin_filetype in OCR_FILETYPES:
-        return OCR_LANGUAGE_DISCOVERY_TASK_NAME
-
-    if origin_filetype in {"pdf", "doc", "docx"}:
-        return NATIVE_LANGUAGE_DISCOVERY_TASK_NAME
-
-    return OCR_LANGUAGE_DISCOVERY_TASK_NAME
+    return PREPARE_LANGUAGE_DISCOVERY_TASK_NAME
 
 
 async def _write_deal_audit(
@@ -573,4 +592,6 @@ async def _start_language_discovery_async(
             },
         )
         raise
+
+
     

@@ -45,6 +45,18 @@ function getRelativePath(file: FileWithRelativePath): string {
   return file.webkitRelativePath?.trim() || "—";
 }
 
+function getErrorText(err: unknown, fallback: string): string {
+  if (axios.isAxiosError<{ detail?: string }>(err)) {
+    return err.response?.data?.detail ?? err.message ?? fallback;
+  }
+
+  if (err instanceof Error) {
+    return err.message || fallback;
+  }
+
+  return fallback;
+}
+
 interface ProjectUploadPanelProps {
   dealId: string;
   onFinished: () => void;
@@ -67,14 +79,14 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
     data: docsPage,
     isLoading: docsLoading,
     error: docsError,
+    refetch: refetchDocuments,
+    isRefetching: isRefetchingDocuments,
   } = useDocuments(dealId, 1);
 
   const uploadMutation = useUploadDocuments(dealId);
 
   const [selectedFiles, setSelectedFiles] = useState<FileWithRelativePath[]>([]);
-  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<string[]>(
-    [],
-  );
+  const [selectedPreparedRowIds, setSelectedPreparedRowIds] = useState<string[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -84,20 +96,7 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 
   const docsErrorText = useMemo(() => {
     if (!docsError) return null;
-
-    if (axios.isAxiosError<{ detail?: string }>(docsError)) {
-      return (
-        docsError.response?.data?.detail ??
-        docsError.message ??
-        "Ошибка загрузки документов."
-      );
-    }
-
-    if (docsError instanceof Error) {
-      return docsError.message || "Ошибка загрузки документов.";
-    }
-
-    return "Ошибка загрузки документов.";
+    return getErrorText(docsError, "Ошибка загрузки документов.");
   }, [docsError]);
 
   const preparedRows = useMemo<PreparedFileRow[]>(() => {
@@ -222,21 +221,17 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
       resetSelection();
       onFinished();
     } catch (err: unknown) {
-      if (axios.isAxiosError<{ detail?: string }>(err)) {
-        setErrorText(
-          err.response?.data?.detail ??
-            err.message ??
-            "Не удалось загрузить документы.",
-        );
-        return;
-      }
+      setErrorText(getErrorText(err, "Не удалось загрузить документы."));
+    }
+  };
 
-      if (err instanceof Error) {
-        setErrorText(err.message || "Не удалось загрузить документы.");
-        return;
-      }
+  const handleRefreshDocuments = async () => {
+    setErrorText(null);
 
-      setErrorText("Не удалось загрузить документы.");
+    try {
+      await refetchDocuments();
+    } catch (err: unknown) {
+      setErrorText(getErrorText(err, "Не удалось обновить список документов."));
     }
   };
 
@@ -357,7 +352,8 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
             type="button"
             size="sm"
             variant="ghost"
-            onClick={() => window.location.reload()}
+            onClick={handleRefreshDocuments}
+            isLoading={isRefetchingDocuments}
           >
             Обновить
           </Button>
@@ -426,6 +422,9 @@ const ProjectUploadPanel: React.FC<ProjectUploadPanelProps> = ({
 };
 
 export default ProjectUploadPanel;
+
+
+
 
 
 

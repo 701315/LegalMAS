@@ -58,7 +58,12 @@ function shouldPollDealLanguageDiscovery(
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
 
-  const { data: deal, isLoading } = useDeal(dealId ?? null, {
+  const {
+    data: deal,
+    isLoading,
+    isError,
+    error,
+  } = useDeal(dealId ?? null, {
     refetchInterval: (query) => {
       const status = query.state.data?.language_discovery_status;
       return shouldPollDealLanguageDiscovery(status)
@@ -67,7 +72,7 @@ function DealRouteWrapper() {
     },
   });
 
-  if (isLoading || !deal) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
         <div className="mx-auto max-w-7xl animate-fadein">
@@ -77,6 +82,25 @@ function DealRouteWrapper() {
             <div className="skeleton mb-3 h-4 w-full" />
             <div className="skeleton mb-3 h-4 w-11/12" />
             <div className="skeleton h-4 w-9/12" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !deal) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-base)] px-6 py-10">
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-sm">
+            <h1 className="text-lg font-semibold text-[var(--text-primary)]">
+              Не удалось загрузить проект
+            </h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {error instanceof Error
+                ? error.message
+                : "Проект не найден или временно недоступен."}
+            </p>
           </div>
         </div>
       </div>
@@ -270,5 +294,7 @@ function App() {
 }
 
 export default App;
+
+
 
 

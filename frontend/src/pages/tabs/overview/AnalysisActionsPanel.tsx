@@ -178,7 +178,6 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
               variant="secondary"
               size="sm"
               onClick={onOpenRunPanel}
-              disabled={!canStartRun}
             >
               Запустить анализ документов
             </Button>

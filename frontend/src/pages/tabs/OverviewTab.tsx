@@ -515,6 +515,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     deal.summary ?? "",
   );
 
+  const [dealPatch, setDealPatch] = React.useState<Partial<Deal>>({});
+
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const [overlayWidth, setOverlayWidth] = React.useState<number | null>(null);
@@ -554,7 +556,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
   React.useEffect(() => {
     setProjectSummary(deal.summary ?? "");
-  }, [deal.id, deal.summary]);
+    setDealPatch({});
+  }, [deal.id, deal.summary, deal.playbook_version_id, deal.primary_language, deal.language_discovery_status, JSON.stringify(deal.languages ?? [])]);
 
   React.useEffect(() => {
     if (!isLaunchPanelOpen) return;
@@ -567,19 +570,24 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isLaunchPanelOpen]);
 
+  const effectiveDeal: Deal = {
+    ...deal,
+    ...dealPatch,
+  };
+
   const normalizedOriginalSummary = (deal.summary ?? "").trim();
   const normalizedDraftSummary = projectSummary.trim();
   const isSummaryDirty = normalizedDraftSummary !== normalizedOriginalSummary;
 
   const showReclassBanner =
-    deal.has_pending_manual_reclassifications &&
+    effectiveDeal.has_pending_manual_reclassifications &&
     (!!latestRun || !hasRestartedAfterReclass);
 
   const hasDocuments =
     typeof documentsCount === "number" ? documentsCount > 0 : false;
 
   const discoveryStatus = normalizeDiscoveryStatus(
-    deal.language_discovery_status,
+    effectiveDeal.language_discovery_status,
   );
   const isLanguageDiscoveryBlocking =
     discoveryStatus === "pending" || discoveryStatus === "processing";
@@ -587,17 +595,34 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const canLaunchRun =
     canStartRun &&
     hasDocuments &&
-    !!deal.playbook_version_id &&
-    !!deal.primary_language &&
+    !!effectiveDeal.playbook_version_id &&
+    !!effectiveDeal.primary_language &&
     !isLanguageDiscoveryBlocking &&
     !startRun.isPending &&
     !updateDeal.isPending &&
     !setPrimaryLanguage.isPending;
 
   const handlePrimaryLanguageChange = (value: string) => {
-    setPrimaryLanguage.mutate({
-      primary_language: value || null,
-    });
+    const normalizedValue = value || null;
+
+    setDealPatch((prev) => ({
+      ...prev,
+      primary_language: normalizedValue,
+    }));
+
+    setPrimaryLanguage.mutate(
+      {
+        primary_language: normalizedValue,
+      },
+      {
+        onError: () => {
+          setDealPatch((prev) => ({
+            ...prev,
+            primary_language: deal.primary_language ?? null,
+          }));
+        },
+      },
+    );
   };
 
   const handleSaveSummary = () => {
@@ -640,7 +665,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     );
   };
 
-  const handleDealPatched = async () => {
+  const handleDealPatched = async (patch?: Partial<Deal>) => {
+    if (patch && Object.keys(patch).length > 0) {
+      setDealPatch((prev) => ({
+        ...prev,
+        ...patch,
+      }));
+    }
+
     await Promise.all([
       qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
       qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
@@ -655,7 +687,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     >
       <div className="min-w-0 space-y-4">
         <DealInfoCard
-          deal={deal}
+          deal={effectiveDeal}
           projectSummary={projectSummary}
           isSaving={updateDeal.isPending}
           isDirty={isSummaryDirty}
@@ -664,7 +696,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         />
 
         <ProjectTimelineCard
-          deal={deal}
+          deal={effectiveDeal}
           latestRunId={latestRunId}
           documentsCount={documentsCount}
         />
@@ -674,7 +706,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
       <div ref={railRef} className="relative hidden xl:block px-1 pb-2">
         <AnalysisActionsPanel
-          deal={deal}
+          deal={effectiveDeal}
           latestRunExists={!!latestRun}
           canStartRun={canLaunchRun}
           onOpenRunPanel={() => setIsLaunchPanelOpen(true)}
@@ -685,7 +717,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           <LaunchWideOverlay
             open={isLaunchPanelOpen}
             overlayWidth={overlayWidth}
-            deal={deal}
+            deal={effectiveDeal}
             latestRunId={latestRunId}
             documentsCount={documentsCount}
             checksMode={checksMode}
@@ -709,7 +741,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
       <div className="xl:hidden">
         <AnalysisActionsPanel
-          deal={deal}
+          deal={effectiveDeal}
           latestRunExists={!!latestRun}
           canStartRun={canLaunchRun}
           onOpenRunPanel={() => setIsLaunchPanelOpen(true)}
@@ -721,6 +753,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
+
 
 
 
