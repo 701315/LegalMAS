@@ -1,3 +1,7 @@
+// =============================================================
+// frontend/src/components/upload/ProjectUploadPanel.tsx
+// =============================================================
+
 import React, { useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useDocuments, useUploadDocuments } from "../../api/documents";

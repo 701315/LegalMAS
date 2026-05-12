@@ -33,7 +33,7 @@ interface LaunchWideOverlayProps {
   onPrimaryLanguageChange: (value: string) => void;
   onSubmit: () => void;
   onClose: () => void;
-  onDealPatched?: (patch: Partial<Deal>) => void;
+  onDealPatched?: (patch: Partial<Deal>) => void | Promise<void>;
 }
 
 type LeftPaneMode = "pipeline" | "upload" | "playbook" | "modelConfig";
@@ -54,7 +54,9 @@ function normalizeLang(value: string | null | undefined): string {
   return String(value ?? "").trim().toUpperCase();
 }
 
-function normalizeDiscoveryStatus(value: string | null | undefined): string | null {
+function normalizeDiscoveryStatus(
+  value: string | null | undefined,
+): string | null {
   const normalized = String(value ?? "").trim().toLowerCase();
   return normalized || null;
 }
@@ -95,7 +97,9 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 
   const uniqueDocumentLanguages = Array.from(new Set(documentLanguages));
   const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
-  const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
+  const discoveryStatus = normalizeDiscoveryStatus(
+    deal.language_discovery_status,
+  );
 
   const hasLanguagesReady = uniqueDocumentLanguages.length > 0;
   const hasPlaybook = !!deal.playbook_version_id;
@@ -115,6 +119,9 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     if (!hasLanguagesReady) {
       if (discoveryStatus === "processing") {
         return "Языки документов ещё определяются. Запуск станет доступен после завершения language discovery.";
+      }
+      if (discoveryStatus === "pending") {
+        return "Подготовка language discovery ещё не завершена. Запуск станет доступен после определения языков документов.";
       }
       if (discoveryStatus === "failed") {
         return "Не удалось автоматически определить языки документов. Проверьте импорт или повторите подготовку.";
@@ -153,6 +160,11 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     setLeftPaneMode("pipeline");
   };
 
+  const handleUploadFinished = async () => {
+    handleBackToPipeline();
+    await onDealPatched?.({});
+  };
+
   const renderUploadPane = () => {
     return (
       <div className={leftPaneShellClass}>
@@ -184,7 +196,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
             dealId={deal.id}
             mode="embedded"
             showWorkflow={false}
-            onFinished={handleBackToPipeline}
+            onFinished={handleUploadFinished}
           />
         </div>
       </div>
@@ -403,6 +415,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 };
 
 export default LaunchWideOverlay;
+
 
 
 

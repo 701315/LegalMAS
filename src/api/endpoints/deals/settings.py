@@ -1,3 +1,5 @@
+# src/api/endpoints/deals/settings.py
+
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -9,6 +11,7 @@ from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
 from api.schemas.deals import DealResponse, _normalize_language_code
 from core.constants import DocumentStatus
+from core.logging import get_logger
 from db.models.playbook import PlaybookVersion
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
@@ -16,11 +19,9 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.session import get_db
-from mas_queue.celery_app import celery_app
-from core.logging import get_logger
+from services.outbox_service import OutboxService  # [+] добавлен импорт
 
 router = APIRouter()
-
 logger = get_logger(__name__)
 
 
@@ -31,7 +32,6 @@ class DealPlaybookUpdate(BaseModel):
     Передаём ID версии плейбука, которая должна использоваться
     по умолчанию при запуске анализа для этой сделки.
     """
-
     playbook_version_id: UUID
 
 
@@ -44,7 +44,6 @@ class DealModelConfigUpdate(BaseModel):
     для сделки сбрасывается, и при запуске анализа будет
     использован профиль, привязанный к PlaybookVersion.
     """
-
     model_config_id: UUID | None
 
 
@@ -56,7 +55,6 @@ class DealPrimaryLanguageUpdate(BaseModel):
     - primary_language должен входить в список languages сделки;
     - если передан null, основной язык сбрасывается.
     """
-
     primary_language: str | None
 
 
@@ -229,6 +227,10 @@ async def set_deal_primary_language(
     - менять основной язык могут только роли admin/editor;
     - если primary_language не null, он должен быть в Deal.languages;
     - при нарушении правил возвращаем 400/403/404.
+
+    После смены языка документы в статусе LANGUAGE_SELECTION_REQUIRED
+    переводятся в PENDING и через Outbox получают задачу
+    workers.build_primary_language_source.
     """
     await require_project_role(
         db=db,
@@ -240,19 +242,15 @@ async def set_deal_primary_language(
     deal_repo = DealRepository(db)
     doc_repo = DocumentRepository(db)
     dv_repo = DocumentVersionRepository(db)
+    audit_repo = AuditRepository(db)   # [+] инстанцируем audit_repo
+    outbox = OutboxService(db)         # [+] инстанцируем outbox
 
     deal = await deal_repo.get_by_id(deal_id)
     if deal is None:
         raise HTTPException(status_code=404, detail="Deal not found")
 
-    logger.info(
-        "DEBUG_primary_language_patch",
-        deal_id=str(deal.id),
-        deal_languages=list(deal.languages or []),
-        raw_lang=payload.primary_language,
-        current_primary_language=deal.primary_language,
-    )
-    
+    # [-] убран DEBUG_primary_language_patch logger
+
     raw_lang = payload.primary_language
     new_lang = _normalize_language_code(raw_lang) if raw_lang is not None else None
 
@@ -299,26 +297,27 @@ async def set_deal_primary_language(
 
             restart_items.append((str(doc.id), str(latest_version.id)))
 
-    await db.flush()
-    await db.commit()
-    await db.refresh(deal)
+    # [+] Audit: фиксируем смену primary_language ДО commit
+    await audit_repo.log(
+        tenant_id=deal.tenant_id,
+        deal_id=deal.id,
+        action="SET_DEAL_PRIMARY_LANGUAGE",
+        actor=user.id,
+        actor_role=getattr(user, "role", None),
+        details={
+            "old_primary_language": old_lang,
+            "new_primary_language": new_lang,
+            "restarted_documents_count": len(restart_items),
+            "restarted_document_ids": [doc_id for doc_id, _ in restart_items],
+        },
+    )
 
-    if restart_items:
-        logger.info(
-            "Restarting LANGUAGE_SELECTION_REQUIRED documents after primary_language change",
-            extra={
-                "deal_id": str(deal.id),
-                "tenant_id": str(deal.tenant_id),
-                "new_primary_language": new_lang,
-                "documents_count": len(restart_items),
-            },
-        )
-
-
+    # [+] Outbox: enqueue build_primary_language_source для каждого документа
+    # в той же транзакции — гарантированная доставка без race condition
     for document_id_str, version_id_str in restart_items:
-        celery_app.send_task(
-            "workers.build_primary_language_source",
-            kwargs={
+        await outbox.enqueue_task(
+            task_name="workers.build_primary_language_source",
+            payload={
                 "document_version_id": version_id_str,
                 "document_id": document_id_str,
                 "deal_id": str(deal.id),
@@ -326,7 +325,31 @@ async def set_deal_primary_language(
                 "run_id": None,
                 "target_language": new_lang,
             },
+            aggregate_type="document",
+            aggregate_id=document_id_str,
+            dedup_key=f"primary_lang_restart:{document_id_str}:{new_lang}",
+            headers={
+                "event_type": "PRIMARY_LANGUAGE_SOURCE_REQUESTED",
+                "source": "api.set_deal_primary_language",
+            },
+        )
+
+    # [-] убран прямой celery_app.send_task — заменён на Outbox выше
+
+    await db.flush()
+    await db.commit()
+    await db.refresh(deal)
+
+    if restart_items:
+        logger.info(
+            "Primary language set: restarting documents via outbox",
+            extra={
+                "deal_id": str(deal.id),
+                "tenant_id": str(deal.tenant_id),
+                "old_primary_language": old_lang,
+                "new_primary_language": new_lang,
+                "documents_count": len(restart_items),
+            },
         )
 
     return DealResponse.model_validate(deal)
-

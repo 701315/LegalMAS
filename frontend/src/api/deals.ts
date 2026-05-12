@@ -95,11 +95,15 @@ export function useDeals(page = 1, status?: string, tenantId?: string) {
  * Пример:
  *   const { data, isLoading } = useDeal(dealId);
  */
-export function useDeal(dealId: string | null) {
+export function useDeal(
+  dealId: string | null,
+  options?: { refetchInterval?: number | false | ((query: { state: { data?: DealDetail } }) => number | false) },
+) {
   return useQuery({
     queryKey: ["deal", dealId],
     queryFn: () => dealApi.get(dealId as string),
     enabled: !!dealId,
+    refetchInterval: options?.refetchInterval,
   });
 }
 

@@ -83,7 +83,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const latestRunId = deal.last_run_id ?? null;
   const hasLatestRun = !!latestRunId;
 
-  const { canViewOverview, canManageRequests, canUploadDocuments } =
+  const { canManageRequests, canUploadDocuments } =
     useDealPermissions(deal.id);
 
   const canManageProject = canUploadDocuments || canManageRequests;
@@ -125,11 +125,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     },
     [location.pathname, location.search, navigate],
   );
-
-  const handleOpenPlaybookTemplates = React.useCallback(() => {
-    if (!canViewOverview) return;
-    navigate(`/projects/${deal.id}/playbooks/admin`);
-  }, [canViewOverview, deal.id, navigate]);
 
   const handleOpenViewerAt = React.useCallback(
     (payload: OpenViewerAtPayload) => {
@@ -255,7 +250,6 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
       <SettingsTab
         dealId={deal.id}
         canManageProject={canManageProject}
-        onOpenPlaybookTemplates={handleOpenPlaybookTemplates}
       />
     );
   };

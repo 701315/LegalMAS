@@ -53,7 +53,6 @@ import shutil
 import tempfile
 import uuid
 import zipfile
-from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -395,6 +394,7 @@ async def _async_import(
 
     bundle = Bundle(
         deal_id=deal_uuid,
+        tenant_id=tenant_uuid,   # [+]
         source_type="zip" if len(file_list) > 1 else "local",
         status="processing",
         idempotency_key=idempotency_key,

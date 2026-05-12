@@ -54,6 +54,13 @@ function formatDateShort(iso: string | null | undefined): string {
   });
 }
 
+function normalizeDiscoveryStatus(
+  value: string | null | undefined,
+): string | null {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized || null;
+}
+
 function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   const imports = entries.filter((e) => e.action === "IMPORT");
   const quarantined = entries.filter(
@@ -571,11 +578,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const hasDocuments =
     typeof documentsCount === "number" ? documentsCount > 0 : false;
 
+  const discoveryStatus = normalizeDiscoveryStatus(
+    deal.language_discovery_status,
+  );
+  const isLanguageDiscoveryBlocking =
+    discoveryStatus === "pending" || discoveryStatus === "processing";
+
   const canLaunchRun =
     canStartRun &&
     hasDocuments &&
     !!deal.playbook_version_id &&
     !!deal.primary_language &&
+    !isLanguageDiscoveryBlocking &&
     !startRun.isPending &&
     !updateDeal.isPending &&
     !setPrimaryLanguage.isPending;
@@ -626,6 +640,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     );
   };
 
+  const handleDealPatched = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
+      qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
+      qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
+    ]);
+  };
+
   return (
     <div
       ref={overviewRef}
@@ -654,7 +676,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         <AnalysisActionsPanel
           deal={deal}
           latestRunExists={!!latestRun}
-          canStartRun={canStartRun}
+          canStartRun={canLaunchRun}
           onOpenRunPanel={() => setIsLaunchPanelOpen(true)}
           showReclassBanner={showReclassBanner}
         />
@@ -680,13 +702,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             onPrimaryLanguageChange={handlePrimaryLanguageChange}
             onSubmit={handleStartRun}
             onClose={() => setIsLaunchPanelOpen(false)}
-            onDealPatched={async () => {
-              await Promise.all([
-                qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
-                qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-                qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
-              ]);
-            }}
+            onDealPatched={handleDealPatched}
           />
         )}
       </div>
@@ -695,7 +711,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         <AnalysisActionsPanel
           deal={deal}
           latestRunExists={!!latestRun}
-          canStartRun={canStartRun}
+          canStartRun={canLaunchRun}
           onOpenRunPanel={() => setIsLaunchPanelOpen(true)}
           showReclassBanner={showReclassBanner}
         />
@@ -705,5 +721,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
+
+
 
 

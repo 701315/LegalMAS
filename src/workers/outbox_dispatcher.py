@@ -1,3 +1,5 @@
+# src/workers/outbox_dispatcher.py
+
 from __future__ import annotations
 
 from typing import Any

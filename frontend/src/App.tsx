@@ -5,13 +5,14 @@
 // =============================================================
 
 import React from "react";
-import "./App.css";
 import {
   Routes,
   Route,
   Navigate,
   useParams,
 } from "react-router-dom";
+
+import "./App.css";
 
 import LoginPage from "./pages/LoginPage";
 import LandingPage from "./pages/LandingPage";
@@ -38,9 +39,33 @@ import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
 import ScrollToAnchor from "./components/routing/ScrollToAnchor";
 import AppShell from "./components/layout/AppShell";
 
+const DEAL_LANGUAGE_DISCOVERY_POLL_INTERVAL_MS = 4000;
+
+function normalizeDiscoveryStatus(
+  value: string | null | undefined,
+): string | null {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized || null;
+}
+
+function shouldPollDealLanguageDiscovery(
+  status: string | null | undefined,
+): boolean {
+  const normalizedStatus = normalizeDiscoveryStatus(status);
+  return normalizedStatus === "pending" || normalizedStatus === "processing";
+}
+
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();
-  const { data: deal, isLoading } = useDeal(dealId ?? null);
+
+  const { data: deal, isLoading } = useDeal(dealId ?? null, {
+    refetchInterval: (query) => {
+      const status = query.state.data?.language_discovery_status;
+      return shouldPollDealLanguageDiscovery(status)
+        ? DEAL_LANGUAGE_DISCOVERY_POLL_INTERVAL_MS
+        : false;
+    },
+  });
 
   if (isLoading || !deal) {
     return (
@@ -245,3 +270,5 @@ function App() {
 }
 
 export default App;
+
+

@@ -115,6 +115,33 @@ async def _start_run_core(
             ),
         )
 
+    # 1.2. Пока language discovery ещё выполняется, запуск Run запрещён.
+    # Это защита на backend уровне: даже если UI ошибётся или кто-то вызовет
+    # API напрямую, analysis нельзя стартовать до завершения pre-run discovery.
+    if getattr(deal, "language_discovery_status", None) == "processing":
+        logger.warning(
+            "Run start rejected: language discovery is still in progress",
+            extra={
+                "deal_id": str(deal_uuid),
+                "tenant_id": str(getattr(deal, "tenant_id", "")),
+                "requested_by": (
+                    str(getattr(user, "id", None))
+                    if getattr(user, "id", None)
+                    else "unknown"
+                ),
+                "language_discovery_status": getattr(
+                    deal, "language_discovery_status", None
+                ),
+            },
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Language discovery is still in progress. "
+                "Please wait until it completes before starting analysis."
+            ),
+        )
+
 
     # 2. Берём playbook для сделки (привязанный или default)
     playbook = await playbook_repo.get_for_deal(deal_uuid)
