@@ -46,10 +46,17 @@ Repository for Document CRUD and classification operations.
 Зачем это нужно юристу и фронтенду:
 
 - по статусу документа и полю processing_error_details UI всегда может показать,
-  на каком шаге документ остановился (import, extract, pii, structure, classify, checks, export),
-  и понятное сообщение, что произошло;
+  на каком шаге документ остановился (import, extract, pii, structure, classify,
+  checks, export), и понятное сообщение, что произошло;
 - все стадии пайплайна (все воркеры) используют один и тот же формат ошибки,
   поэтому фронт не должен подстраиваться под разные схемы.
+
+Language discovery contract:
+
+- Каноническое поле document-level discovery status: Document.language_discovery_status
+- Методы для работы с ним: update_language_discovery(),
+  try_mark_language_discovery_pending(), try_mark_language_discovery_processing()
+- Ни один из этих методов не меняет Document.status (основной pipeline status).
 """
 
 from __future__ import annotations
@@ -76,33 +83,7 @@ class DocumentRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    def _language_discovery_status_column(self):
-        """
-        Canonical column accessor for document-level language discovery status.
-
-        Предпочитаем новое имя поля: language_discovery_status.
-        Для временной совместимости допускаем legacy name: language_detection_status.
-        """
-        if hasattr(Document, "language_discovery_status"):
-            return Document.language_discovery_status
-        if hasattr(Document, "language_detection_status"):
-            return Document.language_detection_status
-
-        raise AttributeError(
-            "Document model must define language_discovery_status "
-            "or legacy language_detection_status"
-        )
-
-    def _language_discovery_status_attr_name(self) -> str:
-        if hasattr(Document, "language_discovery_status"):
-            return "language_discovery_status"
-        if hasattr(Document, "language_detection_status"):
-            return "language_detection_status"
-
-        raise AttributeError(
-            "Document model must define language_discovery_status "
-            "or legacy language_detection_status"
-        )
+    # ── Basic CRUD ────────────────────────────────────────────────────────────
 
     async def create(
         self,
@@ -150,72 +131,6 @@ class DocumentRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_for_language_discovery(
-        self,
-        deal_id: uuid.UUID,
-        *,
-        document_ids: list[uuid.UUID] | None = None,
-        include_statuses: list[str | None] | None = None,
-    ) -> list[Document]:
-        """
-        Вернуть документы сделки для этапа language discovery.
-
-        Каноническое поле статуса документа:
-        - language_discovery_status
-
-        Временная совместимость:
-        - если в ORM-модели ещё не переименовано поле, используем legacy
-          language_detection_status.
-        """
-        discovery_status_col = self._language_discovery_status_column()
-
-        stmt = select(Document).where(Document.deal_id == deal_id)
-
-        if document_ids:
-            stmt = stmt.where(Document.id.in_(document_ids))
-
-        if include_statuses is not None:
-            conditions = []
-            for st in include_statuses:
-                if st is None:
-                    conditions.append(discovery_status_col.is_(None))
-                else:
-                    conditions.append(discovery_status_col == st)
-
-            if conditions:
-                stmt = stmt.where(or_(*conditions))
-
-        stmt = stmt.order_by(Document.folder_path, Document.filename, Document.id)
-
-        result = await self.session.execute(stmt)
-        documents = list(result.scalars().all())
-
-        logger.debug(
-            "Fetched documents for language discovery",
-            extra={
-                "deal_id": str(deal_id),
-                "document_ids_filter": [str(doc_id) for doc_id in document_ids or []],
-                "include_statuses": include_statuses,
-                "documents_total": len(documents),
-                "documents": [
-                    {
-                        "document_id": str(doc.id),
-                        "language_discovery_status": getattr(
-                            doc, "language_discovery_status", None
-                        ),
-                        "language_detection_status": getattr(
-                            doc, "language_detection_status", None
-                        ),
-                        "detected_languages": getattr(doc, "detected_languages", None),
-                        "filename": getattr(doc, "filename", None),
-                    }
-                    for doc in documents
-                ],
-            },
-        )
-
-        return documents
-
     async def get_by_sha256(self, deal_id: uuid.UUID, sha256: str) -> Document | None:
         result = await self.session.execute(
             select(Document).where(
@@ -225,11 +140,22 @@ class DocumentRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_by_deal_id(self, deal_id: uuid.UUID) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(Document.deal_id == deal_id)
+            .order_by(Document.folder_path, Document.filename)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    # ── Status updates ────────────────────────────────────────────────────────
+
     async def update_status(
         self,
         doc_id: uuid.UUID,
         status: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> Document | None:
         values = {"status": status, **kwargs}
         stmt = (
@@ -243,177 +169,6 @@ class DocumentRepository:
         if doc:
             await self.session.flush()
         return doc
-
-    async def update_language_discovery(
-        self,
-        doc_id: uuid.UUID,
-        *,
-        detected_languages: list[str] | None,
-        status: str,
-    ) -> Document | None:
-        """
-        Обновить результат document-level language discovery.
-
-        Не меняет основной pipeline status документа.
-        Меняет только:
-        - detected_languages
-        - language_discovery_status
-        """
-        status_attr_name = self._language_discovery_status_attr_name()
-
-        values: dict[str, Any] = {
-            status_attr_name: status,
-            "detected_languages": detected_languages,
-        }
-
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .values(**values)
-            .returning(Document)
-        )
-        result = await self.session.execute(stmt)
-        doc = result.scalar_one_or_none()
-        if doc:
-            await self.session.flush()
-
-        logger.info(
-            "Document language discovery updated",
-            extra={
-                "document_id": str(doc_id),
-                "language_discovery_status": status,
-                "detected_languages": detected_languages or [],
-            },
-        )
-
-        return doc
-
-    async def update_language_detection(
-        self,
-        doc_id: uuid.UUID,
-        *,
-        detected_languages: list[str] | None,
-        status: str,
-    ) -> Document | None:
-        """
-        Backward-compatible wrapper.
-        Legacy method name preserved temporarily.
-        """
-        return await self.update_language_discovery(
-            doc_id,
-            detected_languages=detected_languages,
-            status=status,
-        )
-
-    async def try_mark_language_discovery_pending(
-        self,
-        doc_id: uuid.UUID,
-        *,
-        allowed_current_statuses: list[str | None],
-        preserve_detected_languages: list[str] | None = None,
-    ) -> Document | None:
-        """
-        Атомарно перевести document language discovery в pending,
-        только если текущее состояние допускает dispatch.
-        """
-        if not allowed_current_statuses:
-            raise ValueError("allowed_current_statuses must not be empty")
-
-        discovery_status_col = self._language_discovery_status_column()
-        status_attr_name = self._language_discovery_status_attr_name()
-
-        conditions = []
-        for st in allowed_current_statuses:
-            if st is None:
-                conditions.append(discovery_status_col.is_(None))
-            else:
-                conditions.append(discovery_status_col == st)
-
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .where(or_(*conditions))
-            .values(
-                **{
-                    status_attr_name: "pending",
-                    "detected_languages": preserve_detected_languages,
-                }
-            )
-            .returning(Document)
-        )
-
-        result = await self.session.execute(stmt)
-        doc = result.scalar_one_or_none()
-        if doc:
-            await self.session.flush()
-
-        return doc
-
-    async def try_mark_language_detection_pending(
-        self,
-        doc_id: uuid.UUID,
-        *,
-        allowed_current_statuses: list[str | None],
-        preserve_detected_languages: list[str] | None = None,
-    ) -> Document | None:
-        """
-        Backward-compatible wrapper.
-        """
-        return await self.try_mark_language_discovery_pending(
-            doc_id,
-            allowed_current_statuses=allowed_current_statuses,
-            preserve_detected_languages=preserve_detected_languages,
-        )
-
-    async def try_mark_language_discovery_processing(
-        self,
-        doc_id: uuid.UUID,
-        *,
-        expected_current_status: str = "pending",
-        preserve_detected_languages: list[str] | None = None,
-    ) -> Document | None:
-        """
-        Атомарно перевести document language discovery в processing
-        только из ожидаемого текущего состояния.
-        """
-        discovery_status_col = self._language_discovery_status_column()
-        status_attr_name = self._language_discovery_status_attr_name()
-
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .where(discovery_status_col == expected_current_status)
-            .values(
-                **{
-                    status_attr_name: "processing",
-                    "detected_languages": preserve_detected_languages,
-                }
-            )
-            .returning(Document)
-        )
-
-        result = await self.session.execute(stmt)
-        doc = result.scalar_one_or_none()
-        if doc:
-            await self.session.flush()
-
-        return doc
-
-    async def try_mark_language_detection_processing(
-        self,
-        doc_id: uuid.UUID,
-        *,
-        expected_current_status: str = "pending",
-        preserve_detected_languages: list[str] | None = None,
-    ) -> Document | None:
-        """
-        Backward-compatible wrapper.
-        """
-        return await self.try_mark_language_discovery_processing(
-            doc_id,
-            expected_current_status=expected_current_status,
-            preserve_detected_languages=preserve_detected_languages,
-        )
 
     async def set_failed(
         self,
@@ -468,10 +223,210 @@ class DocumentRepository:
         )
 
     async def set_completed(self, doc_id: uuid.UUID) -> Document | None:
-        return await self.update_status(
-            doc_id,
-            DocumentStatus.COMPLETED.value,
+        return await self.update_status(doc_id, DocumentStatus.COMPLETED.value)
+
+    # ── Language discovery ────────────────────────────────────────────────────
+    #
+    # Канонический lifecycle document-level language discovery status:
+    #
+    #   None → pending → processing → completed
+    #                 ↘             ↘ failed
+    #
+    # Ни один из методов ниже не меняет Document.status.
+    # Document.status — это основной pipeline status документа.
+    # Document.language_discovery_status — независимый sub-lifecycle.
+
+    async def get_for_language_discovery(
+        self,
+        deal_id: uuid.UUID,
+        *,
+        document_ids: list[uuid.UUID] | None = None,
+        include_statuses: list[str | None] | None = None,
+    ) -> list[Document]:
+        """
+        Вернуть документы сделки для этапа language discovery.
+
+        Args:
+            deal_id: Идентификатор сделки.
+            document_ids: Если задан — ограничить выборку этими документами.
+            include_statuses: Фильтр по language_discovery_status.
+                None в списке означает «статус IS NULL».
+                Если параметр не передан — возвращаются все документы сделки.
+        """
+        stmt = select(Document).where(Document.deal_id == deal_id)
+
+        if document_ids:
+            stmt = stmt.where(Document.id.in_(document_ids))
+
+        if include_statuses is not None:
+            conditions = []
+            for st in include_statuses:
+                if st is None:
+                    conditions.append(Document.language_discovery_status.is_(None))
+                else:
+                    conditions.append(Document.language_discovery_status == st)
+            if conditions:
+                stmt = stmt.where(or_(*conditions))
+
+        stmt = stmt.order_by(Document.folder_path, Document.filename, Document.id)
+
+        result = await self.session.execute(stmt)
+        documents = list(result.scalars().all())
+
+        logger.debug(
+            "Fetched documents for language discovery",
+            extra={
+                "deal_id": str(deal_id),
+                "document_ids_filter": [str(d) for d in (document_ids or [])],
+                "include_statuses": include_statuses,
+                "documents_total": len(documents),
+                "documents": [
+                    {
+                        "document_id": str(doc.id),
+                        "language_discovery_status": doc.language_discovery_status,
+                        "detected_languages": doc.detected_languages,
+                        "filename": doc.filename,
+                    }
+                    for doc in documents
+                ],
+            },
         )
+
+        return documents
+
+    async def update_language_discovery(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        detected_languages: list[str] | None,
+        status: str,
+    ) -> Document | None:
+        """
+        Записать финальный результат document-level language discovery.
+
+        Обновляет только:
+        - Document.language_discovery_status
+        - Document.detected_languages
+
+        Не затрагивает Document.status (основной pipeline status).
+        """
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(
+                language_discovery_status=status,
+                detected_languages=detected_languages,
+            )
+            .returning(Document)
+        )
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+
+        logger.info(
+            "Document language discovery updated",
+            extra={
+                "document_id": str(doc_id),
+                "language_discovery_status": status,
+                "detected_languages": detected_languages or [],
+            },
+        )
+
+        return doc
+
+    async def try_mark_language_discovery_pending(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        allowed_current_statuses: list[str | None],
+        preserve_detected_languages: list[str] | None = None,
+    ) -> Document | None:
+        """
+        Атомарно перевести document language discovery в «pending».
+
+        Переход выполняется только если текущий language_discovery_status
+        входит в allowed_current_statuses. Если условие не выполняется —
+        возвращает None без ошибки (caller решает, критично ли это).
+
+        Args:
+            doc_id: Идентификатор документа.
+            allowed_current_statuses: Допустимые текущие статусы для перехода.
+                None в списке означает «IS NULL».
+            preserve_detected_languages: Если передан — сохраняет этот список
+                языков при переходе. Обычно None (очистка при retry).
+
+        Returns:
+            Обновлённый Document если CAS-переход выполнен, иначе None.
+        """
+        if not allowed_current_statuses:
+            raise ValueError("allowed_current_statuses must not be empty")
+
+        conditions = []
+        for st in allowed_current_statuses:
+            if st is None:
+                conditions.append(Document.language_discovery_status.is_(None))
+            else:
+                conditions.append(Document.language_discovery_status == st)
+
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .where(or_(*conditions))
+            .values(
+                language_discovery_status="pending",
+                detected_languages=preserve_detected_languages,
+            )
+            .returning(Document)
+        )
+
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+
+        return doc
+
+    async def try_mark_language_discovery_processing(
+        self,
+        doc_id: uuid.UUID,
+        *,
+        expected_current_status: str = "pending",
+        preserve_detected_languages: list[str] | None = None,
+    ) -> Document | None:
+        """
+        Атомарно перевести document language discovery в «processing».
+
+        Переход выполняется только если текущий language_discovery_status
+        равен expected_current_status. Защищает от двойного запуска worker'а.
+
+        Args:
+            doc_id: Идентификатор документа.
+            expected_current_status: Ожидаемый текущий статус (по умолчанию «pending»).
+            preserve_detected_languages: Если передан — сохраняет этот список языков.
+
+        Returns:
+            Обновлённый Document если CAS-переход выполнен, иначе None.
+        """
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .where(Document.language_discovery_status == expected_current_status)
+            .values(
+                language_discovery_status="processing",
+                detected_languages=preserve_detected_languages,
+            )
+            .returning(Document)
+        )
+
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+
+        return doc
+
+    # ── Classification ────────────────────────────────────────────────────────
 
     async def update_classification(
         self,
@@ -512,175 +467,6 @@ class DocumentRepository:
             git_commit=git_commit,
             semver=semver,
         )
-
-    async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
-        stmt = (
-            select(Document.status, func.count(Document.id))
-            .where(Document.deal_id == deal_id)
-            .group_by(Document.status)
-        )
-        result = await self.session.execute(stmt)
-        return {row[0]: row[1] for row in result.all()}
-
-    async def get_by_type_and_confidence(
-        self,
-        deal_id: uuid.UUID,
-        doc_type: str,
-        min_confidence: float = 0.0,
-    ) -> list[Document]:
-        stmt = (
-            select(Document)
-            .where(
-                Document.deal_id == deal_id,
-                Document.doc_type == doc_type,
-                Document.classification_confidence >= min_confidence,
-            )
-            .order_by(Document.classification_confidence.desc())
-        )
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
-
-    async def get_low_confidence_docs(
-        self,
-        deal_id: uuid.UUID,
-        threshold: float = 0.6,
-    ) -> list[Document]:
-        stmt = (
-            select(Document)
-            .where(Document.deal_id == deal_id)
-            .where(Document.classification_confidence < threshold)
-            .where(Document.classification_confidence > 0)
-            .order_by(Document.classification_confidence.asc())
-        )
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
-
-    async def get_quarantined(self, deal_id: uuid.UUID) -> list[Document]:
-        stmt = select(Document).where(
-            Document.deal_id == deal_id,
-            Document.status == DocumentStatus.QUARANTINE.value,
-        )
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
-
-    async def reset_for_reprocessing(
-        self,
-        doc_id: uuid.UUID,
-        new_status: str = "pending",
-        clear_classification: bool = True,
-    ) -> Document | None:
-        values: dict[str, object] = {"status": new_status}
-
-        if clear_classification:
-            values.update(
-                {
-                    "doc_type": None,
-                    "classification_confidence": None,
-                    "classification_level": None,
-                    "classification_details": None,
-                    "applicable_triggers": None,
-                }
-            )
-
-        stmt = (
-            update(Document)
-            .where(Document.id == doc_id)
-            .values(**values)
-            .returning(Document)
-        )
-        result = await self.session.execute(stmt)
-        doc = result.scalar_one_or_none()
-        if doc:
-            await self.session.flush()
-        return doc
-
-    async def get_page_for_deal(
-        self,
-        deal_id: uuid.UUID,
-        page: int,
-        per_page: int,
-        include_classification: bool = False,
-    ) -> tuple[list[Document], int]:
-        offset = (page - 1) * per_page
-
-        count_stmt = select(func.count(Document.id)).where(Document.deal_id == deal_id)
-        total_result = await self.session.execute(count_stmt)
-        total = total_result.scalar_one() or 0
-
-        if total == 0:
-            return [], 0
-
-        stmt = select(Document).where(Document.deal_id == deal_id)
-
-        if include_classification:
-            stmt = stmt.order_by(
-                Document.status,
-                Document.doc_type.is_(None),
-                Document.doc_type,
-                Document.classification_confidence.desc().nullslast(),
-                Document.folder_path,
-                Document.filename,
-            )
-        else:
-            stmt = stmt.order_by(
-                Document.folder_path,
-                Document.filename,
-            )
-
-        stmt = stmt.offset(offset).limit(per_page)
-        result = await self.session.execute(stmt)
-        items = list(result.scalars().all())
-
-        return items, total
-
-    async def list_by_deal_id(self, deal_id: uuid.UUID) -> list[Document]:
-        stmt = (
-            select(Document)
-            .where(Document.deal_id == deal_id)
-            .order_by(Document.folder_path, Document.filename)
-        )
-        result = await self.session.execute(stmt)
-        return list(result.scalars().all())
-
-    async def exists_manual_classified_docs(self, deal_id: uuid.UUID) -> bool:
-        stmt = (
-            select(func.count(Document.id))
-            .where(
-                Document.deal_id == deal_id,
-                Document.classification_level == "L_manual",
-            )
-        )
-        result = await self.session.execute(stmt)
-        count = result.scalar_one() or 0
-        return count > 0
-
-    async def _resolve_doc_type_instruction_version_id(
-        self,
-        *,
-        final_type: str | None,
-        registry: YAMLRegistry | None = None,
-        git_commit: str | None = None,
-        semver: str | None = None,
-    ):
-        if not isinstance(final_type, str) or not final_type.strip():
-            return None
-
-        normalized = final_type.strip()
-        if normalized == "UNKNOWN":
-            return None
-
-        effective_registry = registry or YAMLRegistry.get_instance()
-        cfg = effective_registry.get_config(normalized)
-        if cfg is None:
-            return None
-
-        repo = DocumentTypeInstructionVersionRepository(self.session)
-        resolved = await repo.resolve_or_create_from_config(
-            cfg,
-            git_commit=git_commit,
-            semver=semver,
-        )
-        return resolved.version.id
 
     async def save_classification_result(
         self,
@@ -750,6 +536,176 @@ class DocumentRepository:
         )
 
         return document
+
+    # ── Analytics helpers ─────────────────────────────────────────────────────
+
+    async def count_by_status(self, deal_id: uuid.UUID) -> dict[str, int]:
+        stmt = (
+            select(Document.status, func.count(Document.id))
+            .where(Document.deal_id == deal_id)
+            .group_by(Document.status)
+        )
+        result = await self.session.execute(stmt)
+        return {row[0]: row[1] for row in result.all()}
+
+    async def get_by_type_and_confidence(
+        self,
+        deal_id: uuid.UUID,
+        doc_type: str,
+        min_confidence: float = 0.0,
+    ) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(
+                Document.deal_id == deal_id,
+                Document.doc_type == doc_type,
+                Document.classification_confidence >= min_confidence,
+            )
+            .order_by(Document.classification_confidence.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_low_confidence_docs(
+        self,
+        deal_id: uuid.UUID,
+        threshold: float = 0.6,
+    ) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(Document.deal_id == deal_id)
+            .where(Document.classification_confidence < threshold)
+            .where(Document.classification_confidence > 0)
+            .order_by(Document.classification_confidence.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_quarantined(self, deal_id: uuid.UUID) -> list[Document]:
+        stmt = select(Document).where(
+            Document.deal_id == deal_id,
+            Document.status == DocumentStatus.QUARANTINE.value,
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def exists_manual_classified_docs(self, deal_id: uuid.UUID) -> bool:
+        stmt = (
+            select(func.count(Document.id))
+            .where(
+                Document.deal_id == deal_id,
+                Document.classification_level == "L_manual",
+            )
+        )
+        result = await self.session.execute(stmt)
+        count = result.scalar_one() or 0
+        return count > 0
+
+    # ── Pagination ────────────────────────────────────────────────────────────
+
+    async def get_page_for_deal(
+        self,
+        deal_id: uuid.UUID,
+        page: int,
+        per_page: int,
+        include_classification: bool = False,
+    ) -> tuple[list[Document], int]:
+        offset = (page - 1) * per_page
+
+        count_stmt = select(func.count(Document.id)).where(
+            Document.deal_id == deal_id
+        )
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar_one() or 0
+
+        if total == 0:
+            return [], 0
+
+        stmt = select(Document).where(Document.deal_id == deal_id)
+
+        if include_classification:
+            stmt = stmt.order_by(
+                Document.status,
+                Document.doc_type.is_(None),
+                Document.doc_type,
+                Document.classification_confidence.desc().nullslast(),
+                Document.folder_path,
+                Document.filename,
+            )
+        else:
+            stmt = stmt.order_by(
+                Document.folder_path,
+                Document.filename,
+            )
+
+        stmt = stmt.offset(offset).limit(per_page)
+        result = await self.session.execute(stmt)
+        items = list(result.scalars().all())
+
+        return items, total
+
+    # ── Reprocessing ──────────────────────────────────────────────────────────
+
+    async def reset_for_reprocessing(
+        self,
+        doc_id: uuid.UUID,
+        new_status: str = "pending",
+        clear_classification: bool = True,
+    ) -> Document | None:
+        values: dict[str, object] = {"status": new_status}
+
+        if clear_classification:
+            values.update(
+                {
+                    "doc_type": None,
+                    "classification_confidence": None,
+                    "classification_level": None,
+                    "classification_details": None,
+                    "applicable_triggers": None,
+                }
+            )
+
+        stmt = (
+            update(Document)
+            .where(Document.id == doc_id)
+            .values(**values)
+            .returning(Document)
+        )
+        result = await self.session.execute(stmt)
+        doc = result.scalar_one_or_none()
+        if doc:
+            await self.session.flush()
+        return doc
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    async def _resolve_doc_type_instruction_version_id(
+        self,
+        *,
+        final_type: str | None,
+        registry: YAMLRegistry | None = None,
+        git_commit: str | None = None,
+        semver: str | None = None,
+    ) -> uuid.UUID | None:
+        if not isinstance(final_type, str) or not final_type.strip():
+            return None
+
+        normalized = final_type.strip()
+        if normalized == "UNKNOWN":
+            return None
+
+        effective_registry = registry or YAMLRegistry.get_instance()
+        cfg = effective_registry.get_config(normalized)
+        if cfg is None:
+            return None
+
+        repo = DocumentTypeInstructionVersionRepository(self.session)
+        resolved = await repo.resolve_or_create_from_config(
+            cfg,
+            git_commit=git_commit,
+            semver=semver,
+        )
+        return resolved.version.id
     
 
     

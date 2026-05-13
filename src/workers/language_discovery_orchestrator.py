@@ -416,7 +416,9 @@ async def _start_language_discovery_async(
             )
             return result
 
-        latest_versions = await ver_repo.get_latest_for_documents([doc.id for doc in docs])
+        latest_versions = await ver_repo.get_latest_for_documents(
+            [doc.id for doc in docs]
+        )
 
         enqueued_document_ids: list[str] = []
         duplicate_guard_skipped_document_ids: list[str] = []
@@ -436,7 +438,10 @@ async def _start_language_discovery_async(
                     },
                 )
 
-                await doc_repo.update_language_detection(
+                # ── ИЗМЕНЕНИЕ 1 из 2 ──────────────────────────────────────────
+                # Было: doc_repo.update_language_detection(...)
+                # Стало: doc_repo.update_language_discovery(...)
+                await doc_repo.update_language_discovery(
                     doc.id,
                     detected_languages=[],
                     status="failed",
@@ -444,7 +449,10 @@ async def _start_language_discovery_async(
                 failed_pre_dispatch_document_ids.append(doc_id_str)
                 continue
 
-            claimed_doc = await doc_repo.try_mark_language_detection_pending(
+            # ── ИЗМЕНЕНИЕ 2 из 2 ─────────────────────────────────────────────
+            # Было: doc_repo.try_mark_language_detection_pending(...)
+            # Стало: doc_repo.try_mark_language_discovery_pending(...)
+            claimed_doc = await doc_repo.try_mark_language_discovery_pending(
                 doc.id,
                 allowed_current_statuses=REDISTRIBUTABLE_LANGUAGE_STATES,
                 preserve_detected_languages=getattr(doc, "detected_languages", None),

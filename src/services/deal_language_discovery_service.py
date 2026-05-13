@@ -23,29 +23,22 @@ from __future__ import annotations
 
 import uuid
 from collections import Counter
-from typing import Any, Final, Sequence
+from typing import Any, Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import LanguageDiscoveryStatus
 from core.logging import get_logger
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 
 logger = get_logger(__name__)
 
-LANG_DISCOVERY_PENDING: Final[str] = "pending"
-LANG_DISCOVERY_PROCESSING: Final[str] = "processing"
-LANG_DISCOVERY_COMPLETED: Final[str] = "completed"
-LANG_DISCOVERY_FAILED: Final[str] = "failed"
-LANG_DISCOVERY_PARTIAL: Final[str] = "partial"
-
-KNOWN_DISCOVERY_STATUSES: Final[set[str]] = {
-    LANG_DISCOVERY_PENDING,
-    LANG_DISCOVERY_PROCESSING,
-    LANG_DISCOVERY_COMPLETED,
-    LANG_DISCOVERY_FAILED,
-    LANG_DISCOVERY_PARTIAL,
-}
+# Множество всех валидных строковых значений статуса — для детекции unknown.
+# Строится из enum один раз при импорте модуля.
+_KNOWN_DISCOVERY_STATUS_VALUES: frozenset[str] = frozenset(
+    s.value for s in LanguageDiscoveryStatus
+)
 
 
 def _normalize_string(value: Any) -> str | None:
@@ -63,14 +56,9 @@ def _extract_document_status(doc: Any) -> str | None:
     """
     Возвращает нормализованный статус language discovery для документа.
 
-    Поддерживает оба имени поля:
-    - language_discovery_status: актуальное имя
-    - language_detection_status: legacy/fallback
+    Каноническое поле: Document.language_discovery_status.
     """
-    raw_status = getattr(doc, "language_discovery_status", None)
-    if raw_status is None:
-        raw_status = getattr(doc, "language_detection_status", None)
-    return _normalize_status(raw_status)
+    return _normalize_status(getattr(doc, "language_discovery_status", None))
 
 
 def _extract_document_languages(doc: Any) -> list[str]:
@@ -108,7 +96,7 @@ def _compute_discovery_status(docs: Sequence[Any]) -> str:
     - если встретились неизвестные статусы -> partial.
     """
     if not docs:
-        return LANG_DISCOVERY_COMPLETED
+        return LanguageDiscoveryStatus.COMPLETED
 
     known_statuses: list[str] = []
     unknown_statuses: set[str] = set()
@@ -121,7 +109,7 @@ def _compute_discovery_status(docs: Sequence[Any]) -> str:
             missing_status_count += 1
             continue
 
-        if status not in KNOWN_DISCOVERY_STATUSES:
+        if status not in _KNOWN_DISCOVERY_STATUS_VALUES:
             unknown_statuses.add(status)
             continue
 
@@ -132,35 +120,35 @@ def _compute_discovery_status(docs: Sequence[Any]) -> str:
             "Unknown language discovery statuses encountered during deal recompute",
             extra={"unknown_statuses": sorted(unknown_statuses)},
         )
-        return LANG_DISCOVERY_PARTIAL
+        return LanguageDiscoveryStatus.PARTIAL
 
     if not known_statuses:
-        return LANG_DISCOVERY_PENDING
+        return LanguageDiscoveryStatus.PENDING
 
     if any(
-        status in {LANG_DISCOVERY_PENDING, LANG_DISCOVERY_PROCESSING}
+        status in {LanguageDiscoveryStatus.PENDING, LanguageDiscoveryStatus.PROCESSING}
         for status in known_statuses
     ):
-        return LANG_DISCOVERY_PROCESSING
+        return LanguageDiscoveryStatus.PROCESSING
 
-    if LANG_DISCOVERY_PARTIAL in known_statuses:
-        return LANG_DISCOVERY_PARTIAL
+    if LanguageDiscoveryStatus.PARTIAL in known_statuses:
+        return LanguageDiscoveryStatus.PARTIAL
 
     if missing_status_count > 0:
-        return LANG_DISCOVERY_PENDING
+        return LanguageDiscoveryStatus.PENDING
 
     status_counts = Counter(known_statuses)
-    completed_count = status_counts[LANG_DISCOVERY_COMPLETED]
-    failed_count = status_counts[LANG_DISCOVERY_FAILED]
+    completed_count = status_counts[LanguageDiscoveryStatus.COMPLETED]
+    failed_count = status_counts[LanguageDiscoveryStatus.FAILED]
 
     if completed_count > 0 and failed_count > 0:
-        return LANG_DISCOVERY_PARTIAL
+        return LanguageDiscoveryStatus.PARTIAL
 
     if completed_count > 0 and failed_count == 0:
-        return LANG_DISCOVERY_COMPLETED
+        return LanguageDiscoveryStatus.COMPLETED
 
     if failed_count > 0 and completed_count == 0:
-        return LANG_DISCOVERY_FAILED
+        return LanguageDiscoveryStatus.FAILED
 
     logger.warning(
         "Unexpected language discovery status combination during deal recompute",
@@ -169,7 +157,7 @@ def _compute_discovery_status(docs: Sequence[Any]) -> str:
             "missing_status_count": missing_status_count,
         },
     )
-    return LANG_DISCOVERY_PARTIAL
+    return LanguageDiscoveryStatus.PARTIAL
 
 
 def _build_documents_debug_snapshot(docs: Sequence[Any]) -> list[dict[str, object]]:
@@ -181,9 +169,6 @@ def _build_documents_debug_snapshot(docs: Sequence[Any]) -> list[dict[str, objec
                 "document_id": str(getattr(doc, "id", "")),
                 "language_discovery_status": getattr(
                     doc, "language_discovery_status", None
-                ),
-                "language_detection_status": getattr(
-                    doc, "language_detection_status", None
                 ),
                 "detected_languages": getattr(doc, "detected_languages", None) or [],
             }

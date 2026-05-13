@@ -153,7 +153,7 @@ class Document(Base):
     # Для непрофессионального программиста:
     # - detected_languages хранит список всех языков, которые автоматический
     #   анализ нашёл в этом файле (например: ['ru', 'en']).
-    # - language_detection_status показывает состояние этапа определения
+    # - language_discovery_status показывает состояние этапа определения
     #   языков для этого документа.
     #
     # Эти поля нужны, чтобы:
@@ -168,7 +168,7 @@ class Document(Base):
         comment="All languages detected in this document, e.g. ['ru', 'en'].",
     )
 
-    language_detection_status: Mapped[str | None] = mapped_column(
+    language_discovery_status: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
         comment=(
@@ -254,6 +254,7 @@ class Document(Base):
             "doc_type",
             "classification_confidence",
         ),
+        Index("idx_documents_deal_lang_discovery", "deal_id", "language_discovery_status"),
     )
 
 

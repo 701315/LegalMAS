@@ -161,6 +161,32 @@ class DealStatus(str, Enum):
     COMPLETED = "completed"
 
 
+class LanguageDiscoveryStatus(str, Enum):
+    """
+    Status of the pre-run language discovery lifecycle.
+
+    Используется на двух уровнях:
+    - document-level: статус определения языков для конкретного документа
+      (хранится в documents.language_discovery_status)
+    - deal-level: агрегированный статус по всем документам сделки
+      (хранится в deals.language_discovery_status)
+
+    Семантика:
+    - PENDING    — ожидает запуска определения языков
+    - PROCESSING — определение языков запущено и выполняется
+    - COMPLETED  — языки успешно определены
+    - FAILED     — определение языков завершилось с ошибкой
+    - PARTIAL    — часть документов completed, часть failed
+                   (только на уровне сделки)
+    """
+
+    PENDING    = "pending"
+    PROCESSING = "processing"
+    COMPLETED  = "completed"
+    FAILED     = "failed"
+    PARTIAL    = "partial"
+
+
 class QCStatus(str, Enum):
     """Quality control status for a check result."""
 
@@ -202,11 +228,11 @@ class PIITokenPolicy(str, Enum):
 class ClassificationLevel(str, Enum):
     """Уровни каскада классификации."""
 
-    L1_RULES = "L1"  # Filename/path/extension — weak hint only
-    L2_KEYWORDS = "L2"  # Keywords/phrases/regex from YAML
-    L3_SEMANTIC = "L3"  # Embeddings similarity
-    L4_LLM = "L4"  # LLM fallback (local GGUF or cloud API)
-    HYBRID = "HYBRID"  # Weighted voting across levels
+    L1_RULES = "L1"      # Filename/path/extension — weak hint only
+    L2_KEYWORDS = "L2"   # Keywords/phrases/regex from YAML
+    L3_SEMANTIC = "L3"   # Embeddings similarity
+    L4_LLM = "L4"        # LLM fallback (local GGUF or cloud API)
+    HYBRID = "HYBRID"    # Weighted voting across levels
 
 
 # Настройки классификации
@@ -216,11 +242,11 @@ CLASSIFICATION_WEIGHTS = {
     "L3": 0.40,  # Embeddings similarity
 }
 
-
 CLASSIFICATION_THRESHOLDS = {
     "L2_accept": 0.85,
     "L3_accept": 0.80,
     "voting_threshold": 0.75,
     "uncertain_threshold": 0.50,
 }
+
 

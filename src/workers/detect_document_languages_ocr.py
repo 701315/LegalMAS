@@ -10,7 +10,7 @@ Document-level OCR language detection worker.
 - Определить языки через shared document language detection service;
 - Записать результат в:
     - Document.detected_languages
-    - Document.language_detection_status
+    - Document.language_detection_status  # TODO: rename -> language_discovery_status (refactoring task)
 - Пересчитать aggregate language discovery state сделки через
   deal_language_discovery_service.
 
@@ -106,6 +106,10 @@ IMAGE_FILETYPES = {
     "webp",
 }
 
+# Единственный статус, с которого этот worker легитимно начинает обработку.
+# Orchestrator переводит документ из NULL/failed -> pending перед dispatch.
+_EXPECTED_ENTRY_STATUS = "pending"
+
 
 @celery_app.task(
     base=MASBaseTask,
@@ -174,6 +178,11 @@ async def _detect_document_languages_ocr_async(
       корректно выходит без повторной обработки;
     - если документ уже failed, worker считает это terminal state и не пытается
       снова выполнять detection в рамках этой же task delivery.
+
+    NOTE (naming): поле language_detection_status будет переименовано в
+    language_discovery_status в рамках запланированного рефакторинга.
+    До завершения миграции все обращения к статусу используют
+    language_detection_status через document_repo API.
     """
     doc_uuid = uuid.UUID(document_id)
     version_uuid = uuid.UUID(document_version_id)
@@ -194,6 +203,8 @@ async def _detect_document_languages_ocr_async(
     ver_repo = DocumentVersionRepository(db)
     deal_repo = DealRepository(db)
     store = ArtifactStore(settings)
+
+    # ── Валидация входных сущностей ──────────────────────────────────────────
 
     document = await doc_repo.get_by_id(doc_uuid)
     if not document:
@@ -219,6 +230,11 @@ async def _detect_document_languages_ocr_async(
             "DocumentVersion does not belong to provided document_id "
             f"(document_id={document_id}, document_version_id={document_version_id})"
         )
+
+    # ── Idempotency guard ────────────────────────────────────────────────────
+    # Читаем текущий document-level discovery status.
+    # NOTE: поле называется language_detection_status — это legacy name,
+    # который будет переименован в language_discovery_status при рефакторинге.
 
     current_status = getattr(document, "language_detection_status", None)
     current_languages = list(getattr(document, "detected_languages", None) or [])
@@ -304,13 +320,41 @@ async def _detect_document_languages_ocr_async(
         )
         return result
 
+    # ── Аномальный статус: не pending и не terminal ──────────────────────────
+    # Ожидаем "pending" как единственный легитимный входной статус.
+    # Если статус иной — это либо bug в orchestrator, либо race с другим pipeline.
+    # Логируем предупреждение и бросаем TransientError: retry позволит
+    # системе осесть в корректное состояние, не маскируя проблему как permanent.
+
+    if current_status != _EXPECTED_ENTRY_STATUS:
+        logger.warning(
+            "OCR document language detection: unexpected document status at entry; "
+            "expected 'pending', got %r — possible orchestrator/pipeline race",
+            current_status,
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "current_status": current_status,
+            },
+        )
+        raise TransientError(
+            f"Unexpected document language detection status '{current_status}' "
+            f"for document {document_id}; expected 'pending'. "
+            "Will retry to allow orchestrator/pipeline to settle."
+        )
+
+    # ── Атомарный claim: pending -> processing ───────────────────────────────
+
     claimed_doc = await doc_repo.try_mark_language_detection_processing(
         doc_uuid,
-        expected_current_status="pending",
+        expected_current_status=_EXPECTED_ENTRY_STATUS,
         preserve_detected_languages=current_languages,
     )
 
     if not claimed_doc:
+        # Claim не прошёл: кто-то другой уже перевёл документ из pending.
         refreshed_document = await doc_repo.get_by_id(doc_uuid)
         refreshed_status = (
             getattr(refreshed_document, "language_detection_status", None)
@@ -350,6 +394,10 @@ async def _detect_document_languages_ocr_async(
             extra=result,
         )
         return result
+
+    # ── Основная обработка ───────────────────────────────────────────────────
+    # Документ успешно переведён в processing. Всё, что ниже, должно
+    # завершиться либо completed, либо failed — без промежуточных состояний.
 
     try:
         source_ref = _resolve_source_ocr_ref(version)
@@ -448,6 +496,9 @@ async def _detect_document_languages_ocr_async(
         return result
 
     except TransientError:
+        # Transient: не пишем failed. MASBaseTask выполнит retry.
+        # Документ остаётся в processing — stuck-pending repair job подберёт
+        # его при необходимости, если все retries исчерпаются.
         logger.warning(
             "Transient error during OCR document language detection; re-raising for retry",
             extra={
@@ -460,6 +511,8 @@ async def _detect_document_languages_ocr_async(
         raise
 
     except PermanentError:
+        # Permanent: фиксируем failed, пересчитываем aggregate state сделки,
+        # затем пробрасываем вверх для записи в MASBaseTask job log.
         logger.exception(
             "Permanent failure during OCR document language detection",
             extra={
@@ -469,7 +522,6 @@ async def _detect_document_languages_ocr_async(
                 "tenant_id": tenant_id,
             },
         )
-
         await _mark_document_detection_failed_and_recompute(
             db=db,
             document_id=doc_uuid,
@@ -478,6 +530,8 @@ async def _detect_document_languages_ocr_async(
         raise
 
     except Exception as e:
+        # Неожиданное исключение: трактуем как transient — retry.
+        # Не пишем failed: неизвестно, была ли это постоянная или временная проблема.
         logger.exception(
             "Unexpected error during OCR document language detection; re-raising for retry",
             extra={
@@ -517,7 +571,7 @@ async def _mark_document_detection_failed_and_recompute(
     )
 
 
-def _resolve_source_ocr_ref(version) -> str | None:
+def _resolve_source_ocr_ref(version: Any) -> str | None:
     """
     Выбрать source ref для OCR language detection.
 
@@ -549,7 +603,7 @@ def _resolve_source_ocr_ref(version) -> str | None:
     return converted_pdf_ref
 
 
-def _resolve_effective_ocr_filetype(version) -> str:
+def _resolve_effective_ocr_filetype(version: Any) -> str:
     """
     Определить эффективный тип файла для передачи в OCR-детектор.
 
