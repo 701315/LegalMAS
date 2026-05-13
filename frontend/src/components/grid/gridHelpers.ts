@@ -7,7 +7,74 @@ import type { SelectionChangedEvent } from "ag-grid-community";
 
 import type { CheckResult } from "../../types";
 import type { MatrixRow } from "./gridTypes";
-import { getLegacyPageInfo } from "./gridLegacyHelpers";
+
+function getLegacyPageInfo(result: CheckResult): {
+  page: number | null;
+  clauseUid: string | null;
+} {
+  const rawPage =
+    (result as CheckResult & {
+      page?: number | string | null;
+      page_num?: number | string | null;
+      source_page?: number | string | null;
+      metadata?: {
+        page?: number | string | null;
+        page_num?: number | string | null;
+        source_page?: number | string | null;
+        clause_uid?: string | null;
+        clauseUid?: string | null;
+      } | null;
+    }).page ??
+    (result as CheckResult & { page_num?: number | string | null }).page_num ??
+    (result as CheckResult & { source_page?: number | string | null })
+      .source_page ??
+    (result as CheckResult & {
+      metadata?: {
+        page?: number | string | null;
+        page_num?: number | string | null;
+        source_page?: number | string | null;
+      } | null;
+    }).metadata?.page ??
+    (result as CheckResult & {
+      metadata?: { page_num?: number | string | null } | null;
+    }).metadata?.page_num ??
+    (result as CheckResult & {
+      metadata?: { source_page?: number | string | null } | null;
+    }).metadata?.source_page;
+
+  const rawClauseUid =
+    (result as CheckResult & {
+      clause_uid?: string | null;
+      clauseUid?: string | null;
+      metadata?: {
+        clause_uid?: string | null;
+        clauseUid?: string | null;
+      } | null;
+    }).clause_uid ??
+    (result as CheckResult & { clauseUid?: string | null }).clauseUid ??
+    (result as CheckResult & {
+      metadata?: {
+        clause_uid?: string | null;
+        clauseUid?: string | null;
+      } | null;
+    }).metadata?.clause_uid ??
+    (result as CheckResult & {
+      metadata?: { clauseUid?: string | null } | null;
+    }).metadata?.clauseUid ??
+    null;
+
+  const parsedPage =
+    rawPage == null || rawPage === ""
+      ? null
+      : Number.isFinite(Number(rawPage))
+        ? Number(rawPage)
+        : null;
+
+  return {
+    page: parsedPage,
+    clauseUid: rawClauseUid ? String(rawClauseUid) : null,
+  };
+}
 
 export function getMatrixResultLabel(result: CheckResult): string {
   if (result.result === "fail") {
@@ -78,6 +145,5 @@ export function buildSeverityTooltip(result: CheckResult): string {
 
   return parts.filter(Boolean).join(" · ");
 }
-
 
 

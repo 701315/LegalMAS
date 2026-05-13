@@ -132,7 +132,9 @@ def extract_quick_ocr_text_for_language_detection(
         return result.text
 
     raise PermanentError(
-        f"Unsupported file type for OCR language detection: {normalized_type or 'unknown'}"
+        f"Unsupported file type for OCR language detection: {normalized_type or 'unknown'}. "
+        f"Supported types: 'pdf', {sorted(SUPPORTED_IMAGE_TYPES)}. "
+        f"Office documents must be converted to PDF before calling this function."
     )
 
 

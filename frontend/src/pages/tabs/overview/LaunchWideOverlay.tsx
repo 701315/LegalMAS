@@ -107,7 +107,8 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   const hasDocuments =
     typeof documentsCount === "number" ? documentsCount > 0 : false;
 
-  const readinessLabel = (() => {
+  // Возвращает null когда всё готово — тогда метка не отображается вовсе
+  const readinessLabel: string | null = (() => {
     if (!hasDocuments) {
       return "Сначала загрузите документы в проект.";
     }
@@ -140,7 +141,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
       return "Выполняем запрос…";
     }
 
-    return "Параметры готовы к запуску анализа.";
+    return null;
   })();
 
   const handleOpenUploadPanel = () => {
@@ -325,15 +326,26 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
     }
   };
 
+  console.log("canStartRun debug", {
+    canStartRun,
+    hasDocuments,
+    hasPlaybook,
+    hasLanguagesReady,
+    hasPrimaryLanguage,
+    isSubmitting,
+    primary_language: deal.primary_language,
+    languages: deal.languages,
+    playbook_version_id: deal.playbook_version_id,
+    documentsCount,
+  });
+
   return (
     <div
-      className="
-        absolute top-0 bottom-0 z-30 hidden xl:block
-        right-[calc(100%+16px)]
-      "
+      className="absolute top-0 bottom-0 z-30 hidden xl:block right-[calc(100%+16px)]"
       style={{ width: overlayWidth }}
     >
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-2xl">
+        {/* Header */}
         <div className="shrink-0 border-b border-[var(--border-soft)] px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -352,7 +364,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+              className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
               aria-label="Закрыть панель запуска анализа"
             >
               ✕
@@ -360,6 +372,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           </div>
         </div>
 
+        {/* Body: left + right panes */}
         <div
           className="grid min-h-0 flex-1"
           style={{ gridTemplateColumns: "3fr 2fr" }}
@@ -386,14 +399,15 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           </div>
         </div>
 
+        {/* Footer */}
         <div className="shrink-0 flex items-center justify-between gap-4 border-t border-[var(--border-soft)] bg-[var(--bg-card)] px-5 py-4">
           <Button variant="secondary" size="sm" onClick={onClose}>
             Отмена
           </Button>
 
-          <div className="flex items-center gap-3">
-            {!canStartRun && (
-              <span className="text-[11px] text-[var(--text-muted)]">
+          <div className="flex min-w-0 items-center gap-3">
+            {readinessLabel && (
+              <span className="truncate text-[11px] text-[var(--text-muted)]">
                 {readinessLabel}
               </span>
             )}
@@ -402,7 +416,7 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
               variant="secondary"
               size="sm"
               onClick={onSubmit}
-              disabled={!canStartRun}
+              disabled={!canStartRun || isSubmitting}
               isLoading={isSubmitting}
             >
               Запустить анализ

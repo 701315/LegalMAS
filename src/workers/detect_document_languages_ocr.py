@@ -27,11 +27,20 @@ Document-level OCR language detection worker.
 - import_bundle
 - start_language_discovery
 - prepare_document_for_language_discovery (для office форматов)
+- convert_document_for_language_discovery (для office форматов)
+- prepare_document_for_language_discovery (повторно, роутит на OCR после конвертации)
 - detect_document_languages_ocr (per document)
 - recompute_deal_language_discovery_state
 - UI показывает Deal.languages / Deal.language_discovery_status
 - пользователь выбирает Deal.primary_language
 - только после этого запускается Run
+
+Важное замечание по filetype:
+- origin_filetype хранит исходный формат файла ('doc', 'docx', 'pdf', 'png', ...);
+- для office-форматов source для OCR — это converted_pdf_ref (PDF после конвертации);
+- при вызове extract_quick_ocr_text_for_language_detection нужно передавать
+  эффективный тип файла ('pdf'), а не origin_filetype ('doc');
+- _resolve_source_ocr_ref и _resolve_effective_ocr_filetype согласованы по одной логике.
 """
 
 from __future__ import annotations
@@ -62,10 +71,13 @@ from services.document_ocr_language_detection import (
 )
 from storage.artifact_store import ArtifactStore
 
+
 logger = get_logger(__name__)
+
 
 QUICK_OCR_MAX_PAGES = 3
 QUICK_OCR_MAX_IMAGES = 3
+
 
 OFFICE_FILETYPES = {
     "doc",
@@ -82,6 +94,7 @@ OFFICE_FILETYPES = {
     "html",
     "htm",
 }
+
 
 IMAGE_FILETYPES = {
     "png",
@@ -347,6 +360,8 @@ async def _detect_document_languages_ocr_async(
                 f"origin_filetype={getattr(version, 'origin_filetype', None)})"
             )
 
+        effective_filetype = _resolve_effective_ocr_filetype(version)
+
         logger.info(
             "OCR language detection: reading source from storage",
             extra={
@@ -354,6 +369,8 @@ async def _detect_document_languages_ocr_async(
                 "document_version_id": document_version_id,
                 "deal_id": deal_id,
                 "source_ref": source_ref,
+                "origin_filetype": getattr(version, "origin_filetype", None),
+                "effective_filetype": effective_filetype,
             },
         )
 
@@ -375,7 +392,7 @@ async def _detect_document_languages_ocr_async(
         ocr_text = extract_quick_ocr_text_for_language_detection(
             source_bytes=source_bytes,
             source_filename=getattr(version, "filename", None) or document_id,
-            origin_filetype=(getattr(version, "origin_filetype", None) or "").strip().lower(),
+            origin_filetype=effective_filetype,
             max_pages=QUICK_OCR_MAX_PAGES,
             max_images=QUICK_OCR_MAX_IMAGES,
         )
@@ -411,6 +428,8 @@ async def _detect_document_languages_ocr_async(
             "deal_id": deal_id,
             "tenant_id": tenant_id,
             "source_ref": source_ref,
+            "origin_filetype": getattr(version, "origin_filetype", None),
+            "effective_filetype": effective_filetype,
             "detected_languages": detected_languages,
             "status": "completed",
             "handled": True,
@@ -500,7 +519,7 @@ async def _mark_document_detection_failed_and_recompute(
 
 def _resolve_source_ocr_ref(version) -> str | None:
     """
-    Выбрать source для OCR language detection.
+    Выбрать source ref для OCR language detection.
 
     Production contract:
     - для image input используем original_ref;
@@ -510,6 +529,9 @@ def _resolve_source_ocr_ref(version) -> str | None:
 
     Это исключает ошибочный путь, когда OCR worker пытается читать raw DOCX/XLSX/PPTX
     вместо уже подготовленного PDF.
+
+    Согласован с _resolve_effective_ocr_filetype: оба метода используют одну
+    и ту же классификацию по origin_filetype.
     """
     original_ref = getattr(version, "original_ref", None)
     converted_pdf_ref = getattr(version, "converted_pdf_ref", None)
@@ -525,4 +547,33 @@ def _resolve_source_ocr_ref(version) -> str | None:
         return converted_pdf_ref
 
     return converted_pdf_ref
+
+
+def _resolve_effective_ocr_filetype(version) -> str:
+    """
+    Определить эффективный тип файла для передачи в OCR-детектор.
+
+    Важно: origin_filetype хранит исходный формат документа ('doc', 'docx', ...),
+    но для office-форматов OCR читает converted_pdf_ref — то есть реальный
+    источник байтов является PDF. Передача origin_filetype ('doc') в OCR-детектор
+    приведёт к PermanentError, так как детектор ожидает 'pdf' или image-тип.
+
+    Логика классификации согласована с _resolve_source_ocr_ref:
+    - image input  → original_ref  → возвращаем origin_filetype ('png', 'jpg', ...)
+    - PDF input    → original_ref  → возвращаем 'pdf'
+    - office input → converted_pdf_ref → возвращаем 'pdf'
+    - unknown      → converted_pdf_ref → возвращаем 'pdf'
+    """
+    origin_filetype = (getattr(version, "origin_filetype", None) or "").strip().lower()
+
+    if origin_filetype in IMAGE_FILETYPES:
+        return origin_filetype
+
+    if origin_filetype == "pdf":
+        return "pdf"
+
+    if origin_filetype in OFFICE_FILETYPES:
+        return "pdf"
+
+    return "pdf"
 

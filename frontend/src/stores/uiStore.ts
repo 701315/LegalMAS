@@ -17,22 +17,18 @@ export type GlobalRole =
   | "system";
 
 interface UIState {
-  // Текущая логика (оставляем как есть для совместимости)
   apiKey: string | null;
   userRole: UserRole;
 
   setApiKey: (key: string | null) => void;
   setUserRole: (role: UserRole) => void;
 
-  // Новые поля пользователя
   userId: string | null;
   userName: string | null;
   globalRole: GlobalRole | null;
 
-  // Роли пользователя в проектах: deal_id → роль
   projectRoles: Record<string, ProjectRole>;
 
-  // Установить всю информацию о пользователе одним вызовом
   setUserInfo: (data: {
     userId: string;
     userName: string;
@@ -41,18 +37,13 @@ interface UIState {
     apiKey?: string | null;
   }) => void;
 
-  // Полный выход из системы
+  // Установить роль пользователя в конкретном проекте
+  setProjectRole: (dealId: string, role: ProjectRole) => void;
+
   logout: () => void;
 }
 
-/**
- * Хранилище UI-состояния:
- * - apiKey: хранится в localStorage (ключ mas_dd_api_key)
- * - userRole: хранится в localStorage (ключ mas_dd_user_role)
- * - userId, userName, globalRole, projectRoles: тоже в localStorage
- */
 export const useUIStore = create<UIState>((set) => ({
-  // --- старые поля ---
   apiKey: localStorage.getItem("mas_dd_api_key"),
   userRole:
     (localStorage.getItem("mas_dd_user_role") as UserRole) || "viewer",
@@ -71,7 +62,6 @@ export const useUIStore = create<UIState>((set) => ({
     set({ userRole: role });
   },
 
-  // --- новые поля пользователя ---
   userId: localStorage.getItem("mas_dd_user_id"),
   userName: localStorage.getItem("mas_dd_user_name"),
   globalRole:
@@ -93,7 +83,6 @@ export const useUIStore = create<UIState>((set) => ({
     projectRoles,
     apiKey,
   }) => {
-    // Сохраняем в localStorage
     localStorage.setItem("mas_dd_user_id", userId);
     localStorage.setItem("mas_dd_user_name", userName);
     localStorage.setItem("mas_dd_global_role", globalRole);
@@ -102,7 +91,6 @@ export const useUIStore = create<UIState>((set) => ({
       JSON.stringify(projectRoles),
     );
 
-    // При необходимости обновляем apiKey (если он пришёл от бэкенда)
     if (apiKey !== undefined) {
       if (apiKey) {
         localStorage.setItem("mas_dd_api_key", apiKey);
@@ -120,8 +108,15 @@ export const useUIStore = create<UIState>((set) => ({
     });
   },
 
+  setProjectRole: (dealId: string, role: ProjectRole) => {
+    set((state) => {
+      const updated = { ...state.projectRoles, [dealId]: role };
+      localStorage.setItem("mas_dd_project_roles", JSON.stringify(updated));
+      return { projectRoles: updated };
+    });
+  },
+
   logout: () => {
-    // Удаляем все сохранённые поля из localStorage
     [
       "mas_dd_api_key",
       "mas_dd_user_role",
@@ -131,7 +126,6 @@ export const useUIStore = create<UIState>((set) => ({
       "mas_dd_project_roles",
     ].forEach((key) => localStorage.removeItem(key));
 
-    // Сбрасываем состояние в дефолтное
     set({
       apiKey: null,
       userRole: "viewer",
@@ -142,3 +136,4 @@ export const useUIStore = create<UIState>((set) => ({
     });
   },
 }));
+

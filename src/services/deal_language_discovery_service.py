@@ -7,11 +7,22 @@ Deal-level language discovery aggregation service.
 - собрать union detected_languages по всем документам сделки;
 - вычислить итоговый language_discovery_status сделки;
 - сохранить агрегированный результат в Deal.
+
+Агрегация статусов документов -> статус сделки:
+- нет документов -> completed
+- у всех документов статус отсутствует -> pending
+- есть хотя бы один pending/processing -> processing
+- есть документы без статуса и нет processing/pending -> pending
+- есть completed и failed одновременно -> partial
+- все известные статусы completed -> completed
+- все известные статусы failed -> failed
+- любые неизвестные статусы -> partial + warning
 """
 
 from __future__ import annotations
 
 import uuid
+from collections import Counter
 from typing import Any, Final, Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,23 +48,48 @@ KNOWN_DISCOVERY_STATUSES: Final[set[str]] = {
 }
 
 
-def _normalize_status(value: Any) -> str | None:
-    if value is None or not isinstance(value, str):
+def _normalize_string(value: Any) -> str | None:
+    if not isinstance(value, str):
         return None
     normalized = value.strip().lower()
     return normalized or None
+
+
+def _normalize_status(value: Any) -> str | None:
+    return _normalize_string(value)
+
+
+def _extract_document_status(doc: Any) -> str | None:
+    """
+    Возвращает нормализованный статус language discovery для документа.
+
+    Поддерживает оба имени поля:
+    - language_discovery_status: актуальное имя
+    - language_detection_status: legacy/fallback
+    """
+    raw_status = getattr(doc, "language_discovery_status", None)
+    if raw_status is None:
+        raw_status = getattr(doc, "language_detection_status", None)
+    return _normalize_status(raw_status)
+
+
+def _extract_document_languages(doc: Any) -> list[str]:
+    raw_languages = getattr(doc, "detected_languages", None) or []
+    normalized_languages: list[str] = []
+
+    for lang in raw_languages:
+        normalized = _normalize_string(lang)
+        if normalized:
+            normalized_languages.append(normalized)
+
+    return normalized_languages
 
 
 def _collect_languages_union(docs: Sequence[Any]) -> list[str]:
     union: set[str] = set()
 
     for doc in docs:
-        langs = getattr(doc, "detected_languages", None) or []
-        for lang in langs:
-            if isinstance(lang, str):
-                normalized = lang.strip().lower()
-                if normalized:
-                    union.add(normalized)
+        union.update(_extract_document_languages(doc))
 
     return sorted(union)
 
@@ -61,31 +97,35 @@ def _collect_languages_union(docs: Sequence[Any]) -> list[str]:
 def _compute_discovery_status(docs: Sequence[Any]) -> str:
     """
     Правила агрегации:
-    - если документов нет -> completed (discovery нечего обрабатывать);
+    - если документов нет -> completed;
     - если у всех документов статус отсутствует -> pending;
     - если есть хотя бы один pending/processing -> processing;
-    - если есть документы без статуса и нет processing -> pending;
+    - если есть документы без статуса и нет pending/processing -> pending;
     - если есть completed и failed одновременно -> partial;
-    - если есть completed без failed и без missing statuses -> completed;
-    - если только failed -> failed;
-    - если встретились неизвестные статусы -> warning + partial.
+    - если все известные статусы completed -> completed;
+    - если все известные статусы failed -> failed;
+    - если есть partial среди документов -> partial;
+    - если встретились неизвестные статусы -> partial.
     """
     if not docs:
         return LANG_DISCOVERY_COMPLETED
 
-    statuses: list[str] = []
+    known_statuses: list[str] = []
     unknown_statuses: set[str] = set()
-    null_status_count = 0
+    missing_status_count = 0
 
     for doc in docs:
-        status = _normalize_status(getattr(doc, "language_detection_status", None))
+        status = _extract_document_status(doc)
+
         if status is None:
-            null_status_count += 1
+            missing_status_count += 1
             continue
+
         if status not in KNOWN_DISCOVERY_STATUSES:
             unknown_statuses.add(status)
             continue
-        statuses.append(status)
+
+        known_statuses.append(status)
 
     if unknown_statuses:
         logger.warning(
@@ -94,26 +134,62 @@ def _compute_discovery_status(docs: Sequence[Any]) -> str:
         )
         return LANG_DISCOVERY_PARTIAL
 
-    if not statuses:
+    if not known_statuses:
         return LANG_DISCOVERY_PENDING
 
-    if any(st in {LANG_DISCOVERY_PENDING, LANG_DISCOVERY_PROCESSING} for st in statuses):
+    if any(
+        status in {LANG_DISCOVERY_PENDING, LANG_DISCOVERY_PROCESSING}
+        for status in known_statuses
+    ):
         return LANG_DISCOVERY_PROCESSING
 
-    if null_status_count > 0:
+    if LANG_DISCOVERY_PARTIAL in known_statuses:
+        return LANG_DISCOVERY_PARTIAL
+
+    if missing_status_count > 0:
         return LANG_DISCOVERY_PENDING
 
-    completed = sum(1 for st in statuses if st == LANG_DISCOVERY_COMPLETED)
-    failed = sum(1 for st in statuses if st == LANG_DISCOVERY_FAILED)
+    status_counts = Counter(known_statuses)
+    completed_count = status_counts[LANG_DISCOVERY_COMPLETED]
+    failed_count = status_counts[LANG_DISCOVERY_FAILED]
 
-    if completed > 0 and failed > 0:
+    if completed_count > 0 and failed_count > 0:
         return LANG_DISCOVERY_PARTIAL
-    if completed > 0:
+
+    if completed_count > 0 and failed_count == 0:
         return LANG_DISCOVERY_COMPLETED
-    if failed > 0:
+
+    if failed_count > 0 and completed_count == 0:
         return LANG_DISCOVERY_FAILED
 
+    logger.warning(
+        "Unexpected language discovery status combination during deal recompute",
+        extra={
+            "status_counts": dict(status_counts),
+            "missing_status_count": missing_status_count,
+        },
+    )
     return LANG_DISCOVERY_PARTIAL
+
+
+def _build_documents_debug_snapshot(docs: Sequence[Any]) -> list[dict[str, object]]:
+    snapshot: list[dict[str, object]] = []
+
+    for doc in docs:
+        snapshot.append(
+            {
+                "document_id": str(getattr(doc, "id", "")),
+                "language_discovery_status": getattr(
+                    doc, "language_discovery_status", None
+                ),
+                "language_detection_status": getattr(
+                    doc, "language_detection_status", None
+                ),
+                "detected_languages": getattr(doc, "detected_languages", None) or [],
+            }
+        )
+
+    return snapshot
 
 
 async def recompute_deal_language_discovery_state(
@@ -122,7 +198,9 @@ async def recompute_deal_language_discovery_state(
     deal_id: uuid.UUID,
 ) -> dict[str, object]:
     """
-    Пересчитать языки сделки и итоговый discovery status по документам.
+    Пересчитать агрегированные языки и discovery status сделки по документам сделки.
+
+    Возвращает сериализуемый словарь с результатом пересчёта.
     """
     doc_repo = DocumentRepository(db)
     deal_repo = DealRepository(db)
@@ -134,12 +212,12 @@ async def recompute_deal_language_discovery_state(
     )
 
     languages = _collect_languages_union(docs)
-    status = _compute_discovery_status(docs)
+    discovery_status = _compute_discovery_status(docs)
 
     await deal_repo.set_languages_and_discovery_status(
         deal_id=deal_id,
         languages=languages,
-        discovery_status=status,
+        discovery_status=discovery_status,
     )
 
     logger.info(
@@ -147,17 +225,24 @@ async def recompute_deal_language_discovery_state(
         extra={
             "deal_id": str(deal_id),
             "languages": languages,
-            "language_discovery_status": status,
+            "language_discovery_status": discovery_status,
             "documents_total": len(docs),
+        },
+    )
+
+    logger.debug(
+        "Deal language discovery documents snapshot",
+        extra={
+            "deal_id": str(deal_id),
+            "documents": _build_documents_debug_snapshot(docs),
         },
     )
 
     return {
         "deal_id": str(deal_id),
         "languages": languages,
-        "language_discovery_status": status,
+        "language_discovery_status": discovery_status,
         "documents_total": len(docs),
     }
-
 
 

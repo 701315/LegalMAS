@@ -589,8 +589,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const discoveryStatus = normalizeDiscoveryStatus(
     effectiveDeal.language_discovery_status,
   );
+
+  const hasDetectedLanguages =
+    Array.isArray(effectiveDeal.languages) &&
+    effectiveDeal.languages.some((lang) => String(lang ?? "").trim().length > 0);
+
   const isLanguageDiscoveryBlocking =
-    discoveryStatus === "pending" || discoveryStatus === "processing";
+    !hasDetectedLanguages &&
+    (discoveryStatus === "pending" || discoveryStatus === "processing");
 
   const canLaunchRun =
     canStartRun &&
@@ -602,7 +608,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     !updateDeal.isPending &&
     !setPrimaryLanguage.isPending;
 
-  const handlePrimaryLanguageChange = (value: string) => {
+
+    const handlePrimaryLanguageChange = (value: string) => {
     const normalizedValue = value || null;
 
     setDealPatch((prev) => ({

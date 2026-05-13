@@ -11,7 +11,7 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { Deal, OpenViewerAtPayload } from "../types";
-
+import { useUIStore } from "../stores/uiStore";
 import OverviewTab from "./tabs/OverviewTab";
 import GridTab from "./tabs/GridTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -19,7 +19,7 @@ import { RequestsTab } from "./tabs/RequestsTab";
 import { ReportTab } from "./tabs/ReportTab";
 import { AuditTab } from "./tabs/AuditTab";
 import SettingsTab from "./tabs/SettingsTab";
-
+import { useEnsureProjectRole } from "../hooks/useEnsureProjectRole";
 import { useDealPermissions } from "../hooks/usePermissions";
 import Button from "../components/ui/Button";
 
@@ -85,6 +85,20 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
 
   const { canManageRequests, canUploadDocuments } =
     useDealPermissions(deal.id);
+
+  // Загружаем роль текущего пользователя в этом проекте,
+  // если она ещё не известна (например, после обновления страницы).
+  useEnsureProjectRole(deal.id);
+
+  const globalRole = useUIStore((s) => s.globalRole);
+  const projectRoles = useUIStore((s) => s.projectRoles);
+
+  console.log("roles debug", {
+    dealId: deal.id,
+    globalRole,
+    projectRole: projectRoles[deal.id],
+    projectRoles,
+  });
 
   const canManageProject = canUploadDocuments || canManageRequests;
 

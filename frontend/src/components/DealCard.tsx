@@ -128,7 +128,7 @@ const DealCard: React.FC<Props> = ({ deal, onClick, isActive = false }) => {
           Updated
         </span>
         <span className="text-xs text-[var(--text-secondary)]">
-          {timeAgo(deal.updated_at)}
+          {timeAgo(deal.updated_at ?? undefined)}
         </span>
       </div>
     </div>
