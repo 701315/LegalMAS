@@ -9,7 +9,7 @@ Document-level native language detection worker.
 - Определить языки через shared document language detection service;
 - Записать результат в:
     - Document.detected_languages
-    - Document.language_detection_status  # TODO: rename -> language_discovery_status (refactoring task)
+    - Document.language_discovery_status
 - Пересчитать aggregate language discovery state сделки через
   deal_language_discovery_service.
 
@@ -41,6 +41,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+from core.constants import LanguageDiscoveryStatus
 from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
 from db.repositories.deal_repo import DealRepository
@@ -50,8 +51,9 @@ from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from services.deal_language_discovery_service import (
-    recompute_deal_language_discovery_state,
+from services.language_discovery_helpers import (
+    mark_document_discovery_failed_and_recompute,
+    recompute_deal_discovery_or_log,
 )
 from services.document_language_detection import (
     detect_document_languages_from_pdf_bytes,
@@ -91,10 +93,14 @@ IMAGE_FILETYPES = {
 # Значение "pending" является единственным ожидаемым входным состоянием
 # для реальной обработки: orchestrator переводит документ из NULL/failed -> pending,
 # а этот worker переводит pending -> processing -> completed/failed.
-_IDEMPOTENT_TERMINAL_STATUSES = frozenset({"completed", "processing", "failed"})
+_IDEMPOTENT_TERMINAL_STATUSES = frozenset({
+    LanguageDiscoveryStatus.COMPLETED,
+    LanguageDiscoveryStatus.PROCESSING,
+    LanguageDiscoveryStatus.FAILED,
+})
 
 # Единственный статус, с которого этот worker легитимно начинает обработку.
-_EXPECTED_ENTRY_STATUS = "pending"
+_EXPECTED_ENTRY_STATUS = LanguageDiscoveryStatus.PENDING
 
 
 @celery_app.task(
@@ -117,7 +123,7 @@ def detect_document_languages_native(
     Контракт:
     - получает явные IDs документа, версии, сделки и арендатора;
     - выполняет detection только по одному документу;
-    - пишет completed / failed на уровне document language detection;
+    - пишет completed / failed на уровне document language discovery;
     - после завершения пересчитывает aggregate state сделки.
 
     Для непрофессионального программиста:
@@ -155,7 +161,7 @@ async def _detect_document_languages_native_async(
     - TransientError:
         пробрасывается вверх без записи failed, чтобы MASBaseTask выполнил retry;
     - PermanentError:
-        записываем document.language_detection_status='failed',
+        записываем document.language_discovery_status='failed',
         пересчитываем aggregate state сделки,
         затем пробрасываем ошибку вверх;
     - success:
@@ -169,11 +175,6 @@ async def _detect_document_languages_native_async(
       корректно выходит без повторной обработки;
     - если документ уже failed, worker считает это terminal state и не пытается
       снова выполнять detection в рамках этой же task delivery.
-
-    NOTE (naming): поле language_detection_status будет переименовано в
-    language_discovery_status в рамках запланированного рефакторинга.
-    До завершения миграции все обращения к статусу используют
-    language_detection_status через document_repo API.
     """
     doc_uuid = uuid.UUID(document_id)
     version_uuid = uuid.UUID(document_version_id)
@@ -223,17 +224,20 @@ async def _detect_document_languages_native_async(
         )
 
     # ── Idempotency guard ────────────────────────────────────────────────────
-    # Читаем текущий document-level discovery status.
-    # NOTE: поле называется language_detection_status — это legacy name,
-    # который будет переименован в language_discovery_status при рефакторинге.
+    # Читаем текущий document-level discovery status через канонический атрибут.
 
-    current_status = getattr(document, "language_detection_status", None)
-    current_languages = list(getattr(document, "detected_languages", None) or [])
+    current_status = document.language_discovery_status
+    current_languages = list(document.detected_languages or [])
 
-    if current_status == "completed":
-        recomputed = await recompute_deal_language_discovery_state(
+    if current_status == LanguageDiscoveryStatus.COMPLETED:
+        recomputed = await recompute_deal_discovery_or_log(
             db=db,
             deal_id=deal_uuid,
+            context="idempotent_already_completed",
+            extra_log={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+            },
         )
         result = {
             "document_id": document_id,
@@ -241,14 +245,16 @@ async def _detect_document_languages_native_async(
             "deal_id": deal_id,
             "tenant_id": tenant_id,
             "detected_languages": current_languages,
-            "status": "completed",
+            "status": LanguageDiscoveryStatus.COMPLETED.value,
             "handled": True,
             "executed": False,
             "idempotent_replay": True,
             "skipped_reason": "already_completed",
             "deal_languages": list(recomputed.get("languages", [])),
-            "deal_language_discovery_status": str(
-                recomputed.get("language_discovery_status", "pending")
+            "deal_language_discovery_status": (
+                recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
+                if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
+                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
             ),
         }
         logger.info(
@@ -257,10 +263,15 @@ async def _detect_document_languages_native_async(
         )
         return result
 
-    if current_status == "processing":
-        recomputed = await recompute_deal_language_discovery_state(
+    if current_status == LanguageDiscoveryStatus.PROCESSING:
+        recomputed = await recompute_deal_discovery_or_log(
             db=db,
             deal_id=deal_uuid,
+            context="idempotent_already_processing",
+            extra_log={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+            },
         )
         result = {
             "document_id": document_id,
@@ -268,14 +279,16 @@ async def _detect_document_languages_native_async(
             "deal_id": deal_id,
             "tenant_id": tenant_id,
             "detected_languages": current_languages,
-            "status": "processing",
+            "status": LanguageDiscoveryStatus.PROCESSING.value,
             "handled": True,
             "executed": False,
             "idempotent_replay": False,
             "skipped_reason": "already_processing",
             "deal_languages": list(recomputed.get("languages", [])),
-            "deal_language_discovery_status": str(
-                recomputed.get("language_discovery_status", "pending")
+            "deal_language_discovery_status": (
+                recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
+                if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
+                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
             ),
         }
         logger.info(
@@ -284,10 +297,15 @@ async def _detect_document_languages_native_async(
         )
         return result
 
-    if current_status == "failed":
-        recomputed = await recompute_deal_language_discovery_state(
+    if current_status == LanguageDiscoveryStatus.FAILED:
+        recomputed = await recompute_deal_discovery_or_log(
             db=db,
             deal_id=deal_uuid,
+            context="idempotent_already_failed",
+            extra_log={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+            },
         )
         result = {
             "document_id": document_id,
@@ -295,14 +313,16 @@ async def _detect_document_languages_native_async(
             "deal_id": deal_id,
             "tenant_id": tenant_id,
             "detected_languages": current_languages,
-            "status": "failed",
+            "status": LanguageDiscoveryStatus.FAILED.value,
             "handled": True,
             "executed": False,
             "idempotent_replay": True,
             "skipped_reason": "already_failed",
             "deal_languages": list(recomputed.get("languages", [])),
-            "deal_language_discovery_status": str(
-                recomputed.get("language_discovery_status", "pending")
+            "deal_language_discovery_status": (
+                recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
+                if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
+                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
             ),
         }
         logger.info(
@@ -312,7 +332,7 @@ async def _detect_document_languages_native_async(
         return result
 
     # ── Аномальный статус: не pending и не terminal ──────────────────────────
-    # Ожидаем "pending" как единственный легитимный входной статус.
+    # Ожидаем LanguageDiscoveryStatus.PENDING как единственный легитимный входной статус.
     # Если статус иной — это либо bug в orchestrator, либо race с другим pipeline.
     # Логируем предупреждение и пробрасываем transient, чтобы не маскировать проблему.
 
@@ -330,14 +350,14 @@ async def _detect_document_languages_native_async(
             },
         )
         raise TransientError(
-            f"Unexpected document language detection status '{current_status}' "
+            f"Unexpected document language discovery status '{current_status}' "
             f"for document {document_id}; expected 'pending'. "
             "Will retry to allow orchestrator/pipeline to settle."
         )
 
     # ── Атомарный claim: pending -> processing ───────────────────────────────
 
-    claimed_doc = await doc_repo.try_mark_language_detection_processing(
+    claimed_doc = await doc_repo.try_mark_language_discovery_processing(
         doc_uuid,
         expected_current_status=_EXPECTED_ENTRY_STATUS,
         preserve_detected_languages=current_languages,
@@ -348,19 +368,24 @@ async def _detect_document_languages_native_async(
         # Читаем актуальный статус для диагностики.
         refreshed_document = await doc_repo.get_by_id(doc_uuid)
         refreshed_status = (
-            getattr(refreshed_document, "language_detection_status", None)
+            refreshed_document.language_discovery_status
             if refreshed_document
             else None
         )
         refreshed_languages = (
-            list(getattr(refreshed_document, "detected_languages", None) or [])
+            list(refreshed_document.detected_languages or [])
             if refreshed_document
             else []
         )
 
-        recomputed = await recompute_deal_language_discovery_state(
+        recomputed = await recompute_deal_discovery_or_log(
             db=db,
             deal_id=deal_uuid,
+            context="claim_not_acquired",
+            extra_log={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+            },
         )
 
         result = {
@@ -369,14 +394,20 @@ async def _detect_document_languages_native_async(
             "deal_id": deal_id,
             "tenant_id": tenant_id,
             "detected_languages": refreshed_languages,
-            "status": str(refreshed_status or "unknown"),
+            "status": (
+                refreshed_status.value
+                if isinstance(refreshed_status, LanguageDiscoveryStatus)
+                else str(refreshed_status or "unknown")
+            ),
             "handled": True,
             "executed": False,
             "idempotent_replay": False,
             "skipped_reason": "claim_not_acquired",
             "deal_languages": list(recomputed.get("languages", [])),
-            "deal_language_discovery_status": str(
-                recomputed.get("language_discovery_status", "pending")
+            "deal_language_discovery_status": (
+                recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
+                if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
+                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
             ),
         }
 
@@ -432,15 +463,20 @@ async def _detect_document_languages_native_async(
 
         detected_languages = list(detection_result.detected_languages or [])
 
-        await doc_repo.update_language_detection(
+        await doc_repo.update_language_discovery(
             doc_uuid,
             detected_languages=detected_languages,
-            status="completed",
+            status=LanguageDiscoveryStatus.COMPLETED,
         )
 
-        recomputed = await recompute_deal_language_discovery_state(
+        recomputed = await recompute_deal_discovery_or_log(
             db=db,
             deal_id=deal_uuid,
+            context="success",
+            extra_log={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+            },
         )
 
         result = {
@@ -450,13 +486,15 @@ async def _detect_document_languages_native_async(
             "tenant_id": tenant_id,
             "source_ref": source_ref,
             "detected_languages": detected_languages,
-            "status": "completed",
+            "status": LanguageDiscoveryStatus.COMPLETED.value,
             "handled": True,
             "executed": True,
             "idempotent_replay": False,
             "deal_languages": list(recomputed.get("languages", [])),
-            "deal_language_discovery_status": str(
-                recomputed.get("language_discovery_status", "pending")
+            "deal_language_discovery_status": (
+                recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING).value
+                if isinstance(recomputed.get("language_discovery_status"), LanguageDiscoveryStatus)
+                else str(recomputed.get("language_discovery_status", LanguageDiscoveryStatus.PENDING.value))
             ),
         }
 
@@ -494,10 +532,17 @@ async def _detect_document_languages_native_async(
                 "tenant_id": tenant_id,
             },
         )
-        await _mark_document_detection_failed_and_recompute(
+        await mark_document_discovery_failed_and_recompute(
             db=db,
             document_id=doc_uuid,
             deal_id=deal_uuid,
+            reason="permanent_error",
+            extra_log={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+            },
         )
         raise
 
@@ -515,32 +560,6 @@ async def _detect_document_languages_native_async(
             },
         )
         raise
-
-
-async def _mark_document_detection_failed_and_recompute(
-    *,
-    db: AsyncSession,
-    document_id: uuid.UUID,
-    deal_id: uuid.UUID,
-) -> None:
-    """
-    Зафиксировать окончательный failed-state document language detection
-    и пересчитать aggregate состояние сделки.
-
-    Используется только для permanent failures.
-    """
-    doc_repo = DocumentRepository(db)
-
-    await doc_repo.update_language_detection(
-        document_id,
-        detected_languages=[],
-        status="failed",
-    )
-
-    await recompute_deal_language_discovery_state(
-        db=db,
-        deal_id=deal_id,
-    )
 
 
 def _resolve_source_pdf_ref(version: Any) -> str | None:

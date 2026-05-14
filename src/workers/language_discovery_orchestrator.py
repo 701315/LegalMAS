@@ -439,7 +439,6 @@ async def _start_language_discovery_async(
                 )
 
                 # ── ИЗМЕНЕНИЕ 1 из 2 ──────────────────────────────────────────
-                # Было: doc_repo.update_language_detection(...)
                 # Стало: doc_repo.update_language_discovery(...)
                 await doc_repo.update_language_discovery(
                     doc.id,
@@ -450,7 +449,6 @@ async def _start_language_discovery_async(
                 continue
 
             # ── ИЗМЕНЕНИЕ 2 из 2 ─────────────────────────────────────────────
-            # Было: doc_repo.try_mark_language_detection_pending(...)
             # Стало: doc_repo.try_mark_language_discovery_pending(...)
             claimed_doc = await doc_repo.try_mark_language_discovery_pending(
                 doc.id,

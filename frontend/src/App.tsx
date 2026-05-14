@@ -32,7 +32,7 @@ import SolutionsPage from "./pages/SolutionsPage";
 import DemoPage from "./pages/DemoPage";
 import AboutPage from "./pages/AboutPage";
 import CapabilitiesPage from "./pages/CapabilitiesPage";
-
+import { shouldPollDealLanguageDiscovery } from "./utils/languageDiscovery";
 import { useDeal } from "./api/deals";
 import { useAuth } from "./hooks/useAuth";
 import { ProjectRouteGuard } from "./components/auth/ProjectRouteGuard";
@@ -40,20 +40,6 @@ import ScrollToAnchor from "./components/routing/ScrollToAnchor";
 import AppShell from "./components/layout/AppShell";
 
 const DEAL_LANGUAGE_DISCOVERY_POLL_INTERVAL_MS = 4000;
-
-function normalizeDiscoveryStatus(
-  value: string | null | undefined,
-): string | null {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  return normalized || null;
-}
-
-function shouldPollDealLanguageDiscovery(
-  status: string | null | undefined,
-): boolean {
-  const normalizedStatus = normalizeDiscoveryStatus(status);
-  return normalizedStatus === "pending" || normalizedStatus === "processing";
-}
 
 function DealRouteWrapper() {
   const { dealId } = useParams<{ dealId: string }>();

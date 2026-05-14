@@ -16,49 +16,61 @@ Build Primary Language Source Worker.
 
 
 Позиция в пайплайне:
-- import/convert -> build_primary_language_source -> extract -> pii -> structure -> ...
+    import/convert
+    → build_primary_language_source  ← этот worker
+    → extract
+    → pii
+    → structure
+    → ...
 
 
 Контракт:
 - вызывается оркестратором или авто-пайплайном после import/convert_to_pdf;
 - по завершении (успех) документ должен перейти в статус PRIMARY_READY;
-- в DocumentVersion.primary_source_ref должна появиться S3‑ссылка на одноязычный PDF;
-- запуск последующих стадий (extract и далее) выполняется централизованным оркестратором.
-"""
+- в DocumentVersion.primary_source_ref должна появиться S3-ссылка на одноязычный PDF;
+- запуск последующих стадий (extract и далее) выполняется централизованным
+  оркестратором, но только после подтверждённого commit одноязычного source.
 
+Замечание по language discovery:
+- Этот worker НЕ является частью language discovery pipeline
+  (start_language_discovery → prepare → detect → recompute).
+- Он использует detect_document_languages_from_pdf_bytes как вспомогательный
+  инструмент для выбора target_language при построении primary_source_ref.
+- После detection фиксирует Document.language_discovery_status = COMPLETED
+  через doc_repo.update_language_discovery() и вызывает recompute_deal_language_discovery_state,
+  чтобы deal-статус был консистентен.
+"""
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.exceptions import PermanentError, TransientError
-from services.deal_language_service import update_deal_languages
 
-from core.config import settings
-from core.constants import DocumentStatus
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.constants import DocumentStatus, LanguageDiscoveryStatus
+from core.exceptions import PermanentError, TransientError
 from core.logging import get_logger
+from db.repositories import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
-from db.repositories import AuditRepository
-from services.document_language_pipeline import (
-    build_primary_language_layout,
-    MIN_TARGET_LANGUAGE_RATIO,
-    _normalize_lang,
-)
 from db.uow import db_uow
+from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
 from mas_queue.celery_app import celery_app
-from mas_queue.async_helpers import run_async
-from services.primary_pdf_builder import build_pdf_from_layout
-from storage.artifact_store import ArtifactPath, ArtifactStore
-from services.run_orchestrator_trigger import retrigger_run_pipeline
-from services.document_language_detection import detect_document_languages_from_pdf_bytes
 from services.deal_language_discovery_service import recompute_deal_language_discovery_state
-
-
+from services.deal_language_service import update_deal_languages
+from services.document_language_detection import detect_document_languages_from_pdf_bytes
+from services.document_language_pipeline import (
+    MIN_TARGET_LANGUAGE_RATIO,
+    _normalize_lang,
+    build_primary_language_layout,
+)
+from services.primary_pdf_builder import build_pdf_from_layout
+from services.run_orchestrator_trigger import retrigger_run_pipeline
+from storage.artifact_store import ArtifactPath, ArtifactStore
+from core.config import settings
 
 logger = get_logger(__name__)
-
 
 
 @celery_app.task(
@@ -79,7 +91,6 @@ def build_primary_language_source(
 ) -> dict:
     """
     Sync Celery entrypoint.
-
 
     Контракт:
     - вызывается оркестратором или auto-pipeline для документов после import
@@ -110,24 +121,28 @@ def build_primary_language_source(
     except PermanentError as e:
         logger.error(
             "Permanent error during primary language source build",
-            document_id=document_id,
-            document_version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
-            error=str(e),
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+                "error": str(e),
+            },
         )
         raise
 
     except TransientError as e:
         logger.warning(
             "Transient error during primary language source build; task should be retried",
-            document_id=document_id,
-            document_version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
-            error=str(e),
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+                "error": str(e),
+            },
         )
         raise
 
@@ -140,12 +155,14 @@ def build_primary_language_source(
     if requires_user_selection:
         logger.info(
             "Primary language source build paused: user language selection required",
-            document_id=document_id,
-            document_version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
-            detected_languages=result.get("detected_languages"),
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+                "detected_languages": result.get("detected_languages"),
+            },
         )
         return result
 
@@ -153,13 +170,15 @@ def build_primary_language_source(
     if run_id and committed:
         logger.info(
             "Primary language source build committed, retriggering run pipeline",
-            document_id=document_id,
-            document_version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
-            target_language=target_language,
-            primary_source_ref=primary_source_ref,
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+                "deal_id": deal_id,
+                "tenant_id": tenant_id,
+                "run_id": run_id,
+                "target_language": target_language,
+                "primary_source_ref": primary_source_ref,
+            },
         )
         retrigger_run_pipeline(
             run_id=run_id,
@@ -172,19 +191,20 @@ def build_primary_language_source(
     # Это не ошибка, но важно видеть такое поведение в логах.
     logger.info(
         "Primary language source build completed without pipeline retrigger",
-        document_id=document_id,
-        document_version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
-        committed=committed,
-        requires_user_selection=requires_user_selection,
-        target_language=target_language,
-        primary_source_ref=primary_source_ref,
+        extra={
+            "document_id": document_id,
+            "document_version_id": document_version_id,
+            "deal_id": deal_id,
+            "tenant_id": tenant_id,
+            "run_id": run_id,
+            "committed": committed,
+            "requires_user_selection": requires_user_selection,
+            "target_language": target_language,
+            "primary_source_ref": primary_source_ref,
+        },
     )
 
     return result
-
 
 
 async def _build_primary_language_source_async(
@@ -196,13 +216,28 @@ async def _build_primary_language_source_async(
     run_id: str | None = None,
     target_language: str | None = None,
 ) -> dict:
+    """
+    Async-ядро build_primary_language_source.
+
+    Language discovery side-effect:
+    - После успешного detect_document_languages_from_pdf_bytes фиксирует
+      Document.language_discovery_status = COMPLETED через update_language_discovery().
+    - Затем вызывает recompute_deal_language_discovery_state() для обновления
+      агрегированного deal-статуса.
+    - Это обеспечивает консистентность deal-статуса независимо от того,
+      запущен ли language discovery pipeline параллельно.
+    """
+    log_extra_base = {
+        "document_id": document_id,
+        "document_version_id": document_version_id,
+        "deal_id": deal_id,
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+    }
+
     logger.info(
         "Starting build_primary_language_source",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        run_id=run_id,
+        extra=log_extra_base,
     )
 
     ver_repo = DocumentVersionRepository(db)
@@ -213,8 +248,10 @@ async def _build_primary_language_source_async(
     doc_uuid = uuid.UUID(document_id)
     deal_uuid = uuid.UUID(deal_id)
 
+    # ── 1. Загрузка версии ────────────────────────────────────────────────────
+
     version = await ver_repo.get_by_id(version_uuid)
-    if not version:
+    if version is None:
         raise PermanentError(f"DocumentVersion {document_version_id} not found")
 
     existing_primary_ref = getattr(version, "primary_source_ref", None)
@@ -224,22 +261,25 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: resolved version refs",
-        document_id=document_id,
-        version_id=document_version_id,
-        existing_primary_source_ref=existing_primary_ref,
-        converted_pdf_ref=converted_pdf_ref,
-        original_ref=original_ref,
-        origin_filetype=origin_filetype,
+        extra={
+            **log_extra_base,
+            "existing_primary_source_ref": existing_primary_ref,
+            "converted_pdf_ref": converted_pdf_ref,
+            "original_ref": original_ref,
+            "origin_filetype": origin_filetype,
+        },
     )
 
-    # Выбор source_ref зависит от исходного типа:
-    # - PDF: можно работать по original_ref;
-    # - DOC/DOCX: строго требуем converted_pdf_ref;
-    # - прочие: пробуем converted_pdf_ref, потом original_ref.
+    # ── 2. Выбор source_ref ───────────────────────────────────────────────────
+    #
+    # PDF: работаем по original_ref.
+    # DOC/DOCX: строго требуем converted_pdf_ref.
+    # Прочие: converted_pdf_ref, потом original_ref как fallback.
+
     source_ref: str | None = None
     source_kind: str | None = None
 
-    if origin_filetype and origin_filetype.lower() in {"pdf"}:
+    if origin_filetype and origin_filetype.lower() == "pdf":
         source_ref = original_ref
         source_kind = "original_ref_pdf"
 
@@ -265,54 +305,61 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: source selected",
-        document_id=document_id,
-        version_id=document_version_id,
-        source_ref=source_ref,
-        source_kind=source_kind,
+        extra={
+            **log_extra_base,
+            "source_ref": source_ref,
+            "source_kind": source_kind,
+        },
     )
 
-    # Если primary_source_ref уже существует И мы считаем его валидным,
-    # можно было бы его переиспользовать. В варианте А мы хотим гарантированно
-    # получить одноязычный PDF через новый pipeline, поэтому сейчас не
-    # делаем early-return, а всегда перестраиваем primary_source.
+    # Если primary_source_ref уже существует — всё равно перестраиваем,
+    # чтобы гарантировать одноязычный PDF через новый pipeline.
     if existing_primary_ref:
         logger.info(
             "Primary source build: existing primary_source_ref present, "
             "rebuilding to enforce single-language PDF",
-            document_id=document_id,
-            version_id=document_version_id,
-            existing_primary_source_ref=existing_primary_ref,
+            extra={
+                **log_extra_base,
+                "existing_primary_source_ref": existing_primary_ref,
+            },
         )
 
-    # 1. Считываем исходный PDF из MinIO.
+    # ── 3. Читаем исходный PDF из MinIO ──────────────────────────────────────
+
     try:
         source_path = _s3_ref_to_store_path(source_ref, store.bucket)
         logger.info(
             "Primary source build: reading source PDF from store",
-            document_id=document_id,
-            version_id=document_version_id,
-            source_ref=source_ref,
-            source_path=source_path,
+            extra={
+                **log_extra_base,
+                "source_ref": source_ref,
+                "source_path": source_path,
+            },
         )
         pdf_bytes = store.get_file(source_path)
         logger.info(
             "Primary source build: source PDF loaded",
-            document_id=document_id,
-            version_id=document_version_id,
-            source_ref=source_ref,
-            size=len(pdf_bytes),
+            extra={
+                **log_extra_base,
+                "source_ref": source_ref,
+                "size": len(pdf_bytes),
+            },
         )
+    except PermanentError:
+        raise
     except Exception as e:
         logger.exception(
             "Failed to read source PDF for primary source build",
-            document_id=document_id,
-            version_id=document_version_id,
-            source_ref=source_ref,
-            error=str(e),
+            extra={
+                **log_extra_base,
+                "source_ref": source_ref,
+                "error": str(e),
+            },
         )
         raise PermanentError(f"Failed to read source PDF: {e}")
 
-    # 2. Строим quick layout и определяем языки через общий shared-service.
+    # ── 4. Определяем языки документа ────────────────────────────────────────
+
     detection_result = detect_document_languages_from_pdf_bytes(
         pdf_bytes=pdf_bytes,
         document_id=document_id,
@@ -323,18 +370,24 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: detected languages from quick layout",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        detected_languages=detected_languages,
+        extra={
+            **log_extra_base,
+            "detected_languages": detected_languages,
+        },
     )
 
-    await doc_repo.update_language_detection(
+    # Фиксируем результат language discovery для этого документа.
+    # Используем update_language_discovery() — canonical метод после рефакторинга
+    # Используем update_language_discovery() — canonical метод после рефакторинга.
+    # Статус COMPLETED означает: языки определены, pipeline discovery для этого
+    # документа завершён.
+    await doc_repo.update_language_discovery(
         doc_uuid,
         detected_languages=detected_languages,
-        status="completed",
+        status=LanguageDiscoveryStatus.COMPLETED,
     )
 
+    # Обновляем языки сделки и пересчитываем агрегированный discovery-статус.
     if detected_languages:
         await update_deal_languages(
             db=db,
@@ -343,10 +396,10 @@ async def _build_primary_language_source_async(
         )
         logger.info(
             "Primary source build: detected languages updated in deal",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            detected_languages=detected_languages,
+            extra={
+                **log_extra_base,
+                "detected_languages": detected_languages,
+            },
         )
 
     await recompute_deal_language_discovery_state(
@@ -358,55 +411,47 @@ async def _build_primary_language_source_async(
     deal_after_lang_update = await deal_repo.get_by_id(deal_uuid)
     logger.info(
         "Primary source build: deal languages after update",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        persisted_deal_languages=getattr(deal_after_lang_update, "languages", None),
+        extra={
+            **log_extra_base,
+            "persisted_deal_languages": getattr(deal_after_lang_update, "languages", None),
+        },
     )
 
     quick_meta = (quick_layout.get("metadata") or {}).get("quick_layout") or {}
     if quick_meta.get("degraded"):
         logger.warning(
             "Primary source build: quick layout marked as degraded",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            degraded_reason=quick_meta.get("degraded_reason"),
-            total_chars=quick_meta.get("total_extracted_chars"),
-            valid_bbox_ratio=quick_meta.get("valid_bbox_ratio"),
-            usable_element_ratio=quick_meta.get("usable_element_ratio"),
+            extra={
+                **log_extra_base,
+                "degraded_reason": quick_meta.get("degraded_reason"),
+                "total_chars": quick_meta.get("total_extracted_chars"),
+                "valid_bbox_ratio": quick_meta.get("valid_bbox_ratio"),
+                "usable_element_ratio": quick_meta.get("usable_element_ratio"),
+            },
         )
 
-    # 3. Резолвим целевой язык:
-    #     1) target_language из kwargs;
-    #     2) Deal.primary_language из БД.
+    # ── 5. Резолвим целевой язык ──────────────────────────────────────────────
     #
-    # Нормальный production-сценарий:
-    # - primary language сделки уже выбран ДО запуска этого worker;
-    # - worker получает target_language явно или резолвит его из Deal.primary_language.
+    # Приоритет:
+    #   1) target_language из kwargs (явный вызов от оркестратора);
+    #   2) Deal.primary_language из БД (штатный production-путь).
     #
-    # Если язык не найден даже здесь — это уже не штатный путь,
-    # а fallback / recovery для неконсистентного состояния,
-    # legacy-запуска или ручного перезапуска старого документа.
+    # Если язык не найден — fallback: переводим документ в LANGUAGE_SELECTION_REQUIRED
+    # и ждём ручного выбора пользователем.
+
     resolved_target_language = _normalize_lang(target_language)
 
     if not resolved_target_language:
-        deal_repo = DealRepository(db)
         deal = await deal_repo.get_by_id(deal_uuid)
         resolved_target_language = _normalize_lang(
-            getattr(deal, "primary_language", None) if deal else None
+            getattr(deal, "primary_language", None) if deal is not None else None
         )
 
     if not resolved_target_language:
         logger.warning(
             "Primary source build entered fallback mode: target language is missing; "
             "document will be paused until primary language is selected",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            run_id=run_id,
+            extra=log_extra_base,
         )
         updated_doc = await doc_repo.update_status(
             doc_uuid,
@@ -437,9 +482,12 @@ async def _build_primary_language_source_async(
             )
         except Exception:
             logger.warning(
-                "Primary source build: failed to write audit log for PRIMARY_LANGUAGE_SELECTION_REQUIRED",
-                document_id=document_id,
-                document_version_id=document_version_id,
+                "Primary source build: failed to write audit log for "
+                "PRIMARY_LANGUAGE_SELECTION_REQUIRED",
+                extra={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                },
             )
 
         return {
@@ -455,33 +503,33 @@ async def _build_primary_language_source_async(
             "committed": False,
         }
 
-    # 4. Строим одноязычный layout и проверяем соответствие документа целевому языку.
+    # ── 6. Строим одноязычный layout ──────────────────────────────────────────
+
     primary_layout_result = await build_primary_language_layout(
         db=db,
         deal_id=deal_uuid,
         tenant_id=tenant_id,
         document_id=document_id,
         layout=quick_layout,
-        target_language=resolved_target_language,   # ← язык теперь обязателен
+        target_language=resolved_target_language,
     )
 
     primary_layout = primary_layout_result.primary_layout
     decision = primary_layout_result.decision
     target_language = decision.target_language
 
-    # ── Карантин: целевой язык отсутствует или слишком мал по доле ──────────────
-    # Worker обязан остановить обработку и перевести документ в QUARANTINE.
+    # ── 7. Карантин: целевой язык отсутствует или слишком мал по доле ────────
+
     if primary_layout_result.should_quarantine:
         logger.warning(
             "Primary source build: document quarantined due to language mismatch",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            target_language=target_language,
-            detected_languages=decision.detected_languages,
-            target_language_ratio=round(decision.target_language_ratio, 3),
-            quarantine_reason=decision.quarantine_reason,
+            extra={
+                **log_extra_base,
+                "target_language": target_language,
+                "detected_languages": decision.detected_languages,
+                "target_language_ratio": round(decision.target_language_ratio, 3),
+                "quarantine_reason": decision.quarantine_reason,
+            },
         )
         updated_doc = await doc_repo.update_status(
             doc_uuid,
@@ -527,8 +575,10 @@ async def _build_primary_language_source_async(
         except Exception:
             logger.warning(
                 "Primary source build: failed to write audit log for PRIMARY_SOURCE_QUARANTINED",
-                document_id=document_id,
-                document_version_id=document_version_id,
+                extra={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                },
             )
 
         return {
@@ -550,32 +600,31 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build: primary layout constructed",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        target_language=target_language,
-        detected_languages=decision.detected_languages,
-        is_bilingual=decision.is_bilingual,
-        requires_user_selection=decision.requires_user_selection,
-        language_filter_degraded=language_filter_meta.get("degraded"),
-        language_filter_degraded_reason=language_filter_meta.get("degraded_reason"),
-        element_retention_ratio=language_filter_meta.get("element_retention_ratio"),
+        extra={
+            **log_extra_base,
+            "target_language": target_language,
+            "detected_languages": decision.detected_languages,
+            "is_bilingual": decision.is_bilingual,
+            "requires_user_selection": decision.requires_user_selection,
+            "language_filter_degraded": language_filter_meta.get("degraded"),
+            "language_filter_degraded_reason": language_filter_meta.get("degraded_reason"),
+            "element_retention_ratio": language_filter_meta.get("element_retention_ratio"),
+        },
     )
 
-    # ── монолингвальный документ ─────────────────────────
+    # ── 8. Монолингвальный документ: переиспользуем исходный PDF ─────────────
+
     if not decision.is_bilingual:
         logger.info(
-            "Primary source build: monolingual document, reusing original PDF as primary_source_ref",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            target_language=target_language,
-            detected_languages=decision.detected_languages,
+            "Primary source build: monolingual document, "
+            "reusing original PDF as primary_source_ref",
+            extra={
+                **log_extra_base,
+                "target_language": target_language,
+                "detected_languages": decision.detected_languages,
+            },
         )
 
-        # 5. Сохраняем исходный PDF как primary_source_ref
         primary_path = ArtifactPath.primary_source(
             tenant_id=tenant_id,
             deal_id=deal_id,
@@ -584,16 +633,17 @@ async def _build_primary_language_source_async(
         try:
             primary_source_ref = store.put_file(
                 primary_path,
-                pdf_bytes,  # ← исходные байты, НЕ primary_pdf_bytes
+                pdf_bytes,
                 content_type="application/pdf",
             )
         except Exception as e:
             logger.exception(
                 "Failed to store primary source PDF (monolingual reuse)",
-                document_id=document_id,
-                version_id=document_version_id,
-                path=primary_path,
-                error=str(e),
+                extra={
+                    **log_extra_base,
+                    "path": primary_path,
+                    "error": str(e),
+                },
             )
             raise PermanentError(f"Failed to store primary source PDF: {e}")
 
@@ -618,11 +668,10 @@ async def _build_primary_language_source_async(
 
         await db.flush()
         refreshed_version = await ver_repo.get_by_id(version_uuid)
-        if not refreshed_version or not getattr(refreshed_version, "primary_source_ref", None):
+        if refreshed_version is None or not getattr(refreshed_version, "primary_source_ref", None):
             raise TransientError(
                 f"primary_source_ref is not visible after flush for version {document_version_id}"
             )
-
         if refreshed_version.primary_source_ref != primary_source_ref:
             raise TransientError(
                 f"primary_source_ref mismatch after flush for version {document_version_id}"
@@ -632,15 +681,13 @@ async def _build_primary_language_source_async(
 
         logger.info(
             "Primary source build committed successfully (monolingual reuse)",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            primary_source_ref=primary_source_ref,
-            status=DocumentStatus.PRIMARY_READY.value,
+            extra={
+                **log_extra_base,
+                "primary_source_ref": primary_source_ref,
+                "status": DocumentStatus.PRIMARY_READY.value,
+            },
         )
 
-        # Аудит: primary source готов (монолингвальный reuse)
         audit_repo = AuditRepository(db)
         try:
             await audit_repo.log(
@@ -662,9 +709,12 @@ async def _build_primary_language_source_async(
             )
         except Exception:
             logger.warning(
-                "Primary source build: failed to write audit log for PRIMARY_SOURCE_READY (monolingual)",
-                document_id=document_id,
-                document_version_id=document_version_id,
+                "Primary source build: failed to write audit log for "
+                "PRIMARY_SOURCE_READY (monolingual)",
+                extra={
+                    "document_id": document_id,
+                    "document_version_id": document_version_id,
+                },
             )
 
         return {
@@ -680,18 +730,18 @@ async def _build_primary_language_source_async(
             "committed": True,
         }
 
-    # 4. Собираем одноязычный PDF из primary_layout.
+    # ── 9. Билингвальный документ: строим одноязычный PDF ────────────────────
+
     try:
         primary_pdf_bytes = build_pdf_from_layout(primary_layout)
     except Exception as e:
         logger.exception(
             "Failed to build primary PDF from layout",
-            document_id=document_id,
-            version_id=document_version_id,
-            deal_id=deal_id,
-            tenant_id=tenant_id,
-            target_language=target_language,
-            error=str(e),
+            extra={
+                **log_extra_base,
+                "target_language": target_language,
+                "error": str(e),
+            },
         )
         raise PermanentError(f"Failed to build primary PDF from layout: {e}")
 
@@ -703,7 +753,8 @@ async def _build_primary_language_source_async(
             "Possible cause: language filter removed all elements."
         )
 
-    # 5. Сохраняем одноязычный PDF как primary_source_ref.
+    # ── 10. Сохраняем одноязычный PDF как primary_source_ref ─────────────────
+
     primary_path = ArtifactPath.primary_source(
         tenant_id=tenant_id,
         deal_id=deal_id,
@@ -718,24 +769,27 @@ async def _build_primary_language_source_async(
         )
         logger.info(
             "Primary source build: primary single-language PDF stored",
-            document_id=document_id,
-            version_id=document_version_id,
-            primary_path=primary_path,
-            primary_source_ref=primary_source_ref,
-            size=len(primary_pdf_bytes),
-            target_language=target_language,
+            extra={
+                **log_extra_base,
+                "primary_path": primary_path,
+                "primary_source_ref": primary_source_ref,
+                "size": len(primary_pdf_bytes),
+                "target_language": target_language,
+            },
         )
     except Exception as e:
         logger.exception(
             "Failed to store primary source PDF",
-            document_id=document_id,
-            version_id=document_version_id,
-            path=primary_path,
-            error=str(e),
+            extra={
+                **log_extra_base,
+                "path": primary_path,
+                "error": str(e),
+            },
         )
         raise PermanentError(f"Failed to store primary source PDF: {e}")
 
-    # 6. Обновляем DocumentVersion.primary_source_ref.
+    # ── 11. Обновляем DocumentVersion.primary_source_ref ─────────────────────
+
     updated_version = await ver_repo.update_refs(
         version_id=version_uuid,
         primary_source_ref=primary_source_ref,
@@ -745,7 +799,8 @@ async def _build_primary_language_source_async(
             f"Failed to update primary_source_ref for version {document_version_id}"
         )
 
-    # 7. Переводим документ в статус PRIMARY_READY.
+    # ── 12. Переводим документ в статус PRIMARY_READY ─────────────────────────
+
     updated_doc = await doc_repo.update_status(
         doc_uuid,
         DocumentStatus.PRIMARY_READY.value,
@@ -756,17 +811,18 @@ async def _build_primary_language_source_async(
             f"Document {document_id} not found during PRIMARY_READY status update"
         )
 
-    # 8. Жёстко синхронизируем состояние перед возвратом:
-    #    убеждаемся, что primary_source_ref действительно виден из БД.
+    # ── 13. Flush + consistency check перед commit ────────────────────────────
+    #
+    # Убеждаемся, что primary_source_ref виден из БД до возврата управления.
+    # TransientError здесь — сигнал для Celery retry, не PermanentError.
+
     await db.flush()
 
     refreshed_version = await ver_repo.get_by_id(version_uuid)
-    if not refreshed_version or not getattr(refreshed_version, "primary_source_ref", None):
-        # Это именно временная несогласованность, а не бизнес‑ошибка.
+    if refreshed_version is None or not getattr(refreshed_version, "primary_source_ref", None):
         raise TransientError(
             f"primary_source_ref is not visible after flush for version {document_version_id}"
         )
-
     if refreshed_version.primary_source_ref != primary_source_ref:
         raise TransientError(
             f"primary_source_ref mismatch after flush for version {document_version_id}"
@@ -776,15 +832,15 @@ async def _build_primary_language_source_async(
 
     logger.info(
         "Primary source build committed successfully",
-        document_id=document_id,
-        version_id=document_version_id,
-        deal_id=deal_id,
-        tenant_id=tenant_id,
-        primary_source_ref=primary_source_ref,
-        status=DocumentStatus.PRIMARY_READY.value,
+        extra={
+            **log_extra_base,
+            "primary_source_ref": primary_source_ref,
+            "status": DocumentStatus.PRIMARY_READY.value,
+        },
     )
 
-    # Аудит: primary source готов (одноязычный PDF)
+    # ── 14. Аудит ─────────────────────────────────────────────────────────────
+
     audit_repo = AuditRepository(db)
     try:
         await audit_repo.log(
@@ -807,15 +863,11 @@ async def _build_primary_language_source_async(
     except Exception:
         logger.warning(
             "Primary source build: failed to write audit log for PRIMARY_SOURCE_READY",
-            document_id=document_id,
-            document_version_id=document_version_id,
+            extra={
+                "document_id": document_id,
+                "document_version_id": document_version_id,
+            },
         )
-
-        # Важно:
-        # это fallback-поведение сохранено намеренно для безопасного recovery.
-        # В штатной новой архитектуре сюда попадать не должны:
-        # Run и continuation pipeline теперь обязаны работать только
-        # после выбора Deal.primary_language.
 
     return {
         "document_id": document_id,
@@ -831,23 +883,23 @@ async def _build_primary_language_source_async(
     }
 
 
-
 def _s3_ref_to_store_path(s3_ref: str, bucket: str) -> str:
     """
     Преобразовать s3://bucket/path в path для ArtifactStore.get_file().
-    Если ссылка не начинается с s3://<bucket>/, возвращаем ошибку явно,
+
+    Если ссылка не начинается с s3://<bucket>/, поднимаем PermanentError явно,
     чтобы не читать случайный путь молча.
     """
     prefix = f"s3://{bucket}/"
     if not s3_ref or not s3_ref.startswith(prefix):
         raise PermanentError(
-            f"Invalid S3 ref for bucket '{bucket}': {s3_ref}"
+            f"Invalid S3 ref for bucket '{bucket}': {s3_ref!r}"
         )
     return s3_ref.replace(prefix, "", 1)
 
 
 def _utcnow_iso() -> str:
-    """Текущее время UTC в ISO 8601 для error_details."""
+    """Текущее время UTC в ISO 8601 для audit/error_details."""
     return datetime.now(tz=timezone.utc).isoformat()
 
 

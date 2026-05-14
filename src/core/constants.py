@@ -2,10 +2,10 @@
 
 """
 All enumerations and constants used across the system.
-Every Enum inherits from (str, Enum) for JSON/DB serialization.
+String-based enums use Enum/StrEnum and are compatible with JSON/DB serialization.
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 
 class DocumentStatus(str, Enum):
@@ -161,7 +161,7 @@ class DealStatus(str, Enum):
     COMPLETED = "completed"
 
 
-class LanguageDiscoveryStatus(str, Enum):
+class LanguageDiscoveryStatus(StrEnum):
     """
     Status of the pre-run language discovery lifecycle.
 
@@ -180,11 +180,11 @@ class LanguageDiscoveryStatus(str, Enum):
                    (только на уровне сделки)
     """
 
-    PENDING    = "pending"
+    PENDING = "pending"
     PROCESSING = "processing"
-    COMPLETED  = "completed"
-    FAILED     = "failed"
-    PARTIAL    = "partial"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    PARTIAL = "partial"
 
 
 class QCStatus(str, Enum):

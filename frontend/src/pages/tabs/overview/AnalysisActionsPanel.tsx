@@ -12,6 +12,11 @@ import React from "react";
 import type { Deal } from "../../../types";
 import Button from "../../../components/ui/Button";
 import { StatusRow } from "./shared";
+import {
+  formatLangLabel,
+  normalizeDiscoveryStatus,
+  normalizeLang,
+} from "../../../utils/languageDiscovery";
 
 interface AnalysisActionsPanelProps {
   deal: Deal;
@@ -19,22 +24,6 @@ interface AnalysisActionsPanelProps {
   canStartRun: boolean;
   onOpenRunPanel: () => void;
   showReclassBanner: boolean;
-}
-
-function normalizeLang(value: string | null | undefined): string {
-  return String(value ?? "").trim().toUpperCase();
-}
-
-function normalizeDiscoveryStatus(value: string | null | undefined): string | null {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  return normalized || null;
-}
-
-function formatLangLabel(value: string): string {
-  const lang = normalizeLang(value);
-  if (lang === "RU") return "Русский (RU)";
-  if (lang === "EN") return "English (EN)";
-  return lang;
 }
 
 const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
@@ -179,7 +168,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
               size="sm"
               onClick={onOpenRunPanel}
             >
-              Запустить анализ документов
+              Выбрать обязательные настройки для анализа документов
             </Button>
           </div>
         </div>

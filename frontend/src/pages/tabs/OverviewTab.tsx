@@ -19,6 +19,12 @@ import { useAuditLog } from "../../api/audit";
 import Button from "../../components/ui/Button";
 import AnalysisActionsPanel from "./overview/AnalysisActionsPanel";
 import LaunchWideOverlay from "./overview/LaunchWideOverlay";
+import {
+  normalizeDiscoveryStatus,
+  normalizeLang,
+} from "../../utils/languageDiscovery";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ChecksMode =
   | "global_only"
@@ -29,6 +35,8 @@ interface OverviewTabProps {
   deal: Deal;
   latestRunId?: string | null;
 }
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -54,12 +62,7 @@ function formatDateShort(iso: string | null | undefined): string {
   });
 }
 
-function normalizeDiscoveryStatus(
-  value: string | null | undefined,
-): string | null {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  return normalized || null;
-}
+// ─── Audit helpers ────────────────────────────────────────────────────────────
 
 function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   const imports = entries.filter((e) => e.action === "IMPORT");
@@ -93,6 +96,26 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   };
 }
 
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+
+function runStatusTextClass(
+  tone: "ok" | "warn" | "error" | "neutral",
+): string {
+  if (tone === "ok") return "text-[var(--color-success)]";
+  if (tone === "warn") return "text-[var(--color-warning)]";
+  if (tone === "error") return "text-[var(--color-error)]";
+  return "text-[var(--text-secondary)]";
+}
+
+function progressBarClass(status: RunStatus | undefined): string {
+  if (status === "failed") return "bg-[var(--color-error)]";
+  if (status === "completed") return "bg-[var(--color-success)]";
+  if (status === "completed_with_errors") return "bg-[var(--color-warning)]";
+  return "bg-[var(--accent-primary)]";
+}
+
+// ─── Reusable UI components ───────────────────────────────────────────────────
+
 const CardShell: React.FC<{
   title: string;
   eyebrow?: string;
@@ -108,9 +131,7 @@ const CardShell: React.FC<{
               <h2 className="text-base font-semibold text-[var(--text-primary)]">
                 {eyebrow}
               </h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">
-                {title}
-              </p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">{title}</p>
             </>
           ) : (
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
@@ -128,6 +149,32 @@ const CardShell: React.FC<{
   </section>
 );
 
+const TimelineEvent: React.FC<{
+  icon: string;
+  label: string;
+  date?: string;
+  children?: React.ReactNode;
+}> = ({ icon, label, date, children }) => (
+  <li className="relative flex gap-3">
+    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-sm">
+      {icon}
+    </span>
+    <div className="min-w-0 pt-0.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-sm font-medium text-[var(--text-primary)]">
+          {label}
+        </span>
+        {date && (
+          <span className="text-[11px] text-[var(--text-muted)]">{date}</span>
+        )}
+      </div>
+      {children}
+    </div>
+  </li>
+);
+
+// ─── DealInfoCard ─────────────────────────────────────────────────────────────
+
 const DealInfoCard: React.FC<{
   deal: Deal;
   projectSummary: string;
@@ -135,14 +182,7 @@ const DealInfoCard: React.FC<{
   isDirty: boolean;
   onChangeSummary: (value: string) => void;
   onSaveSummary: () => void;
-}> = ({
-  deal,
-  projectSummary,
-  isSaving,
-  isDirty,
-  onChangeSummary,
-  onSaveSummary,
-}) => (
+}> = ({ deal, projectSummary, isSaving, isDirty, onChangeSummary, onSaveSummary }) => (
   <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
     <div className="px-5">
       <div className="py-4">
@@ -187,36 +227,7 @@ const DealInfoCard: React.FC<{
   </section>
 );
 
-const TimelineEvent: React.FC<{
-  icon: string;
-  label: string;
-  date?: string;
-  children?: React.ReactNode;
-}> = ({ icon, label, date, children }) => (
-  <li className="relative flex gap-3">
-    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-sm">
-      {icon}
-    </span>
-    <div className="min-w-0 pt-0.5">
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-sm font-medium text-[var(--text-primary)]">
-          {label}
-        </span>
-        {date && (
-          <span className="text-[11px] text-[var(--text-muted)]">{date}</span>
-        )}
-      </div>
-      {children}
-    </div>
-  </li>
-);
-
-function runStatusTextClass(tone: "ok" | "warn" | "error" | "neutral"): string {
-  if (tone === "ok") return "text-[var(--color-success)]";
-  if (tone === "warn") return "text-[var(--color-warning)]";
-  if (tone === "error") return "text-[var(--color-error)]";
-  return "text-[var(--text-secondary)]";
-}
+// ─── ProjectTimelineCard ──────────────────────────────────────────────────────
 
 const ProjectTimelineCard: React.FC<{
   deal: Deal;
@@ -242,21 +253,11 @@ const ProjectTimelineCard: React.FC<{
   const lastRunStatusLabel = (() => {
     const s = latestRun?.status;
     if (!s) return null;
-    if (s === "completed") {
-      return { text: "Завершён успешно", tone: "ok" as const };
-    }
-    if (s === "completed_with_errors") {
-      return { text: "Завершён с ошибками", tone: "warn" as const };
-    }
-    if (s === "failed") {
-      return { text: "Завершился с ошибкой", tone: "error" as const };
-    }
-    if (s === "running") {
-      return { text: "Выполняется", tone: "neutral" as const };
-    }
-    if (s === "pending") {
-      return { text: "В очереди", tone: "neutral" as const };
-    }
+    if (s === "completed") return { text: "Завершён успешно", tone: "ok" as const };
+    if (s === "completed_with_errors") return { text: "Завершён с ошибками", tone: "warn" as const };
+    if (s === "failed") return { text: "Завершился с ошибкой", tone: "error" as const };
+    if (s === "running") return { text: "Выполняется", tone: "neutral" as const };
+    if (s === "pending") return { text: "В очереди", tone: "neutral" as const };
     return { text: s, tone: "neutral" as const };
   })();
 
@@ -390,12 +391,7 @@ const ProjectTimelineCard: React.FC<{
   );
 };
 
-function progressBarClass(status: RunStatus | undefined): string {
-  if (status === "failed") return "bg-[var(--color-error)]";
-  if (status === "completed") return "bg-[var(--color-success)]";
-  if (status === "completed_with_errors") return "bg-[var(--color-warning)]";
-  return "bg-[var(--accent-primary)]";
-}
+// ─── RunProgressCard ──────────────────────────────────────────────────────────
 
 const RunProgressCard: React.FC<{
   latestRunId?: string | null;
@@ -440,7 +436,7 @@ const RunProgressCard: React.FC<{
         ) : (
           <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
             {effectiveStatus
-              ? RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus
+              ? (RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus)
               : "—"}
           </span>
         )
@@ -491,10 +487,9 @@ const RunProgressCard: React.FC<{
   );
 };
 
-const OverviewTab: React.FC<OverviewTabProps> = ({
-  deal,
-  latestRunId,
-}) => {
+// ─── OverviewTab ──────────────────────────────────────────────────────────────
+
+const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const qc = useQueryClient();
 
   const { data: latestRun } = useRun(latestRunId ?? null, false);
@@ -514,12 +509,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const [projectSummary, setProjectSummary] = React.useState(
     deal.summary ?? "",
   );
-
   const [dealPatch, setDealPatch] = React.useState<Partial<Deal>>({});
 
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const [overlayWidth, setOverlayWidth] = React.useState<number | null>(null);
+
+  // ── Overlay width measurement ──────────────────────────────────────────────
 
   React.useLayoutEffect(() => {
     const overviewEl = overviewRef.current;
@@ -532,12 +528,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       const styles = window.getComputedStyle(overviewEl);
       const gap =
         parseFloat(styles.columnGap || styles.gap || "0") || 0;
-
-      const width = Math.max(
-        0,
-        overviewRect.width - railRect.width - gap,
-      );
-
+      const width = Math.max(0, overviewRect.width - railRect.width - gap);
       setOverlayWidth(width > 0 ? width : null);
     };
 
@@ -554,10 +545,27 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     };
   }, []);
 
+  // ── Sync local state when deal changes ────────────────────────────────────
+  //
+  // Зависимости намеренно включают все поля сделки, которые влияют на форму,
+  // чтобы при внешнем обновлении deal (polling / invalidation) локальный
+  // draft сбрасывался к актуальным значениям.
+
+  const dealLanguagesKey = JSON.stringify(deal.languages ?? []);
+
   React.useEffect(() => {
     setProjectSummary(deal.summary ?? "");
     setDealPatch({});
-  }, [deal.id, deal.summary, deal.playbook_version_id, deal.primary_language, deal.language_discovery_status, JSON.stringify(deal.languages ?? [])]);
+  }, [
+    deal.id,
+    deal.summary,
+    deal.playbook_version_id,
+    deal.primary_language,
+    deal.language_discovery_status,
+    dealLanguagesKey,
+  ]);
+
+  // ── Escape key handler for launch panel ───────────────────────────────────
 
   React.useEffect(() => {
     if (!isLaunchPanelOpen) return;
@@ -570,10 +578,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isLaunchPanelOpen]);
 
-  const effectiveDeal: Deal = {
-    ...deal,
-    ...dealPatch,
-  };
+  // ── Derived state ──────────────────────────────────────────────────────────
+
+  const effectiveDeal: Deal = { ...deal, ...dealPatch };
 
   const normalizedOriginalSummary = (deal.summary ?? "").trim();
   const normalizedDraftSummary = projectSummary.trim();
@@ -592,8 +599,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const hasDetectedLanguages =
     Array.isArray(effectiveDeal.languages) &&
-    effectiveDeal.languages.some((lang) => String(lang ?? "").trim().length > 0);
+    effectiveDeal.languages.some(
+      (lang) => normalizeLang(lang).length > 0,
+    );
 
+  // Discovery блокирует запуск, если языки ещё не определены и pipeline
+  // ещё не завершился (pending или processing).
   const isLanguageDiscoveryBlocking =
     !hasDetectedLanguages &&
     (discoveryStatus === "pending" || discoveryStatus === "processing");
@@ -608,40 +619,54 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     !updateDeal.isPending &&
     !setPrimaryLanguage.isPending;
 
+  const isSubmitting =
+    startRun.isPending ||
+    updateDeal.isPending ||
+    setPrimaryLanguage.isPending;
 
-    const handlePrimaryLanguageChange = (value: string) => {
-    const normalizedValue = value || null;
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
-    setDealPatch((prev) => ({
-      ...prev,
-      primary_language: normalizedValue,
-    }));
+  const handleOpenLaunchPanel = React.useCallback(() => {
+    setIsLaunchPanelOpen(true);
+  }, []);
 
-    setPrimaryLanguage.mutate(
-      {
-        primary_language: normalizedValue,
-      },
-      {
-        onError: () => {
-          setDealPatch((prev) => ({
-            ...prev,
-            primary_language: deal.primary_language ?? null,
-          }));
+  const handleCloseLaunchPanel = React.useCallback(() => {
+    setIsLaunchPanelOpen(false);
+  }, []);
+
+  const handlePrimaryLanguageChange = React.useCallback(
+    (value: string) => {
+      const normalizedValue = normalizeLang(value) || null;
+
+      // Оптимистичный UI-update: сразу отображаем выбор без ожидания сервера.
+      setDealPatch((prev) => ({ ...prev, primary_language: normalizedValue }));
+
+      setPrimaryLanguage.mutate(
+        { primary_language: normalizedValue },
+        {
+          onError: () => {
+            // Откат при ошибке сервера.
+            setDealPatch((prev) => ({
+              ...prev,
+              primary_language: deal.primary_language ?? null,
+            }));
+          },
         },
-      },
-    );
-  };
+      );
+    },
+    [deal.primary_language, setPrimaryLanguage],
+  );
 
-  const handleSaveSummary = () => {
+  const handleSaveSummary = React.useCallback(() => {
     if (!isSummaryDirty) return;
 
     updateDeal.mutate({
       summary:
         normalizedDraftSummary.length > 0 ? normalizedDraftSummary : null,
     });
-  };
+  }, [isSummaryDirty, normalizedDraftSummary, updateDeal]);
 
-  const handleStartRun = () => {
+  const handleStartRun = React.useCallback(() => {
     if (!canLaunchRun) return;
 
     startRun.mutate(
@@ -670,28 +695,31 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         },
       },
     );
-  };
+  }, [canLaunchRun, checksMode, deal.id, forceReclassify, qc, startRun]);
 
-  const handleDealPatched = async (patch?: Partial<Deal>) => {
-    if (patch && Object.keys(patch).length > 0) {
-      setDealPatch((prev) => ({
-        ...prev,
-        ...patch,
-      }));
-    }
+  const handleDealPatched = React.useCallback(
+    async (patch?: Partial<Deal>) => {
+      if (patch && Object.keys(patch).length > 0) {
+        setDealPatch((prev) => ({ ...prev, ...patch }));
+      }
 
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
-      qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-      qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
-    ]);
-  };
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
+        qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
+        qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
+      ]);
+    },
+    [deal.id, qc],
+  );
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div
       ref={overviewRef}
       className="relative grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_360px]"
     >
+      {/* ── Left column ── */}
       <div className="min-w-0 space-y-4">
         <DealInfoCard
           deal={effectiveDeal}
@@ -711,12 +739,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         <RunProgressCard latestRunId={latestRunId} />
       </div>
 
+      {/* ── Right rail (desktop) ── */}
       <div ref={railRef} className="relative hidden xl:block px-1 pb-2">
         <AnalysisActionsPanel
           deal={effectiveDeal}
           latestRunExists={!!latestRun}
           canStartRun={canLaunchRun}
-          onOpenRunPanel={() => setIsLaunchPanelOpen(true)}
+          onOpenRunPanel={handleOpenLaunchPanel}
           showReclassBanner={showReclassBanner}
         />
 
@@ -733,25 +762,22 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             onForceReclassifyChange={setForceReclassify}
             canStartRun={canLaunchRun}
             canUploadDocuments={canUploadDocuments}
-            isSubmitting={
-              startRun.isPending ||
-              updateDeal.isPending ||
-              setPrimaryLanguage.isPending
-            }
+            isSubmitting={isSubmitting}
             onPrimaryLanguageChange={handlePrimaryLanguageChange}
             onSubmit={handleStartRun}
-            onClose={() => setIsLaunchPanelOpen(false)}
+            onClose={handleCloseLaunchPanel}
             onDealPatched={handleDealPatched}
           />
         )}
       </div>
 
+      {/* ── Right rail (mobile fallback) ── */}
       <div className="xl:hidden">
         <AnalysisActionsPanel
           deal={effectiveDeal}
           latestRunExists={!!latestRun}
           canStartRun={canLaunchRun}
-          onOpenRunPanel={() => setIsLaunchPanelOpen(true)}
+          onOpenRunPanel={handleOpenLaunchPanel}
           showReclassBanner={showReclassBanner}
         />
       </div>
@@ -760,6 +786,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
+
 
 
 

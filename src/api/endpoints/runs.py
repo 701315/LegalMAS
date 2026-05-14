@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.constants import RunStatus
+from core.constants import RunStatus, LanguageDiscoveryStatus
 from fastapi.responses import StreamingResponse
 from services.run_progress_service import subscribe_run_progress
 
@@ -118,7 +118,7 @@ async def _start_run_core(
     # 1.2. Пока language discovery ещё выполняется, запуск Run запрещён.
     # Это защита на backend уровне: даже если UI ошибётся или кто-то вызовет
     # API напрямую, analysis нельзя стартовать до завершения pre-run discovery.
-    if getattr(deal, "language_discovery_status", None) == "processing":
+    if getattr(deal, "language_discovery_status", None) == LanguageDiscoveryStatus.PROCESSING:
         logger.warning(
             "Run start rejected: language discovery is still in progress",
             extra={

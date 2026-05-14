@@ -3,9 +3,14 @@
 // =============================================================
 
 import React from "react";
-import type { Deal, DealLanguageDiscoveryStatus } from "../../../types";
+import type { Deal } from "../../../types";
 import type { ChecksMode } from "../OverviewTab";
 import Button from "../../../components/ui/Button";
+import {
+  formatLangLabel,
+  normalizeDiscoveryStatus,
+  normalizeLang,
+} from "../../../utils/languageDiscovery";
 
 const SECONDARY_ACTION_BUTTON_CLASS = "w-[220px] shrink-0 justify-center";
 
@@ -48,37 +53,19 @@ const CHECKS_MODE_OPTIONS: Array<{
   },
 ];
 
-function normalizeLang(value: string | null | undefined): string {
-  return String(value ?? "").trim().toUpperCase();
-}
-
-function normalizeDiscoveryStatus(
-  value: string | null | undefined,
-): DealLanguageDiscoveryStatus | string | null {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  return normalized || null;
-}
-
-function formatLangCode(value: string | null | undefined): string {
-  const v = String(value ?? "").trim().toUpperCase();
-  return v || "";
-}
-
-function formatLangTitle(value: string): string {
-  const normalized = normalizeLang(value);
-  if (normalized === "RU") return "Русский";
-  if (normalized === "EN") return "English";
-  return formatLangCode(normalized);
-}
+type BannerTone = "info" | "warning" | "error" | "success";
 
 function formatLangHint(value: string): string {
   const normalized = normalizeLang(value);
+
   if (normalized === "RU") {
     return "Primary source и проверки будут ориентированы на русский язык.";
   }
+
   if (normalized === "EN") {
     return "Primary source и проверки будут ориентированы на английский язык.";
   }
+
   return "Выберите этот язык как основной для анализа.";
 }
 
@@ -86,9 +73,16 @@ function getDiscoveryBanner(
   status: string | null,
   hasLanguages: boolean,
 ): {
-  tone: "info" | "warning" | "error" | "success";
+  tone: BannerTone;
   text: string;
 } | null {
+  if (status === "pending") {
+    return {
+      tone: "info",
+      text: "Подготовка к автоопределению языков ещё не завершена. Список языков появится после завершения pre-run обработки.",
+    };
+  }
+
   if (status === "processing") {
     return {
       tone: "info",
@@ -120,16 +114,19 @@ function getDiscoveryBanner(
   return null;
 }
 
-function getBannerClassName(tone: "info" | "warning" | "error" | "success"): string {
+function getBannerClassName(tone: BannerTone): string {
   if (tone === "error") {
     return "border border-[var(--color-error-border)] bg-[var(--color-error-subtle)] text-[var(--color-error)]";
   }
+
   if (tone === "warning") {
     return "border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] text-[var(--color-warning)]";
   }
+
   if (tone === "success") {
     return "border border-[var(--color-success-border)] bg-[var(--color-success-subtle)] text-[var(--color-success)]";
   }
+
   return "border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 }
 
@@ -148,28 +145,51 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   onOpenUpload,
   onPrimaryLanguageChange,
 }) => {
-  const rawDocumentLanguages = deal.languages ?? [];
-  const normalizedDocumentLanguages = Array.from(
-    new Set(rawDocumentLanguages.map((l) => normalizeLang(l)).filter(Boolean)),
+  const normalizedDocumentLanguages = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (deal.languages ?? [])
+            .map((lang) => normalizeLang(lang))
+            .filter(Boolean),
+        ),
+      ),
+    [deal.languages],
   );
 
-  const selectedPrimaryLanguage = normalizeLang(deal.primary_language ?? "");
+  const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
   const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
-  const discoveryBanner = getDiscoveryBanner(
-    typeof discoveryStatus === "string" ? discoveryStatus : null,
-    normalizedDocumentLanguages.length > 0,
-  );
 
   const hasPlaybook = !!deal.playbook_version_id;
   const hasLanguages = normalizedDocumentLanguages.length > 0;
   const canSelectPrimaryLanguage = hasLanguages && !isSubmitting;
 
-  const handleLanguageSelect = (lang: string) => {
-    const normalized = normalizeLang(lang);
-    if (!normalized || isSubmitting) return;
-    if (selectedPrimaryLanguage === normalized) return;
-    onPrimaryLanguageChange(normalized);
-  };
+  const discoveryBanner = React.useMemo(
+    () => getDiscoveryBanner(discoveryStatus, hasLanguages),
+    [discoveryStatus, hasLanguages],
+  );
+
+  const autoDetectedLanguagesText = React.useMemo(
+    () => normalizedDocumentLanguages.map((lang) => formatLangLabel(lang)).join(", "),
+    [normalizedDocumentLanguages],
+  );
+
+  const handleLanguageSelect = React.useCallback(
+    (lang: string) => {
+      const normalized = normalizeLang(lang);
+
+      if (!normalized || isSubmitting) {
+        return;
+      }
+
+      if (selectedPrimaryLanguage === normalized) {
+        return;
+      }
+
+      onPrimaryLanguageChange(normalized);
+    },
+    [isSubmitting, onPrimaryLanguageChange, selectedPrimaryLanguage],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--bg-card)]">
@@ -269,7 +289,9 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
             <p className="mt-3 text-xs leading-5">
               {hasPlaybook ? (
-                <span className="text-[var(--text-secondary)]">Playbook выбран.</span>
+                <span className="text-[var(--text-secondary)]">
+                  Playbook выбран.
+                </span>
               ) : (
                 <span className="text-[var(--color-error)]">
                   Playbook не выбран. Нельзя запустить анализ без playbook.
@@ -355,7 +377,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
                         <span>
                           <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                            {formatLangTitle(lang)} ({formatLangCode(lang)})
+                            {formatLangLabel(lang)}
                           </span>
                           <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
                             {formatLangHint(lang)}
@@ -373,11 +395,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 )}
 
                 <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                  Автоопределённые языки документов:{" "}
-                  {normalizedDocumentLanguages
-                    .map((l) => `${formatLangTitle(l)} (${formatLangCode(l)})`)
-                    .join(", ")}
-                  .
+                  Автоопределённые языки документов: {autoDetectedLanguagesText}.
                 </p>
               </>
             ) : (
@@ -430,6 +448,8 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 };
 
 export default LaunchFormPanel;
+
+
 
 
 
