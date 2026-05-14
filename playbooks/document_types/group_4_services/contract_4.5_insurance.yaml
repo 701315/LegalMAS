@@ -50,6 +50,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -66,59 +73,311 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)страховщик[а-я]*"
-        - "(?i)страховател[ьяеи]"
-        - "(?i)выгодоприобретател[ьяеи]"
-        - "(?i)договор\\s+имущественн[огоого\\s]*страхован[ияия]"
-        - "(?i)договор\\s+личн[огоого\\s]*страхован[ияия]"
-        - "(?i)договор\\s+страхован[ияия]\\s+ответственност[иью]"
-        - "(?i)договор\\s+добровольн[огоого\\s]*страхован[ияия]"
-        - "(?i)договор\\s+обязательн[огоого\\s]*страхован[ияия]"
-        - "(?i)полис\\s+осаго"
-        - "(?i)полис\\s+каско"
-        - "(?i)договор\\s+страхован[ияия]\\s+груз[аов]"
-        - "(?i)договор\\s+страхован[ияия]\\s+имуществ[ао]"
-        - "(?i)договор\\s+страхован[ияия]\\s+жизн[ииы]\\s+и\\s+здоровь[яеи]"
-        - "(?i)страхов[оыйой]\\s+полис"
-        - "(?i)генеральн[ыйого]\\s+полис"
-        - "(?i)правил[аы]\\s+страхован[ияия]"
-        - "(?i)страхов[аяые]\\s+преми[яи]"
-        - "(?i)страхов[ойаяые]\\s+случа[йея]"
-        - "(?i)страхов[аяые]\\s+сумм[аыу]"
-        - "(?i)страхов[оеая]\\s+возмещен[иеия]"
+        # ── Стороны и базовые конструкции договора страхования ──
+
+        - pattern: "(?i)страховщик[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Страховщик — профессиональный участник страхового дела"
+
+        - pattern: "(?i)страховател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Страхователь как сторона, уплачивающая страховую премию"
+
+        - pattern: "(?i)выгодоприобретател[ьяеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Выгодоприобретатель по договору страхования"
+
+        # ── Прямые названия видов договора ──
+
+        - pattern: "(?i)договор\\s+имущественн[огоого\\s]*страхован[ияия]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Название договора имущественного страхования"
+
+        - pattern: "(?i)договор\\s+личн[огоого\\s]*страхован[ияия]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Название договора личного страхования"
+
+        - pattern: "(?i)договор\\s+страхован[ияия]\\s+ответственност[иью]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Страхование гражданской/иной ответственности"
+
+        - pattern: "(?i)договор\\s+добровольн[огоого\\s]*страхован[ияия]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Добровольное страхование по соглашению сторон"
+
+        - pattern: "(?i)договор\\s+обязательн[огоого\\s]*страхован[ияия]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Обязательное страхование (например, ОСАГО)"
+
+        - pattern: "(?i)договор\\s+страхован[ияия]\\s+груз[аов]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Страхование груза при перевозке"
+
+        - pattern: "(?i)договор\\s+страхован[ияия]\\s+имуществ[ао]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Страхование имущества"
+
+        - pattern: "(?i)договор\\s+страхован[ияия]\\s+жизн[ииы]\\s+и\\s+здоровь[яеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Договор страхования жизни и здоровья"
+
+        # ── Формы документов и специализированные полисы ──
+
+        - pattern: "(?i)страхов[оыйой]\\s+полис"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Страховой полис как документ, подтверждающий договор"
+
+        - pattern: "(?i)генеральн[ыйого]\\s+полис"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Генеральный полис для серии однотипных рисков"
+
+        - pattern: "(?i)полис\\s+осаго"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Полис ОСАГО — обязательное страхование автогражданской ответственности"
+
+        - pattern: "(?i)полис\\s+каско"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Полис КАСКО — добровольное страхование каско транспортного средства"
+
+        # ── Ключевые обязательственные элементы ──
+
+        - pattern: "(?i)правил[аы]\\s+страхован[ияия]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Правила страхования как составная часть договора"
+
+        - pattern: "(?i)страхов[аяые]\\s+преми[яи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Страховая премия как плата страховщику"
+
+        - pattern: "(?i)страхов[ойаяые]\\s+случа[йея]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Страховой случай как наступление покрываемого риска"
+
+        - pattern: "(?i)страхов[аяые]\\s+сумм[аыу]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Страховая сумма — максимальный размер ответственности страховщика"
+
+        - pattern: "(?i)страхов[оеая]\\s+возмещен[иеия]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Страховое возмещение по имущественному страхованию"
 
       medium:
-        - "(?i)застрахованн[оа]е\\s+лиц[оа]"
-        - "(?i)страхов[оа]й\\s+риск"
-        - "(?i)\\bфраншиз[ааы]\\b"
-        - "(?i)\\bсуброгаци[яи]\\b"
-        - "(?i)\\bабандон\\b"
-        - "(?i)имущественн[оа]е\\s+страховани[ея]"
-        - "(?i)личн[оа]е\\s+страховани[ея]"
-        - "(?i)страховани[ея]\\s+ответственност[ии]"
-        - "(?i)обязательн[оа]е\\s+страховани[ея]"
-        - "(?i)\\bосаго\\b"
-        - "(?i)\\bкаско\\b"
-        - "(?i)уведомлени[ея]\\s+о\\s+страхов[оа]м\\s+случа[ее]"
-        - "(?i)страхов[а-яё]+\\s+выплат[ааы]"
-        - "(?i)страхов[оа]е\\s+покрыти[ея]"
+        - pattern: "(?i)застрахованн[оа]е\\s+лиц[оа]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Застрахованное лицо — типично для личного страхования"
+
+        - pattern: "(?i)страхов[оа]й\\s+риск"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Страховой риск как описанный в договоре случай"
+
+        - pattern: "(?i)\\bфраншиз[ааы]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Франшиза — не покрываемая часть убытка"
+
+        - pattern: "(?i)\\bсуброгаци[яи]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Суброгация — переход к страховщику права требования к виновному"
+
+        - pattern: "(?i)\\bабандон\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Абандон — отказ страхователя от застрахованного имущества в пользу страховщика"
+
+        - pattern: "(?i)имущественн[оа]е\\s+страховани[ея]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Упоминание имущественного страхования без явного заголовка"
+
+        - pattern: "(?i)личн[оа]е\\s+страховани[ея]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Упоминание личного страхования"
+
+        - pattern: "(?i)страховани[ея]\\s+ответственност[ии]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Страхование ответственности в теле документа"
+
+        - pattern: "(?i)обязательн[оа]е\\s+страховани[ея]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Обязательное страхование как режим"
+
+        - pattern: "(?i)\\bосаго\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Упоминание ОСАГО без слова «полис»"
+
+        - pattern: "(?i)\\bкаско\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Упоминание КАСКО без слова «полис»"
+
+        - pattern: "(?i)уведомлени[ея]\\s+о\\s+страхов[оа]м\\s+случа[ее]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Порядок уведомления о страховом случае"
+
+        - pattern: "(?i)страхов[а-яё]+\\s+выплат[ааы]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Страховая выплата по договору"
+
+        - pattern: "(?i)страхов[оа]е\\s+покрыти[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Объём страхового покрытия"
 
       low:
-        - "(?i)\\bперестраховани[ея]\\b"
-        - "(?i)лимит\\s+ответственност[ии]"
-        - "(?i)неполн[оа]е\\s+страховани[ея]"
-        - "(?i)двойн[оа]е\\s+страховани[ея]"
-        - "(?i)страхов[оа]й\\s+тариф"
-        - "(?i)\\bагент\\b"
-        - "(?i)\\bброкер\\b"
+        - pattern: "(?i)\\bперестраховани[ея]\\b"
+          weight: 0.4
+          distinctiveness: low
+          context: any
+          description: "Перестрахование как сопутствующий институт"
+
+        - pattern: "(?i)лимит\\s+ответственност[ии]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Лимит ответственности страховщика"
+
+        - pattern: "(?i)неполн[оа]е\\s+страховани[ея]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Неполное страхование"
+
+        - pattern: "(?i)двойн[оа]е\\s+страховани[ея]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Двойное страхование"
+
+        - pattern: "(?i)страхов[оа]й\\s+тариф"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Страховой тариф (ставка премии)"
+
+        - pattern: "(?i)\\bагент\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Упоминание страхового агента/посредника"
+
+        - pattern: "(?i)\\bброкер\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Упоминание страхового брокера"
 
     exclusions:
-      - "(?i)социальн[оа]е\\s+страховани[ея]"
-      - "(?i)\\bомс\\b"
-      - "(?i)пенсионн[оа]е\\s+страховани[ея]"
-      - "(?i)банковск[а-яё]+\\s+гаранти[яи]"
-      - "(?i)\\bпоручительств[оа]\\b"
-      - "(?i)игр[аа]\\s+и\\s+пари"
+      # ── Hard exclusions — явно другие правовые режимы ──
+
+      - pattern: "(?i)социальн[оа]е\\s+страховани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Социальное страхование в системе обязательного соцстраха, а не гражданско-правовой договор страхования"
+
+      - pattern: "(?i)\\bомс\\b"
+        severity: hard
+        weight: -1.0
+        description: "Обязательное медицинское страхование в публично-правовой системе"
+
+      - pattern: "(?i)пенсионн[оа]е\\s+страховани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Пенсионное страхование относится к системе обязательного соцстраха/накоплений"
+
+      - pattern: "(?i)банковск[а-яё]+\\s+гаранти[яи]"
+        severity: hard
+        weight: -1.0
+        description: "Банковская гарантия — независимое обязательство банка, не договор страхования"
+
+      - pattern: "(?i)\\bпоручительств[оа]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Поручительство — способ обеспечения исполнения обязательств, не страхование"
+
+      - pattern: "(?i)игр[аа]\\s+и\\s+пари"
+        severity: hard
+        weight: -1.0
+        description: "Игры и пари — отдельный вид обязательств, не страховой договор"
+
+      # ── Soft exclusions — соседние финансовые сервисы ──
+
+      - pattern: "(?i)кредитн[оа]е\\s+страховани[ея]"
+        severity: soft
+        weight: -0.3
+        description: "Кредитное страхование может идти в составе кредитной документации; снижает уверенность в том, что документ — именно страховой договор"
+
+      - pattern: "(?i)ипотечн[оа]е\\s+страховани[ея]"
+        severity: soft
+        weight: -0.25
+        description: "Ипотечное страхование часто оформляется шаблонами банка; тип может конкурировать с банковской документацией"
+
+      - pattern: "(?i)страхов[а-яё]+\\s+част[ьи]\\s+взнос[ао]\\s+по\\s+кредит[уу]"
+        severity: soft
+        weight: -0.3
+        description: "Страхование платежей по кредиту внутри кредитного пакета, а не отдельный страховой договор"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

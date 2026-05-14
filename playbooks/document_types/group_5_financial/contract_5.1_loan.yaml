@@ -48,6 +48,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -64,48 +71,243 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)займодавец"
-        - "(?i)заемщик"
-        - "(?i)договор\\s+займ[ауы]"
-        - "(?i)договор\\s+денежн[огоой]\\s+займ[ауы]"
-        - "(?i)договор\\s+процентн[огоой]\\s+займ[ауы]"
-        - "(?i)договор\\s+беспроцентн[огоой]\\s+займ[ауы]"
-        - "(?i)договор\\s+целев[огоой]\\s+займ[ауы]"
-        - "(?i)договор\\s+займ[ауы]\\s+между\\s+юридическ[имиими]\\s+лиц[ами]"
-        - "(?i)договор\\s+займ[ауы]\\s+между\\s+физическ[имиими]\\s+лиц[ами]"
-        - "(?i)договор\\s+займ[ауы]\\s+между\\s+ип\\b"
-        - "(?i)договор\\s+займ[ауы]\\s+в\\s+иностранн[ойой]\\s+валют[еуы]"
-        - "(?i)договор\\s+займ[ауы]\\s+вещей,?\\s+определенн[ыхые]\\s+родов[ымиые]\\s+признак[ами]"
-        - "(?i)расписк[аыу]\\s+о\\s+займ[ееу]"
-        - "(?i)расписк[аыу]\\b"
-        - "(?i)сумм[аыу]\\s+займ[ауы]"
-        - "(?i)возврат\\s+сумм[ыы]\\s+займ[ауы]"
-        - "(?i)процент[ыо]\\s+по\\s+займ[уые]"
+        # ── Стороны и прямое название договора ──
+
+        - pattern: "(?i)займодавец"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Займодавец как сторона по ст. 807 ГК РФ"
+
+        - pattern: "(?i)заемщик"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Заемщик как сторона по договору займа"
+
+        - pattern: "(?i)договор\\s+займ[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Общее название договора займа"
+
+        - pattern: "(?i)договор\\s+денежн[огоой]\\s+займ[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Договор денежного займа"
+
+        - pattern: "(?i)договор\\s+процентн[огоой]\\s+займ[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор процентного займа"
+
+        - pattern: "(?i)договор\\s+беспроцентн[огоой]\\s+займ[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Беспроцентный договор займа"
+
+        - pattern: "(?i)договор\\s+целев[огоой]\\s+займ[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Целевой заём с указанием цели использования"
+
+        - pattern: "(?i)договор\\s+займ[ауы]\\s+между\\s+юридическ[имиими]\\s+лиц[ами]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Заем между юридическими лицами"
+
+        - pattern: "(?i)договор\\s+займ[ауы]\\s+между\\s+физическ[имиими]\\s+лиц[ами]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Заем между физическими лицами"
+
+        - pattern: "(?i)договор\\s+займ[ауы]\\s+между\\s+ип\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Заем с участием индивидуальных предпринимателей"
+
+        - pattern: "(?i)договор\\s+займ[ауы]\\s+в\\s+иностранн[ойой]\\s+валют[еуы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Заем в иностранной валюте (валютные ограничения ст. 140, 141, 317 ГК РФ)"
+
+        - pattern: "(?i)договор\\s+займ[ауы]\\s+вещей,?\\s+определенн[ыхые]\\s+родов[ымиые]\\s+признак[ами]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Заем вещей, определённых родовыми признаками"
+
+        # ── Расписка и базовые обязательства по возврату ──
+
+        - pattern: "(?i)расписк[аыу]\\s+о\\s+займ[ееу]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Расписка о получении суммы займа"
+
+        - pattern: "(?i)расписк[аыу]\\b"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Долговая расписка, часто подтверждающая передачу суммы займа"
+
+        - pattern: "(?i)сумм[аыу]\\s+займ[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Сумма займа как предмет обязательства"
+
+        - pattern: "(?i)возврат\\s+сумм[ыы]\\s+займ[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Обязанность возврата суммы займа"
+
+        - pattern: "(?i)процент[ыо]\\s+по\\s+займ[уые]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Проценты по договору займа"
 
       medium:
-        - "(?i)целев[оа]й\\s+за[её]м"
-        - "(?i)беспроцентн[ыо]й\\s+за[её]м"
-        - "(?i)процентн[а-яё]+\\s+ставк[аа]"
-        - "(?i)досрочн[ыо]й\\s+возврат"
-        - "(?i)\\bнеустойк[ааы]\\b"
-        - "(?i)график\\s+погашени[яя]"
-        - "(?i)\\bтранш\\b"
-        - "(?i)валютн[а-яё]+\\s+оговорк[аа]"
-        - "(?i)безденежност[ьи]"
+        - pattern: "(?i)целев[оа]й\\s+за[её]м"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Упоминание целевого займа в теле документа"
+
+        - pattern: "(?i)беспроцентн[ыо]й\\s+за[её]м"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Беспроцентный заём без явного заголовка"
+
+        - pattern: "(?i)процентн[а-яё]+\\s+ставк[аа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Процентная ставка по сумме займа"
+
+        - pattern: "(?i)досрочн[ыо]й\\s+возврат"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Досрочный возврат суммы займа"
+
+        - pattern: "(?i)\\bнеустойк[ааы]\\b"
+          weight: 0.5
+          distinctiveness: low
+          context: any
+          description: "Неустойка за просрочку исполнения обязательств по займу"
+
+        - pattern: "(?i)график\\s+погашени[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "График погашения займа"
+
+        - pattern: "(?i)\\bтранш\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Предоставление займа траншами"
+
+        - pattern: "(?i)валютн[а-яё]+\\s+оговорк[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Валютная оговорка в договоре займа"
+
+        - pattern: "(?i)безденежност[ьи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Оспаривание действительности займа по мотиву безденежности"
 
       low:
-        - "(?i)за[её]мн[ыо]е\\s+средств[аа]"
-        - "(?i)долгов[оа]е\\s+обязательств[оо]"
-        - "(?i)\\bпен[яи]\\b"
-        - "(?i)\\bштраф\\b"
-        - "(?i)остат[оа]к\\s+задолженност[ии]"
-        - "(?i)материальн[а-яё]+\\s+выгод[аа]"
+        - pattern: "(?i)за[её]мн[ыо]е\\s+средств[аа]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Упоминание заемных средств"
+
+        - pattern: "(?i)долгов[оа]е\\s+обязательств[оо]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общая ссылка на долговые обязательства"
+
+        - pattern: "(?i)\\bпен[яи]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Пеня за просрочку платежей по займу"
+
+        - pattern: "(?i)\\bштраф\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Штрафные санкции за нарушение условий займа"
+
+        - pattern: "(?i)остат[оа]к\\s+задолженност[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Остаток задолженности по сумме займа"
+
+        - pattern: "(?i)материальн[а-яё]+\\s+выгод[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Материальная выгода от пользования заемными средствами"
 
     exclusions:
-      - "(?i)кредитн[ыо]й\\s+договор"
-      - "(?i)договор\\s+ссуд[ыа]"
-      - "(?i)товарн[ыо]й\\s+кредит"
-      - "(?i)коммерческ[иоя]+\\s+кредит"
+      # ── Hard exclusions — явно иные кредитные конструкции ──
+
+      - pattern: "(?i)кредитн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Кредитный договор с участием банка/кредитной организации, отдельный тип по Главе 42 ГК РФ"
+
+      - pattern: "(?i)договор\\s+ссуд[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Ссуда предполагает безвозмездное пользование вещью, а не возврат однородных вещей как при займе"
+
+      - pattern: "(?i)товарн[ыо]й\\s+кредит"
+        severity: hard
+        weight: -1.0
+        description: "Товарный кредит — отдельный договор по ст. 822 ГК РФ, хотя и близок к займу [web:84]"
+
+      - pattern: "(?i)коммерческ[иоя]+\\s+кредит"
+        severity: hard
+        weight: -1.0
+        description: "Коммерческий кредит как акцессорное обязательство к основному договору (поставка/подряд и т.п.) [web:81]"
+
+      # ── Soft exclusions — банковский/финансовый контекст вне классического займа ──
+
+      - pattern: "(?i)кредитн[ыо]е\\s+соглашени[ея]"
+        severity: soft
+        weight: -0.3
+        description: "Кредитное соглашение может относиться к банковскому кредиту, а не к займу"
+
+      - pattern: "(?i)линия\\s+кредит[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Кредитная линия как банковский продукт"
+
+      - pattern: "(?i)овердрафт"
+        severity: soft
+        weight: -0.3
+        description: "Овердрафт — особый банковский кредитный режим"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

@@ -45,6 +45,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.78
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.17
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -62,42 +69,192 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)неразглашен[иеи]"
-        - "(?i)конфиденциал[ьннаяость]+"
-        - "(?i)соглашен[иея]\\s+о\\s+неразглашен[иии]"
-        - "(?i)договор\\s+о\\s+неразглашен[иии]"
-        - "(?i)соглашен[иея]\\s+о\\s+конфиденциал[ьннойой\\s]*информац[иии]"
-        - "(?i)confidential\\s+disclosure\\s+agreement"
-        - "(?i)non-?disclosure\\s+agreement"
-        - "(?i)\\bnda\\b"
-        - "(?i)соглашен[иея]\\s+о\\s+защит[еы]\\s+коммерческ[ойой]\\s+тайн[ыеи]"
-        - "(?i)коммерческ[аяое]\\s+тайн[аеи]"
-        - "(?i)режим\\s+конфиденциал[ьнности]+"
-        - "(?i)конфиденциал[ьннаяая]\\s+информац[ияи]"
-        - "(?i)фз-?98\\b"
+        # ── Прямые названия NDA ──
+
+        - pattern: "(?i)соглашен[иея]\\s+о\\s+неразглашен[иии]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Базовое русское название NDA в заголовке"
+
+        - pattern: "(?i)договор\\s+о\\s+неразглашен[иии]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Альтернативная форма — договор о неразглашении"
+
+        - pattern: "(?i)соглашен[иея]\\s+о\\s+конфиденциал[ьннойой\\s]*информац[иии]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Соглашение о конфиденциальной информации"
+
+        - pattern: "(?i)соглашен[иея]\\s+о\\s+защит[еы]\\s+коммерческ[ойой]\\s+тайн[ыеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Соглашение о защите коммерческой тайны"
+
+        - pattern: "(?i)коммерческ[аяое]\\s+тайн[аеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Коммерческая тайна как предмет защиты NDA"
+
+        - pattern: "(?i)non-?disclosure\\s+agreement"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Англоязычное название NDA"
+
+        - pattern: "(?i)confidential\\s+disclosure\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "CDA — синоним NDA"
+
+        - pattern: "(?i)\\bnda\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Аббревиатура NDA"
+
+        # ── Ключевые понятия режима конфиденциальности ──
+
+        - pattern: "(?i)неразглашен[иеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Обязательство неразглашения информации"
+
+        - pattern: "(?i)конфиденциал[ьннаяость]+"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ссылки на конфиденциальность и конфиденциальную информацию"
+
+        - pattern: "(?i)режим\\s+конфиденциал[ьнности]+"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Установление режима конфиденциальности"
+
+        - pattern: "(?i)конфиденциал[ьннаяая]\\s+информац[ияи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Определение конфиденциальной информации"
+
+        - pattern: "(?i)фз-?98\\b"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ФЗ-98 «О коммерческой тайне»"
 
       medium:
-        - "(?i)\\bdisclosing\\s+party\\b"
-        - "(?i)\\breceiving\\s+party\\b"
-        - "(?i)раскрывающ[а-яё]+\\s+сторон[аа]"
-        - "(?i)получающ[а-яё]+\\s+сторон[аа]"
-        - "(?i)\\bноу-?хау\\b"
-        - "(?i)секрет\\s+производств[аа]"
-        - "(?i)исключени[яя]\\s+из\\s+конфиденциальност[ии]"
+        - pattern: "(?i)\\bdisclosing\\s+party\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Disclosing Party — раскрывающая сторона в англоязычном NDA"
+
+        - pattern: "(?i)\\breceiving\\s+party\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Receiving Party — получающая сторона в англоязычном NDA"
+
+        - pattern: "(?i)раскрывающ[а-яё]+\\s+сторон[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Раскрывающая сторона"
+
+        - pattern: "(?i)получающ[а-яё]+\\s+сторон[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Получающая сторона"
+
+        - pattern: "(?i)\\bноу-?хау\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ноу-хау как типичный объект, защищаемый NDA"
+
+        - pattern: "(?i)секрет\\s+производств[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Секрет производства / trade secret"
+
+        - pattern: "(?i)исключени[яя]\\s+из\\s+конфиденциальност[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Перечень исключений из режима конфиденциальности"
 
       low:
-        - "(?i)\\bConfidential\\s+Disclosure\\s+Agreement\\b"
-        - "(?i)возврат\\s+информаци[ии]"
-        - "(?i)персональн[ыо]е\\s+данн[ыо]е"
-        - "(?i)служебн[а-яё]+\\s+тайн[аа]"
-        - "(?i)уничтожени[яя]\\s+информаци[ии]"
-        - "(?i)\\bresiduals\\b"
+        - pattern: "(?i)\\bConfidential\\s+Disclosure\\s+Agreement\\b"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Полное написание CDA"
+
+        - pattern: "(?i)возврат\\s+информаци[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Возврат предоставленных материалов после прекращения NDA"
+
+        - pattern: "(?i)персональн[ыо]е\\s+данн[ыо]е"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Персональные данные могут входить в объем конфиденциальной информации"
+
+        - pattern: "(?i)служебн[а-яё]+\\s+тайн[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Служебная тайна как один из режимов защищаемой информации"
+
+        - pattern: "(?i)уничтожени[яя]\\s+информаци[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Обязанность уничтожения информации вместо возврата"
+
+        - pattern: "(?i)\\bresiduals\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Residuals clause — оговорка о неизбежных остаточных знаниях"
 
     exclusions:
-      - "(?i)трудов[оа]й\\s+договор"
-      - "(?i)договор\\s+коммерческ[оа]й\\s+концесси[ии]"
-      - "(?i)лицензионн[ыо]й\\s+договор"
-      - "(?i)только\\s+как\\s+част[ььи]\\s+друг[оа]го\\s+договор[аа]"
+      # ── Hard exclusions — когда NDA явно вспомогательно к другому типу ──
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Упор на трудовой договор с отдельной конфиденциальностью — ближе к employment, а не standalone NDA"
+
+      - pattern: "(?i)договор\\s+коммерческ[оа]й\\s+концесси[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Коммерческая концессия с условиями конфиденциальности — отдельный тип contract_7.3_franchise"
+
+      - pattern: "(?i)лицензионн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Лицензионный договор с конфиденциальностью — тип contract_7.2_license"
+
+      # ── Soft exclusion — когда конфиденциальность явно лишь раздел ──
+
+      - pattern: "(?i)только\\s+как\\s+част[ььи]\\s+друг[оа]го\\s+договор[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Формулировка, что NDA действует лишь как часть иного договора, снижает уверенность в standalone-типе"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

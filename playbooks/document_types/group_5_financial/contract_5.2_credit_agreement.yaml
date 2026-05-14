@@ -49,6 +49,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.82
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -66,52 +73,268 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)кредитн[ыйое]\\s+договор"
-        - "(?i)банковск[ийое]\\s+кредит"
-        - "(?i)кредитн[оеая]\\s+соглашен[иеия]"
-        - "(?i)договор\\s+об\\s+открыт[ииии]\\s+кредитн[ойой]\\s+лини[ии]"
-        - "(?i)договор\\s+овердрафт[ауы]"
-        - "(?i)потребительск[ийое]\\s+кредит"
-        - "(?i)ипотечн[ыйое]\\s+кредит"
-        - "(?i)корпоративн[ыйое]\\s+кредитн[ыйое]\\s+договор"
-        - "(?i)договор\\s+рефинансирован[ияи]"
-        - "(?i)соглашен[иея]\\s+о\\s+предоставлен[иии]\\s+транш[еёй]"
-        - "(?i)кредитор[ауы]"
-        - "(?i)заемщик[ауы]"
-        - "(?i)кредитн[аяое]\\s+организац[ияи]"
-        - "(?i)банк[а-я]*"
-        - "(?i)процентн[аяое]\\s+ставк[ауы]"
-        - "(?i)полн[аяое]\\s+стоимост[ьи]\\s+кредит[ауы]"
-        - "(?i)\\bpsk\\b"
+        # ── Прямые названия кредитных договоров ──
+
+        - pattern: "(?i)кредитн[ыйое]\\s+договор"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название кредитного договора с банком/кредитной организацией"
+
+        - pattern: "(?i)банковск[ийое]\\s+кредит"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Банковский кредит по § 2 Главы 42 ГК РФ"
+
+        - pattern: "(?i)кредитн[оеая]\\s+соглашен[иеия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Кредитное соглашение как синоним кредитного договора"
+
+        - pattern: "(?i)договор\\s+об\\s+открыт[ииии]\\s+кредитн[ойой]\\s+лини[ии]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор об открытии кредитной линии"
+
+        - pattern: "(?i)договор\\s+овердрафт[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор овердрафта как разновидность кредитования по счёту"
+
+        - pattern: "(?i)потребительск[ийое]\\s+кредит"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Потребительский кредит/займ в смысле 353-ФЗ"
+
+        - pattern: "(?i)ипотечн[ыйое]\\s+кредит"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Ипотечный кредит под залог недвижимости"
+
+        - pattern: "(?i)корпоративн[ыйое]\\s+кредитн[ыйое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Корпоративный кредитный договор"
+
+        - pattern: "(?i)договор\\s+рефинансирован[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Рефинансирование ранее выданного кредита"
+
+        - pattern: "(?i)соглашен[иея]\\s+о\\s+предоставлен[иии]\\s+транш[еёй]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Соглашение о предоставлении кредитных траншей в рамках линии"
+
+        # ── Статус кредитора и банковский контекст ──
+
+        - pattern: "(?i)кредитор[ауы]"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Кредитор как сторона по кредитному договору"
+
+        - pattern: "(?i)заемщик[ауы]"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Заёмщик по кредитному договору"
+
+        - pattern: "(?i)кредитн[аяое]\\s+организац[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Кредитная организация как специальный субъект кредитного договора"
+
+        - pattern: "(?i)банк[а-я]*"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Банк как кредитор"
+
+        # ── Стоимость и полная стоимость кредита ──
+
+        - pattern: "(?i)процентн[аяое]\\s+ставк[ауы]"
+          weight: 0.9
+          distinctiveness: medium
+          context: any
+          description: "Процентная ставка по кредиту"
+
+        - pattern: "(?i)полн[аяое]\\s+стоимост[ьи]\\s+кредит[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Полная стоимость кредита (ПСК) по 353-ФЗ"
+
+        - pattern: "(?i)\\bpsk\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Аббревиатура ПСК — полная стоимость кредита"
 
       medium:
-        - "(?i)процент[ыа]\\s+за\\s+пользовани[ея]\\s+кредит[оо]м"
-        - "(?i)график\\s+платеж[её]й"
-        - "(?i)аннуитетн[ыо]й\\s+плат[её]ж"
-        - "(?i)дифференцированн[ыо]й\\s+плат[её]ж"
-        - "(?i)погашени[ея]\\s+кредит[аа]"
-        - "(?i)\\bтранш\\b"
-        - "(?i)кредитн[а-яё]+\\s+лини[яя]"
-        - "(?i)лимит\\s+кредитовани[яя]"
-        - "(?i)\\bовердрафт\\b"
-        - "(?i)досрочн[оа]е\\s+погашени[ея]"
-        - "(?i)обеспечени[ея]\\s+исполнени[яя]"
+        - pattern: "(?i)процент[ыа]\\s+за\\s+пользовани[ея]\\s+кредит[оо]м"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Проценты за пользование кредитом"
+
+        - pattern: "(?i)график\\s+платеж[её]й"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "График платежей по кредиту"
+
+        - pattern: "(?i)аннуитетн[ыо]й\\s+плат[её]ж"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Аннуитетные платежи по кредиту"
+
+        - pattern: "(?i)дифференцированн[ыо]й\\s+плат[её]ж"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Дифференцированные платежи по кредиту"
+
+        - pattern: "(?i)погашени[ея]\\s+кредит[аа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Погашение суммы кредита"
+
+        - pattern: "(?i)\\bтранш\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Предоставление кредита отдельными траншами"
+
+        - pattern: "(?i)кредитн[а-яё]+\\s+лини[яя]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Кредитная линия"
+
+        - pattern: "(?i)лимит\\s+кредитовани[яя]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Лимит кредитования по договору"
+
+        - pattern: "(?i)\\bовердрафт\\b"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Овердрафт как форма кредитования"
+
+        - pattern: "(?i)досрочн[оа]е\\s+погашени[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Досрочное погашение кредита"
+
+        - pattern: "(?i)обеспечени[ея]\\s+исполнени[яя]"
+          weight: 0.55
+          distinctiveness: low
+          context: any
+          description: "Обеспечение исполнения обязательств по кредиту"
 
       low:
-        - "(?i)потребительск[иоя]+\\s+кредит"
-        - "(?i)ипотечн[ыо]й\\s+кредит"
-        - "(?i)\\bрефинансировани[ея]\\b"
-        - "(?i)реструктуризаци[яи]"
-        - "(?i)бюро\\s+кредитн[ыо]х\\s+истори[йи]"
-        - "(?i)страховани[ея]\\s+жизн[ии]"
-        - "(?i)комисси[яи]\\s+за\\s+обслуживани[ея]"
+        - pattern: "(?i)потребительск[иоя]+\\s+кредит"
+          weight: 0.4
+          distinctiveness: low
+          context: any
+          description: "Упоминание потребительского кредита"
+
+        - pattern: "(?i)ипотечн[ыо]й\\s+кредит"
+          weight: 0.4
+          distinctiveness: low
+          context: any
+          description: "Упоминание ипотечного кредита"
+
+        - pattern: "(?i)\\bрефинансировани[ея]\\b"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Рефинансирование кредита"
+
+        - pattern: "(?i)реструктуризаци[яи]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Реструктуризация кредитной задолженности"
+
+        - pattern: "(?i)бюро\\s+кредитн[ыо]х\\s+истори[йи]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Бюро кредитных историй"
+
+        - pattern: "(?i)страховани[ея]\\s+жизн[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Страхование жизни, привязанное к кредиту"
+
+        - pattern: "(?i)комисси[яи]\\s+за\\s+обслуживани[ея]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Комиссия за обслуживание кредита"
 
     exclusions:
-      - "(?i)договор\\s+за[йеё]м[аа]\\s+между\\s+физическ[иими]+\\s+лицами"
-      - "(?i)беспроцентн[ыо]й\\s+за[её]м"
-      - "(?i)\\bмикрозайм\\b"
-      - "(?i)договор\\s+ссуд[ыа]"
-      - "(?i)товарн[ыо]й\\s+кредит"
+      # ── Hard exclusions — чистый договор займа/ссуды/товарного кредита ──
+
+      - pattern: "(?i)договор\\s+за[йеё]м[аа]\\s+между\\s+физическ[иими]+\\s+лицами"
+        severity: hard
+        weight: -1.0
+        description: "Заем между физическими лицами — договор займа, а не банковский кредит"
+
+      - pattern: "(?i)беспроцентн[ыо]й\\s+за[её]м"
+        severity: hard
+        weight: -1.0
+        description: "Беспроцентный заём регулируется нормами о займе, а не о кредитном договоре"
+
+      - pattern: "(?i)\\bмикрозайм\\b"
+        severity: hard
+        weight: -1.0
+        description: "Микрозайм по 151-ФЗ — отдельный микрофинансовый продукт, не банковский кредитный договор"
+
+      - pattern: "(?i)договор\\s+ссуд[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Ссуда — безвозмездное пользование вещью, а не кредит"
+
+      - pattern: "(?i)товарн[ыо]й\\s+кредит"
+        severity: hard
+        weight: -1.0
+        description: "Товарный кредит по ст. 822 ГК РФ — отдельная конструкция, отличная от банковского кредита"
+
+      # ── Soft exclusions — зоны пересечения с займами и МФО ──
+
+      - pattern: "(?i)договор\\s+за[йеё]м[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Общее название договора займа снижает уверенность в том, что документ — банковский кредит"
+
+      - pattern: "(?i)займодавец"
+        severity: soft
+        weight: -0.3
+        description: "Маркер классического договора займа, а не кредитного договора"
+
+      - pattern: "(?i)\\bмфо\\b|микрофинансир[ующа-яё]+\\s+организац[ияи]"
+        severity: soft
+        weight: -0.3
+        description: "МФО работают по специальным договорным моделям микрозайма"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

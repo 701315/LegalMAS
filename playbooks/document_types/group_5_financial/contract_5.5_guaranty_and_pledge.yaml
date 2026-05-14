@@ -50,6 +50,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.81
+    strong_signal_threshold: 0.89
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -70,54 +77,275 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)поручительств[оа]"
-        - "(?i)поручител[ьяеи]"
-        - "(?i)договор\\s+поручительств[ауы]"
-        - "(?i)договор\\s+поручительств[ауы]\\s+по\\s+кредит[уы]"
-        - "(?i)договор\\s+поручительств[ауы]\\s+по\\s+договор[уые]\\s+поставк[иуы]"
-        - "(?i)залог[ауы]?"
-        - "(?i)ипотек[ауы]"
-        - "(?i)договор\\s+залога"
-        - "(?i)договор\\s+ипотек[иыу]"
-        - "(?i)договор\\s+залога\\s+движим[огоой\\s]*имуществ[ао]"
-        - "(?i)договор\\s+залога\\s+прав[ао]\\s+требован[ияи]"
-        - "(?i)договор\\s+залога\\s+дол[иьи]"
-        - "(?i)договор\\s+последующ[егоой]\\s+залога"
-        - "(?i)договор\\s+залога\\s+товар[ова]\\s+в\\s+оборот[ееи]"
-        - "(?i)залогодател[ьяеи]"
-        - "(?i)залогодержател[ьяеи]"
-        - "(?i)обеспечен[иеия]\\s+обязательств[аы]"
-        - "(?i)основн[оеое]\\s+обязательств[оа]"
-        - "(?i)предмет\\s+залога"
-        - "(?i)обращен[иеия]\\s+взыскан[ияи]\\s+на\\s+предмет\\s+залога"
+        # ── Поручительство ──
+
+        - pattern: "(?i)поручительств[оа]"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Базовый маркер поручительства"
+
+        - pattern: "(?i)поручител[ьяеи]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Поручитель как сторона обеспечительного обязательства"
+
+        - pattern: "(?i)договор\\s+поручительств[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора поручительства"
+
+        - pattern: "(?i)договор\\s+поручительств[ауы]\\s+по\\s+кредит[уы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Поручительство в обеспечение кредитного обязательства"
+
+        - pattern: "(?i)договор\\s+поручительств[ауы]\\s+по\\s+договор[уые]\\s+поставк[иуы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Поручительство в обеспечение поставки"
+
+        # ── Залог / ипотека ──
+
+        - pattern: "(?i)залог[ауы]?"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Базовый маркер залога"
+
+        - pattern: "(?i)ипотек[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ипотека как залог недвижимости"
+
+        - pattern: "(?i)договор\\s+залога"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора залога"
+
+        - pattern: "(?i)договор\\s+ипотек[иыу]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора ипотеки"
+
+        - pattern: "(?i)договор\\s+залога\\s+движим[огоой\\s]*имуществ[ао]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог движимого имущества"
+
+        - pattern: "(?i)договор\\s+залога\\s+прав[ао]\\s+требован[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог прав требования"
+
+        - pattern: "(?i)договор\\s+залога\\s+дол[иьи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог доли"
+
+        - pattern: "(?i)договор\\s+последующ[егоой]\\s+залога"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Последующий залог"
+
+        - pattern: "(?i)договор\\s+залога\\s+товар[ова]\\s+в\\s+оборот[ееи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Залог товаров в обороте"
+
+        # ── Стороны и ядро конструкции ──
+
+        - pattern: "(?i)залогодател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Залогодатель как сторона договора залога"
+
+        - pattern: "(?i)залогодержател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Залогодержатель как обеспеченный кредитор"
+
+        - pattern: "(?i)обеспечен[иеия]\\s+обязательств[аы]"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Общая обеспечительная функция договора"
+
+        - pattern: "(?i)основн[оеое]\\s+обязательств[оа]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Акцессорная привязка к основному обязательству"
+
+        - pattern: "(?i)предмет\\s+залога"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Индивидуализация предмета залога"
+
+        - pattern: "(?i)обращен[иеия]\\s+взыскан[ияи]\\s+на\\s+предмет\\s+залога"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Обращение взыскания на предмет залога"
 
       medium:
-        - "(?i)солидарн[а-яё]+\\s+ответственност[ьи]"
-        - "(?i)субсидиарн[а-яё]+\\s+ответственност[ьи]"
-        - "(?i)регрессн[оа]е\\s+требовани[ея]"
-        - "(?i)\\bзакладн[а-яё]+\\b"
-        - "(?i)оценк[аа]\\s+залог[аа]"
-        - "(?i)последующ[иоя]+\\s+залог"
-        - "(?i)страховани[ея]\\s+предмет[аа]\\s+залог[аа]"
-        - "(?i)внесудебн[ыо]й\\s+поряд[оа]к"
-        - "(?i)срок\\s+поручительств[аа]"
-        - "(?i)реестр\\s+уведомлени[йя]\\s+о\\s+залог[ее]"
+        - pattern: "(?i)солидарн[а-яё]+\\s+ответственност[ьи]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Солидарная ответственность поручителя"
+
+        - pattern: "(?i)субсидиарн[а-яё]+\\s+ответственност[ьи]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Субсидиарная ответственность поручителя"
+
+        - pattern: "(?i)регрессн[оа]е\\s+требовани[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Регресс поручителя после исполнения обязательства"
+
+        - pattern: "(?i)\\bзакладн[а-яё]+\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Закладная в ипотечной конструкции"
+
+        - pattern: "(?i)оценк[аа]\\s+залог[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Оценка предмета залога"
+
+        - pattern: "(?i)последующ[иоя]+\\s+залог"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Последующий залог"
+
+        - pattern: "(?i)страховани[ея]\\s+предмет[аа]\\s+залог[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Страхование предмета залога"
+
+        - pattern: "(?i)внесудебн[ыо]й\\s+поряд[оа]к"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Внесудебный порядок обращения взыскания"
+
+        - pattern: "(?i)срок\\s+поручительств[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Срок действия поручительства"
+
+        - pattern: "(?i)реестр\\s+уведомлени[йя]\\s+о\\s+залог[ее]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Реестр уведомлений о залоге движимого имущества"
 
       low:
-        - "(?i)имущественн[оа]е\\s+обеспечени[ея]"
-        - "(?i)\\bобременени[ея]\\b"
-        - "(?i)\\bсозалогодержател[ья]\\b"
-        - "(?i)залог\\s+прав"
-        - "(?i)товар[ыа]\\s+в\\s+оборот[ее]"
-        - "(?i)\\bбанкротств[ооа]\\b"
-        - "(?i)\\bпредпочтени[ея]\\b"
+        - pattern: "(?i)имущественн[оа]е\\s+обеспечени[ея]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общий термин имущественного обеспечения"
+
+        - pattern: "(?i)\\bобременени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Обременение имущества"
+
+        - pattern: "(?i)\\bсозалогодержател[ья]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Созалогодержатель в сложной залоговой структуре"
+
+        - pattern: "(?i)залог\\s+прав"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Краткая формула залога прав"
+
+        - pattern: "(?i)товар[ыа]\\s+в\\s+оборот[ее]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Товары в обороте как возможный предмет залога"
+
+        - pattern: "(?i)\\bбанкротств[ооа]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Банкротный контекст обеспечительной сделки"
+
+        - pattern: "(?i)\\bпредпочтени[ея]\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Оспаривание обеспечения как сделки с предпочтением"
 
     exclusions:
-      - "(?i)независим[а-яё]+\\s+гаранти[яи]"
-      - "(?i)банковск[а-яё]+\\s+гаранти[яи]"
-      - "(?i)купл[яи]-?продаж[ааи]"
-      - "(?i)\\bдарени[ея]\\b"
-      - "(?i)\\bстраховани[ея]\\b"
+      # ── Hard exclusions — самостоятельные иные обеспечительные/основные конструкции ──
+
+      - pattern: "(?i)независим[а-яё]+\\s+гаранти[яи]"
+        severity: hard
+        weight: -1.0
+        description: "Независимая гарантия — самостоятельное, неакцессорное обязательство, отличное от поручительства"
+
+      - pattern: "(?i)банковск[а-яё]+\\s+гаранти[яи]"
+        severity: hard
+        weight: -1.0
+        description: "Банковская гарантия/независимая гарантия — отдельный тип обеспечения"
+
+      - pattern: "(?i)купл[яи]-?продаж[ааи]"
+        severity: hard
+        weight: -1.0
+        description: "Купля-продажа — основной договор, а не обеспечительный"
+
+      - pattern: "(?i)\\bдарени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Дарение не относится к поручительству или залогу"
+
+      # ── Soft exclusions — смежные документы и фоновые термины ──
+
+      - pattern: "(?i)\\bстраховани[ея]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Общий страховой контекст снижает уверенность, но не исключает залог, где страхование предмета возможно"
+
+      - pattern: "(?i)кредитн[ыо]й\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Кредитный договор часто является основным обязательством, а не самим обеспечительным договором"
+
+      - pattern: "(?i)договор\\s+за[йеё]м[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Заем может быть обеспечиваемым обязательством, но не тождественен поручительству или залогу"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

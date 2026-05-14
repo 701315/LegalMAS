@@ -44,6 +44,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.82
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -60,50 +67,238 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)коммерческ[аяое]\\s+концесс[ияи]"
-        - "(?i)франчайзинг[ауы]?"
-        - "(?i)франшиз[ауы]"
-        - "(?i)договор\\s+коммерческ[ойой]\\s+концесс[иии]"
-        - "(?i)договор\\s+франчайзинг[ауы]"
-        - "(?i)сетев[ойое]\\s+лицензионн[ыйое]\\s+договор"
-        - "(?i)мастер-?франчайзинг[ауы]"
-        - "(?i)субконцесс[ияи]"
-        - "(?i)франчайзер[а-я]*"
-        - "(?i)франчайзи[а-я]*"
-        - "(?i)комплекс\\s+исключительн[ыхые]\\s+прав"
-        - "(?i)систем[аы]\\s+веден[ияи]\\s+бизнес[ауы]"
-        - "(?i)ноу-?хау"
-        - "(?i)товарн[ыйое]\\s+знак"
-        - "(?i)коммерческ[оеое]\\s+обозначен[иеия]"
+        # ── Прямые названия и ключевые термины ──
+
+        - pattern: "(?i)договор\\s+коммерческ[ойой]\\s+концесс[иии]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Полное официальное название договора коммерческой концессии"
+
+        - pattern: "(?i)коммерческ[аяое]\\s+концесс[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Обозначение коммерческой концессии"
+
+        - pattern: "(?i)франчайзинг[ауы]?"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Франчайзинг как синоним коммерческой концессии"
+
+        - pattern: "(?i)франшиз[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Франшиза — разговорное обозначение модели франчайзинга"
+
+        - pattern: "(?i)договор\\s+франчайзинг[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор франчайзинга как заголовок документа"
+
+        - pattern: "(?i)сетев[ойое]\\s+лицензионн[ыйое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Сетевой лицензионный договор как форма франчайзинга"
+
+        - pattern: "(?i)мастер-?франчайзинг[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Мастер-франчайзинг (master franchise)"
+
+        - pattern: "(?i)субконцесс[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Субконцессия как производная от основной концессии"
+
+        - pattern: "(?i)франчайзер[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Франчайзер — правообладатель по договору"
+
+        - pattern: "(?i)франчайзи[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Франчайзи — пользователь комплекса прав"
+
+        # ── Комплекс прав и бизнес-система ──
+
+        - pattern: "(?i)комплекс\\s+исключительн[ыхые]\\s+прав"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Предоставление именно комплекса исключительных прав"
+
+        - pattern: "(?i)систем[аы]\\s+веден[ияи]\\s+бизнес[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Передача системы ведения бизнеса под брендом франчайзера"
+
+        - pattern: "(?i)ноу-?хау"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Обязательный элемент комплекса прав — ноу-хау"
+
+        - pattern: "(?i)товарн[ыйое]\\s+знак"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Использование товарного знака франчайзера"
+
+        - pattern: "(?i)коммерческ[оеое]\\s+обозначен[иеия]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Коммерческое обозначение в составе комплекса прав"
 
       medium:
-        - "(?i)паушальн[ыо]й\\s+взнос"
-        - "(?i)\\bроялти\\b"
-        - "(?i)рекламн[ыо]е\\s+отчислени[яя]"
-        - "(?i)стандарт[ыа]\\s+качеств[аа]"
-        - "(?i)руководств[оо]\\s+по\\s+эксплуатаци[ии]"
-        - "(?i)технологическ[иие]+\\s+карт[ыа]"
-        - "(?i)обучени[ея]\\s+персонал[аа]"
-        - "(?i)территориальн[а-яё]+\\s+исключительност[ьи]"
-        - "(?i)\\bсубконцесси[яяи]\\b"
-        - "(?i)солидарн[а-яё]+\\s+ответственност[ьи]"
+        - pattern: "(?i)паушальн[ыо]й\\s+взнос"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Паушальный (вступительный) взнос как типичный элемент франшизы"
+
+        - pattern: "(?i)\\bроялти\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Роялти как периодические отчисления в пользу франчайзера"
+
+        - pattern: "(?i)рекламн[ыо]е\\s+отчислени[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Рекламные отчисления в рамках франчайзинговой сети"
+
+        - pattern: "(?i)стандарт[ыа]\\s+качеств[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Стандарты качества сети"
+
+        - pattern: "(?i)руководств[оо]\\s+по\\s+эксплуатаци[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Руководство по эксплуатации/бизнес-процессам"
+
+        - pattern: "(?i)технологическ[иие]+\\s+карт[ыа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Технологические карты, рецептуры, регламенты"
+
+        - pattern: "(?i)обучени[ея]\\s+персонал[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Обучение персонала франчайзи"
+
+        - pattern: "(?i)территориальн[а-яё]+\\s+исключительност[ьи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Территориальная эксклюзивность франчайзи"
+
+        - pattern: "(?i)\\bсубконцесси[яяи]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Субконцессия/субфранчайзинг"
+
+        - pattern: "(?i)солидарн[а-яё]+\\s+ответственност[ьи]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Формулировки о солидарной/субсидиарной ответственности за качество"
 
       low:
-        - "(?i)минимальн[ыо]й\\s+объ[её]м\\s+закупок"
-        - "(?i)сетев[ыо]е\\s+стандарт[ыа]"
-        - "(?i)контрол[ья]\\s+качеств[аа]"
-        - "(?i)\\bРоспатент\\b"
-        - "(?i)антимонопольн[ыо]е\\s+ограничени[яя]"
-        - "(?i)\\bребрендинг\\b"
-        - "(?i)\\bинспекци[яяи]\\b"
+        - pattern: "(?i)минимальн[ыо]й\\s+объ[её]м\\s+закупок"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Минимальный объем закупок у франчайзера/поставщиков сети"
+
+        - pattern: "(?i)сетев[ыо]е\\s+стандарт[ыа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Сетевые стандарты как контур франшизы"
+
+        - pattern: "(?i)контрол[ья]\\s+качеств[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Контроль качества товаров/услуг франчайзи"
+
+        - pattern: "(?i)\\bРоспатент\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Упоминание Роспатента и госрегистрации договора"
+
+        - pattern: "(?i)антимонопольн[ыо]е\\s+ограничени[яя]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Антимонопольные ограничения и риски"
+
+        - pattern: "(?i)\\bребрендинг\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Ребрендинг, смена вывесок"
+
+        - pattern: "(?i)\\bинспекци[яяи]\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Инспекции точек сети франчайзером"
 
     exclusions:
-      - "(?i)лицензионн[ыо]й\\s+договор"
-      - "(?i)только\\s+прав[оо]\\s+использовани[яя]"
-      - "(?i)договор\\s+об\\s+отчуждени[ии]\\s+исключительн[оа]го\\s+прав[аа]"
-      - "(?i)агентск[иоя]+\\s+договор"
-      - "(?i)договор\\s+возмездн[оа]го\\s+оказани[яя]\\s+услуг"
-      - "(?i)дистрибьюторск[иоя]+\\s+договор"
+      # ── Hard exclusions — чистая лицензия и отчуждение ──
+
+      - pattern: "(?i)лицензионн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Чистый лицензионный договор по ГК РФ — отдельный тип, без комплексной бизнес-системы"
+
+      - pattern: "(?i)только\\s+прав[оо]\\s+использовани[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Формула о передаче только права использования тянет к лицензионному договору, а не к франчайзингу"
+
+      - pattern: "(?i)договор\\s+об\\s+отчуждени[ии]\\s+исключительн[оа]го\\s+прав[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Отчуждение исключительного права — договор продажи права, а не франчайзинг"
+
+      # ── Soft exclusions — соседние сервисные и посреднические конструкции ──
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Агентский договор — посредничество, не передача комплексной бизнес-системы"
+
+      - pattern: "(?i)договор\\s+возмездн[оа]го\\s+оказани[яя]\\s+услуг"
+        severity: soft
+        weight: -0.3
+        description: "Оказание услуг без передачи комплекса прав ближе к сервисному договору"
+
+      - pattern: "(?i)дистрибьюторск[иоя]+\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Дистрибьюторский договор фокусируется на поставках, а не на комплексной франчайзинговой модели"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

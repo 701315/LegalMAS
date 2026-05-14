@@ -49,6 +49,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -66,56 +73,302 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)лизинг[ауы]?"
-        - "(?i)договор\\s+лизинг[ауы]"
-        - "(?i)договор\\s+финансов[ойой\\s]*аренд[ыыу]"
-        - "(?i)лизингов[ыйое]\\s+договор"
-        - "(?i)договор\\s+лизинг[ауы]\\s+оборудован[ияи]"
-        - "(?i)договор\\s+автолизинг[ауы]"
-        - "(?i)договор\\s+лизинг[ауы]\\s+спецтехник[иуы]"
-        - "(?i)договор\\s+лизинг[ауы]\\s+недвижимост[иью]"
-        - "(?i)международн[ыйое]\\s+договор\\s+лизинг[ауы]"
-        - "(?i)финансов[аяое]\\s+аренд[ауы]"
-        - "(?i)лизингодател[ьяеи]"
-        - "(?i)лизингополучател[ьяеи]"
-        - "(?i)предмет\\s+лизинг[ауы]"
-        - "(?i)выкупн[аяое]\\s+цен[ауы]"
-        - "(?i)выбор\\s+продавц[ауы]"
-        - "(?i)лизингов[ыеых]\\s+платеж[ией]"
-        - "(?i)график\\s+лизингов[ыхых]\\s+платеж[ейи]"
+        # ── Прямые названия договора и ключевые лизинговые роли ──
+
+        - pattern: "(?i)договор\\s+лизинг[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора лизинга"
+
+        - pattern: "(?i)договор\\s+финансов[ойой\\s]*аренд[ыыу]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Формула 'договор финансовой аренды' как прямой синоним лизинга"
+
+        - pattern: "(?i)лизингов[ыйое]\\s+договор"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Прямое указание на лизинговый договор"
+
+        - pattern: "(?i)лизинг[ауы]?"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Указание на лизинг в тексте"
+
+        - pattern: "(?i)финансов[аяое]\\s+аренд[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Использование термина 'финансовая аренда' в значении лизинга"
+
+        - pattern: "(?i)лизингодател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Субъект лизинговых отношений — лизингодатель"
+
+        - pattern: "(?i)лизингополучател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Субъект лизинговых отношений — лизингополучатель"
+
+        - pattern: "(?i)предмет\\s+лизинг[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Формула 'предмет лизинга' — типоспецифичный маркер"
+
+        # ── Специализированные виды лизинга ──
+
+        - pattern: "(?i)договор\\s+лизинг[ауы]\\s+оборудован[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Лизинг оборудования"
+
+        - pattern: "(?i)договор\\s+автолизинг[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Автолизинг — лизинг транспортных средств"
+
+        - pattern: "(?i)договор\\s+лизинг[ауы]\\s+спецтехник[иуы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Лизинг спецтехники"
+
+        - pattern: "(?i)договор\\s+лизинг[ауы]\\s+недвижимост[иью]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Лизинг недвижимости"
+
+        - pattern: "(?i)международн[ыйое]\\s+договор\\s+лизинг[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Международный договор лизинга"
+
+        # ── Финансовая структура и выкуп ──
+
+        - pattern: "(?i)лизингов[ыеых]\\s+платеж[ией]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Лизинговые платежи — ключевой финансовый элемент договора"
+
+        - pattern: "(?i)график\\s+лизингов[ыхых]\\s+платеж[ейи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "График лизинговых платежей"
+
+        - pattern: "(?i)выкупн[аяое]\\s+цен[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Выкупная цена предмета лизинга по окончании срока"
+
+        - pattern: "(?i)выкупн[аяое]\\s+стоимост[ьи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Выкупная стоимость предмета лизинга"
+
+        - pattern: "(?i)остаточн[а-яё]+\\s+стоимост[ьи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Остаточная стоимость предмета — типичный элемент buy-out модели"
+
+        - pattern: "(?i)выбор\\s+продавц[ауы]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Связка с продавцом (vendor leg) — специфична для лизинга"
+
+        # ── Оставшиеся legacy high ──
+        - "(?i)lease"
+        - "(?i)finance[\\s_.-]?lease"
 
       medium:
-        - "(?i)\\bпродав[её]ц\\b"
-        - "(?i)авансов[ыо]й\\s+плат[её]ж"
-        - "(?i)\\bбалансодержател[ья]\\b"
-        - "(?i)ускоренн[а-яё]+\\s+амортизаци[яи]"
-        - "(?i)остаточн[а-яё]+\\s+стоимост[ьи]"
-        - "(?i)страховани[ея]\\s+предмет[аа]\\s+лизинг[аа]"
-        - "(?i)\\bсублизинг\\b"
-        - "(?i)исполнительн[а-яё]+\\s+надпис[ьи]"
-        - "(?i)бесспорн[оа]е\\s+списани[ея]"
-        - "(?i)возвратн[ыо]й\\s+лизинг"
-        - "(?i)обратн[ыо]й\\s+лизинг"
-        - "(?i)\\bsale-leaseback\\b"
-        - "(?i)техническ[оа]е\\s+обслуживани[ея]"
-        - "(?i)парк\\s+ТС"
-        - "(?i)сальдо\\s+встречн[ыо]х\\s+обязательств"
+        - pattern: "(?i)\\bпродав[её]ц\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Продавец предмета — важен для лизинга, но термин общий"
+
+        - pattern: "(?i)авансов[ыо]й\\s+плат[её]ж"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Авансовый платёж по договору лизинга"
+
+        - pattern: "(?i)\\bбалансодержател[ья]\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Балансодержатель предмета — важен для налогового режима лизинга"
+
+        - pattern: "(?i)ускоренн[а-яё]+\\s+амортизаци[яи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Ускоренная амортизация предмета лизинга"
+
+        - pattern: "(?i)страховани[ея]\\s+предмет[аа]\\s+лизинг[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Страхование предмета лизинга"
+
+        - pattern: "(?i)\\bсублизинг\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Сублизинг — специальный механизм передачи предмета"
+
+        - pattern: "(?i)исполнительн[а-яё]+\\s+надпис[ьи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Исполнительная надпись нотариуса для взыскания лизинговых платежей"
+
+        - pattern: "(?i)бесспорн[оа]е\\s+списани[ея]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Бесспорное списание (direct debit) по лизинговым платежам"
+
+        - pattern: "(?i)возвратн[ыо]й\\s+лизинг"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Возвратный лизинг (sale-leaseback)"
+
+        - pattern: "(?i)обратн[ыо]й\\s+лизинг"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Обратный лизинг (sale-leaseback)"
+
+        - pattern: "(?i)\\bsale-leaseback\\b"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Англоязычная формула возвратного лизинга"
+
+        - pattern: "(?i)техническ[оа]е\\s+обслуживани[ея]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "ТО предмета — часто включается в full-service лизинг"
+
+        - pattern: "(?i)парк\\s+ТС"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Парковый лизинг транспортных средств"
+
+        - pattern: "(?i)сальдо\\s+встречн[ыо]х\\s+обязательств"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Методика расчёта сальдо при расторжении лизинга"
 
       low:
-        - "(?i)\\bКАСКО\\b"
-        - "(?i)изъяти[ея]\\s+предмет[аа]"
-        - "(?i)регистраци[яи]\\s+ТС"
-        - "(?i)лизингов[а-яё]+\\s+компани[яи]"
-        - "(?i)сч[её]т-?фактур[аы]"
-        - "(?i)амортизационн[а-яё]+\\s+преми[яи]"
+        - pattern: "(?i)\\bКАСКО\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Страхование КАСКО — часто применяется к предмету автолизинга"
+
+        - pattern: "(?i)изъяти[ея]\\s+предмет[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Изъятие предмета — типичный remedy лизингодателя"
+
+        - pattern: "(?i)регистраци[яи]\\s+ТС"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Регистрация ТС — важный, но не уникальный признак"
+
+        - pattern: "(?i)лизингов[а-яё]+\\s+компани[яи]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание лизинговой компании"
+
+        - pattern: "(?i)сч[её]т-?фактур[аы]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Счёт-фактура — общий бухгалтерский термин"
+
+        - pattern: "(?i)амортизационн[а-яё]+\\s+преми[яи]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Амортизационная премия — часть налогового режима, не уникальна для лизинга"
 
     exclusions:
-      - "(?i)\\bпрокат\\b"
-      - "(?i)лизинг\\s+для\\s+бытов[ыо]х\\s+нужд"
-      - "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
-      - "(?i)аренд[аы]\\s+без\\s+приобретени[яя]\\s+предмет[аа]"
-      - "(?i)земельн[а-яё]+\\s+участ[оа]к\\s+как\\s+предмет\\s+лизинг[аа]"
-      - "(?i)природн[ыо]й\\s+объект\\s+как\\s+предмет\\s+лизинг[аа]"
+      # ── Hard exclusions — полностью подавляют тип ──
+
+      - pattern: "(?i)\\bпрокат\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор проката — потребительский режим, не финансовая аренда (contract_2.2_rental)"
+
+      - pattern: "(?i)лизинг\\s+для\\s+бытов[ыо]х\\s+нужд"
+        severity: hard
+        weight: -1.0
+        description: "Лизинг для бытовых нужд гражданина ближе к consumer-прокату, не типичный B2B лизинг"
+
+      - pattern: "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездное пользование (ссуда) исключает финансовую природу лизинга (contract_2.6_gratuitous_use)"
+
+      - pattern: "(?i)аренд[аы]\\s+без\\s+приобретени[яя]\\s+предмет[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Аренда без приобретения предмета в собственность — обычная аренда, не лизинг (contract_2.1_lease)"
+
+      # Земельные участки и природные объекты прямо ограничены законом о лизинге
+      - pattern: "(?i)земельн[а-яё]+\\s+участ[оа]к\\s+как\\s+предмет\\s+лизинг[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Земельные участки не могут быть предметом лизинга по 164-ФЗ"
+
+      - pattern: "(?i)природн[ыо]й\\s+объект\\s+как\\s+предмет\\s+лизинг[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Природные объекты не могут быть предметом лизинга по 164-ФЗ"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)договор\\s+аренд[ыыу]\\s+без\\s+упоминани[яя]\\s+лизинг[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Чистая аренда без лизинговой терминологии тянет к другим арендным типам"
+
+      - pattern: "(?i)договор\\s+аренд[ыыу]\\s+транспортн[огоого\\s]*средств[ао]"
+        severity: soft
+        weight: -0.3
+        description: "Аренда ТС без элементов vendor leg/lease leg тянет к contract_2.3_vehicle_lease"
+
+      - pattern: "(?i)договор\\s+аренд[ыыу]\\s+нежил[а-я\\s]*помещен[ияи]"
+        severity: soft
+        weight: -0.3
+        description: "Аренда нежилого помещения без лизинговых элементов тянет к contract_2.1_lease"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -238,7 +491,7 @@ trigger_definitions:
       - "(?i)\\bcross-border\\b"
 
   sale_leaseback:
-    description: "Возвратный лизинг: продавец и лизингополучатель — одно лицо"
+    # Возвратный лизинг: продавец и лизингополучатель — одно лицо
     any_keywords:
       - "(?i)возвратн[ыо]й\\s+лизинг"
       - "(?i)обратн[ыо]й\\s+лизинг"
@@ -248,7 +501,7 @@ trigger_definitions:
       - "(?i)продаж[аы]\\s+и\\s+обратн[а-яё]+\\s+аренд[аа]"
 
   maintenance_included:
-    description: "Full-service лизинг: обслуживание включено"
+    # Full-service лизинг: обслуживание включено
     any_keywords:
       - "(?i)техническ[оа]е\\s+обслуживани[ея]"
       - "(?i)\\bТО\\s+за\\s+сч[её]т\\s+лизингодател[яя]"
@@ -258,7 +511,7 @@ trigger_definitions:
       - "(?i)гарантийн[оа]е\\s+обслуживани[ея]"
 
   fleet_leasing:
-    description: "Парковый лизинг / лизинг флота"
+    # Парковый лизинг / лизинг флота
     any_keywords:
       - "(?i)парк\\s+транспортн[ыо]х\\s+средств"
       - "(?i)парк\\s+ТС"
@@ -268,7 +521,7 @@ trigger_definitions:
       - "(?i)\\bлот\\b"
 
   saldo_methodology_present:
-    description: "Наличие методики расчёта сальдо при расторжении"
+    # Наличие методики расчёта сальдо при расторжении
     any_keywords:
       - "(?i)сальдо\\s+встречн[ыо]х\\s+обязательств"
       - "(?i)расч[её]т\\s+сальдо"
@@ -277,7 +530,7 @@ trigger_definitions:
       - "(?i)итогов[оа]е\\s+сальдо"
 
   asset_return_scenario:
-    description: "Возврат предмета лизинга по окончании срока (без выкупа)"
+    # Возврат предмета лизинга по окончании срока (без выкупа)
     any_keywords:
       - "(?i)возврат\\s+предмет[аа]\\s+лизинг[аа]"
       - "(?i)возвратит[ья]\\s+предмет"
@@ -296,9 +549,9 @@ trigger_definitions:
 
 shared_patterns:
 
-  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд|usd|eur)\\b"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
-  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%"
+  percentage: "(?i)\\b\\d+[,.]?\\d*\\s*%\\b"
   cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
   vin_number: "(?i)\\b[A-HJ-NPR-Z0-9]{17}\\b"
   inn_ogrn: "(?i)\\b(?:ИНН|ОГРН|ОГРНИП|КПП)\\s*:?\\s*\\d{9,15}\\b"

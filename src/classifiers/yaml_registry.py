@@ -496,6 +496,24 @@ class YAMLRegistry:
         loaded = yaml.safe_load(text)
         return loaded if isinstance(loaded, dict) else {}
 
+    @staticmethod
+    def _normalize_pattern_source(pattern: re.Pattern | str | None) -> str:
+        """
+        Нормализует regex-паттерн в строку для кросс-типового сравнения.
+
+        Для compiled regex берём .pattern.
+        Для строк убираем возможный префикс r и внешние кавычки.
+        """
+        if pattern is None:
+            return ""
+
+        if isinstance(pattern, re.Pattern):
+            raw = pattern.pattern
+        else:
+            raw = str(pattern)
+
+        return raw.lstrip("r").strip('"').strip("'").strip()
+
     def _build_fallback_config(
         self,
         *,
@@ -778,6 +796,87 @@ class YAMLRegistry:
 
         return is_valid, errors
 
+
+    def validate_cross_type_distinctive_patterns(self) -> list[dict]:
+        """
+        Ищет дублирующиеся distinctive lexical patterns между разными type_code.
+
+        Возвращает список warning-объектов вида:
+        [
+            {
+                "pattern": r"...",
+                "types": ["type_a", "type_b"],
+                "occurrences": [
+                    {"type_code": "type_a", "level": "high", "context": "header"},
+                    {"type_code": "type_b", "level": "high", "context": "any"},
+                ],
+            },
+            ...
+        ]
+
+        Важно:
+        - это WARNING, а не validation error;
+        - в текущей версии учитываем только extended-format сигналы,
+        где distinctiveness == "high".
+        """
+        index: dict[str, list[dict]] = {}
+
+        for type_code, cfg in self._configs.items():
+            lexical_signals = getattr(cfg, "lexical_signals", {}) or {}
+
+            for level in ("high", "medium", "low"):
+                for signal in lexical_signals.get(level, []) or []:
+                    if not isinstance(signal, dict):
+                        continue
+
+                    if signal.get("distinctiveness") != "high":
+                        continue
+
+                    normalized_pattern = self._normalize_pattern_source(signal.get("pattern"))
+                    if not normalized_pattern:
+                        continue
+
+                    index.setdefault(normalized_pattern, []).append(
+                        {
+                            "type_code": type_code,
+                            "level": level,
+                            "context": signal.get("context", "any"),
+                            "weight": signal.get("weight"),
+                            "description": signal.get("description"),
+                            "source_path": getattr(cfg, "source_path", None),
+                        }
+                    )
+
+        warnings: list[dict] = []
+        for pattern, occurrences in index.items():
+            unique_types = sorted({item["type_code"] for item in occurrences})
+            if len(unique_types) <= 1:
+                continue
+
+            warning = {
+                "pattern": pattern,
+                "types": unique_types,
+                "occurrences": occurrences,
+            }
+            warnings.append(warning)
+
+        if warnings:
+            logger.warning(
+                "YAML Registry cross-type distinctive pattern collisions detected",
+                extra={
+                    "total_collisions": len(warnings),
+                    "sample": warnings[:10],
+                },
+            )
+        else:
+            logger.info(
+                "YAML Registry cross-type distinctive pattern validation passed",
+                total_types=len(self._configs),
+            )
+
+        return warnings
+
+
     def get_all_configs(self) -> list[DocumentTypeConfig]:
         return list(self._configs.values())
 
@@ -824,6 +923,17 @@ class YAMLRegistry:
                                 f"{error_summary}{more_msg}\n"
                                 f"Fix YAML files before starting the service."
                             )
+
+                        collision_warnings = _instance.validate_cross_type_distinctive_patterns()
+                        if collision_warnings:
+                            logger.warning(
+                                "YAML Registry loaded with distinctive pattern collisions",
+                                extra={
+                                    "total_collisions": len(collision_warnings),
+                                    "sample": collision_warnings[:10],
+                                },
+                            )
+
         return _instance
 
     def get_master_doc_types(self) -> list[str]:

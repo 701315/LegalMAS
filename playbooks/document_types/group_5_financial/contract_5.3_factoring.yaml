@@ -48,6 +48,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.82
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -65,50 +72,254 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)факторинг[ауы]?"
-        - "(?i)финансировани[ея]\\s+под\\s+уступк[уи]"
-        - "(?i)договор\\s+факторинг[ауы]"
-        - "(?i)договор\\s+финансировани[ея]\\s+под\\s+уступк[уи]\\s+денежн[огоой\\s]*требован[ияи]"
-        - "(?i)договор\\s+финансировани[ея]\\s+под\\s+дебиторск[уюой\\s]*задолженн[остьости]"
-        - "(?i)договор\\s+факторинг[ауы]\\s+с\\s+регресс[ома]"
-        - "(?i)договор\\s+факторинг[ауы]\\s+без\\s+регресс[а]"
-        - "(?i)договор\\s+открыт[огоой]\\s+факторинг[ауы]"
-        - "(?i)договор\\s+скрыт[огоой]\\s+факторинг[ауы]"
-        - "(?i)договор\\s+международн[огоой]\\s+факторинг[ауы]"
-        - "(?i)master\\s+factoring\\s+agreement"
-        - "(?i)notification\\s+factoring\\s+agreement"
-        - "(?i)финансов[ыйое]\\s+агент"
-        - "(?i)фактор[а-я]*"
-        - "(?i)уступк[аеи]\\s+денежн[огоой\\s]*требован[ияи]"
-        - "(?i)дебиторск[аяое]\\s+задолженн[остьости]"
-        - "(?i)клиент[а-я]*"
-        - "(?i)должник[ауы]"
+        # ── Прямые названия договоров факторинга ──
+
+        - pattern: "(?i)факторинг[ауы]?"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Общий термин факторинга в заголовке или теле договора"
+
+        - pattern: "(?i)финансировани[ея]\\s+под\\s+уступк[уи]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Финансирование под уступку денежного требования"
+
+        - pattern: "(?i)договор\\s+факторинг[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора факторинга"
+
+        - pattern: "(?i)договор\\s+финансировани[ея]\\s+под\\s+уступк[уи]\\s+денежн[огоой\\s]*требован[ияи]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Полное наименование договора финансирования под уступку денежного требования"
+
+        - pattern: "(?i)договор\\s+финансировани[ея]\\s+под\\s+дебиторск[уюой\\s]*задолженн[остьости]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Факторинг, оформленный как финансирование под дебиторскую задолженность"
+
+        - pattern: "(?i)договор\\s+факторинг[ауы]\\s+с\\s+регресс[ома]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Факторинг с регрессом на клиента"
+
+        - pattern: "(?i)договор\\s+факторинг[ауы]\\s+без\\s+регресс[а]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Факторинг без регресса (перенос кредитного риска на фактора)"
+
+        - pattern: "(?i)договор\\s+открыт[огоой]\\s+факторинг[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Открытый факторинг с уведомлением должника"
+
+        - pattern: "(?i)договор\\s+скрыт[огоой]\\s+факторинг[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Скрытый (undisclosed) факторинг"
+
+        - pattern: "(?i)договор\\s+международн[огоой]\\s+факторинг[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Международный факторинг"
+
+        - pattern: "(?i)master\\s+factoring\\s+agreement"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Master factoring agreement — рамочный договор факторинга"
+
+        - pattern: "(?i)notification\\s+factoring\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Notification factoring agreement — договор с уведомлением должника"
+
+        # ── Стороны и ключевые элементы конструкции ──
+
+        - pattern: "(?i)финансов[ыйое]\\s+агент"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Финансовый агент как фактор по ст. 825 ГК РФ"
+
+        - pattern: "(?i)фактор[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Фактор как сторона договора факторинга"
+
+        - pattern: "(?i)уступк[аеи]\\s+денежн[огоой\\s]*требован[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Уступка денежного требования в пользу фактора"
+
+        - pattern: "(?i)дебиторск[аяое]\\s+задолженн[остьости]"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Дебиторская задолженность как объект финансирования"
+
+        - pattern: "(?i)клиент[а-я]*"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Клиент (поставщик) как сторона договора факторинга"
+
+        - pattern: "(?i)должник[ауы]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Должник по уступаемому требованию"
 
       medium:
-        - "(?i)\\bрегресс\\b"
-        - "(?i)без\\s+регресс[аа]"
-        - "(?i)безрегрессн[ыо]й\\s+факторинг"
-        - "(?i)уступк[аа]\\s+будущ[ео]го\\s+требовани[яя]"
-        - "(?i)факторингов[а-яё]+\\s+комисси[яя]"
-        - "(?i)реестр\\s+уступленн[ыо]х\\s+требовани[йя]"
-        - "(?i)уведомлени[ея]\\s+должник[аа]"
-        - "(?i)финансировани[ея]\\s+поставщик[аа]"
+        - pattern: "(?i)\\bрегресс\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Регресс по факторинговой операции"
+
+        - pattern: "(?i)без\\s+регресс[аа]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Факторинг без регресса"
+
+        - pattern: "(?i)безрегрессн[ыо]й\\s+факторинг"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Безрегрессный факторинг"
+
+        - pattern: "(?i)уступк[аа]\\s+будущ[ео]го\\s+требовани[яя]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Уступка будущих денежных требований"
+
+        - pattern: "(?i)факторингов[а-яё]+\\s+комисси[яя]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Комиссия фактора за финансирование и обслуживание"
+
+        - pattern: "(?i)реестр\\s+уступленн[ыо]х\\s+требовани[йя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Реестр уступленных требований как приложение к договору факторинга"
+
+        - pattern: "(?i)уведомлени[ея]\\s+должник[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Уведомление должника об уступке требования фактору"
+
+        - pattern: "(?i)финансировани[ея]\\s+поставщик[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Финансирование поставщика под уступку требований к покупателю"
 
       low:
-        - "(?i)инкассировани[ея]\\s+задолженност[ии]"
-        - "(?i)управлени[ея]\\s+дебиторск[оа]й\\s+задолженност[ьюи]"
-        - "(?i)открыт[ыо]й\\s+факторинг"
-        - "(?i)скрыт[ыо]й\\s+факторинг"
-        - "(?i)международн[ыо]й\\s+факторинг"
-        - "(?i)\\bдисконт\\b"
-        - "(?i)зач[её]т\\s+встречн[ыо]х\\s+требовани[йя]"
+        - pattern: "(?i)инкассировани[ея]\\s+задолженност[ии]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Инкассирование задолженности фактором"
+
+        - pattern: "(?i)управлени[ея]\\s+дебиторск[оа]й\\s+задолженност[ьюи]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Управление дебиторской задолженностью в контексте факторинга"
+
+        - pattern: "(?i)открыт[ыо]й\\s+факторинг"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание открытого факторинга в теле"
+
+        - pattern: "(?i)скрыт[ыо]й\\s+факторинг"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание скрытого факторинга"
+
+        - pattern: "(?i)международн[ыо]й\\s+факторинг"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание международного факторинга"
+
+        - pattern: "(?i)\\bдисконт\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Дисконт/скидка к номиналу требований при факторинге"
+
+        - pattern: "(?i)зач[её]т\\s+встречн[ыо]х\\s+требовани[йя]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Зачёт взаимных требований, возможный в структуре факторинговых расчётов"
 
     exclusions:
-      - "(?i)договор\\s+цесси[ии]"
-      - "(?i)договор\\s+за[йеё]м[аа]"
-      - "(?i)\\bпоручительств[ооа]\\b"
-      - "(?i)агентск[иоя]+\\s+договор"
-      - "(?i)договор\\s+оказани[яя]\\s+услуг\\s+по\\s+взыскани[юю]"
+      # ── Hard exclusions — явно иные конструкции (чистая цессия, займ, поручительство, агентские услуги) ──
+
+      - pattern: "(?i)договор\\s+цесси[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Чистая уступка права требования без элемента финансирования (цессия), а не факторинг"
+
+      - pattern: "(?i)договор\\s+за[йеё]м[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Договор займа, а не финансирование под уступку денежного требования"
+
+      - pattern: "(?i)\\bпоручительств[ооа]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Поручительство — акцессорное обеспечение, а не факторинговый договор"
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Агентский договор об оказании услуг без финансирования и уступки требований"
+
+      - pattern: "(?i)договор\\s+оказани[яя]\\s+услуг\\s+по\\s+взыскани[юю]"
+        severity: hard
+        weight: -1.0
+        description: "Договор услуг по взысканию задолженности (collection), а не факторинг"
+
+      # ── Soft exclusions — соседние конструкции финансирования/обеспечения ──
+
+      - pattern: "(?i)кредитн[ыйое]\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Кредитный договор может сопровождать уступку требований, но сам по себе не является факторингом"
+
+      - pattern: "(?i)залог\\s+прав\\s+требовани[яй]"
+        severity: soft
+        weight: -0.3
+        description: "Залог прав требования без элемента финансирования клиента — ближе к залоговой конструкции"
+
+      - pattern: "(?i)договор\\s+финансировани[яя]\\s+под\\s+залог"
+        severity: soft
+        weight: -0.3
+        description: "Финансирование под залог, а не под уступку денежного требования"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

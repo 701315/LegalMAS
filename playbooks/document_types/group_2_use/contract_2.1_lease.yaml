@@ -49,6 +49,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.78
+    strong_signal_threshold: 0.87
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -68,54 +75,218 @@ classification_runtime_v1:
     keywords:
 
       high:
+        # ── Прямые названия договора / объект аренды (header-focused) ──
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+нежил[а-я\\s]*помещен[ияи]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название для аренды нежилого помещения"
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+здани[яй]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Аренда здания как предмет договора"
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+склад[ао]?"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда склада"
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+офис[ао]?"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда офиса"
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+сооружен[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда сооружения — § 4 Главы 34 ГК РФ"
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+оборудован[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда оборудования"
+
+        - pattern: "(?i)договор\\s+аренд[ыу]\\s+земельн[огоой\\s]*участк[аеи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда земельного участка"
+
+        - pattern: "(?i)договор\\s+коммерческ[ойого]\\s+аренд[ыу]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Коммерческая аренда — прямое указание на B2B-режим"
+
+        # ── Классические арендные формулы ──
+
+        - pattern: "(?i)арендодател[ьяеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ключевой субъект арендных отношений — арендодатель"
+
+        - pattern: "(?i)арендатор[ауы]?"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ключевой субъект арендных отношений — арендатор"
+
+        - pattern: "(?i)передаетс[яь]\\s+во\\s+временн[оеое]\\s+владен[иеи]\\s+и\\s+пользован[иеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: body
+          description: "Классическая формула аренды по ст. 606 ГК РФ"
+
+        - pattern: "(?i)арендн[аяые]\\s+плат[ауы]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Арендная плата — существенное условие аренды"
+
+        # ── Оставшиеся legacy high ──
         - "(?i)аренд[аыу]"
-        - "(?i)договор\\s+аренд[ыыу]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+нежил[а-я\\s]*помещен[ияи]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+офис[ао]?"
-        - "(?i)договор\\s+аренд[ыыу]\\s+склад[ао]?"
-        - "(?i)договор\\s+аренд[ыыу]\\s+здани[яй]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+сооружен[ияи]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+оборудован[ияи]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+техник[иу]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+земельн[огоой\\s]*участк[аеи]"
-        - "(?i)договор\\s+коммерческ[ойого]\\s+аренд[ыыу]"
-        - "(?i)арендодател[ьяеи]"
-        - "(?i)арендатор[ауы]?"
+        - "(?i)договор\\s+аренд[ыу]"
         - "(?i)временн[оая]\\s+пользован[иеи]"
         - "(?i)временн[оая]\\s+владен[иеи]"
-        - "(?i)арендн[аяые]\\s+плат[ауы]"
-        - "(?i)передаетс[яь]\\s+во\\s+временн[оеое]\\s+владен[иеи]\\s+и\\s+пользован[иеи]"
+        - "(?i)договор\\s+аренд[ыу]\\s+техник[иу]"
 
       medium:
-        - "(?i)\\bпомещени[ея]\\b"
-        - "(?i)\\bздани[ея]\\b"
-        - "(?i)\\bоборудовани[ея]\\b"
-        - "(?i)нежил[оаоеые]+\\s+помещени[ея]"
-        - "(?i)акт\\s+при[её]ма-?передач[ии]"
-        - "(?i)ежемесячн[а-яё]+\\s+плат[аа]"
-        - "(?i)коммунальн[ыо]е\\s+услуг[ии]"
-        - "(?i)обеспечительн[ыо]й\\s+плат[её]ж"
-        - "(?i)\\bсубаренд[аы]\\b"
-        - "(?i)капитальн[ыо]й\\s+ремонт"
-        - "(?i)текущ[иоя]+\\s+ремонт"
+        - pattern: "(?i)нежил[оаоеые]+\\s+помещени[ея]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Нежилое помещение — распространённый объект коммерческой аренды"
+
+        - pattern: "(?i)акт\\s+при[её]ма-?передач[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Акт приёма-передачи — обязательный документ при передаче и возврате объекта"
+
+        - pattern: "(?i)обеспечительн[ыо]й\\s+плат[её]ж"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Обеспечительный платёж — характерен для коммерческой аренды"
+
+        - pattern: "(?i)коммунальн[ыо]е\\s+услуг[ии]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Коммунальные услуги — обычно входят в структуру арендной платы или OPEX"
+
+        - pattern: "(?i)капитальн[ыо]й\\s+ремонт"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Капитальный ремонт — распределение обязанностей между сторонами, ст. 616 ГК РФ"
+
+        - pattern: "(?i)текущ[иоя]+\\s+ремонт"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Текущий ремонт — обязанность арендатора по умолчанию, ст. 616 ГК РФ"
+
+        - pattern: "(?i)\\bсубаренд[аы]\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Субаренда — специфичный режим, требует согласия арендодателя, ст. 615 ГК РФ"
+
+        - pattern: "(?i)ежемесячн[а-яё]+\\s+плат[аа]"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Ежемесячная плата — типовая периодичность арендных платежей"
 
       low:
-        - "(?i)эксплуатационн[ыо]е\\s+расход[ыо]"
-        - "(?i)индексаци[яи]"
-        - "(?i)\\bдепозит\\b"
-        - "(?i)возврат\\s+имуществ[аа]"
-        - "(?i)прав[оа]\\s+доступ[аа]"
-        - "(?i)\\bстраховани[ея]\\b"
-        - "(?i)\\bВРИ\\b"
+        - pattern: "(?i)эксплуатационн[ыо]е\\s+расход[ыо]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "OPEX / эксплуатационные расходы — характерны для сложных коммерческих аренд"
+
+        - pattern: "(?i)индексаци[яи]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Индексация арендной платы — снижение покупательной способности"
+
+        - pattern: "(?i)\\bдепозит\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Депозит — общий термин, может встречаться в разных типах договоров"
+
+        - pattern: "(?i)возврат\\s+имуществ[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Возврат имущества — обязанность арендатора при завершении аренды"
+
+        - pattern: "(?i)прав[оа]\\s+доступ[аа]"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Право доступа — встречается в аренде, но и в других типах договоров"
 
     exclusions:
-      - "(?i)жил[оа]й\\s+на[её]м"
-      - "(?i)договор\\s+на[йеё]м[ауы]\\s+жил[оа]го\\s+помещени[яя]"
-      - "(?i)\\bлизинг\\b"
-      - "(?i)финансов[а-яё]+\\s+аренд[аы]"
-      - "(?i)\\bпрокат\\b"
-      - "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
-      - "(?i)\\bссуд[аы]\\b"
+      # ── Hard exclusions — полностью подавляют тип ──
+
+      - pattern: "(?i)жил[оа]й\\s+на[её]м"
+        severity: hard
+        weight: -1.0
+        description: "Наём жилья — отдельный режим, Глава 35 ГК РФ (contract_2.5_residential_lease)"
+
+      - pattern: "(?i)договор\\s+на[йеё]м[ауы]\\s+жил[оа]го\\s+помещени[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Договор найма жилого помещения — не коммерческая аренда (contract_2.5_residential_lease)"
+
+      - pattern: "(?i)финансов[а-яё]+\\s+аренд[аы]"
+        severity: hard
+        weight: -1.0
+        description: "Финансовая аренда (лизинг) — отдельный тип (contract_2.4_leasing)"
+
+      - pattern: "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездное пользование (ссуда) — не аренда, Глава 36 ГК РФ (contract_2.6_gratuitous_use)"
+
+      - pattern: "(?i)договор\\s+прокат[аыу]"
+        severity: hard
+        weight: -1.0
+        description: "Договор проката — специальный потребительский режим (§ 2 Главы 34 ГК РФ, contract_2.2_rental)"
+
+      - pattern: "(?i)договор\\s+бытов[огоый]\\s+прокат[аыу]"
+        severity: hard
+        weight: -1.0
+        description: "Бытовой прокат — consumer-режим, не общая коммерческая аренда (contract_2.2_rental)"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)\\bлизинг\\b"
+        severity: soft
+        weight: -0.4
+        description: "Упоминание лизинга снижает уверенность — возможен смешанный или переходный тип (contract_2.4_leasing)"
+
+      - pattern: "(?i)\\bпрокат\\b"
+        severity: soft
+        weight: -0.35
+        description: "Упоминание проката в общем контексте (без 'договор проката') снижает уверенность в общей аренде (contract_2.2_rental)"
+
+      - pattern: "(?i)\\bссуд[аы]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Ссуда / безвозмездное пользование может смешиваться с арендой в тексте (contract_2.6_gratuitous_use)"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -226,7 +397,6 @@ trigger_definitions:
       - "(?i)юридическ[оеая]\\s+лиц[оа]"
 
   renewal_and_preemptive_right:
-    description: "Преимущественное право на заключение нового договора / продление"
     any_keywords:
       - "(?i)преимущественн[оа]е\\s+прав[оа]"
       - "(?i)продлени[ея]\\s+договор[аа]"
@@ -238,7 +408,6 @@ trigger_definitions:
       - "(?i)ст\\.\\s*621"
 
   access_to_premises:
-    description: "Доступ арендодателя в арендуемое помещение"
     any_keywords:
       - "(?i)доступ\\s+в\\s+помещени[ея]"
       - "(?i)осмотр\\s+помещени[ея]"

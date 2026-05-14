@@ -53,6 +53,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -74,54 +81,279 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)банковск[ийое]\\s+вклад"
-        - "(?i)банковск[ийое]\\s+сч[её]т"
-        - "(?i)договор\\s+банковск[огоой]\\s+вклад[ауы]"
-        - "(?i)договор\\s+банковск[огоой]\\s+сч[её]т[ауы]"
-        - "(?i)депозитн[ыйое]\\s+договор"
-        - "(?i)договор\\s+на\\s+открыт[иеия]\\s+сч[её]т[ауы]"
-        - "(?i)договор\\s+рко\\b"
-        - "(?i)договор\\s+расч[её]тн[огоой]\\s+сч[её]т[ауы]"
-        - "(?i)договор\\s+текущ[егоий]\\s+сч[её]т[ауы]"
-        - "(?i)договор\\s+срочн[огоой]\\s+вклад[ауы]"
-        - "(?i)договор\\s+вклад[ауы]\\s+до\\s+востребован[ияи]"
-        - "(?i)договор\\s+банковск[огоой]\\s+вклад[ауы]\\s+физическ[огоой\\s]*лиц[ауы]"
-        - "(?i)договор\\s+дбо\\b.*сч[её]т[ауы]"
-        - "(?i)депозит[ауы]"
-        - "(?i)вкладчик[а-я]*"
-        - "(?i)клиент[а-я]*"
-        - "(?i)банк[а-я]*"
-        - "(?i)процент[ыо]\\s+по\\s+вклад[уые]"
-        - "(?i)расч[её]тн[ыйое]\\s+сч[её]т"
-        - "(?i)текущ[ийее]\\s+сч[её]т"
+        # ── Прямые названия договора вклада / счета ──
+
+        - pattern: "(?i)банковск[ийое]\\s+вклад"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Прямой маркер банковского вклада"
+
+        - pattern: "(?i)банковск[ийое]\\s+сч[её]т"
+          weight: 1.0
+          distinctiveness: high
+          context: any
+          description: "Прямой маркер банковского счета"
+
+        - pattern: "(?i)договор\\s+банковск[огоой]\\s+вклад[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора банковского вклада"
+
+        - pattern: "(?i)договор\\s+банковск[огоой]\\s+сч[её]т[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора банковского счета"
+
+        - pattern: "(?i)депозитн[ыйое]\\s+договор"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Депозитный договор как синоним договора вклада"
+
+        - pattern: "(?i)договор\\s+на\\s+открыт[иеия]\\s+сч[её]т[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор на открытие банковского счета"
+
+        - pattern: "(?i)договор\\s+рко\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Договор расчетно-кассового обслуживания"
+
+        - pattern: "(?i)договор\\s+расч[её]тн[огоой]\\s+сч[её]т[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор расчетного счета"
+
+        - pattern: "(?i)договор\\s+текущ[егоий]\\s+сч[её]т[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор текущего счета"
+
+        - pattern: "(?i)договор\\s+срочн[огоой]\\s+вклад[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор срочного вклада"
+
+        - pattern: "(?i)договор\\s+вклад[ауы]\\s+до\\s+востребован[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор вклада до востребования"
+
+        - pattern: "(?i)договор\\s+банковск[огоой]\\s+вклад[ауы]\\s+физическ[огоой\\s]*лиц[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Вклад физического лица"
+
+        - pattern: "(?i)договор\\s+дбо\\b.*сч[её]т[ауы]"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "ДБО как приложение или режим обслуживания банковского счета"
+
+        # ── Стороны и ключевые термины ──
+
+        - pattern: "(?i)депозит[ауы]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Депозит как термин банковского вклада"
+
+        - pattern: "(?i)вкладчик[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Вкладчик как сторона договора банковского вклада"
+
+        - pattern: "(?i)клиент[а-я]*"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Клиент как сторона договора банковского счета"
+
+        - pattern: "(?i)банк[а-я]*"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Банк как обязательный специальный субъект"
+
+        - pattern: "(?i)процент[ыо]\\s+по\\s+вклад[уые]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Проценты по банковскому вкладу"
+
+        - pattern: "(?i)расч[её]тн[ыйое]\\s+сч[её]т"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Расчетный счет"
+
+        - pattern: "(?i)текущ[ийее]\\s+сч[её]т"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Текущий счет"
 
       medium:
-        - "(?i)срочн[ыо]й\\s+вклад"
-        - "(?i)до\\s+востребовани[яя]"
-        - "(?i)процентн[а-яё]+\\s+ставк[аа]"
-        - "(?i)капитализаци[яи]\\s+процент[оо]в"
-        - "(?i)расч[её]тно-?кассов[оа]е\\s+обслуживани[ея]"
-        - "(?i)\\bрко\\b"
-        - "(?i)банковск[а-яё]+\\s+тайн[аа]"
-        - "(?i)дистанционн[оа]е\\s+банковск[оа]е\\s+обслуживани[ея]"
-        - "(?i)интернет-?банк"
-        - "(?i)\\bовердрафт\\b"
-        - "(?i)страховани[ея]\\s+вклад[оо]в"
-        - "(?i)\\bасв\\b"
-        - "(?i)\\b115-фз\\b"
+        - pattern: "(?i)срочн[ыо]й\\s+вклад"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Срочный вклад"
+
+        - pattern: "(?i)до\\s+востребовани[яя]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Формула вклада до востребования"
+
+        - pattern: "(?i)процентн[а-яё]+\\s+ставк[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Процентная ставка по вкладу или начислению на остаток"
+
+        - pattern: "(?i)капитализаци[яи]\\s+процент[оо]в"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Капитализация процентов по вкладу"
+
+        - pattern: "(?i)расч[её]тно-?кассов[оа]е\\s+обслуживани[ея]"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Расчетно-кассовое обслуживание по банковскому счету"
+
+        - pattern: "(?i)\\bрко\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Сокращенное обозначение расчетно-кассового обслуживания"
+
+        - pattern: "(?i)банковск[а-яё]+\\s+тайн[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Банковская тайна"
+
+        - pattern: "(?i)дистанционн[оа]е\\s+банковск[оа]е\\s+обслуживани[ея]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Дистанционное банковское обслуживание счета"
+
+        - pattern: "(?i)интернет-?банк"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Интернет-банк как канал обслуживания счета"
+
+        - pattern: "(?i)\\bовердрафт\\b"
+          weight: 0.5
+          distinctiveness: low
+          context: any
+          description: "Овердрафт как сопутствующий режим счета, но не основной тип документа"
+
+        - pattern: "(?i)страховани[ея]\\s+вклад[оо]в"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Страхование вкладов физических лиц"
+
+        - pattern: "(?i)\\bасв\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Агентство по страхованию вкладов"
+
+        - pattern: "(?i)\\b115-фз\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "AML/CFT-ограничения по банковскому счету и вкладу"
 
       low:
-        - "(?i)выписк[аа]\\s+по\\s+сч[её]т[уу]"
-        - "(?i)безакцептн[оа]е\\s+списани[ея]"
-        - "(?i)исполнительн[ыо]й\\s+документ"
-        - "(?i)арест\\s+сч[её]т[аа]"
-        - "(?i)налогов[ыо]й\\s+агент"
+        - pattern: "(?i)выписк[аа]\\s+по\\s+сч[её]т[уу]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Выписка по банковскому счету"
+
+        - pattern: "(?i)безакцептн[оа]е\\s+списани[ея]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Безакцептное списание со счета"
+
+        - pattern: "(?i)исполнительн[ыо]й\\s+документ"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Исполнительный документ как основание списания/ареста"
+
+        - pattern: "(?i)арест\\s+сч[её]т[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Арест банковского счета"
+
+        - pattern: "(?i)налогов[ыо]й\\s+агент"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Налоговый агент в контексте расчетного счета клиента"
 
     exclusions:
-      - "(?i)кредитн[ыо]й\\s+договор"
-      - "(?i)договор\\s+за[йеё]м[аа]"
-      - "(?i)договор\\s+хранени[яя]"
-      - "(?i)договор\\s+факторинг[аа]"
+      # ── Hard exclusions — явно иные финансовые конструкции ──
+
+      - pattern: "(?i)кредитн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Кредитный договор — отдельный банковский продукт из § 2 Главы 42 ГК РФ"
+
+      - pattern: "(?i)договор\\s+за[йеё]м[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Договор займа — самостоятельная конструкция, отличная от вклада и счета"
+
+      - pattern: "(?i)договор\\s+хранени[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Хранение имущества не является договором банковского вклада или счета"
+
+      - pattern: "(?i)договор\\s+факторинг[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Факторинг — отдельный вид финансирования под уступку денежного требования"
+
+      # ── Soft exclusions — близкие, но не тождественные банковские конструкции ──
+
+      - pattern: "(?i)\\bэскроу\\b"
+        severity: soft
+        weight: -0.3
+        description: "Счет эскроу близок к банковскому счету, но является специальным режимом"
+
+      - pattern: "(?i)номинальн[ыо]й\\s+сч[её]т"
+        severity: soft
+        weight: -0.3
+        description: "Номинальный счет — специальная разновидность счета, может требовать отдельной типизации"
+
+      - pattern: "(?i)публичн[ыо]й\\s+депозитн[ыо]й\\s+сч[её]т"
+        severity: soft
+        weight: -0.3
+        description: "Публичный депозитный счет — специальная банковская конструкция"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

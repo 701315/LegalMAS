@@ -52,6 +52,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.81
+    strong_signal_threshold: 0.89
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -70,47 +77,226 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)договор\\s+поручен[ияи]"
-        - "(?i)договор\\s+представительств[аы]"
-        - "(?i)договор\\s+на\\s+совершен[иеия]\\s+юридическ[ихие]\\s+действ[ийия]"
-        - "(?i)договор\\s+на\\s+представлен[иеия]\\s+интерес[овы]"
-        - "(?i)договор\\s+поручен[ияи]\\s+на\\s+заключен[иеия]\\s+сдел[окки]"
-        - "(?i)договор\\s+поручен[ияи]\\s+на\\s+судебн[оеое\\s]*представительств[оа]"
-        - "(?i)договор\\s+коммерческ[огоое]\\s+представительств[аы]"
-        - "(?i)договор\\s+поручен[ияи]\\s+с\\s+передовер[иемия]"
-        - "(?i)mandate\\s+agreement"
-        - "(?i)representation\\s+agreement"
-        - "(?i)поверенн[ыйое]\\b"
-        - "(?i)доверител[ьяеи]"
-        - "(?i)от\\s+имени\\s+доверител[яья]"
-        - "(?i)за\\s+сч[её]т\\s+доверител[яья]"
-        - "(?i)доверенност[ьи]"
-        - "(?i)юридическ[иеих]\\s+действ[ияий]"
+        # ── Прямые названия договора ──
+
+        - pattern: "(?i)договор\\s+поручен[ияи]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора поручения"
+
+        - pattern: "(?i)договор\\s+представительств[аы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Договор представительства в модели поручения"
+
+        - pattern: "(?i)договор\\s+на\\s+совершен[иеия]\\s+юридическ[ихие]\\s+действ[ийия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор на совершение юридических действий от имени доверителя"
+
+        - pattern: "(?i)договор\\s+на\\s+представлен[иеия]\\s+интерес[овы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Договор на представление интересов"
+
+        - pattern: "(?i)договор\\s+поручен[ияи]\\s+на\\s+заключен[иеия]\\s+сдел[окки]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Поручение на заключение сделок"
+
+        - pattern: "(?i)договор\\s+поручен[ияи]\\s+на\\s+судебн[оеое\\s]*представительств[оа]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Поручение на судебное представительство"
+
+        - pattern: "(?i)договор\\s+коммерческ[огоое]\\s+представительств[аы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Коммерческое представительство по ст. 184 ГК РФ"
+
+        - pattern: "(?i)договор\\s+поручен[ияи]\\s+с\\s+передовер[иемия]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Поручение с передоверием"
+
+        - pattern: "(?i)mandate\\s+agreement"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "English title form for mandate agreement"
+
+        - pattern: "(?i)representation\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "English title form for representation agreement"
+
+        # ── Стороны и ядро конструкции ──
+
+        - pattern: "(?i)поверенн[ыйое]\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Поверенный как сторона договора поручения"
+
+        - pattern: "(?i)доверител[ьяеи]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Доверитель как сторона договора поручения"
+
+        - pattern: "(?i)от\\s+имени\\s+доверител[яья]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ключевой маркер представительства от имени доверителя"
+
+        - pattern: "(?i)за\\s+сч[её]т\\s+доверител[яья]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ключевой маркер действий за счет доверителя"
+
+        - pattern: "(?i)доверенност[ьи]"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Доверенность как типичный инструмент внешнего представительства"
+
+        - pattern: "(?i)юридическ[иеих]\\s+действ[ияий]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Юридические действия как предмет договора поручения"
 
       medium:
-        - "(?i)отч[её]т\\s+поверенн[оа]го"
-        - "(?i)возмещени[ея]\\s+расход[оо]в"
-        - "(?i)вознаграждени[ея]\\s+поверенн[оа]го"
-        - "(?i)\\bпередовери[ея]\\b"
-        - "(?i)указани[яя]\\s+доверител[яя]"
-        - "(?i)отмен[аа]\\s+поручени[яя]"
-        - "(?i)отказ\\s+от\\s+поручени[яя]"
-        - "(?i)\\bпредставительств[ооа]\\b"
-        - "(?i)коммерческ[иоя]+\\s+представител[ья]"
+        - pattern: "(?i)отч[её]т\\s+поверенн[оа]го"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Отчет поверенного перед доверителем"
+
+        - pattern: "(?i)возмещени[ея]\\s+расход[оо]в"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Возмещение расходов поверенного"
+
+        - pattern: "(?i)вознаграждени[ея]\\s+поверенн[оа]го"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Вознаграждение поверенного"
+
+        - pattern: "(?i)\\bпередовери[ея]\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Передоверие полномочий"
+
+        - pattern: "(?i)указани[яя]\\s+доверител[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Указания доверителя для исполнения поручения"
+
+        - pattern: "(?i)отмен[аа]\\s+поручени[яя]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Односторонняя отмена поручения доверителем"
+
+        - pattern: "(?i)отказ\\s+от\\s+поручени[яя]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Отказ поверенного от исполнения поручения"
+
+        - pattern: "(?i)\\bпредставительств[ооа]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Общий термин представительства"
+
+        - pattern: "(?i)коммерческ[иоя]+\\s+представител[ья]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Коммерческий представитель"
 
       low:
-        - "(?i)оправдательн[ыо]е\\s+документ[ыо]"
-        - "(?i)конфликт\\s+интерес[оо]в"
-        - "(?i)возврат\\s+доверенност[ии]"
-        - "(?i)судебн[оа]е\\s+представительств[оо]"
-        - "(?i)нотариальн[а-яё]+\\s+доверенност[ьи]"
+        - pattern: "(?i)оправдательн[ыо]е\\s+документ[ыо]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Оправдательные документы к отчету поверенного"
+
+        - pattern: "(?i)конфликт\\s+интерес[оо]в"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Конфликт интересов в представительской модели"
+
+        - pattern: "(?i)возврат\\s+доверенност[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Возврат доверенности при прекращении поручения"
+
+        - pattern: "(?i)судебн[оа]е\\s+представительств[оо]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Судебное представительство как частный случай поручения"
+
+        - pattern: "(?i)нотариальн[а-яё]+\\s+доверенност[ьи]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Нотариальная доверенность как форма подтверждения полномочий"
 
     exclusions:
-      - "(?i)\\bкомисси[яяи]\\b"
-      - "(?i)агентск[иоя]+\\s+договор\\s+по\\s+модел[ии]\\s+комисси[ии]"
-      - "(?i)договор\\s+оказани[яя]\\s+услуг"
-      - "(?i)трудов[оа]й\\s+договор"
-      - "(?i)консультационн[ыо]е\\s+услуг[ии]"
+      # ── Hard exclusions — конкурирующие intermediary / non-intermediary модели ──
+
+      - pattern: "(?i)\\bкомисси[яяи]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Комиссия предполагает действия комиссионера от своего имени, а не от имени доверителя"
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор\\s+по\\s+модел[ии]\\s+комисси[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Агентская модель по типу комиссии ближе к договору комиссии, а не к поручению"
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Трудовой договор оформляет трудовую функцию, а не гражданско-правовое поручение"
+
+      # ── Soft exclusions — соседние service-like конструкции ──
+
+      - pattern: "(?i)договор\\s+оказани[яя]\\s+услуг"
+        severity: soft
+        weight: -0.35
+        description: "Услуги могут сопровождать поручение, но сами по себе не образуют модель представительства"
+
+      - pattern: "(?i)консультационн[ыо]е\\s+услуг[ии]"
+        severity: soft
+        weight: -0.3
+        description: "Консультационные услуги указывают на advisory-модель без совершения юридических действий от имени доверителя"
+
+      - pattern: "(?i)от\\s+своего\\s+имени"
+        severity: soft
+        weight: -0.4
+        description: "Формула действий от своего имени характерна скорее для комиссии или части агентских моделей"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

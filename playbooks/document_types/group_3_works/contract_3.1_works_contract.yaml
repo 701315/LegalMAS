@@ -42,6 +42,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.76
+    strong_signal_threshold: 0.86
+    ambiguity_margin: 0.16
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -58,56 +65,247 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)подрядчик"
-        - "(?i)договор\\s+подряд[ауы]"
-        - "(?i)договор\\s+на\\s+выполнен[иеия]\\s+работ"
-        - "(?i)договор\\s+подряд[ауы]\\s+на\\s+изготовлен[иеия]"
-        - "(?i)договор\\s+подряд[ауы]\\s+на\\s+переработк[уи]\\s*\\(обработк[уи]\\)?"
+        # ── Прямые названия договора / базовые ownership markers ──
+
+        - pattern: "(?i)договор\\s+подряд[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Базовое название договора подряда"
+
+        - pattern: "(?i)договор\\s+на\\s+выполнен[иеия]\\s+работ"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора на выполнение работ"
+
+        - pattern: "(?i)договор\\s+подряд[ауы]\\s+на\\s+изготовлен[иеия]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Подряд на изготовление вещи"
+
+        - pattern: "(?i)договор\\s+подряд[ауы]\\s+на\\s+переработк[уи]\\s*\\(обработк[уи]\\)?"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Подряд на переработку (обработку) материала или вещи"
+
+        - pattern: "(?i)подрядчик"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Ключевая роль исполнителя в договоре подряда"
+
+        - pattern: "(?i)заказчик"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Контрагент подрядчика; общий, но важный маркер work-contract"
+
+        - pattern: "(?i)результат\\s+работ"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Овеществлённый и передаваемый результат работ"
+
+        - pattern: "(?i)сдач[аеи]-?при[её]мк[аеи]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Процедура сдачи-приёмки результата работ"
+
+        - pattern: "(?i)акт\\s+выполнен[ныхые]\\s+работ"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ключевой документ подтверждения выполнения и приёмки работ"
+
+        - pattern: "(?i)иждивен[иеия]\\s+подрядчик[ауы]"
+          weight: 0.8
+          distinctiveness: high
+          context: body
+          description: "Подрядчик выполняет работу своим иждивением"
+
+        # ── Оставшиеся legacy high ──
         - "(?i)договор\\s+на\\s+ремонт\\s+оборудован[ияи]/станк[аоу]/техник[иуы]"
         - "(?i)договор\\s+подряд[ауы]\\s+с\\s+физическ[имой]\\s+лиц[омем]"
         - "(?i)договор\\s+подряд[ауы]\\s+с\\s+давальческ[имиих]\\s+материал[амиов]"
-        - "(?i)заказчик"
-        - "(?i)результат\\s+работ"
-        - "(?i)сдач[аеи]-?при[её]мк[аеи]"
-        - "(?i)акт\\s+выполнен[ныхые]\\s+работ"
         - "(?i)техническ[оеая]\\s+задан[иеия]"
-        - "(?i)иждивен[иеия]\\s+подрядчик[ауы]"
 
       medium:
-        - "(?i)выполнени[ея]\\s+работ"
-        - "(?i)\\bизготовлени[ея]\\b"
-        - "(?i)\\bпереработк[аи]\\b"
-        - "(?i)\\bобработк[аи]\\b"
-        - "(?i)\\bремонт\\b"
-        - "(?i)\\bсмет[аы]\\b"
-        - "(?i)гарантийн[ыо]й\\s+срок"
-        - "(?i)давальческ[иоя]+\\s+материал[ыо]"
-        - "(?i)этап\\s+работ"
-        - "(?i)скрыт[ыо]е\\s+работ[ыа]"
-        - "(?i)при[её]мк[аи]\\s+работ"
-        - "(?i)сдач[аи]\\s+результат[аа]"
+        - pattern: "(?i)выполнени[ея]\\s+работ"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Общая формула выполнения работ"
+
+        - pattern: "(?i)\\bизготовлени[ея]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Изготовление вещи как типичный предмет подряда"
+
+        - pattern: "(?i)\\bпереработк[аи]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Переработка как разновидность подрядных работ"
+
+        - pattern: "(?i)\\bобработк[аи]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Обработка материала или вещи"
+
+        - pattern: "(?i)\\bремонт\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ремонт часто оформляется как подряд, но может пересекаться с сервисом"
+
+        - pattern: "(?i)\\bсмет[аы]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Смета характерна для подрядных отношений"
+
+        - pattern: "(?i)гарантийн[ыо]й\\s+срок"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Гарантийный срок на результат работ"
+
+        - pattern: "(?i)давальческ[иоя]+\\s+материал[ыо]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Работы с использованием материалов заказчика"
+
+        - pattern: "(?i)этап\\s+работ"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Этапность исполнения подрядных работ"
+
+        - pattern: "(?i)скрыт[ыо]е\\s+работ[ыа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Скрытые работы — подрядный, но не уникальный маркер"
+
+        - pattern: "(?i)при[её]мк[аи]\\s+работ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Приёмка выполненных работ заказчиком"
+
+        - pattern: "(?i)сдач[аи]\\s+результат[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Сдача результата работ заказчику"
 
       low:
-        - "(?i)\\bсубподрядчик\\b"
-        - "(?i)генеральн[ыо]й\\s+подрядчик"
-        - "(?i)акт\\s+сдач[ии]-?при[её]мк[ии]"
-        - "(?i)тв[её]рд[а-яё]+\\s+цен[аа]"
-        - "(?i)приблизительн[а-яё]+\\s+смет[аа]"
+        - pattern: "(?i)\\bсубподрядчик\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Субподрядчик — дополнительный участник исполнения"
+
+        - pattern: "(?i)генеральн[ыо]й\\s+подрядчик"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Генеральный подрядчик — чаще в строительстве, поэтому низкий вес"
+
+        - pattern: "(?i)акт\\s+сдач[ии]-?при[её]мк[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общая форма акта сдачи-приёмки"
+
+        - pattern: "(?i)тв[её]рд[а-яё]+\\s+цен[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Твёрдая цена договора"
+
+        - pattern: "(?i)приблизительн[а-яё]+\\s+смет[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Приблизительная смета допускается в подряде"
 
     exclusions:
-      - "(?i)возмездн[оа]е\\s+оказани[ея]\\s+услуг"
-      - "(?i)\\bконсультаци[ияй]\\b"
-      - "(?i)трудов[оа]й\\s+договор"
-      - "(?i)правил[аа]\\s+внутренн[ео]го\\s+распорядк[аа]"
-      - "(?i)авторск[иоя]+\\s+заказ"
-      - "(?i)долев[оа]е\\s+участи[ея]\\s+в\\s+строительств[ее]"
-      - "(?i)строительн[ыо]й\\s+подряд"
-      - "(?i)бытов[оа]й\\s+подряд"
-      - "(?i)для\\s+личн[ыо]х\\s+бытов[ыо]х\\s+нужд"
-      - "(?i)\\bНИОКР\\b"
-      - "(?i)научно-исследовательск[иие]+\\s+работ[ыа]"
-      - "(?i)проектн[ыо]е\\s+и\\s+изыскательск[иие]+\\s+работ[ыа]"
-      - "(?i)\\bПИР\\b"
+      # ── Hard exclusions — полностью подавляют generic works contract ──
+
+      - pattern: "(?i)возмездн[оа]е\\s+оказани[ея]\\s+услуг"
+        severity: hard
+        weight: -1.0
+        description: "Возмездное оказание услуг — соседний, но иной тип без овеществлённого результата"
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Трудовой договор регулирует процесс труда, а не подрядный результат"
+
+      - pattern: "(?i)строительн[ыо]й\\s+подряд"
+        severity: hard
+        weight: -1.0
+        description: "Строительный подряд — специализированный тип contract_3.3_construction_contract"
+
+      - pattern: "(?i)бытов[оа]й\\s+подряд"
+        severity: hard
+        weight: -1.0
+        description: "Бытовой подряд — отдельный потребительский режим, не generic B2B/B2C works"
+
+      - pattern: "(?i)долев[оа]е\\s+участи[ея]\\s+в\\s+строительств[ее]"
+        severity: hard
+        weight: -1.0
+        description: "ДДУ — отдельный тип contract_3.6_off_plan_contract"
+
+      - pattern: "(?i)\\bНИОКР\\b"
+        severity: hard
+        weight: -1.0
+        description: "НИОКР — специальный договор на выполнение исследовательских и опытно-конструкторских работ"
+
+      - pattern: "(?i)научно-исследовательск[иие]+\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "НИР/НИОКР относятся к contract_3.5_research_development"
+
+      - pattern: "(?i)проектн[ыо]е\\s+и\\s+изыскательск[иие]+\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Проектные и изыскательские работы — специальный тип contract_3.4_design_survey"
+
+      - pattern: "(?i)\\bПИР\\b"
+        severity: hard
+        weight: -1.0
+        description: "ПИР — устойчивый маркер проектно-изыскательских работ"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)\\bконсультаци[ияй]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Консультации тянут договор в сторону услуг"
+
+      - pattern: "(?i)правил[аа]\\s+внутренн[ео]го\\s+распорядк[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Правила внутреннего распорядка указывают на трудовые отношения"
+
+      - pattern: "(?i)авторск[иоя]+\\s+заказ"
+        severity: soft
+        weight: -0.3
+        description: "Авторский заказ может пересекаться с IP/творческими договорами, а не с generic подрядом"
+
+      - pattern: "(?i)для\\s+личн[ыо]х\\s+бытов[ыо]х\\s+нужд"
+        severity: soft
+        weight: -0.3
+        description: "Потребительская цель тянет конструкцию к бытовому подряду"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

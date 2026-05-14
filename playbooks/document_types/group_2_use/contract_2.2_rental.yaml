@@ -47,6 +47,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Прокат — специальный потребительский режим,
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -63,53 +70,251 @@ classification_runtime_v1:
     keywords:
 
       high:
+        # ── Прямые названия договора и формы оферты ──
+
+        - pattern: "(?i)договор\\s+прокат[аыу]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора проката"
+
+        - pattern: "(?i)договор\\s+бытов[огоый]\\s+прокат[аыу]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Бытовой прокат — специализированный потребительский режим"
+
+        - pattern: "(?i)публичн[ыйое]\\s+договор\\s+прокат[аыу]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Публичный договор проката по ст. 626 ГК РФ"
+
+        - pattern: "(?i)оферт[аы]\\s+сервис[ауы]\\s+прокат[аыу]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Оферта сервиса проката — типичная форма у сервисов sharing-экономики"
+
+        - pattern: "(?i)прокат\\s+инвентар[яея]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прокат инвентаря — классический предмет договора проката"
+
+        - pattern: "(?i)прокат\\s+инструмент[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прокат инструмента для бытовых нужд"
+
+        - pattern: "(?i)прокат\\s+оборудован[ияи]\\s+для\\s+бытов[ыхых]\\s+нужд"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямое указание на бытовой прокат оборудования"
+
+        - pattern: "(?i)краткосрочн[ыйое]\\s+договор\\s+прокат[аыу]"
+          weight: 0.85
+          distinctiveness: high
+          context: header
+          description: "Краткосрочный договор проката — срок до одного года"
+
+        # ── Специфичные consumer-маркеры ──
+
+        - pattern: "(?i)бытов[ыеых]\\s+нужд[ы]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Бытовые нужды — ключевой признак потребительского проката"
+
+        - pattern: "(?i)потребительск[иеих]\\s+цел[ией]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Потребительские цели — характерны для consumer-регулирования"
+
+        - pattern: "(?i)публичн[ыйое]\\s+договор"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Публичный договор в контексте проката — маркер § 2 Главы 34 ГК РФ"
+
+        - pattern: "(?i)пункт\\s+прокат[аыу]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Пункт проката — типичная организационная форма проката"
+
+        - pattern: "(?i)проверка\\s+исправност[ии]"
+          weight: 0.8
+          distinctiveness: high
+          context: body
+          description: "Обязанность арендодателя по проверке исправности имущества"
+
+        - pattern: "(?i)инструкц[иеи]\\s+по\\s+эксплуатац[иии]"
+          weight: 0.8
+          distinctiveness: high
+          context: body
+          description: "Обязанность ознакомить арендатора с правилами эксплуатации"
+
+        # ── Оставшиеся legacy high ──
         - "(?i)прокат[аыу]?"
-        - "(?i)договор\\s+прокат[аыу]"
-        - "(?i)договор\\s+бытов[огоый]\\s+прокат[аыу]"
-        - "(?i)публичн[ыйое]\\s+договор\\s+прокат[аыу]"
-        - "(?i)прокат\\s+инвентар[яея]"
-        - "(?i)прокат\\s+инструмент[ауы]"
-        - "(?i)прокат\\s+оборудован[ияи]\\s+для\\s+бытов[ыхых]\\s+нужд"
-        - "(?i)краткосрочн[ыйое]\\s+договор\\s+прокат[аыу]"
-        - "(?i)оферт[аы]\\s+сервис[ауы]\\s+прокат[аыу]"
-        - "(?i)бытов[ыеых]\\s+нужд[ы]"
-        - "(?i)потребительск[иеих]\\s+цел[ией]"
-        - "(?i)публичн[ыйое]\\s+договор"
-        - "(?i)пункт\\s+прокат[аыу]"
         - "(?i)гражданин[ауы]"
-        - "(?i)проверка\\s+исправност[ии]"
-        - "(?i)инструкц[ияи]\\s+по\\s+эксплуатац[иии]"
 
       medium:
-        - "(?i)почасов[а-яё]+\\s+аренд[аы]"
-        - "(?i)посуточн[а-яё]+\\s+аренд[аы]"
-        - "(?i)краткосрочн[а-яё]+\\s+аренд[аы]"
-        - "(?i)аренд[аы]\\s+инвентар[яя]"
-        - "(?i)движим[оа]е?\\s+имуществ[оа]"
-        - "(?i)страхов[оа]й\\s+депозит"
-        - "(?i)обеспечительн[ыо]й\\s+плат[её]ж"
-        - "(?i)нормальн[ыо]й\\s+износ"
-        - "(?i)возврат\\s+залога"
+        - pattern: "(?i)почасов[а-яё]+\\s+аренд[аы]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Почасовая аренда — характерна для краткосрочного проката"
+
+        - pattern: "(?i)посуточн[а-яё]+\\s+аренд[аы]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Посуточная аренда — признак краткосрочного consumer-проката"
+
+        - pattern: "(?i)краткосрочн[а-яё]+\\s+аренд[аы]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Краткосрочная аренда в связке с consumer-контекстом тяготеет к прокату"
+
+        - pattern: "(?i)аренд[аы]\\s+инвентар[яя]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Аренда инвентаря — часто оформляется как прокат"
+
+        - pattern: "(?i)движим[оа]е?\\s+имуществ[оа]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Движимое имущество — общий предмет, важен в сочетании с consumer-маркерами"
+
+        - pattern: "(?i)страхов[оа]й\\s+депозит"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Страховой депозит — типичен для сервисов проката"
+
+        - pattern: "(?i)обеспечительн[ыо]й\\s+плат[её]ж"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Обеспечительный платёж — встречается и в аренде, и в прокате"
+
+        - pattern: "(?i)нормальн[ыо]й\\s+износ"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Нормальный износ имущества — важен в контексте краткосрочного consumer-проката"
+
+        - pattern: "(?i)возврат\\s+залога"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Возврат залога/депозита — частый элемент договоров проката"
 
       low:
-        - "(?i)квитанци[яи]\\s+прокат[аа]"
-        - "(?i)\\bчек\\b"
-        - "(?i)\\bкаршеринг\\b"
-        - "(?i)\\bкикшеринг\\b"
-        - "(?i)\\bсамокат\\b"
-        - "(?i)\\bвелосипед\\b"
-        - "(?i)\\bинструмент\\b"
-        - "(?i)спортинвентар[ьяю]"
+        - pattern: "(?i)квитанци[яи]\\s+прокат[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Квитанция проката — служебный документ, подтверждающий сделку"
+
+        - pattern: "(?i)\\bчек\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Кассовый чек — общий платежный документ, встречается во многих типах"
+
+        - pattern: "(?i)\\bкаршеринг\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Каршеринг — транспортный сервис, близок к прокату по модели использования"
+
+        - pattern: "(?i)\\bкикшеринг\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Кикшеринг — прокат электросамокатов"
+
+        - pattern: "(?i)\\bсамокат\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Самокат — типичный объект новых consumer-сервисов проката"
+
+        - pattern: "(?i)\\bвелосипед\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Велосипед — типичный предмет проката для личных нужд"
+
+        - pattern: "(?i)\\bинструмент\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Инструмент — общий термин, может быть объектом аренды/проката"
+
+        - pattern: "(?i)спортинвентар[ьяю]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Спортивный инвентарь — частый объект краткосрочного проката"
 
     exclusions:
-      - "(?i)аренд[аы]\\s+недвижимост[ии]"
-      - "(?i)\\bлизинг\\b"
-      - "(?i)финансов[а-яё]+\\s+аренд[аы]"
-      - "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
-      - "(?i)\\bссуд[аы]\\b"
-      - "(?i)договор\\s+на[йеё]м[ауы]\\s+жил[оа]го\\s+помещени[яя]"
-      - "(?i)аренд[аы]\\s+для\\s+предпринимательск[оа]й\\s+деятельност[ии]\\s+арендатор[аа]"
-      - "(?i)транспортн[оеая]\\s+средств[оа]\\s+с\\s+экипажем"
+      # ── Hard exclusions — полностью подавляют тип ──
+
+      - pattern: "(?i)аренд[аы]\\s+недвижимост[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Аренда недвижимости — иной объект, регулируется иными подразделами Главы 34 ГК РФ (contract_1.6_real_estate, contract_2.1_lease)"
+
+      - pattern: "(?i)финансов[а-яё]+\\s+аренд[аы]"
+        severity: hard
+        weight: -1.0          
+        description: "Финансовая аренда (лизинг) — отдельный тип (contract_2.4_leasing)"
+
+      - pattern: "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездное пользование (ссуда) — не прокат, Глава 36 ГК РФ (contract_2.6_gratuitous_use)"
+
+      - pattern: "(?i)договор\\s+на[йеё]м[ауы]\\s+жил[оа]го\\s+помещени[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Найм жилого помещения — жилищный найм, не прокат (contract_2.5_residential_lease)"
+
+      - pattern: "(?i)аренд[аы]\\s+для\\s+предпринимательск[оа]й\\s+деятельност[ии]\\s+арендатор[аа]"
+        severity: hard
+        weight: -1.0
+        description: "B2B-аренда для предпринимательской деятельности — должна классифицироваться как общая аренда (contract_2.1_lease)"
+
+      - pattern: "(?i)для\\s+извлечени[яя]\\s+прибыл[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Использование имущества для извлечения прибыли — предпринимательская цель, не прокат"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)\\bлизинг\\b"
+        severity: soft
+        weight: -0.4
+        description: "Упоминание лизинга рядом с consumer-контекстом снижает уверенность в чистом прокате (contract_2.4_leasing)"
+
+      - pattern: "(?i)\\bссуд[аы]\\b"
+        severity: soft
+        weight: -0.35
+        description: "Ссуда / безвозмездное пользование может встречаться в примерах или оговорках (contract_2.6_gratuitous_use)"
+
+      - pattern: "(?i)транспортн[оеая]\\s+средств[оа]\\s+с\\s+экипажем"
+        severity: soft
+        weight: -0.3
+        description: "Аренда транспортного средства с экипажем — особый режим, ближе к перевозке и vehicle lease"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

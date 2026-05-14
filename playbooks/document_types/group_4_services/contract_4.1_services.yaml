@@ -50,6 +50,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.72
+    strong_signal_threshold: 0.84
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -69,69 +76,372 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)услуг[аи]"
-        - "(?i)исполнител[ьяеи]"
-        - "(?i)договор\\s+возмездн[огоой]\\s+оказан[ияия]\\s+услуг"
-        - "(?i)договор\\s+оказан[ияия]\\s+услуг"
-        - "(?i)договор\\s+на\\s+обслуживан[иеия]"
+        # ── Родовые названия договора ──
+
+        - pattern: "(?i)договор\\s+возмездн[огоой]\\s+оказан[ияия]\\s+услуг"
+          weight: 0.95
+          distinctiveness: medium
+          context: header
+          description: "Полное легальное название базового договора возмездного оказания услуг"
+
+        - pattern: "(?i)договор\\s+оказан[ияия]\\s+услуг"
+          weight: 0.9
+          distinctiveness: medium
+          context: header
+          description: "Сокращённое название договора оказания услуг"
+
+        - pattern: "(?i)договор\\s+на\\s+обслуживан[иеия]"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Типовая формула сервисного/обслуживающего договора"
+
+        - pattern: "(?i)сервисн[ыйое]\\s+договор"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Указание на сервисный характер отношений"
+
+        - pattern: "(?i)договор\\s+аутсорсинг[ауы]"
+          weight: 0.9
+          distinctiveness: medium
+          context: header
+          description: "Аутсорсинговый договор как разновидность услуг"
+
+        - pattern: "(?i)абонентск[ийое]\\s+договор\\s+на\\s+услуг[и]"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Абонентский договор на услуги (подписочная модель)"
+
+        # ── Специализированные виды услуг, которые всё ещё укладываются в базовый сервисный тип ──
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+консультационн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Консультационные услуги по базовой конструкции услуг"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+юридическ[ихие]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Юридические услуги (консалтинг/сопровождение)"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+маркетингов[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Маркетинговые услуги (реклама/продвижение) в сервисной логике"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+it-?услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "IT‑услуги (поддержка, обслуживание, сопровождение)"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+аудиторск[ихие]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Аудиторские услуги как разновидность услуг"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+образовательн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Образовательные/обучающие услуги"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+охранн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Охранные услуги частных охранных организаций"
+
+        # ── Общие маркеры услуги (исполнитель, акт, нематериальный результат) ──
+
+        - pattern: "(?i)услуг[аи]"
+          weight: 0.8
+          distinctiveness: low
+          context: any
+          description: "Общее упоминание услуг (широко используется и в других типах)"
+
+        - pattern: "(?i)исполнител[ьяеи]"
+          weight: 0.8
+          distinctiveness: low
+          context: any
+          description: "Роль исполнителя договора услуг"
+
+        - pattern: "(?i)акт\\s+об\\s+оказан[ииии]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Типичный акт об оказании услуг"
+
+        - pattern: "(?i)акт\\s+оказанн[ыхые]\\s+услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: any
+          description: "Формулировка акта оказанных услуг"
+
+        - pattern: "(?i)оказан[иеия]\\s+услуг"
+          weight: 0.8
+          distinctiveness: low
+          context: any
+          description: "Общее упоминание оказания услуг"
+
+        - pattern: "(?i)нематериальн[ыйое]\\s+результат"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Указание на нематериальный характер результата (отличие от подряда)"
+
+        - pattern: "(?i)совершен[иеия]\\s+действ[ийия]"
+          weight: 0.75
+          distinctiveness: low
+          context: any
+          description: "Формулировки о совершении действий вместо достижения материального результата"
+
+        - pattern: "(?i)осуществлен[иеия]\\s+деятельност[иью]"
+          weight: 0.75
+          distinctiveness: low
+          context: any
+          description: "Формула о деятельности исполнителя без гарантии результата"
+
+        # ── Оставшиеся legacy high ──
         - "(?i)консалтинг[овоая\\s]*договор"
         - "(?i)сервисн[ыйое]\\s+договор"
-        - "(?i)договор\\s+аутсорсинг[ауы]"
-        - "(?i)абонентск[ийое]\\s+договор\\s+на\\s+услуг[и]"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+консультационн[ыхые]\\s+услуг"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+юридическ[ихие]\\s+услуг"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+маркетингов[ыхые]\\s+услуг"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+it-?услуг"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+аудиторск[ихие]\\s+услуг"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+образовательн[ыхые]\\s+услуг"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+охранн[ыхые]\\s+услуг"
-        - "(?i)возмездн[оеая]\\s+оказан[иеия]\\s+услуг"
-        - "(?i)совершен[иеия]\\s+действ[ийия]"
-        - "(?i)осуществлен[иеия]\\s+деятельност[иью]"
-        - "(?i)акт\\s+об\\s+оказан[ииии]\\s+услуг"
-        - "(?i)акт\\s+оказанн[ыхые]\\s+услуг"
-        - "(?i)оказан[иеия]\\s+услуг"
-        - "(?i)нематериальн[ыйое]\\s+результат"
 
       medium:
-        - "(?i)техническ[оа]е\\s+задани[ея]"
-        - "(?i)отч[её]т\\s+исполнител[яя]"
-        - "(?i)акт\\s+сдач[ии]-?при[её]мк[ии]\\s+услуг"
-        - "(?i)абонентск[а-яё]+\\s+плат[аа]"
-        - "(?i)почасов[а-яё]+\\s+оплат[аа]"
-        - "(?i)консультационн[ыо]е\\s+услуг[ии]"
-        - "(?i)\\bконсалтинг\\b"
-        - "(?i)\\bобслуживани[ея]\\b"
-        - "(?i)\\bSLA\\b"
-        - "(?i)уровень\\s+обслуживани[яя]"
-        - "(?i)\\bKPI\\b"
-        - "(?i)ключев[ыо]е\\s+показател[ии]"
+        - pattern: "(?i)техническ[оа]е\\s+задани[ея]"
+          weight: 0.6
+          distinctiveness: low
+          context: any
+          description: "Техническое задание на услуги (особенно в IT/маркетинге)"
+
+        - pattern: "(?i)отч[её]т\\s+исполнител[яя]"
+          weight: 0.6
+          distinctiveness: low
+          context: any
+          description: "Отчёт исполнителя о выполнении услуг"
+
+        - pattern: "(?i)акт\\s+сдач[ии]-?при[её]мк[ии]\\s+услуг"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Акт сдачи-приёмки услуг"
+
+        - pattern: "(?i)абонентск[а-яё]+\\s+плат[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Абонентская плата как модель оплаты услуг"
+
+        - pattern: "(?i)почасов[а-яё]+\\s+оплат[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Почасовая оплата услуг"
+
+        - pattern: "(?i)консультационн[ыо]е\\s+услуг[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Консультационные услуги (часто консалтинг)"
+
+        - pattern: "(?i)\\bконсалтинг\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Консалтинг как вид услуг"
+
+        - pattern: "(?i)\\bобслуживани[ея]\\b"
+          weight: 0.55
+          distinctiveness: low
+          context: any
+          description: "Обслуживание как общий сервисный контекст"
+
+        - pattern: "(?i)\\bSLA\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Service Level Agreement в контексте услуг"
+
+        - pattern: "(?i)уровень\\s+обслуживани[яя]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Уровень обслуживания (SLA‑метрики)"
+
+        - pattern: "(?i)\\bKPI\\b"
+          weight: 0.55
+          distinctiveness: low
+          context: any
+          description: "KPI как показатель эффективности услуг"
+
+        - pattern: "(?i)ключев[ыо]е\\s+показател[ии]"
+          weight: 0.5
+          distinctiveness: low
+          context: any
+          description: "Ключевые показатели результата/качества услуг"
 
       low:
-        - "(?i)\\bконсультаци[яи]\\b"
-        - "(?i)\\bобучени[ея]\\b"
-        - "(?i)\\bаудит\\b"
-        - "(?i)\\bсопровождени[ея]\\b"
-        - "(?i)сервисн[ыо]й\\s+договор"
-        - "(?i)\\bаутсорсинг\\b"
-        - "(?i)\\bтренинг\\b"
-        - "(?i)\\bмаркетинг\\b"
-        - "(?i)\\bохран[ааы]\\b"
+        - pattern: "(?i)\\bконсультаци[яи]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Консультации как отдельный вид услуг"
+
+        - pattern: "(?i)\\bобучени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Обучение/тренинги как услуги"
+
+        - pattern: "(?i)\\bаудит\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Аудит как услугa (может пересекаться с спец‑типами)"
+
+        - pattern: "(?i)\\bсопровождени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Сопровождение, сопровождение проектов/клиентов"
+
+        - pattern: "(?i)сервисн[ыо]й\\s+договор"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание сервисного договора в теле"
+
+        - pattern: "(?i)\\bаутсорсинг\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Общее упоминание аутсорсинга"
+
+        - pattern: "(?i)\\bтренинг\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Тренинги как обучающие услуги"
+
+        - pattern: "(?i)\\bмаркетинг\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Маркетинг — общий контекст, часто в связке с услугами"
+
+        - pattern: "(?i)\\bохран[ааы]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Охрана как вид охранных услуг"
 
     exclusions:
-      - "(?i)\\bподряд\\b"
-      - "(?i)строительно-?монтажн[ыо]е\\s+работ[ыа]"
-      - "(?i)\\bперевозк[ааи]\\b"
-      - "(?i)\\bхранени[ея]\\b"
-      - "(?i)\\bстраховани[ея]\\b"
-      - "(?i)агентировани[ея]"
-      - "(?i)\\bпоручени[ея]\\b"
-      - "(?i)\\bкомисси[яяи]\\b"
-      - "(?i)трудов[оа]й\\s+договор"
-      - "(?i)трудов[оа]й\\s+распоряд[оа]к"
-      - "(?i)лицензионн[ыо]й\\s+договор"
-      - "(?i)коммерческ[а-яё]+\\s+концесси[яяи]"
-      - "(?i)\\bфранчайзинг\\b"
+      # ── Hard: конструкции, где результат материальный/региструемый или договор иного рода ──
+
+      - pattern: "(?i)\\bподряд\\b"
+        severity: hard
+        weight: -1.0
+        description: "Подряд предполагает материальный результат и собственный тип договора"
+
+      - pattern: "(?i)строительно-?монтажн[ыо]е\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Строительно-монтажные работы связывают с подрядом, а не с услугами"
+
+      - pattern: "(?i)\\bперевозк[ааи]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор перевозки — самостоятельный тип (глава 40 ГК РФ)"
+
+      - pattern: "(?i)\\bхранени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор хранения выделен в отдельный институт"
+
+      - pattern: "(?i)\\bстраховани[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор страхования имеет специальный режим и не относится к общим услугам"
+
+      - pattern: "(?i)агентировани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Агентирование — агентский договор, а не договор услуг"
+
+      - pattern: "(?i)\\bпоручени[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Поручение — отдельный тип договора (гл. 49 ГК РФ)"
+
+      - pattern: "(?i)\\bкомисси[яяи]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Комиссия — отдельный посреднический договор"
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Трудовой договор регулируется ТК РФ, а не главой о возмездных услугах"
+
+      - pattern: "(?i)трудов[оа]й\\s+распоряд[оа]к"
+        severity: hard
+        weight: -1.0
+        description: "Прямые маркеры трудовых отношений (режим рабочего времени и т.п.)"
+
+      - pattern: "(?i)лицензионн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Лицензионные договоры на объекты ИС имеют собственный режим"
+
+      - pattern: "(?i)коммерческ[а-яё]+\\s+концесси[яяи]"
+        severity: hard
+        weight: -1.0
+        description: "Коммерческая концессия (франчайзинг) — отдельный комплексный договор"
+
+      - pattern: "(?i)\\bфранчайзинг\\b"
+        severity: hard
+        weight: -1.0
+        description: "Франчайзинг/коммерческая концессия, а не базовые услуги"
+
+      - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
+        severity: hard
+        weight: -1.0
+        description: "Прямое указание на договор перевозки груза (глава 40 ГК РФ)"
+
+      - pattern: "(?i)договор\\s+транспортн[ойого\\s]*экспедиц[иии]"
+        severity: hard
+        weight: -1.0
+        description: "Транспортная экспедиция (глава 41 ГК РФ), не базовый договор услуг"
+
+      - pattern: "(?i)договор\\s+транспортно-?экспедиционн[огоого\\s]*обслуживан[ияия]"
+        severity: hard
+        weight: -1.0
+        description: "Договор ТЭО — экспедиционные услуги, не generic‑услуги"
+
+      - pattern: "(?i)логистическ[ийое]\\s+контракт"
+        severity: hard
+        weight: -1.0
+        description: "Логистический/экспедиторский контракт вместо общих услуг"
+
+      - pattern: "(?i)экспедитор[а-я]*"
+        severity: hard
+        weight: -1.0
+        description: "Наличие экспедитора как стороны тянет к транспортной экспедиции"
+
+      - pattern: "(?i)грузоотправител[ьяеи]"
+        severity: hard
+        weight: -1.0
+        description: "Грузоотправитель — маркер договоров перевозки/экспедиции, а не generic‑услуг"
+
+      - pattern: "(?i)грузополучател[ьяеи]"
+        severity: hard
+        weight: -1.0
+        description: "Грузополучатель — маркер логистических договоров, не базовых услуг"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

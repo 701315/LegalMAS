@@ -45,6 +45,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.80
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -65,80 +72,364 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)договор[\\s\\n\\r]+дарен[ияи]"
-        - "(?i)дарственн[а-я]*"
-        - "(?i)договор[\\s\\n\\r]+пожертвован[ияи]"
-        - "(?i)обещан[иея]\\s+дарен[ияи]"
-        - "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+недвижимост[иьи]"
-        - "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+дол[иьи]"
-        - "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+денежн[а-я\\s]*средств"
-        - "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+имущественн[а-я\\s]*прав[ао]"
-        - "(?i)дарител[ьяеи]"
-        - "(?i)одаряем[а-я]*"
+        # ── Прямые названия договора / оферты (header-focused) ──
+
+        - pattern: "(?i)договор[\\s\\n\\r]+дарен[ияи]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Базовое наименование договора дарения"
+
+        - pattern: "(?i)дарственн[а-я]*"
+          weight: 0.98
+          distinctiveness: high
+          context: header
+          description: "Термин дарственная как устоявшееся обозначение договора дарения"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+пожертвован[ияи]"
+          weight: 0.97
+          distinctiveness: high
+          context: header
+          description: "Прямое указание на договор пожертвования"
+
+        - pattern: "(?i)обещан[иея]\\s+дарен[ияи]"
+          weight: 0.96
+          distinctiveness: high
+          context: header
+          description: "Обещание дарения как отдельная разновидность дарения"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+недвижимост[иьи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Дарение недвижимости"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+дол[иьи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Дарение доли в имуществе или уставном капитале"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+денежн[а-я\\s]*средств"
+          weight: 0.94
+          distinctiveness: high
+          context: header
+          description: "Дарение денежных средств"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+дарен[ияи]\\s+имущественн[а-я\\s]*прав[ао]"
+          weight: 0.94
+          distinctiveness: high
+          context: header
+          description: "Дарение имущественного права (требования)"
+
+        - pattern: "(?i)дарител[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Наименование стороны даритель"
+
+        - pattern: "(?i)одаряем[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Наименование стороны одаряемый"
+
+        - pattern: "(?i)безвозмездн[а-я\\s]+передач[аи]"
+          weight: 0.92
+          distinctiveness: high
+          context: body
+          description: "Формула безвозмездной передачи имущества"
+
+        - pattern: "(?i)в\\s+дар\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: body
+          description: "Указание, что имущество передается в дар"
+
+        - pattern: "(?i)не\\s+предусматрива[ею]т\\s+никаког[оа]\\s+встречн[оа]\\s+предоставлен[ияи]"
+          weight: 0.93
+          distinctiveness: high
+          context: body
+          description: "Прямое отрицание любого встречного предоставления"
+
+        - pattern: "(?i)не\\s+предусматрива[ею]т\\s+встречн[оа]\\s+предоставлен[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: body
+          description: "Отсутствие встречного предоставления как ключевой признак безвозмездности"
+
+        - pattern: "(?i)глава\\s*32\\s+Гражданского\\s+кодекс[аа]\\s+РФ"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Ссылка на главу 32 ГК РФ о дарении"
+
+        - pattern: "(?i)ст\\.?\\s*572\\s+ГК\\s*РФ"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Ссылка на ст. 572 ГК РФ, базовое определение дарения"
+
+        # Остальной high‑хвост строками (для backward‑совместимости)
         - "(?i)пожертвован[иеи]"
-        - "(?i)безвозмездн[а-я\\s]+передач[аи]"
-        - "(?i)в\\s+дар\\b"
-        - "(?i)не\\s+предусматрива[ею]т\\s+никаког[оа]\\s+встречн[оа]\\s+предоставлен[ияи]"
-        - "(?i)не\\s+предусматрива[ею]т\\s+встречн[оа]\\s+предоставлен[ияи]"
-        # Ссылки на главу 32 ГК
-        - "(?i)глава\\s*32\\s+Гражданского\\s+кодекс[аа]\\s+РФ"
-        - "(?i)ст\\.?\\s*572\\s+ГК\\s*РФ"
 
       medium:
-        - "(?i)освобождени[ея]\\s+от\\s+обязанност[иьи]"
-        - "(?i)отмен[аы]\\s+дарен[ияи]"
-        - "(?i)право\\s+дарител[ьяеи]"
-        - "(?i)общеполезн[а-я\\s]+цел[иьи]"
-        - "(?i)целев[оаяе]\\s+использовани[ея]"
-        - "(?i)обеща[ею]т\\s+подарить"
-        - "(?i)переход\\s+права\\s+собственност[иьи]"
-        - "(?i)не\\s+являетс[яь]\\s+притворн[оа]й\\s+сделк[ойеи]"
-        - "(?i)близк[иеая]\\s+родственник[иов]"
-        - "(?i)ст\\.?\\s*572\\s+ГК"
-        - "(?i)ст\\.?\\s*574\\s+ГК"
-        - "(?i)ст\\.?\\s*575\\s+ГК"
-        - "(?i)ст\\.?\\s*576\\s+ГК"
-        - "(?i)ст\\.?\\s*577\\s+ГК"
-        - "(?i)ст\\.?\\s*578\\s+ГК"
-        - "(?i)ст\\.?\\s*582\\s+ГК"
-        - "(?i)дарен[иеи]\\s+дол[иьи]"
-        - "(?i)НДФЛ"
-        - "(?i)налог\\s+на\\s+доход[ыов]\\s+физическ[ихие]\\s+лиц"
+        - pattern: "(?i)освобождени[ея]\\s+от\\s+обязанност[иьи]"
+          weight: 0.65
+          distinctiveness: medium
+          context: body
+          description: "Освобождение от обязанности как форма дарения"
+
+        - pattern: "(?i)отмен[аы]\\s+дарен[ияи]"
+          weight: 0.63
+          distinctiveness: medium
+          context: body
+          description: "Упоминание отмены дарения (ст. 578 ГК РФ)"
+
+        - pattern: "(?i)право\\s+дарител[ьяеи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: body
+          description: "Специальные права дарителя в договоре дарения"
+
+        - pattern: "(?i)общеполезн[а-я\\s]+цел[иьи]"
+          weight: 0.62
+          distinctiveness: medium
+          context: body
+          description: "Общеполезные цели, характерные для пожертвования"
+
+        - pattern: "(?i)целев[оаяе]\\s+использовани[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: body
+          description: "Целевое использование предмета пожертвования"
+
+        - pattern: "(?i)обеща[ею]т\\s+подарить"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Формула обещания дарения"
+
+        - pattern: "(?i)переход\\s+права\\s+собственност[иьи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: body
+          description: "Упоминание перехода права собственности в дарственной конструкции"
+
+        - pattern: "(?i)не\\s+являетс[яь]\\s+притворн[оа]й\\s+сделк[ойеи]"
+          weight: 0.57
+          distinctiveness: medium
+          context: body
+          description: "Указание на отсутствие притворности для защиты от переквалификации"
+
+        - pattern: "(?i)близк[иеая]\\s+родственник[иов]"
+          weight: 0.54
+          distinctiveness: medium
+          context: body
+          description: "Упоминание близких родственников в контексте налоговых льгот"
+
+        - pattern: "(?i)ст\\.?\\s*572\\s+ГК"
+          weight: 0.6
+          distinctiveness: medium
+          context: body
+          description: "Краткая ссылка на ст. 572 ГК РФ"
+
+        - pattern: "(?i)ст\\.?\\s*574\\s+ГК"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Требования к форме договора дарения"
+
+        - pattern: "(?i)ст\\.?\\s*575\\s+ГК"
+          weight: 0.6
+          distinctiveness: medium
+          context: body
+          description: "Запреты дарения (ст. 575 ГК РФ)"
+
+        - pattern: "(?i)ст\\.?\\s*576\\s+ГК"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Отказ от дарения (ст. 576 ГК РФ)"
+
+        - pattern: "(?i)ст\\.?\\s*577\\s+ГК"
+          weight: 0.56
+          distinctiveness: medium
+          context: body
+          description: "Отказ одаряемого принять дар (ст. 577 ГК РФ)"
+
+        - pattern: "(?i)ст\\.?\\s*578\\s+ГК"
+          weight: 0.6
+          distinctiveness: medium
+          context: body
+          description: "Отмена дарения (ст. 578 ГК РФ)"
+
+        - pattern: "(?i)ст\\.?\\s*582\\s+ГК"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Пожертвование (ст. 582 ГК РФ)"
+
+        - pattern: "(?i)дарен[иеи]\\s+дол[иьи]"
+          weight: 0.57
+          distinctiveness: medium
+          context: body
+          description: "Упоминание дарения доли в праве"
+
+        - pattern: "(?i)НДФЛ"
+          weight: 0.53
+          distinctiveness: medium
+          context: body
+          description: "Налоговые последствия дарения (НДФЛ)"
+
+        - pattern: "(?i)налог\\s+на\\s+доход[ыов]\\s+физическ[ихие]\\s+лиц"
+          weight: 0.52
+          distinctiveness: medium
+          context: body
+          description: "Прямое упоминание НДФЛ в связи с дарением"
 
       low:
-        - "(?i)подарок"
-        - "(?i)благотворительн[оа-я\\s]+пожертвовани[ея]"
-        - "(?i)благотворительн[оа-я\\s]+деятел[ьнности]"
-        - "(?i)презент"
-        - "(?i)дарственн[а-я\\s]+сделк[аи]"
-        - "(?i)безвозмездн[оая\\s]+отчужден[иеи]"
-        - "(?i)charitable\\s+donation"
-        - "(?i)gift\\s+agreement"
+        - pattern: "(?i)подарок"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Общий термин подарок"
+
+        - pattern: "(?i)благотворительн[оа-я\\s]+пожертвовани[ея]"
+          weight: 0.33
+          distinctiveness: low
+          context: body
+          description: "Благотворительное пожертвование как фоновый маркер дарения"
+
+        - pattern: "(?i)благотворительн[оа-я\\s]+деятел[ьнности]"
+          weight: 0.3
+          distinctiveness: low
+          context: body
+          description: "Общая благотворительная деятельность"
+
+        - pattern: "(?i)презент"
+          weight: 0.28
+          distinctiveness: low
+          context: any
+          description: "Неформальный термин презент"
+
+        - pattern: "(?i)безвозмездн[оая\\s]+отчужден[иеи]"
+          weight: 0.32
+          distinctiveness: low
+          context: body
+          description: "Безвозмездное отчуждение имущества"
 
     exclusions:
+      # ── Hard exclusions — полностью подавляют тип ──
+
       # Любое возмездное/компенсационное содержание
-      - "(?i)цен[аы]\\s+договора"
-      - "(?i)оплат[аы]"
-      - "(?i)компенсаци[яи]"
-      - "(?i)встречн[оа]\\s+обязательств[оа]"
-      - "(?i)в\\s+обмен\\s+на"
-      - "(?i)встречн[оа]\\s+предоставлен[иеи]"
+      - pattern: "(?i)цен[аы]\\s+договора"
+        severity: soft
+        weight: -0.35
+        description: "Указание цены договора повышает риск возмездности"
+
+      - pattern: "(?i)оплат[аы]"
+        severity: hard
+        weight: -1.0
+        description: "Прямые формулировки оплаты противоречат безвозмездности дарения"
+
+      - pattern: "(?i)компенсаци[яи]"
+        severity: soft
+        weight: -0.4
+        description: "Компенсация указывает на встречное предоставление"
+
+      - pattern: "(?i)встречн[оа]\\s+обязательств[оа]"
+        severity: hard
+        weight: -1.0
+        description: "Наличие встречного обязательства не совместимо с дарением"
+
+      - pattern: "(?i)в\\s+обмен\\s+на"
+        severity: hard
+        weight: -1.0
+        description: "Формула в обмен на типична для возмездных договоров"
+
+      - pattern: "(?i)встречн[оа]\\s+предоставлен[иеи]"
+        severity: hard
+        weight: -1.0
+        description: "Встречное предоставление исключает полную безвозмездность"
+
       # Смежные конструкции, которые не являются дарением
-      - "(?i)содержан[иия]\\s+до\\s+смерт[иьи]"
-      - "(?i)рента"
-      - "(?i)пожизненн[оа-я\\s]+содержан[иия]\\s+с\\s+иждивен[иемия]"
-      - "(?i)купл[яи]_?продаж[аи]"
-      - "(?i)мена"
-      - "(?i)факторинг"
-      - "(?i)финансировани[ея]\\s+под\\s+уступк[уи]\\s+требован[ияий]"
-      - "(?i)вклад\\s+в\\s+уставн[ыйой]\\s+капитал"
-      - "(?i)взнос\\s+в\\s+имуществ[оа]"
-      - "(?i)прощен[иеи]\\s+долг[аоу]"
-      - "(?i)зач[её]т\\s+встречн[ыхые]\\s+требован[ийя]"
-      - "(?i)отступн[оа]"
-      - "(?i)спонсорск[ийое]\\s+договор"
-      - "(?i)безвозмездн[оае\\s]+пользовани[ея]"
-      - "(?i)договор[\\s\\n\\r]+ссуд[ыа]"
+      - pattern: "(?i)содержан[иия]\\s+до\\s+смерт[иьи]"
+        severity: hard
+        weight: -1.0
+        description: "Содержание до смерти характерно для договоров ренты"
+
+      - pattern: "(?i)рента"
+        severity: hard
+        weight: -1.0
+        description: "Рента — отдельная возмездная конструкция"
+
+      - pattern: "(?i)пожизненн[оа-я\\s]+содержан[иия]\\s+с\\s+иждивен[иемия]"
+        severity: hard
+        weight: -1.0
+        description: "Пожизненное содержание с иждивением — разновидность ренты"
+
+      - pattern: "(?i)купл[яи]_?продаж[аи]"
+        severity: hard
+        weight: -1.0
+        description: "Купля-продажа относится к возмездным договорам"
+
+      - pattern: "(?i)мена"
+        severity: hard
+        weight: -1.0
+        description: "Мена подразумевает встречное предоставление товара"
+
+      - pattern: "(?i)факторинг"
+        severity: hard
+        weight: -1.0
+        description: "Факторинг — финансовая услуга, а не дарение"
+
+      - pattern: "(?i)финансировани[ея]\\s+под\\s+уступк[уи]\\s+требован[ияий]"
+        severity: hard
+        weight: -1.0
+        description: "Финансирование под уступку требований относится к факторингу"
+
+      - pattern: "(?i)вклад\\s+в\\s+уставн[ыйой]\\s+капитал"
+        severity: hard
+        weight: -1.0
+        description: "Вклад в уставный капитал — корпоративная конструкция"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)взнос\\s+в\\s+имуществ[оа]"
+        severity: soft
+        weight: -0.35
+        description: "Взнос в имущество общества конкурирует с моделью дарения"
+
+      - pattern: "(?i)прощен[иеи]\\s+долг[аоу]"
+        severity: soft
+        weight: -0.35
+        description: "Прощение долга часто оформляется отдельными конструкциями"
+
+      - pattern: "(?i)зач[её]т\\s+встречн[ыхые]\\s+требован[ийя]"
+        severity: soft
+        weight: -0.35
+        description: "Зачёт встречных требований указывает на расчётную схему"
+
+      - pattern: "(?i)отступн[оа]"
+        severity: hard
+        weight: -1.0
+        description: "Отступное — способ прекращения обязательства, а не дарение"
+
+      - pattern: "(?i)спонсорск[ийое]\\s+договор"
+        severity: soft
+        weight: -0.4
+        description: "Спонсорский договор предполагает встречные услуги/рекламу"
+
+      - pattern: "(?i)безвозмездн[оае\\s]+пользовани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездное пользование (ссуда) не влечет переход права собственности"
+        
+      - pattern: "(?i)договор[\\s\\n\\r]+ссуд[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Ссуда — отдельный тип договора, отличающийся от дарения"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -301,7 +592,6 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-
   money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
   cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"

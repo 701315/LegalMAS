@@ -51,6 +51,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.82
+    strong_signal_threshold: 0.89
+    ambiguity_margin: 0.20
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -69,52 +76,261 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)агентск[ийое]\\s+договор"
-        - "(?i)договор\\s+на\\s+оказан[иеия]\\s+агентск[ихие]\\s+услуг"
-        - "(?i)дистрибьюторск[ийое]\\s+агентск[ийое]\\s+договор"
-        - "(?i)маркетингов[ыйое]\\s+агентск[ийое]\\s+договор"
-        - "(?i)договор\\s+на\\s+продвижен[иеия]\\s+товар[овъа]/услуг"
-        - "(?i)агентск[ийое]\\s+договор\\s+на\\s+поиск\\s+клиент[овъа]"
-        - "(?i)рамочн[ыйое]\\s+агентск[ийое]\\s+договор"
-        - "(?i)эксклюзивн[ыйое]\\s+агентск[ийое]\\s+договор"
-        - "(?i)sales\\s+agency\\s+agreement"
-        - "(?i)marketing\\s+agency\\s+agreement"
-        - "(?i)принципал[а-я]*"
-        - "(?i)агент[а-я]*"
-        - "(?i)агентск[оеая]\\s+вознагражден[иеия]"
-        - "(?i)от\\s+имени\\s+принципал[аыя]"
-        - "(?i)от\\s+своего\\s+имени"
-        - "(?i)за\\s+сч[её]т\\s+принципал[аыя]"
-        - "(?i)юридическ[иеих]\\s+и\\s+иные\\s+действ[ияий]"
+        # ── Прямые названия договора ──
+
+        - pattern: "(?i)агентск[ийое]\\s+договор"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название агентского договора"
+
+        - pattern: "(?i)договор\\s+на\\s+оказан[иеия]\\s+агентск[ихие]\\s+услуг"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор на оказание агентских услуг"
+
+        - pattern: "(?i)дистрибьюторск[ийое]\\s+агентск[ийое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Дистрибьюторская агентская модель"
+
+        - pattern: "(?i)маркетингов[ыйое]\\s+агентск[ийое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Маркетинговый агентский договор"
+
+        - pattern: "(?i)договор\\s+на\\s+продвижен[иеия]\\s+товар[овъа]/услуг"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Продвижение товаров или услуг в агентской модели"
+
+        - pattern: "(?i)агентск[ийое]\\s+договор\\s+на\\s+поиск\\s+клиент[овъа]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Агентский договор на поиск клиентов"
+
+        - pattern: "(?i)рамочн[ыйое]\\s+агентск[ийое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Рамочный агентский договор"
+
+        - pattern: "(?i)эксклюзивн[ыйое]\\s+агентск[ийое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Эксклюзивный агентский договор"
+
+        - pattern: "(?i)sales\\s+agency\\s+agreement"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "English title form for sales agency agreement"
+
+        - pattern: "(?i)marketing\\s+agency\\s+agreement"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "English title form for marketing agency agreement"
+
+        # ── Стороны и ядро конструкции ──
+
+        - pattern: "(?i)принципал[а-я]*"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Принципал как сторона агентского договора"
+
+        - pattern: "(?i)агент[а-я]*"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Агент как сторона договора; структурирован осторожно из-за широкой употребимости термина"
+
+        - pattern: "(?i)агентск[оеая]\\s+вознагражден[иеия]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Агентское вознаграждение"
+
+        - pattern: "(?i)от\\s+имени\\s+принципал[аыя]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Mandate-like модель агентирования"
+
+        - pattern: "(?i)от\\s+своего\\s+имени"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Commission-like модель агентирования"
+
+        - pattern: "(?i)за\\s+сч[её]т\\s+принципал[аыя]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Обязательный экономический признак агентской модели"
+
+        - pattern: "(?i)юридическ[иеих]\\s+и\\s+иные\\s+действ[ияий]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямая формула предмета агентского договора"
 
       medium:
-        - "(?i)отч[её]т\\s+агент[аа]"
-        - "(?i)\\bсубагент\\b"
-        - "(?i)\\bтерритори[яя]\\b"
-        - "(?i)исключительност[ьи]"
-        - "(?i)эксклюзивност[ьи]"
-        - "(?i)поиск\\s+клиент[оо]в"
-        - "(?i)продвижени[ея]\\s+товар[оо]в"
-        - "(?i)маркетингов[ыо]е\\s+услуг[ии]"
-        - "(?i)\\bдистрибуци[яяи]\\b"
-        - "(?i)\\btail\\s+commission\\b"
-        - "(?i)постконтрактн[оа]е\\s+вознаграждени[ея]"
+        - pattern: "(?i)отч[её]т\\s+агент[аа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Отчет агента принципалу"
+
+        - pattern: "(?i)\\bсубагент\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Субагентская модель"
+
+        - pattern: "(?i)\\bтерритори[яя]\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Территориальное ограничение деятельности агента"
+
+        - pattern: "(?i)исключительност[ьи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Условия исключительности"
+
+        - pattern: "(?i)эксклюзивност[ьи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Эксклюзивная агентская модель"
+
+        - pattern: "(?i)поиск\\s+клиент[оо]в"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Поиск клиентов агентом"
+
+        - pattern: "(?i)продвижени[ея]\\s+товар[оо]в"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Продвижение товаров в рамках агентирования"
+
+        - pattern: "(?i)маркетингов[ыо]е\\s+услуг[ии]"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Маркетинговый функционал агента"
+
+        - pattern: "(?i)\\bдистрибуци[яяи]\\b"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "Дистрибуционный контекст"
+
+        - pattern: "(?i)\\btail\\s+commission\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Отложенное постконтрактное агентское вознаграждение"
+
+        - pattern: "(?i)постконтрактн[оа]е\\s+вознаграждени[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Вознаграждение за сделки после окончания договора"
 
       low:
-        - "(?i)рамочн[ыо]й\\s+договор"
-        - "(?i)неконкуренци[яяи]"
-        - "(?i)коммерческ[оа]е\\s+представительств[оо]"
-        - "(?i)переквалификаци[яяи]\\s+в\\s+трудов[оа]й"
-        - "(?i)\\bбрендбук\\b"
-        - "(?i)\\bлид[ыо]?\\b"
-        - "(?i)клиентск[а-яё]+\\s+баз[аа]"
+        - pattern: "(?i)рамочн[ыо]й\\s+договор"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Рамочный характер агентских отношений"
+
+        - pattern: "(?i)неконкуренци[яяи]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Non-compete оговорка"
+
+        - pattern: "(?i)коммерческ[оа]е\\s+представительств[оо]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Соседний представительский контекст"
+
+        - pattern: "(?i)переквалификаци[яяи]\\s+в\\s+трудов[оа]й"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Риск переквалификации в трудовые отношения"
+
+        - pattern: "(?i)\\bбрендбук\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Маркетинговый operational-контекст"
+
+        - pattern: "(?i)\\bлид[ыо]?\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Лиды как результат агентской активности"
+
+        - pattern: "(?i)клиентск[а-яё]+\\s+баз[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Клиентская база в рамках агентского канала"
 
     exclusions:
-      - "(?i)трудов[оа]й\\s+договор"
-      - "(?i)договор\\s+оказани[яя]\\s+услуг"
-      - "(?i)договор\\s+поручени[яя]"
-      - "(?i)договор\\s+комисси[ии]"
-      - "(?i)коммерческ[а-яё]+\\s+концесси[яяи]"
+      # ── Hard exclusions — конкурирующие договорные типы ──
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Трудовой договор оформляет трудовую функцию, а не гражданско-правовое агентирование"
+
+      - pattern: "(?i)договор\\s+поручени[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Поручение — отдельная mandate-модель с собственным ownership-marker"
+
+      - pattern: "(?i)договор\\s+комисси[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Комиссия — отдельная commission-модель с иным ownership-marker"
+
+      - pattern: "(?i)коммерческ[а-яё]+\\s+концесси[яяи]"
+        severity: hard
+        weight: -1.0
+        description: "Коммерческая концессия — самостоятельный IP/distribution тип"
+
+      # ── Soft exclusions — соседние service-like конструкции ──
+
+      - pattern: "(?i)договор\\s+оказани[яя]\\s+услуг"
+        severity: soft
+        weight: -0.35
+        description: "Общие услуги без агентского ядра снижают уверенность в типе"
+
+      - pattern: "(?i)исполнитель\\b"
+        severity: soft
+        weight: -0.25
+        description: "Service-like терминология исполнителя ослабляет агентскую квалификацию"
+
+      - pattern: "(?i)работник\\b"
+        severity: soft
+        weight: -0.35
+        description: "Трудовая терминология снижает уверенность и повышает риск переквалификации"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

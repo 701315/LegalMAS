@@ -48,6 +48,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -67,58 +74,315 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)перевозк[аи]"
+        # ── Прямые названия договора перевозки ──
+
+        - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора перевозки груза"
+
+        - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[ова]\\s+автомобильн[ымым\\s]*транспорт[ом]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Автомобильная перевозка грузов по Уставу автотранспорта"
+
+        - pattern: "(?i)договор\\s+железнодорожн[ойого\\s]*перевозк[иы]\\s+груз[ова]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Железнодорожная перевозка грузов по УЖТ"
+
+        - pattern: "(?i)договор\\s+воздушн[ойого\\s]*перевозк[иы]\\s+груз[ова]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Воздушная перевозка грузов по Воздушному кодексу"
+
+        - pattern: "(?i)договор\\s+морск[ойого\\s]*перевозк[иы]\\s+груз[ова]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Морская перевозка грузов по КТМ"
+
+        - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[ова]\\s+внутренн[имым\\s]*водн[ымым\\s]*транспорт[ом]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Перевозка грузов внутренним водным транспортом по КВВТ"
+
+        - pattern: "(?i)договор\\s+об\\s+организац[иии]\\s+перевозок\\s+груз[ова]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Договор об организации перевозок грузов (рамочный транспортный договор)"
+
+        - pattern: "(?i)договор\\s+автомобильн[ойого\\s]*перевозк[иы]\\s+груз[ова]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Автомобильная перевозка грузов (частый термин в практике)"
+
+        - pattern: "(?i)рамочн[ыйое]\\s+договор\\s+перевозк[иы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Рамочный договор перевозки с последующими заявками"
+
+        - pattern: "(?i)транспортн[ыйое]\\s+договор"
+          weight: 0.85
+          distinctiveness: high
+          context: header
+          description: "Общее указание на транспортный договор в сочетании с грузом"
+
+        # ── Стороны и предмет перевозки ──
+
+        - pattern: "(?i)перевозчик[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Перевозчик как сторона по договору перевозки"
+
+        - pattern: "(?i)грузоотправител[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Грузоотправитель — ключевая сторона договора перевозки"
+
+        - pattern: "(?i)грузополучател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Грузополучатель — управомоченное лицо на приём груза"
+
+        - pattern: "(?i)груз[аовы]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Груз как предмет договора (в сочетании с перевозкой)"
+
+        - pattern: "(?i)пункт\\s+назначен[ияи]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Пункт назначения груза"
+
+        # ── Документы и провозная плата ──
+
+        - pattern: "(?i)транспортн[аяое]\\s+накладн[аяую]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Транспортная накладная как основной документ по перевозке"
+
+        - pattern: "(?i)коносамент[а-я]*"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Коносамент при морской перевозке грузов"
+
+        - pattern: "(?i)провозн[аяое]\\s+плат[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Провозная плата как типичный термин главы 40 ГК РФ"
+
+        - pattern: "(?i)доставк[ауы]\\s+груз[аов]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Обязанность доставить груз до пункта назначения"
+
+        # ── Общий термин «перевозка» в заголовке ──
+
+        - pattern: "(?i)перевозк[аи]"
+          weight: 0.8
+          distinctiveness: medium
+          context: any
+          description: "Упоминание перевозки; усиливается в сочетании с грузом/перевозчиком"
+
+        # ── Оставшийся legacy high ──
         - "(?i)транспортн[ыйое]\\s+договор"
-        - "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
-        - "(?i)договор\\s+перевозк[иы]\\s+груз[ова]\\s+автомобильн[ымым\\s]*транспорт[ом]"
-        - "(?i)договор\\s+железнодорожн[ойого\\s]*перевозк[иы]\\s+груз[ова]"
-        - "(?i)договор\\s+воздушн[ойого\\s]*перевозк[иы]\\s+груз[ова]"
-        - "(?i)договор\\s+морск[ойого\\s]*перевозк[иы]\\s+груз[ова]"
-        - "(?i)договор\\s+перевозк[иы]\\s+груз[ова]\\s+внутренн[имым\\s]*водн[ымым\\s]*транспорт[ом]"
-        - "(?i)договор\\s+об\\s+организац[иии]\\s+перевозок\\s+груз[ова]"
-        - "(?i)договор\\s+автомобильн[ойого\\s]*перевозк[иы]\\s+груз[ова]"
-        - "(?i)рамочн[ыйое]\\s+договор\\s+перевозк[иы]"
-        - "(?i)перевозчик[а-я]*"
-        - "(?i)грузоотправител[ьяеи]"
-        - "(?i)грузополучател[ьяеи]"
-        - "(?i)груз[аовы]"
-        - "(?i)пункт\\s+назначен[ияи]"
-        - "(?i)транспортн[аяое]\\s+накладн[аяую]"
-        - "(?i)коносамент[а-я]*"
-        - "(?i)провозн[аяое]\\s+плат[ауы]"
-        - "(?i)доставк[ауы]\\s+груз[аов]"
 
       medium:
-        - "(?i)выдач[аа]\\s+груз[аа]"
-        - "(?i)путев[оа]й\\s+лист"
-        - "(?i)заявк[аа]\\s+на\\s+перевозк[уу]"
-        - "(?i)\\bпогрузк[аа]\\b"
-        - "(?i)\\bвыгрузк[аа]\\b"
-        - "(?i)срок\\s+доставк[ии]"
-        - "(?i)транспортн[оеая]\\s+средств[оа]"
-        - "(?i)\\bдемередж\\b"
-        - "(?i)просто[йя]\\s+транспорт[аа]"
-        - "(?i)претензионн[ыо]й\\s+поряд[оа]к"
-        - "(?i)удержани[ея]\\s+груз[аа]"
+        - pattern: "(?i)выдач[аа]\\s+груз[аа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Выдача груза грузополучателю"
+
+        - pattern: "(?i)путев[оа]й\\s+лист"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Путевой лист как документ эксплуатации транспорта"
+
+        - pattern: "(?i)заявк[аа]\\s+на\\s+перевозк[уу]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Заявка на перевозку в рамках рамочного договора"
+
+        - pattern: "(?i)\\bпогрузк[аа]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Погрузка груза на транспортное средство"
+
+        - pattern: "(?i)\\bвыгрузк[аа]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Выгрузка груза в пункте назначения"
+
+        - pattern: "(?i)срок\\s+доставк[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Срок доставки груза по договору перевозки"
+
+        - pattern: "(?i)транспортн[оеая]\\s+средств[оа]"
+          weight: 0.55
+          distinctiveness: low
+          context: any
+          description: "Транспортное средство (авто, вагон, судно и т.п.)"
+
+        - pattern: "(?i)\\bдемередж\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Демередж — плата за простой судна/контейнера"
+
+        - pattern: "(?i)просто[йя]\\s+транспорт[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Простой транспортного средства при погрузке/выгрузке"
+
+        - pattern: "(?i)претензионн[ыо]й\\s+поряд[оа]к"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Обязательный претензионный порядок по перевозке грузов"
+
+        - pattern: "(?i)удержани[ея]\\s+груз[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Право перевозчика на удержание груза"
 
       low:
-        - "(?i)\\bводител[ьяи]\\b"
-        - "(?i)\\bмаршрут\\b"
-        - "(?i)\\bлогистик[аи]\\b"
-        - "(?i)автоперевозк[аа]"
-        - "(?i)\\bфрахт\\b"
-        - "(?i)\\bконтейнер\\b"
-        - "(?i)\\bвагон\\b"
-        - "(?i)\\bрефрижератор\\b"
+        - pattern: "(?i)\\bводител[ьяи]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Водитель как персонал перевозчика (чаще в автоперевозке)"
+
+        - pattern: "(?i)\\bмаршрут\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Маршрут следования (общий логистический термин)"
+
+        - pattern: "(?i)\\bлогистик[аи]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Упоминание логистики в договоре перевозки/организации перевозок"
+
+        - pattern: "(?i)автоперевозк[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Автомобильная перевозка (общий термин в отрасли)"
+
+        - pattern: "(?i)\\bфрахт\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Фрахт как плата, часто в морской/воздушной перевозке"
+
+        - pattern: "(?i)\\bконтейнер\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Контейнер как способ упаковки/перевозки груза"
+
+        - pattern: "(?i)\\bвагон\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Вагон при железнодорожной перевозке груза"
+
+        - pattern: "(?i)\\bрефрижератор\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Рефрижератор как специализированное ТС для скоропорта"
 
     exclusions:
-      - "(?i)транспортн[а-яё]+\\s+экспедиц[ияии]"
-      - "(?i)\\bэкспедитор\\b"
-      - "(?i)аренд[аа]\\s+транспортн[оа]го\\s+средств[аа]"
-      - "(?i)\\bфрахтовани[ея]\\b"
-      - "(?i)\\bчартер\\b"
-      - "(?i)перевозк[аа]\\s+пассажир[оо]в"
-      - "(?i)перевозк[аа]\\s+багаж[аа]"
+      # ── Hard: смежные, но иные договоры (экспедиция, аренда ТС, фрахтование, пассажирские перевозки) ──
+
+      - pattern: "(?i)транспортн[а-яё]+\\s+экспедиц[ияии]"
+        severity: hard
+        weight: -1.0
+        description: "Транспортная экспедиция — отдельный тип договора, не перевозка груза"
+
+      - pattern: "(?i)\\bэкспедитор\\b"
+        severity: hard
+        weight: -1.0
+        description: "Экспедитор как сторона договора транспортной экспедиции"
+
+      - pattern: "(?i)аренд[аа]\\s+транспортн[оа]го\\s+средств[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Аренда транспортного средства вместо договора перевозки"
+
+      - pattern: "(?i)\\bфрахтовани[ея]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Фрахтование судна/воздушного судна (чартер) вместо классической перевозки груза"
+
+      - pattern: "(?i)\\bчартер\\b"
+        severity: hard
+        weight: -1.0
+        description: "Чартер (рейсовый/тайм‑чартер) как самостоятельная конструкция"
+
+      - pattern: "(?i)перевозк[аа]\\s+пассажир[оо]в"
+        severity: hard
+        weight: -1.0
+        description: "Перевозка пассажиров — отдельный тип договора"
+
+      - pattern: "(?i)перевозк[аа]\\s+багаж[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Перевозка багажа в пассажирском сообщении, а не грузовой договор"
+
+      - pattern: "(?i)договор\\s+транспортн[ойого\\s]*экспедиц[иии]"
+        severity: hard
+        weight: -1.0
+        description: "Глава 41 ГК РФ — это транспортная экспедиция, а не перевозка груза"
+
+      - pattern: "(?i)договор\\s+транспортно-?экспедиционн[огоого\\s]*обслуживан[ияия]"
+        severity: hard
+        weight: -1.0
+        description: "ТЭО указывает на экспедицию, а не на договор перевозки"
+
+      - pattern: "(?i)логистическ[ийое]\\s+контракт"
+        severity: hard
+        weight: -1.0
+        description: "Логистический контракт как экспедиционный договор, не чистая перевозка"
+
+      - pattern: "(?i)экспедиторск[аяое]\\s+расписк[аыу]"
+        severity: hard
+        weight: -1.0
+        description: "Экспедиторская расписка — документ экспедиции, а не перевозки"
+
+      - pattern: "(?i)экспедиторск[иеих]\\s+услуг[и]"
+        severity: hard
+        weight: -1.0
+        description: "Экспедиторские услуги отличают экспедицию от договора перевозки"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

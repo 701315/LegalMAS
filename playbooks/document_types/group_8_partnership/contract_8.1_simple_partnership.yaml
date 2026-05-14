@@ -44,6 +44,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
     filename_patterns:
       - "(?i)товарищест"
@@ -61,51 +68,239 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)прост[оеая]\\s+товариществ[оа]"
-        - "(?i)совместн[аяое]\\s+деятельност[ьи]"
-        - "(?i)договор\\s+прост[огоой]\\s+товариществ[аы]"
-        - "(?i)договор\\s+о\\s+совместн[ойой]\\s+деятельност[иью]"
-        - "(?i)партн[ёе]рск[оеое]\\s+соглашен[иеия]"
-        - "(?i)consortium\\s+agreement"
-        - "(?i)joint\\s+venture\\s+agreement"
-        - "(?i)соединен[иеия]\\s+вклад[овы]"
-        - "(?i)общ[аяое]\\s+цел[ььи]"
-        - "(?i)без\\s+образован[ияи]\\s+юридическ[огоого\\s]*лиц[ауы]"
-        - "(?i)веден[иеия]\\s+общих\\s+дел"
-        - "(?i)общ[ееая]\\s+имуществ[оа]\\s+товарищ[еей]"
-        - "(?i)солидарн[аяое]\\s+ответственност[ьи]"
-        - "(?i)ст\\.\\s*1041\\s+гк\\s+рф"
-        - "(?i)товарищ[иья]"
+        - pattern: "(?i)прост[оеая]\\s+товариществ[оа]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора простого товарищества"
+
+        - pattern: "(?i)договор\\s+прост[огоой]\\s+товариществ[аы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Формула заголовка «Договор простого товарищества»"
+
+        - pattern: "(?i)совместн[аяое]\\s+деятельност[ьи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Совместная деятельность как ключевой элемент товарищества"
+
+        - pattern: "(?i)договор\\s+о\\s+совместн[ойой]\\s+деятельност[иью]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Альтернативное русское название договора"
+
+        - pattern: "(?i)партн[ёе]рск[оеое]\\s+соглашен[иеия]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Партнёрское соглашение как форма простого товарищества"
+
+        - pattern: "(?i)consortium\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Consortium agreement как англоязычный аналог"
+
+        - pattern: "(?i)joint\\s+venture\\s+agreement"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Joint venture agreement без образования юрлица"
+
+        - pattern: "(?i)соединен[иеия]\\s+вклад[овы]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Соединение вкладов товарищей"
+
+        - pattern: "(?i)общ[аяое]\\s+цел[ььи]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Общая цель как обязательный элемент простого товарищества"
+
+        - pattern: "(?i)без\\s+образован[ияи]\\s+юридическ[огоого\\s]*лиц[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Прямое указание на отсутствие юридического лица"
+
+        - pattern: "(?i)веден[иеия]\\s+общих\\s+дел"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Ведение общих дел товарищей"
+
+        - pattern: "(?i)общ[ееая]\\s+имуществ[оа]\\s+товарищ[еей]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Общее имущество товарищей"
+
+        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Солидарная ответственность товарищей по общим обязательствам"
+
+        - pattern: "(?i)ст\\.\\s*1041\\s+гк\\s+рф"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ст. 1041 ГК РФ о простом товариществе"
+
+        - pattern: "(?i)товарищ[иья]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Упоминание сторон как товарищей"
 
       medium:
-        - "(?i)вклад\\s+товарищ[аа]"
-        - "(?i)распределени[ея]\\s+прибыл[ии]"
-        - "(?i)распределени[ея]\\s+убытк[оо]в"
-        - "(?i)долев[а-яё]+\\s+собственност[ьи]"
-        - "(?i)товарищ\\s+ведущ[иаяй]\\s+дел[аа]"
-        - "(?i)выход\\s+из\\s+товариществ[аа]"
-        - "(?i)негласн[оа]е\\s+товариществ[оо]"
-        - "(?i)общ[иие]\\s+расход[ыо]"
-        - "(?i)ст\\.\\s*1042\\s*ГК\\s*РФ"
-        - "(?i)ст\\.\\s*1044\\s*ГК\\s*РФ"
-        - "(?i)ст\\.\\s*1047\\s*ГК\\s*РФ"
+        - pattern: "(?i)вклад\\s+товарищ[аа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Формула вклада товарища в общее дело"
+
+        - pattern: "(?i)распределени[ея]\\s+прибыл[ии]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Распределение прибыли между товарищами"
+
+        - pattern: "(?i)распределени[ея]\\s+убытк[оо]в"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Распределение убытков между товарищами"
+
+        - pattern: "(?i)долев[а-яё]+\\s+собственност[ьи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Общая долевая собственность на имущество товарищества"
+
+        - pattern: "(?i)товарищ\\s+ведущ[иаяй]\\s+дел[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Товарищ, ведущий общие дела"
+
+        - pattern: "(?i)выход\\s+из\\s+товариществ[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Выход участника из простого товарищества"
+
+        - pattern: "(?i)негласн[оа]е\\s+товариществ[оо]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Негласное товарищество"
+
+        - pattern: "(?i)общ[иие]\\s+расход[ыо]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Общие расходы товарищей"
+
+        - pattern: "(?i)ст\\.\\s*1042\\s*ГК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на статью о вкладах товарищей"
+
+        - pattern: "(?i)ст\\.\\s*1044\\s*ГК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на статью о ведении общих дел"
+
+        - pattern: "(?i)ст\\.\\s*1047\\s*ГК\\s*РФ"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ссылка на статью о ответственности по обязательствам"
 
       low:
-        - "(?i)раздел\\s+имуществ[аа]"
-        - "(?i)внутренн[я-яё]+\\s+отч[её]тност[ьи]"
-        - "(?i)\\bdeadlock\\b"
-        - "(?i)тупиков[а-яё]+\\s+ситуаци[яя]"
-        - "(?i)\\bрегресс\\b"
-        - "(?i)правопреемств[оо]"
+        - pattern: "(?i)раздел\\s+имуществ[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Раздел общего имущества при прекращении товарищества"
+
+        - pattern: "(?i)внутренн[я-яё]+\\s+отч[её]тност[ьи]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Внутренняя отчетность товарищей"
+
+        - pattern: "(?i)\\bdeadlock\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Deadlock-ситуации в управлении"
+
+        - pattern: "(?i)тупиков[а-яё]+\\s+ситуаци[яя]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Тупиковые ситуации в принятии решений"
+
+        - pattern: "(?i)\\bрегресс\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Регрессные отношения между товарищами"
+
+        - pattern: "(?i)правопреемств[оо]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Правопреемство при смене участников"
 
     exclusions:
-      - "(?i)создани[ея]\\s+юридическ[оа]го\\s+лиц[аа]"
-      - "(?i)\\bООО\\b"
-      - "(?i)учредительн[ыо]й\\s+договор"
-      - "(?i)трудов[оа]й\\s+договор"
-      - "(?i)агентск[иоя]+\\s+договор"
-      - "(?i)инвестиционн[оа]е\\s+товариществ[оо]"
-      - "(?i)договор\\s+подряд[аа]"
+      # ── Hard exclusions — создание юрлица и специальные формы ──
+
+      - pattern: "(?i)создани[ея]\\s+юридическ[оа]го\\s+лиц[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Создание юрлица (ООО, АО и т.п.) уводит к корпоративным договорам, а не к простому товариществу"
+
+      - pattern: "(?i)\\bООО\\b"
+        severity: hard
+        weight: -1.0
+        description: "Прямой фокус на обществе с ограниченной ответственностью — корпоративный контекст"
+
+      - pattern: "(?i)учредительн[ыо]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Учредительный договор — создание юрлица, а не простое товарищество"
+
+      # ── Soft exclusions — соседние договорные конструкции ──
+
+      - pattern: "(?i)трудов[оа]й\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Трудовой договор с элементами совместной деятельности не является простым товариществом"
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Агентский договор — посредничество, а не объединение вкладов для общей цели"
+
+      - pattern: "(?i)инвестиционн[оа]е\\s+товариществ[оо]"
+        severity: soft
+        weight: -0.4
+        description: "Инвестиционное товарищество — отдельная конструкция главы 55.1 ГК РФ"
+
+      - pattern: "(?i)договор\\s+подряд[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Подряд с распределением рисков не равен простому товариществу без юрлица"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

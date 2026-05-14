@@ -46,6 +46,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.81
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -61,53 +68,256 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)лицензионн[ыйое]\\s+договор"
-        - "(?i)лицензи[яи]\\b"
-        - "(?i)лицензионн[оеое]\\s+соглашен[иеия]"
-        - "(?i)договор\\s+о\\s+предоставлен[иии]\\s+прав[ао]\\s+использован[ияия]"
-        - "(?i)патентн[аяое]\\s+лицензи[яи]"
-        - "(?i)лицензи[яи]\\s+на\\s+товарн[ыйое]\\s+знак"
-        - "(?i)авторск[ийое]\\s+лицензионн[ыйое]\\s+договор"
-        - "(?i)лицензи[яи]\\s+на\\s+программн[оеое]\\s+обеспечени[еия]"
-        - "(?i)лицензи[яи]\\s+на\\s+ноу-?хау"
-        - "(?i)saas-?лицензи[яи]"
-        - "(?i)лицензи[яи]\\s+на\\s+баз[уы]\\s+данн[ыхые]"
-        - "(?i)лицензиар[а-я]*"
-        - "(?i)лицензиат[а-я]*"
-        - "(?i)прав[оа]\\s+использован[ияия]"
-        - "(?i)предоставлен[иеия]\\s+прав[ао]\\s+использован[ияия]"
-        - "(?i)исключительн[аяое]\\s+лицензи[яи]"
-        - "(?i)неисключительн[аяое]\\s+лицензи[яи]"
-        - "(?i)прост[аяое]\\s+лицензи[яи]"
+        # ── Прямые названия и конструкции лицензионного договора ──
+
+        - pattern: "(?i)лицензионн[ыйое]\\s+договор"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название лицензионного договора"
+
+        - pattern: "(?i)лицензионн[оеое]\\s+соглашен[иеия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Лицензионное соглашение"
+
+        - pattern: "(?i)лицензи[яи]\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Общий маркер лицензии в IP-контексте"
+
+        - pattern: "(?i)договор\\s+о\\s+предоставлен[иии]\\s+прав[ао]\\s+использован[ияия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Ключевая формула предоставления права использования"
+
+        - pattern: "(?i)патентн[аяое]\\s+лицензи[яи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Патентная лицензия"
+
+        - pattern: "(?i)лицензи[яи]\\s+на\\s+товарн[ыйое]\\s+знак"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Лицензия на товарный знак"
+
+        - pattern: "(?i)авторск[ийое]\\s+лицензионн[ыйое]\\s+договор"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Авторский лицензионный договор"
+
+        - pattern: "(?i)лицензи[яи]\\s+на\\s+программн[оеое]\\s+обеспечени[еия]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Лицензия на программное обеспечение"
+
+        - pattern: "(?i)лицензи[яи]\\s+на\\s+ноу-?хау"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Лицензия на ноу-хау"
+
+        - pattern: "(?i)saas-?лицензи[яи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "SaaS-лицензия"
+
+        - pattern: "(?i)лицензи[яи]\\s+на\\s+баз[уы]\\s+данн[ыхые]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Лицензия на базу данных"
+
+        # ── Стороны и типы лицензий ──
+
+        - pattern: "(?i)лицензиар[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Лицензиар как сторона договора"
+
+        - pattern: "(?i)лицензиат[а-я]*"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Лицензиат как сторона договора"
+
+        - pattern: "(?i)прав[оа]\\s+использован[ияия]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Предоставление права использования, не отчуждая право"
+
+        - pattern: "(?i)предоставлен[иеия]\\s+прав[ао]\\s+использован[ияия]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ключевая конструкция лицензионного договора"
+
+        - pattern: "(?i)исключительн[аяое]\\s+лицензи[яи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Исключительная лицензия"
+
+        - pattern: "(?i)неисключительн[аяое]\\s+лицензи[яи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Неисключительная (простая) лицензия"
+
+        - pattern: "(?i)прост[аяое]\\s+лицензи[яи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Простая лицензия"
 
       medium:
-        - "(?i)\\bсублицензи[яяи]\\b"
-        - "(?i)\\bроялти\\b"
-        - "(?i)паушальн[ыо]й\\s+плат[её]ж"
-        - "(?i)территори[яя]\\s+действи[яя]"
-        - "(?i)способ[ыа]\\s+использовани[яя]"
-        - "(?i)срок\\s+действи[яя]\\s+лицензи[ии]"
-        - "(?i)\\bотч[её]тност[ьи]\\b"
-        - "(?i)контрол[ья]\\s+качеств[аа]"
-        - "(?i)\\bРоспатент\\b"
-        - "(?i)государственн[а-яё]+\\s+регистраци[яя]\\s+лицензи[ии]"
+        - pattern: "(?i)\\bсублицензи[яяи]\\b"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Сублицензия как производная от основной лицензии"
+
+        - pattern: "(?i)\\bроялти\\b"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Роялти как форма лицензионного вознаграждения"
+
+        - pattern: "(?i)паушальн[ыо]й\\s+плат[её]ж"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Паушальный платеж в структуре лицензионного вознаграждения"
+
+        - pattern: "(?i)территори[яя]\\s+действи[яя]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Территория действия лицензии"
+
+        - pattern: "(?i)способ[ыа]\\s+использовани[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Ограниченный перечень способов использования объекта"
+
+        - pattern: "(?i)срок\\s+действи[яя]\\s+лицензи[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Срок действия лицензии"
+
+        - pattern: "(?i)\\bотч[её]тност[ьи]\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Отчетность лицензиата по использованию"
+
+        - pattern: "(?i)контрол[ья]\\s+качеств[аа]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Контроль качества товаров/услуг лицензиата"
+
+        - pattern: "(?i)\\bРоспатент\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Роспатент как орган регистрации лицензионного договора для регистрируемых объектов"
+
+        - pattern: "(?i)государственн[а-яё]+\\s+регистраци[яя]\\s+лицензи[ии]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Госрегистрация лицензионного договора"
 
       low:
-        - "(?i)лицензионн[оа]е\\s+вознаграждени[ея]"
-        - "(?i)минимальн[ыо]е\\s+гарантированн[ыо]е\\s+платеж[ии]"
-        - "(?i)прав[оо]\\s+на\\s+инспекци[юю]"
-        - "(?i)отзыв\\s+лицензи[ии]"
-        - "(?i)производн[ыо]е\\s+произведени[яя]"
-        - "(?i)\\bулучшени[яя]\\b"
-        - "(?i)\\bgrant-back\\b"
+        - pattern: "(?i)лицензионн[оа]е\\s+вознаграждени[ея]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Лицензионное вознаграждение"
+
+        - pattern: "(?i)минимальн[ыо]е\\s+гарантированн[ыо]е\\s+платеж[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Минимально гарантированный платеж (мингарантия)"
+
+        - pattern: "(?i)прав[оо]\\s+на\\s+инспекци[юю]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Право инспектировать использование объекта"
+
+        - pattern: "(?i)отзыв\\s+лицензи[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Отзыв или прекращение лицензии"
+
+        - pattern: "(?i)производн[ыо]е\\s+произведени[яя]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Производные произведения и их правовой режим"
+
+        - pattern: "(?i)\\bулучшени[яя]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Улучшения объекта и их принадлежность"
+
+        - pattern: "(?i)\\bgrant-back\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Grant-back оговорка в лицензионном договоре"
 
     exclusions:
-      - "(?i)договор\\s+об\\s+отчуждени[ии]\\s+исключительн[оа]го\\s+прав[аа]"
-      - "(?i)полн[а-яё]+\\s+передач[аа]\\s+прав[аа]"
-      - "(?i)договор\\s+коммерческ[оа]й\\s+концесси[ии]"
-      - "(?i)\\bфранчайзинг\\b"
-      - "(?i)договор\\s+авторск[оа]го\\s+заказ[аа]"
-      - "(?i)агентск[иоя]+\\s+договор"
+      # ── Hard exclusions — отчуждение и комплексные режимы владения ИС ──
+
+      - pattern: "(?i)договор\\s+об\\s+отчуждени[ии]\\s+исключительн[оа]го\\s+прав[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Отчуждение исключительного права влечет полный переход права, а не лицензию"
+
+      - pattern: "(?i)полн[а-яё]+\\s+передач[аа]\\s+прав[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Полная передача права ближе к договору отчуждения, а не к лицензии"
+
+      - pattern: "(?i)договор\\s+коммерческ[оа]й\\s+концесси[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Коммерческая концессия включает комплекс лицензионных и иных прав, является отдельным типом"
+
+      # ── Soft exclusions — соседние конструкции и посредничество ──
+
+      - pattern: "(?i)\\bфранчайзинг\\b"
+        severity: soft
+        weight: -0.35
+        description: "Упоминание франчайзинга тянет к концессионной модели, а не к чистой лицензии"
+
+      - pattern: "(?i)договор\\s+авторск[оа]го\\s+заказ[аа]"
+        severity: soft
+        weight: -0.3
+        description: "Авторский заказ относится к созданию произведения, а не к предоставлению права использования уже созданного"
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Агентский договор — посредническая конструкция, не тождественная лицензированию"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

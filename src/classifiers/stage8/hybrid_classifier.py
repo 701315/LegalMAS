@@ -187,7 +187,13 @@ class HybridClassifier:
 
         # ── L2: header / keywords ─────────────────────────────────────
         top_l2, candidates, details = await self._run_l2(
-            doc_id, header_text, filename, folder, candidates, details
+            doc_id,
+            header_text,
+            snippet_text,
+            filename,
+            folder,
+            candidates,
+            details,
         )
 
         # ── L3: semantic embeddings ───────────────────────────────────
@@ -497,6 +503,7 @@ class HybridClassifier:
         self,
         doc_id: str,
         header_text: str | None,
+        snippet_text: str | None,
         filename: str,
         folder: str,
         candidates: list[dict],
@@ -505,23 +512,31 @@ class HybridClassifier:
         """L2: классификация по заголовку и YAML-паттернам."""
         top_l2: Any | None = None
 
-        if not header_text:
+        if not header_text and not snippet_text:
             details["L2"] = {
                 "type": "UNKNOWN",
                 "confidence": 0.0,
                 "method": "header_pattern",
                 "evidence": None,
-                "note": "no_header_text",
+                "note": "no_header_or_snippet_text",
             }
-            logger.info("Hybrid L2 skipped", extra={"doc_id": doc_id, "reason": "no_header_text"})
+            logger.info(
+                "Hybrid L2 skipped",
+                extra={
+                    "doc_id": doc_id,
+                    "reason": "no_header_or_snippet_text",
+                },
+            )
             return top_l2, candidates, details
 
         l2_result = await self.l2.classify(
-            text=header_text,
+            text=header_text or "",
             filename=filename,
             folder_path=folder,
             text_sanitized=None,
-            metadata=None,
+            metadata={
+                "snippet_text": snippet_text or "",
+            },
         )
         details["levels_tried"].append("L2")
 
@@ -549,20 +564,20 @@ class HybridClassifier:
             }
             if l2_result.doctype != "UNKNOWN":
                 top_l2 = l2_result
-                candidates.append({
-                    "type_code": l2_result.doctype,
-                    "confidence": l2_result.confidence,
-                    "level": "L2",
-                    "method": l2_result.method,
-                    # NEW: передаём диагностику для WeightedVoter
-                    "signal_quality": l2_extra.get("signal_quality", 1.0),
-                    "negative_hits": (
-                        int(l2_extra.get("soft_exclusion_hits", 0))
-                        + 2 * int(l2_extra.get("hard_exclusion_hits", 0))
-                    ),
-                    "ambiguity_penalty": float(l2_extra.get("ambiguity_penalty", 0.0)),
-                    "input_quality": float(l2_extra.get("input_quality", 1.0)),
-                })
+                candidates.append(
+                    {
+                        "type_code": l2_result.doctype,
+                        "confidence": l2_result.confidence,
+                        "level": "L2",
+                        "method": l2_result.method,
+                        "signal_quality": l2_extra.get("signal_quality", 1.0),
+                        "negative_hits": int(l2_extra.get("soft_exclusion_hits", 0)),  # legacy compatibility
+                        "soft_negative_hits": int(l2_extra.get("soft_exclusion_hits", 0)),
+                        "hard_negative_hits": int(l2_extra.get("hard_exclusion_hits", 0)),
+                        "ambiguity_penalty": float(l2_extra.get("ambiguity_penalty", 0.0)),
+                        "input_quality": float(l2_extra.get("input_quality", 1.0)),
+                    }
+                )
 
         logger.info(
             "Hybrid L2 result",
@@ -691,7 +706,7 @@ class HybridClassifier:
         doc_id: str,
         top_l1: dict | None,
         top_l2: Any | None,
-        top_l3: Any | None,  
+        top_l3: Any | None,
         candidates: list[dict],
         details: dict,
         language: str | None,
@@ -706,132 +721,137 @@ class HybridClassifier:
 
         Возвращает готовый dict-результат или None (продолжаем каскад).
         """
-        strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
+        global_strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
         details.setdefault("contradiction_detected", False)
 
         # ═══════════════════════════════════════════════════════════════════
         # Правило 1: сильный L2 с проверкой на конфликт L2 vs L3
         # ═══════════════════════════════════════════════════════════════════
-        if top_l2 and top_l2.confidence >= strong_l2:
+        if top_l2:
             l2_type = top_l2.doctype
             l2_conf = float(top_l2.confidence)
-            
-            # Извлекаем диагностику L2 из extra
-            l2_extra = getattr(top_l2, "extra", {}) or {}
-            l2_high_hits = int(l2_extra.get("high_hits", 0))
-            l2_medium_hits = int(l2_extra.get("medium_hits", 0))
 
-            # NEW: учитываем разделение distinctive/generic из исправленного l2_header.py
-            distinctive_high = int(l2_extra.get("distinctive_high_hits", l2_high_hits))  # fallback на старое поле
-            distinctive_medium = int(l2_extra.get("distinctive_medium_hits", l2_medium_hits // 2))  # эвристика
-            generic_high = int(l2_extra.get("generic_high_hits", 0))
+            winner_cfg = self.registry.get_config(l2_type)
+            strong_l2 = global_strong_l2
+            if winner_cfg is not None:
+                scoring = getattr(winner_cfg, "scoring", {}) or {}
+                strong_l2 = float(scoring.get("strong_signal_threshold", global_strong_l2))
 
-            # L2 слабый, если:
-            # - все high hits — generic ИЛИ
-            # - только 1 distinctive hit без medium support
-            weak_l2_signal = (
-                (distinctive_high == 0 and generic_high > 0)
-                or (distinctive_high == 1 and distinctive_medium == 0)
-            )
+            if l2_conf >= strong_l2:
+                l2_extra = getattr(top_l2, "extra", {}) or {}
+                l2_high_hits = int(l2_extra.get("high_hits", 0))
+                l2_medium_hits = int(l2_extra.get("medium_hits", 0))
 
-            # ── Проверка 1b: Конфликт с L3 при высокой семантической близости ──
-            l3_conflict = False
-            l3_semantic_strong = False
+                distinctive_high = int(l2_extra.get("distinctive_high_hits", l2_high_hits))
+                distinctive_medium = int(
+                    l2_extra.get("distinctive_medium_hits", l2_medium_hits // 2)
+                )
+                generic_high = int(l2_extra.get("generic_high_hits", 0))
 
-            if top_l3 and top_l3.doctype != l2_type:
-                l3_conf = float(top_l3.confidence)
-                l3_extra = getattr(top_l3, "extra", {}) or {}
-                l3_raw_sim = float(l3_extra.get("raw_similarity", 0.0))
-                
-                # L3 семантически уверен, если similarity > 0.80
-                l3_semantic_strong = (l3_raw_sim > 0.80)
-                l3_conflict = True
-                
-                details["contradiction_detected"] = True
-                details["contradiction_summary"] = {
-                    "l2_type": l2_type,
-                    "l3_type": top_l3.doctype,
-                    "l2_conf": l2_conf,
-                    "l3_conf": l3_conf,
-                    "l3_raw_similarity": l3_raw_sim,
-                }
+                weak_l2_signal = (
+                    (distinctive_high == 0 and generic_high > 0)
+                    or (distinctive_high == 1 and distinctive_medium == 0)
+                )
 
-                logger.warning(
-                    "L2_STRONG_WINS: conflict detected with L3",
-                    extra={
-                        "doc_id": doc_id,
+                l3_conflict = False
+                l3_semantic_strong = False
+
+                if top_l3 and top_l3.doctype != l2_type:
+                    l3_conf = float(top_l3.confidence)
+                    l3_extra = getattr(top_l3, "extra", {}) or {}
+                    l3_raw_sim = float(l3_extra.get("raw_similarity", 0.0))
+
+                    l3_semantic_strong = l3_raw_sim > 0.80
+                    l3_conflict = True
+
+                    details["contradiction_detected"] = True
+                    details["contradiction_summary"] = {
                         "l2_type": l2_type,
-                        "l2_conf": l2_conf,
-                        "l2_distinctive_high_hits": distinctive_high,  # ← NEW
-                        "l2_generic_high_hits": generic_high,          # ← NEW
-                        "l2_high_hits_total": l2_high_hits,            # ← для обратной совместимости
                         "l3_type": top_l3.doctype,
+                        "l2_conf": l2_conf,
                         "l3_conf": l3_conf,
                         "l3_raw_similarity": l3_raw_sim,
-                        "l3_semantic_strong": l3_semantic_strong,
-                        "weak_l2_signal": weak_l2_signal,
-                    },
-                )
-                
-            # ── Решение: L2 побеждает только при отсутствии конфликта ──────
-            # или если L2 действительно сильный (multiple independent signals)
-            if l3_conflict and l3_semantic_strong and weak_l2_signal:
-                # L3 семантически сильнее, L2 основан на 1-2 общих признаках
-                # → НЕ завершаем здесь, продолжаем к голосованию
-                details["l2_strong_suppressed"] = {
-                    "reason": "L3_SEMANTIC_CONFLICT",
-                    "l2_type": l2_type,
-                    "l2_conf": l2_conf,
+                    }
+
+                    logger.warning(
+                        "L2_STRONG_WINS: conflict detected with L3",
+                        extra={
+                            "doc_id": doc_id,
+                            "l2_type": l2_type,
+                            "l2_conf": l2_conf,
+                            "l2_strong_threshold": strong_l2,
+                            "l2_distinctive_high_hits": distinctive_high,
+                            "l2_generic_high_hits": generic_high,
+                            "l2_high_hits_total": l2_high_hits,
+                            "l3_type": top_l3.doctype,
+                            "l3_conf": l3_conf,
+                            "l3_raw_similarity": l3_raw_sim,
+                            "l3_semantic_strong": l3_semantic_strong,
+                            "weak_l2_signal": weak_l2_signal,
+                        },
+                    )
+
+                if l3_conflict and l3_semantic_strong and weak_l2_signal:
+                    details["l2_strong_suppressed"] = {
+                        "reason": "L3_SEMANTIC_CONFLICT",
+                        "l2_type": l2_type,
+                        "l2_conf": l2_conf,
+                        "l2_strong_threshold": strong_l2,
+                        "l2_high_hits": l2_high_hits,
+                        "l3_type": top_l3.doctype,
+                        "l3_raw_similarity": l3_extra.get("raw_similarity"),
+                        "decision": "continue_to_voting",
+                    }
+                    logger.info(
+                        "Hybrid decision L2_STRONG_SUPPRESSED by L3",
+                        extra={
+                            "doc_id": doc_id,
+                            "l2_type": l2_type,
+                            "l3_type": top_l3.doctype,
+                            "l2_strong_threshold": strong_l2,
+                        },
+                    )
+                    return None
+
+                final_type = l2_type
+                final_conf = l2_conf
+                details["voting"] = {
+                    "strategy": "L2_STRONG_WINS",
+                    "reason": (
+                        f"L2 confidence >= effective strong threshold {strong_l2}, "
+                        "no decisive L3 conflict or L2 has strong lexical evidence"
+                    ),
                     "l2_high_hits": l2_high_hits,
-                    "l3_type": top_l3.doctype,
-                    "l3_raw_similarity": l3_extra.get("raw_similarity"),
-                    "decision": "continue_to_voting",
+                    "l2_medium_hits": l2_medium_hits,
+                    "l2_distinctive_high_hits": distinctive_high,
+                    "l2_distinctive_medium_hits": distinctive_medium,
+                    "l2_generic_high_hits": generic_high,
+                    "l2_strong_threshold": strong_l2,
                 }
+
                 logger.info(
-                    "Hybrid decision L2_STRONG_SUPPRESSED by L3",
+                    "Hybrid decision L2_STRONG_WINS",
                     extra={
                         "doc_id": doc_id,
-                        "l2_type": l2_type,
-                        "l3_type": top_l3.doctype,
+                        "final_type": final_type,
+                        "final_confidence": final_conf,
+                        "l2_strong_threshold": strong_l2,
                     },
                 )
-                return None  # Продолжаем к голосованию
-                
-            # L2 действительно сильный: нет конфликта ИЛИ L2 имеет >= 2 independent hits
-            final_type = l2_type
-            final_conf = l2_conf
-            details["voting"] = {
-                "strategy": "L2_STRONG_WINS",
-                "reason": f"L2 confidence >= {strong_l2}, no decisive L3 conflict or L2 has strong lexical evidence",
-                "l2_high_hits": l2_high_hits,
-                "l2_medium_hits": l2_medium_hits,
-                "l2_distinctive_high_hits": distinctive_high,
-                "l2_distinctive_medium_hits": distinctive_medium,
-                "l2_generic_high_hits": generic_high,
-            }
-
-            logger.info(
-                "Hybrid decision L2_STRONG_WINS",
-                extra={
-                    "doc_id": doc_id,
-                    "final_type": final_type,
-                    "final_confidence": final_conf,
-                },
-            )
-            self.metrics.classification_duration.labels(source="l2_strong").observe(
-                time.time() - started_at
-            )
-            return self._builder.build(
-                levels_tried=details["levels_tried"],
-                candidates=candidates,
-                final_type=final_type,
-                final_confidence=final_conf,
-                level="L2",
-                language=language,
-                jurisdiction=jurisdiction,
-                applicable_triggers=self._builder.build_triggers(doc_id, final_type),
-                details=details,
-            )
+                self.metrics.classification_duration.labels(source="l2_strong").observe(
+                    time.time() - started_at
+                )
+                return self._builder.build(
+                    levels_tried=details["levels_tried"],
+                    candidates=candidates,
+                    final_type=final_type,
+                    final_confidence=final_conf,
+                    level="L2",
+                    language=language,
+                    jurisdiction=jurisdiction,
+                    applicable_triggers=self._builder.build_triggers(doc_id, final_type),
+                    details=details,
+                )
 
         # ═══════════════════════════════════════════════════════════════════
         # Правило 2: L1 + L2 согласны (без изменений)
@@ -1308,4 +1328,6 @@ def _build_llm_source_text(
     if snippet_text:
         parts.append(snippet_text.strip())
     return "\n\n".join(p for p in parts if p).strip()
+
+
 

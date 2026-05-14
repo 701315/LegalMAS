@@ -46,6 +46,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -64,69 +71,352 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)проектировани[ея]"
-        - "(?i)изыскан[ияи]"
-        - "(?i)инженерн[ыеых]\\s+изыскан[ияи]"
-        - "(?i)договор\\s+на\\s+выполнен[иеия]\\s+проектн[ыхые]\\s+работ"
-        - "(?i)договор\\s+на\\s+выполнен[иеия]\\s+изыскательск[ихие]\\s+работ"
-        - "(?i)договор\\s+на\\s+выполнен[иеия]\\s+проектн[ыхые]\\s+и\\s+изыскательск[ихие]\\s+работ\\s*\\(\\s*пир\\s*\\)"
-        - "(?i)договор\\s+подряд[ауы]\\s+на\\s+проектировани[еия]"
-        - "(?i)контракт\\s+на\\s+инженерн[ыеых]\\s+изыскан[ияи]"
-        - "(?i)договор\\s+на\\s+разработк[уи]\\s+проектно-?сметн[ойую]\\s+документац[иеи]"
-        - "(?i)договор\\s+на\\s+разработк[уи]\\s+проектн[ойую]\\s+документац[иеи]\\s+стади[ии]\\s*п\\b"
-        - "(?i)договор\\s+на\\s+разработк[уи]\\s+рабоч[ейую]\\s+документац[иеи]\\s+стади[ии]\\s*р\\b"
-        - "(?i)договор\\s+генеральн[огоый]\\s+проектировани[яия]"
-        - "(?i)проектн[аяое]\\s+документац[иеи]"
-        - "(?i)рабоч[аяое]\\s+документац[иеи]"
-        - "(?i)стадия\\s*п\\b"
-        - "(?i)стадия\\s*р\\b"
-        - "(?i)техническ[оеая]\\s+задан[иеия]\\s+на\\s+проектировани[еия]"
-        - "(?i)отчет\\s+по\\s+изыскан[иям]"
-        - "(?i)экспертиз[аы]\\s+проектн[ойую]\\s+документац[иеи]"
-        - "(?i)градостроительн[ыйого]\\s+план\\s+земельн[огоой]\\s+участк[аеи]"
-        - "(?i)гпзу"
-        - "(?i)раздел[ыов]\\s+проектн[ойую]\\s+документац[иеи]"
-        - "(?i)постановлени[ея]\\s*87\\b"
+        # ── Прямые названия договора ──
+
+        - pattern: "(?i)договор\\s+на\\s+выполнен[иеия]\\s+проектн[ыхые]\\s+работ"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора на выполнение проектных работ"
+
+        - pattern: "(?i)договор\\s+на\\s+выполнен[иеия]\\s+изыскательск[ихие]\\s+работ"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора на выполнение изыскательских работ"
+
+        - pattern: "(?i)договор\\s+на\\s+выполнен[иеия]\\s+проектн[ыхые]\\s+и\\s+изыскательск[ихие]\\s+работ\\s*\\(\\s*пир\\s*\\)"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Полная формула договора ПИР с аббревиатурой"
+
+        - pattern: "(?i)договор\\s+подряд[ауы]\\s+на\\s+проектировани[еия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Подряд на проектирование как основной вид ПИР"
+
+        - pattern: "(?i)контракт\\s+на\\s+инженерн[ыеых]\\s+изыскан[ияи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Контракт на инженерные изыскания"
+
+        - pattern: "(?i)договор\\s+на\\s+разработк[уи]\\s+проектно-?сметн[ойую]\\s+документац[иеи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Разработка проектно-сметной документации"
+
+        - pattern: "(?i)договор\\s+на\\s+разработк[уи]\\s+проектн[ойую]\\s+документац[иеи]\\s+стади[ии]\\s*п\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Проектная документация стадии П"
+
+        - pattern: "(?i)договор\\s+на\\s+разработк[уи]\\s+рабоч[ейую]\\s+документац[иеи]\\s+стади[ии]\\s*р\\b"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Рабочая документация стадии Р"
+
+        - pattern: "(?i)договор\\s+генеральн[огоый]\\s+проектировани[яия]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Договор генерального проектирования"
+
+        # ── Ownership‑маркеры ПИР ──
+
+        - pattern: "(?i)инженерн[ыеых]\\s+изыскан[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Инженерные изыскания как профильный результат договора"
+
+        - pattern: "(?i)проектировани[ея]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Проектирование как основной предмет договора"
+
+        - pattern: "(?i)изыскан[ияи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Изыскания как самостоятельный предмет ПИР"
+
+        - pattern: "(?i)проектн[аяое]\\s+документац[иеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Проектная документация как результат работ"
+
+        - pattern: "(?i)рабоч[аяое]\\s+документац[иеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Рабочая документация как результат работ"
+
+        - pattern: "(?i)стадия\\s*п\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Стадия П проектной документации"
+
+        - pattern: "(?i)стадия\\s*р\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Стадия Р рабочей документации"
+
+        - pattern: "(?i)техническ[оеая]\\s+задан[иеия]\\s+на\\s+проектировани[еия]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Техническое задание на проектирование"
+
+        - pattern: "(?i)отчет\\s+по\\s+изыскан[иям]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Отчёт по результатам инженерных изысканий"
+
+        - pattern: "(?i)экспертиз[аы]\\s+проектн[ойую]\\s+документац[иеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Экспертиза проектной документации по ГрК РФ"
+
+        - pattern: "(?i)градостроительн[ыйого]\\s+план\\s+земельн[огоой]\\s+участк[аеи]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "ГПЗУ как ключевое исходное данное для проектирования"
+
+        - pattern: "(?i)гпзу"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Аббревиатура градостроительного плана земельного участка"
+
+        - pattern: "(?i)раздел[ыов]\\s+проектн[ойую]\\s+документац[иеи]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Разделы проектной документации"
+
+        - pattern: "(?i)постановлени[ея]\\s*87\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "ПП РФ № 87 о составе разделов проектной документации"
+
+        # ── Оставшиеся legacy high ──
+        - "(?i)\\bПИР\\b"
 
       medium:
-        - "(?i)исходн[ыо]е\\s+данн[ыо]е"
-        - "(?i)авторск[иоя]+\\s+надзор"
-        - "(?i)согласовани[ея]\\s+в\\s+орган[аа]х"
-        - "(?i)\\bчертеж[ии]\\b"
-        - "(?i)сметн[а-яё]+\\s+стоимост[ьи]"
-        - "(?i)пояснительн[а-яё]+\\s+записк[аи]"
-        - "(?i)\\bСБЦ\\b"
-        - "(?i)справочник\\s+базов[ыо]х\\s+цен"
-        - "(?i)объект\\s+капитальн[оа]го\\s+строительств[аа]"
-        - "(?i)разрешени[ея]\\s+на\\s+строительств[оо]"
-        - "(?i)\\bСРО\\s+проектировщик[оа]в\\b"
-        - "(?i)техническ[иие]+\\s+услови[яя]"
-        - "(?i)\\bТУ\\s+на\\s+подключени[ея]\\b"
-        - "(?i)\\bBIM\\s+модел[ьяи]\\b"
-        - "(?i)информационн[а-яё]+\\s+модел[ьяи]"
-        - "(?i)генеральн[ыо]й\\s+проектировщик"
-        - "(?i)субподрядчик\\s+по\\s+раздел[уу]"
+        - pattern: "(?i)исходн[ыо]е\\s+данн[ыо]е"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Исходные данные для выполнения проектирования или изысканий"
+
+        - pattern: "(?i)авторск[иоя]+\\s+надзор"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Авторский надзор проектировщика за реализацией решений"
+
+        - pattern: "(?i)согласовани[ея]\\s+в\\s+орган[аа]х"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Согласование документации в уполномоченных органах"
+
+        - pattern: "(?i)\\bчертеж[ии]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Чертежи как часть проектной/рабочей документации"
+
+        - pattern: "(?i)сметн[а-яё]+\\s+стоимост[ьи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Сметная стоимость объекта по проектной документации"
+
+        - pattern: "(?i)пояснительн[а-яё]+\\s+записк[аи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Пояснительная записка как раздел проектной документации"
+
+        - pattern: "(?i)\\bСБЦ\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Справочники базовых цен для проектных и изыскательских работ"
+
+        - pattern: "(?i)справочник\\s+базов[ыо]х\\s+цен"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Ценообразование ПИР по СБЦ"
+
+        - pattern: "(?i)объект\\s+капитальн[оа]го\\s+строительств[аа]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "ОКС как объект проектирования, но маркер пересекается со строительным подрядом"
+
+        - pattern: "(?i)разрешени[ея]\\s+на\\s+строительств[оо]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Разрешение на строительство как downstream результат использования документации"
+
+        - pattern: "(?i)\\bСРО\\s+проектировщик[оа]в\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Членство в СРО проектировщиков"
+
+        - pattern: "(?i)техническ[иие]+\\s+услови[яя]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Технические условия на подключение и проектирование"
+
+        - pattern: "(?i)\\bТУ\\s+на\\s+подключени[ея]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "ТУ на подключение инженерных сетей"
+
+        - pattern: "(?i)\\bBIM\\s+модел[ьяи]\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "BIM-модель как форма представления проектного результата"
+
+        - pattern: "(?i)информационн[а-яё]+\\s+модел[ьяи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Информационная модель объекта"
+
+        - pattern: "(?i)генеральн[ыо]й\\s+проектировщик"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Генеральный проектировщик как профильный участник"
+
+        - pattern: "(?i)субподрядчик\\s+по\\s+раздел[уу]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Субподряд по отдельным проектным разделам"
 
       low:
-        - "(?i)\\bпроект\\b"
-        - "(?i)проектн[ыо]й"
-        - "(?i)объект\\s+строительств[аа]"
-        - "(?i)план\\s+этаж[аа]"
-        - "(?i)\\bфасад\\b"
-        - "(?i)конструктивн[ыо]е\\s+решени[яя]"
-        - "(?i)инженерн[ыо]е\\s+сет[ии]"
-        - "(?i)архитектурн[ыо]е\\s+решени[яя]"
+        - pattern: "(?i)\\bпроект\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Очень общий термин, встречается в множестве типов документов"
+
+        - pattern: "(?i)проектн[ыо]й"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Общее прилагательное без достаточной типовой силы"
+
+        - pattern: "(?i)объект\\s+строительств[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Объект строительства — общий термин для смежных типов"
+
+        - pattern: "(?i)план\\s+этаж[аа]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "План этажа как возможный элемент документации"
+
+        - pattern: "(?i)\\bфасад\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Фасадные решения как часть проектных материалов"
+
+        - pattern: "(?i)конструктивн[ыо]е\\s+решени[яя]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Конструктивные решения в составе проектной документации"
+
+        - pattern: "(?i)инженерн[ыо]е\\s+сет[ии]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Инженерные сети как объект проектирования"
+
+        - pattern: "(?i)архитектурн[ыо]е\\s+решени[яя]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Архитектурные решения как раздел проектной документации"
 
     exclusions:
-      - "(?i)строительно-?монтажн[ыо]е\\s+работ[ыа]"
-      - "(?i)научно-исследовательск[иие]+\\s+работ[ыа]"
-      - "(?i)разработк[аи]\\s+программн[оа]го\\s+обеспечени[яя]"
-      - "(?i)дизайн-?проект\\s+интерьер[аа]"
-      - "(?i)ландшафтн[ыо]й\\s+дизайн"
-      - "(?i)\\bНИОКР\\b"
-      - "(?i)технологическ[оа]е\\s+проектировани[ея]\\s+процесс[оо]в"
-      - "(?i)дизайн\\s+мебел[ии]"
-      - "(?i)веб-?дизайн"
+      # ── Hard exclusions — явно другой тип работ ──
+
+      - pattern: "(?i)строительно-?монтажн[ыо]е\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "СМР указывают на строительный подряд, а не на ПИР"
+
+      - pattern: "(?i)научно-исследовательск[иие]+\\s+работ[ыа]"
+        severity: hard
+        weight: -1.0
+        description: "Научно-исследовательские работы относятся к НИОКР, а не к ПИР"
+
+      - pattern: "(?i)\\bНИОКР\\b"
+        severity: hard
+        weight: -1.0
+        description: "НИОКР — отдельный договорный тип с иным результатом работ"
+
+      - pattern: "(?i)разработк[аи]\\s+программн[оа]го\\s+обеспечени[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Разработка ПО — IT/интеллектуальные работы, не проектирование в смысле ГрК"
+
+      # ── Soft exclusions — снижают confidence, уводят в соседние режимы ──
+
+      - pattern: "(?i)дизайн-?проект\\s+интерьер[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Интерьерный дизайн-проект — соседний, но не типовой строительный ПИР"
+
+      - pattern: "(?i)ландшафтн[ыо]й\\s+дизайн"
+        severity: soft
+        weight: -0.35
+        description: "Ландшафтный дизайн не всегда образует договор ПИР по ГрК РФ"
+
+      - pattern: "(?i)технологическ[оа]е\\s+проектировани[ея]\\s+процесс[оо]в"
+        severity: soft
+        weight: -0.3
+        description: "Технологическое проектирование процессов может относиться к industrial engineering, а не к строительному ПИР"
+
+      - pattern: "(?i)дизайн\\s+мебел[ии]"
+        severity: soft
+        weight: -0.35
+        description: "Дизайн мебели — предмет бытовых/дизайнерских услуг, не ПИР"
+
+      - pattern: "(?i)веб-?дизайн"
+        severity: soft
+        weight: -0.4
+        description: "Веб-дизайн относится к digital-услугам и не связан с проектной документацией для строительства"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

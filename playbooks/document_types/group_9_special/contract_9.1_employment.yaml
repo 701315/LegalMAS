@@ -51,6 +51,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.9
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -67,55 +74,257 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)трудов[ойое]\\s+договор"
-        - "(?i)срочн[ыйое]\\s+трудов[ойое]\\s+договор"
-        - "(?i)договор\\s+о\\s+дистанционн[ойой]\\s+работ[еы]"
-        - "(?i)трудов[ойое]\\s+договор\\s+по\\s+совместительств[уы]"
-        - "(?i)трудов[ойое]\\s+договор\\s+с\\s+руководител[емя]\\s+организац[иии]"
-        - "(?i)трудов[ойое]\\s+контракт"
-        - "(?i)работник[ауы]"
-        - "(?i)работодател[ьяеи]"
-        - "(?i)трудов[аяое]\\s+функц[ияи]"
-        - "(?i)должност[ьью]"
-        - "(?i)професс[ияи]"
-        - "(?i)заработн[аяое]\\s+плат[ауы]"
-        - "(?i)оплат[ауы]\\s+труд[ауы]"
-        - "(?i)правил[аы]\\s+внутренн[егоей\\s]*трудов[огоой\\s]*распорядк[ауы]"
-        - "(?i)подчинен[иеия]"
-        - "(?i)личн[оеая]\\s+выполнен[иеия]\\s+трудов[ойой\\s]*функц[иии]"
-        - "(?i)ст\\.?\\s*56\\s+тк\\s+рф"
-        - "(?i)ст\\.?\\s*57\\s+тк\\s+рф"
+        - pattern: "(?i)трудов[ойое]\\s+договор"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название трудового договора"
+
+        - pattern: "(?i)срочн[ыйое]\\s+трудов[ойое]\\s+договор"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Срочный трудовой договор"
+
+        - pattern: "(?i)договор\\s+о\\s+дистанционн[ойой]\\s+работ[еы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Договор о дистанционной/удалённой работе в трудовом формате"
+
+        - pattern: "(?i)трудов[ойое]\\s+договор\\s+по\\s+совместительств[уы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Трудовой договор по совместительству"
+
+        - pattern: "(?i)трудов[ойое]\\s+договор\\s+с\\s+руководител[емя]\\s+организац[иии]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Трудовой договор с руководителем организации"
+
+        - pattern: "(?i)трудов[ойое]\\s+контракт"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Трудовой контракт как форма трудового договора"
+
+        - pattern: "(?i)работник[ауы]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Работник как сторона трудового договора"
+
+        - pattern: "(?i)работодател[ьяеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Работодатель как сторона трудового договора"
+
+        - pattern: "(?i)трудов[аяое]\\s+функц[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Трудовая функция — признак трудовых отношений"
+
+        - pattern: "(?i)должност[ьью]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Должность в штатной структуре работодателя"
+
+        - pattern: "(?i)заработн[аяое]\\s+плат[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Заработная плата как форма оплаты труда"
+
+        - pattern: "(?i)оплат[ауы]\\s+труд[ауы]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Оплата труда, а не вознаграждение по ГПХ"
+
+        - pattern: "(?i)правил[аы]\\s+внутренн[егоей\\s]*трудов[огоой\\s]*распорядк[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Подчинение правилам внутреннего трудового распорядка"
+
+        - pattern: "(?i)подчинен[иеия]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Подчинение работника работодателю по процессу труда"
+
+        - pattern: "(?i)личн[оеая]\\s+выполнен[иеия]\\s+трудов[ойой\\s]*функц[иии]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Личное выполнение трудовой функции — отличие от подряда/услуг"
+
+        - pattern: "(?i)ст\\.?\\s*56\\s+тк\\s+рф"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на определение трудового договора"
+
+        - pattern: "(?i)ст\\.?\\s*57\\s+тк\\s+рф"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Статья ТК РФ о содержании трудового договора"
 
       medium:
-        - "(?i)должностн[а-яё]+\\s+инструкци[яяи]"
-        - "(?i)рабоч[еое]\\s+мест[оо]"
-        - "(?i)график\\s+работ[ыы]"
-        - "(?i)\\bоклад\\b"
-        - "(?i)тарифн[а-яё]+\\s+ставк[аа]"
-        - "(?i)\\bотпуск\\b"
-        - "(?i)больничн[ыо]й\\s+лист"
-        - "(?i)испытательн[ыо]й\\s+срок"
-        - "(?i)срочн[ыо]й\\s+трудов[оа]й\\s+договор"
-        - "(?i)обязательн[оа]е\\s+социальн[оа]е\\s+страховани[ея]"
-        - "(?i)\\bСОУТ\\b"
+        - pattern: "(?i)должностн[а-яё]+\\s+инструкци[яяи]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Должностная инструкция как приложение к трудовому договору"
+
+        - pattern: "(?i)рабоч[еое]\\s+мест[оо]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Рабочее место работника"
+
+        - pattern: "(?i)график\\s+работ[ыы]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "График работы, режим рабочего времени"
+
+        - pattern: "(?i)\\bоклад\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Оклад как фиксированная часть заработной платы"
+
+        - pattern: "(?i)тарифн[а-яё]+\\s+ставк[аа]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Тарифная ставка по должности"
+
+        - pattern: "(?i)\\bотпуск\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Оплачиваемый отпуск как трудовая гарантия"
+
+        - pattern: "(?i)больничн[ыо]й\\s+лист"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Больничный лист (лист нетрудоспособности)"
+
+        - pattern: "(?i)испытательн[ыо]й\\s+срок"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Испытательный срок при приёме на работу"
+
+        - pattern: "(?i)срочн[ыо]й\\s+трудов[оа]й\\s+договор"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Уточнение режима срочного трудового договора"
+
+        - pattern: "(?i)обязательн[оа]е\\s+социальн[оа]е\\s+страховани[ея]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Обязательное социальное страхование работников"
+
+        - pattern: "(?i)\\bСОУТ\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Специальная оценка условий труда (СОУТ)"
 
       low:
-        - "(?i)коллективн[ыо]й\\s+договор"
-        - "(?i)трудов[а-яё]+\\s+книжк[аа]"
-        - "(?i)приказ\\s+о\\s+при[её]м[ее]"
-        - "(?i)материальн[а-яё]+\\s+ответственност[ьи]"
-        - "(?i)\\bсовместительств[оо]\\b"
-        - "(?i)дистанционн[а-яё]+\\s+работ[аа]"
-        - "(?i)вахтов[ыо]й\\s+метод"
+        - pattern: "(?i)коллективн[ыо]й\\s+договор"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Коллективный договор в сфере труда"
+
+        - pattern: "(?i)трудов[а-яё]+\\s+книжк[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Трудовая книжка"
+
+        - pattern: "(?i)приказ\\s+о\\s+при[её]м[ее]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Приказ о приёме на работу"
+
+        - pattern: "(?i)материальн[а-яё]+\\s+ответственност[ьи]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Материальная ответственность работника"
+
+        - pattern: "(?i)\\bсовместительств[оо]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Совместительство как режим работы"
+
+        - pattern: "(?i)дистанционн[а-яё]+\\s+работ[аа]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Упоминание дистанционной работы в общем виде"
+
+        - pattern: "(?i)вахтов[ыо]й\\s+метод"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Вахтовый метод работы"
 
     exclusions:
-      - "(?i)договор\\s+подряд[аа]"
-      - "(?i)договор\\s+возмездн[оа]го\\s+оказани[яя]\\s+услуг"
-      - "(?i)гражданско-?правов[оа]й\\s+договор"
-      - "(?i)агентск[иоя]+\\s+договор"
-      - "(?i)договор\\s+о\\s+прохождени[ии]\\s+практик[ии]"
-      - "(?i)волонт[её]рств[оо]"
-      - "(?i)ученическ[иоя]+\\s+договор"
+      # ── Hard exclusions — классические ГПХ и иные нетрудовые форматы ──
+
+      - pattern: "(?i)договор\\s+подряд[аа]"
+        severity: hard
+        weight: -1.0
+        description: "Договор подряда — гражданско-правовой, а не трудовой"
+
+      - pattern: "(?i)договор\\s+возмездн[оа]го\\s+оказани[яя]\\s+услуг"
+        severity: hard
+        weight: -1.0
+        description: "Договор услуг относится к ГПХ, а не к трудовым отношениям"
+
+      - pattern: "(?i)гражданско-?правов[оа]й\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Прямое указание на гражданско-правовой характер договора"
+
+      - pattern: "(?i)агентск[иоя]+\\s+договор"
+        severity: hard
+        weight: -1.0
+        description: "Агентский договор — посреднический ГПХ, а не трудовой"
+
+      # ── Soft exclusions — околотрудовые, но не классический employment ──
+
+      - pattern: "(?i)договор\\s+о\\s+прохождени[ии]\\s+практик[ии]"
+        severity: soft
+        weight: -0.35
+        description: "Договор о практике ближе к учебным/стажёрским формам, а не к штатному трудовому договору"
+
+      - pattern: "(?i)волонт[её]рств[оо]"
+        severity: soft
+        weight: -0.35
+        description: "Волонтёрство предполагает безвозмездный труд, не классический трудовой договор"
+
+      - pattern: "(?i)ученическ[иоя]+\\s+договор"
+        severity: soft
+        weight: -0.3
+        description: "Ученический договор имеет особый режим, отличающийся от стандартного трудового договора"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -280,7 +489,7 @@ shared_patterns:
   inn_pattern: "(?i)\\bИНН\\s*\\d{10,12}\\b"
   passport_data: "(?i)паспорт\\s+серия\\s+\\d{4}\\s+№?\\s*\\d{6}"
   article_tk_ref: "(?i)ст\\.?\\s*\\d+\\s*ТК\\s*РФ"
-
+  
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 4: COMPLIANCE RULES
 #  Читается: DocTypeCheckLoader._exclusion_logic_to_checks()

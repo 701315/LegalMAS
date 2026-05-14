@@ -50,6 +50,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.79
+    strong_signal_threshold: 0.87
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -69,52 +76,281 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)транспортн[оеые]\\s+средств[оа]"
+        # ── Прямые названия договора и объекта ТС ──
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+транспортн[огоого\\s]*средств[ао]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Прямое название договора аренды транспортного средства"
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+автомобил[яея]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Аренда автомобиля как транспортного средства"
+
+        - pattern: "(?i)аренд[ауы]\\s+автомобил[яея]"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Аренда автомобиля — объектом является транспортное средство"
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+спецтехник[иуы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда спецтехники — экскаватор, погрузчик и т.п."
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+судн[ао]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда судна — морского или речного"
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+воздушн[огоое\\s]*судн[ао]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Аренда воздушного судна"
+
+        - pattern: "(?i)транспортн[оеые]\\s+средств[оа]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Явное указание на транспортное средство как объект аренды"
+
+        # ── Модели с/без экипажа ──
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+тс\\s+с\\s+экипаж[ема]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Аренда ТС с экипажем — фрахтование на время по ст. 632-641 ГК РФ"
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+тс\\s+без\\s+экипаж[аы]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Аренда ТС без экипажа — самостоятельная эксплуатация арендатором"
+
+        - pattern: "(?i)с\\s+экипаж[ема]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Признак модели аренды с экипажем (фрахтование на время)"
+
+        - pattern: "(?i)без\\s+экипаж[аы]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Признак модели аренды без экипажа"
+
+        # ── Судоходные/чартерные маркеры ──
+
+        - pattern: "(?i)фрахтовани[ея]\\s+на\\s+время"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Фрахтование на время — разновидность аренды транспортного средства"
+
+        - pattern: "(?i)тайм[-\\s]?чартер"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Тайм-чартер — форма аренды судна / воздушного судна"
+
+        # ── Идентификаторы ТС ──
+
+        - pattern: "(?i)vin[-\\s]*номер"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "VIN-номер — уникальный идентификатор транспортного средства"
+
+        - pattern: "(?i)госн[оа]мер"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Государственный регистрационный номер транспортного средства"
+
+        # ── Оставшиеся legacy high ──
         - "(?i)управлени[ея]\\s+транспортн[ымой]\\s+средств[ома]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+транспортн[огоого\\s]*средств[ао]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+автомобил[яея]"
-        - "(?i)аренд[ауы]\\s+автомобил[яея]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+тс\\s+с\\s+экипаж[ема]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+тс\\s+без\\s+экипаж[аы]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+спецтехник[иуы]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+судн[ао]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+воздушн[огоое\\s]*судн[ао]"
-        - "(?i)фрахтовани[ея]\\s+на\\s+время"
-        - "(?i)тайм[-\\s]?чартер"
-        - "(?i)vin[-\\s]*номер"
-        - "(?i)госн[оа]мер"
-        - "(?i)с\\s+экипаж[ема]"
-        - "(?i)без\\s+экипаж[аы]"
 
       medium:
-        - "(?i)аренд[аы]\\s+ТС"
-        - "(?i)\\bсудн[оа]\\b"
-        - "(?i)воздушн[оа]е\\s+судн[оа]"
-        - "(?i)техническ[оа]е\\s+обслуживани[ея]"
-        - "(?i)полис\\s+ОСАГО"
-        - "(?i)\\bКАСКО\\b"
-        - "(?i)\\bГСМ\\b"
-        - "(?i)путев[оа]й\\s+лист"
-        - "(?i)эксплуатаци[яи]\\s+ТС"
-        - "(?i)\\bПТС\\b"
-        - "(?i)\\bСТС\\b"
+        - pattern: "(?i)аренд[аы]\\s+ТС"
+          weight: 0.7
+          distinctiveness: medium
+          context: any
+          description: "Сокращенная форма 'аренда ТС' — подтверждает vehicle-контекст"
+
+        - pattern: "(?i)\\bсудн[оа]\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Общий термин судна — важен в сочетании с арендной терминологией"
+
+        - pattern: "(?i)воздушн[оа]е\\s+судн[оа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Воздушное судно — самолёт, вертолёт, иное ВС"
+
+        - pattern: "(?i)техническ[оа]е\\s+обслуживани[ея]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "ТО ТС — связано с эксплуатацией транспортного средства"
+
+        - pattern: "(?i)полис\\s+ОСАГО"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "ОСАГО — обязательное страхование автогражданской ответственности"
+
+        - pattern: "(?i)\\bКАСКО\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "КАСКО — добровольное страхование ТС"
+
+        - pattern: "(?i)\\bГСМ\\b"
+          weight: 0.45
+          distinctiveness: medium
+          context: any
+          description: "ГСМ — расходы на эксплуатацию ТС"
+
+        - pattern: "(?i)путев[оа]й\\s+лист"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Путевой лист — документ учета использования ТС"
+
+        - pattern: "(?i)эксплуатаци[яи]\\s+ТС"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Эксплуатация ТС — характерна для аренды/лизинга транспортных средств"
+
+        - pattern: "(?i)\\bПТС\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Паспорт транспортного средства"
+
+        - pattern: "(?i)\\bСТС\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Свидетельство о регистрации ТС"
 
       low:
-        - "(?i)\\bводител[ьяи]\\b"
-        - "(?i)штраф[ыа]\\s+ГИБДД"
-        - "(?i)\\bпробег\\b"
-        - "(?i)диагностическ[а-яё]+\\s+карт[аы]"
-        - "(?i)\\bтехосмотр\\b"
-        - "(?i)страхов[оа]й\\s+случа[йя]"
-        - "(?i)источник\\s+повышенн[оа]й\\s+опасност[ии]"
+        - pattern: "(?i)\\bводител[ьяи]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Водитель — типичный участник vehicle lease, но термин общий"
+
+        - pattern: "(?i)штраф[ыа]\\s+ГИБДД"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Штрафы ГИБДД — косвенный признак аренды/использования ТС"
+
+        - pattern: "(?i)\\bпробег\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Пробег ТС — встречается в аренде, лизинге, прокате"
+
+        - pattern: "(?i)диагностическ[а-яё]+\\s+карт[аы]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Диагностическая карта — часть регламентных требований к ТС"
+
+        - pattern: "(?i)\\bтехосмотр\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Техосмотр — эксплуатационный контекст ТС"
+
+        - pattern: "(?i)страхов[оа]й\\s+случа[йя]"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Страховой случай — общий страховой термин"
+
+        - pattern: "(?i)источник\\s+повышенн[оа]й\\s+опасност[ии]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Статус владельца источника повышенной опасности по ст. 1079 ГК РФ"
 
     exclusions:
-      - "(?i)\\bпрокат\\b"
-      - "(?i)\\bлизинг\\b"
-      - "(?i)финансов[а-яё]+\\s+аренд[аы]"
-      - "(?i)перевозк[аы]\\s+груз[аа]"
-      - "(?i)договор\\s+перевозк[ии]"
-      - "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
+      # ── Hard exclusions — полностью подавляют тип ──
+
+      - pattern: "(?i)аренд[аы]\\s+недвижимост[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Аренда недвижимости — иной объект (contract_1.6_real_estate, contract_2.1_lease)"
+
+      - pattern: "(?i)договор\\s+прокат[аыу]"
+        severity: hard
+        weight: -1.0
+        description: "Договор проката — consumer-режим, не специализированная аренда ТС (contract_2.2_rental)"
+
+      - pattern: "(?i)договор\\s+бытов[огоый]\\s+прокат[аыу]"
+        severity: hard
+        weight: -1.0
+        description: "Бытовой прокат ТС — должен обрабатываться как прокат/sharing (contract_2.2_rental)"
+
+      - pattern: "(?i)финансов[а-яё]+\\s+аренд[аы]"
+        severity: hard
+        weight: -1.0
+        description: "Финансовая аренда (лизинг) — отдельный тип (contract_2.4_leasing)"
+
+      - pattern: "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездное пользование — ссуда, не аренда (contract_2.6_gratuitous_use)"
+
+      - pattern: "(?i)жил[оа]й\\s+на[её]м"
+        severity: hard
+        weight: -1.0
+        description: "Найм жилого помещения — жилищный найм, не аренда ТС (contract_2.5_residential_lease)"
+
+      - pattern: "(?i)договор\\s+на[йеё]м[ауы]\\s+жил[оа]го\\s+помещени[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Договор найма жилого помещения — не аренда транспортного средства"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)перевозк[аы]\\s+груз[аа]"
+        severity: soft
+        weight: -0.35
+        description: "Договор перевозки груза — отдельный тип, хотя может использоваться терминология ТС"
+
+      - pattern: "(?i)договор\\s+перевозк[ии]"
+        severity: soft
+        weight: -0.35
+        description: "Договор перевозки — не аренда транспортного средства"
+
+      - pattern: "(?i)\\bлизинг\\b"
+        severity: soft
+        weight: -0.4
+        description: "Упоминание лизинга рядом с арендой ТС снижает уверенность — возможен лизинговый кейс (contract_2.4_leasing)"
+
+      - pattern: "(?i)\\bпрокат\\b"
+        severity: soft
+        weight: -0.3
+        description: "Общее упоминание проката без чёткой арендной терминологии тянет к consumer-прокату (contract_2.2_rental)"
+
+      - pattern: "(?i)\\bссуд[аы]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Ссуда (безвозмездное пользование) может упоминаться в оговорках (contract_2.6_gratuitous_use)"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -229,7 +465,7 @@ trigger_definitions:
       - "(?i)прав[оа]\\s+выкуп[аа]"
 
   mileage_limits_present:
-    description: "Ограничение пробега и плата за превышение"
+    # Ограничение пробега и плата за превышение
     any_keywords:
       - "(?i)лимит\\s+пробег[аа]"
       - "(?i)ограничени[ея]\\s+пробег[аа]"
@@ -241,7 +477,7 @@ trigger_definitions:
       - "(?i)лимит\\s+моточас[оа]в"
 
   fuel_consumables_allocation:
-    description: "Распределение расходов на ГСМ и расходные материалы"
+    # Распределение расходов на ГСМ и расходные материалы
     any_keywords:
       - "(?i)\\bГСМ\\b"
       - "(?i)горюче-?смазочн[ыо]е\\s+материал[ыо]"
@@ -253,7 +489,7 @@ trigger_definitions:
       - "(?i)\\bшин[ыа]\\b"
 
   gps_telemetry_present:
-    description: "GPS-трекер, телематика, мониторинг ТС"
+    # GPS-трекер, телематика, мониторинг ТС
     any_keywords:
       - "(?i)\\bGPS\\b"
       - "(?i)\\bГЛОНАСС\\b"

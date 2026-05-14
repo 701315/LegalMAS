@@ -1,4 +1,5 @@
 # src/classifiers/stage8/_voting.py
+
 """
 Взвешенное голосование по кандидатам L1–L3.
 
@@ -26,14 +27,23 @@ class WeightedVoter:
             "level": "L2",
             "language": "ru",
             "jurisdiction": "RU",
-            "signal_quality": 0.75,        # optional
-            "negative_hits": 1,            # optional
-            "ambiguity_penalty": 0.10,     # optional
+            "signal_quality": 0.75,          # optional
+            "negative_hits": 1,              # optional, legacy fallback
+            "soft_negative_hits": 1,         # optional, preferred
+            "hard_negative_hits": 0,         # optional, preferred
+            "ambiguity_penalty": 0.10,       # optional
         },
         ...
     ]
 
     И возвращает победителя или None.
+
+    Для непрофессионального программиста:
+    - каждый кандидат получает свой "эффективный балл";
+    - потом баллы складываются по типам документов;
+    - если один и тот же тип поддержан несколькими уровнями, это усиливает его;
+    - hard-negative сигнал считается критическим:
+      такой кандидат не должен выигрывать голосование.
     """
 
     def __init__(self, level_weights: dict[str, float]) -> None:
@@ -41,6 +51,7 @@ class WeightedVoter:
 
     @staticmethod
     def _safe_float(value: Any, default: float) -> float:
+        """Безопасно преобразует значение в float."""
         try:
             return float(value)
         except (TypeError, ValueError):
@@ -48,6 +59,7 @@ class WeightedVoter:
 
     @staticmethod
     def _safe_int(value: Any, default: int = 0) -> int:
+        """Безопасно преобразует значение в int."""
         try:
             return int(value)
         except (TypeError, ValueError):
@@ -55,6 +67,7 @@ class WeightedVoter:
 
     @staticmethod
     def _clamp(value: float, low: float, high: float) -> float:
+        """Ограничивает число диапазоном [low, high]."""
         return max(low, min(high, value))
 
     def vote(self, candidates: list[dict]) -> dict | None:
@@ -90,7 +103,8 @@ class WeightedVoter:
         Важно:
         - если signal_quality не передан, берём 1.0;
         - если negative_hits не передан, берём 0;
-        - если ambiguity_penalty не передан, берём 0.0.
+        - если ambiguity_penalty не передан, берём 0.0;
+        - если hard_negative_hits > 0, кандидат принудительно получает 0 score.
         """
         if not candidates:
             return None
@@ -99,30 +113,59 @@ class WeightedVoter:
         type_meta: dict[str, dict[str, Any]] = {}
         type_support_count: dict[str, int] = {}
 
-        for c in candidates:
-            type_code = c.get("type_code")
+        for candidate in candidates:
+            type_code = candidate.get("type_code")
             if not type_code:
                 continue
 
-            level = c.get("level", "L1")
+            level = candidate.get("level", "L1")
             level_weight = self._safe_float(self.level_weights.get(level, 0.20), 0.20)
 
-            confidence = self._clamp(self._safe_float(c.get("confidence", 0.0), 0.0), 0.0, 1.0)
-            signal_quality = self._clamp(self._safe_float(c.get("signal_quality", 1.0), 1.0), 0.0, 1.0)
+            confidence = self._clamp(
+                self._safe_float(candidate.get("confidence", 0.0), 0.0),
+                0.0,
+                1.0,
+            )
+            signal_quality = self._clamp(
+                self._safe_float(candidate.get("signal_quality", 1.0), 1.0),
+                0.0,
+                1.0,
+            )
 
-            negative_hits = max(0, self._safe_int(c.get("negative_hits", 0), 0))
+            # Новый preferred-контракт:
+            # - soft_negative_hits: штрафуем как обычные отрицательные сигналы
+            # - hard_negative_hits: считаем критическим конфликтом
+            #
+            # Legacy fallback:
+            # - если soft_negative_hits не передан, используем old negative_hits
+            soft_negative_hits = max(
+                0,
+                self._safe_int(
+                    candidate.get("soft_negative_hits", candidate.get("negative_hits", 0)),
+                    0,
+                ),
+            )
+            hard_negative_hits = max(
+                0,
+                self._safe_int(candidate.get("hard_negative_hits", 0), 0),
+            )
+
             ambiguity_penalty = self._clamp(
-                self._safe_float(c.get("ambiguity_penalty", 0.0), 0.0),
+                self._safe_float(candidate.get("ambiguity_penalty", 0.0), 0.0),
                 0.0,
                 0.5,
             )
 
-            # Штраф за отрицательные признаки:
-            # 1 hit = -0.12, 2+ hits режем сильнее, но ограничиваем потолок.
-            negative_penalty = min(0.36, 0.12 * negative_hits)
-
             base_score = confidence * level_weight * signal_quality
-            effective_score = max(0.0, base_score - negative_penalty - ambiguity_penalty)
+
+            # Hard-negative сигнал — защитный стоп-кран:
+            # такой кандидат не должен выигрывать голосование.
+            if hard_negative_hits > 0:
+                negative_penalty = 1.0
+                effective_score = 0.0
+            else:
+                negative_penalty = min(0.36, 0.12 * soft_negative_hits)
+                effective_score = max(0.0, base_score - negative_penalty - ambiguity_penalty)
 
             type_scores[type_code] = type_scores.get(type_code, 0.0) + effective_score
             type_support_count[type_code] = type_support_count.get(type_code, 0) + 1
@@ -130,8 +173,8 @@ class WeightedVoter:
             prev = type_meta.get(type_code)
             if prev is None or effective_score > prev.get("best_component_score", 0.0):
                 type_meta[type_code] = {
-                    "language": c.get("language", "ru"),
-                    "jurisdiction": c.get("jurisdiction", "RU"),
+                    "language": candidate.get("language", "ru"),
+                    "jurisdiction": candidate.get("jurisdiction", "RU"),
                     "best_component_score": effective_score,
                     "best_level": level,
                 }
@@ -151,10 +194,6 @@ class WeightedVoter:
         second_score = ranked[1][1] if len(ranked) > 1 else 0.0
         margin = max(0.0, best_score - second_score)
 
-        # Калибровка итогового confidence:
-        # - сам score уже агрегированный;
-        # - добавляем небольшой бонус за хороший margin;
-        # - ограничиваем 1.0.
         final_confidence = best_score + min(0.15, margin)
         final_confidence = self._clamp(final_confidence, 0.0, 1.0)
 

@@ -47,6 +47,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.79
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -64,53 +71,277 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)хранен[иеия]"
-        - "(?i)договор\\s+хранен[ияия]"
-        - "(?i)договор\\s+складск[огоой]\\s+хранен[ияия]"
-        - "(?i)договор\\s+ответственн[огоой]\\s+хранен[ияия]"
-        - "(?i)договор\\s+хранен[ияия]\\s+товар[аов]"
-        - "(?i)договор\\s+ответхранен[ияия]"
-        - "(?i)договор\\s+хранен[ияия]\\s+с\\s+выдач[ейеи]\\s+складск[огоой]\\s+свидетельств[а]"
-        - "(?i)договор\\s+хранен[ияия]\\s+в\\s+ломбард[еае]"
-        - "(?i)договор\\s+аренд[ыыу]\\s+банковск[ойого]\\s+ячейк[иыу]"
-        - "(?i)договор\\s+секвестр[ауы]"
-        - "(?i)хранител[ьяеи]"
-        - "(?i)поклажедател[ьяеи]"
-        - "(?i)принят[ьия]\\s+на\\s+хранен[иеия]"
-        - "(?i)ответственн[оеая]\\s+хранен[иеия]"
-        - "(?i)складск[оеая]\\s+свидетельств[оа]"
-        - "(?i)сохранн[аяое]\\s+расписк[аыу]"
-        - "(?i)возврат\\s+в\\s+сохранност[иью]"
+        # ── Прямые названия договора хранения ──
+
+        - pattern: "(?i)договор\\s+хранен[ияия]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора хранения"
+
+        - pattern: "(?i)договор\\s+складск[огоой]\\s+хранен[ияия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Складское хранение на товарном складе"
+
+        - pattern: "(?i)договор\\s+ответственн[огоой]\\s+хранен[ияия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Типовая форма договора ответственного хранения"
+
+        - pattern: "(?i)договор\\s+хранен[ияия]\\s+товар[аов]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Хранение товаров как предмет договора"
+
+        - pattern: "(?i)договор\\s+ответхранен[ияия]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Сокращённая практика обозначения договора ответхранения"
+
+        - pattern: "(?i)договор\\s+хранен[ияия]\\s+с\\s+выдач[ейеи]\\s+складск[огоой]\\s+свидетельств[а]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Хранение с выдачей складского свидетельства"
+
+        - pattern: "(?i)договор\\s+хранен[ияия]\\s+в\\s+ломбард[еае]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Специальный вид хранения в ломбарде"
+
+        - pattern: "(?i)договор\\s+аренд[ыыу]\\s+банковск[ойого]\\s+ячейк[иыу]"
+          weight: 0.85
+          distinctiveness: medium
+          context: header
+          description: "Банковская ячейка — пограничный случай, который может тяготеть к хранению при наличии ответственности банка"
+
+        - pattern: "(?i)договор\\s+секвестр[ауы]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Секвестр как специальный вид хранения спорного имущества"
+
+        # ── Ключевые стороны и обязанность хранителя ──
+
+        - pattern: "(?i)хранител[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Хранитель как обязанная сторона по ст. 886 ГК РФ"
+
+        - pattern: "(?i)поклажедател[ьяеи]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Поклажедатель как сторона, передающая вещь на хранение"
+
+        - pattern: "(?i)принят[ьия]\\s+на\\s+хранен[иеия]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Принятие вещи на хранение"
+
+        - pattern: "(?i)ответственн[оеая]\\s+хранен[иеия]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Ответственное хранение как устойчивая правовая формула"
+
+        - pattern: "(?i)возврат\\s+в\\s+сохранност[иью]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Обязанность возвратить вещь в сохранности"
+
+        # ── Документы складского хранения ──
+
+        - pattern: "(?i)складск[оеая]\\s+свидетельств[оа]"
+          weight: 0.9
+          distinctiveness: high
+          context: any
+          description: "Складское свидетельство как специальный документ хранения"
+
+        - pattern: "(?i)сохранн[аяое]\\s+расписк[аыу]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Сохранная расписка как подтверждение приёма на хранение"
+
+        - pattern: "(?i)хранен[иеия]"
+          weight: 0.75
+          distinctiveness: medium
+          context: any
+          description: "Общее упоминание хранения; усиливается в сочетании с хранителем/поклажедателем"
 
       medium:
-        - "(?i)обеспечени[ея]\\s+сохранност[ии]"
-        - "(?i)возврат\\s+в\\s+том\\s+же\\s+состояни[ии]"
-        - "(?i)естественн[а-яё]+\\s+убыл[ья]"
-        - "(?i)товарн[ыо]й\\s+склад"
-        - "(?i)услови[яя]\\s+хранени[яя]"
-        - "(?i)срок\\s+хранени[яя]"
-        - "(?i)платн[оа]е\\s+хранени[ея]"
-        - "(?i)безвозмездн[оа]е\\s+хранени[ея]"
-        - "(?i)акт\\s+при[её]ма-?передач[ии]"
-        - "(?i)\\bМХ-1\\b"
-        - "(?i)\\bМХ-3\\b"
+        - pattern: "(?i)обеспечени[ея]\\s+сохранност[ии]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Цель хранения — обеспечение сохранности вещи"
+
+        - pattern: "(?i)возврат\\s+в\\s+том\\s+же\\s+состояни[ии]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Возврат вещи в том же состоянии с учётом нормального износа/убыли"
+
+        - pattern: "(?i)естественн[а-яё]+\\s+убыл[ья]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Естественная убыль при хранении товара"
+
+        - pattern: "(?i)товарн[ыо]й\\s+склад"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Профессиональный хранитель — товарный склад"
+
+        - pattern: "(?i)услови[яя]\\s+хранени[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Условия хранения (режим, температура, размещение)"
+
+        - pattern: "(?i)срок\\s+хранени[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Срок хранения вещи"
+
+        - pattern: "(?i)платн[оа]е\\s+хранени[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Возмездное хранение"
+
+        - pattern: "(?i)безвозмездн[оа]е\\s+хранени[ея]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Безвозмездное хранение (например, гардероб)"
+
+        - pattern: "(?i)акт\\s+при[её]ма-?передач[ии]"
+          weight: 0.5
+          distinctiveness: low
+          context: any
+          description: "Акт приёма-передачи вещи на хранение"
+
+        - pattern: "(?i)\\bМХ-1\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Складская форма учёта при приёме на хранение"
+
+        - pattern: "(?i)\\bМХ-3\\b"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Складская форма возврата/отпуска с хранения"
 
       low:
-        - "(?i)\\bломбард\\b"
-        - "(?i)камера\\s+хранени[яя]"
-        - "(?i)\\bгардероб\\b"
-        - "(?i)банковск[а-яё]+\\s+ячейк[аи]"
-        - "(?i)\\bсеквестр\\b"
-        - "(?i)иррегулярн[оа]е\\s+хранени[ея]"
-        - "(?i)именн[а-яё]+\\s+складск[а-яё]+\\s+расписк[аа]"
-        - "(?i)двойн[оа]е\\s+складск[оа]е\\s+свидетельств[оо]"
+        - pattern: "(?i)\\bломбард\\b"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Ломбард как специальный субъект хранения"
+
+        - pattern: "(?i)камера\\s+хранени[яя]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Камера хранения как частный вид договора хранения"
+
+        - pattern: "(?i)\\bгардероб\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Гардероб как безвозмездное хранение"
+
+        - pattern: "(?i)банковск[а-яё]+\\s+ячейк[аи]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Банковская ячейка — смежный режим хранения/аренды"
+
+        - pattern: "(?i)\\bсеквестр\\b"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Секвестр как специальный вид хранения спорного имущества"
+
+        - pattern: "(?i)иррегулярн[оа]е\\s+хранени[ея]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Иррегулярное хранение родовых вещей"
+
+        - pattern: "(?i)именн[а-яё]+\\s+складск[а-яё]+\\s+расписк[аа]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Именная складская расписка"
+
+        - pattern: "(?i)двойн[оа]е\\s+складск[оа]е\\s+свидетельств[оо]"
+          weight: 0.35
+          distinctiveness: low
+          context: any
+          description: "Двойное складское свидетельство"
 
     exclusions:
-      - "(?i)\\bаренд[ааы]\\b"
-      - "(?i)\\bпользовани[ея]\\b"
-      - "(?i)\\bохран[ааы]\\b"
-      - "(?i)доверительн[оа]е\\s+управлени[ея]"
-      - "(?i)\\bзайм\\b"
+      # ── Hard exclusions — пользование вещью, не custodial‑режим ──
+
+      - pattern: "(?i)\\bаренд[ааы]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Аренда направлена на пользование вещью, а не на её хранение"
+
+      - pattern: "(?i)\\bпользовани[ея]\\b"
+        severity: soft
+        weight: -0.35
+        description: "Явный акцент на пользовании вещью снижает вероятность чистого договора хранения"
+
+      - pattern: "(?i)\\bохран[ааы]\\b"
+        severity: hard
+        weight: -1.0
+        description: "Охрана объекта — иной договор, не предполагающий приём вещи на хранение"
+
+      - pattern: "(?i)доверительн[оа]е\\s+управлени[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Доверительное управление предполагает управление имуществом, а не его хранение"
+
+      - pattern: "(?i)\\bзайм\\b"
+        severity: hard
+        weight: -1.0
+        description: "Займ предполагает передачу денег/родовых вещей в собственность, а не хранение"
+
+      - pattern: "(?i)договор\\s+оказан[ияия]\\s+охранн[ыхые]\\s+услуг"
+        severity: hard
+        weight: -1.0
+        description: "Охранные услуги вместо хранения вещи"
+
+      - pattern: "(?i)договор\\s+аренд[ыыу]\\s+склад[ао]"
+        severity: hard
+        weight: -1.0
+        description: "Аренда склада даёт право пользования помещением, а не режим хранения"
+
+      - pattern: "(?i)договор\\s+аренд[ыыу]\\s+банковск[ойого]\\s+ячейк[иыу]"
+        severity: soft
+        weight: -0.3
+        description: "Банковская ячейка может оформляться как аренда, что снижает уверенность в чистом хранении"
+
+      - pattern: "(?i)\\bперевозк[ааи]\\b"
+        severity: soft
+        weight: -0.3
+        description: "Сам по себе транспортный контекст может сопровождать хранение, но чаще указывает на логистические договоры"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

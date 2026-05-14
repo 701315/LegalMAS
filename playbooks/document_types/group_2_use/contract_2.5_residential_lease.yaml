@@ -45,6 +45,13 @@ engine_expectations:
 
 classification_runtime_v1:
 
+  # Параметры scoring для L2
+  scoring:
+    accept_threshold: 0.8
+    strong_signal_threshold: 0.88
+    ambiguity_margin: 0.18
+    input_quality_weight: 1.0
+
   rules:
 
     filename_patterns:
@@ -61,53 +68,246 @@ classification_runtime_v1:
     keywords:
 
       high:
-        - "(?i)жилое\\s+помещен[иеи]"
-        - "(?i)договор\\s+найм[ауы]\\s+квартир[ыау]"
-        - "(?i)договор\\s+найм[ауы]\\s+комнат[ыау]"
-        - "(?i)договор\\s+найм[ауы]\\s+жил[огоой\\s]*дом[ауы]"
-        - "(?i)договор\\s+краткосрочн[огоый]\\s+найм[ауы]\\s+жил[ьяого\\s]*"
-        - "(?i)договор\\s+коммерческ[огоой]\\s+найм[ауы]\\s+жил[огоой\\s]*помещен[иеи]"
-        - "(?i)квартир[ауы]"
-        - "(?i)для\\s+проживан[ияи]"
+        # ── Прямые названия договора / объекта ──
+
+        - pattern: "(?i)договор\\s+найм[ауы]\\s+квартир[ыау]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Основное название договора найма квартиры"
+
+        - pattern: "(?i)договор\\s+найм[ауы]\\s+комнат[ыау]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Договор найма комнаты"
+
+        - pattern: "(?i)договор\\s+найм[ауы]\\s+жил[огоой\\s]*дом[ауы]"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Договор найма жилого дома"
+
+        - pattern: "(?i)договор\\s+краткосрочн[огоой]\\s+найм[ауы]\\s+жил[ьяого\\s]*"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Краткосрочный найм жилого помещения"
+
+        - pattern: "(?i)договор\\s+коммерческ[огоой]\\s+найм[ауы]\\s+жил[огоой\\s]*помещен[иеи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Коммерческий найм жилого помещения (B2C, но в жилищном режиме)"
+
+        - pattern: "(?i)жилое\\s+помещен[иеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Указание на жилое помещение как объект найма"
+
+        - pattern: "(?i)для\\s+проживан[ияи]"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Цель договора — проживание граждан, жилищный характер"
+
+        - pattern: "(?i)наймодател[ьяеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Наймодатель — участник жилищного найма"
+
+        - pattern: "(?i)нанимател[ьяеи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Наниматель — участник жилищного найма"
+
+        - pattern: "(?i)плат[ауы]\\s+за\\s+на[её]м"
+          weight: 0.8
+          distinctiveness: high
+          context: any
+          description: "Плата за наём — существенное условие договора"
+
+        # ── Оставшиеся legacy high ──
+        - "?(?i)квартир[ауы]"
         - "(?i)вселени[еи]"
-        - "(?i)наймодател[ьяеи]"
-        - "(?i)нанимател[ьяеи]"
-        - "(?i)плат[ауы]\\s+за\\s+на[её]м"
 
       medium:
-        - "(?i)на[её]м\\s+жиль[яа]"
-        - "(?i)на[йеё]м\\s+жиль[яа]"
-        - "(?i)граждан[еаи],?\\s+проживающ[иие]+\\s+совместно"
-        - "(?i)член[ыа]\\s+семь[ии]\\s+нанимател[яя]"
-        - "(?i)временн[ыо]е\\s+жильц[ыо]"
-        - "(?i)коммунальн[ыо]е\\s+услуг[ии]"
-        - "(?i)краткосрочн[ыо]й\\s+на[её]м"
-        - "(?i)преимущественн[оа]е\\s+прав[оа]\\s+на\\s+заключени[ея]\\s+договор[аа]"
-        - "(?i)регистраци[яи]\\s+по\\s+месту\\s+пребывани[яя]"
-        - "(?i)капитальн[ыо]й\\s+ремонт"
-        - "(?i)текущ[иоя]+\\s+ремонт"
+        - pattern: "(?i)на[её]м\\s+жиль[яа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Обозначение найма жилья в общем виде"
+
+        - pattern: "(?i)на[йеё]м\\s+жиль[яа]"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Альтернативное написание 'наём жилья'"
+
+        - pattern: "(?i)граждан[еаи],?\\s+проживающ[иие]+\\s+совместно"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Указание на совместно проживающих граждан — семейный контекст"
+
+        - pattern: "(?i)член[ыа]\\s+семь[ии]\\s+нанимател[яя]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Члены семьи нанимателя — специфично для жилищного найма"
+
+        - pattern: "(?i)временн[ыо]е\\s+жильц[ыо]"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Временные жильцы — дополнительная категория проживающих"
+
+        - pattern: "(?i)коммунальн[ыо]е\\s+услуг[ии]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Коммунальные услуги как часть платежей по договору найма"
+
+        - pattern: "(?i)краткосрочн[ыо]й\\s+на[её]м"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Краткосрочный наём (до года)"
+
+        - pattern: "(?i)преимущественн[оа]е\\s+прав[оа]\\s+на\\s+заключени[ея]\\s+договор[аа]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Преимущественное право на заключение нового договора"
+
+        - pattern: "(?i)регистраци[яи]\\s+по\\s+месту\\s+пребывани[яя]"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Регистрация по месту пребывания — жилищный контекст"
+
+        - pattern: "(?i)капитальн[ыо]й\\s+ремонт"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Капитальный ремонт — обязанность наймодателя, ст. 681 ГК РФ"
+
+        - pattern: "(?i)текущ[иоя]+\\s+ремонт"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Текущий ремонт — обязанность нанимателя, ст. 681 ГК РФ"
 
       low:
-        - "(?i)страхов[оа]й\\s+депозит"
-        - "(?i)залог\\s+за\\s+квартир[ууы]"
-        - "(?i)\\bвыселени[ея]\\b"
-        - "(?i)\\bпрописк[аи]\\b"
-        - "(?i)\\bкомнат[аеиу]\\b"
-        - "(?i)жил[оаые]+\\s+дом"
-        - "(?i)домашн[иие]+\\s+животн[ыое]е?"
+        - pattern: "(?i)страхов[оа]й\\s+депозит"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Страховой депозит как обеспечение платежей по договору найма"
+
+        - pattern: "(?i)залог\\s+за\\s+квартир[ууы]"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Бытовой термин 'залог за квартиру'"
+
+        - pattern: "(?i)\\bвыселени[ея]\\b"
+          weight: 0.3
+          distinctiveness: low
+          context: any
+          description: "Выселение — ключевой риск нанимателя"
+
+        - pattern: "(?i)\\bпрописк[аи]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Прописка — бытовой термин, часто используется вместо регистрации"
+
+        - pattern: "(?i)\\bкомнат[аеиу]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Комната — объект найма, но термин общий"
+
+        - pattern: "(?i)жил[оаые]+\\s+дом"
+          weight: 0.25
+          distinctiveness: low
+          context: any
+          description: "Жилой дом — объект найма, может встречаться и в других контекстах"
+
+        - pattern: "(?i)домашн[иие]+\\s+животн[ыое]е?"
+          weight: 0.2
+          distinctiveness: low
+          context: any
+          description: "Домашние животные — условие проживания, не уникальный маркер типа"
 
     exclusions:
-      - "(?i)нежил[оаоеые]+\\s+помещени[ея]"
-      - "(?i)\\bофис\\b"
-      - "(?i)\\bсклад\\b"
-      - "(?i)апартамент[ыоа]?"
-      - "(?i)гостиничн[ыо]е\\s+услуг[ии]"
-      - "(?i)\\bпосуточно\\b"
-      - "(?i)\\bхостел\\b"
-      - "(?i)юридическ[оеая]\\s+лиц[оа]\\s+в\\s+качеств[ее]\\s+нанимател[яя]"
-      - "(?i)\\bООО\\b"
-      - "(?i)\\bАО\\b"
-      - "(?i)\\bПАО\\b"
+      # ── Hard exclusions — полностью подавляют жилой найм ──
+
+      - pattern: "(?i)нежил[оаоеые]+\\s+помещени[ея]"
+        severity: hard
+        weight: -1.0
+        description: "Нежилое помещение — коммерческая аренда, не жилищный найм (contract_2.1_lease)"
+
+      - pattern: "(?i)\\bофис\\b"
+        severity: hard
+        weight: -1.0
+        description: "Офисные помещения — коммерческая аренда, не жилой найм (contract_2.1_lease)"
+
+      - pattern: "(?i)\\bсклад\\b"
+        severity: hard
+        weight: -1.0
+        description: "Склад — объект коммерческой аренды, не жилищный найм"
+
+      - pattern: "(?i)гостиничн[ыо]е\\s+услуг[ии]"
+        severity: hard
+        weight: -1.0
+        description: "Гостиничные услуги — договор возмездного оказания услуг, не жилищный найм"
+
+      - pattern: "(?i)\\bхостел\\b"
+        severity: hard
+        weight: -1.0
+        description: "Хостел — гостиничный/окологостиничный режим, не договор найма"
+
+      - pattern: "(?i)юридическ[оеая]\\s+лиц[оа]\\s+в\\s+качеств[ее]\\s+нанимател[яя]"
+        severity: hard
+        weight: -1.0
+        description: "Нанимателем по Гл. 35 ГК РФ может быть только гражданин; юрлицо ведёт к аренде (2.1)"
+
+      - pattern: "(?i)\\bООО\\b"
+        severity: hard
+        weight: -1.0
+        description: "ООО как наниматель — коммерческая аренда, не жилищный найм"
+
+      - pattern: "(?i)\\bАО\\b"
+        severity: hard
+        weight: -1.0
+        description: "АО как наниматель — коммерческая аренда, не жилищный найм"
+
+      - pattern: "(?i)\\bПАО\\b"
+        severity: hard
+        weight: -1.0
+        description: "ПАО как наниматель — коммерческая аренда, не жилищный найм"
+
+      # ── Soft exclusions — снижают confidence ──
+
+      - pattern: "(?i)апартамент[ыоа]?"
+        severity: soft
+        weight: -0.35
+        description: "Апартаменты часто вне ЖК РФ; возможен смешанный / инвестиционный режим"
+
+      - pattern: "(?i)\\bпосуточно\\b"
+        severity: soft
+        weight: -0.35
+        description: "Посуточная сдача ближе к гостиничному размещению / краткосрочной аренде"
+
+      - pattern: "(?i)аренд[аы]\\s+нежил[оаоеые]+\\s+помещен[ияи]"
+        severity: soft
+        weight: -0.3
+        description: "Упоминание аренды нежилого помещения в документе снижает уверенность в жилищном найме"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
@@ -275,9 +475,9 @@ shared_patterns:
 
   address_pattern: "(?i)(г\\.|город|ул\\.|улица|пр\\.|проспект|пер\\.|переулок|д\\.|дом|кв\\.|квартира|корп\\.|корпус)"
   cadastral_number: "(?i)\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"
-  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн)\\b"
   date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
-  term_months: "(?i)\\b(\\d{1,2})\\s*(месяц|мес\\.)"
+  term_months: "(?i)\\b\\d{1,2}\\s*(?:месяц|месяца|месяцев|мес\\.)\\b"
   passport_data: "(?i)паспорт.*серия.*\\d{4}.*№.*\\d{6}"
 
 # ════════════════════════════════════════════════════════════════════════════
