@@ -597,17 +597,13 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     effectiveDeal.language_discovery_status,
   );
 
-  const hasDetectedLanguages =
-    Array.isArray(effectiveDeal.languages) &&
-    effectiveDeal.languages.some(
-      (lang) => normalizeLang(lang).length > 0,
-    );
-
-  // Discovery блокирует запуск, если языки ещё не определены и pipeline
-  // ещё не завершился (pending или processing).
+  // Discovery блокирует запуск run, пока language discovery не завершён
+  // по ВСЕМ документам сделки (pending или processing).
+  // Наличие промежуточных languages не снимает блокировку,
+  // потому что часть документов может быть ещё не обработана.
+  // Backend применяет тот же контракт в runs.py.
   const isLanguageDiscoveryBlocking =
-    !hasDetectedLanguages &&
-    (discoveryStatus === "pending" || discoveryStatus === "processing");
+    discoveryStatus === "pending" || discoveryStatus === "processing";
 
   const canLaunchRun =
     canStartRun &&

@@ -79,35 +79,35 @@ function getDiscoveryBanner(
   if (status === "pending") {
     return {
       tone: "info",
-      text: "Подготовка к автоопределению языков ещё не завершена. Список языков появится после завершения pre-run обработки.",
+      text: "Система подготавливает анализ всех загруженных документов для определения языков. До завершения этого этапа выбор основного языка сделки и режима проверки недоступен.",
     };
   }
 
   if (status === "processing") {
     return {
       tone: "info",
-      text: "Языки документов ещё определяются автоматически. Список языков может обновиться.",
+      text: "Система анализирует все загруженные документы и определяет языки, которые в них используются. Пока этот этап не завершён по всем файлам, выбор основного языка сделки и режима проверки недоступен.",
     };
   }
 
   if (status === "failed") {
     return {
       tone: "error",
-      text: "Автоопределение языков завершилось ошибкой. Проверьте документы или повторите подготовку.",
+      text: "Автоопределение языков завершилось ошибкой. Проверьте документы или повторите подготовку перед запуском анализа.",
     };
   }
 
   if (status === "partial") {
     return {
       tone: "warning",
-      text: "Языки определены частично: часть документов могла не пройти language discovery.",
+      text: "Определение языков завершено частично: часть документов не прошла language discovery. Вы можете продолжить настройку, но рекомендуется проверить проблемные файлы.",
     };
   }
 
   if (status === "completed" && hasLanguages) {
     return {
       tone: "success",
-      text: "Языки документов определены. Выберите основной язык анализа.",
+      text: "Определение языков завершено. Теперь выберите основной язык сделки, после этого станет доступен режим проверки.",
     };
   }
 
@@ -130,6 +130,80 @@ function getBannerClassName(tone: BannerTone): string {
   return "border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] text-[var(--text-secondary)]";
 }
 
+function getPrimaryLanguageHelperText(params: {
+  isDiscoveryInProgress: boolean;
+  discoveryStatus: string | null;
+  hasLanguages: boolean;
+  primaryLanguageSelected: boolean;
+}): string {
+  const {
+    isDiscoveryInProgress,
+    discoveryStatus,
+    hasLanguages,
+    primaryLanguageSelected,
+  } = params;
+
+  if (isDiscoveryInProgress) {
+    return "Основной язык сделки можно будет выбрать только после завершения анализа всех загруженных файлов.";
+  }
+
+  if (!hasLanguages && discoveryStatus === "failed") {
+    return "Список языков недоступен, потому что автоопределение завершилось ошибкой.";
+  }
+
+  if (!hasLanguages && discoveryStatus === "partial") {
+    return "Языки определены не по всем документам. Проверьте проблемные файлы или повторите подготовку.";
+  }
+
+  if (!hasLanguages) {
+    return "Языки документов ещё недоступны. После завершения подготовки вы сможете выбрать основной язык сделки.";
+  }
+
+  if (!primaryLanguageSelected) {
+    return "Выберите основной язык сделки. После этого станет доступен режим проверки.";
+  }
+
+  return "Основной язык выбран. Теперь можно выбрать режим проверки.";
+}
+
+function getChecksModeHelperText(params: {
+  documentsCountLoaded: boolean;
+  hasDocuments: boolean;
+  hasPlaybook: boolean;
+  isDiscoveryInProgress: boolean;
+  primaryLanguageSelected: boolean;
+}): string {
+  const {
+    documentsCountLoaded,
+    hasDocuments,
+    hasPlaybook,
+    isDiscoveryInProgress,
+    primaryLanguageSelected,
+  } = params;
+
+  if (!documentsCountLoaded) {
+    return "Дождитесь загрузки информации о документах проекта.";
+  }
+
+  if (!hasDocuments) {
+    return "Сначала загрузите документы в проект.";
+  }
+
+  if (!hasPlaybook) {
+    return "Сначала выберите playbook проекта.";
+  }
+
+  if (isDiscoveryInProgress) {
+    return "Система анализирует все загруженные документы и определяет языки, которые в них используются. Режим проверки станет доступен после завершения этого этапа по всем файлам.";
+  }
+
+  if (!primaryLanguageSelected) {
+    return "Сначала выберите основной язык сделки, затем станет доступен режим проверки.";
+  }
+
+  return "Выберите набор проверок для запуска анализа.";
+}
+
 const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   deal,
   documentsCount,
@@ -137,7 +211,6 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   onChecksModeChange,
   forceReclassify,
   onForceReclassifyChange,
-  canStartRun,
   canUploadDocuments,
   isSubmitting,
   onOpenPlaybook,
@@ -158,11 +231,30 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   );
 
   const selectedPrimaryLanguage = normalizeLang(deal.primary_language);
-  const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
+  const discoveryStatus = normalizeDiscoveryStatus(
+    deal.language_discovery_status,
+  );
 
+  const documentsCountLoaded = typeof documentsCount === "number";
+  const hasDocuments = documentsCountLoaded ? documentsCount > 0 : false;
   const hasPlaybook = !!deal.playbook_version_id;
   const hasLanguages = normalizedDocumentLanguages.length > 0;
-  const canSelectPrimaryLanguage = hasLanguages && !isSubmitting;
+  const primaryLanguageSelected = !!selectedPrimaryLanguage;
+  const isDiscoveryInProgress =
+    discoveryStatus === "pending" || discoveryStatus === "processing";
+
+  const canSelectPrimaryLanguage =
+    hasLanguages &&
+    !isSubmitting &&
+    !isDiscoveryInProgress;
+
+  const canSelectChecksMode =
+    documentsCountLoaded &&
+    hasDocuments &&
+    hasPlaybook &&
+    !isSubmitting &&
+    !isDiscoveryInProgress &&
+    primaryLanguageSelected;
 
   const discoveryBanner = React.useMemo(
     () => getDiscoveryBanner(discoveryStatus, hasLanguages),
@@ -170,15 +262,52 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
   );
 
   const autoDetectedLanguagesText = React.useMemo(
-    () => normalizedDocumentLanguages.map((lang) => formatLangLabel(lang)).join(", "),
+    () =>
+      normalizedDocumentLanguages
+        .map((lang) => formatLangLabel(lang))
+        .join(", "),
     [normalizedDocumentLanguages],
+  );
+
+  const primaryLanguageHelperText = React.useMemo(
+    () =>
+      getPrimaryLanguageHelperText({
+        isDiscoveryInProgress,
+        discoveryStatus,
+        hasLanguages,
+        primaryLanguageSelected,
+      }),
+    [
+      isDiscoveryInProgress,
+      discoveryStatus,
+      hasLanguages,
+      primaryLanguageSelected,
+    ],
+  );
+
+  const checksModeHelperText = React.useMemo(
+    () =>
+      getChecksModeHelperText({
+        documentsCountLoaded,
+        hasDocuments,
+        hasPlaybook,
+        isDiscoveryInProgress,
+        primaryLanguageSelected,
+      }),
+    [
+      documentsCountLoaded,
+      hasDocuments,
+      hasPlaybook,
+      isDiscoveryInProgress,
+      primaryLanguageSelected,
+    ],
   );
 
   const handleLanguageSelect = React.useCallback(
     (lang: string) => {
       const normalized = normalizeLang(lang);
 
-      if (!normalized || isSubmitting) {
+      if (!normalized || isSubmitting || !canSelectPrimaryLanguage) {
         return;
       }
 
@@ -188,7 +317,12 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 
       onPrimaryLanguageChange(normalized);
     },
-    [isSubmitting, onPrimaryLanguageChange, selectedPrimaryLanguage],
+    [
+      canSelectPrimaryLanguage,
+      isSubmitting,
+      onPrimaryLanguageChange,
+      selectedPrimaryLanguage,
+    ],
   );
 
   return (
@@ -211,7 +345,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   Документы
                 </h4>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                  {typeof documentsCount === "number"
+                  {documentsCountLoaded
                     ? `В проект загружено ${documentsCount} документ(ов).`
                     : "Загружаем информацию о документах…"}
                 </p>
@@ -226,43 +360,6 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
               >
                 Загрузить новые документы
               </Button>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
-            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
-              Режим проверки
-            </h4>
-
-            <div className="mt-3 space-y-2">
-              {CHECKS_MODE_OPTIONS.map(({ value, title, hint }) => (
-                <label
-                  key={value}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
-                    checksMode === value
-                      ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
-                      : "border-[var(--border-subtle)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    className="mt-[2px]"
-                    value={value}
-                    checked={checksMode === value}
-                    onChange={() => onChecksModeChange(value)}
-                    disabled={isSubmitting || !canStartRun}
-                  />
-
-                  <span>
-                    <span className="block text-[13px] font-medium text-[var(--text-primary)]">
-                      {title}
-                    </span>
-                    <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
-                      {hint}
-                    </span>
-                  </span>
-                </label>
-              ))}
             </div>
           </section>
 
@@ -336,8 +433,8 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
             </h4>
 
             <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              Выберите основной язык, на котором будет строиться primary source и
-              выполняться анализ.
+              Сначала система должна определить языки во всех загруженных
+              документах. Только после этого можно выбрать основной язык сделки.
             </p>
 
             {discoveryBanner ? (
@@ -350,20 +447,30 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
               </p>
             ) : null}
 
+            <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
+              {primaryLanguageHelperText}
+            </p>
+
             {hasLanguages ? (
               <>
                 <div className="mt-3 space-y-2">
                   {normalizedDocumentLanguages.map((lang) => {
                     const checked = selectedPrimaryLanguage === lang;
+                    const disabled = !canSelectPrimaryLanguage;
 
                     return (
                       <label
                         key={lang}
-                        className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                        className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
                           checked
                             ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
-                            : "border-[var(--border-subtle)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated-soft)]"
-                        } ${!canSelectPrimaryLanguage ? "opacity-70" : ""}`}
+                            : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                        } ${
+                          disabled
+                            ? "cursor-not-allowed opacity-70"
+                            : "cursor-pointer hover:bg-[var(--bg-elevated-soft)]"
+                        }`}
+                        aria-disabled={disabled}
                       >
                         <input
                           type="radio"
@@ -372,7 +479,7 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                           value={lang}
                           checked={checked}
                           onChange={() => handleLanguageSelect(lang)}
-                          disabled={!canSelectPrimaryLanguage}
+                          disabled={disabled}
                         />
 
                         <span>
@@ -388,9 +495,9 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                   })}
                 </div>
 
-                {!selectedPrimaryLanguage && (
+                {!primaryLanguageSelected && !isDiscoveryInProgress && (
                   <p className="mt-3 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning)]">
-                    Перед запуском анализа выберите основной язык анализа.
+                    Перед запуском анализа выберите основной язык сделки.
                   </p>
                 )}
 
@@ -399,20 +506,63 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
                 </p>
               </>
             ) : (
-              <>
-                <p className="mt-3 text-xs text-[var(--text-secondary)]">
-                  {discoveryStatus === "failed"
-                    ? "Список языков пока недоступен, потому что автоопределение завершилось ошибкой."
-                    : "Языки документов ещё не определены автоматически. После завершения подготовки языков вы сможете выбрать основной язык."}
-                </p>
-
-                {!selectedPrimaryLanguage && (
-                  <p className="mt-2 rounded-xl border border-[var(--color-warning-border)] bg-[var(--color-warning-subtle)] px-3 py-2 text-[11px] leading-5 text-[var(--color-warning)]">
-                    Основной язык ещё не выбран. Выберите его, когда языки документов будут готовы.
-                  </p>
-                )}
-              </>
+              <p className="mt-3 text-xs text-[var(--text-secondary)]">
+                {discoveryStatus === "failed"
+                  ? "Список языков пока недоступен, потому что автоопределение завершилось ошибкой."
+                  : "Языки документов ещё не определены автоматически. После завершения обработки всех файлов вы сможете выбрать основной язык сделки."}
+              </p>
             )}
+          </section>
+
+          <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
+            <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+              Режим проверки
+            </h4>
+
+            <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+              {checksModeHelperText}
+            </p>
+
+            <div className="mt-3 space-y-2">
+              {CHECKS_MODE_OPTIONS.map(({ value, title, hint }) => {
+                const checked = checksMode === value;
+                const disabled = !canSelectChecksMode;
+
+                return (
+                  <label
+                    key={value}
+                    className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                      checked
+                        ? "border-[var(--accent-primary)] bg-[var(--bg-elevated-soft)]"
+                        : "border-[var(--border-subtle)] bg-[var(--bg-card)]"
+                    } ${
+                      disabled
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer hover:bg-[var(--bg-elevated-soft)]"
+                    }`}
+                    aria-disabled={disabled}
+                  >
+                    <input
+                      type="radio"
+                      className="mt-[2px]"
+                      value={value}
+                      checked={checked}
+                      onChange={() => onChecksModeChange(value)}
+                      disabled={disabled}
+                    />
+
+                    <span>
+                      <span className="block text-[13px] font-medium text-[var(--text-primary)]">
+                        {title}
+                      </span>
+                      <span className="block text-[11px] leading-5 text-[var(--text-secondary)]">
+                        {hint}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </section>
 
           {deal.has_pending_manual_reclassifications ? (
@@ -448,8 +598,6 @@ const LaunchFormPanel: React.FC<LaunchFormPanelProps> = ({
 };
 
 export default LaunchFormPanel;
-
-
 
 
 

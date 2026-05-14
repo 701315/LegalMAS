@@ -168,7 +168,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
               size="sm"
               onClick={onOpenRunPanel}
             >
-              Выбрать обязательные настройки для анализа документов
+              Выбрать настройки для анализа документов
             </Button>
           </div>
         </div>

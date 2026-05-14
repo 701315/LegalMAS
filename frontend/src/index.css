@@ -1,3 +1,5 @@
+/* src/index.css */
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
@@ -88,13 +90,20 @@
   --shadow-lg: 0 18px 40px rgba(15, 23, 42, 0.1);
 }
 
+/* ─── Reset / base layout ────────────────────────────────────────────────────
+ *
+ * Намеренно НЕ ставим height: 100% на html/body/#root.
+ * Это позволяет landing page расти в высоту без ограничений,
+ * а AppShell для dashboard управляет своим scroll-контекстом сам
+ * через собственный h-screen / overflow-hidden контейнер.
+ */
+
 html,
 body,
 #root {
   width: 100%;
   min-width: 0;
   min-height: 100%;
-  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -119,9 +128,24 @@ body {
   color: var(--text-primary);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   position: relative;
-  overflow: hidden;
+
+  /*
+   * overflow-x: hidden  — скрываем горизонтальный выход контента за края.
+   * overflow-y: auto    — вертикальный скролл разрешён.
+   *
+   * Раньше здесь было overflow: hidden, которое ломало прокрутку
+   * landing page целиком. Dashboard управляет своим скроллом через
+   * AppShell (h-screen + overflow-hidden на его собственном контейнере),
+   * поэтому глобальный body-lock здесь не нужен.
+   */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
+/*
+ * Декоративный grain-оверлей поверх фона.
+ * pointer-events: none — не мешает взаимодействию со страницей.
+ */
 body::after {
   content: "";
   position: fixed;
@@ -132,11 +156,19 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 }
 
+/*
+ * #root — корневой контейнер React.
+ * z-index: 1 поднимает контент над декоративным ::after.
+ * Намеренно нет overflow: hidden — это позволяет landing page скроллиться.
+ * Dashboard сам управляет своим overflow через AppShell.
+ */
 #root {
   position: relative;
   z-index: 1;
-  overflow: hidden;
+  min-height: 100%;
 }
+
+/* ─── Box model ──────────────────────────────────────────────────────────── */
 
 *,
 *::before,
@@ -147,6 +179,8 @@ body::after {
 * {
   border-color: var(--border);
 }
+
+/* ─── Typography / links / forms ─────────────────────────────────────────── */
 
 a {
   text-decoration: none;
@@ -169,6 +203,8 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
+/* ─── Selection / focus ──────────────────────────────────────────────────── */
+
 ::selection {
   background: rgba(79, 70, 229, 0.14);
   color: var(--text-primary);
@@ -178,6 +214,8 @@ table {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
 
 @keyframes fadeInUp {
   from {
@@ -202,6 +240,8 @@ table {
     background-position: 200% 0;
   }
 }
+
+/* ─── Component tokens ───────────────────────────────────────────────────── */
 
 .skeleton {
   background: linear-gradient(
@@ -278,6 +318,8 @@ table {
   border-radius: calc(var(--radius-lg) - 2px);
 }
 
+/* ─── Status helpers ─────────────────────────────────────────────────────── */
+
 .status-success {
   color: var(--success);
 }
@@ -289,4 +331,7 @@ table {
 .status-danger {
   color: var(--danger);
 }
+
+
+
 

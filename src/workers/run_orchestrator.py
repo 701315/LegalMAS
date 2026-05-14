@@ -87,6 +87,13 @@ Run lifecycle semantics:
   - выбор primary language;
   - run gating до выполнения этих условий.
 - Этот файл отвечает только за post-run-start document pipeline orchestration.
+
+Важное правило работы с ORM:
+- SQLAlchemy asyncpg не допускает синхронный lazy reload атрибутов ORM-объектов
+  после await-границы (MissingGreenlet).
+- Поэтому все нужные поля ORM-объектов (version.id, execution.id и т.д.)
+  сохраняются в примитивные переменные сразу после загрузки объекта,
+  до первого await-вызова с этим объектом.
 """
 
 from __future__ import annotations
@@ -94,17 +101,19 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.constants import DocumentStatus, RunStatus
 from core.logging import get_logger
 from db.models.run import Run
-from db.repositories.document_repo import DocumentRepository
-from db.repositories.document_version_repo import DocumentVersionRepository
-from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
-from db.repositories.document_segment_repo import DocumentSegmentRepository
-from db.repositories.run_repo import RunRepository
-from db.repositories.deal_repo import DealRepository
 from db.repositories.audit_repo import AuditRepository
+from db.repositories.deal_repo import DealRepository
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_stage_execution_repo import DocumentStageExecutionRepository
+from db.repositories.document_version_repo import DocumentVersionRepository
+from db.repositories.run_repo import RunRepository
 from db.uow import db_uow
 from mas_queue.async_helpers import run_async
 from mas_queue.base_task import MASBaseTask
@@ -129,20 +138,75 @@ CONVERTIBLE_TO_PDF: set[str] = {
     "htm",
 }
 
-def _is_multi_document(version) -> bool:
-    """
-    Multi-document критерий: в структуре версии заведен segments_count > 1.
-    Single-document файлы имеют 0/None/1.
-    """
-    return bool(getattr(version, "segments_count", None) and getattr(version, "segments_count", 0) > 1)
+ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
 
-def _is_single_document(version) -> bool:
-    """
-    Обратный helper для читаемости условий orchestration.
-    """
-    return not _is_multi_document(version)
+# ─── Version snapshot ────────────────────────────────────────────────────────
+#
+# Хранит примитивные значения, снятые с ORM-объекта DocumentVersion
+# сразу после загрузки — до первой await-границы.
+# Это необходимо, чтобы избежать MissingGreenlet при повторном обращении
+# к атрибутам ORM-объекта после await.
 
-async def _count_relevant_segments(seg_repo: DocumentSegmentRepository, version_id) -> int:
+@dataclass(slots=True)
+class _VersionSnapshot:
+    """Snapshot примитивов DocumentVersion, снятых до первого await."""
+    version_id: uuid.UUID
+    version_id_str: str
+    origin_filetype: str
+    converted_pdf_ref: str | None
+    original_ref: str | None
+    primary_source_ref: str | None
+    layout_primary_ref: str | None
+    layout_primary_sanitized_ref: str | None
+    file_graph_ref: str | None
+    chunks_manifest_v2_ref: str | None
+    segments_count: int | None
+
+
+def _snapshot_version(version: Any) -> _VersionSnapshot:
+    """
+    Снять все нужные поля с ORM-объекта DocumentVersion в примитивы.
+
+    Вызывать сразу после получения объекта, до первого await.
+    """
+    return _VersionSnapshot(
+        version_id=version.id,
+        version_id_str=str(version.id),
+        origin_filetype=str(getattr(version, "origin_filetype", "") or "").lower(),
+        converted_pdf_ref=getattr(version, "converted_pdf_ref", None),
+        original_ref=getattr(version, "original_ref", None),
+        primary_source_ref=getattr(version, "primary_source_ref", None),
+        layout_primary_ref=getattr(version, "layout_primary_ref", None),
+        layout_primary_sanitized_ref=getattr(
+            version, "layout_primary_sanitized_ref", None
+        ),
+        file_graph_ref=getattr(version, "file_graph_ref", None),
+        chunks_manifest_v2_ref=getattr(version, "chunks_manifest_v2_ref", None),
+        segments_count=getattr(version, "segments_count", None),
+    )
+
+
+# ─── TaskPlan ─────────────────────────────────────────────────────────────────
+
+@dataclass(slots=True)
+class TaskPlan:
+    task_name: str
+    kwargs: dict[str, Any]
+    reason: str
+    stage: str
+
+
+# ─── Segment helpers ──────────────────────────────────────────────────────────
+
+def _is_multi_document_snapshot(snap: _VersionSnapshot) -> bool:
+    """Multi-document критерий по snapshot: segments_count > 1."""
+    return bool(snap.segments_count and snap.segments_count > 1)
+
+
+async def _count_relevant_segments(
+    seg_repo: DocumentSegmentRepository,
+    version_id: uuid.UUID,
+) -> int:
     """
     Считает сегменты версии, которые реально участвуют в segment-level пайплайне.
 
@@ -151,16 +215,24 @@ async def _count_relevant_segments(seg_repo: DocumentSegmentRepository, version_
     """
     return await seg_repo.count_by_version_and_has_segment_id(version_id)
 
-async def _count_unclassified_segments(seg_repo: DocumentSegmentRepository, version_id) -> int:
+
+async def _count_unclassified_segments(
+    seg_repo: DocumentSegmentRepository,
+    version_id: uuid.UUID,
+) -> int:
     """
-    Считает релевантные сегменты версии, для которых segment-level классификация еще не завершена.
+    Считает релевантные сегменты версии, для которых segment-level классификация ещё не завершена.
 
     Критерий "классифицирован" сознательно мягкий: достаточно наличия segment_doc_type
     или segment_classification_level. Этого хватает, чтобы checks могли выбрать правильный doc_type.
     """
     return await seg_repo.count_unclassified_for_version(version_id)
 
-async def _are_all_segments_classified(seg_repo: DocumentSegmentRepository, version) -> bool:
+
+async def _are_all_segments_classified(
+    seg_repo: DocumentSegmentRepository,
+    snap: _VersionSnapshot,
+) -> bool:
     """
     Readiness-предикат для segment-level классификации.
 
@@ -169,15 +241,16 @@ async def _are_all_segments_classified(seg_repo: DocumentSegmentRepository, vers
       1) есть хотя бы один релевантный сегмент;
       2) для всех релевантных сегментов заполнен segment-level результат.
     """
-    if version is None or _is_single_document(version):
+    if not _is_multi_document_snapshot(snap):
         return False
 
-    total = await _count_relevant_segments(seg_repo, version.id)
+    total = await _count_relevant_segments(seg_repo, snap.version_id)
     if total == 0:
         return False
 
-    unclassified = await _count_unclassified_segments(seg_repo, version.id)
+    unclassified = await _count_unclassified_segments(seg_repo, snap.version_id)
     return unclassified == 0
+
 
 async def _can_start_checks_for_run(
     run_obj: Run,
@@ -190,38 +263,35 @@ async def _can_start_checks_for_run(
 
     - для single-document документов: условий дополнительных нет;
     - для multi-document документов: хотя бы один документ run'a с сегментами
-      еще не имеет завершенной segment-level классификации — checks не запускаем.
+      ещё не имеет завершённой segment-level классификации — checks не запускаем.
     """
     run_id = str(run_obj.id)
     for doc in docs:
         version = await ver_repo.get_latest(doc.id)
-        if not version:
+        if version is None:
             continue
 
-        if _is_multi_document(version):
-            all_segments_classified = await _are_all_segments_classified(seg_repo, version)
+        # Снимаем snapshot сразу — дальше segment-запросы через await
+        snap = _snapshot_version(version)
+
+        if _is_multi_document_snapshot(snap):
+            all_segments_classified = await _are_all_segments_classified(seg_repo, snap)
             if not all_segments_classified:
                 logger.info(
                     "Run checks postponed: multi-document has unclassified segments",
                     extra={
                         "run_id": run_id,
                         "document_id": str(doc.id),
-                        "document_version_id": str(version.id),
-                        "segments_count": getattr(version, "segments_count", None),
+                        "document_version_id": snap.version_id_str,
+                        "segments_count": snap.segments_count,
                     },
                 )
                 return False
 
     return True
 
-ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
 
-@dataclass(slots=True)
-class TaskPlan:
-    task_name: str
-    kwargs: dict[str, Any]
-    reason: str
-    stage: str
+# ─── Celery task entrypoint ───────────────────────────────────────────────────
 
 @celery_app.task(
     base=MASBaseTask,
@@ -261,6 +331,9 @@ def start_run_pipeline(
 
     return run_async(_wrapper())
 
+
+# ─── Tenant resolver ──────────────────────────────────────────────────────────
+
 async def _resolve_tenant_id(
     tenant_id: str | None,
     deal_uuid: uuid.UUID,
@@ -276,21 +349,26 @@ async def _resolve_tenant_id(
     """
     if tenant_id:
         return tenant_id
+
     deal_repo = DealRepository(db)
     deal_obj = await deal_repo.get_by_id(deal_uuid)
-    if deal_obj and deal_obj.tenant_id:
+    if deal_obj is not None and deal_obj.tenant_id:
         resolved = str(deal_obj.tenant_id)
         logger.info(
             "tenant_id resolved from deal",
             extra={"deal_id": str(deal_uuid), "tenant_id": resolved},
         )
         return resolved
+
     surrogate = str(deal_uuid)
     logger.warning(
         "tenant_id not resolvable, using deal_id as surrogate tenant",
         extra={"deal_id": surrogate},
     )
     return surrogate
+
+
+# ─── Async core ───────────────────────────────────────────────────────────────
 
 async def _start_run_pipeline_async(
     run_id: str,
@@ -319,6 +397,12 @@ async def _start_run_pipeline_async(
       если deal.primary_language ещё не выбран.
     - build_primary_language_source в рамках Run больше не используется
       как fallback-механизм deal-level language discovery / language selection.
+
+    ORM-правило:
+    - Все поля ORM-объектов (version.id, execution.id и т.п.) снимаются в
+      примитивные переменные сразу после await-загрузки, до следующего await.
+      Это предотвращает MissingGreenlet при попытке SQLAlchemy сделать
+      синхронный lazy reload атрибута после await-границы.
     """
 
     logger.info(
@@ -340,7 +424,7 @@ async def _start_run_pipeline_async(
     run_uuid = uuid.UUID(run_id)
     run_obj: Run | None = await run_repo.get_by_id(run_uuid)
 
-    if not run_obj:
+    if run_obj is None:
         await run_repo.update_status(
             run_uuid,
             RunStatus.FAILED.value,
@@ -351,10 +435,7 @@ async def _start_run_pipeline_async(
                 "message": f"Run {run_id} not found",
             },
         )
-        logger.error(
-            "Run not found for orchestrator",
-            extra={"run_id": run_id},
-        )
+        logger.error("Run not found for orchestrator", extra={"run_id": run_id})
         return {
             "run_id": run_id,
             "deal_id": None,
@@ -364,21 +445,24 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
         }
 
+    # Снимаем run_obj-поля до первого await после него
+    run_deal_id = run_obj.deal_id
+    run_deal_id_str = str(run_deal_id) if run_deal_id else None
     current_status = run_obj.status
 
     if current_status == RunStatus.PENDING.value:
         started = await run_repo.try_start_run(run_uuid)
         if not started:
             run_obj = await run_repo.get_by_id(run_uuid)
-            current_status = run_obj.status if run_obj else None
-            if current_status not in {RunStatus.RUNNING.value}:
+            current_status = run_obj.status if run_obj is not None else None
+            if current_status != RunStatus.RUNNING.value:
                 logger.info(
                     "Run pipeline cannot be started from non-pending state, skipping orchestration",
                     extra={"run_id": run_id, "status": current_status},
                 )
                 return {
                     "run_id": run_id,
-                    "deal_id": str(run_obj.deal_id) if run_obj and run_obj.deal_id else None,
+                    "deal_id": run_deal_id_str,
                     "tenant_id": tenant_id,
                     "documents_total": 0,
                     "tasks_scheduled": 0,
@@ -389,17 +473,16 @@ async def _start_run_pipeline_async(
                 extra={"run_id": run_id},
             )
         else:
-            deal_uuid_for_audit = run_obj.deal_id
             try:
                 await audit_repo.log(
                     tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
-                    deal_id=deal_uuid_for_audit,
+                    deal_id=run_deal_id,
                     action="ANALYSIS_STARTED",
                     actor="system",
                     actor_role="worker",
                     details={
                         "run_id": run_id,
-                        "deal_id": str(deal_uuid_for_audit) if deal_uuid_for_audit else None,
+                        "deal_id": run_deal_id_str,
                         "pipeline_strategy": getattr(run_obj, "pipeline_strategy", None),
                         "force_reclassify": force_reclassify,
                     },
@@ -427,7 +510,7 @@ async def _start_run_pipeline_async(
         )
         return {
             "run_id": run_id,
-            "deal_id": str(run_obj.deal_id) if run_obj and run_obj.deal_id else None,
+            "deal_id": run_deal_id_str,
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
@@ -441,7 +524,7 @@ async def _start_run_pipeline_async(
         )
         return {
             "run_id": run_id,
-            "deal_id": str(run_obj.deal_id) if run_obj and run_obj.deal_id else None,
+            "deal_id": run_deal_id_str,
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
@@ -460,7 +543,9 @@ async def _start_run_pipeline_async(
         },
     )
 
-    deal_uuid = run_obj.deal_id if run_obj.deal_id else (uuid.UUID(deal_id) if deal_id else None)
+    deal_uuid = run_deal_id if run_deal_id else (
+        uuid.UUID(deal_id) if deal_id else None
+    )
     if deal_uuid is None:
         await run_repo.update_status(
             run_uuid,
@@ -493,7 +578,7 @@ async def _start_run_pipeline_async(
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_uuid)
 
-    if not deal:
+    if deal is None:
         await run_repo.update_status(
             run_uuid,
             RunStatus.FAILED.value,
@@ -517,7 +602,8 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
         }
 
-    deal_primary_language = getattr(deal, "primary_language", None)
+    # Снимаем нужные deal-поля до первого await после него
+    deal_primary_language: str | None = getattr(deal, "primary_language", None)
 
     if not deal_primary_language:
         logger.warning(
@@ -526,7 +612,9 @@ async def _start_run_pipeline_async(
                 "run_id": run_id,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
-                "language_discovery_status": getattr(deal, "language_discovery_status", None),
+                "language_discovery_status": getattr(
+                    deal, "language_discovery_status", None
+                ),
                 "deal_languages": getattr(deal, "languages", None),
             },
         )
@@ -561,9 +649,10 @@ async def _start_run_pipeline_async(
     seg_repo = DocumentSegmentRepository(db)
 
     for doc in docs:
-        doc_id_str = str(doc.id)
-        status = doc.status or ""
-        version = await ver_repo.get_latest(doc.id)
+        # Снимаем doc-поля до первого await по doc
+        doc_id: uuid.UUID = doc.id
+        doc_id_str = str(doc_id)
+        status: str = doc.status or ""
 
         logger.info(
             "Evaluating document for run pipeline",
@@ -577,9 +666,21 @@ async def _start_run_pipeline_async(
             },
         )
 
+        version = await ver_repo.get_latest(doc_id)
+
+        # ── КРИТИЧЕСКИ ВАЖНО ──────────────────────────────────────────────────
+        # Снимаем snapshot СРАЗУ после загрузки version, до любого следующего
+        # await-вызова. Это предотвращает MissingGreenlet: после await SQLAlchemy
+        # помечает ORM-объект expired и при следующем обращении к атрибуту
+        # пытается сделать синхронный lazy reload — что в asyncpg запрещено.
+        # ─────────────────────────────────────────────────────────────────────
+        snap: _VersionSnapshot | None = (
+            _snapshot_version(version) if version is not None else None
+        )
+
         plan = await _build_document_task_plan(
-            doc=doc,
-            version=version,
+            doc_id_str=doc_id_str,
+            snap=snap,
             status=status,
             run_id=run_id,
             deal_id_str=deal_id_str,
@@ -590,7 +691,7 @@ async def _start_run_pipeline_async(
             deal_primary_language=deal_primary_language,
         )
 
-        if not plan:
+        if plan is None:
             logger.info(
                 "No next task scheduled for document",
                 extra={
@@ -601,7 +702,7 @@ async def _start_run_pipeline_async(
             )
             continue
 
-        if not version:
+        if snap is None:
             logger.warning(
                 "Task plan produced for document without version, skipping execution scheduling",
                 extra={"run_id": run_id, "document_id": doc_id_str, "status": status},
@@ -612,8 +713,8 @@ async def _start_run_pipeline_async(
 
         execution = await dse_repo.create_planned_or_none_on_conflict(
             run_id=run_uuid,
-            document_id=doc.id,
-            document_version_id=version.id,
+            document_id=doc_id,
+            document_version_id=snap.version_id,
             from_status=status,
             to_status=_target_status_for_stage(plan.stage),
             orchestration_strategy=orchestration_strategy,
@@ -626,7 +727,7 @@ async def _start_run_pipeline_async(
                 extra={
                     "run_id": run_id,
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "status": status,
                     "task_name": plan.task_name,
                     "stage": plan.stage,
@@ -636,32 +737,38 @@ async def _start_run_pipeline_async(
             )
             continue
 
+        # Снимаем execution.id до следующего await
+        execution_id: uuid.UUID = execution.id
+        execution_id_str = str(execution_id)
+
         logger.info(
             "Scheduling next document stage",
             extra={
                 "run_id": run_id,
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
+                "document_version_id": snap.version_id_str,
                 "status": status,
                 "task_name": plan.task_name,
                 "stage": plan.stage,
                 "reason": plan.reason,
                 "orchestration_strategy": orchestration_strategy,
-                "stage_execution_id": str(execution.id),
+                "stage_execution_id": execution_id_str,
             },
         )
 
         celery_task_id = _send_task(
             plan=plan,
-            stage_execution_id=str(execution.id),
+            stage_execution_id=execution_id_str,
             run_id=run_id,
             deal_id=deal_id_str,
             tenant_id=tenant_id_str,
             document_id=doc_id_str,
-            document_version_id=str(version.id),
+            document_version_id=snap.version_id_str,
             orchestration_strategy=orchestration_strategy,
         )
-        await dse_repo.mark_dispatched(execution.id, celery_task_id=celery_task_id)
+
+        await dse_repo.mark_dispatched(execution_id, celery_task_id=celery_task_id)
+
         tasks_scheduled += 1
         documents_with_plan += 1
 
@@ -713,6 +820,9 @@ async def _start_run_pipeline_async(
         "documents_with_plan": documents_with_plan,
     }
 
+
+# ─── Stage mapping ────────────────────────────────────────────────────────────
+
 def _target_status_for_stage(stage: str) -> str:
     """
     Map internal stage name to *intended* DocumentStatus
@@ -722,11 +832,6 @@ def _target_status_for_stage(stage: str) -> str:
     В частности, stage-воркеры могут в error / edge-кейсах переводить
     документ в другие статусы (например, QUARANTINE), но здесь мы
     фиксируем именно целевой happy-path для orchestration.
-
-    В новой pre-run архитектуре:
-    - build_primary_language_source получает уже выбранный target_language
-      сделки и работает как стадия построения primary source, а не как
-      механизм deal-level language discovery / LANGUAGE_SELECTION_REQUIRED.
     """
     if stage == "convert_to_pdf":
         return DocumentStatus.PENDING.value
@@ -740,20 +845,17 @@ def _target_status_for_stage(stage: str) -> str:
         return DocumentStatus.STRUCTURED.value
     if stage == "build_chunks":
         return DocumentStatus.CHUNKED.value
-    if stage == "classify_document":
-        # Документ может остаться CLASSIFIED или перейти в COMPLETED,
-        # но для purposes execution достаточно понимать, что это стадия классификации.
-        return DocumentStatus.CLASSIFIED.value
-    if stage == "classify_document_segments":
-        # Segment-level классификация — это подстадия внутри document-level CLASSIFIED.
-        # Статус документа не меняем, чтобы не ломать существующие контракты.
+    if stage in {"classify_document", "classify_document_segments"}:
         return DocumentStatus.CLASSIFIED.value
     return stage
 
+
+# ─── Task plan builder ────────────────────────────────────────────────────────
+
 async def _build_document_task_plan(
     *,
-    doc,
-    version,
+    doc_id_str: str,
+    snap: _VersionSnapshot | None,
     status: str,
     run_id: str,
     deal_id_str: str,
@@ -766,17 +868,15 @@ async def _build_document_task_plan(
     """
     Строит план следующей document-level стадии для одного документа в рамках Run.
 
+    Принимает _VersionSnapshot вместо ORM-объекта, чтобы гарантировать
+    отсутствие обращений к expired ORM-атрибутам через await-границу.
+
     ВАЖНО:
     - В новой pre-run архитектуре deal_primary_language обязан быть выбран
       ДО запуска run_orchestrator.
-    - Поэтому эта функция больше не поддерживает fallback-модель, где
-      build_primary_language_source сам определяет языки документа и инициирует
-      deal-level language selection flow.
-    - build_primary_language_source здесь используется только как stage worker,
+    - build_primary_language_source используется только как stage worker,
       который строит primary source для уже выбранного target_language.
     """
-    doc_id_str = str(doc.id)
-
     if not deal_primary_language:
         logger.error(
             "Invariant violation: _build_document_task_plan called without deal_primary_language",
@@ -792,27 +892,25 @@ async def _build_document_task_plan(
             "deal_primary_language must be selected before building run task plan"
         )
 
+    # ── PENDING ───────────────────────────────────────────────────────────────
+
     if status == DocumentStatus.PENDING.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "Document has PENDING status but no version, skipping next stage",
                 extra={"document_id": doc_id_str, "run_id": run_id},
             )
             return None
 
-        origin_filetype = str(getattr(version, "origin_filetype", "") or "").lower()
-        has_converted_pdf = bool(getattr(version, "converted_pdf_ref", None))
-        original_ref = getattr(version, "original_ref", None)
-
-        if origin_filetype in CONVERTIBLE_TO_PDF and not has_converted_pdf:
+        if snap.origin_filetype in CONVERTIBLE_TO_PDF and not snap.converted_pdf_ref:
             logger.info(
                 "PENDING document requires office-to-PDF conversion before primary source build",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
-                    "origin_filetype": origin_filetype,
-                    "has_converted_pdf": has_converted_pdf,
-                    "original_ref": original_ref,
+                    "document_version_id": snap.version_id_str,
+                    "origin_filetype": snap.origin_filetype,
+                    "has_converted_pdf": bool(snap.converted_pdf_ref),
+                    "original_ref": snap.original_ref,
                     "run_id": run_id,
                 },
             )
@@ -822,21 +920,21 @@ async def _build_document_task_plan(
                 reason="convertible_type_without_converted_pdf",
                 kwargs={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "deal_id": deal_id_str,
                     "tenant_id": tenant_id_str,
                     "run_id": run_id,
                 },
             )
 
-        source_kind = "converted_pdf_ref" if has_converted_pdf else "original_ref"
+        source_kind = "converted_pdf_ref" if snap.converted_pdf_ref else "original_ref"
         logger.info(
             "PENDING document ready for primary source build with preselected deal primary language",
             extra={
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
-                "origin_filetype": origin_filetype,
-                "has_converted_pdf": has_converted_pdf,
+                "document_version_id": snap.version_id_str,
+                "origin_filetype": snap.origin_filetype,
+                "has_converted_pdf": bool(snap.converted_pdf_ref),
                 "source_kind": source_kind,
                 "run_id": run_id,
                 "target_language": deal_primary_language,
@@ -847,7 +945,7 @@ async def _build_document_task_plan(
             stage="build_primary_language_source",
             reason="pending_document_has_pdf_source_and_deal_primary_language_selected",
             kwargs={
-                "document_version_id": str(version.id),
+                "document_version_id": snap.version_id_str,
                 "document_id": doc_id_str,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
@@ -856,21 +954,23 @@ async def _build_document_task_plan(
             },
         )
 
+    # ── PRIMARY_READY ─────────────────────────────────────────────────────────
+
     if status == DocumentStatus.PRIMARY_READY.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "PRIMARY_READY document without version, skipping extract",
                 extra={"document_id": doc_id_str, "run_id": run_id},
             )
             return None
 
-        primary_ref = getattr(version, "primary_source_ref", None)
-        if not primary_ref:
+        if not snap.primary_source_ref:
             logger.warning(
-                "PRIMARY_READY document without primary_source_ref, waiting for primary source commit",
+                "PRIMARY_READY document without primary_source_ref, "
+                "waiting for primary source commit",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "run_id": run_id,
                 },
             )
@@ -880,8 +980,8 @@ async def _build_document_task_plan(
             "PRIMARY_READY document ready for extract",
             extra={
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
-                "primary_source_ref": primary_ref,
+                "document_version_id": snap.version_id_str,
+                "primary_source_ref": snap.primary_source_ref,
                 "run_id": run_id,
             },
         )
@@ -890,7 +990,7 @@ async def _build_document_task_plan(
             stage="extract_document",
             reason="primary_source_is_ready",
             kwargs={
-                "document_version_id": str(version.id),
+                "document_version_id": snap.version_id_str,
                 "document_id": doc_id_str,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
@@ -898,21 +998,22 @@ async def _build_document_task_plan(
             },
         )
 
+    # ── EXTRACTED ─────────────────────────────────────────────────────────────
+
     if status == DocumentStatus.EXTRACTED.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "EXTRACTED document without version, skipping pii",
                 extra={"document_id": doc_id_str, "run_id": run_id},
             )
             return None
 
-        layout_primary_ref = getattr(version, "layout_primary_ref", None)
-        if not layout_primary_ref:
+        if not snap.layout_primary_ref:
             logger.warning(
                 "EXTRACTED document without layout_primary_ref, waiting for extract commit",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "run_id": run_id,
                 },
             )
@@ -922,8 +1023,8 @@ async def _build_document_task_plan(
             "EXTRACTED document ready for PII sanitization",
             extra={
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
-                "layout_primary_ref": layout_primary_ref,
+                "document_version_id": snap.version_id_str,
+                "layout_primary_ref": snap.layout_primary_ref,
                 "run_id": run_id,
             },
         )
@@ -932,30 +1033,30 @@ async def _build_document_task_plan(
             stage="sanitize_document",
             reason="layout_primary_ready",
             kwargs={
-                "document_version_id": str(version.id),
+                "document_version_id": snap.version_id_str,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
                 "run_id": run_id,
             },
         )
 
+    # ── SANITIZED ─────────────────────────────────────────────────────────────
+
     if status == DocumentStatus.SANITIZED.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "SANITIZED document without version, skipping structure",
                 extra={"document_id": doc_id_str, "run_id": run_id},
             )
             return None
 
-        layout_primary_sanitized_ref = getattr(
-            version, "layout_primary_sanitized_ref", None
-        )
-        if not layout_primary_sanitized_ref:
+        if not snap.layout_primary_sanitized_ref:
             logger.warning(
-                "SANITIZED document without layout_primary_sanitized_ref, waiting for PII commit",
+                "SANITIZED document without layout_primary_sanitized_ref, "
+                "waiting for PII commit",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "run_id": run_id,
                 },
             )
@@ -965,8 +1066,8 @@ async def _build_document_task_plan(
             "SANITIZED document ready for structure build",
             extra={
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
-                "layout_primary_sanitized_ref": layout_primary_sanitized_ref,
+                "document_version_id": snap.version_id_str,
+                "layout_primary_sanitized_ref": snap.layout_primary_sanitized_ref,
                 "run_id": run_id,
             },
         )
@@ -975,40 +1076,41 @@ async def _build_document_task_plan(
             stage="build_structure",
             reason="sanitized_layout_ready",
             kwargs={
-                "document_version_id": str(version.id),
+                "document_version_id": snap.version_id_str,
                 "run_id": run_id,
             },
         )
 
+    # ── STRUCTURED ────────────────────────────────────────────────────────────
+
     if status == DocumentStatus.STRUCTURED.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "STRUCTURED document without version, skipping chunks",
                 extra={"document_id": doc_id_str, "run_id": run_id},
             )
             return None
 
-        file_graph_ref = getattr(version, "file_graph_ref", None)
-        segments_count = getattr(version, "segments_count", None)
-
-        if not file_graph_ref:
+        if not snap.file_graph_ref:
             logger.warning(
-                "STRUCTURED document without file_graph_ref in V2_ONLY, waiting for structure v2 commit",
+                "STRUCTURED document without file_graph_ref in V2_ONLY, "
+                "waiting for structure v2 commit",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "run_id": run_id,
                 },
             )
             return None
 
-        if not segments_count or segments_count <= 0:
+        if not snap.segments_count or snap.segments_count <= 0:
             logger.warning(
-                "STRUCTURED document without segments_count in V2_ONLY, waiting for structure v2 commit",
+                "STRUCTURED document without segments_count in V2_ONLY, "
+                "waiting for structure v2 commit",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
-                    "segments_count": segments_count,
+                    "document_version_id": snap.version_id_str,
+                    "segments_count": snap.segments_count,
                     "run_id": run_id,
                 },
             )
@@ -1018,9 +1120,9 @@ async def _build_document_task_plan(
             "STRUCTURED document ready for chunk build (v2 structure artifacts present)",
             extra={
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
-                "file_graph_ref": file_graph_ref,
-                "segments_count": segments_count,
+                "document_version_id": snap.version_id_str,
+                "file_graph_ref": snap.file_graph_ref,
+                "segments_count": snap.segments_count,
                 "run_id": run_id,
             },
         )
@@ -1029,7 +1131,7 @@ async def _build_document_task_plan(
             stage="build_chunks",
             reason="structure_v2_ready",
             kwargs={
-                "document_version_id": str(version.id),
+                "document_version_id": snap.version_id_str,
                 "document_id": doc_id_str,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
@@ -1037,37 +1139,40 @@ async def _build_document_task_plan(
             },
         )
 
+    # ── CHUNKED ───────────────────────────────────────────────────────────────
+
     if status == DocumentStatus.CHUNKED.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "CHUNKED document without version, skipping classify",
                 extra={"document_id": doc_id_str, "run_id": run_id},
             )
             return None
 
-        chunks_manifest_v2_ref = getattr(version, "chunks_manifest_v2_ref", None)
-        if not chunks_manifest_v2_ref:
+        if not snap.chunks_manifest_v2_ref:
             logger.warning(
-                "CHUNKED document without chunks_manifest_v2_ref in V2_ONLY, waiting for chunk v2 commit",
+                "CHUNKED document without chunks_manifest_v2_ref in V2_ONLY, "
+                "waiting for chunk v2 commit",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_version_id": snap.version_id_str,
                     "run_id": run_id,
                 },
             )
             return None
 
-        summary = await seg_repo.get_chunk_refs_summary(version.id)
+        summary = await seg_repo.get_chunk_refs_summary(snap.version_id)
         total_segments = summary["total_segments"]
         segments_with_chunks = summary["segments_with_chunks"]
 
         if total_segments <= 0:
             logger.warning(
-                "CHUNKED document without persisted segments in V2_ONLY, cannot continue to classification",
+                "CHUNKED document without persisted segments in V2_ONLY, "
+                "cannot continue to classification",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
-                    "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                    "document_version_id": snap.version_id_str,
+                    "chunks_manifest_v2_ref": snap.chunks_manifest_v2_ref,
                     "run_id": run_id,
                 },
             )
@@ -1075,11 +1180,12 @@ async def _build_document_task_plan(
 
         if segments_with_chunks != total_segments:
             logger.warning(
-                "CHUNKED document has incomplete segment chunk refs in V2_ONLY, waiting for full chunk contract",
+                "CHUNKED document has incomplete segment chunk refs in V2_ONLY, "
+                "waiting for full chunk contract",
                 extra={
                     "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
-                    "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                    "document_version_id": snap.version_id_str,
+                    "chunks_manifest_v2_ref": snap.chunks_manifest_v2_ref,
                     "total_segments": total_segments,
                     "segments_with_chunks": segments_with_chunks,
                     "run_id": run_id,
@@ -1088,11 +1194,12 @@ async def _build_document_task_plan(
             return None
 
         logger.info(
-            "CHUNKED document ready for classification (v2 manifest + full segment chunk refs)",
+            "CHUNKED document ready for classification "
+            "(v2 manifest + full segment chunk refs)",
             extra={
                 "document_id": doc_id_str,
-                "document_version_id": str(version.id),
-                "chunks_manifest_v2_ref": chunks_manifest_v2_ref,
+                "document_version_id": snap.version_id_str,
+                "chunks_manifest_v2_ref": snap.chunks_manifest_v2_ref,
                 "total_segments": total_segments,
                 "segments_with_chunks": segments_with_chunks,
                 "run_id": run_id,
@@ -1110,8 +1217,10 @@ async def _build_document_task_plan(
             },
         )
 
+    # ── CLASSIFIED ────────────────────────────────────────────────────────────
+
     if status == DocumentStatus.CLASSIFIED.value:
-        if not version:
+        if snap is None:
             logger.warning(
                 "CLASSIFIED document without version, nothing to plan",
                 extra={"document_id": doc_id_str, "run_id": run_id},
@@ -1140,17 +1249,15 @@ async def _build_document_task_plan(
                 },
             )
 
-        if _is_multi_document(version):
-            all_segments_classified = await _are_all_segments_classified(
-                seg_repo, version
-            )
+        if _is_multi_document_snapshot(snap):
+            all_segments_classified = await _are_all_segments_classified(seg_repo, snap)
             if not all_segments_classified:
                 logger.info(
                     "CLASSIFIED multi-document requires segment-level classification",
                     extra={
                         "document_id": doc_id_str,
-                        "document_version_id": str(version.id),
-                        "segments_count": getattr(version, "segments_count", None),
+                        "document_version_id": snap.version_id_str,
+                        "segments_count": snap.segments_count,
                         "run_id": run_id,
                     },
                 )
@@ -1171,10 +1278,12 @@ async def _build_document_task_plan(
             extra={
                 "document_id": doc_id_str,
                 "run_id": run_id,
-                "segments_count": getattr(version, "segments_count", None),
+                "segments_count": snap.segments_count,
             },
         )
         return None
+
+    # ── COMPLETED ─────────────────────────────────────────────────────────────
 
     if status == DocumentStatus.COMPLETED.value:
         if is_full_rerun or force_reclassify:
@@ -1205,6 +1314,8 @@ async def _build_document_task_plan(
         )
         return None
 
+    # ── Unknown status ────────────────────────────────────────────────────────
+
     logger.info(
         "Document in unsupported or terminal status for run pipeline, skipping",
         extra={
@@ -1216,6 +1327,8 @@ async def _build_document_task_plan(
     return None
 
 
+# ─── Celery task sender ───────────────────────────────────────────────────────
+
 def _send_task(
     *,
     plan: TaskPlan,
@@ -1226,7 +1339,8 @@ def _send_task(
     document_id: str,
     document_version_id: str,
     orchestration_strategy: str,
-) -> str:  # ← возвращает celery task id
+) -> str:
+    """Поставить stage-task в Celery. Возвращает celery task id."""
     kwargs = dict(plan.kwargs)
     kwargs.update({
         "stage_execution_id": stage_execution_id,
@@ -1238,5 +1352,7 @@ def _send_task(
         "orchestration_strategy": orchestration_strategy,
     })
     result = celery_app.send_task(plan.task_name, kwargs=kwargs)
-    return result.id  # ← AsyncResult.id
+    return result.id
+
+
     
