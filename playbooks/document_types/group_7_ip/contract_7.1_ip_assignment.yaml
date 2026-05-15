@@ -53,7 +53,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.81
     strong_signal_threshold: 0.9
@@ -79,8 +78,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия и формулы отчуждения ──
-
         - pattern: "(?i)отчужден[иеия]\\s+исключительн[огоого\\s]*прав[ао]"
           weight: 1.0
           distinctiveness: high
@@ -134,8 +131,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Утрата права первоначальным правообладателем"
-
-        # ── Специализированные виды отчуждения по объектам ──
 
         - pattern: "(?i)договор\\s+об\\s+отчужден[иии]\\s+исключительн[огоого\\s]*прав[ао]\\s+на\\s+изобретен[иеи]"
           weight: 0.95
@@ -338,8 +333,6 @@ classification_runtime_v1:
           description: "Номер госрегистрации исключительного права"
 
     exclusions:
-      # ── Hard exclusions — другие способы распоряжения ИС ──
-
       - pattern: "(?i)лицензионн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -370,7 +363,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Коммерческая концессия (франчайзинг) — комплекс лицензионных и иных прав"
 
-      # ── Soft exclusions — соседние конструкции владения ИС ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bфранчайзинг\\b"
         severity: soft
@@ -396,7 +389,6 @@ classification_runtime_v1:
         severity: soft
         weight: -0.3
         description: "Договор на создание произведения сам по себе не обязательно оформляет отчуждение исключительного права"
-
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

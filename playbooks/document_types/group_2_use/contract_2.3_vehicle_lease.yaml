@@ -50,7 +50,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.79
     strong_signal_threshold: 0.87
@@ -76,8 +75,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора и объекта ТС ──
-
         - pattern: "(?i)договор\\s+аренд[ыыу]\\s+транспортн[огоого\\s]*средств[ао]"
           weight: 1.0
           distinctiveness: high
@@ -120,8 +117,6 @@ classification_runtime_v1:
           context: any
           description: "Явное указание на транспортное средство как объект аренды"
 
-        # ── Модели с/без экипажа ──
-
         - pattern: "(?i)договор\\s+аренд[ыыу]\\s+тс\\s+с\\s+экипаж[ема]"
           weight: 0.9
           distinctiveness: high
@@ -146,8 +141,6 @@ classification_runtime_v1:
           context: any
           description: "Признак модели аренды без экипажа"
 
-        # ── Судоходные/чартерные маркеры ──
-
         - pattern: "(?i)фрахтовани[ея]\\s+на\\s+время"
           weight: 0.9
           distinctiveness: high
@@ -160,8 +153,6 @@ classification_runtime_v1:
           context: any
           description: "Тайм-чартер — форма аренды судна / воздушного судна"
 
-        # ── Идентификаторы ТС ──
-
         - pattern: "(?i)vin[-\\s]*номер"
           weight: 0.85
           distinctiveness: high
@@ -173,9 +164,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Государственный регистрационный номер транспортного средства"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)управлени[ея]\\s+транспортн[ымой]\\s+средств[ома]"
 
       medium:
         - pattern: "(?i)аренд[аы]\\s+ТС"
@@ -288,8 +276,6 @@ classification_runtime_v1:
           description: "Статус владельца источника повышенной опасности по ст. 1079 ГК РФ"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
       - pattern: "(?i)аренд[аы]\\s+недвижимост[ии]"
         severity: hard
         weight: -1.0
@@ -325,7 +311,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Договор найма жилого помещения — не аренда транспортного средства"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)перевозк[аы]\\s+груз[аа]"
         severity: soft

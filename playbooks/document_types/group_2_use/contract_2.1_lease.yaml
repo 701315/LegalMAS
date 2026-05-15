@@ -49,7 +49,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.78
     strong_signal_threshold: 0.87
@@ -75,8 +74,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / объект аренды (header-focused) ──
-
         - pattern: "(?i)договор\\s+аренд[ыу]\\s+нежил[а-я\\s]*помещен[ияи]"
           weight: 1.0
           distinctiveness: high
@@ -125,8 +122,6 @@ classification_runtime_v1:
           context: header
           description: "Коммерческая аренда — прямое указание на B2B-режим"
 
-        # ── Классические арендные формулы ──
-
         - pattern: "(?i)арендодател[ьяеи]"
           weight: 0.85
           distinctiveness: high
@@ -150,13 +145,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Арендная плата — существенное условие аренды"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)аренд[аыу]"
-        - "(?i)договор\\s+аренд[ыу]"
-        - "(?i)временн[оая]\\s+пользован[иеи]"
-        - "(?i)временн[оая]\\s+владен[иеи]"
-        - "(?i)договор\\s+аренд[ыу]\\s+техник[иу]"
 
       medium:
         - pattern: "(?i)нежил[оаоеые]+\\s+помещени[ея]"
@@ -239,8 +227,6 @@ classification_runtime_v1:
           description: "Право доступа — встречается в аренде, но и в других типах договоров"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
       - pattern: "(?i)жил[оа]й\\s+на[её]м"
         severity: hard
         weight: -1.0
@@ -271,7 +257,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Бытовой прокат — consumer-режим, не общая коммерческая аренда (contract_2.2_rental)"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bлизинг\\b"
         severity: soft

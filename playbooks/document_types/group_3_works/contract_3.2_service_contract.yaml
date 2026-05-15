@@ -16,7 +16,7 @@ metadata:
   category: contract
   subcategory: work_performance
   complexity: medium
-  risk_level: high  # Высокий риск для подрядчика из-за потребительского законодательства
+  risk_level: high
   jurisdiction: RU
   language: ru
   legal_base: "§ 2 Главы 37 ГК РФ (ст. 730-739); ЗоЗПП № 2300-1"
@@ -43,7 +43,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.78
     strong_signal_threshold: 0.87
@@ -66,8 +65,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия и потребительский характер ──
-
         - pattern: "(?i)договор\\s+бытов[огоой]\\s+подряд[ауы]"
           weight: 1.0
           distinctiveness: high
@@ -129,14 +126,14 @@ classification_runtime_v1:
           description: "Чёткое указание, что работа выполняется для личных бытовых нужд"
 
         - pattern: "(?i)закон\\s+о\\s+защит[еы]\\s+прав\\s+потребител[ейья]"
-          weight: 0.95
+          weight: 0.85
           distinctiveness: high
           context: any
           description: "Прямая ссылка на ЗоЗПП"
 
         - pattern: "(?i)зозпп"
           weight: 0.9
-          distinctiveness: high
+          distinctiveness: medium
           context: any
           description: "Аббревиатура закона о защите прав потребителей"
 
@@ -145,11 +142,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Заказчик определён как гражданин, а не организация"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)потребител[ьяеи]"
-        - "(?i)договор\\s+на\\s+ремонт\\s+для\\s+физическ[огоой]\\s+лиц[ауы]"
-        - "(?i)договор\\s+на\\s+изготовлен[иеия]\\s+мебел[ии]\\s+для\\s+граждан"
 
       medium:
         - pattern: "(?i)\\bгражданин\\b"
@@ -244,8 +236,6 @@ classification_runtime_v1:
           description: "Физлицо как заказчик работ"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют бытовой подряд ──
-
       - pattern: "(?i)для\\s+предпринимательск[оа]й\\s+деятельност[ии]\\s+заказчик[аа]"
         severity: hard
         weight: -1.0
@@ -271,7 +261,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Научно-исследовательские работы — отдельный тип НИР/НИОКР"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)возмездн[оа]е\\s+оказани[ея]\\s+услуг"
         severity: soft

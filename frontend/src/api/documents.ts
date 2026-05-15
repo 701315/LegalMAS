@@ -339,7 +339,6 @@ export function useDocumentsCount(dealId: string) {
       return response.total;
     },
     enabled: !!dealId,
-    staleTime: 2 * 60_000,
     refetchOnWindowFocus: true,
   });
 }
@@ -408,11 +407,13 @@ export function useReclassifyDocument(docId: string) {
   return useMutation({
     mutationFn: (data: ReclassifyInput) =>
       documentApi.reclassify(docId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["document", docId] });
-      qc.invalidateQueries({ queryKey: ["documents"] });
-      qc.invalidateQueries({ queryKey: ["documents-classified"] });
-      qc.invalidateQueries({ queryKey: ["audit"] });
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["document", docId] }),
+        qc.invalidateQueries({ queryKey: ["documents"] }),
+        qc.invalidateQueries({ queryKey: ["documents-classified"] }),
+        qc.invalidateQueries({ queryKey: ["audit"] }),
+      ]);
     },
   });
 }
@@ -422,12 +423,14 @@ export function useSoftDeleteDocument(dealId: string) {
 
   return useMutation({
     mutationFn: (docId: string) => documentApi.softDelete(docId),
-    onSuccess: (_data, docId) => {
-      qc.invalidateQueries({ queryKey: ["document", docId] });
-      qc.invalidateQueries({ queryKey: ["documents", dealId] });
-      qc.invalidateQueries({ queryKey: ["documents-classified", dealId] });
-      qc.invalidateQueries({ queryKey: ["deal", dealId] });
-      qc.invalidateQueries({ queryKey: ["documents-count", dealId] });
+    onSuccess: async (_data, docId) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["document", docId] }),
+        qc.invalidateQueries({ queryKey: ["documents", dealId] }),
+        qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
+        qc.invalidateQueries({ queryKey: ["deal", dealId] }),
+        qc.invalidateQueries({ queryKey: ["documents-count", dealId] }),
+      ]);
     },
   });
 }
@@ -457,15 +460,17 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
   return useMutation({
     mutationFn: (reviewedByPerson: boolean) =>
       documentApi.setReviewed(docId, reviewedByPerson),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["document", docId] });
+    onSuccess: async () => {
+      const tasks = [qc.invalidateQueries({ queryKey: ["document", docId] })];
 
       if (dealId) {
-        qc.invalidateQueries({ queryKey: ["documents", dealId] });
-        qc.invalidateQueries({
-          queryKey: ["documents-classified", dealId],
-        });
+        tasks.push(
+          qc.invalidateQueries({ queryKey: ["documents", dealId] }),
+          qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
+        );
       }
+
+      await Promise.all(tasks);
     },
   });
 }

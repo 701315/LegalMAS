@@ -50,7 +50,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -73,8 +72,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Стороны и базовые конструкции договора страхования ──
-
         - pattern: "(?i)страховщик[а-я]*"
           weight: 0.9
           distinctiveness: high
@@ -92,8 +89,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Выгодоприобретатель по договору страхования"
-
-        # ── Прямые названия видов договора ──
 
         - pattern: "(?i)договор\\s+имущественн[огоого\\s]*страхован[ияия]"
           weight: 1.0
@@ -143,8 +138,6 @@ classification_runtime_v1:
           context: header
           description: "Договор страхования жизни и здоровья"
 
-        # ── Формы документов и специализированные полисы ──
-
         - pattern: "(?i)страхов[оыйой]\\s+полис"
           weight: 0.95
           distinctiveness: high
@@ -168,8 +161,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Полис КАСКО — добровольное страхование каско транспортного средства"
-
-        # ── Ключевые обязательственные элементы ──
 
         - pattern: "(?i)правил[аы]\\s+страхован[ияия]"
           weight: 0.9
@@ -330,8 +321,6 @@ classification_runtime_v1:
           description: "Упоминание страхового брокера"
 
     exclusions:
-      # ── Hard exclusions — явно другие правовые режимы ──
-
       - pattern: "(?i)социальн[оа]е\\s+страховани[ея]"
         severity: hard
         weight: -1.0
@@ -362,7 +351,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Игры и пари — отдельный вид обязательств, не страховой договор"
 
-      # ── Soft exclusions — соседние финансовые сервисы ──
+      # ── Soft exclusions
 
       - pattern: "(?i)кредитн[оа]е\\s+страховани[ея]"
         severity: soft

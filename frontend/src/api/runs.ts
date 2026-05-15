@@ -3,7 +3,7 @@
 // API-функции и React Query хуки для запусков анализа (runs).
 // =============================================================
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
 import type { ClassificationReport, Run, RunCreateInput } from "../types";
 
@@ -73,8 +73,17 @@ export const runApi = {
  * Хук для старта нового run.
  */
 export function useStartRun(dealId: string) {
+  const qc = useQueryClient();
+
   return useMutation({
     mutationFn: (data: RunCreateInput) => runApi.start(dealId, data),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["deal", dealId] }),
+        qc.invalidateQueries({ queryKey: ["documents-count", dealId] }),
+        qc.invalidateQueries({ queryKey: ["documents", dealId] }),
+      ]);
+    },
   });
 }
 

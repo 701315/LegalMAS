@@ -51,7 +51,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.9
@@ -287,8 +286,6 @@ classification_runtime_v1:
           description: "Вахтовый метод работы"
 
     exclusions:
-      # ── Hard exclusions — классические ГПХ и иные нетрудовые форматы ──
-
       - pattern: "(?i)договор\\s+подряд[аа]"
         severity: hard
         weight: -1.0
@@ -309,7 +306,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Агентский договор — посреднический ГПХ, а не трудовой"
 
-      # ── Soft exclusions — околотрудовые, но не классический employment ──
+      # ── Soft exclusions
 
       - pattern: "(?i)договор\\s+о\\s+прохождени[ии]\\s+практик[ии]"
         severity: soft

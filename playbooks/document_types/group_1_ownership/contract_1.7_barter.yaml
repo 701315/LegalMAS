@@ -10,7 +10,7 @@ description: |
   каждая сторона признаётся продавцом передаваемого и покупателем получаемого товара.
   Для целей налогообложения бартер приравнивается к двум встречным реализациям.
 
-version: 4.0
+version: 4.1
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -44,7 +44,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.80
     strong_signal_threshold: 0.88
@@ -54,7 +53,7 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор[_\\s-]*мен[ыи]"
+      - "(?i)договор[_\\s-]*мены"
       - "(?i)договор[_\\s-]*бартера"
       - "(?i)договор[_\\s-]*товарообмена"
       - "(?i)мен[аеыуой]"
@@ -74,259 +73,317 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-
-        - pattern: "(?i)договор[\\s\\n\\r]+мен[ыи]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+мены\\b"
           weight: 1.0
           distinctiveness: high
           context: header
-          description: "Базовое наименование договора мены"
+          description: "Базовое наименование договора мены (гл. 31 ГК РФ)"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+бартера"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+бартера\\b"
           weight: 0.98
           distinctiveness: high
           context: header
           description: "Прямое указание на бартерный договор"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+товарообмена"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+товарообмена\\b"
           weight: 0.96
           distinctiveness: high
           context: header
           description: "Заголовок с термином договор товарообмена"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+мен[ыи]\\s+недвижимост[иьи]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+мены\\s+недвижимости\\b"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Специальная конструкция мены недвижимости"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+мен[ыи]\\s+транспортн[а-я\\s]*средств"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+мены\\s+транспортных\\s+средств\\b"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Специальная конструкция мены транспортных средств"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+мен[ыи]\\s+дол[ейья]\\s*/?\\s*акц[ийи]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+мены\\s+долей(?:\\s*/\\s*акций)?\\b"
           weight: 0.94
           distinctiveness: high
           context: header
           description: "Мена долей или акций как особый вид бартерной сделки"
 
-        - pattern: "(?i)смешанн[а-я\\s]+договор[\\s\\n\\r]+мен[ыи]\\s+с\\s+доплат[ойеи]"
+        - pattern: "(?i)смешанный\\s+договор[\\s\\n\\r]+мены\\s+с\\s+доплатой"
           weight: 0.92
           distinctiveness: high
           context: header
           description: "Смешанный договор мены с доплатой при неравноценности"
 
-        - pattern: "(?i)бартер(?!н[а-я])"
-          weight: 0.9
+        - pattern: "(?i)\\bбартер\\b(?!н[а-я])"
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Упоминание бартерной модели расчётов"
 
-        - pattern: "(?i)обмен\\s+товар[ао]ми"
-          weight: 0.9
+        - pattern: "(?i)\\bобмен\\s+товарами\\b"
+          weight: 0.90
           distinctiveness: high
           context: body
           description: "Прямое указание на обмен товарами вместо денежной оплаты"
 
-        - pattern: "(?i)товар\\s+на\\s+товар"
-          weight: 0.9
+        - pattern: "(?i)\\bтовар\\s+на\\s+товар\\b"
+          weight: 0.90
           distinctiveness: high
           context: body
-          description: "Формула товар на товар как классический признак бартерной сделки"
+          description: "Формула товар на товар — классический признак бартерной сделки"
 
-        - pattern: "(?i)взаимн[а-я\\s]+передач[аи]\\s+товар[ао]в?"
+        - pattern: "(?i)взаимная\\s+передача\\s+товаров?"
           weight: 0.88
           distinctiveness: high
           context: body
           description: "Взаимная передача товаров обеими сторонами"
 
-        - pattern: "(?i)кажда[яе]\\s+из\\s+сторон\\s+признаетс[яь]\\s+продавц[еом]"
+        - pattern: "(?i)каждая\\s+из\\s+сторон\\s+признаётся\\s+продавцом|каждая\\s+из\\s+сторон\\s+признается\\s+продавц[еом]"
           weight: 0.87
           distinctiveness: high
           context: body
-          description: "Формула из ст. 567 ГК РФ о двойственной роли сторон"
+          description: "Формула ст. 567 ГК РФ о двойственной роли сторон"
 
-        - pattern: "(?i)кажда[яе]\\s+сторон[аы]\\s+продавец\\s+и\\s+покупател[ьяеи]"
+        - pattern: "(?i)каждая\\s+сторона\\s+(?:является\\s+)?продавцом\\s+и\\s+покупателем"
           weight: 0.87
           distinctiveness: high
           context: body
-          description: "Подчёркивание, что каждая сторона одновременно продавец и покупатель"
+          description: "Каждая сторона одновременно продавец и покупатель — ст. 567 ГК"
 
-        # Остальные сильные бартерные маркеры оставлены строками
-        - "(?i)товарообменн[а-я\\s]+договор"
-        - "(?i)обмениваем[а-я\\s]+товар[ыо]"
-        - "(?i)равноценност[ьи]\\s+товар[ао]в"
-        - "(?i)встречн[а-я\\s]+предоставлен[иия]"
+        - pattern: "(?i)\\bтоварообменный\\s+договор\\b"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Товарообменный договор — синоним договора мены в деловом обороте"
+
+        - pattern: "(?i)обмениваемые\\s+товары?"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Обмениваемые товары как предмет договора мены"
+
+        - pattern: "(?i)равноценность\\s+товаров?"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Равноценность товаров — ключевой вопрос договора мены (ст. 568 ГК)"
+
+        - pattern: "(?i)встречное\\s+предоставление"
+          weight: 0.82
+          distinctiveness: high
+          context: body
+          description: "Встречное предоставление в неденежной форме — признак мены"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*567\\s+ГК"
+          weight: 0.95
+          distinctiveness: high
+          context: any
+          description: "Ст. 567 ГК РФ — основная норма о договоре мены"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*568\\s+ГК"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Ст. 568 ГК РФ — цены и расходы при мене"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*570\\s+ГК"
+          weight: 0.92
+          distinctiveness: high
+          context: any
+          description: "Ст. 570 ГК РФ — момент перехода права собственности при мене"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*571\\s+ГК"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Ст. 571 ГК РФ — последствия изъятия товара у покупателя"
+
+        - pattern: "(?i)глав[аы]\\s*31\\s+ГК"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на главу 31 ГК РФ — нормативная база договора мены"
+
+        - pattern: "(?i)приравнивается\\s+к\\s+(?:двум\\s+)?встречным\\s+реализациям?"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Квалификация бартера как двух встречных реализаций — ст. 39 НК РФ"
+
+        - pattern: "(?i)НДС\\s+при\\s+бартере|налогообложение\\s+бартер"
+          weight: 0.80
+          distinctiveness: high
+          context: body
+          description: "Налогообложение бартерной сделки — специфика, упомянутая в description"
 
       medium:
-        - pattern: "(?i)переход\\s+права\\s+собственност[иьи]\\s+при\\s+мене"
-          weight: 0.7
+        - pattern: "(?i)переход\\s+права\\s+собственности\\s+при\\s+мене"
+          weight: 0.70
           distinctiveness: medium
           context: body
-          description: "Специальное правило о моменте перехода права при менe"
+          description: "Специальное правило о моменте перехода права при мене"
 
-        - pattern: "(?i)доплат[аы]\\s+при\\s+неравноценност[иьи]"
+        - pattern: "(?i)доплата\\s+при\\s+неравноценности"
           weight: 0.68
           distinctiveness: medium
           context: body
           description: "Указание на доплату при неравноценном обмене"
 
-        - pattern: "(?i)неравноценн[ыйае]\\s+обмен"
+        - pattern: "(?i)неравноценный\\s+обмен"
           weight: 0.65
           distinctiveness: medium
           context: body
           description: "Неравноценность предметов обмена как профильный риск мены"
 
-        - pattern: "(?i)компенсаци[яи]\\s+разниц[ыуы]\\s+в\\s+стоимост[иьи]"
+        - pattern: "(?i)компенсация\\s+разницы\\s+в\\s+стоимости"
           weight: 0.63
           distinctiveness: medium
           context: body
           description: "Компенсация разницы в стоимости как доплата при бартере"
 
-        - pattern: "(?i)одновременн[а-я\\s]+передач[аи]\\s+товар[ао]в?"
-          weight: 0.6
+        - pattern: "(?i)одновременная\\s+передача\\s+товаров?"
+          weight: 0.60
           distinctiveness: medium
           context: body
           description: "Одновременность исполнения взаимных обязанностей"
 
-        - pattern: "(?i)оценк[аеи]\\s+обмениваем[ыхы]\\s+товар[ао]в?"
+        - pattern: "(?i)оценка\\s+обмениваемых\\s+товаров?"
           weight: 0.58
           distinctiveness: medium
           context: body
           description: "Оценка обмениваемых товаров для целей равноценности и налогообложения"
 
-        - pattern: "(?i)бартерн[а-я\\s]+сделк[аи]"
-          weight: 0.6
+        - pattern: "(?i)бартерная\\s+сделка"
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Бартерная сделка как термин налогового/бухгалтерского учёта"
 
-        - pattern: "(?i)ст\\.?\\s*567\\s+ГК"
-          weight: 0.62
-          distinctiveness: medium
-          context: body
-          description: "Ссылка на ст. 567 ГК РФ о договоре мены"
-
-        - pattern: "(?i)ст\\.?\\s*568\\s+ГК"
-          weight: 0.6
-          distinctiveness: medium
-          context: body
-          description: "Ссылка на ст. 568 ГК РФ о цене и расходах при мене"
-
-        - pattern: "(?i)ст\\.?\\s*570\\s+ГК"
-          weight: 0.6
-          distinctiveness: medium
-          context: body
-          description: "Ссылка на ст. 570 ГК РФ о моменте перехода права собственности"
-
-        - pattern: "(?i)ст\\.?\\s*571\\s+ГК"
-          weight: 0.6
-          distinctiveness: medium
-          context: body
-          description: "Ссылка на ст. 571 ГК РФ о последствиях изъятия товара"
-
-        - pattern: "(?i)субсидиарн[оа\\s]+применяютс[яи]\\s+правила\\s+купл[иы]_?продаж[и]"
+        - pattern: "(?i)субсидиарно\\s+применяются\\s+правила\\s+купли-?продажи"
           weight: 0.58
           distinctiveness: medium
           context: body
-          description: "Отсылка к субсидиарному применению норм купли-продажи"
+          description: "Субсидиарное применение норм купли-продажи к договору мены"
+
+        - pattern: "(?i)встречная\\s+реализация"
+          weight: 0.65
+          distinctiveness: medium
+          context: body
+          description: "Встречная реализация — бухгалтерская квалификация бартера"
+
+        - pattern: "(?i)рыночная\\s+стоимость\\s+обмениваемого"
+          weight: 0.62
+          distinctiveness: medium
+          context: body
+          description: "Рыночная стоимость обмениваемых товаров — ориентир при неравноценности"
 
       low:
-        - pattern: "(?i)неденежн[ыйае]\\s+расчет"
+        - pattern: "(?i)неденежный\\s+расчёт|неденежный\\s+расчет"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Общий указатель на неденежную форму расчётов"
 
-        - pattern: "(?i)обменн[ыйое]\\s+договор"
+        - pattern: "(?i)обменный\\s+договор"
           weight: 0.32
           distinctiveness: low
           context: any
           description: "Фоновое указание на обменный характер договора"
 
-        - pattern: "(?i)натуральн[ыйае]\\s+обмен"
-          weight: 0.3
+        - pattern: "(?i)натуральный\\s+обмен"
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Натуральный обмен без денежного встречного предоставления"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      # Классическая купля-продажа за деньги
-      - pattern: "(?i)купл[яи]_?продаж[аи]\\s+за\\s+денежн[ыео]\\s+средств[ао]"
+      - pattern: "(?i)купля-?продажа\\s+за\\s+денежные\\s+средства"
         severity: hard
         weight: -1.0
         description: "Прямое указание на денежную куплю-продажу вместо мены"
 
-      - pattern: "(?i)оплат[аы]\\s+товар[ао]\\s+денежн[ымие]\\s+средствам[и]"
+      - pattern: "(?i)оплата\\s+товар[аоу]\\s+денежными\\s+средствами"
         severity: hard
         weight: -1.0
         description: "Денежная оплата товара исключает бартерную модель"
 
-      - pattern: "(?i)денежн[ыйае]\\s+расчет"
+      - pattern: "(?i)\\bцессия\\b|уступка\\s+права\\s+требования"
+        severity: hard
+        weight: -1.0
+        description: "Цессия — уступка права требования (гл. 24 ГК), не мена товарами"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\b"
+        severity: hard
+        weight: -1.0
+        description: "Договор поставки — § 3 гл. 30 ГК, не мена"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+аренды\\b"
+        severity: hard
+        weight: -1.0
+        description: "Аренда — временное пользование, не обмен собственностью"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+дарения\\b"
+        severity: hard
+        weight: -1.0
+        description: "Дарение — безвозмездная передача, не взаимный обмен"
+
+      - pattern: "(?i)безвозмездная\\s+передача"
+        severity: hard
+        weight: -1.0
+        description: "Безвозмездная передача исключает встречное предоставление"
+
+      - pattern: "(?i)\\bрента\\b"
+        severity: hard
+        weight: -1.0
+        description: "Рента — особый тип обязательства (гл. 33 ГК), не мена"
+
+      - pattern: "(?i)\\bфакторинг\\b"
+        severity: hard
+        weight: -1.0
+        description: "Факторинг — финансовая услуга, не обмен товарами"
+
+      - pattern: "(?i)взнос\\s+в\\s+уставный\\s+капитал"
+        severity: hard
+        weight: -1.0
+        description: "Взнос в уставный капитал — корпоративная конструкция, не бартер"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)денежный\\s+расчёт|денежный\\s+расчет"
         severity: soft
-        weight: -0.4
+        weight: -0.40
         description: "Общий денежный расчёт снижает уверенность в бартере"
 
-      - pattern: "(?i)денежн[оые]\\s+средств[ао]"
+      - pattern: "(?i)денежные\\s+средства"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Многократные упоминания денежных средств ближе к классической купле-продаже"
 
-      # Смежные конструкции, которые не являются меной
-      - pattern: "(?i)договор[\\s\\n\\r]+поставк[иы]"
-        severity: hard
-        weight: -1.0
-        description: "Договор поставки относится к иному типу купли-продажи"
-
-      - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]"
-        severity: hard
-        weight: -1.0
-        description: "Аренда предполагает временное пользование, а не обмен собственностью"
-
-      - pattern: "(?i)договор[\\s\\n\\r]+дарени[яи]"
-        severity: hard
-        weight: -1.0
-        description: "Дарение является безвозмездной передачей, а не взаимным обменом"
-
-      - pattern: "(?i)безвозмездн[а-я\\s]+передач[аи]"
-        severity: hard
-        weight: -1.0
-        description: "Безвозмездная передача исключает наличие встречного предоставления"
-
-      - pattern: "(?i)рента"
-        severity: hard
-        weight: -1.0
-        description: "Рента образует особый тип обязательства, отличный от мены"
-
-      - pattern: "(?i)факторинг"
-        severity: hard
-        weight: -1.0
-        description: "Факторинг относится к финансовым услугам, а не к обмену товарами"
-
-      - pattern: "(?i)зач[её]т\\s+встречн[ыхые]\\s+требован[ийя]"
+      - pattern: "(?i)зачёт\\s+встречных\\s+требований|зачет\\s+встречных\\s+требований"
         severity: soft
         weight: -0.35
         description: "Зачёт встречных требований указывает на расчёты иного рода"
 
-      - pattern: "(?i)отступн[оа]"
+      - pattern: "(?i)\\bотступное\\b"
         severity: soft
         weight: -0.35
-        description: "Отступное является иной формой прекращения обязательства"
+        description: "Отступное — иная форма прекращения обязательства (ст. 409 ГК)"
 
-      - pattern: "(?i)взнос\\s+в\\s+уставн[ыйой]\\s+капитал"
-        severity: hard
-        weight: -1.0
-        description: "Взнос в уставный капитал — корпоративная, а не бартерная конструкция"
-
-      - pattern: "(?i)вклад\\s+в\\s+имуществ[оа]"
+      - pattern: "(?i)вклад\\s+в\\s+имущество"
         severity: soft
         weight: -0.35
         description: "Вклад в имущество общества конкурирует с моделью мены"
 
+      - pattern: "(?i)\\bновация\\b|\\bдоговор[\\s\\n\\r]+о\\s+новации\\b"
+        severity: soft
+        weight: -0.40
+        description: "Новация заменяет обязательство новым, но не является обменом товарами"
+
+      - pattern: "(?i)прекращение\\s+обязательства\\s+передачей\\s+имущества"
+        severity: soft
+        weight: -0.38
+        description: "Прекращение обязательства передачей имущества — конструкция отступного (ст. 409 ГК), не мены"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

@@ -53,7 +53,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -81,8 +80,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора вклада / счета ──
-
         - pattern: "(?i)банковск[ийое]\\s+вклад"
           weight: 1.0
           distinctiveness: high
@@ -161,8 +158,6 @@ classification_runtime_v1:
           context: any
           description: "ДБО как приложение или режим обслуживания банковского счета"
 
-        # ── Стороны и ключевые термины ──
-
         - pattern: "(?i)депозит[ауы]"
           weight: 0.8
           distinctiveness: medium
@@ -174,12 +169,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Вкладчик как сторона договора банковского вклада"
-
-        - pattern: "(?i)клиент[а-я]*"
-          weight: 0.75
-          distinctiveness: medium
-          context: any
-          description: "Клиент как сторона договора банковского счета"
 
         - pattern: "(?i)банк[а-я]*"
           weight: 0.8
@@ -316,8 +305,6 @@ classification_runtime_v1:
           description: "Налоговый агент в контексте расчетного счета клиента"
 
     exclusions:
-      # ── Hard exclusions — явно иные финансовые конструкции ──
-
       - pattern: "(?i)кредитн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -338,7 +325,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Факторинг — отдельный вид финансирования под уступку денежного требования"
 
-      # ── Soft exclusions — близкие, но не тождественные банковские конструкции ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bэскроу\\b"
         severity: soft

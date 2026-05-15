@@ -48,7 +48,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -71,8 +70,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Стороны и прямое название договора ──
-
         - pattern: "(?i)займодавец"
           weight: 0.95
           distinctiveness: high
@@ -144,8 +141,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Заем вещей, определённых родовыми признаками"
-
-        # ── Расписка и базовые обязательства по возврату ──
 
         - pattern: "(?i)расписк[аыу]\\s+о\\s+займ[ееу]"
           weight: 0.95
@@ -270,8 +265,6 @@ classification_runtime_v1:
           description: "Материальная выгода от пользования заемными средствами"
 
     exclusions:
-      # ── Hard exclusions — явно иные кредитные конструкции ──
-
       - pattern: "(?i)кредитн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -292,7 +285,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Коммерческий кредит как акцессорное обязательство к основному договору (поставка/подряд и т.п.) [web:81]"
 
-      # ── Soft exclusions — банковский/финансовый контекст вне классического займа ──
+      # ── Soft exclusions
 
       - pattern: "(?i)кредитн[ыо]е\\s+соглашени[ея]"
         severity: soft

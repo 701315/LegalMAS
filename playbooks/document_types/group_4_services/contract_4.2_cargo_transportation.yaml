@@ -48,7 +48,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -74,8 +73,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора перевозки ──
-
         - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
           weight: 1.0
           distinctiveness: high
@@ -136,8 +133,6 @@ classification_runtime_v1:
           context: header
           description: "Общее указание на транспортный договор в сочетании с грузом"
 
-        # ── Стороны и предмет перевозки ──
-
         - pattern: "(?i)перевозчик[а-я]*"
           weight: 0.9
           distinctiveness: high
@@ -168,8 +163,6 @@ classification_runtime_v1:
           context: any
           description: "Пункт назначения груза"
 
-        # ── Документы и провозная плата ──
-
         - pattern: "(?i)транспортн[аяое]\\s+накладн[аяую]"
           weight: 0.9
           distinctiveness: high
@@ -194,16 +187,11 @@ classification_runtime_v1:
           context: any
           description: "Обязанность доставить груз до пункта назначения"
 
-        # ── Общий термин «перевозка» в заголовке ──
-
         - pattern: "(?i)перевозк[аи]"
           weight: 0.8
           distinctiveness: medium
           context: any
           description: "Упоминание перевозки; усиливается в сочетании с грузом/перевозчиком"
-
-        # ── Оставшийся legacy high ──
-        - "(?i)транспортн[ыйое]\\s+договор"
 
       medium:
         - pattern: "(?i)выдач[аа]\\s+груз[аа]"
@@ -322,8 +310,6 @@ classification_runtime_v1:
           description: "Рефрижератор как специализированное ТС для скоропорта"
 
     exclusions:
-      # ── Hard: смежные, но иные договоры (экспедиция, аренда ТС, фрахтование, пассажирские перевозки) ──
-
       - pattern: "(?i)транспортн[а-яё]+\\s+экспедиц[ияии]"
         severity: hard
         weight: -1.0

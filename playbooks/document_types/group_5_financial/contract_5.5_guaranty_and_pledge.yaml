@@ -50,7 +50,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.81
     strong_signal_threshold: 0.89
@@ -77,8 +76,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Поручительство ──
-
         - pattern: "(?i)поручительств[оа]"
           weight: 1.0
           distinctiveness: high
@@ -108,8 +105,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Поручительство в обеспечение поставки"
-
-        # ── Залог / ипотека ──
 
         - pattern: "(?i)залог[ауы]?"
           weight: 1.0
@@ -164,8 +159,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Залог товаров в обороте"
-
-        # ── Стороны и ядро конструкции ──
 
         - pattern: "(?i)залогодател[ьяеи]"
           weight: 0.9
@@ -308,8 +301,6 @@ classification_runtime_v1:
           description: "Оспаривание обеспечения как сделки с предпочтением"
 
     exclusions:
-      # ── Hard exclusions — самостоятельные иные обеспечительные/основные конструкции ──
-
       - pattern: "(?i)независим[а-яё]+\\s+гаранти[яи]"
         severity: hard
         weight: -1.0
@@ -330,7 +321,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Дарение не относится к поручительству или залогу"
 
-      # ── Soft exclusions — смежные документы и фоновые термины ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bстраховани[ея]\\b"
         severity: soft

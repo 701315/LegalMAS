@@ -42,7 +42,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -67,8 +66,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора ──
-
         - pattern: "(?i)договор\\s+строительн[огоой]\\s+подряд[ауы]"
           weight: 1.0
           distinctiveness: high
@@ -116,8 +113,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Указание на генподряд именно в строительстве"
-
-        # ── Строительные ownership‑маркеры ──
 
         - pattern: "(?i)объект\\s+капитальн[огоой]\\s+строительств[а]"
           weight: 0.9
@@ -196,11 +191,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Генеральный подрядчик по строительству"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)рабоч[а-яё]+\\s+документаци[яи]"
-        - "(?i)строительн[а-яё]+\\s+площадк[аи]"
-        - "(?i)\\bСРО\\b"
 
       medium:
         - pattern: "(?i)строительств"
@@ -289,8 +279,6 @@ classification_runtime_v1:
           description: "Саморегулируемая организация в строительстве"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют строительный подряд ──
-
       - pattern: "(?i)текущ[иоя]+\\s+ремонт\\s+без\\s+изменени[яя]\\s+конструктивн[ыо]х\\s+характеристик"
         severity: hard
         weight: -1.0
@@ -341,7 +329,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Аренда — договор пользования, а не выполнения строительных работ"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)возмездн[оа]е\\s+оказани[ея]\\s+услуг"
         severity: soft

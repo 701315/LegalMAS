@@ -51,7 +51,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.82
     strong_signal_threshold: 0.89
@@ -76,8 +75,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора ──
-
         - pattern: "(?i)агентск[ийое]\\s+договор"
           weight: 1.0
           distinctiveness: high
@@ -137,8 +134,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "English title form for marketing agency agreement"
-
-        # ── Стороны и ядро конструкции ──
 
         - pattern: "(?i)принципал[а-я]*"
           weight: 0.95
@@ -293,8 +288,6 @@ classification_runtime_v1:
           description: "Клиентская база в рамках агентского канала"
 
     exclusions:
-      # ── Hard exclusions — конкурирующие договорные типы ──
-
       - pattern: "(?i)трудов[оа]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -315,7 +308,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Коммерческая концессия — самостоятельный IP/distribution тип"
 
-      # ── Soft exclusions — соседние service-like конструкции ──
+      # ── Soft exclusions
 
       - pattern: "(?i)договор\\s+оказани[яя]\\s+услуг"
         severity: soft

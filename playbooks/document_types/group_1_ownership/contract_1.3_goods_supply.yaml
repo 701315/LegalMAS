@@ -11,7 +11,7 @@ description: |
   недопоставка и восполнение (ст. 511 ГК РФ), международные санкции,
   требования сертификации/декларирования по ТР ТС.
 
-version: 4.0
+version: 4.1
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -45,7 +45,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.80
     strong_signal_threshold: 0.88
@@ -55,95 +54,155 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)\\bдоговор[\\s_.-]*поставк[иы]\\b"
-      - "(?i)\\bпоставк[аи]\\b"
+      - "(?i)\\bдоговор[\\s_.-]*поставки\\b"
+      - "(?i)\\bпоставки\\b"
       - "(?i)\\bпоставщик[а-я]*\\b"
-      - "(?i)\\bsupply[_\\s-]*(agreement|contract)?\\b"
+      - "(?i)\\bsupply[_\\s-]*(?:agreement|contract)?\\b"
       - "(?i)frame[_\\s-]*supply[_\\s-]*agreement"
       - "(?i)framework[_\\s-]*supply[_\\s-]*contract"
-      - "(?i)договор[\\s_.-]*поставк[иы].*график[ао]м"
-      - "(?i)договор[\\s_.-]*международн[а-я\\s]*поставк[иы]"
-      - "(?i)поставк[а-и](?!.*(розничн|retail|consumer|личн[ыыя]\\s+нужд))"
+      - "(?i)договор[\\s_.-]*поставки.*графиком"
+      - "(?i)договор[\\s_.-]*международной[\\s_.-]*поставки"
+      - "(?i)поставки?(?!.*(розничн|retail|consumer|личных\\s+нужд))"
 
     folder_patterns:
-      - "(?i)поставк[аи]"
+      - "(?i)поставки?"
       - "(?i)supply"
       - "(?i)logistics"
       - "(?i)procurement"
-      - "(?i)закупк[аи]"
+      - "(?i)закупки?"
       - "(?i)b2b"
 
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-        - pattern: "(?i)договор[\\s\\n\\r]+поставк[иы]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\b"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное наименование договора поставки"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+поставк[иы]\\s+товар[ао]в"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\s+товаров?\\b"
           weight: 0.98
           distinctiveness: high
           context: header
           description: "Заголовок с прямым указанием на поставку товаров"
-          
-        - pattern: "(?i)рамочн[а-я\\s]+договор[\\s\\n\\r]+поставк[иы]"
+
+        - pattern: "(?i)рамочный\\s+договор[\\s\\n\\r]+поставки"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Рамочная конструкция договора поставки"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+поставк[иы]\\s+с\\s+график[ао]м"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\s+с\\s+графиком"
           weight: 0.93
           distinctiveness: high
           context: header
           description: "Заголовок поставки с графиком отгрузок"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+международн[а-я\\s]+поставк[иы]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+международной\\s+поставки"
           weight: 0.94
           distinctiveness: high
           context: header
           description: "Прямое указание на международную поставку"
 
-        - pattern: "(?i)для\\s+использовани[яи]\\s+в\\s+предпринимательской\\s+деятельност[иьи]"
+        - pattern: "(?i)для\\s+использования\\s+в\\s+предпринимательской\\s+деятельности"
           weight: 0.90
           distinctiveness: high
           context: body
           description: "B2B-цель использования товара"
 
-        - pattern: "(?i)для\\s+осуществлени[яи]\\s+предпринимательской\\s+деятельност[иьи]"
+        - pattern: "(?i)для\\s+осуществления\\s+предпринимательской\\s+деятельности"
           weight: 0.90
           distinctiveness: high
           context: body
           description: "Предпринимательская цель приобретения товара"
 
-        - pattern: "(?i)поставк[аи]\\s+партиями"
+        - pattern: "(?i)поставка\\s+партиями"
           weight: 0.88
           distinctiveness: high
           context: body
           description: "Длящийся характер исполнения через партии"
 
-        - pattern: "(?i)график\\s+поставок"
+        - pattern: "(?i)\\bграфик\\s+поставок\\b"
           weight: 0.86
           distinctiveness: high
           context: body
           description: "График поставок как типовой маркер supply-контракта"
 
-        # legacy high, сохранённые без структуризации
-        - "(?i)договор[\\s\\n\\r]+поставк[иы]\\s+под\\s+заказ"
-        - "(?i)договор[\\s\\n\\r]+поставк[иы]\\s+с\\s+отсрочк[ойеи]\\s+платеж[аеи]"
-        - "(?i)сторон[аы]-?поставщик"
-        - "(?i)сторон[аы]-?покупател[ьяеи]"
-        - "(?i)предпринимательск[а-я\\s]+деятельност[ьи]"
-        - "(?i)периодическ[а-я\\s]+поставк[аи]"
-        - "(?i)отгрузк[аи]\\s+партиями"
-        - "(?i)недопоставк[аи]"
-        - "(?i)восполнен[иеия]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\s+под\\s+заказ\\b"
+          weight: 0.92
+          distinctiveness: high
+          context: header
+          description: "Поставка под заказ — специфичная форма supply-договора"
+
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\s+с\\s+отсрочкой\\s+платежа\\b"
+          weight: 0.91
+          distinctiveness: high
+          context: header
+          description: "Поставка с отсрочкой — форма B2B-товарного кредитования"
+
+        - pattern: "(?i)\\bсторона-?поставщик\\b|\\bпоставщик\\s+обязуется\\b"
+          weight: 0.88
+          distinctiveness: high
+          context: body
+          description: "Роль поставщика в диспозитивной части договора"
+
+        - pattern: "(?i)\\bпокупатель\\s+обязуется\\s+принять\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Типовая обязанность покупателя по поставке — принять товар"
+
+        - pattern: "(?i)предпринимательская\\s+деятельность"
+          weight: 0.75
+          distinctiveness: high
+          context: body
+          description: "Упоминание предпринимательской деятельности — B2B квалификатор"
+
+        - pattern: "(?i)периодическая\\s+поставка"
+          weight: 0.82
+          distinctiveness: high
+          context: body
+          description: "Периодические поставки — длящийся характер исполнения"
+
+        - pattern: "(?i)отгрузка\\s+партиями"
+          weight: 0.82
+          distinctiveness: high
+          context: body
+          description: "Отгрузка партиями — прямой признак длящейся поставки"
+
+        - pattern: "(?i)\\bнедопоставка\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Недопоставка — специальный институт § 3 гл. 30 ГК (ст. 511)"
+
+        - pattern: "(?i)\\bвосполнение\\s+(?:недопоставки|поставки)\\b"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Восполнение недопоставки — ст. 511 ГК РФ, уникально для поставки"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*50[6-9]\\s+ГК|ст(?:атья|\\.)?\\s*5[1-2][0-9]\\s+ГК"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Ссылки на ст. 506-524 ГК РФ — нормативная база договора поставки"
+
+        - pattern: "(?i)\\bIncoterms\\b|инкотермс"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Incoterms — торговые термины международной поставки, не розницы"
+
+        - pattern: "(?i)\\bFOB\\b|\\bCIF\\b|\\bDAP\\b|\\bDDP\\b|\\bEXW\\b|\\bCPT\\b"
+          weight: 0.82
+          distinctiveness: high
+          context: any
+          description: "Базисы поставки Incoterms — используются исключительно в B2B"
 
       medium:
-        - pattern: "(?i)получател[ьяеи]"
+        - pattern: "(?i)\\bполучатель\\b"
           weight: 0.60
           distinctiveness: medium
           context: any
@@ -155,144 +214,188 @@ classification_runtime_v1:
           context: any
           description: "Спецификация как приложение к поставке"
 
-        - pattern: "(?i)товарн[а-я\\s]+накладн(ая|ые|ых)"
+        - pattern: "(?i)товарная\\s+накладная"
           weight: 0.62
           distinctiveness: medium
           context: any
           description: "Товарная накладная как типовой документ исполнения"
 
-        - pattern: "(?i)УПД\\b"
+        - pattern: "(?i)\\bУПД\\b"
           weight: 0.58
           distinctiveness: medium
           context: any
           description: "УПД как сопроводительный документ поставки"
 
-        - pattern: "(?i)универсальн[а-я\\s]+передаточн[а-я\\s]+документ"
+        - pattern: "(?i)универсальный\\s+передаточный\\s+документ"
           weight: 0.58
           distinctiveness: medium
           context: any
           description: "Полное наименование УПД"
 
-        - pattern: "(?i)приемк[аи]\\s+товар[ао]в?"
+        - pattern: "(?i)приемка\\s+товаров?"
           weight: 0.64
           distinctiveness: medium
           context: body
           description: "Приемка товара характерна для обязательств по поставке"
 
-        - pattern: "(?i)претензи[ияи]\\s+по\\s+поставк[еи]"
+        - pattern: "(?i)претензии?\\s+по\\s+поставке"
           weight: 0.61
           distinctiveness: medium
           context: body
           description: "Претензионный блок по нарушениям поставки"
 
-        - pattern: "(?i)отгрузк[аи]"
+        - pattern: "(?i)\\bотгрузка\\b"
           weight: 0.56
           distinctiveness: medium
           context: any
           description: "Отгрузка как типовой операционный термин поставки"
 
+        - pattern: "(?i)\\bпоставщик\\b"
+          weight: 0.70
+          distinctiveness: medium
+          context: body
+          description: "Роль поставщика — присутствует почти во всех договорах поставки"
+
+        - pattern: "(?i)\\bпоставка\\b"
+          weight: 0.50
+          distinctiveness: medium
+          context: body
+          description: "Общий термин поставки в теле; вес снижен — встречается и в других типах"
+
+        - pattern: "(?i)технический\\s+регламент\\s+(?:таможенного\\s+союза|ТС|ТР\\s*ТС)"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "ТР ТС — требования к сертификации при B2B поставках"
+
+        - pattern: "(?i)\\bсертификат\\s+соответствия\\b|\\bдекларация\\s+о\\s+соответствии\\b"
+          weight: 0.60
+          distinctiveness: medium
+          context: any
+          description: "Сертификат/декларация соответствия — типичный документ B2B поставки"
+
+        - pattern: "(?i)\\bТТН\\b|товарно-транспортная\\s+накладная"
+          weight: 0.58
+          distinctiveness: medium
+          context: any
+          description: "ТТН — сопроводительный документ, характерный для поставки с перевозкой"
+
       low:
-        - pattern: "(?i)самовывоз"
+        - pattern: "(?i)\\bсамовывоз\\b"
           weight: 0.30
           distinctiveness: low
           context: any
           description: "Фоновый логистический маркер исполнения"
 
-        - pattern: "(?i)выборк[аи]\\s+товар[ао]в?"
+        - pattern: "(?i)выборка\\s+товаров?"
           weight: 0.32
           distinctiveness: low
           context: any
           description: "Выборка товара как слабый признак поставочного режима"
 
-        - pattern: "(?i)доставк[аи]"
+        - pattern: "(?i)\\bдоставка\\b"
           weight: 0.28
           distinctiveness: low
           context: any
           description: "Общий термин доставки без высокой уникальности"
 
-        - pattern: "(?i)транспортн[а-я\\s]+расход[ыов]"
+        - pattern: "(?i)транспортные\\s+расходы"
           weight: 0.26
           distinctiveness: low
           context: any
           description: "Транспортные расходы как сопутствующий маркер поставки"
 
-        - pattern: "(?i)упаковк[аи]"
+        - pattern: "(?i)\\bупаковка\\b"
           weight: 0.24
           distinctiveness: low
           context: any
           description: "Условия упаковки как вспомогательный признак"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      # Розничная купля-продажа (contract_1.2_retail_sale)
-      - pattern: "(?i)договор[\\s\\n\\r]+розничн[а-я\\s]*купл[иы]_?продаж[ьи]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+розничной\\s+купли-?продажи\\b"
         severity: hard
         weight: -1.0
         description: "Прямое указание на розничную куплю-продажу, а не B2B-поставку"
 
-      - pattern: "(?i)розничн[а-я\\s]*торговл[яи]"
+      - pattern: "(?i)розничная\\s+торговля"
         severity: hard
         weight: -1.0
         description: "Розничный торговый режим конфликтует с предпринимательской поставкой"
 
-      - pattern: "(?i)для\\s+личных,?\\s+семейных,?\\s+домашних\\s+или\\s+иных\\s+нужд"
+      - pattern: "(?i)для\\s+личных(?:,\\s*семейных)?(?:,\\s*домашних)?(?:,?\\s*или\\s+иных)?\\s+нужд"
         severity: hard
         weight: -1.0
         description: "Потребительская цель использования исключает квалификацию как поставку"
 
-      - pattern: "(?i)не\\s+связанн[а-я\\s]+с\\s+предпринимательской\\s+деятельност[ьюи]"
+      - pattern: "(?i)не\\s+связанных?\\s+с\\s+предпринимательской\\s+деятельностью"
         severity: hard
         weight: -1.0
-        description: "Прямое отрицание предпринимательской цели уводит документ в non-B2B режим"
+        description: "Прямое отрицание предпринимательской цели уводит в non-B2B режим"
 
-      - pattern: "(?i)гражданин-?потребител[ьяеи]"
+      - pattern: "(?i)гражданин-?потребитель"
         severity: hard
         weight: -1.0
-        description: "Статус потребителя указывает на розничную модель, а не на поставку"
+        description: "Статус потребителя указывает на розничную модель"
 
-      - pattern: "(?i)\\bпотребител[ьяеи]\\b"
+      - pattern: "(?i)\\bпотребитель\\b"
         severity: soft
         weight: -0.35
         description: "Термин потребителя снижает уверенность в B2B-поставке"
 
-      # Недвижимость и спецобъекты (contract_1.6 и др.)
-      - pattern: "(?i)недвижимост[ьи]"
+      - pattern: "(?i)\\bконтрактация\\b"
         severity: hard
         weight: -1.0
-        description: "Недвижимость относится к отдельному виду отчуждения имущества"
+        description: "Контрактация — отдельный вид § 5 гл. 30 ГК; закупка сельхозпродукции"
 
-      - pattern: "(?i)квартир[аеиу]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+контрактации\\b"
         severity: hard
         weight: -1.0
-        description: "Жилая недвижимость исключает квалификацию как договор поставки"
+        description: "Прямое наименование контрактации"
 
-      - pattern: "(?i)земельн[а-я\\s]+участ"
+      - pattern: "(?i)\\bнедвижимость\\b"
         severity: hard
         weight: -1.0
-        description: "Земельные участки относятся к сделкам с недвижимостью"
+        description: "Недвижимость относится к отдельному виду отчуждения"
 
-      # Услуги / подряд
-      - pattern: "(?i)договор[\\s\\n\\r]+оказани[яи]\\s+услуг"
+      - pattern: "(?i)\\bквартир[аеиу]\\b"
         severity: hard
         weight: -1.0
-        description: "Услуги являются иным договорным типом, не поставкой товаров"
+        description: "Жилая недвижимость исключает договор поставки"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+подряда"
+      - pattern: "(?i)земельный\\s+участок"
         severity: hard
         weight: -1.0
-        description: "Подряд конкурирует с поставкой как самостоятельная конструкция"
+        description: "Земельные участки — сделки с недвижимостью"
 
-      # Аренда / лизинг
-      - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+оказания\\s+услуг\\b"
         severity: hard
         weight: -1.0
-        description: "Аренда — передача во временное пользование, а не окончательное отчуждение товара"
+        description: "Услуги — иной договорный тип (гл. 39 ГК)"
 
-      - pattern: "(?i)лизингополучате[лья]|лизингодател[ья]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+подряда\\b"
         severity: hard
         weight: -1.0
-        description: "Лизинг формирует отдельный тип обязательства, отличный от поставки"
+        description: "Подряд — самостоятельная конструкция (гл. 37 ГК)"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+аренды\\b"
+        severity: hard
+        weight: -1.0
+        description: "Аренда — передача во временное пользование, не отчуждение товара"
+
+      - pattern: "(?i)лизингополучател[яьи]|лизингодател[яьи]"
+        severity: hard
+        weight: -1.0
+        description: "Лизинг — отдельный тип обязательства"
+
+      - pattern: "(?i)\\bэнергоснабжение\\b"
+        severity: hard
+        weight: -1.0
+        description: "Энергоснабжение — отдельный режим § 6 гл. 30 ГК"
+
+      - pattern: "(?i)\\bресурсоснабжение\\b"
+        severity: hard
+        weight: -1.0
+        description: "Ресурсоснабжение не является договором поставки"
         
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

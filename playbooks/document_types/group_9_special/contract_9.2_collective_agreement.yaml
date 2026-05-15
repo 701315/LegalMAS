@@ -46,7 +46,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.9
@@ -265,8 +264,6 @@ classification_runtime_v1:
           description: "Профсоюзные взносы"
 
     exclusions:
-      # ── Hard exclusions — индивидуальные трудовые договоры и надуровневые соглашения ──
-
       - pattern: "(?i)индивидуальн[ыо]й\\s+трудов[оа]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -297,7 +294,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Территориальное соглашение — не коллективный договор организации"
 
-      # ── Soft exclusions — соседние локальные акты и ГПХ ──
+      # ── Soft exclusions
 
       - pattern: "(?i)правил[аа]\\s+внутренн[ео]го\\s+трудов[оа]го\\s+распорядк[аа]"
         severity: soft

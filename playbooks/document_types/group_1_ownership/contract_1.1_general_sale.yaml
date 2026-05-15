@@ -12,7 +12,7 @@ description: |
   Тип предназначен для разовых и неспециализированных сделок с движимым имуществом,
   когда применяются общие положения о купле-продаже без преобладания специального режима.
 
-version: 4.0
+version: 4.1
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -45,22 +45,21 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
-    accept_threshold: 0.72
-    strong_signal_threshold: 0.86
-    ambiguity_margin: 0.20
+    accept_threshold: 0.82
+    strong_signal_threshold: 0.90
+    ambiguity_margin: 0.22
     input_quality_weight: 1.0
 
   rules:
 
     filename_patterns:
-      - "(?i)\\bкупл[яи]_?продаж[аи]\\b"
-      - "(?i)\\bдоговор[\\s_.-]*купл[яи]_?продаж[аи]\\b"
+      - "(?i)\\bкупли-?продажи\\b"
+      - "(?i)\\bдоговор[\\s_.-]*купли-?продажи\\b"
       - "(?i)\\bsale[\\s_.-]*agreement\\b"
       - "(?i)\\bpurchase[\\s_.-]*agreement\\b"
       - "(?i)\\bgeneral[\\s_.-]*sale\\b"
-      - "(?i)догов[оа]р[\\s_.-]*продаж[аи](?!.*(поставк|розничн|недвижимост|аренд|лизинг))"
+      - "(?i)договор[\\s_.-]*продажи(?!.*(поставк|розничн|недвижимост|аренд|лизинг))"
 
     folder_patterns:
       - "(?i)sale"
@@ -72,62 +71,115 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ─
-        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купл[иы]_?продаж[аи]\\b"
+        - pattern: "(?i)^\\s*договор[\\s\\n\\r]+купли-?продажи\\s*$"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Голое название без указания предмета — классический general sale"
+
+        - pattern: "(?i)^\\s*договор[\\s\\n\\r]+купли-?продажи\\s+товар[ао]\\s*$"
+          weight: 1.0
+          distinctiveness: high
+          context: header
+          description: "Договор купли-продажи товара — типовая формулировка general sale"
+
+        - pattern: "(?i)^\\s*договор[\\s\\n\\r]+купли-?продажи\\s+имуществ[ао]\\s*$"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Договор купли-продажи имущества — движимое, не недвижимость"
+
+        - pattern: "(?i)^\\s*договор[\\s\\n\\r]+купли-?продажи\\s+движим[а-я\\s]+имуществ[ао]\\s*$"
+          weight: 0.98
+          distinctiveness: high
+          context: header
+          description: "Явное указание на движимое имущество в заголовке — сильнейший маркер"
+
+        - pattern: "(?i)^\\s*соглашение[\\s\\n\\r]+о\\s+продаже\\s+имуществ[ао]\\s*$"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Соглашение о продаже имущества"
+
+        - pattern: "(?i)^\\s*sale\\s+and\\s+purchase\\s+agreement\\s*$"
           weight: 0.9
           distinctiveness: high
           context: header
-          description: "Базовое название договора купли-продажи"
+          description: "Общая English-форма SPA без уточнения предмета"
 
-        - pattern: "(?i)\\bsale\\s+agreement\\b"
-          weight: 0.8
-          distinctiveness: medium
+        - pattern: "(?i)^\\s*sale\\s+agreement\\s*$"
+          weight: 0.85
+          distinctiveness: high
           context: header
-          description: "Англоязычная общая форма sale agreement"
+          description: "Простая English-форма sale agreement"
 
-        - pattern: "(?i)\\bpurchase\\s+agreement\\b"
-          weight: 0.8
-          distinctiveness: medium
+        - pattern: "(?i)^\\s*purchase\\s+agreement\\s*$"
+          weight: 0.85
+          distinctiveness: high
           context: header
-          description: "Англоязычная общая форма purchase agreement"
+          description: "Простая English-форма purchase agreement"
 
         - pattern: "(?i)передает\\s+в\\s+собственност[ьи]"
           weight: 0.75
           distinctiveness: medium
-          context: any
+          context: body
           description: "Ключевая формула возмездной передачи права собственности"
 
         - pattern: "(?i)\\bдвижим[оа]е?\\s+имущество\\b"
           weight: 0.75
           distinctiveness: high
           context: any
-          description: "Прямое указание на движимое имущество как предмет продажи"
+          description: "Прямое указание на движимое имущество — отсекает недвижимость"
 
         - pattern: "(?i)цена\\s+товар[ао]"
-          weight: 0.7
+          weight: 0.65
           distinctiveness: medium
-          context: any
+          context: body
           description: "Признак товарной купли-продажи"
 
         - pattern: "(?i)количество\\s+товар[ао]"
-          weight: 0.7
+          weight: 0.65
           distinctiveness: medium
-          context: any
+          context: body
           description: "Количественная спецификация товара"
 
         - pattern: "(?i)наименовани[ея]\\s+товар[ао]"
-          weight: 0.7
+          weight: 0.65
           distinctiveness: medium
-          context: any
+          context: body
           description: "Идентификация товара как предмета договора"
 
-        # legacy high, сохранённые без структуризации
-        - "(?i)\\bпродавец\\b"
-        - "(?i)\\bпокупател[ьяеи]\\b"
-        - "(?i)\\bимуществ[оа]\\b"
-        - "(?i)\\bтовар\\b"
-
       medium:
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купли-?продажи\\b"
+          weight: 0.55
+          distinctiveness: medium
+          context: header
+          description: "Общая формула — присутствует во всех специализированных типах, здесь fallback"
+
+        - pattern: "(?i)\\bпродавец\\b"
+          weight: 0.40
+          distinctiveness: low
+          context: body
+          description: "Продавец — универсальная роль, есть во всех купле-продажах"
+
+        - pattern: "(?i)\\bпокупател[ьяеи]\\b"
+          weight: 0.40
+          distinctiveness: low
+          context: body
+          description: "Покупатель — аналогично продавцу"
+
+        - pattern: "(?i)\\bтовар\\b"
+          weight: 0.35
+          distinctiveness: low
+          context: body
+          description: "Товар — очень общий термин"
+
+        - pattern: "(?i)\\bимуществ[оа]\\b"
+          weight: 0.30
+          distinctiveness: low
+          context: body
+          description: "Имущество — универсальный термин"
+
         - pattern: "(?i)ассортимент"
           weight: 0.45
           distinctiveness: low
@@ -147,37 +199,37 @@ classification_runtime_v1:
           description: "Условия тары и упаковки"
 
         - pattern: "(?i)гарантийный\\s+срок"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Гарантийные условия по товару"
 
         - pattern: "(?i)скрыт[аые]\\s+недостатк"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Регулирование скрытых недостатков"
 
-        - pattern: "(?i)товарн[а-я\\s]+накладн(ая|ые|ых)"
+        - pattern: "(?i)товарн[а-я\\s]+накладн(?:ая|ые|ых)"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Товарная накладная как типичный документ передачи"
 
         - pattern: "(?i)акт[\\s\\n\\r]+при[её]ма-?передач[ии]"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Акт приёма-передачи"
 
         - pattern: "(?i)доставк[аи]"
-          weight: 0.4
+          weight: 0.40
           distinctiveness: low
           context: any
           description: "Условие доставки"
 
         - pattern: "(?i)самовывоз"
-          weight: 0.4
+          weight: 0.40
           distinctiveness: low
           context: any
           description: "Самовывоз как способ передачи товара"
@@ -189,12 +241,12 @@ classification_runtime_v1:
           description: "Условие о предоплате"
 
         - pattern: "(?i)переход\\s+риска"
-          weight: 0.5
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Переход риска случайной гибели"
 
-        - pattern: "(?i)переход\\s+права\\s+собственност[ьи]"
+        - pattern: "(?i)переход\\s+права\\s+собственност[иьи]"
           weight: 0.55
           distinctiveness: medium
           context: any
@@ -202,13 +254,13 @@ classification_runtime_v1:
 
       low:
         - pattern: "(?i)спецификаци[яяеиий]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Спецификация товара"
 
         - pattern: "(?i)приемк[аи]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Общая лексика о приёмке"
@@ -220,7 +272,7 @@ classification_runtime_v1:
           description: "Претензии по качеству"
 
         - pattern: "(?i)неустойк[аи]"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Общий санкционный блок"
@@ -238,94 +290,67 @@ classification_runtime_v1:
           description: "Сертификат качества"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      # Розничная купля-продажа (contract_1.2)
-      - pattern: "(?i)розничн[а-я\\s]+купл[иы]_?продаж"
+      - pattern: "(?i)розничн[а-я\\s]+купли-?продаж"
         severity: hard
         weight: -1.0
         description: "Розничная купля-продажа — отдельный специальный тип"
 
-      - pattern: "(?i)для\\s+(личных|семейных|домашних|бытовых)\\s+нужд"
+      - pattern: "(?i)для\\s+(?:личных|семейных|домашних|бытовых)\\s+нужд"
         severity: hard
         weight: -1.0
-        description: "Потребительская цель использования"
+        description: "Потребительская цель — признак розницы (ст. 492 ГК)"
 
       - pattern: "(?i)гражданин-?потребитель|\\bпотребитель\\b"
         severity: hard
         weight: -1.0
         description: "Потребительский характер сделки"
 
-      - pattern: "(?i)публичн[а-я\\s]+оферт"
-        severity: soft
-        weight: -0.25
-        description: "Публичная оферта часто указывает на розницу, но не всегда"
-
-      # Поставка (contract_1.3)
-      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставк[иы]\\b"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\b"
         severity: hard
         weight: -1.0
         description: "Поставка — самостоятельный тип договора"
 
-      - pattern: "(?i)поставщик"
+      - pattern: "(?i)\\bпоставщик\\b"
         severity: hard
         weight: -1.0
-        description: "Роль поставщика указывает на договор поставки"
+        description: "Роль поставщика — маркер договора поставки"
 
-      - pattern: "(?i)недопоставк[аи]"
-        severity: soft
-        weight: -0.35
-        description: "Терминология поставки"
-
-      - pattern: "(?i)восполнени[ея]"
-        severity: soft
-        weight: -0.25
-        description: "Может быть связано с недопоставкой"
-
-      - pattern: "(?i)поставк[аи]\\s+партиями"
+      - pattern: "(?i)поставка\\s+партиями"
         severity: hard
         weight: -1.0
-        description: "Поставка партиями типична для договора поставки"
+        description: "Поставка партиями — признак поставки, не general sale"
 
       - pattern: "(?i)график\\s+поставок"
         severity: hard
         weight: -1.0
         description: "График поставок — сильный маркер поставки"
 
-      # Контрактация (contract_1.4)
-      - pattern: "(?i)контрактаци[яи]"
+      - pattern: "(?i)\\bконтрактаци[яи]\\b"
         severity: hard
         weight: -1.0
-        description: "Контрактация — отдельный тип"
+        description: "Контрактация — отдельный тип (§ 5 гл. 30 ГК)"
 
-      - pattern: "(?i)сельскохозяйственн[а-я\\s]+продукци"
-        severity: soft
-        weight: -0.3
-        description: "Может указывать на контрактацию"
-
-      # Энергоснабжение (contract_1.5)
-      - pattern: "(?i)энергоснабжен"
+      - pattern: "(?i)\\bэнергоснабжен"
         severity: hard
         weight: -1.0
-        description: "Энергоснабжение — отдельный договорный режим"
+        description: "Энергоснабжение — отдельный договорный режим (§ 6 гл. 30 ГК)"
 
       - pattern: "(?i)потреблени[ея]\\s+электроэнерг"
         severity: hard
         weight: -1.0
         description: "Прямой энергетический контекст"
 
-      - pattern: "(?i)ресурсоснабжени[ея]"
+      - pattern: "(?i)\\bресурсоснабжени[ея]\\b"
         severity: hard
         weight: -1.0
         description: "Ресурсоснабжение — не general sale"
 
-      # Недвижимость (contract_1.6)
-      - pattern: "(?i)недвижимост[ьи]"
+      - pattern: "(?i)\\bнедвижимост[ьи]\\b"
         severity: hard
         weight: -1.0
-        description: "Недвижимость — специальный тип купли-продажи"
+        description: "Недвижимость — специальный тип купли-продажи (§ 7 гл. 30 ГК)"
 
-      - pattern: "(?i)квартир[аеиу]"
+      - pattern: "(?i)\\bквартир[аеиу]\\b"
         severity: hard
         weight: -1.0
         description: "Квартира как объект недвижимости"
@@ -340,26 +365,20 @@ classification_runtime_v1:
         weight: -1.0
         description: "Земельный участок"
 
-      - pattern: "(?i)(здани[ея]|сооружени[ея])"
-        severity: soft
-        weight: -0.25
-        description: "Здание/сооружение часто указывает на недвижимость, но требует контекста"
-
       - pattern: "(?i)ЕГРН|Росреестр|кадастр[а-я]"
         severity: hard
         weight: -1.0
-        description: "Реестровые маркеры недвижимости"
+        description: "Реестровые маркеры недвижимости — однозначно исключают general sale"
 
-      - pattern: "(?i)государственн[а-я\\s]+регистраци"
-        severity: soft
-        weight: -0.25
-        description: "Может указывать на недвижимость или иные регистрационные режимы"
-
-      # Мена (contract_1.7)
-      - pattern: "(?i)договор[\\s\\n\\r]+мен[ыа]"
+      - pattern: "(?i)государственн[а-я\\s]+регистраци[яи]\\s+прав"
         severity: hard
         weight: -1.0
-        description: "Мена — самостоятельный договор"
+        description: "Регистрация права собственности — обязательна только для недвижимости"
+
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+мены\\b"
+        severity: hard
+        weight: -1.0
+        description: "Мена — самостоятельный договор (ст. 567 ГК)"
 
       - pattern: "(?i)бартерн[а-я\\s]+договор"
         severity: hard
@@ -371,128 +390,157 @@ classification_runtime_v1:
         weight: -1.0
         description: "Прямой признак мены"
 
-      # Дарение (contract_1.8)
-      - pattern: "(?i)договор[\\s\\n\\r]+дарени[яи]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+дарени[яи]\\b"
         severity: hard
         weight: -1.0
-        description: "Дарение — безвозмездная передача"
+        description: "Дарение — безвозмездная передача (ст. 572 ГК)"
 
       - pattern: "(?i)безвозмездн[а-я\\s]+передач[аи]"
         severity: hard
         weight: -1.0
         description: "Безвозмездность несовместима с куплей-продажей"
 
-      # Рента (contract_1.9)
-      - pattern: "(?i)договор[\\s\\n\\r]+рент[ыа]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+ренты\\b"
         severity: hard
         weight: -1.0
-        description: "Рента — самостоятельный тип"
+        description: "Рента — самостоятельный тип (гл. 33 ГК)"
 
       - pattern: "(?i)пожизненн[а-я\\s]+содержани[ея]"
         severity: hard
         weight: -1.0
         description: "Пожизненное содержание с иждивением"
 
-      # Цессия / уступка требования (contract_1.10)
-      - pattern: "(?i)договор[\\s\\n\\r]+цессии"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+цессии\\b"
         severity: hard
         weight: -1.0
-        description: "Цессия — уступка права требования, не продажа вещи"
+        description: "Цессия — уступка права требования, не продажа вещи (ст. 382 ГК)"
 
-      - pattern: "(?i)уступк[аи]\\s+прав[ао]\\s+требовани[яи]"
+      - pattern: "(?i)уступк[аи]\\s+прав[аоу]\\s+требовани[яи]"
         severity: hard
         weight: -1.0
         description: "Уступка прав требования"
 
-      # Продажа корпоративных прав (contract_1.11)
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[аи]\\s+дол[еи]\\s+участия"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купли-?продажи\\s+доли\\s+участия\\b"
         severity: hard
         weight: -1.0
         description: "Продажа доли участия — отдельный корпоративный тип"
 
-      - pattern: "(?i)продажа\\s+дол[еи]\\s+в\\s+уставном\\s+капитал"
+      - pattern: "(?i)продажа\\s+доли\\s+в\\s+уставном\\s+капитал"
         severity: hard
         weight: -1.0
         description: "Продажа доли в уставном капитале"
 
-      - pattern: "(?i)доля\\s+в\\s+ООО"
+      - pattern: "(?i)\\bдоля\\s+в\\s+ООО\\b"
         severity: hard
         weight: -1.0
         description: "Корпоративная доля в ООО"
 
-      - pattern: "(?i)акци[яи]\\b"
-        severity: soft
-        weight: -0.3
-        description: "Акции чаще указывают на shares sale, но требуют контекста"
+      - pattern: "(?i)share\\s+purchase\\s+agreement|share\\s+sale\\s+agreement"
+        severity: hard
+        weight: -1.0
+        description: "Английская форма SPA для акций/долей"
 
-      # Отступное (contract_1.12)
       - pattern: "(?i)соглашени[ея]\\s+об\\s+отступн"
         severity: hard
         weight: -1.0
-        description: "Отступное — иная правовая конструкция"
+        description: "Отступное — иная правовая конструкция (ст. 409 ГК)"
 
       - pattern: "(?i)исполнени[ея]\\s+обязательств\\s+отступн"
         severity: hard
         weight: -1.0
         description: "Исполнение обязательства через отступное"
 
-      # Продажа предприятия (contract_1.13)
-      - pattern: "(?i)договор[\\s\\n\\r]+продаж[аи]\\s+предприяти[яи]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+продажи\\s+предприяти[яи]\\b"
         severity: hard
         weight: -1.0
-        description: "Продажа предприятия — отдельный тип"
+        description: "Продажа предприятия — отдельный тип (§ 8 гл. 30 ГК)"
 
       - pattern: "(?i)предприятие\\s+как\\s+имущественн[а-я\\s]+комплекс"
         severity: hard
         weight: -1.0
         description: "Имущественный комплекс предприятия"
 
-      # Аренда / лизинг
-      - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+аренды\\b"
         severity: hard
         weight: -1.0
         description: "Аренда — не передача права собственности"
 
-      - pattern: "(?i)арендатор|арендодатель"
+      - pattern: "(?i)\\bарендатор\\b|\\bарендодатель\\b"
         severity: hard
         weight: -1.0
         description: "Роли сторон арендного договора"
 
-      - pattern: "(?i)лизингополучате[лья]|лизингодател[ья]"
+      - pattern: "(?i)лизингополучател[яьи]|лизингодател[яьи]"
         severity: hard
         weight: -1.0
         description: "Лизинговая конструкция"
 
-      - pattern: "(?i)lease\\s+agreement"
+      - pattern: "(?i)\\blease\\s+agreement\\b"
         severity: hard
         weight: -1.0
         description: "Англоязычный признак аренды/лизинга"
 
-      # Хранение / перевозка / экспедиция
-      - pattern: "(?i)договор[\\s\\n\\r]+хранен"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+хранен"
         severity: hard
         weight: -1.0
-        description: "Хранение — иной договорный тип"
+        description: "Хранение — иной договорный тип (гл. 47 ГК)"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+перевоз"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+перевоз"
         severity: hard
         weight: -1.0
-        description: "Перевозка — иной договорный тип"
+        description: "Перевозка — иной договорный тип (гл. 40 ГК)"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+транспортн[а-я\\s]+экспедиц"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+транспортн[а-я\\s]+экспедиц"
         severity: hard
         weight: -1.0
-        description: "Транспортная экспедиция"
+        description: "Транспортная экспедиция (гл. 41 ГК)"
 
-      - pattern: "(?i)хранител[ья]"
+      - pattern: "(?i)\\bхранитель\\b"
         severity: hard
         weight: -1.0
         description: "Роль хранителя"
 
-      - pattern: "(?i)перевозчик|экспедитор"
+      - pattern: "(?i)\\bперевозчик\\b|\\bэкспедитор\\b"
         severity: hard
         weight: -1.0
         description: "Роли перевозки/экспедиции"
+
+      # ── Soft exclusions
+
+      - pattern: "(?i)\\bакци[яи]\\b"
+        severity: soft
+        weight: -0.30
+        description: "Акции чаще указывают на shares sale, но требуют контекста"
+
+      - pattern: "(?i)сельскохозяйственн[а-я\\s]+продукци"
+        severity: soft
+        weight: -0.30
+        description: "Может указывать на контрактацию (ст. 535 ГК)"
+
+      - pattern: "(?i)недопоставк[аи]"
+        severity: soft
+        weight: -0.35
+        description: "Терминология поставки"
+
+      - pattern: "(?i)\\bвосполнени[ея]\\b"
+        severity: soft
+        weight: -0.25
+        description: "Может быть связано с восполнением недопоставки"
+
+      - pattern: "(?i)поставк[аи]\\s+товар[овы]"
+        severity: soft
+        weight: -0.30
+        description: "Поставка товаров — ближе к contract_1.3_goods_supply"
+
+      - pattern: "(?i)публичн[а-я\\s]+оферт"
+        severity: soft
+        weight: -0.25
+        description: "Публичная оферта часто указывает на розницу, но не всегда"
+
+      - pattern: "(?i)(?:здани[ея]|сооружени[ея])"
+        severity: soft
+        weight: -0.25
+        description: "Здание/сооружение часто указывает на недвижимость, но требует контекста"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

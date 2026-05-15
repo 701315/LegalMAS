@@ -43,7 +43,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.9
@@ -122,11 +121,11 @@ classification_runtime_v1:
           context: any
           description: "Установление режима имущества супругов"
 
-        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]"
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]\\s+брачного\\s+договора"
           weight: 0.9
           distinctiveness: high
           context: any
-          description: "Обязательное нотариальное удостоверение брачного договора"
+          description: "Нотариальное удостоверение брачного договора — ст. 41 СК РФ"
 
         - pattern: "(?i)ст\\.?\\s*40\\s+ск\\s+рф"
           weight: 0.9
@@ -207,6 +206,12 @@ classification_runtime_v1:
           context: any
           description: "Ссылка на правила изменения, расторжения и признания недействительным брачного договора"
 
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Нотариальное удостоверение — общий семейно-правовой маркер"
+
       low:
         - pattern: "(?i)семейн[ыо]е\\s+расход[ыо]"
           weight: 0.3
@@ -251,8 +256,6 @@ classification_runtime_v1:
           description: "Уведомление кредиторов о заключении/изменении брачного договора"
 
     exclusions:
-      # ── Hard exclusions — соседние семейно-правовые соглашения ──
-
       - pattern: "(?i)соглашени[ея]\\s+о\\s+раздел[ее]\\s+общ[ео]го\\s+имуществ[аа]\\s+супруг[оо]в"
         severity: hard
         weight: -1.0
@@ -273,7 +276,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Договор дарения между супругами — отдельная сделка, не брачный договор"
 
-      # ── Soft exclusions — уход в трудовые/ГПХ-отношения ──
+      # ── Soft exclusions
 
       - pattern: "(?i)индивидуальн[ыо]й\\s+трудов[оа]й\\s+договор"
         severity: soft

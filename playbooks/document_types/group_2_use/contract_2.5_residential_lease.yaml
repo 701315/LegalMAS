@@ -45,7 +45,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -68,8 +67,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / объекта ──
-
         - pattern: "(?i)договор\\s+найм[ауы]\\s+квартир[ыау]"
           weight: 1.0
           distinctiveness: high
@@ -129,10 +126,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Плата за наём — существенное условие договора"
-
-        # ── Оставшиеся legacy high ──
-        - "?(?i)квартир[ауы]"
-        - "(?i)вселени[еи]"
 
       medium:
         - pattern: "(?i)на[её]м\\s+жиль[яа]"
@@ -245,8 +238,6 @@ classification_runtime_v1:
           description: "Домашние животные — условие проживания, не уникальный маркер типа"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют жилой найм ──
-
       - pattern: "(?i)нежил[оаоеые]+\\s+помещени[ея]"
         severity: hard
         weight: -1.0
@@ -292,7 +283,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "ПАО как наниматель — коммерческая аренда, не жилищный найм"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)апартамент[ыоа]?"
         severity: soft

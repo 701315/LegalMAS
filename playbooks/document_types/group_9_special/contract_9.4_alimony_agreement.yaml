@@ -47,7 +47,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.9
@@ -132,11 +131,11 @@ classification_runtime_v1:
           context: any
           description: "Получатель алиментов как сторона соглашения"
 
-        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]"
-          weight: 0.9
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]\\s+соглашен[иеия]\\s+об\\s+уплат[еы]\\s+алимент[оо]в"
+          weight: 0.95
           distinctiveness: high
           context: any
-          description: "Обязательное нотариальное удостоверение алиментного соглашения"
+          description: "Нотариальное удостоверение алиментного соглашения — ст. 100 СК РФ"
 
         - pattern: "(?i)исполнительн[ыйое]\\s+лист"
           weight: 0.9
@@ -223,6 +222,12 @@ classification_runtime_v1:
           context: any
           description: "Статья 105 СК РФ об индексации алиментов"
 
+        - pattern: "(?i)нотариальн[оеое]\\s+удостоверен[иеия]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Обязательное нотариальное удостоверение алиментного соглашения"
+
       low:
         - pattern: "(?i)поряд[оа]к\\s+выплат[ыы]"
           weight: 0.3
@@ -267,8 +272,6 @@ classification_runtime_v1:
           description: "Дополнительные расходы на ребёнка (лечение, обучение и т.п.)"
 
     exclusions:
-      # ── Hard exclusions — судебные форматы взыскания и соседние семейные акты ──
-
       - pattern: "(?i)судебн[оа]е\\s+решени[ея]\\s+о\\s+взыскани[ии]\\s+алимент[оо]в"
         severity: hard
         weight: -1.0

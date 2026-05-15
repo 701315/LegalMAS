@@ -48,19 +48,18 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
-    accept_threshold: 0.80
+    accept_threshold: 0.82
     strong_signal_threshold: 0.88
-    ambiguity_margin: 0.18
+    ambiguity_margin: 0.16
     input_quality_weight: 1.0
 
   rules:
 
     filename_patterns:
-      - "(?i)дол[ьяи][_\\s-]*в[_\\s-]*ооо"
-      - "(?i)дол[ьяи].*ооо"
-      - "(?i)акци(я|и|он)"
+      - "(?i)дол[ьи][_\\s-]*в[_\\s-]*ооо"
+      - "(?i)дол[ьи].*ооо"
+      - "(?i)акци[йяия]"
       - "(?i)share[\\s_.-]*purchase"
       - "(?i)share[\\s_.-]*sale"
       - "(?i)share[\\s_.-]*deal"
@@ -80,13 +79,11 @@ classification_runtime_v1:
       - "(?i)shares?"
       - "(?i)equity"
       - "(?i)ооо"
-      - "(?i)акци(я|и|он)"
+      - "(?i)акци[йяия]"
 
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-
         - pattern: "(?i)^\\s*share\\s+purchase\\s+agreement"
           weight: 1.0
           distinctiveness: high
@@ -99,25 +96,25 @@ classification_runtime_v1:
           context: header
           description: "Англоязычный заголовок сделки с акциями"
 
-        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+ООО"
+        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+дол[ьи]\\s+в\\s+ООО"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное русскоязычное название договора купли-продажи доли в ООО"
 
-        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+отчужден[ияи]\\s+дол[иьи]\\s+в\\s+ООО"
+        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+отчужден[ияи]\\s+дол[ьи]\\s+в\\s+ООО"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Альтернативная формулировка отчуждения доли в ООО"
 
-        - pattern: "(?i)^[\\s\\t\\r\\n]*соглашен[иея]\\s+об\\s+отчужден[иии]\\s+дол[иьи]\\s+в\\s+ООО"
+        - pattern: "(?i)^[\\s\\t\\r\\n]*соглашен[иея]\\s+об\\s+отчужден[иии]\\s+дол[ьи]\\s+в\\s+ООО"
           weight: 0.9
           distinctiveness: high
           context: header
           description: "Соглашение об отчуждении доли в ООО"
 
-        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+акц[ийи]"
+        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+акци[йяия]"
           weight: 1.0
           distinctiveness: high
           context: header
@@ -129,7 +126,7 @@ classification_runtime_v1:
           context: header
           description: "Общее название продажи корпоративных прав"
 
-        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+продаж[ьи]\\s+пакет[ао]\\s+акц[ийи]"
+        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+продаж[ьи]\\s+пакет[ао]\\s+акци[йяия]"
           weight: 0.95
           distinctiveness: high
           context: header
@@ -141,7 +138,7 @@ classification_runtime_v1:
           context: header
           description: "Продажа контрольного пакета акций"
 
-        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+участ[никаков]\\s+в\\s+уставн[омым]\\s+капитал[еия]"
+        - pattern: "(?i)^[\\s\\t\\r\\n]*договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+дол[ьи]\\s+участ[никаков]\\s+в\\s+уставн[омым]\\s+капитал[еия]"
           weight: 0.95
           distinctiveness: high
           context: header
@@ -177,25 +174,25 @@ classification_runtime_v1:
           context: any
           description: "Явное упоминание корпоративных прав"
 
-        - pattern: "(?i)бездокументарн[а-я\\s]+ценн[а-я\\s]+бумаг[аи]"
+        - pattern: "(?i)бездокументарн[ыеых]\\s+ценн[ыеых]\\s+бумаг[аи]"
           weight: 0.75
           distinctiveness: high
           context: any
           description: "Термин характерен для акций/ценных бумаг"
 
-        - pattern: "(?i)эмитент[а-я]*"
+        - pattern: "(?i)\\bэмитент[аеиуыюя]?\\b"
           weight: 0.75
           distinctiveness: high
           context: any
           description: "Эмитент — типичный термин акционерных сделок"
 
-        - pattern: "(?i)участник[а-я]*\\s+общества\\s+с\\s+ограниченн[ойыми]\\s+ответственност[ьюи]"
+        - pattern: "(?i)участник[аеиуы]?\\s+общества\\s+с\\s+ограниченн(?:ой|ыми)\\s+ответственност[ьюи]"
           weight: 0.7
           distinctiveness: high
           context: any
           description: "Участник ООО (в контексте продажи доли)"
 
-        - pattern: "(?i)акционерн[оеый]\\s+общество"
+        - pattern: "(?i)акционерн(?:ое|ый)\\s+общество"
           weight: 0.7
           distinctiveness: high
           context: any
@@ -213,49 +210,110 @@ classification_runtime_v1:
           context: any
           description: "Уставный капитал ООО как контекст долевой сделки"
 
-        - pattern: "(?i)акц[ияийи]"
+        - pattern: "(?i)акци[йяия]"
           weight: 0.7
           distinctiveness: medium
           context: any
           description: "Общее упоминание акций (часто в связке с другими маркерами)"
 
-        # ── Хвост legacy high без структуры (используют дефолтные параметры) ───
-        - "(?i)share\\s+purchase\\s+agreement"
-        - "(?i)share\\s+deal"
-        - "(?i)sale\\s+and\\s+purchase\\s+of\\s+shares?"
-        - "(?i)корпоративн[ыеых]\\s+прав[ао]"
-        - "(?i)акц[ияийи]"
-        - "(?i)бездокументарн[а-я\\s]+ценн[а-я\\s]+бумаг[аи]"
-        - "(?i)эмитент[а-я]*"
-        - "(?i)участник[а-я]*\\s+общества\\s+с\\s+ограниченн[ойыми]\\s+ответственност[ьюи]"
-        - "(?i)акционерн[оеый]\\s+общество"
+        - pattern: "(?i)share\\s+purchase\\s+agreement"
+          weight: 0.82
+          distinctiveness: high
+          context: body
+          description: "Упоминание SPA в теле документа (отличается от header-паттерна)"
+
+        - pattern: "(?i)share\\s+deal"
+          weight: 0.78
+          distinctiveness: high
+          context: body
+          description: "Термин share deal в тексте сделки"
+
+        - pattern: "(?i)sale\\s+and\\s+purchase\\s+of\\s+shares?"
+          weight: 0.80
+          distinctiveness: high
+          context: body
+          description: "Англоязычная формулировка в разделе предмета/условий"
+
+        - pattern: "(?i)корпоративн[ыеых]\\s+прав[ао]"
+          weight: 0.76
+          distinctiveness: high
+          context: body
+          description: "Корпоративные права в тексте обязательств или заверений"
+
+        - pattern: "(?i)акци[йяия]"
+          weight: 0.72
+          distinctiveness: medium
+          context: body
+          description: "Базовый термин акции в тексте договора"
+
+        - pattern: "(?i)бездокументарн[ыеых]\\s+ценн[ыеых]\\s+бумаг[аи]"
+          weight: 0.74
+          distinctiveness: high
+          context: body
+          description: "Указание формы выпуска акций в условиях перехода прав"
+
+        - pattern: "(?i)\\bэмитент[аеиуыюя]?\\b"
+          weight: 0.73
+          distinctiveness: high
+          context: body
+          description: "Роль эмитента в контексте продажи акций"
+
+        - pattern: "(?i)участник[аеиуы]?\\s+общества\\s+с\\s+ограниченн(?:ой|ыми)\\s+ответственност[ьюи]"
+          weight: 0.68
+          distinctiveness: medium
+          context: body
+          description: "Статус участника ООО в преамбуле или предмете"
+
+        - pattern: "(?i)акционерн(?:ое|ый)\\s+общество"
+          weight: 0.70
+          distinctiveness: medium
+          context: body
+          description: "Форма АО в тексте договора"
+
+        - pattern: "(?i)федеральн[ыи]й\\s+закон\\s+[-]?\\s*14\\s*«?об\\s*ооо»?"
+          weight: 0.89
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ФЗ-14 «Об ООО» — нормативная база долевых сделок"
+
+        - pattern: "(?i)федеральн[ыи]й\\s+закон\\s+[-]?\\s*208\\s*«?об\\s*акционерных\\s*обществах»?"
+          weight: 0.89
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ФЗ-208 «Об АО» — нормативная база продажи акций"
+
+        - pattern: "(?i)федеральн[ыи]й\\s+закон\\s+[-]?\\s*39\\s*«?о\\s*рынке\\s*ценных\\s*бумаг»?"
+          weight: 0.86
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ФЗ-39 «О рынке ценных бумаг»"
 
       medium:
-        - pattern: "(?i)общество\\s+с\\s+ограниченн[ойыми]\\s+ответственност[ьюи]"
+        - pattern: "(?i)общество\\s+с\\s+ограниченн(?:ой|ыми)\\s+ответственност[ьюи]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "ООО как типовая форма продавца/цели"
 
-        - pattern: "(?i)акционерн[оеый]\\s+общество"
+        - pattern: "(?i)акционерн(?:ое|ый)\\s+общество"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "АО как эмитент акций"
 
-        - pattern: "(?i)преимущественн[оеая]\\s+право\\s+покупк[ии]"
+        - pattern: "(?i)преимущественн(?:ое|ая)\\s+право\\s+покупк[ии]"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Преимущественное право покупки долей/акций"
 
-        - pattern: "(?i)нотариальн[оеая]\\s+удостоверен[иие]"
+        - pattern: "(?i)нотариальн(?:ое|ая)\\s+удостоверен[иие]"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Нотариальная форма характерна для долей в ООО"
 
-        - pattern: "(?i)реестродержател[ьяеи]"
+        - pattern: "(?i)реестродержател[яеиы]?"
           weight: 0.6
           distinctiveness: medium
           context: any
@@ -327,6 +385,30 @@ classification_runtime_v1:
           context: any
           description: "Реестр участников ООО"
 
+        - pattern: "(?i)заверен[ияии]\\s+об\\s+обстоятельств[аеах]"
+          weight: 0.58
+          distinctiveness: medium
+          context: body
+          description: "Reps & warranties — специфичный для M&A блок заверений"
+
+        - pattern: "(?i)reps\\s+and\\s+warranties"
+          weight: 0.56
+          distinctiveness: medium
+          context: any
+          description: "Англоязычный термин заверений об обстоятельствах"
+
+        - pattern: "(?i)антимонопольн(?:ое|ая)\\s+согласован[иеи]"
+          weight: 0.54
+          distinctiveness: medium
+          context: body
+          description: "Условие о получении антимонопольного одобрения (ФЗ-135)"
+
+        - pattern: "(?i)санкционн[ыеых]\\s+ограничен[ияи]"
+          weight: 0.53
+          distinctiveness: medium
+          context: body
+          description: "Санкционные оговорки, характерные для современных M&A"
+
       low:
         - pattern: "(?i)выписк[аеи]\\s+из\\s+ЕГРЮЛ"
           weight: 0.3
@@ -340,7 +422,7 @@ classification_runtime_v1:
           context: any
           description: "Дивиденды — косвенный признак владения акциями/долями"
 
-        - pattern: "(?i)участник[а-я]*\\s+общества"
+        - pattern: "(?i)участник[аеиуы]?\\s+общества"
           weight: 0.25
           distinctiveness: low
           context: any
@@ -352,7 +434,7 @@ classification_runtime_v1:
           context: any
           description: "Акционер как слабый дополнительный сигнал"
 
-        - pattern: "(?i)пакет\\s+акц[ийи]"
+        - pattern: "(?i)пакет\\s+акци[йяия]"
           weight: 0.3
           distinctiveness: low
           context: any
@@ -362,31 +444,40 @@ classification_runtime_v1:
           weight: 0.3
           distinctiveness: low
           context: any
+          description: "Указание на контроль без явной формулы купли-продажи"
 
         - pattern: "(?i)миноритарн[ыйое]\\s+пакет"
           weight: 0.3
           distinctiveness: low
           context: any
+          description: "Миноритарный пакет как слабый сигнал"
 
         - pattern: "(?i)номинальн[аяое]\\s+стоимост[ььи]"
           weight: 0.3
           distinctiveness: low
           context: any
+          description: "Номинальная стоимость как технический параметр"
 
         - pattern: "(?i)государственн[ыйое]\\s+регистрационн[ыйое]\\s+номер\\s+выпуск[ао]"
           weight: 0.3
           distinctiveness: low
           context: any
+          description: "Идентификатор выпуска ценных бумаг"
 
         - pattern: "(?i)лицев[ойые]\\s+сч[её]т"
           weight: 0.25
           distinctiveness: low
           context: any
+          description: "Лицевой счёт в реестре/депозитарии"
+
+        - pattern: "(?i)расчётн[аяое]\\s+механик[аи]"
+          weight: 0.28
+          distinctiveness: low
+          context: body
+          description: "Описание расчётной механики закрытия сделки"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+недвижимост[иьи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+недвижимост[иьи]"
         severity: hard
         weight: -1.0
         description: "Real estate sale — другой тип (contract_1.6_real_estate)"
@@ -396,62 +487,62 @@ classification_runtime_v1:
         weight: -1.0
         description: "Real estate SPA, не продажа долей/акций"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+объект[овы]\\s+недвижимост[иьи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+объект[овы]\\s+недвижимост[иьи]"
         severity: hard
         weight: -1.0
         description: "Продажа объекта недвижимости"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+квартир"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+квартир"
         severity: hard
         weight: -1.0
         description: "Продажа квартиры (real estate, не акции/доли)"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+жил[а-я\\s]*дом"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+жил[а-я\\s]*дом"
         severity: hard
         weight: -1.0
         description: "Продажа жилого дома"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+нежил[а-я\\s]*помещен"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+нежил[а-я\\s]*помещен"
         severity: hard
         weight: -1.0
         description: "Продажа нежилого помещения"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+здани[яия]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+здани[яия]"
         severity: hard
         weight: -1.0
         description: "Продажа здания"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+сооружен[ияи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+сооружен[ияи]"
         severity: hard
         weight: -1.0
         description: "Продажа сооружения"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+земельн[а-я\\s]*участ"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+земельн[а-я\\s]*участ"
         severity: hard
         weight: -1.0
         description: "Продажа земельного участка"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+прав[еа]\\s+собственн[оа]ст[иьи]\\s+на\\s+недвижимост"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+дол[ьи]\\s+в\\s+прав[еа]\\s+собственн[оа]ст[иьи]\\s+на\\s+недвижимост"
         severity: hard
         weight: -1.0
         description: "Доля в праве собственности на недвижимость"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+собственн[оа]ст[иьи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+дол[ьи]\\s+в\\s+собственн[оа]ст[иьи]"
         severity: hard
         weight: -1.0
         description: "Общая долевая собственность на имущество, не корпоративные права"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+общ[ео]\\s+имуществ[ао]\\s+в\\s+многоквартирн[омой]\\s+дом[еуа]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+общ[ео]\\s+имуществ[ао]\\s+в\\s+многоквартирн[омой]\\s+дом[еуа]"
         severity: hard
         weight: -1.0
         description: "Общее имущество в МКД — недвижимость"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+залог[аа]\\s+дол[иьи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+залог[аа]\\s+дол[ьи]"
         severity: hard
         weight: -1.0
         description: "Залог доли, а не её купля-продажа"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+залог[аа]\\s+акц[ийи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+залог[аа]\\s+акци[йяия]"
         severity: hard
         weight: -1.0
         description: "Залог акций, а не их продажа"
@@ -466,14 +557,59 @@ classification_runtime_v1:
         weight: -1.0
         description: "Дарение, безвозмездная сделка, не купля-продажа"
 
-      # ── Soft exclusions: близкие корпоративные конструкции ───────────────────
+      - pattern: "(?i)продаж[аи]\\s+предприяти[яи]\\s+как\\s+имущественного\\s+комплекс[ауы]"
+        severity: hard
+        weight: -1.0
+        description: "Продажа предприятия как имущественного комплекса (ст. 132 ГК), не shares deal"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+продаж[ьи]\\s+предприяти[яием]"
+        severity: hard
+        weight: -1.0
+        description: "Прямой договор продажи предприятия — contract_1.13_asset_sale"
+
+      - pattern: "(?i)продаж[аы]\\s+предприяти[яием]\\s+как\\s+имущественн[огоый]\\s+комплекс[а]?"
+        severity: hard
+        weight: -1.0
+        description: "Продажа предприятия как имущественного комплекса — asset_sale"
+
+      - pattern: "(?i)предприяти[ея]\\s+как\\s+имущественн[ыйого]\\s+комплекс"
+        severity: hard
+        weight: -1.0
+        description: "Формула ст. 132 ГК — предприятие как имущественный комплекс"
+
+      - pattern: "(?i)имущественн[ыйого]\\s+комплекс\\s+предприяти[яия]"
+        severity: hard
+        weight: -1.0
+        description: "Имущественный комплекс предприятия — признак asset_sale"
+
+      - pattern: "(?i)sale\\s+of\\s+enterprise|enterprise\\s+transfer\\s+agreement"
+        severity: hard
+        weight: -1.0
+        description: "sale of enterprise / enterprise transfer — контракт продажи предприятия"
+
+      - pattern: "(?i)asset\\s+purchase\\s+agreement\\s*\\(enterprise\\)"
+        severity: hard
+        weight: -1.0
+        description: "Asset purchase agreement (enterprise) — продажа предприятия, не долей/акций"
+
+      - pattern: "(?i)§\\s*8\\s+глав[ыы]\\s*30\\s+ГК\\s*РФ"
+        severity: hard
+        weight: -1.0
+        description: "Ссылка на § 8 гл. 30 ГК РФ — режим продажи предприятия"
+
+      - pattern: "(?i)ст\\.?\\s*559\\s+ГК\\s*РФ"
+        severity: hard
+        weight: -1.0
+        description: "Ст. 559 ГК РФ — договор продажи предприятия"
+
+      # ── Soft exclusions
       
       - pattern: "(?i)выход\\s+участник[аов]\\s+из\\s+общества"
         severity: soft
         weight: -0.35
         description: "Выход участника, не всегда продажа доли"
 
-      - pattern: "(?i)действительн[аяое]\\s+стоимост[ььи]\\s+дол[иьи]"
+      - pattern: "(?i)действительн[аяое]\\s+стоимост[ььи]\\s+дол[ьи]"
         severity: soft
         weight: -0.3
         description: "Расчёт действительной стоимости доли в иных конструкциях"
@@ -513,12 +649,12 @@ classification_runtime_v1:
         weight: -0.25
         description: "Увеличение УК, не продажа существующих долей/акций"
 
-      - pattern: "(?i)эмисси[яи]\\s+дополнительн[ыхые]\\s+акц[ийи]"
+      - pattern: "(?i)эмисси[яи]\\s+дополнительн[ыхые]\\s+акци[йяия]"
         severity: soft
         weight: -0.25
         description: "Эмиссия новых акций"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+имуществ[ао]\\s+компан[ииии]"
+      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы][-_\\s]?продаж[ьи]\\s+имуществ[ао]\\s+компан[ииии]"
         severity: soft
         weight: -0.35
         description: "Asset deal (продажа имущества компании), а не shares deal"
@@ -532,6 +668,21 @@ classification_runtime_v1:
         severity: soft
         weight: -0.3
         description: "Продажа активов, не обязательно корпоративных прав"
+
+      - pattern: "(?i)корпоративн[ыйоеы]й\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Корпоративный договор (shareholders' agreement) — регулирует управление, а не отчуждение"
+
+      - pattern: "(?i)акционерн(?:ое|ый)\\s+соглашен[иеи]"
+        severity: soft
+        weight: -0.35
+        description: "Акционерное соглашение — сопутствующий, но не тождественный SPA документ"
+
+      - pattern: "(?i)решени[ея]\\s+участник[аов]\\s+(ооо|общества)"
+        severity: soft
+        weight: -0.25
+        description: "Решение единственного участника о продаже/одобрении, часто прилагается к SPA"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

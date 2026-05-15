@@ -46,7 +46,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -70,8 +69,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / конструкции ссуды ──
-
         - pattern: "(?i)безвозмездн[оеая]\\s+пользован[иеия]"
           weight: 1.0
           distinctiveness: high
@@ -149,10 +146,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Обязанность вернуть ту же вещь в том же состоянии (с учётом износа)"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)free\\s+loan"
-        - "(?i)gratuitous\\s+use"
 
       medium:
         - pattern: "(?i)нормальн[ыо]й\\s+износ"
@@ -235,8 +228,6 @@ classification_runtime_v1:
           description: "Упоминание аффилированных лиц — важно для запрета ст. 690 ГК РФ"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ссуды ──
-
       - pattern: "(?i)арендн[а-яё]+\\s+плат[аа]"
         severity: hard
         weight: -1.0
@@ -277,7 +268,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Безвозмездная передача в собственность — дарение, не договор ссуды"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)договор\\s+аренд[ыыу]"
         severity: soft

@@ -47,7 +47,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -70,8 +69,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора доверительного управления ──
-
         - pattern: "(?i)договор\\s+доверительн[огоой]\\s+управлен[ияия]\\s+имуществ[ома]"
           weight: 1.0
           distinctiveness: high
@@ -119,8 +116,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Asset management agreement как эквивалент доверительного управления активами"
-
-        # ── Ключевые стороны и статус DU ──
 
         - pattern: "(?i)доверительн[ыйое]\\s+управляющ[ийие]"
           weight: 0.95
@@ -263,8 +258,6 @@ classification_runtime_v1:
           description: "Профессиональный участник рынка (управляющая компания, профучастник РЦБ)"
 
     exclusions:
-      # ── Hard exclusions — другие базовые конструкции управления/пользования ──
-
       - pattern: "(?i)управлени[ея]\\s+многоквартирн[ыо]м\\s+дом[оо]м"
         severity: hard
         weight: -1.0
@@ -295,7 +288,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Агентский договор — посредничество, а не управление обособленным имуществом"
 
-      # ── Soft exclusions — пограничные asset‑management конструкции ──
+      # ── Soft exclusions
 
       - pattern: "(?i)договор\\s+доверенност[ии]"
         severity: soft

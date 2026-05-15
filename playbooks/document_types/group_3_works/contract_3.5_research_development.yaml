@@ -45,7 +45,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -70,8 +69,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия НИОКР‑договоров ──
-
         - pattern: "(?i)договор\\s+ниокр"
           weight: 1.0
           distinctiveness: high
@@ -144,8 +141,6 @@ classification_runtime_v1:
           context: any
           description: "Технологическое партнёрство, в рамках которого выполняются НИОКР"
 
-        # ── Ownership‑маркеры НИОКР: риск и РИД ──
-
         - pattern: "(?i)научно-исследовательск[иеих]\\s+работ[ы]"
           weight: 0.9
           distinctiveness: high
@@ -199,9 +194,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Патентная чистота как элемент НИОКР и патентных исследований"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)ниокр"
 
       medium:
         - pattern: "(?i)технологическ[иие]+\\s+работ[ыа]"
@@ -302,8 +294,6 @@ classification_runtime_v1:
           description: "Лицензирование результатов интеллектуальной деятельности"
 
     exclusions:
-      # ── Hard exclusions — явно не НИОКР ──
-
       - pattern: "(?i)серийн[оа]е\\s+производств[оо]"
         severity: hard
         weight: -1.0
@@ -324,7 +314,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Проектные и изыскательские работы — отдельный тип contract_3.4_design_survey"
 
-      # ── Soft exclusions — соседние режимы (услуги, эксплуатация, рутинные операции) ──
+      # ── Soft exclusions
 
       - pattern: "(?i)консультационн[ыо]е\\s+услуг[ии]\\s+без\\s+исследовательск[оа]й\\s+составляющ[еей]"
         severity: soft

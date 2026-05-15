@@ -47,7 +47,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.79
     strong_signal_threshold: 0.88
@@ -71,8 +70,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора хранения ──
-
         - pattern: "(?i)договор\\s+хранен[ияия]"
           weight: 1.0
           distinctiveness: high
@@ -127,8 +124,6 @@ classification_runtime_v1:
           context: header
           description: "Секвестр как специальный вид хранения спорного имущества"
 
-        # ── Ключевые стороны и обязанность хранителя ──
-
         - pattern: "(?i)хранител[ьяеи]"
           weight: 0.9
           distinctiveness: high
@@ -158,8 +153,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Обязанность возвратить вещь в сохранности"
-
-        # ── Документы складского хранения ──
 
         - pattern: "(?i)складск[оеая]\\s+свидетельств[оа]"
           weight: 0.9
@@ -296,8 +289,6 @@ classification_runtime_v1:
           description: "Двойное складское свидетельство"
 
     exclusions:
-      # ── Hard exclusions — пользование вещью, не custodial‑режим ──
-
       - pattern: "(?i)\\bаренд[ааы]\\b"
         severity: hard
         weight: -1.0
@@ -332,6 +323,8 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Аренда склада даёт право пользования помещением, а не режим хранения"
+
+      # ── Soft exclusions
 
       - pattern: "(?i)договор\\s+аренд[ыыу]\\s+банковск[ойого]\\s+ячейк[иыу]"
         severity: soft

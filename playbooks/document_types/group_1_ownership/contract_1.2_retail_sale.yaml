@@ -9,7 +9,7 @@ description: |
   (ЗоЗПП), Постановлением Правительства РФ № 2463 (Правила продажи товаров).
   Договор часто заключается конклюдентными действиями (оплата на кассе, акцепт публичной оферты).
 
-version: 4.0
+version: 4.1
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -43,24 +43,23 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
-    accept_threshold: 0.75
-    strong_signal_threshold: 0.85
+    accept_threshold: 0.76
+    strong_signal_threshold: 0.86
     ambiguity_margin: 0.15
     input_quality_weight: 1.0
 
   rules:
 
     filename_patterns:
-      - "(?i)розничн[а-я]*[_\\s-]*купл[ия]_?продаж[аи]"
-      - "(?i)retail[_\\s-]*(sale|agreement|contract)"
+      - "(?i)розничн[а-я]*[_\\s-]*купли-?продажи"
+      - "(?i)retail[_\\s-]*(?:sale|agreement|contract)"
       - "(?i)e[\\-_]?commerce"
       - "(?i)интернет[_\\s-]?магазин"
       - "(?i)public[_\\s-]*offer"
       - "(?i)public[_\\s-]*oferta"
       - "(?i)публичн[а-я]*[_\\s-]*оферт[аы]"
-      - "(?i)(условия|terms)[_\\s-]*(продаж[ыи]|sales)"
+      - "(?i)(?:условия|terms)[_\\s-]*(?:продажи|sales)"
       - "(?i)маркетплейс"
       - "(?i)marketplace"
       - "(?i)user[_\\s-]*agreement"
@@ -79,226 +78,278 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-        
-        - pattern: "(?i)договор[\\s\\n\\r]+розничн[а-я\\s]*купл[иы]_?продаж[ьи]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+розничной\\s+купли-?продажи\\b"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора розничной купли-продажи"
 
-        - pattern: "(?i)публичн[а-я\\s]*оферт[аы]\\s+интернет[-\\s]?магазин[а-я]*"
+        - pattern: "(?i)публичная\\s+оферта\\s+интернет-?магазина"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Публичная оферта интернет-магазина — классическая форма B2C"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+товар[ао]в\\s+дистанционн[а-я\\s]*способ[оа]м"
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+товаров?\\s+дистанционным\\s+способом"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Дистанционная розничная продажа, ст. 497 ГК РФ"
 
-        - pattern: "(?i)услови[яй]\\s+продаж[ыу]\\s+товар[ао]в\\s+на\\s+маркетплейс[еа]"
+        - pattern: "(?i)условия\\s+продажи\\s+товаров?\\s+на\\s+маркетплейсе"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Условия продажи на маркетплейсе — B2C платформенная торговля"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+продовольственн[а-я\\s]*товар[ао]в"
-          weight: 0.9
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+продовольственных\\s+товаров?"
+          weight: 0.90
           distinctiveness: high
           context: header
           description: "Розничная продажа продовольствия"
 
-        - pattern: "(?i)для\\s+личных,?\\s+семейных,?\\s+домашних\\s+или\\s+иных\\s+нужд"
+        - pattern: "(?i)для\\s+личных(?:,\\s*семейных)?(?:,\\s*домашних)?(?:,?\\s*или\\s+иных)?\\s+нужд"
           weight: 0.95
           distinctiveness: high
           context: body
           description: "Формула цели приобретения товара потребителем, ст. 492 ГК РФ"
 
-        - pattern: "(?i)не\\s+связанн[а-я\\s]+с\\s+предпринимательской\\s+деятельност[ьюи]"
-          weight: 0.9
+        - pattern: "(?i)не\\s+связанн[аы]х?\\s+с\\s+предпринимательской\\s+деятельностью"
+          weight: 0.90
           distinctiveness: high
           context: body
           description: "Квалифицирующий признак розничной сделки — исключение B2B"
 
-        - pattern: "(?i)закон\\s+о\\s+защит[еы]\\s+прав\\s+потребител[ейья]"
+        - pattern: "(?i)\\bзащита\\s+прав\\s+потребителей\\b"
           weight: 0.85
           distinctiveness: high
           context: any
-          description: "Прямая ссылка на ЗоЗПП — ключевой нормативный маркер розницы"
+          description: "Прямая отсылка к институту защиты прав потребителей"
 
-        - pattern: "(?i)розничн[а-я\\s]*торговл[яи]"
-          weight: 0.8
+        - pattern: "(?i)розничная\\s+торговля"
+          weight: 0.80
           distinctiveness: high
           context: any
           description: "Прямое указание на вид деятельности — розничная торговля"
 
-        - pattern: "(?i)кассов[а-я\\s]*чек"
+        - pattern: "(?i)кассовый\\s+чек"
           weight: 0.75
           distinctiveness: high
           context: any
           description: "Кассовый чек — обязательный фискальный документ розничной продажи"
 
-        # legacy high, сохранённые без структуризации
-        - "(?i)\\bпотребител[ьяеи]\\b"
-        - "(?i)гражданин\\s*-?\\s*покупател[ьяеи]"
-        - "(?i)публичн[а-я\\s]*оферт[аы]"
-        - "(?i)оферт[аы]\\s+на\\s+продаж[ыу]\\s+товар[ао]в"
-        - "(?i)пользовательск[а-я\\s]*соглашен[иия]\\s*(?:\\(e-commerce\\))?"
-        - "(?i)услови[яй]\\s+использовани[яи]\\s+сайта\\s+интернет[-\\s]?магазин[а-я]*"
-        - "(?i)розничн[а-я\\s]*продаж[аи]"
-        - "(?i)розничн[а-я\\s]*магазин[а-я]*"
-        - "(?i)защит[аы]\\s+прав\\s+потребител[ейья]"
-        - "(?i)товарн[а-я\\s]*чек"
+        - pattern: "(?i)\\bпотребител[ьяеи]\\b"
+          weight: 0.75
+          distinctiveness: high
+          context: any
+          description: "Потребитель как сторона договора — ключевой B2C маркер"
+
+        - pattern: "(?i)гражданин\\s*-?\\s*покупател[ьяеи]"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Гражданин-покупатель — точная квалификация розничного покупателя"
+
+        - pattern: "(?i)\\bпубличная\\s+оферта\\b"
+          weight: 0.70
+          distinctiveness: medium
+          context: any
+          description: "Публичная оферта — встречается не только в рознице, но здесь весома"
+
+        - pattern: "(?i)оферта\\s+на\\s+продажу\\s+товаров?"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Оферта на продажу товаров — формула публичной розничной оферты"
+
+        - pattern: "(?i)пользовательское\\s+соглашение(?:\\s*\\(e-?commerce\\))?"
+          weight: 0.70
+          distinctiveness: medium
+          context: header
+          description: "Пользовательское соглашение e-commerce; в header весомее"
+
+        - pattern: "(?i)условия\\s+использования\\s+сайта\\s+интернет-?магазина"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Условия использования сайта интернет-магазина"
+
+        - pattern: "(?i)розничная\\s+продажа"
+          weight: 0.75
+          distinctiveness: high
+          context: any
+          description: "Розничная продажа — прямой маркер"
+
+        - pattern: "(?i)розничный\\s+магазин"
+          weight: 0.70
+          distinctiveness: high
+          context: any
+          description: "Розничный магазин как торговая точка"
+
+        - pattern: "(?i)товарный\\s+чек"
+          weight: 0.70
+          distinctiveness: high
+          context: any
+          description: "Товарный чек — фискальный документ розницы"
 
       medium:
-        - pattern: "(?i)возврат\\s+товар[ао]в?"
-          weight: 0.6
+        - pattern: "(?i)возврат\\s+товаров?"
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Возврат товара — типичная B2C процедура по ст. 25/26.1 ЗоЗПП"
 
-        - pattern: "(?i)обмен\\s+товар[ао]в?"
-          weight: 0.6
+        - pattern: "(?i)обмен\\s+товаров?"
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Обмен товара надлежащего качества — розничный институт"
 
-        - pattern: "(?i)гарантийн[а-я\\s]*талон"
+        - pattern: "(?i)гарантийный\\s+талон"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Гарантийный талон — характерен для розничных покупок"
 
-        - pattern: "(?i)маркетплейс"
+        - pattern: "(?i)\\bмаркетплейс\\b"
           weight: 0.55
           distinctiveness: medium
           context: any
           description: "Маркетплейс — платформа розничной торговли"
 
-        - pattern: "(?i)корзин[аы]\\s+покупок"
-          weight: 0.5
+        - pattern: "(?i)корзина\\s+покупок"
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Корзина покупок — элемент интерфейса e-commerce"
 
-        - pattern: "(?i)оформлени[ея]\\s+заказ[ао]"
-          weight: 0.5
+        - pattern: "(?i)оформление\\s+заказа"
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Оформление заказа — типовой этап дистанционной розницы"
 
-        - pattern: "(?i)курьерск[а-я\\s]*доставк[аеи]"
-          weight: 0.5
+        - pattern: "(?i)курьерская\\s+доставка"
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Курьерская доставка — характерна для дистанционной B2C продажи"
 
-        - pattern: "(?i)пункт\\s+выдач[иы]"
-          weight: 0.5
+        - pattern: "(?i)пункт\\s+выдачи"
+          weight: 0.50
           distinctiveness: medium
           context: any
           description: "Пункт выдачи заказов — инфраструктура розничного e-commerce"
 
+        - pattern: "(?i)закон\\s+(?:рф\\s+)?о\\s+защите\\s+прав\\s+потребителей|ЗоЗПП"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ЗоЗПП — ключевой нормативный маркер розницы"
+
+        - pattern: "(?i)ст(?:атья|\\.)?\\s*49[2-9]\\s+ГК|ст(?:атья|\\.)?\\s*50[0-5]\\s+ГК"
+          weight: 0.70
+          distinctiveness: high
+          context: any
+          description: "Ссылки на ст. 492-505 ГК РФ — нормативная база розничной главы"
+
+        - pattern: "(?i)постановлени[ея]\\s+(?:правительства\\s+рф\\s+)?№\\s*2463"
+          weight: 0.75
+          distinctiveness: high
+          context: any
+          description: "Постановление Правительства № 2463 (Правила продажи) — только для розницы"
+
       low:
-        - pattern: "(?i)доставк[аи]"
+        - pattern: "(?i)\\bдоставка\\b"
           weight: 0.25
           distinctiveness: low
           context: any
           description: "Очень общий термин, встречается в поставке, аренде и т.д."
 
-        - pattern: "(?i)самовывоз"
-          weight: 0.3
+        - pattern: "(?i)\\bсамовывоз\\b"
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Самовывоз — способ получения товара, чаще в рознице"
 
-        - pattern: "(?i)каталог\\s+товар[ао]в?"
-          weight: 0.3
+        - pattern: "(?i)каталог\\s+товаров?"
+          weight: 0.30
           distinctiveness: low
           context: any
           description: "Каталог товаров — может быть и в оптовой торговле"
 
-        - pattern: "(?i)промокод"
+        - pattern: "(?i)\\bпромокод\\b"
           weight: 0.35
           distinctiveness: low
           context: any
           description: "Промокод — маркетинговый инструмент, специфичен для B2C e-commerce"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      # Оптовая / поставка (contract_1.1_general_sale / contract_1.3_supply)
-      - pattern: "(?i)договор[\\s\\n\\r]+поставк[иы]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+поставки\\b"
         severity: hard
         weight: -1.0
         description: "Договор поставки — отдельный тип, B2B, § 3 Гл. 30 ГК РФ"
 
-      - pattern: "(?i)оптов[а-я\\s]*поставк[аи]"
+      - pattern: "(?i)оптовая\\s+поставка"
         severity: hard
         weight: -1.0
         description: "Оптовая поставка — исключает розничный характер сделки"
 
-      - pattern: "(?i)для\\s+перепродаж[ьи]"
+      - pattern: "(?i)для\\s+перепродажи"
         severity: hard
         weight: -1.0
         description: "Цель перепродажи прямо исключает розничную квалификацию (ст. 492 ГК)"
 
-      - pattern: "(?i)контрактаци[яи]"
+      - pattern: "(?i)\\bконтрактация\\b"
         severity: hard
         weight: -1.0
         description: "Контрактация — отдельный вид (§ 5 Гл. 30 ГК), закупка сельхозпродукции"
 
-      # Недвижимость (contract_1.6_real_estate)
-      - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+недвижимост[иья]"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купли-?продажи\\s+недвижимости\\b"
         severity: hard
         weight: -1.0
         description: "Купля-продажа недвижимости — совершенно другой тип (§ 7 Гл. 30 ГК)"
 
-      # Корпоративные права (contract_1.11_shares_sale и др.)
-      - pattern: "(?i)продаж[аи]\\s+предприяти[яи]\\s+как\\s+имущественн[а-я\\s]+комплекс"
+      - pattern: "(?i)продажа\\s+предприятия\\s+как\\s+имущественного\\s+комплекса"
         severity: hard
         weight: -1.0
         description: "Продажа предприятия как комплекса — § 8 Гл. 30 ГК РФ"
 
-      - pattern: "(?i)доля\\s+в\\s+ООО"
+      - pattern: "(?i)\\bдоля\\s+в\\s+ООО\\b"
         severity: hard
         weight: -1.0
         description: "Доля в ООО — корпоративная сделка, не розничная купля-продажа"
 
-      # Подряд / услуги
-      - pattern: "(?i)договор[\\s\\n\\r]+подряда"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+подряда\\b"
         severity: hard
         weight: -1.0
         description: "Договор подряда — иная договорная конструкция (Гл. 37 ГК)"
 
-      - pattern: "(?i)договор[\\s\\n\\r]+оказани[яи]\\s+услуг"
+      - pattern: "(?i)\\bдоговор[\\s\\n\\r]+оказания\\s+услуг\\b"
         severity: hard
         weight: -1.0
         description: "Договор оказания услуг — иная конструкция (Гл. 39 ГК)"
 
-      # ── Soft exclusions — снижают уверенность ──
+      # ── Soft exclusions
 
-      - pattern: "(?i)оптов[а-я\\s]*продаж[аи]"
+      - pattern: "(?i)оптовая\\s+продажа"
         severity: soft
         weight: -0.35
         description: "Упоминание оптовых продаж снижает вероятность розничного характера"
 
       - pattern: "(?i)между\\s+юридическими\\s+лицами"
         severity: soft
-        weight: -0.4
+        weight: -0.40
         description: "Сделка между юрлицами — вероятно B2B, не розница"
 
-      - pattern: "(?i)B2B"
+      - pattern: "(?i)\\bB2B\\b"
         severity: soft
-        weight: -0.4
+        weight: -0.40
         description: "Явное указание на B2B-модель противоречит розничному характеру"
 
       - pattern: "(?i)\\bпоставщик\\b"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Термин 'поставщик' характерен для поставки, не для розницы"
 
       - pattern: "(?i)\\bпоставка\\b"
@@ -306,10 +357,15 @@ classification_runtime_v1:
         weight: -0.25
         description: "Общий термин поставки, может указывать на § 3 Гл. 30 ГК"
 
-      - pattern: "(?i)лизинг"
+      - pattern: "(?i)\\bлизинг\\b"
         severity: soft
-        weight: -0.3
+        weight: -0.30
         description: "Лизинг — финансовая аренда, иная конструкция"
+
+      - pattern: "(?i)\\bSaaS\\b|программное\\s+обеспечение"
+        severity: soft
+        weight: -0.25
+        description: "SaaS / ПО — цифровые услуги, а не физический товар"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

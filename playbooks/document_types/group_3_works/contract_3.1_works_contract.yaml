@@ -42,7 +42,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.76
     strong_signal_threshold: 0.86
@@ -65,8 +64,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / базовые ownership markers ──
-
         - pattern: "(?i)договор\\s+подряд[ауы]"
           weight: 0.95
           distinctiveness: high
@@ -126,12 +123,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: body
           description: "Подрядчик выполняет работу своим иждивением"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)договор\\s+на\\s+ремонт\\s+оборудован[ияи]/станк[аоу]/техник[иуы]"
-        - "(?i)договор\\s+подряд[ауы]\\s+с\\s+физическ[имой]\\s+лиц[омем]"
-        - "(?i)договор\\s+подряд[ауы]\\s+с\\s+давальческ[имиих]\\s+материал[амиов]"
-        - "(?i)техническ[оеая]\\s+задан[иеия]"
 
       medium:
         - pattern: "(?i)выполнени[ея]\\s+работ"
@@ -238,8 +229,6 @@ classification_runtime_v1:
           description: "Приблизительная смета допускается в подряде"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют generic works contract ──
-
       - pattern: "(?i)возмездн[оа]е\\s+оказани[ея]\\s+услуг"
         severity: hard
         weight: -1.0
@@ -285,7 +274,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "ПИР — устойчивый маркер проектно-изыскательских работ"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bконсультаци[ияй]\\b"
         severity: soft

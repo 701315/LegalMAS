@@ -12,20 +12,19 @@ PROJECT_ROOT = "/home/vladi/projects/LegalMAS"
 OUTPUT_FILE = "/home/vladi/projects/LegalMAS/all_required_heading_dump.txt"
 
 FILES = [
-    "src/api/endpoints/deals/crud.py",
-    "src/api/endpoints/deals/settings.py",
-    "src/api/endpoints/deal_review.py",
-    "src/api/endpoints/runs.py",
-    "src/db/models/deal.py",
-    "src/db/repositories/bundle_repo.py",
-    "src/db/repositories/deal_repo.py",
-    "src/services/deal_language_service.py",
-    "src/services/document_language_pipeline.py",
-    "src/services/quick_pdf_layout.py",
-    "src/workers/build_primary_language_source.py",
-    "src/workers/import_worker.py",
-    "src/workers/convert_worker.py",
-    "src/workers/run_orchestrator.py"
+    "src/classifiers/yaml_registry.py",
+    "src/classifiers/base.py",
+    "src/classifiers/stage8/l3_semantic.py",
+    "src/classifiers/stage8/l2_header.py",
+    "src/classifiers/stage8/l1_filename.py",
+    "src/classifiers/stage8/hybrid_classifier.py",
+    "src/classifiers/stage8/_voting.py",
+    "src/classifiers/stage8/_result_builder.py",
+    "src/classifiers/stage8/_l4_llm.py",
+    "src/classifiers/stage8/_duplicate_handler.py",
+    "src/classifiers/stage8/_content_fetcher.py",
+    "src/workers/classifier.py",
+    "src/workers/segment_classifier.py",
 ]
 
 # ===================================

@@ -49,7 +49,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -73,8 +72,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора и ключевые лизинговые роли ──
-
         - pattern: "(?i)договор\\s+лизинг[ауы]"
           weight: 1.0
           distinctiveness: high
@@ -123,8 +120,6 @@ classification_runtime_v1:
           context: any
           description: "Формула 'предмет лизинга' — типоспецифичный маркер"
 
-        # ── Специализированные виды лизинга ──
-
         - pattern: "(?i)договор\\s+лизинг[ауы]\\s+оборудован[ияи]"
           weight: 0.95
           distinctiveness: high
@@ -154,8 +149,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Международный договор лизинга"
-
-        # ── Финансовая структура и выкуп ──
 
         - pattern: "(?i)лизингов[ыеых]\\s+платеж[ией]"
           weight: 0.9
@@ -192,10 +185,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Связка с продавцом (vendor leg) — специфична для лизинга"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)lease"
-        - "(?i)finance[\\s_.-]?lease"
 
       medium:
         - pattern: "(?i)\\bпродав[её]ц\\b"
@@ -320,8 +309,6 @@ classification_runtime_v1:
           description: "Амортизационная премия — часть налогового режима, не уникальна для лизинга"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
       - pattern: "(?i)\\bпрокат\\b"
         severity: hard
         weight: -1.0
@@ -342,7 +329,6 @@ classification_runtime_v1:
         weight: -1.0
         description: "Аренда без приобретения предмета в собственность — обычная аренда, не лизинг (contract_2.1_lease)"
 
-      # Земельные участки и природные объекты прямо ограничены законом о лизинге
       - pattern: "(?i)земельн[а-яё]+\\s+участ[оа]к\\s+как\\s+предмет\\s+лизинг[аа]"
         severity: hard
         weight: -1.0
@@ -353,7 +339,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Природные объекты не могут быть предметом лизинга по 164-ФЗ"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)договор\\s+аренд[ыыу]\\s+без\\s+упоминани[яя]\\s+лизинг[аа]"
         severity: soft

@@ -44,7 +44,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -263,8 +262,6 @@ classification_runtime_v1:
           description: "Правопреемство при смене участников"
 
     exclusions:
-      # ── Hard exclusions — создание юрлица и специальные формы ──
-
       - pattern: "(?i)создани[ея]\\s+юридическ[оа]го\\s+лиц[аа]"
         severity: hard
         weight: -1.0
@@ -280,7 +277,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Учредительный договор — создание юрлица, а не простое товарищество"
 
-      # ── Soft exclusions — соседние договорные конструкции ──
+      # ── Soft exclusions
 
       - pattern: "(?i)трудов[оа]й\\s+договор"
         severity: soft

@@ -46,7 +46,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -71,8 +70,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора ──
-
         - pattern: "(?i)договор\\s+на\\s+выполнен[иеия]\\s+проектн[ыхые]\\s+работ"
           weight: 1.0
           distinctiveness: high
@@ -126,8 +123,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Договор генерального проектирования"
-
-        # ── Ownership‑маркеры ПИР ──
 
         - pattern: "(?i)инженерн[ыеых]\\s+изыскан[ияи]"
           weight: 0.9
@@ -212,9 +207,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "ПП РФ № 87 о составе разделов проектной документации"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)\\bПИР\\b"
 
       medium:
         - pattern: "(?i)исходн[ыо]е\\s+данн[ыо]е"
@@ -369,8 +361,6 @@ classification_runtime_v1:
           description: "Архитектурные решения как раздел проектной документации"
 
     exclusions:
-      # ── Hard exclusions — явно другой тип работ ──
-
       - pattern: "(?i)строительно-?монтажн[ыо]е\\s+работ[ыа]"
         severity: hard
         weight: -1.0
@@ -391,7 +381,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Разработка ПО — IT/интеллектуальные работы, не проектирование в смысле ГрК"
 
-      # ── Soft exclusions — снижают confidence, уводят в соседние режимы ──
+      # ── Soft exclusions
 
       - pattern: "(?i)дизайн-?проект\\s+интерьер[аа]"
         severity: soft

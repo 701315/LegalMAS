@@ -45,7 +45,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.78
     strong_signal_threshold: 0.88
@@ -69,8 +68,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия NDA ──
-
         - pattern: "(?i)соглашен[иея]\\s+о\\s+неразглашен[иии]"
           weight: 1.0
           distinctiveness: high
@@ -118,8 +115,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Аббревиатура NDA"
-
-        # ── Ключевые понятия режима конфиденциальности ──
 
         - pattern: "(?i)неразглашен[иеи]"
           weight: 0.85
@@ -232,8 +227,6 @@ classification_runtime_v1:
           description: "Residuals clause — оговорка о неизбежных остаточных знаниях"
 
     exclusions:
-      # ── Hard exclusions — когда NDA явно вспомогательно к другому типу ──
-
       - pattern: "(?i)трудов[оа]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -249,7 +242,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Лицензионный договор с конфиденциальностью — тип contract_7.2_license"
 
-      # ── Soft exclusion — когда конфиденциальность явно лишь раздел ──
+      # ── Soft exclusion
 
       - pattern: "(?i)только\\s+как\\s+част[ььи]\\s+друг[оа]го\\s+договор[аа]"
         severity: soft

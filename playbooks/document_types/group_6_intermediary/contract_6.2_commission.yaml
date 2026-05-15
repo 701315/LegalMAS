@@ -49,7 +49,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.81
     strong_signal_threshold: 0.89
@@ -72,8 +71,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора ──
-
         - pattern: "(?i)договор\\s+комисс[иии]"
           weight: 1.0
           distinctiveness: high
@@ -133,8 +130,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "English title form for commission agreement"
-
-        # ── Стороны и ядро комиссионной модели ──
 
         - pattern: "(?i)комиссионер[а-я]*"
           weight: 0.95
@@ -259,8 +254,6 @@ classification_runtime_v1:
           description: "Перечисление выручки комитенту"
 
     exclusions:
-      # ── Hard exclusions — конкурирующие intermediary / logistics модели ──
-
       - pattern: "(?i)\\bпоручени[ея]\\b"
         severity: hard
         weight: -1.0
@@ -276,7 +269,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Транспортная экспедиция — самостоятельный посредническо-логистический тип"
 
-      # ── Soft exclusions — sale/service документы без комиссионного ядра ──
+      # ── Soft exclusions
 
       - pattern: "(?i)купл[яи]-?продаж[ааи]"
         severity: soft

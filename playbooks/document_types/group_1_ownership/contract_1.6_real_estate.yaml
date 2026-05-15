@@ -6,7 +6,7 @@ description: |
   Характеризуется обязательной письменной формой, государственной регистрацией перехода права собственности,
   специальными гарантиями для покупателя и множеством практических ограничений и рисков.
 
-version: 4.0
+version: 4.1
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -40,7 +40,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.75
     strong_signal_threshold: 0.85
@@ -69,8 +68,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-
         - pattern: "(?i)^\\s*real\\s+estate\\s+sale\\s+and\\s+purchase\\s+agreement"
           weight: 1.0
           distinctiveness: high
@@ -83,35 +80,71 @@ classification_runtime_v1:
           context: body
           description: "English title form без якоря — fallback для упоминания в теле документа"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+недвижимост[иьи]"
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+недвижимост[иьи]"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+квартир"
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+квартир"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Квартира как предмет"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+земельн[а-я\\s]*участ"
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+земельн[а-я\\s]*участ"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Земельный участок как предмет"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+здани[яия]"
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+здани[яия]"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Здание как предмет договора"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+жил[а-я\\s]*дом"
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+жил[а-я\\s]*дом"
           weight: 0.95
           distinctiveness: high
           context: header
           description: "Жилой дом как предмет договора"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+объект[овы]\\s+недвижимост[иьи]"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Объект недвижимости как обобщённый предмет договора"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+нежил[а-я\\s]*помещен"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Нежилое помещение как предмет"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+сооружен[ияи]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Сооружение как предмет договора"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+дол[иьи]\\s+в\\s+прав[еа]\\s+собственн[оа]ст[иьи]\\s+на\\s+недвижимост"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "Доля в праве собственности на недвижимость"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+дол[иьи]\\s+в\\s+собственн[оа]ст[иьи]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Доля в собственности — упрощённая формулировка"
+
+        - pattern: "(?i)договор[\\s\\n\\r]+купли-?продажи\\s+общ[ео]\\s+имуществ[ао]\\s+в\\s+многоквартирн[омой]\\s+дом[еуа]"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Общее имущество МКД (подвал, чердак и т.п.) как предмет"
 
         - pattern: "(?i)ЕГРН"
           weight: 0.8
@@ -123,7 +156,7 @@ classification_runtime_v1:
           weight: 0.8
           distinctiveness: high
           context: any
-          description: "Кадастровый номер — обязательный реквизит недвижимости"
+          description: "Кадастровый номер — обязательный реквизит объекта недвижимости"
 
         - pattern: "(?i)Росреестр"
           weight: 0.75
@@ -131,24 +164,11 @@ classification_runtime_v1:
           context: any
           description: "Федеральная служба государственной регистрации"
 
-        - pattern: "(?i)разрешенн[а-я\\s]*использовани[ея]"
+        - pattern: "(?i)вид\\s+разрешенн[оа\\s]*использовани[ея]"
           weight: 0.7
           distinctiveness: high
           context: body
           description: "Вид разрешённого использования — специфичен для земельных участков"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+объект[овы]\\s+недвижимост[иьи]"
-        - "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+нежил[а-я\\s]*помещен"
-        - "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+сооружен[ияи]"
-        - "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+прав[еа]\\s+собственн[оа]ст[иьи]\\s+на\\s+недвижимост"
-        - "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+собственн[оа]ст[иьи]"
-        - "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+общ[ео]\\s+имуществ[ао]\\s+в\\s+многоквартирн[омой]\\s+дом[еуа]"
-        - "(?i)объект[ыа]\\s+недвижимост[иьи]"
-        - "(?i)здани[ея]"
-        - "(?i)сооружен[ияи]"
-        - "(?i)мест[оа]\\s+общ[егоей]\\s+пользован[ияи]"
-        - "(?i)вид\\s+разрешенн[оа\\s]*использовани[ея]"
 
       medium:
         - pattern: "(?i)недвижимост[ьи]"
@@ -169,17 +189,11 @@ classification_runtime_v1:
           context: any
           description: "Земельный участок — встречается в аренде, контрактации, залоге"
 
-        - pattern: "(?i)право\\s+собственност[иьи]"
-          weight: 0.4
-          distinctiveness: low
-          context: any
-          description: "Общий правовой термин, не специфичен для недвижимости"
-
         - pattern: "(?i)переход\\s+права\\s+собственност[иьи]"
           weight: 0.45
           distinctiveness: medium
           context: any
-          description: "Более специфичная формула перехода права"
+          description: "Формула перехода права — более специфична, чем просто 'право собственности'"
 
         - pattern: "(?i)ипотек[аеи]"
           weight: 0.5
@@ -193,7 +207,37 @@ classification_runtime_v1:
           context: any
           description: "Обременение недвижимости — регистрируемый факт, характерен для этого типа"
 
+        - pattern: "(?i)объект[ыа]\\s+недвижимост[иьи]"
+          weight: 0.55
+          distinctiveness: medium
+          context: body
+          description: "Объект недвижимости в теле — значимо, но встречается и в аренде, залоге, ДДУ"
+
+        - pattern: "(?i)мест[оа]\\s+общ[егоей]\\s+пользован[ияи]"
+          weight: 0.4
+          distinctiveness: medium
+          context: body
+          description: "МОП — встречается в аренде МКД и договорах управления, не только в купле-продаже"
+
+        - pattern: "(?i)право\\s+собственност[иьи]"
+          weight: 0.4
+          distinctiveness: low
+          context: any
+          description: "Общий правовой термин, не специфичен для недвижимости"
+
       low:
+        - pattern: "(?i)\\bздани[ея]\\b"
+          weight: 0.25
+          distinctiveness: low
+          context: body
+          description: "Здание — слишком общий термин, HIGH давал ложные срабатывания в подряде и аренде"
+
+        - pattern: "(?i)\\bсооружен[ияи]\\b"
+          weight: 0.2
+          distinctiveness: low
+          context: body
+          description: "Сооружение — аналогично зданию, встречается в подряде, страховании, залоге"
+
         - pattern: "(?i)дом"
           weight: 0.2
           distinctiveness: low
@@ -207,12 +251,20 @@ classification_runtime_v1:
           description: "Помещение — встречается в аренде, подряде, услугах"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-      
       - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]\\s+недвижимост[иьи]"
         severity: hard
         weight: -1.0
-        description: "Аренда — совершенно другой тип договора"
+        description: "Аренда недвижимости — совершенно другой тип договора"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]\\s+квартир"
+        severity: hard
+        weight: -1.0
+        description: "Аренда квартиры — добавлено, т.к. HIGH-паттерн 'квартир' в header мог давать ложное совпадение"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+найм[ауы]\\s+жил[а-я\\s]*помещен"
+        severity: hard
+        weight: -1.0
+        description: "Наём жилого помещения (гл. 35 ГК) — принципиально иная конструкция"
 
       - pattern: "(?i)договор[\\s\\n\\r]+долев[огоой]\\s+участ[ияия]\\s+в\\s+строительств[еие]"
         severity: hard
@@ -234,7 +286,22 @@ classification_runtime_v1:
         weight: -1.0
         description: "Мена — обмен, не купля-продажа, ст. 567 ГК РФ"
 
-      # ── Soft exclusions — снижают confidence ──
+      - pattern: "(?i)договор[\\s\\n\\r]+залог[ауы]\\s+недвижимост[иьи]"
+        severity: hard
+        weight: -1.0
+        description: "Залог недвижимости (ипотека) — отдельная конструкция, ст. 334 ГК РФ, ФЗ-102"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+ипотек[иы]"
+        severity: hard
+        weight: -1.0
+        description: "Договор ипотеки — прямое указание исключает купле-продажу"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+управлени[яи]\\s+многоквартирн"
+        severity: hard
+        weight: -1.0
+        description: "Договор управления МКД — упоминание МКД не должно триггерить купли-продажу"
+
+      # ── Soft exclusions
 
       - pattern: "(?i)движим[оа]е?\\s+имуществ[оа]"
         severity: soft
@@ -250,6 +317,16 @@ classification_runtime_v1:
         severity: soft
         weight: -0.3
         description: "Упоминание дарения недвижимости в теле снижает уверенность, но не исключает тип"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+подряд[ауы]\\s+на\\s+строительств[оа]"
+        severity: soft
+        weight: -0.4
+        description: "Строительный подряд — документ о создании объекта, а не о переходе права на него"
+
+      - pattern: "(?i)договор[\\s\\n\\r]+строительн[огоой]\\s+подряд[ауы]"
+        severity: soft
+        weight: -0.4
+        description: "Строительный подряд (заголовочная форма)"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

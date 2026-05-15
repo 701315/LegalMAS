@@ -48,7 +48,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -74,8 +73,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора ──
-
         - pattern: "(?i)договор\\s+транспортн[ойого\\s]*экспедиц[иии]"
           weight: 1.0
           distinctiveness: high
@@ -130,8 +127,6 @@ classification_runtime_v1:
           context: header
           description: "Договор экспедирования (экспедиторские услуги)"
 
-        # ── Роль экспедитора и клиента ──
-
         - pattern: "(?i)экспедитор[а-я]*"
           weight: 0.95
           distinctiveness: high
@@ -155,8 +150,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Поручение экспедитору организовать комплекс услуг, связанных с перевозкой"
-
-        # ── Специфичные документы и деятельность ──
 
         - pattern: "(?i)экспедиторск[аяое]\\s+расписк[аыу]"
           weight: 0.95
@@ -187,9 +180,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Организация перевозки груза, а не её исполнение собственным транспортом"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)экспедирован[иеи]"
 
       medium:
         - pattern: "(?i)транспортно-?экспедиционн[ыо]е\\s+услуг[ии]"
@@ -284,8 +274,6 @@ classification_runtime_v1:
           description: "Консолидация грузов (сборные отправки) экспедитором"
 
     exclusions:
-      # ── Hard: классическая перевозка и агентские/комиссионные конструкции ──
-
       - pattern: "(?i)договор\\s+перевозк[иы]\\s+груз[аов]"
         severity: hard
         weight: -1.0
@@ -310,6 +298,16 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Связка «грузоотправитель–перевозчик» без экспедиционной надстройки тянет к договору перевозки"
+
+      - pattern: "(?i)договор[\\s]+перевозк[иу]\\s+груз"
+        severity: hard
+        weight: -1.0
+        description: "Прямой договор перевозки — глава 40 ГК, не экспедиция"
+
+      - pattern: "(?i)перевозчик\\s+обязуется\\s+доставить"
+        severity: hard
+        weight: -1.0
+        description: "Исполнение перевозки собственным транспортом — не экспедиция"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

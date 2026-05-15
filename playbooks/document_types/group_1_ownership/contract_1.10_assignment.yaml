@@ -41,11 +41,10 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.80
     strong_signal_threshold: 0.88
-    ambiguity_margin: 0.18
+    ambiguity_margin: 0.16
     input_quality_weight: 1.0
 
   rules:
@@ -71,8 +70,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-
         - pattern: "(?i)договор[\\s\\n\\r]+цесс[ии]"
           weight: 1.0
           distinctiveness: high
@@ -133,13 +130,13 @@ classification_runtime_v1:
           context: body
           description: "Обязательное уведомление должника об уступке"
         
-        - pattern: "(?i)\\bцедент[а-я]*\\b"
+        - pattern: "(?i)\\bцедент[аеиыу]?\\b"
           weight: 0.92
           distinctiveness: high
           context: any
           description: "Наименование стороны цедент"
         
-        - pattern: "(?i)\\bцессионар[ияийю]\\b"
+        - pattern: "(?i)\\bцессионари[йеиыюя]?\\b"
           weight: 0.92
           distinctiveness: high
           context: any
@@ -163,7 +160,7 @@ classification_runtime_v1:
           context: body
           description: "Специфика индивидуализации уступаемого требования"
         
-        - pattern: "(?i)глава\\s*24\\s+Гражданского\\s+кодекс[аа]\\s+РФ"
+        - pattern: "(?i)глава\\s*24\\s+Гражданского\\s+кодекс[аеу]?\\s+РФ"
           weight: 0.86
           distinctiveness: high
           context: body
@@ -175,8 +172,17 @@ classification_runtime_v1:
           context: body
           description: "Ссылка на ст. 382 ГК РФ об уступке права требования"
         
-        # Остальной high‑хвост строками
-        - "(?i)цесс[иия]"
+        - pattern: "(?i)статьи?\\s*(?:38[3-9]|390)\\s+ГК\\s*РФ"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Прямая ссылка на ст. 383-390 ГК РФ — нормативная база уступки"
+
+        - pattern: "(?i)\\bцесси[ия]\\b"
+          weight: 0.78
+          distinctiveness: high
+          context: any
+          description: "Базовый термин цессия в тексте документа"
 
       medium:
         - pattern: "(?i)договор-основани[ея]"
@@ -305,6 +311,18 @@ classification_runtime_v1:
           context: body
           description: "Оспаривание договора цессии"
 
+        - pattern: "(?i)двойн[аяое]\\s+уступк[аи]\\s+прав[ао]"
+          weight: 0.54
+          distinctiveness: medium
+          context: body
+          description: "Упоминание риска двойной уступки одного требования"
+        
+        - pattern: "(?i)реестр\\s+передаваем[ыхых]\\s+требован[ийя]"
+          weight: 0.52
+          distinctiveness: medium
+          context: body
+          description: "Реестр уступленных требований как элемент предмета договора"
+
       low:
         - pattern: "(?i)должник"
           weight: 0.3
@@ -347,11 +365,14 @@ classification_runtime_v1:
           distinctiveness: low
           context: body
           description: "Указание на будущие требования"
+        
+        - pattern: "(?i)несуществующ[ееее]\\s+требован[иея]"
+          weight: 0.32
+          distinctiveness: low
+          context: body
+          description: "Риск уступки несуществующего ('воздушного') долга"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      # Факторинг и финансирование под уступку (должно уходить в отдельный тип)
       - pattern: "(?i)факторинг"
         severity: hard
         weight: -1.0
@@ -367,7 +388,6 @@ classification_runtime_v1:
         weight: -1.0
         description: "Специальный заголовок договора финансирования под уступку"
 
-      # Перевод долга / смена должника (а не кредитора)
       - pattern: "(?i)перевод\\s+долг[аа]"
         severity: hard
         weight: -1.0
@@ -383,7 +403,6 @@ classification_runtime_v1:
         weight: -1.0
         description: "Указание на нового должника, а не кредитора"
 
-      # Новация / прекращение обязательства
       - pattern: "(?i)новаци[яи]"
         severity: hard
         weight: -1.0
@@ -394,17 +413,16 @@ classification_runtime_v1:
         weight: -0.4
         description: "Общее прекращение обязательства, а не его модификация через уступку"
 
-      # Залог права требования
-      - pattern: "(?i)договор[\\s\\n\\r]+залог[аа]\\s+прав[ао]\\s+требован[ияи]"
+      - pattern: "(?i)договор[\\s\\n\\r]+залог[аеу]?\\s+прав[ао]\\s+требован[ияи]"
         severity: hard
         weight: -1.0
         description: "Залог права требования отличается от уступки права требования"
+
       - pattern: "(?i)залог\\s+дебиторск[ойой]\\s+задолженн[остиости]"
         severity: hard
         weight: -1.0
         description: "Залог дебиторской задолженности — другая конструкция"
 
-      # Суброгация, переход прав по закону, универсальное правопреемство
       - pattern: "(?i)суброгаци[яи]"
         severity: hard
         weight: -1.0
@@ -420,7 +438,12 @@ classification_runtime_v1:
         weight: -1.0
         description: "Универсальное правопреемство (реорганизация, наследование)"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
+      
+      - pattern: "(?i)агентск[ийоеыуи]\\s+договор"
+        severity: soft
+        weight: -0.35
+        description: "Агентский договор часто путают с цессией из-за формулировок 'передача прав'"
 
       - pattern: "(?i)реорганизаци[яи]"
         severity: soft

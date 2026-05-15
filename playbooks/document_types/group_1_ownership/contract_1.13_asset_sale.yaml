@@ -13,7 +13,7 @@ description: |
   Договор продажи предприятия необходимо отличать от продажи долей/акций (share deal)
   и от продажи отдельных активов вне режима имущественного комплекса (asset-by-asset sale).
 
-version: 4.0
+version: 4.1
 parent: class_1_transfer_of_ownership
 
 metadata:
@@ -46,7 +46,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.82
     strong_signal_threshold: 0.90
@@ -75,27 +74,25 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора / оферты (header-focused) ──
-
-        - pattern: "(?i)договор[\\s\\n\\r]+продаж[ьи]\\s+предприяти[яием]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+продаж[ьи]\\s+предприяти[яием]\\b"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "Основное название договора продажи предприятия, § 8 Гл. 30 ГК РФ"
 
-        - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+предприяти[яием]"
+        - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+предприяти[яием]\\b"
           weight: 1.0
           distinctiveness: high
           context: header
-          description: "Альтернативное название с формулой купли-продажи"
+          description: "Альтернативное название с формулой купли-продажи предприятия"
 
-        - pattern: "(?i)sale\\s+of\\s+enterprise"
+        - pattern: "(?i)\\bsale\\s+of\\s+enterprise\\b"
           weight: 1.0
           distinctiveness: high
           context: header
           description: "English title form — продажа предприятия"
 
-        - pattern: "(?i)enterprise\\s+transfer\\s+agreement"
+        - pattern: "(?i)\\benterprise\\s+transfer\\s+agreement\\b"
           weight: 0.95
           distinctiveness: high
           context: header
@@ -105,19 +102,19 @@ classification_runtime_v1:
           weight: 1.0
           distinctiveness: high
           context: any
-          description: "Ключевая формула ст. 132 и § 8 Гл. 30 ГК — предприятие как имущественный комплекс"
+          description: "Формула ст. 132 и § 8 Гл. 30 ГК — предприятие как имущественный комплекс"
 
         - pattern: "(?i)имущественн[ыйого]\\s+комплекс\\s+предприяти[яия]"
           weight: 0.95
           distinctiveness: high
           context: any
-          description: "Инвертированная формула имущественного комплекса"
+          description: "Инвертированная формула имущественного комплекса предприятия"
 
-        - pattern: "(?i)продаж[аы]\\s+предприяти[яием]\\s+как\\s+имущественн[огоый]\\s+комплекс[а]"
+        - pattern: "(?i)продаж[аы]\\s+предприяти[яием]\\s+как\\s+имущественн[огоый]\\s+комплекс[а]?"
           weight: 1.0
           distinctiveness: high
           context: any
-          description: "Полная формула предмета — продажа предприятия как комплекса"
+          description: "Полная формула предмета — продажа предприятия как имущественного комплекса"
 
         - pattern: "(?i)состав\\s+предприяти[яия]"
           weight: 0.85
@@ -126,25 +123,25 @@ classification_runtime_v1:
           description: "Состав предприятия — обязательный реквизит договора (ст. 561 ГК)"
 
         - pattern: "(?i)акт\\s+инвентаризац[иии]\\s+предприяти[яия]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Акт инвентаризации предприятия — обязательный документ (ст. 561 ГК)"
 
         - pattern: "(?i)передаточн[ыйого]\\s+акт\\s+предприяти[яия]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Передаточный акт предприятия — специальный документ передачи (ст. 563 ГК)"
 
         - pattern: "(?i)уведомлени[ея]\\s+кредитор[аов]\\s+о\\s+продаж[еи]\\s+предприяти[яия]"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Уведомление кредиторов — обязательная процедура (ст. 562 ГК)"
 
         - pattern: "(?i)§\\s*8\\s+глав[ыы]\\s*30\\s+ГК\\s*РФ"
-          weight: 0.9
+          weight: 0.90
           distinctiveness: high
           context: any
           description: "Прямая ссылка на параграф ГК о продаже предприятия"
@@ -155,11 +152,59 @@ classification_runtime_v1:
           context: any
           description: "Ст. 559 ГК РФ — основная норма о договоре продажи предприятия"
 
-        # ── Оставшиеся legacy high ──
-        - "(?i)asset\\s+purchase\\s+agreement\\s*\\(enterprise\\)"
-        - "(?i)государственн[аяое]\\s+регистрац[ияи]\\s+договора\\s+продаж[ьи]\\s+предприяти[яия]"
-        - "(?i)государственн[аяое]\\s+регистрац[ияи]\\s+переход[аа]\\s+права\\s+собственност[иьи]\\s+на\\s+предприяти[еия]"
-        - "(?i)солидарн[аяое]\\s+ответственност[ььи]\\s+по\\s+долгам\\s+предприяти[яия]"
+        - pattern: "(?i)ст\\.?\\s*560\\s+ГК\\s*РФ"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Ст. 560 ГК РФ — цена предприятия"
+
+        - pattern: "(?i)ст\\.?\\s*561\\s+ГК\\s*РФ"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Ст. 561 ГК РФ — состав предприятия и обязательные документы"
+
+        - pattern: "(?i)ст\\.?\\s*562\\s+ГК\\s*РФ"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Ст. 562 ГК РФ — ответственность по долгам и уведомление кредиторов"
+
+        - pattern: "(?i)ст\\.?\\s*563\\s+ГК\\s*РФ"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Ст. 563 ГК РФ — передаточный акт и переход предприятия"
+
+        - pattern: "(?i)ст\\.?\\s*132\\s+ГК\\s*РФ"
+          weight: 0.86
+          distinctiveness: high
+          context: any
+          description: "Ст. 132 ГК РФ — предприятие как имущественный комплекс"
+
+        - pattern: "(?i)asset\\s+purchase\\s+agreement\\s*\\(enterprise\\)"
+          weight: 0.95
+          distinctiveness: high
+          context: header
+          description: "English: asset purchase agreement (enterprise) — заголовок договора продажи предприятия"
+
+        - pattern: "(?i)государственн[аяое]\\s+регистрац[ияи]\\s+договора\\s+продаж[ьи]\\s+предприяти[яия]"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Госрегистрация договора продажи предприятия — специальное требование § 8 Гл. 30"
+
+        - pattern: "(?i)государственн[аяое]\\s+регистрац[ияи]\\s+переход[аа]\\s+права\\s+собственност[иьи]\\s+на\\s+предприяти[еия]"
+          weight: 0.90
+          distinctiveness: high
+          context: any
+          description: "Госрегистрация перехода права собственности на предприятие"
+
+        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ььи]\\s+по\\s+долгам\\s+предприяти[яия]"
+          weight: 0.88
+          distinctiveness: high
+          context: any
+          description: "Солидарная ответственность по долгам предприятия — специфика ст. 562 ГК РФ"
 
       medium:
         - pattern: "(?i)бухгалтерск[ийое]\\s+баланс\\s+предприяти[яия]"
@@ -169,19 +214,19 @@ classification_runtime_v1:
           description: "Баланс предприятия — обязательный документ к договору (ст. 561 ГК)"
 
         - pattern: "(?i)заключен[иеия]\\s+независим[огоый]\\s+аудитор[аа]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
-          description: "Аудиторское заключение — обязательный документ состава (ст. 561 ГК)"
+          description: "Аудиторское заключение — один из обязательных документов (ст. 561 ГК)"
 
-        - pattern: "(?i)перечен[ьяи]\\s+долг[овы]\\s+предприяти[яия]"
+        - pattern: "(?i)перечен[ьяи]\\s+долг[ов\\s]+предприяти[яия]"
           weight: 0.65
           distinctiveness: medium
           context: any
           description: "Перечень долгов — обязательный документ (ст. 561 ГК)"
 
         - pattern: "(?i)права\\s+требован[ияи]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Права требования в составе предприятия — элемент имущественного комплекса"
@@ -192,8 +237,8 @@ classification_runtime_v1:
           context: any
           description: "Переход прав и обязанностей — сущностная характеристика продажи предприятия"
 
-        - pattern: "(?i)перевод\\s+долг[овы]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.6
+        - pattern: "(?i)перевод\\s+долг[ов\\s]+в\\s+состав[еу]\\s+предприяти[яия]"
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Перевод долгов — обязательная процедура при продаже предприятия (ст. 562 ГК)"
@@ -202,55 +247,52 @@ classification_runtime_v1:
           weight: 0.55
           distinctiveness: medium
           context: any
-          description: "Asset deal — M&A-термин; встречается в обоих типах (shares_sale как антоним share deal)"
+          description: "Asset deal — M&A-термин; встречается в нескольких типах, не только в продаже предприятия"
 
         - pattern: "(?i)исключительн[ыеые]\\s+прав[ао]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
           description: "Исключительные права в составе — ИС как элемент имущественного комплекса"
 
         - pattern: "(?i)средств[ао]\\s+индивидуализац[иии]\\s+в\\s+состав[еу]\\s+предприяти[яия]"
-          weight: 0.6
+          weight: 0.60
           distinctiveness: medium
           context: any
-          description: "Средства индивидуализации в составе — товарные знаки, коммерческое обозначение"
+          description: "Средства индивидуализации: товарные знаки, фирменное наименование и т.п."
 
-        - pattern: "(?i)реестр\\s+кредитор[ова]"
-          weight: 0.5
+        - pattern: "(?i)реестр\\s+кредитор[о\\w]*"
+          weight: 0.50
           distinctiveness: medium
           context: any
-          description: "Реестр кредиторов — характерен для продажи предприятия и банкротства"
+          description: "Реестр кредиторов — характерен для продажи предприятия и процедур банкротства"
 
       low:
         - pattern: "(?i)\\bgoodwill\\b"
-          weight: 0.3
+          weight: 0.30
           distinctiveness: low
           context: any
-          description: "Goodwill — деловая репутация; встречается в M&A широко"
+          description: "Goodwill — деловая репутация; встречается в любых M&A-сделках"
 
         - pattern: "(?i)\\bdue\\s+diligence\\b"
-          weight: 0.2
+          weight: 0.20
           distinctiveness: low
           context: any
-          description: "Due diligence без привязки к предприятию — встречается во всех M&A-типах"
+          description: "Due diligence без привязки к предприятию — общий M&A-термин"
 
-        - pattern: "(?i)переход\\s+работник[овы]"
+        - pattern: "(?i)переход\\s+работник[ов\\w]*"
           weight: 0.25
           distinctiveness: low
           context: any
-          description: "Переход работников — следствие продажи предприятия (ст. 75 ТК РФ)"
+          description: "Переход работников — следствие продажи предприятия (ст. 75 ТК РФ), но не уникальный признак"
 
         - pattern: "(?i)трудов[ыеые]\\s+отношен[ияия]"
-          weight: 0.2
+          weight: 0.20
           distinctiveness: low
           context: any
-          description: "Трудовые отношения — широкий маркер, не специфичен для этого типа"
+          description: "Трудовые отношения — очень широкий маркер"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
-      # Share deal — принципиальный конкурент (продажа прав, не активов)
       - pattern: "(?i)продаж[аи]\\s+дол[иьи]\\s+в\\s+ООО"
         severity: hard
         weight: -1.0
@@ -276,61 +318,56 @@ classification_runtime_v1:
         weight: -1.0
         description: "Выход участника — корпоративная процедура, не продажа предприятия"
 
-      # Аренда предприятия — передача комплекса без перехода права собственности
       - pattern: "(?i)договор[\\s\\n\\r]+аренд[ыа]\\s+предприяти[яия]"
         severity: hard
         weight: -1.0
-        description: "Аренда предприятия — Гл. 34 § 5 ГК, без перехода права собственности"
+        description: "Аренда предприятия — § 5 гл. 34 ГК, без перехода права собственности"
 
       - pattern: "(?i)аренд[аы]\\s+предприяти[яия]"
         severity: hard
         weight: -1.0
-        description: "Аренда предприятия без слова «договор» — тот же конкурирующий тип"
+        description: "Аренда предприятия без указания на договор — тот же тип"
 
       - pattern: "(?i)договор[\\s\\n\\r]+управлен[ияи]\\s+предприяти[емем]"
         severity: hard
         weight: -1.0
         description: "Управление предприятием — доверительное управление, не продажа"
 
-      # Продажа отдельных активов вне режима комплекса
       - pattern: "(?i)договор[\\s\\n\\r]+продаж[ьи]\\s+отдельн[огоых]\\s+актив[аов]"
         severity: hard
         weight: -1.0
-        description: "Продажа отдельных активов — asset-by-asset sale, не § 8 Гл. 30 ГК"
+        description: "Продажа отдельных активов — asset-by-asset sale"
 
       - pattern: "(?i)продаж[аи]\\s+отдельн[огоых]\\s+объект[аов]\\s+недвижимост[иьи]"
         severity: hard
         weight: -1.0
         description: "Продажа отдельных объектов недвижимости — contract_1.6_real_estate"
 
-      # Явные договоры недвижимости — точечные объекты, не комплекс
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+квартир"
         severity: hard
         weight: -1.0
-        description: "КП квартиры — однозначно contract_1.6_real_estate, не предприятие"
+        description: "КП квартиры — contract_1.6_real_estate"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+жил[а-я\\s]*дом"
         severity: hard
         weight: -1.0
-        description: "КП жилого дома — однозначно contract_1.6_real_estate"
+        description: "КП жилого дома — contract_1.6_real_estate"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+земельн[а-я\\s]*участ"
         severity: hard
         weight: -1.0
-        description: "КП земельного участка — однозначно contract_1.6_real_estate"
+        description: "КП земельного участка — contract_1.6_real_estate"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+дол[иьи]\\s+в\\s+прав[еа]\\s+собственн[оа]ст[иьи]\\s+на\\s+недвижимост"
         severity: hard
         weight: -1.0
         description: "КП доли в праве на недвижимость — contract_1.6_real_estate"
 
-      # ── Soft exclusions — снижают confidence ──
-
-      # Недвижимость как предмет без уточнения «отдельный объект» —
-      # может быть частью имущественного комплекса, поэтому soft
+      # ── Soft exclusions
+      
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+недвижимост[иьи]"
         severity: soft
-        weight: -0.4
+        weight: -0.40
         description: "Общий КП недвижимости — вероятно real_estate, но недвижимость может входить в комплекс"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+объект[овы]\\s+недвижимост[иьи]"
@@ -341,17 +378,17 @@ classification_runtime_v1:
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+нежил[а-я\\s]*помещен"
         severity: soft
         weight: -0.35
-        description: "КП нежилого помещения — может быть частью предприятия, но чаще отдельный объект"
+        description: "КП нежилого помещения — чаще отдельный объект, но может быть в составе предприятия"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+здани[яия]"
         severity: soft
-        weight: -0.3
-        description: "КП здания — здание может входить в состав предприятия, но заголовок указывает на real_estate"
+        weight: -0.30
+        description: "КП здания — сильный сигнал real_estate, но здание может быть частью комплекса"
 
       - pattern: "(?i)договор[\\s\\n\\r]+купл[иы]_?продаж[ьи]\\s+сооружен[ияи]"
         severity: soft
-        weight: -0.3
-        description: "КП сооружения — аналогично зданию: может быть частью комплекса"
+        weight: -0.30
+        description: "КП сооружения — аналогично зданию"
 
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ

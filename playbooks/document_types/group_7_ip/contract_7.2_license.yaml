@@ -46,7 +46,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.81
     strong_signal_threshold: 0.9
@@ -68,8 +67,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия и конструкции лицензионного договора ──
-
         - pattern: "(?i)лицензионн[ыйое]\\s+договор"
           weight: 1.0
           distinctiveness: high
@@ -135,8 +132,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Лицензия на базу данных"
-
-        # ── Стороны и типы лицензий ──
 
         - pattern: "(?i)лицензиар[а-я]*"
           weight: 0.9
@@ -285,8 +280,6 @@ classification_runtime_v1:
           description: "Grant-back оговорка в лицензионном договоре"
 
     exclusions:
-      # ── Hard exclusions — отчуждение и комплексные режимы владения ИС ──
-
       - pattern: "(?i)договор\\s+об\\s+отчуждени[ии]\\s+исключительн[оа]го\\s+прав[аа]"
         severity: hard
         weight: -1.0
@@ -302,7 +295,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Коммерческая концессия включает комплекс лицензионных и иных прав, является отдельным типом"
 
-      # ── Soft exclusions — соседние конструкции и посредничество ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bфранчайзинг\\b"
         severity: soft

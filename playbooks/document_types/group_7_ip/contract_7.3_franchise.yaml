@@ -44,7 +44,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.82
     strong_signal_threshold: 0.9
@@ -67,8 +66,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия и ключевые термины ──
-
         - pattern: "(?i)договор\\s+коммерческ[ойой]\\s+концесс[иии]"
           weight: 1.0
           distinctiveness: high
@@ -128,8 +125,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Франчайзи — пользователь комплекса прав"
-
-        # ── Комплекс прав и бизнес-система ──
 
         - pattern: "(?i)комплекс\\s+исключительн[ыхые]\\s+прав"
           weight: 0.95
@@ -266,8 +261,6 @@ classification_runtime_v1:
           description: "Инспекции точек сети франчайзером"
 
     exclusions:
-      # ── Hard exclusions — чистая лицензия и отчуждение ──
-
       - pattern: "(?i)лицензионн[ыо]й\\s+договор"
         severity: hard
         weight: -1.0
@@ -283,7 +276,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Отчуждение исключительного права — договор продажи права, а не франчайзинг"
 
-      # ── Soft exclusions — соседние сервисные и посреднические конструкции ──
+      # ── Soft exclusions
 
       - pattern: "(?i)агентск[иоя]+\\s+договор"
         severity: soft

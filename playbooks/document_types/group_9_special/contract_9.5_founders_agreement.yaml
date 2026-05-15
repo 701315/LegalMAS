@@ -43,7 +43,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.9
@@ -134,17 +133,11 @@ classification_runtime_v1:
           context: any
           description: "Распределение долей в уставном капитале между учредителями"
 
-        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]"
-          weight: 0.9
-          distinctiveness: high
-          context: any
-          description: "Солидарная ответственность по обязательствам до регистрации"
-
         - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]\\s+учредител[ейей]"
           weight: 0.9
           distinctiveness: high
           context: any
-          description: "Прямое указание на солидарную ответственность учредителей"
+          description: "Солидарная ответственность по обязательствам до регистрации"
 
         - pattern: "(?i)ст\\.?\\s*11\\s+фз-?14"
           weight: 0.85
@@ -225,6 +218,12 @@ classification_runtime_v1:
           context: any
           description: "Ссылка на особенности оплаты долей и вкладов"
 
+        - pattern: "(?i)солидарн[аяое]\\s+ответственност[ьи]"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Солидарная ответственность — широкий маркер, подтверждающий"
+
       low:
         - pattern: "(?i)единогласн[оа]е\\s+решени[ея]"
           weight: 0.3
@@ -269,8 +268,6 @@ classification_runtime_v1:
           description: "Указание организационно-правовой формы создаваемого общества"
 
     exclusions:
-      # ── Hard exclusions — устав, простое товарищество и соседние корпоративные акты ──
-
       - pattern: "(?i)устав\\s+обществ[аа]"
         severity: hard
         weight: -1.0

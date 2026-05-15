@@ -48,7 +48,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.82
     strong_signal_threshold: 0.9
@@ -72,8 +71,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договоров факторинга ──
-
         - pattern: "(?i)факторинг[ауы]?"
           weight: 1.0
           distinctiveness: high
@@ -145,8 +142,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Notification factoring agreement — договор с уведомлением должника"
-
-        # ── Стороны и ключевые элементы конструкции ──
 
         - pattern: "(?i)финансов[ыйое]\\s+агент"
           weight: 0.9
@@ -277,8 +272,6 @@ classification_runtime_v1:
           description: "Зачёт взаимных требований, возможный в структуре факторинговых расчётов"
 
     exclusions:
-      # ── Hard exclusions — явно иные конструкции (чистая цессия, займ, поручительство, агентские услуги) ──
-
       - pattern: "(?i)договор\\s+цесси[ии]"
         severity: hard
         weight: -1.0
@@ -304,7 +297,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Договор услуг по взысканию задолженности (collection), а не факторинг"
 
-      # ── Soft exclusions — соседние конструкции финансирования/обеспечения ──
+      # ── Soft exclusions
 
       - pattern: "(?i)кредитн[ыйое]\\s+договор"
         severity: soft

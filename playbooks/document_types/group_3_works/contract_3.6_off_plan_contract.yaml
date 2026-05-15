@@ -40,7 +40,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Параметры scoring для L2
   scoring:
     accept_threshold: 0.82
     strong_signal_threshold: 0.9
@@ -64,8 +63,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия ДДУ ──
-
         - pattern: "(?i)договор\\s+участ[ияия]\\s+в\\s+долев[омом]\\s+строительств[еии]"
           weight: 1.0
           distinctiveness: high
@@ -102,8 +99,6 @@ classification_runtime_v1:
           context: any
           description: "Распространённая аббревиатура договора участия в долевом строительстве"
 
-        # ── Участники и объект долевого строительства ──
-
         - pattern: "(?i)застройщик[а-я]*"
           weight: 0.9
           distinctiveness: high
@@ -127,8 +122,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Аббревиатура объекта долевого строительства"
-
-        # ── Жёсткие юридические маркеры 214‑ФЗ, эскроу и защита дольщиков ──
 
         - pattern: "(?i)проектн[аяое]\\s+декларац[ияи]"
           weight: 0.85
@@ -154,21 +147,17 @@ classification_runtime_v1:
           context: any
           description: "Краткое упоминание 214‑ФЗ в тексте договора"
 
-        - pattern: "(?i)разрешен[иеия]\\s+на\\s+строительств[о]"
+        - pattern: "(?i)разрешен[иеия]\\s+на\\s+строительств[о]\\s+(?:объект[аа]\\s+)?(?:долев[огоой]|многоквартирн[огоой])"
           weight: 0.85
           distinctiveness: high
           context: any
-          description: "Разрешение на строительство объекта долевого строительства"
+          description: "Разрешение на строительство объекта долевого строительства (ДДУ-специфично)"
 
         - pattern: "(?i)фонд\\s+защит[ыы]\\s+прав\\s+дольщик[оа]в"
           weight: 0.9
           distinctiveness: high
           context: any
           description: "Фонд защиты прав граждан — участников долевого строительства"
-
-        # ── Оставшиеся legacy high ──
-        - "(?i)долев[оеого]\\s+строительств[оа]"
-        - "(?i)участник[а-я]*\\s+долев[огоое]\\s+строительств[ао]"
 
       medium:
         - pattern: "(?i)условн[ыо]й\\s+номер\\s+объект[аа]"
@@ -251,8 +240,6 @@ classification_runtime_v1:
           description: "Дольщик как участник долевого строительства"
 
     exclusions:
-      # ── Hard exclusions — альтернативные схемы и готовая недвижимость ──
-
       - pattern: "(?i)жилищно-?строительн[ыо]й\\s+кооператив"
         severity: hard
         weight: -1.0
@@ -303,7 +290,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Инвест‑договор вместо ДДУ как обход 214‑ФЗ"
 
-      # ── Soft exclusions — подряды/управление МКД и соседние конструкции ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bсер[аоы]й\\b"
         severity: soft

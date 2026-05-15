@@ -47,7 +47,6 @@ engine_expectations:
 
 classification_runtime_v1:
 
-  # Прокат — специальный потребительский режим,
   scoring:
     accept_threshold: 0.8
     strong_signal_threshold: 0.88
@@ -70,8 +69,6 @@ classification_runtime_v1:
     keywords:
 
       high:
-        # ── Прямые названия договора и формы оферты ──
-
         - pattern: "(?i)договор\\s+прокат[аыу]"
           weight: 1.0
           distinctiveness: high
@@ -120,8 +117,6 @@ classification_runtime_v1:
           context: header
           description: "Краткосрочный договор проката — срок до одного года"
 
-        # ── Специфичные consumer-маркеры ──
-
         - pattern: "(?i)бытов[ыеых]\\s+нужд[ы]"
           weight: 0.85
           distinctiveness: high
@@ -133,12 +128,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: any
           description: "Потребительские цели — характерны для consumer-регулирования"
-
-        - pattern: "(?i)публичн[ыйое]\\s+договор"
-          weight: 0.8
-          distinctiveness: high
-          context: any
-          description: "Публичный договор в контексте проката — маркер § 2 Главы 34 ГК РФ"
 
         - pattern: "(?i)пункт\\s+прокат[аыу]"
           weight: 0.8
@@ -158,16 +147,18 @@ classification_runtime_v1:
           context: body
           description: "Обязанность ознакомить арендатора с правилами эксплуатации"
 
-        # ── Оставшиеся legacy high ──
-        - "(?i)прокат[аыу]?"
-        - "(?i)гражданин[ауы]"
-
       medium:
         - pattern: "(?i)почасов[а-яё]+\\s+аренд[аы]"
           weight: 0.6
           distinctiveness: medium
           context: any
           description: "Почасовая аренда — характерна для краткосрочного проката"
+
+        - pattern: "(?i)публичн[ыйое]\\s+договор"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Публичный договор в контексте проката — маркер § 2 Главы 34 ГК РФ"
 
         - pattern: "(?i)посуточн[а-яё]+\\s+аренд[аы]"
           weight: 0.6
@@ -267,8 +258,6 @@ classification_runtime_v1:
           description: "Спортивный инвентарь — частый объект краткосрочного проката"
 
     exclusions:
-      # ── Hard exclusions — полностью подавляют тип ──
-
       - pattern: "(?i)аренд[аы]\\s+недвижимост[ии]"
         severity: hard
         weight: -1.0
@@ -299,7 +288,7 @@ classification_runtime_v1:
         weight: -1.0
         description: "Использование имущества для извлечения прибыли — предпринимательская цель, не прокат"
 
-      # ── Soft exclusions — снижают confidence ──
+      # ── Soft exclusions
 
       - pattern: "(?i)\\bлизинг\\b"
         severity: soft
