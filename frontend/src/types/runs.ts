@@ -112,11 +112,17 @@ export interface Run {
 export interface ProgressEvent {
   run_id: string;
   status: RunStatus;
-  completed_checks: number;
-  total_checks: number;
+
+  /** Актуальный контракт */
+  completed_checks?: number;
+  total_checks?: number;
+
+  /** Временная совместимость со старым/фактическим payload */
+  completed?: number;
+  total?: number;
+
   current_document?: string;
   error?: string;
 }
-
 
 

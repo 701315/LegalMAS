@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "console"  # "console" for dev, "json" for production
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
 
+    LOG_FILE_DIR: str | None = None  # ./logs — только для dev, не для production
+
+    # --- Classification explainability / observability ---
+    CLASSIFICATION_DECISION_TRACE_SCHEMA_VERSION: int = 1
+    CLASSIFICATION_LOG_DECISIONS: bool = True
+    CLASSIFICATION_LOG_L4_SKIPS: bool = True
+    CLASSIFICATION_TRACE_INCLUDE_RANKING: bool = True
+    CLASSIFICATION_TRACE_INCLUDE_CANDIDATES: bool = True
+
     # --- Classification & Embeddings (общие) ---
     EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-large"
     CLASSIFICATION_REGISTRY_PATH: str = "playbooks/document_types/registry.yaml"

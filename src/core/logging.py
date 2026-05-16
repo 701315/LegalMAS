@@ -98,6 +98,10 @@ def setup_logging() -> None:
     logging.getLogger("asyncio").setLevel(logging.WARNING)
     logging.getLogger("minio").setLevel(logging.WARNING)
 
+    # Dev-only: файловые обработчики по категориям (если задан LOG_FILE_DIR)
+    if settings.LOG_FORMAT != "json" and getattr(settings, "LOG_FILE_DIR", None):
+        _setup_dev_file_handlers(settings.LOG_FILE_DIR)
+
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """
@@ -108,3 +112,44 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
         logger.info("Processing document", doc_id="123", pages=45)
     """
     return structlog.get_logger(name)
+
+
+def _setup_dev_file_handlers(base_dir: str) -> None:
+    """
+    Dev-only: логи по категориям в файлы.
+    Не используется в production (LOG_FORMAT=json → stdout only).
+
+    Структура:
+        {base_dir}/classifiers.log
+        {base_dir}/workers.log
+        {base_dir}/api.log
+        {base_dir}/engine.log
+    """
+    import os
+    from logging.handlers import RotatingFileHandler
+
+    os.makedirs(base_dir, exist_ok=True)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)-8s %(name)s  %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+
+    categories = {
+        "classifiers": "classifiers.log",
+        "workers":     "workers.log",
+        "api":         "api.log",
+        "engine":      "engine.log",
+    }
+
+    for prefix, filename in categories.items():
+        handler = RotatingFileHandler(
+            os.path.join(base_dir, filename),
+            maxBytes=20 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
+        )
+        handler.setFormatter(formatter)
+        logging.getLogger(prefix).addHandler(handler)
+
+        

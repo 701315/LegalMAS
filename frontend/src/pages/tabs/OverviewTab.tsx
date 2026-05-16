@@ -438,9 +438,15 @@ const RunProgressCard: React.FC<{
     );
   }
 
-  const effectiveCompleted =
-    lastEvent?.completed_checks ?? run?.completed_checks ?? 0;
-  const effectiveTotal = lastEvent?.total_checks ?? run?.total_checks ?? 0;
+  const sseCompleted = lastEvent?.completed_checks ?? lastEvent?.completed ?? null;
+  const sseTotal = lastEvent?.total_checks ?? lastEvent?.total ?? null;
+
+  const runCompleted = run?.completed_checks ?? null;
+  const runTotal = run?.total_checks ?? null;
+
+  const effectiveCompleted = sseCompleted ?? runCompleted ?? 0;
+  const effectiveTotal = sseTotal ?? runTotal ?? 0;
+
   const effectiveStatus = (lastEvent?.status ??
     run?.status) as RunStatus | undefined;
 
@@ -459,11 +465,13 @@ const RunProgressCard: React.FC<{
             Загружаем…
           </span>
         ) : (
-          <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
-            {effectiveStatus
-              ? (RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus)
-              : "—"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-3 py-1 text-[11px] font-medium text-[var(--text-secondary)]">
+              {effectiveStatus
+                ? (RUN_STATUS_CONFIG[effectiveStatus]?.label ?? effectiveStatus)
+                : "—"}
+            </span>
+          </div>
         )
       }
     >

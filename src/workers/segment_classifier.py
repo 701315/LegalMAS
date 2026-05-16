@@ -178,6 +178,37 @@ def _normalize_confidence_zone(value: Any) -> str | None:
     return cleaned or None
 
 
+def _extract_decided_by(details: dict[str, Any] | None) -> str | None:
+    """
+    Компактное извлечение decision strategy для worker-level summary log сегмента.
+    """
+    if not isinstance(details, dict):
+        return None
+
+    decision_summary = details.get("decision_summary") or {}
+    if isinstance(decision_summary, dict):
+        decided_by = decision_summary.get("decided_by")
+        if decided_by:
+            return str(decided_by)
+
+    voting = details.get("voting") or {}
+    if isinstance(voting, dict):
+        strategy = voting.get("strategy")
+        if strategy:
+            return str(strategy)
+
+    if details.get("L4"):
+        return "L4_LLM"
+
+    if details.get("MASTERCOPY"):
+        return "COPIED"
+
+    if details.get("confidence_zone") == "unknown":
+        return "FALLBACK_UNKNOWN"
+
+    return None
+
+
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -322,6 +353,19 @@ async def _classify_document_segments_async(
                         text=segment_text,
                         filename=getattr(doc, "filename", "") or "",
                         folder_path=getattr(doc, "folder_path", "") or "",
+                    )
+
+                    _seg_details = result.get("details") or {}
+                    _seg_decided_by = _extract_decided_by(_seg_details)
+                    logger.info(
+                        "worker_segment_classification_done",
+                        doc_id=str(doc.id),
+                        segment_id=str(segment.id),
+                        final_type=result.get("final_type"),
+                        final_confidence=result.get("final_confidence"),
+                        decided_by=_seg_decided_by,
+                        levels_tried=result.get("levels_tried", []),
+                        requires_manual_review=_seg_details.get("requires_manual_review", False),
                     )
 
                     details = _safe_json_dict(result.get("details"))

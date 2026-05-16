@@ -1,7 +1,5 @@
 # src/workers/classifier.py
 
-# src/workers/classifier.py
-
 """
 Classifier Worker — каскадная классификация документов (Stage 6/7).
 
@@ -115,6 +113,44 @@ def _get_classifier(uow: UnitOfWork) -> HybridClassifier:
     return _bind_classifier_runtime(_classifier_instance, uow=uow)
 
 
+def _extract_decided_by(details: dict[str, Any] | None) -> str | None:
+    """
+    Компактное извлечение decision strategy для worker-level summary log.
+
+    Приоритет:
+    1. details["decision_summary"]["decided_by"] — целевой нормализованный контракт
+    2. details["voting"]["strategy"]             — текущий/legacy voting path
+    3. details["L4"]                            — L4 fallback path
+    4. details["MASTERCOPY"]                    — duplicate/master-copy path
+    5. confidence_zone == "unknown"             — fallback unknown path
+    """
+    if not isinstance(details, dict):
+        return None
+
+    decision_summary = details.get("decision_summary") or {}
+    if isinstance(decision_summary, dict):
+        decided_by = decision_summary.get("decided_by")
+        if decided_by:
+            return str(decided_by)
+
+    voting = details.get("voting") or {}
+    if isinstance(voting, dict):
+        strategy = voting.get("strategy")
+        if strategy:
+            return str(strategy)
+
+    if details.get("L4"):
+        return "L4_LLM"
+
+    if details.get("MASTERCOPY"):
+        return "COPIED"
+
+    if details.get("confidence_zone") == "unknown":
+        return "FALLBACK_UNKNOWN"
+
+    return None
+
+
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -209,6 +245,23 @@ async def _classify_document_async(
 
             classifier = _get_classifier(uow)
             classification_result = await classifier.classify_document(str(doc.id))
+
+            _details = classification_result.get("details") or {}
+            decided_by = _extract_decided_by(_details)
+
+            logger.info(
+                "worker_classification_done",
+                doc_id=str(doc.id),
+                deal_id=str(doc.deal_id) if doc.deal_id else None,
+                final_type=classification_result.get("final_type"),
+                final_confidence=classification_result.get("final_confidence"),
+                decided_by=decided_by,
+                levels_tried=classification_result.get("levels_tried", []),
+                requires_manual_review=_details.get("requires_manual_review", False),
+                applicable_triggers_count=len(
+                    classification_result.get("applicable_triggers") or []
+                ),
+            )
 
             raw_final_type = classification_result.get("final_type") or "UNKNOWN"
             final_conf = float(classification_result.get("final_confidence") or 0.0)

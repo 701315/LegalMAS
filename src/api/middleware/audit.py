@@ -114,3 +114,5 @@ class AuditMiddleware(BaseHTTPMiddleware):
             pass
 
         return response
+
+

@@ -42,6 +42,8 @@ from ._result_builder import ResultBuilder
 
 # Реэкспорт контрактов — внешние импорты не ломаются
 from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO
+from ._decision_logger import DecisionStrategy, describe_l4_skip, log_classification_decision
+
 
 logger = get_logger(__name__)
 
@@ -120,7 +122,7 @@ class HybridClassifier:
         filename = getattr(doc, "filename", "") or ""
         folder = getattr(doc, "folder_path", None) or getattr(doc, "folder", "") or ""
 
-        logger.info(
+        logger.debug(
             "Hybrid classify_document start",
             extra={
                 "doc_id": doc_id,
@@ -154,6 +156,17 @@ class HybridClassifier:
             self.metrics.classification_duration.labels(source="copied").observe(
                 time.time() - started_at
             )
+
+            log_classification_decision(
+                doc_id=doc_id,
+                decided_by=DecisionStrategy.COPIED,
+                final_type=master_result["doc_type"],
+                final_confidence=master_result["classification_confidence"],
+                levels_tried=details["levels_tried"],
+                started_at=started_at,
+                extra={"copied_from_master": str(master_result["master_id"])},
+            )
+            
             return self._builder.build(
                 levels_tried=details["levels_tried"],
                 candidates=[],
@@ -174,7 +187,8 @@ class HybridClassifier:
 
         # ── Content fetch ─────────────────────────────────────────────
         header_text, snippet_text = await self._fetcher.fetch(doc.id)
-        logger.info(
+
+        logger.debug(
             "Hybrid content fetched",
             extra={
                 "doc_id": doc_id,
@@ -221,7 +235,11 @@ class HybridClassifier:
 
         # ── Взвешенное голосование ────────────────────────────────────
         candidates.sort(key=lambda c: float(c.get("confidence", 0.0)), reverse=True)
-        details["candidates"] = candidates
+        if settings.CLASSIFICATION_TRACE_INCLUDE_CANDIDATES:
+            details["candidates"] = candidates
+        else:
+            # Можно сохранить только top-N или summary
+            details["candidates"] = candidates[:3]
 
         voted = self._voter.vote(candidates)
         final_type, final_conf, language, jurisdiction, details = self._apply_voting(
@@ -233,10 +251,20 @@ class HybridClassifier:
             self.metrics.classification_duration.labels(source="hybrid_voting").observe(
                 time.time() - started_at
             )
-            logger.info(
-                "Hybrid final result (HYBRID, after voting)",
-                extra={"doc_id": doc_id, "final_type": final_type, "final_confidence": final_conf},
+            log_classification_decision(
+                doc_id=doc_id,
+                decided_by=DecisionStrategy.HYBRID_VOTING,
+                final_type=final_type,
+                final_confidence=final_conf,
+                levels_tried=details["levels_tried"],
+                started_at=started_at,
+                contradiction=details.get("contradiction_detected", False),
+                extra={
+                    "voting_margin": details.get("voting_margin"),
+                    "voting_override": bool(details.get("voting_override")),
+                },
             )
+
             return self._builder.build(
                 levels_tried=details["levels_tried"],
                 candidates=candidates,
@@ -372,7 +400,11 @@ class HybridClassifier:
             return result
 
         candidates.sort(key=lambda c: float(c.get("confidence", 0.0)), reverse=True)
-        details["candidates"] = candidates
+        if settings.CLASSIFICATION_TRACE_INCLUDE_CANDIDATES:
+            details["candidates"] = candidates
+        else:
+            # Можно сохранить только top-N или summary
+            details["candidates"] = candidates[:3]
 
         voted = self._voter.vote(candidates)
         final_type, final_conf, language, jurisdiction, details = self._apply_voting(
@@ -390,12 +422,17 @@ class HybridClassifier:
             self.metrics.classification_duration.labels(
                 source="segment_hybrid_voting"
             ).observe(time.time() - started_at)
-            logger.info(
-                "Hybrid segment final result (HYBRID, after voting)",
+            log_classification_decision(
+                doc_id=f"segment:{segment_id}",
+                decided_by=DecisionStrategy.HYBRID_VOTING,
+                final_type=final_type,
+                final_confidence=final_conf,
+                levels_tried=details["levels_tried"],
+                started_at=started_at,
+                contradiction=details.get("contradiction_detected", False),
                 extra={
+                    "voting_margin": details.get("voting_margin"),
                     "segment_id": segment_id,
-                    "final_type": final_type,
-                    "final_confidence": final_conf,
                 },
             )
             return self._builder.build(
@@ -486,7 +523,7 @@ class HybridClassifier:
                 "note": "no_patterns_matched",
             }
 
-        logger.info(
+        logger.debug(
             "Hybrid L1 result",
             extra={
                 "doc_id": doc_id,
@@ -497,6 +534,7 @@ class HybridClassifier:
                 "candidates_count": len(l1_results),
             },
         )
+        
         return top_l1, candidates, details
 
     async def _run_l2(
@@ -520,13 +558,15 @@ class HybridClassifier:
                 "evidence": None,
                 "note": "no_header_or_snippet_text",
             }
-            logger.info(
+
+            logger.debug(
                 "Hybrid L2 skipped",
                 extra={
                     "doc_id": doc_id,
                     "reason": "no_header_or_snippet_text",
                 },
             )
+
             return top_l2, candidates, details
 
         l2_result = await self.l2.classify(
@@ -579,7 +619,7 @@ class HybridClassifier:
                     }
                 )
 
-        logger.info(
+        logger.debug(
             "Hybrid L2 result",
             extra={
                 "doc_id": doc_id,
@@ -591,6 +631,7 @@ class HybridClassifier:
                 "exclusion_hits": exclusion_hits,
             },
         )
+
         return top_l2, candidates, details
 
     async def _run_l3(
@@ -614,7 +655,9 @@ class HybridClassifier:
                 "type": "UNKNOWN", "confidence": 0.0,
                 "method": "embedding_similarity", "evidence": None, "note": note,
             }
-            logger.info("Hybrid L3 skipped", extra={"doc_id": doc_id, "reason": note})
+
+            logger.debug("Hybrid L3 skipped", extra={"doc_id": doc_id, "reason": note})
+
             return top_l3, candidates, details, language, jurisdiction, applicable_triggers
 
         l3_result = await self.l3.classify(
@@ -667,7 +710,7 @@ class HybridClassifier:
                 "margin": float(l3_extra.get("margin", 0.0)),
             })
 
-        logger.info(
+        logger.debug(
             "Hybrid L3 result",
             extra={
                 "doc_id": doc_id,
@@ -679,6 +722,7 @@ class HybridClassifier:
                 "raw_similarity": raw_sim,
             },
         )
+
         return top_l3, candidates, details, language, jurisdiction, applicable_triggers
 
 
@@ -773,7 +817,7 @@ class HybridClassifier:
                         "l3_raw_similarity": l3_raw_sim,
                     }
 
-                    logger.warning(
+                    logger.info(
                         "L2_STRONG_WINS: conflict detected with L3",
                         extra={
                             "doc_id": doc_id,
@@ -802,7 +846,8 @@ class HybridClassifier:
                         "l3_raw_similarity": l3_extra.get("raw_similarity"),
                         "decision": "continue_to_voting",
                     }
-                    logger.info(
+
+                    logger.warning(
                         "Hybrid decision L2_STRONG_SUPPRESSED by L3",
                         extra={
                             "doc_id": doc_id,
@@ -811,6 +856,7 @@ class HybridClassifier:
                             "l2_strong_threshold": strong_l2,
                         },
                     )
+
                     return None
 
                 final_type = l2_type
@@ -829,15 +875,21 @@ class HybridClassifier:
                     "l2_strong_threshold": strong_l2,
                 }
 
-                logger.info(
-                    "Hybrid decision L2_STRONG_WINS",
+                log_classification_decision(
+                    doc_id=doc_id,
+                    decided_by=DecisionStrategy.L2_STRONG_WINS,
+                    final_type=final_type,
+                    final_confidence=final_conf,
+                    levels_tried=details["levels_tried"],
+                    started_at=started_at,
+                    contradiction=details.get("contradiction_detected", False),
                     extra={
-                        "doc_id": doc_id,
-                        "final_type": final_type,
-                        "final_confidence": final_conf,
                         "l2_strong_threshold": strong_l2,
+                        "l2_distinctive_high_hits": distinctive_high,
+                        "l2_generic_high_hits": generic_high,
                     },
                 )
+
                 self.metrics.classification_duration.labels(source="l2_strong").observe(
                     time.time() - started_at
                 )
@@ -868,12 +920,16 @@ class HybridClassifier:
                 "strategy": "L1_L2_AGREE",
                 "reason": "L1 and L2 agree with >= 0.7",
             }
-            logger.info(
-                "Hybrid decision L1_L2_AGREE",
+            log_classification_decision(
+                doc_id=doc_id,
+                decided_by=DecisionStrategy.L1_L2_AGREE,
+                final_type=final_type,
+                final_confidence=final_conf,
+                levels_tried=details["levels_tried"],
+                started_at=started_at,
                 extra={
-                    "doc_id": doc_id,
-                    "final_type": final_type,
-                    "final_confidence": final_conf,
+                    "l1_conf": round(float(top_l1["confidence"]), 4),
+                    "l2_conf": round(float(top_l2.confidence), 4),
                 },
             )
             self.metrics.classification_duration.labels(source="l1_l2_agree").observe(
@@ -919,9 +975,10 @@ class HybridClassifier:
         margin = voted.get("margin", 0.0)
         ranking = voted.get("ranking", [])
         details["voting_margin"] = margin
-        details["voting_ranking"] = ranking[:3]  # top-3 для компактности
+        if settings.CLASSIFICATION_TRACE_INCLUDE_RANKING:
+            details["voting_ranking"] = ranking[:3]
 
-        logger.info(
+        logger.debug(
             "Hybrid voting result with margin",
             extra={
                 "doc_id": doc_id,
@@ -947,7 +1004,8 @@ class HybridClassifier:
             }
             final_type = top_l1["type_code"]
             final_conf = float(top_l1["confidence"])
-            logger.info(
+
+            logger.debug(
                 "Hybrid voting override by L1",
                 extra={
                     "doc_id": doc_id,
@@ -1009,11 +1067,29 @@ class HybridClassifier:
             and need_adjudication
             and not strong_single
         ):
+            if settings.CLASSIFICATION_LOG_L4_SKIPS:
+                skip_reason = describe_l4_skip(
+                    l4_enabled=self.l4_enabled,
+                    llm_available=self._llm.is_available(),
+                    has_source_text=bool(llm_source_text),
+                    need_adjudication=need_adjudication,
+                    strong_single=strong_single,
+                )
+                logger.debug(
+                    "l4_skipped",
+                    extra={
+                        "doc_id": doc_id,
+                        "reason": skip_reason,
+                        "need_adjudication": need_adjudication,
+                        "strong_single": strong_single,
+                        "final_conf_after_voting": final_conf_after_voting,
+                    },
+                )
             return None
 
         details["levels_tried"].append("L4")
 
-        logger.info(
+        logger.debug(
             "Hybrid L4 call",
             extra={
                 "doc_id": doc_id,
@@ -1036,7 +1112,10 @@ class HybridClassifier:
         except Exception as e:
             logger.warning(
                 "HybridClassifier: L4 LLM classification failed",
-                doc_id=str(doc.id), error=str(e),
+                extra={
+                    "doc_id": str(doc.id),
+                    "error": str(e),
+                },
             )
             details["L4"] = self._make_l4_error_details(e)
             return None
@@ -1060,7 +1139,7 @@ class HybridClassifier:
             "raw": parsed["raw"],
         }
 
-        logger.info(
+        logger.debug(
             "Hybrid L4 result",
             extra={"doc_id": doc_id, "doctype": parsed["type_code"], "confidence": parsed["confidence"]},
         )
@@ -1069,10 +1148,22 @@ class HybridClassifier:
             self.metrics.classification_duration.labels(source="l4").observe(
                 time.time() - started_at
             )
-            logger.info(
-                "Hybrid final result (L4)",
-                extra={"doc_id": doc_id, "final_type": parsed["type_code"], "final_confidence": parsed["confidence"]},
-            )
+            if settings.CLASSIFICATION_LOG_DECISIONS:
+                log_classification_decision(
+                    doc_id=doc_id,
+                    decided_by=DecisionStrategy.L4_LLM,
+                    final_type=parsed["type_code"],
+                    final_confidence=parsed["confidence"],
+                    levels_tried=details["levels_tried"],
+                    started_at=started_at,
+                    l4_triggered=True,
+                    contradiction=details.get("contradiction_detected", False),
+                    extra={
+                        "l4_parse_success": parsed["parse_success"],
+                        "voting_margin": details.get("voting_margin"),
+                    },
+                )
+
             return self._builder.build(
                 levels_tried=details["levels_tried"],
                 candidates=candidates,
@@ -1136,14 +1227,34 @@ class HybridClassifier:
         if not (
             self.l4_enabled
             and self._llm.is_available()
+            and llm_source_text
             and allowed_types
             and need_adjudication
             and not strong_single
         ):
+            if settings.CLASSIFICATION_LOG_L4_SKIPS:
+                skip_reason = describe_l4_skip(
+                    l4_enabled=self.l4_enabled,
+                    llm_available=self._llm.is_available(),
+                    has_source_text=bool(llm_source_text),
+                    need_adjudication=need_adjudication,
+                    strong_single=strong_single,
+                )
+                logger.debug(
+                    "l4_skipped",
+                    extra={
+                        "segment_id": segment_id,
+                        "reason": skip_reason,
+                        "need_adjudication": need_adjudication,
+                        "strong_single": strong_single,
+                        "final_conf_after_voting": final_conf_after_voting,
+                    },
+                )
             return None
 
         details["levels_tried"].append("L4")
-        logger.info(
+
+        logger.debug(
             "Hybrid segment L4 call",
             extra={
                 "segment_id": segment_id,
@@ -1166,8 +1277,10 @@ class HybridClassifier:
         except Exception as e:
             logger.warning(
                 "HybridClassifier: L4 LLM classification failed for segment",
-                segment_id=segment_id,
-                error=str(e),
+                extra={
+                    "segment_id": segment_id,
+                    "error": str(e),
+                },
             )
             details["L4"] = self._make_l4_error_details(e)
             return None
@@ -1190,7 +1303,7 @@ class HybridClassifier:
             "raw": parsed["raw"],
         }
 
-        logger.info(
+        logger.debug(
             "Hybrid segment L4 result",
             extra={
                 "segment_id": segment_id,
@@ -1203,14 +1316,22 @@ class HybridClassifier:
             self.metrics.classification_duration.labels(source="segment_l4").observe(
                 time.time() - started_at
             )
-            logger.info(
-                "Hybrid segment final result (L4)",
-                extra={
-                    "segment_id": segment_id,
-                    "final_type": parsed["type_code"],
-                    "final_confidence": parsed["confidence"],
-                },
-            )
+            if settings.CLASSIFICATION_LOG_DECISIONS:
+                log_classification_decision(
+                    doc_id=f"segment:{segment_id}",
+                    decided_by=DecisionStrategy.L4_LLM,
+                    final_type=parsed["type_code"],
+                    final_confidence=parsed["confidence"],
+                    levels_tried=details["levels_tried"],
+                    started_at=started_at,
+                    l4_triggered=True,
+                    contradiction=details.get("contradiction_detected", False),
+                    extra={
+                        "l4_parse_success": parsed["parse_success"],
+                        "segment_id": segment_id,
+                    },
+                )
+
             return self._builder.build(
                 levels_tried=details["levels_tried"],
                 candidates=candidates,
@@ -1248,16 +1369,21 @@ class HybridClassifier:
         applicable_triggers = self._builder.build_triggers(doc_id, final_type_out)
         zone, requires_review = self._builder.confidence_zone(final_conf)
 
-        logger.info(
-            "Hybrid final result",
-            extra={
-                "doc_id": doc_id,
-                "final_type": final_type_out,
-                "final_confidence": final_conf,
-                "levels_tried": details["levels_tried"],
-                "confidence_zone": zone,
-                "requires_manual_review": requires_review,
-            },
+        decided_by = (
+            DecisionStrategy.FALLBACK_UNKNOWN
+            if final_type_out == "UNKNOWN"
+            else DecisionStrategy.FALLBACK_LOW
+        )
+        log_classification_decision(
+            doc_id=doc_id,
+            decided_by=decided_by,
+            final_type=final_type_out,
+            final_confidence=final_conf,
+            levels_tried=details["levels_tried"],
+            started_at=started_at,
+            requires_manual_review=requires_review,
+            confidence_zone=zone,
+            extra={"voted_type": voted["type"] if voted else None},
         )
 
         details["confidence_zone"] = zone

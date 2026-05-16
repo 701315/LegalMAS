@@ -14,10 +14,12 @@ interface UseSSEOptions {
 /**
  * Простой хук для подписки на SSE по конкретному run_id.
  *
- * Ожидается, что на бэкенде есть endpoint:
+ * Ожидается endpoint:
  *   GET /api/v1/runs/{run_id}/events
- * который шлёт события в формате JSON:
- *   { "run_id": "...", "status": "...", "completed_checks": 10, ... }
+ *
+ * Поддерживаем оба варианта payload:
+ *   { run_id, status, completed_checks, total_checks }
+ *   { run_id, status, completed, total }
  */
 export function useSSEProgress(
   runId: string | null,
@@ -31,10 +33,12 @@ export function useSSEProgress(
 
   useEffect(() => {
     if (!runId || !enabled) {
+      setLastEvent(null);
+      setIsConnected(false);
+      setError(null);
       return;
     }
 
-    // Формируем URL SSE-эндпоинта
     const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
     const url = `${baseUrl}/api/v1/runs/${runId}/events`;
 
@@ -49,6 +53,8 @@ export function useSSEProgress(
       try {
         const data = JSON.parse(event.data) as ProgressEvent;
         setLastEvent(data);
+        setIsConnected(true);
+        setError(null);
       } catch (e) {
         console.error("Ошибка парсинга SSE события", e);
       }
@@ -56,11 +62,11 @@ export function useSSEProgress(
 
     es.onerror = () => {
       setIsConnected(false);
-      setError("SSE подключение прервано");
-      es.close();
+      setError("SSE подключение временно недоступно");
+      // ВАЖНО:
+      // не закрываем es здесь, чтобы не ломать встроенный reconnect EventSource.
     };
 
-    // Очистка при размонтировании
     return () => {
       es.close();
     };
@@ -68,3 +74,5 @@ export function useSSEProgress(
 
   return { lastEvent, isConnected, error };
 }
+
+
