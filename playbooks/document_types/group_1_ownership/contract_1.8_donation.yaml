@@ -30,6 +30,15 @@ metadata:
     - "договор дарения доли"
     - "договор дарения денежных средств"
     - "договор дарения имущественного права"
+    - "дарственная на квартиру"
+    - "дарственная на долю в ООО"
+
+    - "deed of gift"
+    - "gift deed"
+    - "donation agreement"
+    - "charitable pledge"
+    - "covenant to donate"
+    - "charitable contribution agreement"
 
 engine_expectations:
   evidence_required: true

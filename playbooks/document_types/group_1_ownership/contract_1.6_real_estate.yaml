@@ -18,6 +18,7 @@ metadata:
   language: ru
   legal_base: "§ 7 Главы 30 ГК РФ (ст. 549-558)"
   doc_types_supported:
+    - "договор купли-продажи недвижимости"
     - "договор купли-продажи квартиры"
     - "договор купли-продажи жилого дома"
     - "договор купли-продажи нежилого помещения"
@@ -25,6 +26,24 @@ metadata:
     - "договор купли-продажи земельного участка"
     - "договор купли-продажи доли в праве собственности на недвижимость"
     - "договор купли-продажи общего имущества в МКД (подвал/чердак и т.п.)"
+    - "договор продажи коммерческой недвижимости"
+    - "договор продажи объекта незавершенного строительства"
+
+    - "real estate purchase agreement"
+    - "real property sale agreement"
+    - "property transfer agreement"
+    - "deed of sale"
+    - "deed of conveyance"
+    - "conveyance deed"
+    - "transfer deed"
+    - "land sale contract"
+    - "condominium purchase agreement"
+    - "purchase and sale agreement"
+    - "PSA"
+    - "agreement of purchase and sale"
+    - "APS"
+    - "sale of leasehold interest"
+    - "escrow instructions"
 
 engine_expectations:
   evidence_required: true
@@ -301,12 +320,17 @@ classification_runtime_v1:
         weight: -1.0
         description: "Договор управления МКД — упоминание МКД не должно триггерить купли-продажу"
 
-      # ── Soft exclusions
+      - pattern: "(?i)(?:Имущество|имущество)[\\s\\S]{0,200}означает[\\s\\S]{0,200}движимое"
+        severity: hard
+        weight: -1.0
+        description: "Определение предмета как движимого имущества — точное исключение из недвижимости"
 
-      - pattern: "(?i)движим[оа]е?\\s+имуществ[оа]"
-        severity: soft
-        weight: -0.3
-        description: "Смешение движимого и недвижимого имущества снижает уверенность"
+      - pattern: "(?i)\\bоборудовани[ея]\\b.{0,80}\\bзапасн[ыхые]\\s+части"
+        severity: hard
+        weight: -1.0
+        description: "Оборудование + запасные части = движимое, не недвижимость"
+
+      # ── Soft exclusions
 
       - pattern: "(?i)приватизаци[яи]"
         severity: soft

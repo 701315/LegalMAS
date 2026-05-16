@@ -33,6 +33,26 @@ metadata:
     - "договор автомобильной перевозки грузов"
     - "рамочный договор перевозки"
     - "транспортный договор"
+    - "договор автомобильной перевозки"
+    - "договор железнодорожной перевозки"
+    - "договор воздушной перевозки"
+    - "договор морской перевозки"
+    - "договор мультимодальной перевозки"
+    - "договор фрахтования"
+    - "договор перевозки сборных грузов"
+
+    - "contract of carriage"
+    - "carriage contract"
+    - "freight agreement"
+    - "shipping agreement"
+    - "transport services agreement"
+    - "bill of lading contract"
+    - "sea waybill"
+    - "air waybill"
+    - "AWB"
+    - "CMR agreement"
+    - "multimodal transport contract"
+    - "charterparty agreement"
 
 engine_expectations:
   evidence_required: true

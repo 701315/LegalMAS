@@ -38,6 +38,21 @@ metadata:
     - "договор вклада до востребования"
     - "договор банковского вклада физического лица"
     - "договор ДБО как приложение к счету"
+    - "договор открытия счета"
+    - "договор номинального счета"
+    - "договор счета эскроу"
+
+    - "account agreement"
+    - "banking services agreement"
+    - "deposit agreement"
+    - "escrow account agreement"
+    - "savings account agreement"
+    - "cash management agreement"
+    - "treasury services agreement"
+    - "master current account agreement"
+    - "bank account terms and conditions"
+    - "certificate of deposit"
+    - "CD agreement"
 
 engine_expectations:
   evidence_required: true

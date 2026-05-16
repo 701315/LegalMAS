@@ -28,6 +28,20 @@ metadata:
     - "договор на изготовление мебели для граждан"
     - "потребительский подряд"
     - "публичный договор подряда"
+    - "договор бытовых услуг"
+    - "договор бытового обслуживания"
+
+    - "consumer works contract"
+    - "household services agreement"
+    - "home improvement contract"
+    - "residential repair agreement"
+    - "repair contract for consumers"
+    - "domestic services agreement"
+    - "handyman services agreement"
+    - "custom manufacturing agreement"
+    - "tailoring services agreement"
+    - "installation services agreement"
+    - "repair work order"
 
 engine_expectations:
   evidence_required: true

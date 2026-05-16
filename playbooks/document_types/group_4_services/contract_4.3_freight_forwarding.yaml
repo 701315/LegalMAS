@@ -34,6 +34,18 @@ metadata:
     - "3PL договор"
     - "договор экспедирования"
 
+    - "freight forwarding agreement"
+    - "logistics service agreement"
+    - "LSA"
+    - "3PL agreement"
+    - "4PL agreement"
+    - "forwarding and logistics contract"
+    - "customs brokerage agreement"
+    - "logistics outsourcing agreement"
+    - "customs clearance agreement"
+    - "NVOCC agreement"
+    - "freight brokerage agreement"
+
 engine_expectations:
   evidence_required: true
   evidence_style: "pinpoint"

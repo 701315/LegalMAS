@@ -33,6 +33,22 @@ metadata:
     - "договор займа между ИП"
     - "договор займа в иностранной валюте"
     - "договор займа вещей, определенных родовыми признаками"
+    - "заем учредителя"
+    - "договор конвертируемого займа"
+
+    - "loan agreement"
+    - "convertible loan agreement"
+    - "shareholder loan agreement"
+    - "subordinated loan agreement"
+    - "intercompany loan agreement"
+    - "bridge loan agreement"
+    - "mezzanine loan agreement"
+    - "demand loan agreement"
+    - "promissory note"
+    - "loan note instrument"
+    - "IOU"
+    - "note purchase agreement"
+    - "facility agreement"
 
 engine_expectations:
   evidence_required: true

@@ -23,6 +23,7 @@ metadata:
   language: ru
   legal_base: "Глава 48 ГК РФ (ст. 927-970), Закон РФ № 4015-1"
   doc_types_supported:
+    - "договор страхования"
     - "договор имущественного страхования"
     - "договор личного страхования"
     - "страховой полис"
@@ -35,6 +36,21 @@ metadata:
     - "договор страхования груза"
     - "договор страхования имущества"
     - "договор страхования жизни и здоровья"
+
+    - "insurance policy"
+    - "insurance contract"
+    - "policy wording"
+    - "cover note"
+    - "insurance binder"
+    - "binder agreement"
+    - "reinsurance treaty"
+    - "facultative reinsurance agreement"
+    - "quota share agreement"
+    - "excess loss treaty"
+    - "marine insurance policy"
+    - "aviation insurance agreement"
+    - "liability insurance policy"
+    - "health insurance contract"
 
 engine_expectations:
   evidence_required: true

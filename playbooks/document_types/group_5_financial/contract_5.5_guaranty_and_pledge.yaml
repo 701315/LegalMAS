@@ -25,6 +25,7 @@ metadata:
   language: ru
   legal_base: "§ 5 Главы 23 ГК РФ (ст. 361-367) — поручительство; § 3 Главы 23 ГК РФ (ст. 334-358.18) — залог"
   doc_types_supported:
+    - "договор обеспечения"
     - "договор поручительства"
     - "договор залога"
     - "договор ипотеки"
@@ -35,6 +36,26 @@ metadata:
     - "договор поручительства по кредиту"
     - "договор поручительства по договору поставки"
     - "договор залога товаров в обороте"
+    - "независимая гарантия"
+    - "договор залога товарного знака"
+
+    - "guarantee agreement"
+    - "suretyship agreement"
+    - "deed of guarantee"
+    - "security agreement"
+    - "security package agreement"
+    - "deed of charge"
+    - "debenture"
+    - "mortgage deed"
+    - "floating charge"
+    - "fixed charge"
+    - "pledge agreement"
+    - "hypothecation agreement"
+    - "pledge over bank account"
+    - "standby letter of credit"
+    - "SBLC"
+    - "collateral management agreement"
+    - "indemnity agreement"
 
 engine_expectations:
   evidence_required: true

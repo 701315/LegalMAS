@@ -27,8 +27,21 @@ metadata:
     - "договор простого товарищества"
     - "договор о совместной деятельности"
     - "партнёрское соглашение"
+    - "консорциумное соглашение"
+    - "договор инвестиционного товарищества"
+    - "соглашение о совместном строительстве"
+
     - "consortium agreement"
     - "joint venture agreement"
+    - "co-venture agreement"
+    - "strategic alliance agreement"
+    - "teaming agreement"
+    - "cooperation agreement"
+    - "alliance agreement"
+    - "consortium deed"
+    - "joint operating agreement"
+    - "JOA"
+    - "JVA"
 
 engine_expectations:
   evidence_required: true

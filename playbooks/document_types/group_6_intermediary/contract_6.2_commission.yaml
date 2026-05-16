@@ -32,8 +32,14 @@ metadata:
     - "договор товарной комиссии"
     - "договор комиссии с делькредере"
     - "договор субкомиссии"
+
     - "consignment agreement"
     - "commission agreement"
+    - "commission sale contract"
+    - "del credere agreement"
+    - "resale commission agreement"
+    - "broker commission agreement"
+    - "selling agency agreement"
 
 engine_expectations:
   evidence_required: true

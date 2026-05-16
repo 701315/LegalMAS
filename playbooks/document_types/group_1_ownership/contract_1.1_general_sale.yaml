@@ -30,6 +30,37 @@ metadata:
     - "соглашение о продаже имущества"
     - "договор продажи движимого имущества"
     - "разовая купля-продажа"
+    - "договор продажи имущества"
+    - "договор реализации товара"
+    - "договор отчуждения имущества"
+    - "договор купли-продажи товара"
+    - "договор купли-продажи имущества"
+    - "соглашение о продаже имущества"
+    - "договор продажи движимого имущества"
+    - "разовая купля-продажа"
+    - "договор продажи оборудования"
+    - "договор реализации продукции"
+    - "договор поставки разовой партии"
+    - "договор купли-продажи бывшего в употреблении имущества"
+    - "договор продажи техники"
+    - "договор реализации материальных ценностей"
+    - "договор продажи ТМЦ"
+    - "договор купли-продажи без рассрочки"
+    - "договор купли-продажи с немедленной передачей"
+
+    - "sale agreement"
+    - "sale and purchase agreement"
+    - "SPA"
+    - "purchase agreement"
+    - "sales contract"
+    - "contract of sale"
+    - "goods sale agreement"
+    - "bill of sale"
+    - "one-off sale agreement"
+    - "spot sale agreement"
+    - "cash and carry sale"
+    - "immediate transfer sale agreement"
+    - "commercial sales agreement"
 
 engine_expectations:
   evidence_required: true
@@ -60,6 +91,11 @@ classification_runtime_v1:
       - "(?i)\\bpurchase[\\s_.-]*agreement\\b"
       - "(?i)\\bgeneral[\\s_.-]*sale\\b"
       - "(?i)договор[\\s_.-]*продажи(?!.*(поставк|розничн|недвижимост|аренд|лизинг))"
+      - "(?i)(?<![a-zA-Z])SPA(?![a-zA-Z])"
+      - "(?i)sale[\\s_.-]*and[\\s_.-]*purchase"
+      - "(?i)(?<![a-zA-Z])property(?![a-zA-Z])(?!.*real.estate)"
+      - "(?i)asset[s]?[\\s_.-]*sale"
+      - "(?i)asset[s]?[\\s_.-]*purchase"
 
     folder_patterns:
       - "(?i)sale"
@@ -101,7 +137,7 @@ classification_runtime_v1:
           context: header
           description: "Соглашение о продаже имущества"
 
-        - pattern: "(?i)^\\s*sale\\s+and\\s+purchase\\s+agreement\\s*$"
+        - pattern: "(?i)^\\s*sale\\s+and\\s+purchase\\s+agreement(?:\\s+of\\s+[\\w\\s]{1,40})?\\s*$"
           weight: 0.9
           distinctiveness: high
           context: header
@@ -148,6 +184,29 @@ classification_runtime_v1:
           distinctiveness: medium
           context: body
           description: "Идентификация товара как предмета договора"
+
+        - pattern: "(?i)\\bоборудовани[ея]\\b.{0,80}(?:передает|продает|реализует)"
+          weight: 0.70
+          distinctiveness: high
+          context: body
+
+        - pattern: "(?i)запасн[ыхые]\\s+части?\\s+и\\s+принадлежности?"
+          weight: 0.65
+          distinctiveness: high
+          context: any
+
+        - pattern: "(?i)\\bИмущество\\b.{0,120}означает.{0,120}движимое"
+          weight: 0.85
+          distinctiveness: high
+          context: body
+          description: "Определение предмета в тексте — движимое имущество"
+
+
+
+
+
+
+
 
       medium:
         - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купли-?продажи\\b"

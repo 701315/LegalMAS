@@ -31,6 +31,17 @@ metadata:
     - "погашение долга правом требования"
     - "отступное по кредитному договору"
     - "отступное недвижимостью"
+    - "соглашение о замене исполнения"
+    - "отступное векселем"
+
+    - "accord and satisfaction"
+    - "accord agreement"
+    - "settlement in lieu of performance"
+    - "debt settlement agreement"
+    - "composition agreement"
+    - "settlement and release agreement"
+    - "transfer in satisfaction of debt"
+    - "deed in satisfaction
 
 engine_expectations:
   evidence_required: true

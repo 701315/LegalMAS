@@ -29,6 +29,18 @@ metadata:
     - "сетевой лицензионный договор"
     - "мастер-франчайзинг"
     - "субконцессия"
+    - "договор субконцессии"
+    - "мастер-франшиза"
+    - "договор франчайзинга общепита"
+
+    - "franchise agreement"
+    - "master franchise agreement"
+    - "area franchise agreement"
+    - "development franchise agreement"
+    - "franchise development agreement"
+    - "franchise renewal agreement"
+    - "franchise disclosure document"
+    - "FDD"
 
 engine_expectations:
   evidence_required: true

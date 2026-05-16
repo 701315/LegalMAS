@@ -31,8 +31,18 @@ metadata:
     - "договор скрытого факторинга"
     - "договор международного факторинга"
     - "договор финансирования под дебиторскую задолженность"
+    - "договор финансирования дебиторской задолженности"
+
     - "master factoring agreement"
     - "notification factoring agreement"
+    - "factoring agreement"
+    - "invoice discounting agreement"
+    - "receivables financing agreement"
+    - "accounts receivable purchase agreement"
+    - "debtor finance agreement"
+    - "reverse factoring agreement"
+    - "supply chain finance agreement"
+    - "undisclosed factoring agreement"
 
 engine_expectations:
   evidence_required: true

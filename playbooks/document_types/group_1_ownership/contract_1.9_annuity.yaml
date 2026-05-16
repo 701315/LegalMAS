@@ -30,6 +30,14 @@ metadata:
     - "договор содержания с иждивением"
     - "рентный договор под недвижимость"
     - "договор ренты с выкупом"
+    - "рентный договор"
+    - "договор передачи квартиры под ренту"
+
+    - "life annuity agreement"
+    - "deed of annuity"
+    - "perpetual annuity contract"
+    - "private annuity agreement"
+    - "life tenancy arrangement"
 
 engine_expectations:
   evidence_required: true

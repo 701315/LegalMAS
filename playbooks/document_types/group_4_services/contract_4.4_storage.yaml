@@ -32,6 +32,18 @@ metadata:
     - "договор хранения в ломбарде"
     - "договор аренды банковской ячейки"
     - "договор секвестра"
+    - "договор хранения на складе"
+
+    - "warehousing agreement"
+    - "warehouse services agreement"
+    - "storekeeping agreement"
+    - "safekeeping agreement"
+    - "custody agreement"
+    - "bailment agreement"
+    - "bonded storage agreement"
+    - "cold storage agreement"
+    - "self-storage agreement"
+    - "warehouse receipt agreement"
 
 engine_expectations:
   evidence_required: true

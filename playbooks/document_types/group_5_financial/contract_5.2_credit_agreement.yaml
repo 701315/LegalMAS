@@ -34,6 +34,24 @@ metadata:
     - "корпоративный кредитный договор"
     - "договор рефинансирования"
     - "соглашение о предоставлении траншей"
+    - "договор кредитной линии"
+    - "договор ипотечного кредита"
+    - "договор синдицированного кредита"
+    - "договор возобновляемой кредитной линии"
+
+    - "credit agreement"
+    - "facilities agreement"
+    - "credit facility agreement"
+    - "loan facility agreement"
+    - "revolving credit facility"
+    - "revolving facility agreement"
+    - "term loan agreement"
+    - "mortgage loan agreement"
+    - "syndicated facilities agreement"
+    - "multicurrency credit agreement"
+    - "senior facilities agreement"
+    - "bridge facility agreement"
+    - "borrowing base agreement"
 
 engine_expectations:
   evidence_required: true

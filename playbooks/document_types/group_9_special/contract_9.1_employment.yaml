@@ -33,9 +33,25 @@ metadata:
     - "трудовой договор"
     - "срочный трудовой договор"
     - "договор о дистанционной работе"
+    - "договор дистанционной работы"
     - "трудовой договор по совместительству"
+    - "договор по совместительству"
     - "трудовой договор с руководителем организации"
     - "трудовой контракт"
+    - "контракт с генеральным директором"
+    - "трудовой договор с генеральным директором"
+    - "соглашение о неполном рабочем времени"
+
+    - "employment agreement"
+    - "contract of employment"
+    - "executive employment contract"
+    - "executive service agreement"
+    - "labor contract"
+    - "fixed-term employment agreement"
+    - "part-time employment agreement"
+    - "remote work agreement"
+    - "probation period agreement"
+    - "secondment agreement"
 
 engine_expectations:
   evidence_required: true

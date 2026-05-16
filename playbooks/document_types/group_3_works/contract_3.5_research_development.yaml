@@ -30,6 +30,25 @@ metadata:
     - "R&D contract"
     - "соглашение о технологическом партнёрстве"
     - "договор на научно-техническую разработку"
+    - "договор НИР"
+    - "договор ОКР"
+    - "договор научно-исследовательских работ"
+    - "договор опытно-конструкторских работ"
+    - "договор технологических работ"
+    - "договор разработки прототипа"
+    - "договор научно-технической разработки"
+
+    - "research and development agreement"
+    - "R&D agreement"
+    - "technology development agreement"
+    - "prototype development agreement"
+    - "innovation agreement"
+    - "clinical trial agreement"
+    - "CTA"
+    - "sponsored research agreement"
+    - "collaborative research agreement"
+    - "research collaboration agreement"
+    - "CRO agreement"
 
 engine_expectations:
   evidence_required: true

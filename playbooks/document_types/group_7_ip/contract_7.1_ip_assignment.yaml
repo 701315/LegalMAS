@@ -28,6 +28,7 @@ metadata:
   language: ru
   legal_base: "ст. 1234 ГК РФ, Часть 4 ГК РФ"
   doc_types_supported:
+    - "договор отчуждения исключительных прав"
     - "договор об отчуждении исключительного права на изобретение"
     - "договор об отчуждении исключительного права на полезную модель"
     - "договор об отчуждении исключительного права на промышленный образец"
@@ -38,6 +39,21 @@ metadata:
     - "договор об отчуждении исключительного права на секрет производства (ноу-хау)"
     - "договор уступки патента"
     - "договор уступки товарного знака"
+    - "договор уступки авторских прав"
+    - "договор передачи ноу-хау"
+    - "договор передачи прав на ПО"
+    - "договор передачи прав на базу данных"
+
+    - "IP assignment agreement"
+    - "assignment of intellectual property rights"
+    - "patent assignment agreement"
+    - "copyright transfer agreement"
+    - "trademark assignment deed"
+    - "invention assignment agreement"
+    - "employee invention assignment agreement"
+    - "copyright assignment deed"
+    - "global assignment of IP rights"
+
 
 engine_expectations:
   evidence_required: true

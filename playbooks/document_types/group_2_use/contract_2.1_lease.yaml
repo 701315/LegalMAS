@@ -34,6 +34,28 @@ metadata:
     - "договор аренды техники"
     - "договор аренды земельного участка"
     - "договор коммерческой аренды"
+    - "договор аренды помещения"
+    - "договор аренды части помещения"
+    - "договор аренды машино-места"
+    - "договор аренды с правом выкупа"
+    - "коммерческая аренда"
+
+    - "commercial lease agreement"
+    - "office lease"
+    - "premises lease agreement"
+    - "lease deed"
+    - "tenancy agreement"
+    - "equipment lease"
+    - "operating lease"
+    - "triple net lease"
+    - "NNN lease"
+    - "gross lease"
+    - "modified gross lease"
+    - "ground lease"
+    - "occupancy agreement"
+    - "sublease agreement"
+    - "leaseback agreement"
+    - "right-of-use agreement"
 
 engine_expectations:
   evidence_required: true

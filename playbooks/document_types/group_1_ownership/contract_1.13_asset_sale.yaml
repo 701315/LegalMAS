@@ -28,9 +28,26 @@ metadata:
     - "договор продажи предприятия"
     - "договор купли-продажи предприятия"
     - "продажа предприятия как имущественного комплекса"
+    - "продажа имущественного комплекса"
+    - "договор передачи имущественного комплекса"
+    - "договор продажи бизнес-активов"
+    - "договор продажи предприятия с торгов"  
+
     - "sale of enterprise"
-    - "asset purchase agreement (enterprise)"
+    - "asset purchase agreement"
     - "enterprise transfer agreement"
+    - "asset purchase agreement"
+    - "APA"
+    - "sale of business agreement"
+    - "business transfer agreement"
+    - "business acquisition agreement"
+    - "transfer of assets agreement"  
+    - "acquisition of assets agreement"
+    - "going concern sale agreement"
+    - "transfer of going concern"
+    - "TOGC"
+    - "bulk sale agreement"
+    - "carve-out transaction agreement"
 
 engine_expectations:
   evidence_required: true

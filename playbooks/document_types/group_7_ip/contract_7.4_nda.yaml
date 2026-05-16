@@ -24,12 +24,29 @@ metadata:
   legal_base: "ФЗ-98 «О коммерческой тайне», ГК РФ ст. 1465–1472, ст. 421, 422"
   doc_types_supported:
     - "соглашение о неразглашении"
-    - "NDA"
-    - "Non-Disclosure Agreement"
     - "соглашение о конфиденциальности"
-    - "Confidential Disclosure Agreement"
     - "договор о неразглашении"
     - "соглашение о защите коммерческой тайны"
+    - "двустороннее соглашение о конфиденциальности"
+    - "соглашение о защите информации"
+
+    - "NDA"
+    - "Non-Disclosure Agreement"
+    - "Confidential Disclosure Agreement"
+    - "non-disclosure agreement"
+    - "NDA"
+    - "NDCA"
+    - "confidentiality agreement"
+    - "confidential information agreement"
+    - "proprietary information agreement"
+    - "secrecy agreement"
+    - "confidentiality deed"
+    - "mutual NDA"
+    - "MNDA"
+    - "unilateral NDA"
+    - "CDA"
+    - "confidentiality and non-use agreement"
+    - "non-circumvention agreement"
 
 engine_expectations:
   evidence_required: true

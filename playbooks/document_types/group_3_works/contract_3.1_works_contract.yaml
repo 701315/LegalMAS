@@ -27,6 +27,21 @@ metadata:
     - "договор на ремонт оборудования/станка/техники"
     - "договор подряда с физическим лицом"
     - "договор подряда с давальческими материалами"
+    - "договор на переработку"
+    - "договор на ремонт"
+    - "договор на капитальный ремонт"
+    - "договор изготовления продукции"
+    - "договор переработки давальческого сырья"
+
+    - "works agreement"
+    - "works contract"
+    - "fabrication contract"
+    - "processing agreement"
+    - "manufacturing agreement"
+    - "toll manufacturing agreement"
+    - "contractor agreement"
+    - "contract for work and materials"
+    - "independent contractor agreement"
 
 engine_expectations:
   evidence_required: true
@@ -238,11 +253,6 @@ classification_runtime_v1:
         severity: hard
         weight: -1.0
         description: "Трудовой договор регулирует процесс труда, а не подрядный результат"
-
-      - pattern: "(?i)строительн[ыо]й\\s+подряд"
-        severity: hard
-        weight: -1.0
-        description: "Строительный подряд — специализированный тип contract_3.3_construction_contract"
 
       - pattern: "(?i)бытов[оа]й\\s+подряд"
         severity: hard

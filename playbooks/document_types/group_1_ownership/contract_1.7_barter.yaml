@@ -27,8 +27,17 @@ metadata:
     - "договор товарообмена"
     - "договор мены недвижимости"
     - "договор мены транспортных средств"
-    - "договор мены долей / акций"
+    - "договор мены акций"
+    - "договор мены долей"
     - "смешанный договор мены с доплатой"
+    - "соглашение о встречных поставках"
+
+    - "barter agreement"
+    - "countertrade agreement"
+    - "exchange agreement"
+    - "reciprocal trade agreement"
+    - "swap deal"
+    - "exchange transaction agreement"
 
 engine_expectations:
   evidence_required: true

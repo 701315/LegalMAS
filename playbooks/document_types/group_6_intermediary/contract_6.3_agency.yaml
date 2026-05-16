@@ -30,12 +30,27 @@ metadata:
     - "договор на оказание агентских услуг"
     - "дистрибьюторский агентский договор"
     - "маркетинговый агентский договор"
-    - "договор на продвижение товаров/услуг"
+    - "договор на продвижение товаров"
+    - "договор на продвижение услуг"
     - "агентский договор на поиск клиентов"
     - "рамочный агентский договор"
     - "эксклюзивный агентский договор"
+    - "договор агентских услуг"
+    - "договор продвижения товаров"
+
     - "sales agency agreement"
+    - "agency agreement"
+    - "commercial agency agreement"
     - "marketing agency agreement"
+    - "distributor agreement"
+    - "reseller agreement"
+    - "channel partner agreement"
+    - "referral agreement"
+    - "referral fee agreement"
+    - "introducer agreement"
+    - "sales representative agreement"
+    - "travel agency agreement"
+    - "advertising agency agreement"
 
 engine_expectations:
   evidence_required: true

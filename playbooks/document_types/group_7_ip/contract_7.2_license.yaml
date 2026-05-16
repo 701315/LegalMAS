@@ -24,6 +24,7 @@ metadata:
     - "лицензионный договор"
     - "лицензионное соглашение"
     - "договор о предоставлении права использования"
+    - "договор предоставления права использования"
     - "патентная лицензия"
     - "лицензия на товарный знак"
     - "авторский лицензионный договор"
@@ -31,6 +32,24 @@ metadata:
     - "лицензия на ноу-хау"
     - "SaaS-лицензия"
     - "лицензия на базу данных"
+    
+    - "license agreement"
+    - "software license agreement"
+    - "technology license agreement"
+    - "EULA"
+    - "end user license agreement"
+    - "software subscription agreement"
+    - "enterprise license agreement"
+    - "OEM license agreement"
+    - "source code license agreement"
+    - "field-of-use license"
+    - "exclusive license agreement"
+    - "non-exclusive license agreement"
+    - "compulsory license"
+    - "sublicense agreement"
+    - "open source license"
+    - "click-through license"
+    - "terms of use"
 
 engine_expectations:
   evidence_required: true

@@ -27,10 +27,29 @@ metadata:
     - "договор газоснабжения"
     - "договор снабжения энергией"
     - "договор с гарантирующим поставщиком"
-    - "договор купли-продажи электрической энергии (мощности)"
+    - "договор купли-продажи электрической энергии"
     - "договор холодного водоснабжения"
     - "договор горячего водоснабжения"
     - "договор водоотведения"
+    - "договор поставки электроэнергии"
+    - "договор энергоснабжения через присоединенную сеть"
+    - "договор купли-продажи мощности"
+
+    - "power purchase agreement"
+    - "PPA"
+    - "electricity supply agreement"
+    - "gas supply agreement"
+    - "utility services agreement"
+    - "renewable energy PPA"
+    - "energy purchase agreement"
+    - "heat supply agreement"
+    - "water supply agreement"
+    - "water supply and sanitation agreement"
+    - "tolling agreement"
+    - "balancing agreement"
+    - "gas transportation agreement"
+    - "energy service agreement"
+    - "ESA
 
 engine_expectations:
   evidence_required: true

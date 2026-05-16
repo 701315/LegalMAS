@@ -24,10 +24,21 @@ metadata:
   language: ru
   legal_base: "Семейный кодекс РФ (Глава 8, ст. 40–44; ст. 45–46)"
   doc_types_supported:
+    - "брачный договор"
     - "брачный договор до заключения брака"
     - "брачный договор в период брака"
     - "брачный контракт"
-    - "дополнительное соглашение к брачному договору"
+    - "соглашение о разделе имущества супругов"
+    
+    - "prenuptial agreement"
+    - "pre-nup"
+    - "postnuptial agreement"
+    - "marital agreement"
+    - "matrimonial property agreement"
+    - "spousal property agreement"
+    - "marriage contract"
+    - "nuptial agreement"
+    - "separation agreement"
 
 engine_expectations:
   evidence_required: true

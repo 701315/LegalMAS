@@ -22,12 +22,36 @@ metadata:
   risk_level: high
   jurisdiction: RU
   language: ru
-  legal_base: "ст. 89.1 ГК РФ; ст. 11, 14–16 ФЗ-14 «Об ООО»; ст. 9, 25, 34 ФЗ-208 «Об АО»"
+  legal_base: "ст. 89.1 ГК РФ; ст. 11, 14–16 ФЗ-14 «Об ООО»; ст. 9, 25, 34 ФЗ-208 «Об АO»"
   doc_types_supported:
+    - "учредительный договор"
     - "договор об учреждении ООО"
+    - "договор об учреждении общества с ограниченной ответственностью"
     - "договор о создании АО"
+    - "договор о создании акционерного общества"
     - "договор об учреждении хозяйственного общества"
-    - "дополнительное соглашение к договору об учреждении"
+    - "договор учредителей"
+    - "договор о распределении долей"
+    - "учредительное соглашение"
+    - "соглашение об учреждении ООО"
+    - "соглашение об учреждении общества с ограниченной ответственностью"
+    - "соглашение о создании АO"
+    - "соглашение о создании акционерного общества"
+    - "договор об учреждении хозяйственного общества"
+    - "соглашение о создании общества"
+    - "договор учредителей"
+    - "договор о распределении долей"
+    
+    - "founders agreement"
+    - "incorporation agreement"
+    - "incorporators agreement"
+    - "memorandum of association"
+    - "subscription agreement"
+    - "subscription and shareholders agreement"
+    - "initial shareholders agreement"
+    - "corporate formation agreement"
+    - "constitutional agreement"
+    - "shareholders agreement"
 
 engine_expectations:
   evidence_required: true

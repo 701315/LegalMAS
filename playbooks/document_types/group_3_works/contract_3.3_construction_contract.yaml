@@ -27,6 +27,27 @@ metadata:
     - "договор капитального строительства"
     - "договор на монтажные и пусконаладочные работы"
     - "договор генподряда"
+    - "генеральный подряд"
+    - "договор СМР"
+    - "договор строительно-монтажных работ"
+    - "договор реконструкции"
+    - "договор строительства под ключ"
+    - "договор монтажных работ"
+    - "договор пусконаладочных работ"
+
+    - "construction agreement"
+    - "EPC contract"
+    - "engineering procurement construction contract"
+    - "turnkey EPC agreement"
+    - "design-build contract"
+    - "construction management contract"
+    - "lump sum turnkey contract"
+    - "re-measurement contract"
+    - "subcontract agreement"
+    - "FIDIC Red Book"
+    - "FIDIC Yellow Book"
+    - "FIDIC Silver Book"
+    - "NEC contract"
 
 engine_expectations:
   evidence_required: true
@@ -43,8 +64,8 @@ engine_expectations:
 classification_runtime_v1:
 
   scoring:
-    accept_threshold: 0.8
-    strong_signal_threshold: 0.88
+    accept_threshold: 0.75
+    strong_signal_threshold: 0.82
     ambiguity_margin: 0.18
     input_quality_weight: 1.0
 
@@ -56,6 +77,9 @@ classification_runtime_v1:
       - "(?i)строительно.монтажн"
       - "(?i)смр.*договор"
       - "(?i)капитальн.*строительств"
+      - "(?i)construction[\\s_.-]*(agreement|contract|work)"
+      - "(?i)general[\\s_.-]*(contractor|contract)"
+      - "(?i)строительн[а-я]+"
 
     folder_patterns:
       - "(?i)строительн.*подряд"
@@ -192,12 +216,48 @@ classification_runtime_v1:
           context: any
           description: "Генеральный подрядчик по строительству"
 
+        - pattern: "(?i)исполнительн[ая]\\s+документаци[яи]"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Исполнительная документация — специфична для строительства"
+
+        - pattern: "(?i)журнал\\s+производства\\s+работ"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Журнал производства работ — обязательный строительный документ"
+
+        - pattern: "(?i)акт\\s+(приёмки|приема)\\s+выполненных\\s+работ"
+          weight: 0.80
+          distinctiveness: high
+          context: any
+          description: "Акт приёмки — специфичен для подряда, в т.ч. строительного"
+
+        - pattern: "(?i)реконструкци[яи]\\s+.{0,60}(нежилого|нежилой|производственн|административн)"
+          weight: 0.85
+          distinctiveness: high
+          context: any
+          description: "Реконструкция нежилого здания — строго строительный контекст"
+
       medium:
         - pattern: "(?i)строительств"
           weight: 0.7
           distinctiveness: medium
           context: any
           description: "Общий термин строительства, встречается и вне подрядных договоров"
+
+        - pattern: "(?i)general\\s+contractor|contractor.{0,20}customer"
+          weight: 0.70
+          distinctiveness: high
+          context: any
+          description: "EN-форма: general contractor / contractor+customer — признак EN-версии строительного договора"
+
+        - pattern: "(?i)construction\\s+(work|site|project|agreement)"
+          weight: 0.65
+          distinctiveness: high
+          context: any
+          description: "EN-форма строительного контракта"
 
         - pattern: "(?i)реконструкци[яи]"
           weight: 0.65

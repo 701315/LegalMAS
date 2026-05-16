@@ -34,6 +34,26 @@ metadata:
     - "договор лизинга спецтехники"
     - "договор лизинга недвижимости"
     - "международный договор лизинга"
+    - "лизинговый договор"
+    - "договор финансового лизинга"
+    - "договор возвратного лизинга"
+    - "договор международного лизинга"
+    - "договор лизинга транспортных средств"
+    - "договор сублизинга"
+    - "договор лизинга с правом выкупа"
+
+    - "finance lease agreement"
+    - "financial lease agreement"
+    - "leasing agreement"
+    - "equipment leasing agreement"
+    - "vehicle lease agreement"
+    - "commercial vehicle lease"
+    - "real estate lease finance agreement"
+    - "sale and leaseback agreement"
+    - "lease financing agreement"
+    - "hire purchase agreement"
+    - "capital lease"
+    - "leveraged lease"
 
 engine_expectations:
   evidence_required: true

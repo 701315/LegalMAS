@@ -25,9 +25,27 @@ metadata:
     - "договор на поставку сельхозпродукции"
     - "договор на закупку зерна"
     - "договор на закупку молока"
-    - "договор на закупку мяса/скота"
-    - "договор на закупку овощей/фруктов"
+    - "договор на закупку мяса"
+    - "договор на закупку скота"
+    - "договор на закупку овощей"
+    - "договор на закупку фруктов"
     - "договор контрактации с авансированием"
+    - "договор закупки урожая"
+    - "договор поставки сельхозпродукции"
+    - "договор контрактации урожая"
+    - "договор закупки сельхозпродукции на корню"
+    - "форвардный договор на урожай"
+    - "договор поставки зерна после уборки"
+
+    - "agricultural produce purchase agreement"
+    - "crop purchase agreement"
+    - "contract farming agreement"
+    - "forward agricultural contract"
+    - "forward contract for agricultural products"
+    - "grain supply agreement"
+    - "commodity farming agreement"
+    - "FOSFA agreement"
+    - "GAFTA agreement
 
 engine_expectations:
   evidence_required: true

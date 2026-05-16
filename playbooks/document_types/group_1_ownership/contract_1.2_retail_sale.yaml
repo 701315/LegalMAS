@@ -23,11 +23,36 @@ metadata:
   doc_types_supported:
     - "договор розничной купли-продажи"
     - "публичная оферта интернет-магазина"
-    - "пользовательское соглашение (e-commerce)"
     - "оферта на продажу товаров"
     - "договор купли-продажи товаров дистанционным способом"
     - "условия продажи товаров на маркетплейсе"
     - "договор купли-продажи продовольственных товаров"
+    - "оферта маркетплейса"
+    - "пользовательское соглашение интернет-магазина"
+    - "договор дистанционной продажи"
+    - "договор продажи товаров дистанционным способом"
+    - "условия продажи товаров"
+    - "правила продажи товаров"
+    - "условия заказа товаров"
+    - "договор электронной торговли"
+    - "договор интернет-продажи"
+    - "оферта e-commerce платформы"
+    - "договор продажи товаров по образцам"
+    - "договор продажи через кол-центр"
+
+    - "retail sales contract"
+    - "consumer sale agreement"
+    - "consumer purchase agreement"
+    - "online purchase agreement"
+    - "e-commerce terms of sale"
+    - "webshop terms"
+    - "consumer terms and conditions"
+    - "distance selling agreement"
+    - "click-wrap agreement"
+    - "browse-wrap agreement"
+    - "over-the-counter sale"
+    - "point-of-sale agreement"
+    - "online retail agreement
 
 engine_expectations:
   evidence_required: true

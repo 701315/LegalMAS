@@ -35,8 +35,13 @@ metadata:
     - "договор поручения на судебное представительство"
     - "договор коммерческого представительства"
     - "договор поручения с передоверием"
+    - "договор судебного представительства"
+
     - "mandate agreement"
     - "representation agreement"
+    - "authority to act agreement"
+    - "agency mandate"
+    - "power of attorney with mandate"
 
 engine_expectations:
   evidence_required: true
