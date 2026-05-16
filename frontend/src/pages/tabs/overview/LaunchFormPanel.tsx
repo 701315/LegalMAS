@@ -16,7 +16,6 @@ const SECONDARY_ACTION_BUTTON_CLASS = "w-[220px] shrink-0 justify-center";
 
 interface LaunchFormPanelProps {
   deal: Deal;
-  latestRunId?: string | null;
   documentsCount?: number;
   checksMode: ChecksMode;
   onChecksModeChange: (value: ChecksMode) => void;

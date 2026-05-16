@@ -1,15 +1,22 @@
 // =============================================================
 // src/api/results.ts
-// API-функции и React-хуки для DD-результатов и запусков (runs).
+// API-функции и React Query хуки для DD-результатов.
+//
+// Архитектурный принцип:
+// - этот файл НЕ отвечает за current run;
+// - этот файл НЕ читает run state;
+// - этот файл работает только с результатами конкретного run
+//   и отдельными result entity.
+//
+// Всё, что связано с runs, живёт в src/api/runs.ts.
 // =============================================================
 
 import { useQuery } from "@tanstack/react-query";
 import client from "./client";
-import type { CheckResult, Run, PaginatedResponse } from "../types";
+import type { CheckResult, PaginatedResponse } from "../types";
 
 /**
- * Параметры фильтрации списка результатов на бэкенде.
- * Пока будем использовать только часть из них, но тип сразу "запасной".
+ * Параметры фильтрации списка результатов на backend.
  */
 export interface ResultsFilter {
   page?: number;
@@ -22,7 +29,36 @@ export interface ResultsFilter {
 }
 
 /**
- * Обёртка над HTTP-запросами к backend для результатов DD.
+ * Единая фабрика query keys для результатов.
+ */
+export const resultKeys = {
+  all: ["results"] as const,
+
+  list: (runId: string, params?: ResultsFilter) =>
+    [
+      "results",
+      "list",
+      runId,
+      {
+        page: params?.page ?? 1,
+        perPage: params?.per_page ?? 200,
+        docType: params?.doc_type ?? null,
+        severity: params?.severity ?? null,
+        conditionalOnly: params?.conditional_only ?? false,
+        hasStructuredData:
+          params?.has_structured_data !== undefined
+            ? params.has_structured_data
+            : null,
+      },
+    ] as const,
+
+  detail: (resultId: string) => ["results", "detail", resultId] as const,
+
+  allForRun: (runId: string) => ["results", "all-for-run", runId] as const,
+};
+
+/**
+ * Низкоуровневый API для работы с результатами.
  */
 export const resultApi = {
   /**
@@ -31,24 +67,19 @@ export const resultApi = {
    */
   list: (runId: string, params?: ResultsFilter) =>
     client
-      .get<PaginatedResponse<CheckResult>>(
-        `/api/v1/runs/${runId}/results`,
-        {
-          params: {
-            page: params?.page ?? 1,
-            per_page: params?.per_page ?? 200,
-            ...(params?.doc_type && { doc_type: params.doc_type }),
-            ...(params?.severity && { severity: params.severity }),
-            ...(params?.conditional_only && {
-              conditional_only: true,
-            }),
-            ...(params?.has_structured_data !== undefined && {
-              has_structured_data: params.has_structured_data,
-            }),
-          },
+      .get<PaginatedResponse<CheckResult>>(`/api/v1/runs/${runId}/results`, {
+        params: {
+          page: params?.page ?? 1,
+          per_page: params?.per_page ?? 200,
+          ...(params?.doc_type ? { doc_type: params.doc_type } : {}),
+          ...(params?.severity ? { severity: params.severity } : {}),
+          ...(params?.conditional_only ? { conditional_only: true } : {}),
+          ...(params?.has_structured_data !== undefined
+            ? { has_structured_data: params.has_structured_data }
+            : {}),
         },
-      )
-      .then((r) => r.data),
+      })
+      .then((response) => response.data),
 
   /**
    * Один результат по ID.
@@ -57,62 +88,83 @@ export const resultApi = {
   get: (resultId: string) =>
     client
       .get<CheckResult>(`/api/v1/results/${resultId}`)
-      .then((r) => r.data),
-
-  /**
-   * Список запусков для сделки.
-   * GET /api/v1/runs/deal/{deal_id}
-   */
-  listRuns: (dealId: string, includeStats = false) =>
-    client
-      .get<Run[]>(`/api/v1/runs/deal/${dealId}`, {
-        params: includeStats
-          ? { include_classification_stats: true }
-          : {},
-      })
-      .then((r) => r.data),
+      .then((response) => response.data),
 };
 
 /**
- * Хук, который загружает ВСЕ результаты для одного run.
- *
- * На первом этапе мы делаем простую версию:
- * - запрашиваем одну страницу (до 200–500 записей);
- * - если нужно будет больше, легко расширим до "загрузить все страницы".
+ * Хук для получения одного result по ID.
  */
-export function useAllResults(runId: string | null) {
-  return useQuery({
-    queryKey: ["all-results", runId],
-    queryFn: async () => {
-      if (!runId) return [];
+export function useResult(resultId: string | null) {
+  const enabled = !!resultId;
 
-      const firstPage = await resultApi.list(runId, {
-        page: 1,
-        per_page: 500, // можно подстроить под реальные объёмы
-      });
-
-      // Пока просто возвращаем items первой страницы.
-      // При необходимости расширим до загрузки всех страниц.
-      return firstPage.items;
+  return useQuery<CheckResult, Error>({
+    queryKey: resultId
+      ? resultKeys.detail(resultId)
+      : ["results", "detail", "disabled"],
+    queryFn: () => {
+      if (!resultId) {
+        throw new Error("resultId is required to fetch result details");
+      }
+      return resultApi.get(resultId);
     },
-    enabled: !!runId,
-    staleTime: 5 * 60_000, // 5 минут кэша
+    enabled,
+    staleTime: 5 * 60_000,
   });
 }
 
 /**
- * Хук для получения "последнего" run по сделке.
- * Предполагаем, что backend отдаёт runs в порядке "новые сначала".
+ * Хук для получения страницы результатов по run.
  */
-export function useLatestRun(dealId: string | null, includeStats = true) {
-  return useQuery({
-    queryKey: ["latest-run", dealId, includeStats],
-    queryFn: async () => {
-      if (!dealId) return null;
+export function useResults(
+  runId: string | null,
+  params?: ResultsFilter,
+) {
+  const enabled = !!runId;
 
-      const runs = await resultApi.listRuns(dealId, includeStats);
-      return runs.length > 0 ? runs[0] : null;
+  return useQuery<PaginatedResponse<CheckResult>, Error>({
+    queryKey: runId
+      ? resultKeys.list(runId, params)
+      : ["results", "list", "disabled"],
+    queryFn: () => {
+      if (!runId) {
+        throw new Error("runId is required to fetch results");
+      }
+      return resultApi.list(runId, params);
     },
-    enabled: !!dealId,
+    enabled,
+    staleTime: 5 * 60_000,
   });
 }
+
+/**
+ * Хук, который загружает результаты для одного run.
+ *
+ * Пока берём первую страницу увеличенного размера.
+ * Если позже потребуется реально собирать все страницы —
+ * это лучше сделать отдельной доработкой, не смешивая ответственность.
+ */
+export function useAllResults(runId: string | null) {
+  const enabled = !!runId;
+
+  return useQuery<CheckResult[], Error>({
+    queryKey: runId
+      ? resultKeys.allForRun(runId)
+      : ["results", "all-for-run", "disabled"],
+    queryFn: async () => {
+      if (!runId) {
+        throw new Error("runId is required to fetch all results");
+      }
+
+      const firstPage = await resultApi.list(runId, {
+        page: 1,
+        per_page: 500,
+      });
+
+      return firstPage.items;
+    },
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+

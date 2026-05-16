@@ -2,12 +2,18 @@
 // src/api/documents.ts
 // API-функции и React Query хуки для работы с документами.
 // Использует Axios-клиент из src/api/client.ts.
+//
+// Архитектурный принцип:
+// - список документов сделки имеет канонический query key: ["deal-documents", ...]
+// - invalidation должна быть адресной и касаться только нужной сделки;
+// - documentsCount считается отдельно и инвалидируется явно.
 // =============================================================
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
 import type {
   Document,
+  DocumentColumnId,
   DocumentDetail,
   DocumentFamilyDto,
   DocumentListItem,
@@ -15,7 +21,6 @@ import type {
   ReclassifyInput,
   ReclassifyResult,
   StructuredDataResult,
-  DocumentColumnId,
 } from "../types";
 
 export interface DocumentLayoutsDebugResponse {
@@ -59,9 +64,38 @@ function shouldPollDocumentDetail(data?: DocumentDetail): boolean {
   return !!status && ACTIVE_PROCESSING_STATUSES.has(status);
 }
 
-// -------------------------------------------------------------
-// НИЗКОУРОВНЕВЫЙ API-КЛИЕНТ
-// -------------------------------------------------------------
+/**
+ * Единая фабрика query keys для документов.
+ */
+export const documentKeys = {
+  all: ["deal-documents"] as const,
+  list: (
+    dealId: string,
+    page: number,
+    opts?: {
+      includeClassification?: boolean;
+      status?: string;
+      docType?: string;
+    },
+  ) =>
+    [
+      "deal-documents",
+      dealId,
+      page,
+      {
+        includeClassification: opts?.includeClassification ?? false,
+        status: opts?.status ?? null,
+        docType: opts?.docType ?? null,
+      },
+    ] as const,
+  count: (dealId: string) => ["documents-count", dealId] as const,
+  detail: (docId: string) => ["document", docId] as const,
+  family: (docId: string) => ["document-family", docId] as const,
+  pdfUrl: (docId: string) => ["document-pdf-url", docId] as const,
+  chunkViewUrl: (docId: string) => ["document-chunk-view-url", docId] as const,
+  layoutsDebug: (docId: string) => ["document-layouts-debug", docId] as const,
+  structuredData: (docId: string) => ["structured-data", docId] as const,
+};
 
 export const documentApi = {
   list: (
@@ -111,17 +145,12 @@ export const documentApi = {
 
   reclassify: (docId: string, data: ReclassifyInput) =>
     client
-      .post<ReclassifyResult>(
-        `/api/v1/documents/${docId}/reclassify`,
-        data,
-      )
+      .post<ReclassifyResult>(`/api/v1/documents/${docId}/reclassify`, data)
       .then((response) => response.data),
 
   getStructuredData: (docId: string) =>
     client
-      .get<StructuredDataResult>(
-        `/api/v1/documents/${docId}/extracted-values`,
-      )
+      .get<StructuredDataResult>(`/api/v1/documents/${docId}/extracted-values`)
       .then((response) => response.data),
 
   getLayoutsDebug: (docId: string) =>
@@ -197,15 +226,14 @@ export const documentApi = {
 
   setReviewed: (docId: string, reviewedByPerson: boolean) =>
     client
-      .patch<Document>(
-        `/api/v1/documents/${docId}/reviewed`,
-        { reviewed_by_person: reviewedByPerson },
-      )
+      .patch<Document>(`/api/v1/documents/${docId}/reviewed`, {
+        reviewed_by_person: reviewedByPerson,
+      })
       .then((r) => r.data),
 
   exportExcel: (dealId: string, visibleColumnIds: DocumentColumnId[] | null) =>
     client
-      .post<ArrayBuffer>(
+      .post<Blob>(
         "/api/v1/documents/export/excel",
         {
           deal_id: dealId,
@@ -271,7 +299,7 @@ export async function exportDocumentsExcel(
   visibleColumnIds: DocumentColumnId[] | null,
 ): Promise<void> {
   const blob = await documentApi.exportExcel(dealId, visibleColumnIds);
-  downloadBlob(blob as unknown as Blob, `deal_${dealId}_documents.xlsx`);
+  downloadBlob(blob, `deal_${dealId}_documents.xlsx`);
 }
 
 export async function exportDocumentsWord(
@@ -279,7 +307,7 @@ export async function exportDocumentsWord(
   visibleColumnIds: DocumentColumnId[] | null,
 ): Promise<void> {
   const blob = await documentApi.exportWord(dealId, visibleColumnIds);
-  downloadBlob(blob as unknown as Blob, `deal_${dealId}_documents.docx`);
+  downloadBlob(blob, `deal_${dealId}_documents.docx`);
 }
 
 export async function exportDocumentsPDF(
@@ -287,16 +315,14 @@ export async function exportDocumentsPDF(
   visibleColumnIds: DocumentColumnId[] | null,
 ): Promise<void> {
   const blob = await documentApi.exportPdf(dealId, visibleColumnIds);
-  downloadBlob(blob as unknown as Blob, `deal_${dealId}_documents.pdf`);
+  downloadBlob(blob, `deal_${dealId}_documents.pdf`);
 }
-
-// -------------------------------------------------------------
-// REACT QUERY ХУКИ
-// -------------------------------------------------------------
 
 export function useDocumentsWithClassification(dealId: string, page = 1) {
   return useQuery({
-    queryKey: ["documents-classified", dealId, page],
+    queryKey: documentKeys.list(dealId, page, {
+      includeClassification: true,
+    }),
     queryFn: () =>
       documentApi.list(dealId, page, 50, { include_classification: true }),
     enabled: !!dealId,
@@ -313,7 +339,7 @@ export function useDocumentsWithClassification(dealId: string, page = 1) {
 
 export function useDocuments(dealId: string, page = 1) {
   return useQuery({
-    queryKey: ["documents", dealId, page],
+    queryKey: documentKeys.list(dealId, page),
     queryFn: () => documentApi.list(dealId, page),
     enabled: !!dealId,
     refetchInterval: (query) => {
@@ -328,12 +354,10 @@ export function useDocuments(dealId: string, page = 1) {
 
 /**
  * Лёгкий хук для получения общего количества документов по сделке.
- * Использует тот же paginated endpoint, но запрашивает только 1 элемент,
- * чтобы получить total без загрузки полного списка.
  */
 export function useDocumentsCount(dealId: string) {
   return useQuery({
-    queryKey: ["documents-count", dealId],
+    queryKey: documentKeys.count(dealId),
     queryFn: async () => {
       const response = await documentApi.list(dealId, 1, 1);
       return response.total;
@@ -345,8 +369,8 @@ export function useDocumentsCount(dealId: string) {
 
 export function useDocumentDetail(docId: string | null) {
   return useQuery({
-    queryKey: ["document", docId],
-    queryFn: () => documentApi.get(docId!),
+    queryKey: docId ? documentKeys.detail(docId) : ["document", null],
+    queryFn: () => documentApi.get(docId as string),
     enabled: !!docId,
     refetchInterval: (query) => {
       const data = query.state.data as DocumentDetail | undefined;
@@ -358,24 +382,26 @@ export function useDocumentDetail(docId: string | null) {
 
 export function useDocumentFamily(docId: string | null) {
   return useQuery({
-    queryKey: ["document-family", docId],
-    queryFn: () => documentApi.getFamily(docId!),
+    queryKey: docId ? documentKeys.family(docId) : ["document-family", null],
+    queryFn: () => documentApi.getFamily(docId as string),
     enabled: !!docId,
   });
 }
 
 export function useDocumentPdfUrl(docId: string | null) {
   return useQuery({
-    queryKey: ["document-pdf-url", docId],
-    queryFn: () => documentApi.getPdfUrl(docId!),
+    queryKey: docId ? documentKeys.pdfUrl(docId) : ["document-pdf-url", null],
+    queryFn: () => documentApi.getPdfUrl(docId as string),
     enabled: !!docId,
   });
 }
 
 export function useDocumentChunkViewUrl(docId: string | null) {
   return useQuery({
-    queryKey: ["document-chunk-view-url", docId],
-    queryFn: () => documentApi.getChunkViewUrl(docId!),
+    queryKey: docId
+      ? documentKeys.chunkViewUrl(docId)
+      : ["document-chunk-view-url", null],
+    queryFn: () => documentApi.getChunkViewUrl(docId as string),
     enabled: !!docId,
   });
 }
@@ -385,8 +411,10 @@ export function useDocumentLayoutsDebug(
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: ["document-layouts-debug", docId],
-    queryFn: () => documentApi.getLayoutsDebug(docId!),
+    queryKey: docId
+      ? documentKeys.layoutsDebug(docId)
+      : ["document-layouts-debug", null],
+    queryFn: () => documentApi.getLayoutsDebug(docId as string),
     enabled: !!docId && enabled,
     staleTime: 5 * 60_000,
   });
@@ -394,25 +422,25 @@ export function useDocumentLayoutsDebug(
 
 export function useStructuredData(docId: string | null) {
   return useQuery({
-    queryKey: ["structured-data", docId],
-    queryFn: () => documentApi.getStructuredData(docId!),
+    queryKey: docId
+      ? documentKeys.structuredData(docId)
+      : ["structured-data", null],
+    queryFn: () => documentApi.getStructuredData(docId as string),
     enabled: !!docId,
     staleTime: 5 * 60_000,
   });
 }
 
-export function useReclassifyDocument(docId: string) {
+export function useReclassifyDocument(docId: string, dealId: string) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: ReclassifyInput) =>
-      documentApi.reclassify(docId, data),
+    mutationFn: (data: ReclassifyInput) => documentApi.reclassify(docId, data),
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["document", docId] }),
-        qc.invalidateQueries({ queryKey: ["documents"] }),
-        qc.invalidateQueries({ queryKey: ["documents-classified"] }),
-        qc.invalidateQueries({ queryKey: ["audit"] }),
+        qc.invalidateQueries({ queryKey: documentKeys.detail(docId) }),
+        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
+        qc.invalidateQueries({ queryKey: ["audit", dealId] }),
       ]);
     },
   });
@@ -425,11 +453,10 @@ export function useSoftDeleteDocument(dealId: string) {
     mutationFn: (docId: string) => documentApi.softDelete(docId),
     onSuccess: async (_data, docId) => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["document", docId] }),
-        qc.invalidateQueries({ queryKey: ["documents", dealId] }),
-        qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
+        qc.invalidateQueries({ queryKey: documentKeys.detail(docId) }),
+        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
+        qc.invalidateQueries({ queryKey: documentKeys.count(dealId) }),
         qc.invalidateQueries({ queryKey: ["deal", dealId] }),
-        qc.invalidateQueries({ queryKey: ["documents-count", dealId] }),
       ]);
     },
   });
@@ -445,9 +472,8 @@ export function useUploadDocuments(dealId: string) {
       }),
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["documents", dealId] }),
-        qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
-        qc.invalidateQueries({ queryKey: ["documents-count", dealId] }),
+        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
+        qc.invalidateQueries({ queryKey: documentKeys.count(dealId) }),
         qc.invalidateQueries({ queryKey: ["deal", dealId] }),
       ]);
     },
@@ -461,12 +487,11 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
     mutationFn: (reviewedByPerson: boolean) =>
       documentApi.setReviewed(docId, reviewedByPerson),
     onSuccess: async () => {
-      const tasks = [qc.invalidateQueries({ queryKey: ["document", docId] })];
+      const tasks = [qc.invalidateQueries({ queryKey: documentKeys.detail(docId) })];
 
       if (dealId) {
         tasks.push(
-          qc.invalidateQueries({ queryKey: ["documents", dealId] }),
-          qc.invalidateQueries({ queryKey: ["documents-classified", dealId] }),
+          qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
         );
       }
 
@@ -474,4 +499,5 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
     },
   });
 }
+
 

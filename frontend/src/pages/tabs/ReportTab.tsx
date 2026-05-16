@@ -7,10 +7,15 @@
 // - отображение backend error_message для failed export
 // - приведено к единому стилю Overview / PageSection
 // - кнопки переведены на общий ui/Button
+//
+// Архитектурный принцип:
+// - ReportTab не ищет "последний run" самостоятельно;
+// - текущий run передаётся сверху через runId;
+// - состояние run читается строго через useRun(runId).
 // =============================================================
 
 import React, { useMemo, useState } from "react";
-import { useLatestRun } from "../../api/results";
+import { useRun } from "../../api/runs";
 import { useRequestExport, useExportStatus } from "../../api/exports";
 import type { ExportType } from "../../types/exports";
 import { EXPORT_TYPE_LABEL } from "../../constants";
@@ -29,7 +34,7 @@ import PageSection from "../../components/ui/PageSection";
 import Button from "../../components/ui/Button";
 
 interface Props {
-  dealId: string;
+  runId: string | null;
 }
 
 function formatFileSizeKb(bytes?: number | null): string | null {
@@ -97,8 +102,6 @@ function ExportCard({
   );
 }
 
-// Извлекает строковое сообщение из произвольного error-объекта,
-// который может содержать axios-подобную структуру response.data.detail.
 function extractErrorMessage(err: unknown): string | null {
   if (err == null) return null;
 
@@ -122,8 +125,8 @@ function extractErrorMessage(err: unknown): string | null {
   return null;
 }
 
-export const ReportTab: React.FC<Props> = ({ dealId }) => {
-  const { data: latestRun } = useLatestRun(dealId);
+export const ReportTab: React.FC<Props> = ({ runId }) => {
+  const { data: run } = useRun(runId);
   const requestExport = useRequestExport();
 
   const [activeExportId, setActiveExportId] = useState<string | null>(null);
@@ -136,9 +139,8 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
   } = useExportStatus(activeExportId);
 
   const isRunExportable =
-    !!latestRun &&
-    (latestRun.status === "completed" ||
-      latestRun.status === "completed_with_errors");
+    !!run &&
+    (run.status === "completed" || run.status === "completed_with_errors");
 
   const isGenerating = requestExport.isPending;
 
@@ -162,7 +164,7 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
   const handleGenerate = async (exportType: ExportType) => {
     setLastError(null);
 
-    if (!latestRun?.id) {
+    if (!run?.id) {
       setLastError(
         "Анализ не завершён. Запустите анализ на вкладке «Обзор».",
       );
@@ -182,7 +184,7 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
 
     try {
       const exp = await requestExport.mutateAsync({
-        runId: latestRun.id,
+        runId: run.id,
         exportType,
       });
 
@@ -210,7 +212,7 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
     window.open(exportData.download_url, "_blank", "noopener,noreferrer");
   };
 
-  if (!latestRun || !isRunExportable) {
+  if (!run || !isRunExportable) {
     return (
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
         <div className="flex min-h-[360px] flex-col items-center justify-center">
@@ -370,3 +372,5 @@ export const ReportTab: React.FC<Props> = ({ dealId }) => {
 };
 
 export default ReportTab;
+
+

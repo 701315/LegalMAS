@@ -3,6 +3,11 @@
 // Launch panel раскрывается до границы основной контентной колонки,
 // без backdrop и без перекрытия AnalysisActionsPanel.
 // Ширина overlay вычисляется от реального layout, а не от 100vw.
+//
+// Актуальный контракт:
+// - overlay не принимает run id;
+// - current run остаётся на уровне OverviewTab;
+// - панель запуска работает только с параметрами запуска и deal state.
 // =============================================================
 
 import React from "react";
@@ -24,7 +29,6 @@ interface LaunchWideOverlayProps {
   open: boolean;
   overlayWidth: number;
   deal: Deal;
-  latestRunId?: string | null;
   documentsCount?: number;
   checksMode: ChecksMode;
   onChecksModeChange: (value: ChecksMode) => void;
@@ -144,7 +148,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
   open,
   overlayWidth,
   deal,
-  latestRunId,
   documentsCount,
   checksMode,
   onChecksModeChange,
@@ -385,7 +388,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
           <div className={rightPaneClass}>
             <LaunchFormPanel
               deal={deal}
-              latestRunId={latestRunId}
               documentsCount={documentsCount}
               checksMode={checksMode}
               onChecksModeChange={onChecksModeChange}
@@ -431,9 +433,6 @@ const LaunchWideOverlay: React.FC<LaunchWideOverlayProps> = ({
 };
 
 export default LaunchWideOverlay;
-
-
-
 
 
 

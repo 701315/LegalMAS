@@ -1,17 +1,17 @@
 // =============================================================
 // src/pages/DealPage.tsx
 // Страница сделки / проекта.
-// Внутри страницы зафиксированы:
-// 1) верхний хедер проекта,
-// 2) левая панель вкладок проекта.
-// Прокрутка происходит только в правой контентной области.
+//
+// Архитектурный принцип:
+// - current run для сделки определяется только через deal.last_run_id;
+// - DealPage не вычисляет "последний run" самостоятельно;
+// - DealPage лишь маршрутизирует current run id в нужные вкладки.
 // =============================================================
 
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { Deal, OpenViewerAtPayload } from "../types";
-import { useUIStore } from "../stores/uiStore";
 import OverviewTab from "./tabs/OverviewTab";
 import GridTab from "./tabs/GridTab";
 import DocumentsTab from "./tabs/DocumentsTab";
@@ -80,25 +80,12 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const latestRunId = deal.last_run_id ?? null;
-  const hasLatestRun = !!latestRunId;
+  const currentRunId = deal.last_run_id ?? null;
+  const hasCurrentRun = currentRunId !== null;
 
-  const { canManageRequests, canUploadDocuments } =
-    useDealPermissions(deal.id);
+  const { canManageRequests, canUploadDocuments } = useDealPermissions(deal.id);
 
-  // Загружаем роль текущего пользователя в этом проекте,
-  // если она ещё не известна (например, после обновления страницы).
   useEnsureProjectRole(deal.id);
-
-  const globalRole = useUIStore((s) => s.globalRole);
-  const projectRoles = useUIStore((s) => s.projectRoles);
-
-  console.log("roles debug", {
-    dealId: deal.id,
-    globalRole,
-    projectRole: projectRoles[deal.id],
-    projectRoles,
-  });
 
   const canManageProject = canUploadDocuments || canManageRequests;
 
@@ -159,7 +146,9 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
   const handleMobileTabKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       const currentIndex = TAB_KEYS.indexOf(activeTab);
-      if (currentIndex < 0) return;
+      if (currentIndex < 0) {
+        return;
+      }
 
       let nextIndex = currentIndex;
 
@@ -194,27 +183,29 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     [activeTab, canManageProject, handleSetTab],
   );
 
-  const renderRunRequiredState = (title: string, description: string) => (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5">
-      <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
-      <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-        {description}
-      </p>
-    </div>
+  const renderRunRequiredState = React.useCallback(
+    (title: string, description: string) => (
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-5 py-5">
+        <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
+        <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+          {description}
+        </p>
+      </div>
+    ),
+    [],
   );
 
   const activeTabLabel = TAB_LABELS[activeTab];
 
   const renderActiveTabPanel = () => {
     if (activeTab === "overview") {
-      return <OverviewTab deal={deal} latestRunId={latestRunId} />;
+      return <OverviewTab deal={deal} currentRunId={currentRunId} />;
     }
 
     if (activeTab === "documents") {
-      return hasLatestRun ? (
+      return hasCurrentRun ? (
         <DocumentsTab
           deal={deal}
-          runId={latestRunId}
           openViewerAt={viewerLocation}
           onViewerLocationConsumed={handleViewerLocationConsumed}
         />
@@ -227,8 +218,8 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     }
 
     if (activeTab === "dd_grid") {
-      return hasLatestRun ? (
-        <GridTab dealId={deal.id} runId={latestRunId} />
+      return hasCurrentRun ? (
+        <GridTab dealId={deal.id} runId={currentRunId} />
       ) : (
         renderRunRequiredState(
           "DD Grid пока недоступен",
@@ -238,10 +229,10 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     }
 
     if (activeTab === "requests") {
-      return hasLatestRun ? (
+      return hasCurrentRun ? (
         <RequestsTab
           dealId={deal.id}
-          runId={latestRunId}
+          runId={currentRunId}
           onOpenViewerAt={handleOpenViewerAt}
         />
       ) : (
@@ -253,7 +244,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
     }
 
     if (activeTab === "report") {
-      return <ReportTab dealId={deal.id} />;
+      return <ReportTab runId={currentRunId} />;
     }
 
     if (activeTab === "audit") {
@@ -435,9 +426,7 @@ const DealPage: React.FC<DealPageProps> = ({ deal }) => {
             className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6"
             tabIndex={0}
           >
-            <div className="flex min-h-full flex-col">
-              {renderActiveTabPanel()}
-            </div>
+            <div className="flex min-h-full flex-col">{renderActiveTabPanel()}</div>
           </section>
         </main>
       </div>
@@ -466,7 +455,9 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
     <button
       type="button"
       onClick={() => {
-        if (!disabled) onSelect(tabKey);
+        if (!disabled) {
+          onSelect(tabKey);
+        }
       }}
       disabled={disabled}
       aria-current={isActive ? "page" : undefined}
@@ -506,7 +497,9 @@ const MobileTab: React.FC<MobileTabProps> = ({
       id={getTabId(tabKey)}
       type="button"
       onClick={() => {
-        if (!disabled) onSelect(tabKey);
+        if (!disabled) {
+          onSelect(tabKey);
+        }
       }}
       disabled={disabled}
       role="tab"
@@ -528,7 +521,6 @@ const MobileTab: React.FC<MobileTabProps> = ({
 };
 
 export default DealPage;
-
 
 
 

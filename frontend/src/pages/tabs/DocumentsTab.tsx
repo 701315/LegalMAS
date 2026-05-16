@@ -10,9 +10,15 @@
 //   preview занимает 2/3, детали документа — 1/3
 // - выбранная строка документа имеет синюю полоску слева
 // - панель деталей документа имеет full-height синюю полоску слева
+//
+// Архитектурный принцип:
+// - DocumentsTab работает от deal-level списка документов;
+// - current run не участвует напрямую в загрузке списка документов;
+// - поэтому runId не входит в контракт компонента.
 // =============================================================
 
 import React, { useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   useDocuments,
   useDocumentsWithClassification,
@@ -42,7 +48,6 @@ import Button from "../../components/ui/Button";
 
 interface DocumentsTabProps {
   deal: Deal;
-  runId: string | null;
   openViewerAt?: OpenViewerAtPayload | null;
   onViewerLocationConsumed?: () => void;
 }
@@ -350,6 +355,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   openViewerAt,
   onViewerLocationConsumed,
 }) => {
+  const navigate = useNavigate();
+
   const [page] = useState(1);
   const { data, isLoading, error } = useDocuments(deal.id, page);
   const { data: classifiedPage } = useDocumentsWithClassification(deal.id);
@@ -365,6 +372,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     () => data?.items ?? [],
     [data?.items],
   );
+
+  const totalDocumentsCount = data?.total ?? documents.length;
 
   const selectedDocument = useMemo(
     () => documents.find((doc) => doc.id === selectedDocId) ?? null,
@@ -592,9 +601,9 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                     Документы
                   </h2>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    {documents.length > 0
-                      ? `В проекте анализируется ${documents.length} ${getDocumentsCountLabel(
-                          documents.length,
+                    {totalDocumentsCount > 0
+                      ? `В проекте анализируется ${totalDocumentsCount} ${getDocumentsCountLabel(
+                          totalDocumentsCount,
                         )}`
                       : "В проекте пока нет загруженных документов"}
                   </p>
@@ -888,9 +897,11 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                   docId={selectedDocId!}
                   dealId={deal.id}
                   onNavigateToGrid={(dealId, docName) => {
-                    window.location.href = `/projects/${dealId}?tab=grid&document=${encodeURIComponent(
-                      docName,
-                    )}`;
+                    navigate(
+                      `/projects/${dealId}?tab=dd_grid&document=${encodeURIComponent(
+                        docName,
+                      )}`,
+                    );
                   }}
                   onOpenPipelineStagePreview={handleOpenPipelineStagePreview}
                 />

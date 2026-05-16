@@ -1,17 +1,26 @@
 // =============================================================
 // src/pages/tabs/OverviewTab.tsx
-// Launch panel раскрывается до границы основной контентной колонки,
-// без backdrop и без перекрытия AnalysisActionsPanel.
-// Ширина overlay вычисляется от реального layout, а не от 100vw.
+// Overview вкладка проекта.
+//
+// Архитектурный принцип:
+// - current run определяется только через deal.last_run_id;
+// - OverviewTab не вычисляет "последний run" самостоятельно;
+// - история запусков читается через runs API как history,
+//   но не используется для вычисления current run;
+// - obsolete query keys вида ["latest-run", ...] больше не используются.
 // =============================================================
 
 import React from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AuditLogEntry, Deal, RunStatus } from "../../types";
-import { useRun, useStartRun } from "../../api/runs";
+import {
+  runKeys,
+  useDealRuns,
+  useRun,
+  useStartRun,
+} from "../../api/runs";
 import { useSetPrimaryLanguage, useUpdateDeal } from "../../api/deals";
 import { useDocumentsCount } from "../../api/documents";
-import { resultApi } from "../../api/results";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useSSEProgress } from "../../hooks/useSSE";
 import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
@@ -24,8 +33,6 @@ import {
   normalizeLang,
 } from "../../utils/languageDiscovery";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type ChecksMode =
   | "global_only"
   | "doc_type_only"
@@ -33,10 +40,8 @@ export type ChecksMode =
 
 interface OverviewTabProps {
   deal: Deal;
-  latestRunId?: string | null;
+  currentRunId?: string | null;
 }
-
-// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -61,8 +66,6 @@ function formatDateShort(iso: string | null | undefined): string {
     minute: "2-digit",
   });
 }
-
-// ─── Audit helpers ────────────────────────────────────────────────────────────
 
 function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   const imports = entries.filter((e) => e.action === "IMPORT");
@@ -96,8 +99,6 @@ function buildProjectTimelineFromAudit(entries: AuditLogEntry[]) {
   };
 }
 
-// ─── UI helpers ───────────────────────────────────────────────────────────────
-
 function runStatusTextClass(
   tone: "ok" | "warn" | "error" | "neutral",
 ): string {
@@ -113,8 +114,6 @@ function progressBarClass(status: RunStatus | undefined): string {
   if (status === "completed_with_errors") return "bg-[var(--color-warning)]";
   return "bg-[var(--accent-primary)]";
 }
-
-// ─── Reusable UI components ───────────────────────────────────────────────────
 
 const CardShell: React.FC<{
   title: string;
@@ -173,8 +172,6 @@ const TimelineEvent: React.FC<{
   </li>
 );
 
-// ─── DealInfoCard ─────────────────────────────────────────────────────────────
-
 const DealInfoCard: React.FC<{
   deal: Deal;
   projectSummary: string;
@@ -182,7 +179,14 @@ const DealInfoCard: React.FC<{
   isDirty: boolean;
   onChangeSummary: (value: string) => void;
   onSaveSummary: () => void;
-}> = ({ deal, projectSummary, isSaving, isDirty, onChangeSummary, onSaveSummary }) => (
+}> = ({
+  deal,
+  projectSummary,
+  isSaving,
+  isDirty,
+  onChangeSummary,
+  onSaveSummary,
+}) => (
   <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
     <div className="px-5">
       <div className="py-4">
@@ -227,47 +231,70 @@ const DealInfoCard: React.FC<{
   </section>
 );
 
-// ─── ProjectTimelineCard ──────────────────────────────────────────────────────
-
 const ProjectTimelineCard: React.FC<{
   deal: Deal;
-  latestRunId?: string | null;
+  currentRunId?: string | null;
   documentsCount?: number;
-}> = ({ deal, latestRunId, documentsCount }) => {
-  const { data: allRuns } = useQuery({
-    queryKey: ["all-runs", deal.id],
-    queryFn: () => resultApi.listRuns(deal.id, false),
-    enabled: !!deal.id,
-    staleTime: 2 * 60_000,
-  });
-
-  const { data: latestRun } = useRun(latestRunId ?? null, false);
+}> = ({ deal, currentRunId, documentsCount }) => {
+  const { data: allRuns } = useDealRuns(deal.id, false);
+  const { data: currentRun } = useRun(currentRunId ?? null, false);
   const { data: auditPage } = useAuditLog(deal.id, { per_page: 50 });
 
   const auditEntries = auditPage?.items ?? [];
   const auditAgg = buildProjectTimelineFromAudit(auditEntries);
-  const firstRun =
-    allRuns && allRuns.length > 0 ? allRuns[allRuns.length - 1] : null;
-  const lastRunDate = latestRun?.completed_at ?? latestRun?.started_at ?? null;
+
+  const firstRun = React.useMemo(() => {
+    if (!allRuns || allRuns.length === 0) {
+      return null;
+    }
+
+    const runsWithStart = allRuns.filter((run) => !!run.started_at);
+    if (runsWithStart.length === 0) {
+      return null;
+    }
+
+    return runsWithStart
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(a.started_at!).getTime() -
+          new Date(b.started_at!).getTime(),
+      )[0];
+  }, [allRuns]);
+
+  const lastRunDate =
+    currentRun?.completed_at ?? currentRun?.started_at ?? null;
 
   const lastRunStatusLabel = (() => {
-    const s = latestRun?.status;
+    const s = currentRun?.status;
     if (!s) return null;
-    if (s === "completed") return { text: "Завершён успешно", tone: "ok" as const };
-    if (s === "completed_with_errors") return { text: "Завершён с ошибками", tone: "warn" as const };
-    if (s === "failed") return { text: "Завершился с ошибкой", tone: "error" as const };
-    if (s === "running") return { text: "Выполняется", tone: "neutral" as const };
-    if (s === "pending") return { text: "В очереди", tone: "neutral" as const };
+    if (s === "completed") {
+      return { text: "Завершён успешно", tone: "ok" as const };
+    }
+    if (s === "completed_with_errors") {
+      return { text: "Завершён с ошибками", tone: "warn" as const };
+    }
+    if (s === "failed") {
+      return { text: "Завершился с ошибкой", tone: "error" as const };
+    }
+    if (s === "running") {
+      return { text: "Выполняется", tone: "neutral" as const };
+    }
+    if (s === "pending") {
+      return { text: "В очереди", tone: "neutral" as const };
+    }
     return { text: s, tone: "neutral" as const };
   })();
 
-  const totalChecks = latestRun?.total_checks ?? 0;
-  const failedDocs = latestRun?.failed_docs_count ?? 0;
-  const quarantineDocs = latestRun?.quarantine_docs_count ?? 0;
+  const totalChecks = currentRun?.total_checks ?? 0;
+  const failedDocs = currentRun?.failed_docs_count ?? 0;
+  const quarantineDocs = currentRun?.quarantine_docs_count ?? 0;
   const successDocs =
     totalChecks > 0 ? totalChecks - failedDocs - quarantineDocs : 0;
 
-  if (!deal.created_at && !latestRunId) return null;
+  if (!deal.created_at && !currentRunId) {
+    return null;
+  }
 
   return (
     <CardShell eyebrow="Активность" title="Хроника действий по проекту">
@@ -340,14 +367,14 @@ const ProjectTimelineCard: React.FC<{
           />
         )}
 
-        {latestRun && (
+        {currentRun && (
           <TimelineEvent
             icon={
-              latestRun.status === "completed"
+              currentRun.status === "completed"
                 ? "✅"
-                : latestRun.status === "completed_with_errors"
+                : currentRun.status === "completed_with_errors"
                   ? "⚠️"
-                  : latestRun.status === "failed"
+                  : currentRun.status === "failed"
                     ? "❌"
                     : "🔄"
             }
@@ -391,12 +418,10 @@ const ProjectTimelineCard: React.FC<{
   );
 };
 
-// ─── RunProgressCard ──────────────────────────────────────────────────────────
-
 const RunProgressCard: React.FC<{
-  latestRunId?: string | null;
-}> = ({ latestRunId }) => {
-  const runId = latestRunId ?? null;
+  currentRunId?: string | null;
+}> = ({ currentRunId }) => {
+  const runId = currentRunId ?? null;
   const { data: run, isLoading } = useRun(runId, false);
   const { lastEvent } = useSSEProgress(runId, { enabled: !!runId });
 
@@ -487,12 +512,10 @@ const RunProgressCard: React.FC<{
   );
 };
 
-// ─── OverviewTab ──────────────────────────────────────────────────────────────
-
-const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
+const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   const qc = useQueryClient();
 
-  const { data: latestRun } = useRun(latestRunId ?? null, false);
+  const { data: currentRun } = useRun(currentRunId ?? null, false);
   const { data: documentsCount } = useDocumentsCount(deal.id);
   const { canStartRun, canUploadDocuments } = useDealPermissions(deal.id);
 
@@ -506,16 +529,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
   const [forceReclassify, setForceReclassify] = React.useState(false);
   const [hasRestartedAfterReclass, setHasRestartedAfterReclass] =
     React.useState(false);
-  const [projectSummary, setProjectSummary] = React.useState(
-    deal.summary ?? "",
-  );
+  const [projectSummary, setProjectSummary] = React.useState(deal.summary ?? "");
   const [dealPatch, setDealPatch] = React.useState<Partial<Deal>>({});
 
   const overviewRef = React.useRef<HTMLDivElement | null>(null);
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const [overlayWidth, setOverlayWidth] = React.useState<number | null>(null);
-
-  // ── Overlay width measurement ──────────────────────────────────────────────
 
   React.useLayoutEffect(() => {
     const overviewEl = overviewRef.current;
@@ -526,8 +545,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
       const overviewRect = overviewEl.getBoundingClientRect();
       const railRect = railEl.getBoundingClientRect();
       const styles = window.getComputedStyle(overviewEl);
-      const gap =
-        parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
       const width = Math.max(0, overviewRect.width - railRect.width - gap);
       setOverlayWidth(width > 0 ? width : null);
     };
@@ -545,12 +563,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     };
   }, []);
 
-  // ── Sync local state when deal changes ────────────────────────────────────
-  //
-  // Зависимости намеренно включают все поля сделки, которые влияют на форму,
-  // чтобы при внешнем обновлении deal (polling / invalidation) локальный
-  // draft сбрасывался к актуальным значениям.
-
   const dealLanguagesKey = JSON.stringify(deal.languages ?? []);
 
   React.useEffect(() => {
@@ -565,8 +577,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     dealLanguagesKey,
   ]);
 
-  // ── Escape key handler for launch panel ───────────────────────────────────
-
   React.useEffect(() => {
     if (!isLaunchPanelOpen) return;
 
@@ -578,8 +588,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isLaunchPanelOpen]);
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-
   const effectiveDeal: Deal = { ...deal, ...dealPatch };
 
   const normalizedOriginalSummary = (deal.summary ?? "").trim();
@@ -588,7 +596,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
 
   const showReclassBanner =
     effectiveDeal.has_pending_manual_reclassifications &&
-    (!!latestRun || !hasRestartedAfterReclass);
+    (!!currentRun || !hasRestartedAfterReclass);
 
   const hasDocuments =
     typeof documentsCount === "number" ? documentsCount > 0 : false;
@@ -597,11 +605,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     effectiveDeal.language_discovery_status,
   );
 
-  // Discovery блокирует запуск run, пока language discovery не завершён
-  // по ВСЕМ документам сделки (pending или processing).
-  // Наличие промежуточных languages не снимает блокировку,
-  // потому что часть документов может быть ещё не обработана.
-  // Backend применяет тот же контракт в runs.py.
   const isLanguageDiscoveryBlocking =
     discoveryStatus === "pending" || discoveryStatus === "processing";
 
@@ -620,8 +623,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     updateDeal.isPending ||
     setPrimaryLanguage.isPending;
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
   const handleOpenLaunchPanel = React.useCallback(() => {
     setIsLaunchPanelOpen(true);
   }, []);
@@ -634,14 +635,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
     (value: string) => {
       const normalizedValue = normalizeLang(value) || null;
 
-      // Оптимистичный UI-update: сразу отображаем выбор без ожидания сервера.
       setDealPatch((prev) => ({ ...prev, primary_language: normalizedValue }));
 
       setPrimaryLanguage.mutate(
         { primary_language: normalizedValue },
         {
           onError: () => {
-            // Откат при ошибке сервера.
             setDealPatch((prev) => ({
               ...prev,
               primary_language: deal.primary_language ?? null,
@@ -678,20 +677,26 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
           setIsLaunchPanelOpen(false);
 
           await Promise.all([
-            qc.invalidateQueries({ queryKey: ["run", run.id, true] }),
-            qc.invalidateQueries({ queryKey: ["run", run.id, false] }),
+            qc.invalidateQueries({ queryKey: runKeys.detail(run.id, true) }),
+            qc.invalidateQueries({ queryKey: runKeys.detail(run.id, false) }),
             qc.invalidateQueries({
-              queryKey: ["classification-report", run.id],
+              queryKey: runKeys.classificationReport(run.id),
             }),
             qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
-            qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-            qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
-            qc.invalidateQueries({ queryKey: ["all-runs", deal.id] }),
+            qc.invalidateQueries({ queryKey: runKeys.history(deal.id, false) }),
+            qc.invalidateQueries({ queryKey: runKeys.history(deal.id, true) }),
           ]);
         },
       },
     );
-  }, [canLaunchRun, checksMode, deal.id, forceReclassify, qc, startRun]);
+  }, [
+    canLaunchRun,
+    checksMode,
+    deal.id,
+    forceReclassify,
+    qc,
+    startRun,
+  ]);
 
   const handleDealPatched = React.useCallback(
     async (patch?: Partial<Deal>) => {
@@ -701,21 +706,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
 
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["deal", deal.id] }),
-        qc.invalidateQueries({ queryKey: ["latest-run", deal.id, true] }),
-        qc.invalidateQueries({ queryKey: ["latest-run", deal.id, false] }),
       ]);
     },
     [deal.id, qc],
   );
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div
       ref={overviewRef}
       className="relative grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_360px]"
     >
-      {/* ── Left column ── */}
       <div className="min-w-0 space-y-4">
         <DealInfoCard
           deal={effectiveDeal}
@@ -728,18 +728,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
 
         <ProjectTimelineCard
           deal={effectiveDeal}
-          latestRunId={latestRunId}
+          currentRunId={currentRunId}
           documentsCount={documentsCount}
         />
 
-        <RunProgressCard latestRunId={latestRunId} />
+        <RunProgressCard currentRunId={currentRunId} />
       </div>
 
-      {/* ── Right rail (desktop) ── */}
       <div ref={railRef} className="relative hidden xl:block px-1 pb-2">
         <AnalysisActionsPanel
           deal={effectiveDeal}
-          latestRunExists={!!latestRun}
+          hasCurrentRun={!!currentRun}
           canStartRun={canLaunchRun}
           onOpenRunPanel={handleOpenLaunchPanel}
           showReclassBanner={showReclassBanner}
@@ -750,7 +749,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
             open={isLaunchPanelOpen}
             overlayWidth={overlayWidth}
             deal={effectiveDeal}
-            latestRunId={latestRunId}
             documentsCount={documentsCount}
             checksMode={checksMode}
             onChecksModeChange={setChecksMode}
@@ -767,11 +765,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
         )}
       </div>
 
-      {/* ── Right rail (mobile fallback) ── */}
       <div className="xl:hidden">
         <AnalysisActionsPanel
           deal={effectiveDeal}
-          latestRunExists={!!latestRun}
+          hasCurrentRun={!!currentRun}
           canStartRun={canLaunchRun}
           onOpenRunPanel={handleOpenLaunchPanel}
           showReclassBanner={showReclassBanner}
@@ -782,7 +779,6 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, latestRunId }) => {
 };
 
 export default OverviewTab;
-
 
 
 

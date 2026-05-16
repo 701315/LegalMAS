@@ -11,7 +11,7 @@ interface RunLaunchDrawerProps {
   open: boolean;
   onClose: () => void;
   deal: Deal;
-  latestRunId?: string | null;
+  currentRunId?: string | null;
   documentsCount?: number;
 
   checksMode: ChecksMode;
@@ -39,7 +39,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
   open,
   onClose,
   deal,
-  latestRunId,
+  currentRunId,
   documentsCount,
   checksMode,
   onChecksModeChange,
@@ -107,7 +107,7 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
           <p className="text-xs font-semibold text-[var(--text-primary)]">
             {readinessLabel}
           </p>
-          {latestRunId && (
+          {currentRunId && (
             <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
               Последний анализ уже запускался. Новый запуск обновит результаты по
               текущим документам.
@@ -332,3 +332,4 @@ const RunLaunchDrawer: React.FC<RunLaunchDrawerProps> = ({
 };
 
 export default RunLaunchDrawer;
+

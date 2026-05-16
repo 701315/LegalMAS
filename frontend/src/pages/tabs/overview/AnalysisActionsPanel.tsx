@@ -6,6 +6,10 @@
 // - divider inset, не примыкает к краям карточки
 // - внешний блок акцентирован синим обрамлением по всей границе,
 //   при этом сохранена стандартная системная тень карточки
+//
+// Актуальный контракт:
+// - hasCurrentRun отражает наличие current run,
+//   определяемого через deal.last_run_id / currentRunId наверху.
 // =============================================================
 
 import React from "react";
@@ -20,7 +24,7 @@ import {
 
 interface AnalysisActionsPanelProps {
   deal: Deal;
-  latestRunExists: boolean;
+  hasCurrentRun: boolean;
   canStartRun: boolean;
   onOpenRunPanel: () => void;
   showReclassBanner: boolean;
@@ -28,7 +32,7 @@ interface AnalysisActionsPanelProps {
 
 const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
   deal,
-  latestRunExists,
+  hasCurrentRun,
   canStartRun,
   onOpenRunPanel,
   showReclassBanner,
@@ -36,10 +40,16 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
   const hasPlaybook = !!deal.playbook_version_id;
 
   const documentLanguages = Array.from(
-    new Set((deal.languages ?? []).map((lang) => normalizeLang(lang)).filter(Boolean)),
+    new Set(
+      (deal.languages ?? [])
+        .map((lang) => normalizeLang(lang))
+        .filter(Boolean),
+    ),
   );
 
-  const discoveryStatus = normalizeDiscoveryStatus(deal.language_discovery_status);
+  const discoveryStatus = normalizeDiscoveryStatus(
+    deal.language_discovery_status,
+  );
   const primaryLanguage = normalizeLang(deal.primary_language);
   const primaryLanguageSelected = !!primaryLanguage;
 
@@ -95,7 +105,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
               Анализ документов
             </p>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-              {!latestRunExists
+              {!hasCurrentRun
                 ? "Настройте параметры и запустите первый анализ документов по проекту."
                 : "Вы можете запустить повторный анализ, чтобы обновить результаты."}
             </p>
@@ -167,6 +177,7 @@ const AnalysisActionsPanel: React.FC<AnalysisActionsPanelProps> = ({
               variant="secondary"
               size="sm"
               onClick={onOpenRunPanel}
+              disabled={!canStartRun}
             >
               Выбрать настройки для анализа документов
             </Button>
