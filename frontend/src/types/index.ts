@@ -109,3 +109,14 @@ export type { DDRequest, DDRequestCreateInput } from "./ddRequests";
 
 export type { ExportType, ExportRecord, AuditLogEntry } from "./exports";
 
+export type {
+  ClassificationInvestigationSummary,
+  ClassificationCandidateResponse,
+  ClassificationLevelResultResponse,
+  ClassificationVotingResponse,
+  ClassificationSegmentSummaryResponse,
+  ClassificationInvestigationRow,
+  ClassificationInvestigationListResponse,
+  ClassificationInvestigationDetailResponse,
+} from "./classificationInvestigation";
+

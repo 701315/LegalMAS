@@ -1,22 +1,27 @@
 // =============================================================
 // src/pages/tabs/AuditTab.tsx
-// Вкладка «Аудит» (только admin / reviewer как security role).
-// Журнал действий: кто, когда, что сделал, с фильтром по действию.
-// Приведено к единому стилю PageSection / Overview / Documents.
+// Вкладка «Аудит».
+// Режимы:
+// - audit_log: стандартный журнал действий;
+// - classification_audit: аудит классификации документов проекта.
 // =============================================================
 
 import React, { useState } from "react";
+import { Loader2, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+
 import { useAuditLog } from "../../api/audit";
 import { AUDIT_ACTION_LABEL } from "../../constants";
-import { Loader2, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../utils";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import PageSection from "../../components/ui/PageSection";
 import Button from "../../components/ui/Button";
+import ClassificationAuditView from "./audit/ClassificationAuditView";
 
 interface Props {
   dealId: string;
 }
+
+type AuditViewMode = "audit_log" | "classification_audit";
 
 const FILTER_BUTTON_ACTIVE_CLASS =
   "border-[var(--accent-primary)] bg-[var(--accent-muted)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--accent-muted)]";
@@ -94,6 +99,8 @@ const AuditActionFilterInlinePanel: React.FC<{
 
 export const AuditTab: React.FC<Props> = ({ dealId }) => {
   const { canViewAuditLog } = useDealPermissions(dealId);
+
+  const [viewMode, setViewMode] = useState<AuditViewMode>("audit_log");
   const [filterAction, setFilterAction] = useState<string>("");
   const [page, setPage] = useState(1);
   const [isActionFilterOpen, setIsActionFilterOpen] = useState(false);
@@ -138,183 +145,244 @@ export const AuditTab: React.FC<Props> = ({ dealId }) => {
   return (
     <div className="space-y-6">
       <PageSection
-        title="Журнал аудита"
-        subtitle="Кто, когда и какие действия выполнял в рамках сделки."
+        title={
+          viewMode === "audit_log"
+            ? "Журнал аудита"
+            : "Аудит классификации документов"
+        }
+        subtitle={
+          viewMode === "audit_log"
+            ? "Кто, когда и какие действия выполнял в рамках сделки."
+            : "Сводная explainability-информация по классификации документов текущего проекта."
+        }
         rightSlot={
-          <Button
-            type="button"
-            size="sm"
-            variant={isActionFilterOpen ? "outline" : "secondary"}
-            onClick={() => setIsActionFilterOpen((prev) => !prev)}
-            aria-expanded={isActionFilterOpen}
-            aria-controls="audit-action-filter-panel"
-            className={isActionFilterOpen ? FILTER_BUTTON_ACTIVE_CLASS : ""}
-          >
-            {currentFilterLabel}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {viewMode === "audit_log" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={isActionFilterOpen ? "outline" : "secondary"}
+                onClick={() => setIsActionFilterOpen((prev) => !prev)}
+                aria-expanded={isActionFilterOpen}
+                aria-controls="audit-action-filter-panel"
+                className={isActionFilterOpen ? FILTER_BUTTON_ACTIVE_CLASS : ""}
+              >
+                {currentFilterLabel}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setViewMode("audit_log")}
+              >
+                К журналу аудита
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "classification_audit" ? "outline" : "secondary"}
+              onClick={() => {
+                setViewMode("classification_audit");
+                setIsActionFilterOpen(false);
+              }}
+              className={
+                viewMode === "classification_audit"
+                  ? FILTER_BUTTON_ACTIVE_CLASS
+                  : ""
+              }
+            >
+              Аудит классификации документов
+            </Button>
+          </div>
         }
       >
-        {isActionFilterOpen && (
-          <div id="audit-action-filter-panel" className="mb-4">
-            <AuditActionFilterInlinePanel
-              selectedAction={filterAction}
-              onSelect={(value) => {
-                setFilterAction(value);
-                setPage(1);
-              }}
-              onReset={() => {
-                setFilterAction("");
-                setPage(1);
-              }}
-              onClose={() => setIsActionFilterOpen(false)}
-            />
-          </div>
-        )}
+        {viewMode === "classification_audit" ? (
+          <ClassificationAuditView dealId={dealId} />
+        ) : (
+          <>
+            {isActionFilterOpen && (
+              <div id="audit-action-filter-panel" className="mb-4">
+                <AuditActionFilterInlinePanel
+                  selectedAction={filterAction}
+                  onSelect={(value) => {
+                    setFilterAction(value);
+                    setPage(1);
+                  }}
+                  onReset={() => {
+                    setFilterAction("");
+                    setPage(1);
+                  }}
+                  onClose={() => setIsActionFilterOpen(false)}
+                />
+              </div>
+            )}
 
-        <div className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
-              <Loader2
-                className="mr-3 animate-spin text-[var(--accent)]"
-                size={20}
-              />
-              <span className="text-sm text-[var(--text-muted)]">
-                Загружаем журнал…
-              </span>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
-                <table className="w-full table-fixed border-collapse">
-                  <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
-                    <tr>
-                      <th className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Время
-                      </th>
-                      <th className="w-52 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Действие
-                      </th>
-                      <th className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Пользователь
-                      </th>
-                      <th className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Роль
-                      </th>
-                      <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                        Детали
-                      </th>
-                    </tr>
-                  </thead>
+            <div className="space-y-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-card)] py-16">
+                  <Loader2
+                    className="mr-3 animate-spin text-[var(--accent)]"
+                    size={20}
+                  />
+                  <span className="text-sm text-[var(--text-muted)]">
+                    Загружаем журнал…
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-card)]">
+                    <table className="w-full table-fixed border-collapse">
+                      <thead className="border-b border-[var(--border)] bg-[var(--bg-elevated-soft)]">
+                        <tr>
+                          <th
+                            scope="col"
+                            className="w-48 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                          >
+                            Время
+                          </th>
+                          <th
+                            scope="col"
+                            className="w-52 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                          >
+                            Действие
+                          </th>
+                          <th
+                            scope="col"
+                            className="w-40 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                          >
+                            Пользователь
+                          </th>
+                          <th
+                            scope="col"
+                            className="w-28 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                          >
+                            Роль
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                          >
+                            Детали
+                          </th>
+                        </tr>
+                      </thead>
 
-                  <tbody>
-                    {items.map((log) => (
-                      <tr
-                        key={log.id}
-                        className={cn(
-                          "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
-                          log.action === "RECLASSIFY" && ROW_HIGHLIGHT_RECLASSIFY,
-                          log.action === "SET_DEAL_PLAYBOOK" && ROW_HIGHLIGHT_PLAYBOOK,
-                        )}
-                      >
-                        <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
-                          {new Date(log.created_at).toLocaleString("ru-RU", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit",
-                          })}
-                        </td>
-
-                        <td className="px-3 py-2.5">
-                          <div className="min-w-0">
-                            <span
-                              className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
-                              title={AUDIT_ACTION_LABEL[log.action] || log.action}
-                            >
-                              {AUDIT_ACTION_LABEL[log.action] || log.action}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td
-                          className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
-                          title={log.actor}
-                        >
-                          {log.actor}
-                        </td>
-
-                        <td
-                          className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
-                          title={log.actor_role}
-                        >
-                          {log.actor_role}
-                        </td>
-
-                        <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
-                          <span
-                            className="block truncate"
-                            title={formatDetails(
-                              log.action,
-                              log.details as Record<string, unknown> | null,
+                      <tbody>
+                        {items.map((log) => (
+                          <tr
+                            key={log.id}
+                            className={cn(
+                              "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-elevated-soft)]",
+                              log.action === "RECLASSIFY" &&
+                                ROW_HIGHLIGHT_RECLASSIFY,
+                              log.action === "SET_DEAL_PLAYBOOK" &&
+                                ROW_HIGHLIGHT_PLAYBOOK,
                             )}
                           >
-                            {formatDetails(
-                              log.action,
-                              log.details as Record<string, unknown> | null,
-                            )}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            <td className="px-3 py-2.5 text-xs text-[var(--text-secondary)]">
+                              {new Date(log.created_at).toLocaleString("ru-RU", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              })}
+                            </td>
 
-                {items.length === 0 && (
-                  <div className="py-10 text-center">
-                    <p className="mb-1 text-sm text-[var(--text-secondary)]">
-                      Записи не найдены
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Журнал пока пуст или не подходит под текущий фильтр.
-                    </p>
+                            <td className="px-3 py-2.5">
+                              <div className="min-w-0">
+                                <span
+                                  className="inline-flex max-w-full truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] align-middle"
+                                  title={AUDIT_ACTION_LABEL[log.action] || log.action}
+                                >
+                                  {AUDIT_ACTION_LABEL[log.action] || log.action}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td
+                              className="truncate px-3 py-2.5 text-xs font-medium text-[var(--text-primary)]"
+                              title={log.actor}
+                            >
+                              {log.actor}
+                            </td>
+
+                            <td
+                              className="truncate px-3 py-2.5 text-[11px] text-[var(--text-muted)]"
+                              title={log.actor_role}
+                            >
+                              {log.actor_role}
+                            </td>
+
+                            <td className="max-w-[380px] px-3 py-2.5 text-[11px] text-[var(--text-secondary)]">
+                              <span
+                                className="block truncate"
+                                title={formatDetails(
+                                  log.action,
+                                  log.details as Record<string, unknown> | null,
+                                )}
+                              >
+                                {formatDetails(
+                                  log.action,
+                                  log.details as Record<string, unknown> | null,
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {items.length === 0 && (
+                      <div className="py-10 text-center">
+                        <p className="mb-1 text-sm text-[var(--text-secondary)]">
+                          Записи не найдены
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          Журнал пока пуст или не подходит под текущий фильтр.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {totalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                    leftIcon={<ChevronLeft size={14} />}
-                  >
-                    Назад
-                  </Button>
+                  {totalPages > 1 && (
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page <= 1}
+                        leftIcon={<ChevronLeft size={14} />}
+                      >
+                        Назад
+                      </Button>
 
-                  <span className="text-xs text-[var(--text-muted)]">
-                    Страница {page} из {totalPages}
-                  </span>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        Страница {page} из {totalPages}
+                      </span>
 
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages}
-                    rightIcon={<ChevronRight size={14} />}
-                  >
-                    Вперёд
-                  </Button>
-                </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages}
+                        rightIcon={<ChevronRight size={14} />}
+                      >
+                        Вперёд
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </PageSection>
     </div>
   );
@@ -354,8 +422,7 @@ function formatDetails(
     const prev = String(details.previous_doc_type || "?");
     const next = String(details.new_doc_type || "?");
     const reason =
-      details.reason &&
-      String(details.reason).toString().trim().length > 0
+      details.reason && String(details.reason).trim().length > 0
         ? ` · Причина: ${String(details.reason)}`
         : "";
     return `${prev} → ${next}${reason}`;
@@ -368,5 +435,3 @@ function formatDetails(
 }
 
 export default AuditTab;
-
-
