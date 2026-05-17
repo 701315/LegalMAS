@@ -156,7 +156,11 @@ class WeightedVoter:
                 0.5,
             )
 
-            base_score = confidence * level_weight * signal_quality
+            # Дефекты 1 + 8: если signal_quality уже учтён внутри confidence (extended_v1),
+            # не применяем его повторно — иначе double-penalization
+            sq_already_applied = bool(candidate.get("signal_quality_in_confidence", False))
+            effective_sq = 1.0 if sq_already_applied else signal_quality
+            base_score = confidence * level_weight * effective_sq
 
             # Hard-negative сигнал — защитный стоп-кран:
             # такой кандидат не должен выигрывать голосование.
@@ -182,20 +186,41 @@ class WeightedVoter:
         if not type_scores:
             return None
 
-        # Agreement bonus:
-        # если тип поддержан >= 2 независимыми кандидатами, немного усиливаем его.
-        for type_code, support_count in type_support_count.items():
-            if support_count >= 2:
-                agreement_bonus = min(0.12, 0.05 * (support_count - 1))
-                type_scores[type_code] += agreement_bonus
+        # Agreement bonus удалён отсюда — применяется ПОСЛЕ нормализации (дефект 6).
+        # Применять до нормализации бессмысленно: бонус масштабируется вместе с best_score.
 
         ranked = sorted(type_scores.items(), key=lambda item: item[1], reverse=True)
         best_type, best_score = ranked[0]
         second_score = ranked[1][1] if len(ranked) > 1 else 0.0
         margin = max(0.0, best_score - second_score)
 
-        final_confidence = best_score + min(0.15, margin)
-        final_confidence = self._clamp(final_confidence, 0.0, 1.0)
+        # Дефект 2: нормализация через сумму весов активных уровней.
+        # Без нормализации best_score при одном L2 максимально = 0.40,
+        # что делает final_confidence <= 0.55 — ниже hybrid_accept = 0.65.
+        active_weight_sum = sum(
+            self._safe_float(self.level_weights.get(c.get("level", "L1"), 0.20), 0.20)
+            for c in candidates
+            if c.get("type_code") == best_type
+        )
+        if active_weight_sum > 0:
+            normalized_confidence = best_score / active_weight_sum
+        else:
+            normalized_confidence = best_score
+
+        # Дефект 6: agreement_bonus применяется ПОСЛЕ нормализации.
+        # Предсказуемый эффект: +0.04 за каждый дополнительный согласный уровень, макс +0.08.
+        support_count_best = type_support_count.get(best_type, 1)
+        agreement_adj = min(0.08, 0.04 * (support_count_best - 1))
+
+        # margin_bonus: уменьшен с min(0.15, margin) до min(0.10, margin * 0.5)
+        # чтобы компенсировать рост базового confidence от нормализации
+        margin_bonus = min(0.10, margin * 0.5)
+
+        final_confidence = self._clamp(
+            normalized_confidence + agreement_adj + margin_bonus,
+            0.0,
+            1.0,
+        )
 
         meta = type_meta.get(best_type, {})
 

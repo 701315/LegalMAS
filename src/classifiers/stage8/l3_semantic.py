@@ -452,10 +452,23 @@ class L3SemanticClassifier(BaseClassifier):
             },
         )
 
-        best_sim_clamped = _clamp(best_adjusted_sim, 0.5, 1.0)
-        margin_clamped = _clamp(margin, 0.0, 0.3)
+        # Дефект 10: пересмотрена формула confidence.
+        # Старая формула давала ~0.35 при sim=0.75, margin=0.05 — L3 систематически
+        # занижал confidence при narrow margin (неоднозначных документах).
+        # Новая формула: similarity-driven с margin как модификатором.
+        sim_threshold = float(getattr(settings, "CLASSIFICATION_L3_ACCEPT", 0.75))
 
-        confidence_raw = 0.55 * (best_sim_clamped - 0.5) * 2.0 + 0.45 * (margin_clamped / 0.3)
+        # Базовый confidence линейно от similarity выше порога
+        if best_adjusted_sim >= sim_threshold:
+            sim_component = (best_adjusted_sim - sim_threshold) / (1.0 - sim_threshold)
+        else:
+            sim_component = 0.0
+
+        # Margin как модификатор: при margin >= 0.20 штрафа нет, ниже — штраф
+        margin_factor = _clamp(margin / 0.20, 0.0, 1.0)
+
+        # Веса: similarity важнее margin (0.70 / 0.30)
+        confidence_raw = 0.70 * sim_component + 0.30 * margin_factor
         confidence = round(_clamp(confidence_raw, 0.0, 1.0), 4)
 
         meta = self._meta.get(best_type, {})

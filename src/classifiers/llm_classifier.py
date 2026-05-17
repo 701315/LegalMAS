@@ -1,6 +1,12 @@
 # src/classifiers/llm_classifier.py
 
 """
+
+# DEPRECATED: этот модуль не используется в HybridClassifier.
+# Реальный L4 реализован в _l4_llm.py через L4LLMClassifier.
+# Оставлен как reference implementation и заготовка для будущих провайдеров.
+# create_llm_classifier() нигде не вызывается в production-каскаде.
+
 L4: классификация документов через LLM (обёртка и фабрика).
 
 Назначение:

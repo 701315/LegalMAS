@@ -33,6 +33,19 @@ logger = get_logger(__name__)
 _lock = threading.Lock()
 _instance: Optional["YAMLRegistry"] = None
 
+def _pattern_to_text(raw_pattern: str) -> str:
+    """Извлекает читаемый текст из regex-паттерна для L3-прототипа.
+    
+    Убирает regex-специфичный синтаксис, чтобы embedding-модель
+    получала семантически осмысленный текст, а не шум из \\b, (?i) и т.п.
+    """
+    s = raw_pattern.strip()
+    s = re.sub(r'^\(\?[imsux]+\)', '', s)      # убираем флаги (?i), (?m) и т.п.
+    s = re.sub(r'\\[bBsSwWdD]', ' ', s)        # убираем \b, \s, \d и т.п.
+    s = re.sub(r'[+*?]|\{\d+,?\d*\}', '', s)   # убираем квантификаторы +, *, ?, {n,m}
+    s = re.sub(r'[\[\]()^$|\\]', ' ', s)       # убираем спец. символы
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
 
 class DocumentTypeConfig:
     """
@@ -162,13 +175,27 @@ class DocumentTypeConfig:
         # НОВОЕ: "сырые" keywords/phrases для семантического уровня (L3).
         # Здесь мы не компилируем ничего в regex, а просто храним строки,
         # чтобы L3 мог собрать текстовый прототип.
+        # Дефект 11: очищаем regex-синтаксис из паттернов для L3-прототипа.
+        # Embedding-модель должна получать читаемый текст, а не (?i)\bдоговор\s+купли-продажи\b
+        def _extract_raw_pattern(x) -> str:
+            return str(x) if isinstance(x, str) else str(x.get("pattern", ""))
+
         self.rules_keywords: dict[str, list[str]] = {
-            "high": [str(x) if isinstance(x, str) else str(x.get("pattern", ""))
-                     for x in kw.get("high", []) or []],
-            "medium": [str(x) if isinstance(x, str) else str(x.get("pattern", ""))
-                       for x in kw.get("medium", []) or []],
-            "low": [str(x) if isinstance(x, str) else str(x.get("pattern", ""))
-                    for x in kw.get("low", []) or []],
+            "high": [
+                _pattern_to_text(_extract_raw_pattern(x))
+                for x in kw.get("high", []) or []
+                if _extract_raw_pattern(x).strip()
+            ],
+            "medium": [
+                _pattern_to_text(_extract_raw_pattern(x))
+                for x in kw.get("medium", []) or []
+                if _extract_raw_pattern(x).strip()
+            ],
+            "low": [
+                _pattern_to_text(_extract_raw_pattern(x))
+                for x in kw.get("low", []) or []
+                if _extract_raw_pattern(x).strip()
+            ],
         }
 
         phrases = rules.get("phrases", {}) or {}

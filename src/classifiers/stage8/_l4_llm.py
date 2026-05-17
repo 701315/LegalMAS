@@ -88,7 +88,10 @@ class L4LLMClassifier:
         allowed_types: List[str],
     ) -> Dict[str, Any]:
         """
-        Строго разобрать JSON из ответа LLM и привести к безопасным значениям.
+        Разобрать JSON из ответа LLM и привести к безопасным значениям.
+
+        Tolerant mode: лишние ключи от LLM игнорируются с warning,
+        неточный type_code матчится по prefix/substring (fuzzy fallback).
 
         Контракт возврата:
           {type_code, confidence, reasoning, parse_success, raw}
@@ -120,10 +123,16 @@ class L4LLMClassifier:
 
             raw["parsed_json"] = obj
 
+            # Дефект 5: tolerant mode — лишние ключи не ломают парсинг
             allowed_keys = {"type_code", "confidence", "reasoning"}
             extra_keys = set(obj.keys()) - allowed_keys
             if extra_keys:
-                raise ValueError(f"Unexpected JSON keys: {sorted(extra_keys)}")
+                logger.warning(
+                    "L4LLMClassifier.parse: ignoring extra keys from LLM",
+                    extra={"extra_keys": sorted(extra_keys)},
+                )
+                raw["extra_keys_ignored"] = sorted(extra_keys)
+                # Продолжаем — три обязательных поля проверяются ниже независимо
 
             if "type_code" not in obj:
                 raise ValueError("Missing required key: type_code")
@@ -142,7 +151,20 @@ class L4LLMClassifier:
                 elif cleaned in allowed_set:
                     parsed_type_code = cleaned
                 else:
-                    raise ValueError(f"type_code '{cleaned}' is not in allowed_types")
+                    # Дефект 5: fuzzy fallback — prefix/substring match
+                    best_match = next(
+                        (t for t in allowed_set
+                         if cleaned.startswith(t) or t.startswith(cleaned)),
+                        None,
+                    )
+                    if best_match:
+                        logger.warning(
+                            "L4LLMClassifier.parse: fuzzy type_code match",
+                            extra={"raw": cleaned, "matched": best_match},
+                        )
+                        parsed_type_code = best_match
+                    else:
+                        raise ValueError(f"type_code '{cleaned}' is not in allowed_types")
             else:
                 raise ValueError("type_code must be string or null")
 
@@ -339,31 +361,18 @@ class L4LLMClassifier:
     def _extract_single_json_object(text: str) -> Dict[str, Any]:
         if not text:
             raise ValueError("Empty LLM response")
-
         stripped = text.strip()
-
-        if stripped.startswith("```"):
-            lines = stripped.splitlines()
-            if lines and lines.startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            stripped = "\n".join(lines).strip()
-
+        # Надёжный способ: ищем первый { и последний }
+        # Работает и с markdown-обёрткой ```json {...} ```, и без неё
         start_idx = stripped.find("{")
         end_idx = stripped.rfind("}")
-
         if start_idx == -1 or end_idx == -1 or end_idx < start_idx:
             raise ValueError("No JSON object found in LLM response")
-
         candidate = stripped[start_idx : end_idx + 1].strip()
         try:
-            obj = json.loads(candidate)
+            return json.loads(candidate)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON: {e}") from e
-
-        return obj
-    
-    
+            
     
     

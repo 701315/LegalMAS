@@ -297,9 +297,11 @@ class DocumentContentService:
         Извлечь шапку документа (title + преамбула) напрямую из layout.
         Простыми словами:
         - Берём layout последней версии документа.
-        - Сканируем первые несколько страниц (обычно 1–2).
+        - Сканируем первые несколько страниц.
+        - Для коротких документов (<= 4 страниц) читаем до 2 страниц шапки.
+        - Для более длинных документов читаем до 3 страниц шапки.
         - Собираем текст сверху вниз, пока не встретим первое крупное
-          структурное разделение (оглавление или раздел уровня "1. DEFINITIONS").
+        структурное разделение (оглавление или раздел уровня "1. DEFINITIONS").
         - Возвращаем один текстовый блок для L2/L4 и фронта.
         """
         version = await self._get_latest_version(doc_id)
@@ -314,11 +316,21 @@ class DocumentContentService:
         if not elements:
             return None
 
-        # Фильтруем только первые max_pages страниц
+        # Определяем общее число страниц и адаптируем глубину чтения шапки.
+        layout_meta = layout.get("metadata") or {}
+        total_pages: int | None = None
+        for key in ("page_count", "pages", "num_pages", "total_pages"):
+            value = layout_meta.get(key)
+            if isinstance(value, int) and value > 0:
+                total_pages = value
+                break
+
+        effective_max_pages = 2 if (total_pages is not None and total_pages <= 4) else 3
+
         header_elements: List[Dict[str, Any]] = []
         for el in elements:
             page = el.get("page")
-            if not isinstance(page, int) or page > max_pages:
+            if not isinstance(page, int) or page > effective_max_pages:
                 continue
 
             text = (el.get("text") or "").strip()
@@ -366,24 +378,14 @@ class DocumentContentService:
     ) -> Optional[str]:
         """
         Извлечь сниппет тела документа напрямую из layout (v2-артефакт).
+
         Простыми словами:
-        - Берём layout последней версии документа (layout_primary_sanitized_ref
-          или layout_primary_ref — единственный source of truth в v2).
-        - Пропускаем первые skip_pages страниц: там обычно шапка, реквизиты,
-          оглавление — то, что уже отдаёт get_title_and_preamble().
-        - Собираем текст со следующих страниц, отбрасывая слишком короткие
-          элементы (колонтитулы, номера страниц и т.п.).
+        - Берём layout последней версии документа.
+        - Для коротких документов (<= 4 страниц) пропускаем 1 страницу.
+        - Для более длинных документов пропускаем 3 страницы.
+        - Собираем текст следующих страниц, отбрасывая слишком короткие элементы
+        (колонтитулы, номера страниц и т.п.).
         - Возвращаем один текстовый блок для L3 (эмбеддинги) и L4 (LLM).
-        Почему не clause tree:
-        - clause tree — legacy-артефакт (CHUNKS v1), может отсутствовать
-          у новых документов, обработанных пайплайном v2.
-        - layout всегда присутствует после Stage 3 (extract), поэтому
-          этот метод надёжно работает для всех документов.
-        Параметры:
-        - skip_pages     : сколько первых страниц пропустить (шапка документа).
-        - max_length     : максимальная длина сниппета в символах.
-        - min_element_len: минимальная длина элемента, чтобы включить его
-                           в сниппет (отсекает колонтитулы / номера страниц).
         """
         version = await self._get_latest_version(doc_id)
         if not version:
@@ -406,13 +408,30 @@ class DocumentContentService:
         if not elements:
             return None
 
+        # Определяем общее число страниц и адаптируем глубину пропуска.
+        layout_meta = layout.get("metadata") or {}
+        total_pages: int | None = None
+        for key in ("page_count", "pages", "num_pages", "total_pages"):
+            value = layout_meta.get(key)
+            if isinstance(value, int) and value > 0:
+                total_pages = value
+                break
+
+        if total_pages is not None:
+            effective_skip_pages = 1 if total_pages <= 4 else 3
+            # Защита от перепропуска для очень коротких документов:
+            # если страниц мало, нельзя пропустить все страницы документа.
+            effective_skip_pages = min(effective_skip_pages, max(0, total_pages - 1))
+        else:
+            effective_skip_pages = skip_pages
+
         parts: List[str] = []
         total_len = 0
 
         for el in elements:
             # Пропускаем шапочные страницы — их уже даёт get_title_and_preamble().
             page = el.get("page")
-            if isinstance(page, int) and page <= skip_pages:
+            if isinstance(page, int) and page <= effective_skip_pages:
                 continue
 
             text = (el.get("text") or "").strip()
@@ -432,15 +451,18 @@ class DocumentContentService:
 
         if not parts:
             logger.info(
-                "get_snippet_from_layout: no body elements found after skip_pages",
-                extra={"doc_id": str(doc_id), "skip_pages": skip_pages},
+                "get_snippet_from_layout: no body elements found after effective_skip_pages",
+                extra={
+                    "doc_id": str(doc_id),
+                    "effective_skip_pages": effective_skip_pages,
+                    "total_pages": total_pages,
+                },
             )
             return None
 
         snippet = "\n\n".join(parts).strip()
 
-        # Финальная обрезка на случай, если последний элемент немного
-        # превысил лимит.
+        # Финальная обрезка на случай, если последний элемент немного превысил лимит.
         if len(snippet) > max_length:
             snippet = snippet[:max_length]
 

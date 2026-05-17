@@ -604,6 +604,9 @@ class HybridClassifier:
             }
             if l2_result.doctype != "UNKNOWN":
                 top_l2 = l2_result
+                # extended_v1: signal_quality уже учтён внутри confidence (не применять повторно в voter)
+                # legacy-format: signal_quality НЕ входит в confidence (voter применяет как внешний множитель)
+                sq_in_conf = l2_extra.get("format") == "extended_v1"
                 candidates.append(
                     {
                         "type_code": l2_result.doctype,
@@ -611,6 +614,7 @@ class HybridClassifier:
                         "level": "L2",
                         "method": l2_result.method,
                         "signal_quality": l2_extra.get("signal_quality", 1.0),
+                        "signal_quality_in_confidence": sq_in_conf,
                         "negative_hits": int(l2_extra.get("soft_exclusion_hits", 0)),  # legacy compatibility
                         "soft_negative_hits": int(l2_extra.get("soft_exclusion_hits", 0)),
                         "hard_negative_hits": int(l2_extra.get("hard_exclusion_hits", 0)),
@@ -995,7 +999,7 @@ class HybridClassifier:
             top_l1 and top_l3
             and top_l1["type_code"] != top_l3.doctype
             and top_l1["confidence"] >= strong_l1_conf
-            and top_l3.confidence <= top_l1["confidence"] + 0.1
+            and top_l3.confidence <= top_l1["confidence"] - 0.1
         ):
             details["voting_override"] = {
                 "strategy": "L1_OVERRIDE_L3",
@@ -1045,11 +1049,22 @@ class HybridClassifier:
 
         strong_l1 = float(getattr(settings, "CLASSIFICATION_L1_STRONG", 0.90))
         strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
-        strong_single = (
-            (top_l1 and top_l1.get("confidence", 0.0) >= strong_l1)
-            or (top_l2 and top_l2.confidence >= strong_l2)
-            or (top_l3 and top_l3.confidence >= strong_l2)
+        # Дефект 4: исправлена логика блокировки L4.
+        # Старый strong_single блокировал L4 при уверенном L1/L2/L3,
+        # не учитывая противоречие между уровнями — именно при конфликте L4 нужнее всего.
+
+        # Вариант 1: voting уже дал уверенный результат — L4 не нужен
+        strong_final = final_conf_after_voting >= self.hybrid_accept
+
+        # Вариант 2: один уровень очень уверен И нет противоречия между уровнями
+        # L1 намеренно исключён: filename-паттерн недостаточен для блокировки LLM-вызова
+        contradiction = details.get("contradiction_detected", False)
+        strong_single_no_conflict = (
+            (top_l2 and top_l2.confidence >= strong_l2 and not contradiction)
+            or (top_l3 and top_l3.confidence >= strong_l2 and not contradiction)
         )
+
+        skip_l4 = strong_final or strong_single_no_conflict
 
         voted_margin = float(details.get("voting_margin", 1.0))
         need_adjudication = (
@@ -1065,7 +1080,7 @@ class HybridClassifier:
             and llm_source_text
             and allowed_types
             and need_adjudication
-            and not strong_single
+            and not skip_l4
         ):
             if settings.CLASSIFICATION_LOG_L4_SKIPS:
                 skip_reason = describe_l4_skip(
@@ -1073,7 +1088,7 @@ class HybridClassifier:
                     llm_available=self._llm.is_available(),
                     has_source_text=bool(llm_source_text),
                     need_adjudication=need_adjudication,
-                    strong_single=strong_single,
+                    strong_single=skip_l4,
                 )
                 logger.debug(
                     "l4_skipped",
@@ -1081,7 +1096,7 @@ class HybridClassifier:
                         "doc_id": doc_id,
                         "reason": skip_reason,
                         "need_adjudication": need_adjudication,
-                        "strong_single": strong_single,
+                        "strong_single": skip_l4,
                         "final_conf_after_voting": final_conf_after_voting,
                     },
                 )
@@ -1211,10 +1226,17 @@ class HybridClassifier:
         strong_l1 = float(getattr(settings, "CLASSIFICATION_L1_STRONG", 0.90))
         strong_l3 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
 
-        strong_single = (
-            (top_l1 and top_l1.get("confidence", 0.0) >= strong_l1)
-            or (top_l3 and top_l3.confidence >= strong_l3)
+        # Дефект 4 (сегмент): аналогично _run_l4 — исправлена логика блокировки.
+        # L1 исключён из strong_single_no_conflict: filename ненадёжен для блокировки L4.
+
+        strong_final = final_conf_after_voting >= self.hybrid_accept
+
+        contradiction = details.get("contradiction_detected", False)
+        strong_single_no_conflict = (
+            top_l3 and top_l3.confidence >= strong_l3 and not contradiction
         )
+
+        skip_l4 = strong_final or strong_single_no_conflict
 
         voted_margin = float(details.get("voting_margin", 1.0))
         need_adjudication = (
@@ -1230,7 +1252,7 @@ class HybridClassifier:
             and llm_source_text
             and allowed_types
             and need_adjudication
-            and not strong_single
+            and not skip_l4
         ):
             if settings.CLASSIFICATION_LOG_L4_SKIPS:
                 skip_reason = describe_l4_skip(
@@ -1238,7 +1260,7 @@ class HybridClassifier:
                     llm_available=self._llm.is_available(),
                     has_source_text=bool(llm_source_text),
                     need_adjudication=need_adjudication,
-                    strong_single=strong_single,
+                    strong_single=skip_l4,
                 )
                 logger.debug(
                     "l4_skipped",
@@ -1246,7 +1268,7 @@ class HybridClassifier:
                         "segment_id": segment_id,
                         "reason": skip_reason,
                         "need_adjudication": need_adjudication,
-                        "strong_single": strong_single,
+                        "strong_single": skip_l4,
                         "final_conf_after_voting": final_conf_after_voting,
                     },
                 )
