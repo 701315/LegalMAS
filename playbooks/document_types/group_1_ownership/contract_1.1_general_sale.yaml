@@ -201,13 +201,6 @@ classification_runtime_v1:
           context: body
           description: "Определение предмета в тексте — движимое имущество"
 
-
-
-
-
-
-
-
       medium:
         - pattern: "(?i)\\bдоговор[\\s\\n\\r]+купли-?продажи\\b"
           weight: 0.55

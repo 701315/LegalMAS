@@ -77,6 +77,10 @@ classification_runtime_v1:
       - "(?i)real[\\s_.]?estate"
       - "(?i)real[\\s_.-]*estate[\\s_.-]*sale[\\s_.-]*and[\\s_.-]*purchase"
       - "(?i)real[\\s_.-]*estate[\\s_.-]*spa"
+      - "(?i)purchase[\\s_.-]*and[\\s_.-]*sale"
+      - "(?i)land[\\s_.-]*sale"
+      - "(?i)real[\\s_.-]*property"
+      - "(?i)deed[\\s_.-]*of[\\s_.-]*sale"
 
     folder_patterns:
       - "(?i)real[\\s_]?estate"
@@ -189,6 +193,30 @@ classification_runtime_v1:
           context: body
           description: "Вид разрешённого использования — специфичен для земельных участков"
 
+        - pattern: "(?i)^\\s*purchase\\s+and\\s+sale\\s+agreement\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Титульная форма Purchase and Sale Agreement в заголовке"
+
+        - pattern: "(?i)^\\s*agreement\\s+of\\s+purchase\\s+and\\s+sale\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Титульная форма Agreement of Purchase and Sale в заголовке"
+
+        - pattern: "(?i)^\\s*real\\s+property\\s+sale\\s+agreement\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Титульная форма Real Property Sale Agreement в заголовке"
+
+        - pattern: "(?i)^\\s*land\\s+sale\\s+contract\\b"
+          weight: 0.9
+          distinctiveness: high
+          context: header
+          description: "Титульная форма Land Sale Contract в заголовке"
+
       medium:
         - pattern: "(?i)недвижимост[ьи]"
           weight: 0.7
@@ -243,6 +271,42 @@ classification_runtime_v1:
           distinctiveness: low
           context: any
           description: "Общий правовой термин, не специфичен для недвижимости"
+
+        - pattern: "(?i)real\\s+property\\s+sale\\s+agreement"
+          weight: 0.65
+          distinctiveness: medium
+          context: any
+          description: "Real Property Sale Agreement как алиас в тексте"
+
+        - pattern: "(?i)land\\s+sale\\s+contract"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Land Sale Contract как алиас в тексте"
+
+        - pattern: "(?i)deed\\s+of\\s+sale"
+          weight: 0.55
+          distinctiveness: medium
+          context: any
+          description: "Deed of Sale для сделок с недвижимостью"
+
+        - pattern: "(?i)agreement\\s+of\\s+purchase\\s+and\\s+sale"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Agreement of Purchase and Sale как алиас в тексте"
+
+        - pattern: "(?i)purchase\\s+and\\s+sale\\s+agreement"
+          weight: 0.6
+          distinctiveness: medium
+          context: any
+          description: "Purchase and Sale Agreement как алиас в тексте"
+
+        - pattern: "(?i)escrow\\s+instructions"
+          weight: 0.4
+          distinctiveness: low
+          context: body
+          description: "Escrow instructions как слабый дополнительный сигнал"
 
       low:
         - pattern: "(?i)\\bздани[ея]\\b"

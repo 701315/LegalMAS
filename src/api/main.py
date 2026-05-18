@@ -47,6 +47,7 @@ from .endpoints import (
 from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
 from .endpoints.deals.router import router as deals_router
+from .endpoints.deals.runs import router as deal_runs_router
 
 logger = get_logger(__name__)
 
@@ -136,6 +137,9 @@ app.include_router(admin.router, prefix="/api/v1")
 
 # Сделки (deals).
 app.include_router(deals_router, prefix="/api/v1")
+
+# Runs по сделке (GET /deals/{deal_id}/runs, POST /deals/{deal_id}/run).
+app.include_router(deal_runs_router, prefix="/api/v1/deals", tags=["deals"]) 
 
 # DD-запросы и связанные эндпоинты.
 app.include_router(requests.router, prefix="/api/v1")

@@ -41,7 +41,7 @@ metadata:
     - "composition agreement"
     - "settlement and release agreement"
     - "transfer in satisfaction of debt"
-    - "deed in satisfaction
+    - "deed in satisfaction"
 
 engine_expectations:
   evidence_required: true

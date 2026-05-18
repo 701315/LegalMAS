@@ -619,11 +619,6 @@ class RunExportResponse(BaseModel):
     response_model=RunExportResponse,
     summary="Запустить экспорт результатов по run",
 )
-@router.post(
-    "/{run_id}/export",
-    response_model=RunExportResponse,
-    summary="Запустить экспорт результатов по run",
-)
 async def start_run_export(
     run_id: uuid.UUID,
     data: RunExportCreate,
@@ -857,7 +852,7 @@ async def list_run_results(
 
 
 @router.get(
-    "/deal/{deal_id}",
+    "/deal/{deal_id}/summary",
     response_model=DealRunSummaryResponse,
 )
 async def get_deal_run_summary(
