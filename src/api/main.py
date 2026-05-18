@@ -13,15 +13,24 @@
 
 - Unit of Work для worker'ов реализован через db_uow (src/db/uow.py):
   одна Celery-таска = один UnitOfWork/AsyncSession.
+
+Важно для lifecycle ресурсов:
+- get_session() / get_db() / db_uow() закрывают отдельные AsyncSession;
+- но общий SQLAlchemy AsyncEngine живёт на уровне всего процесса API;
+- поэтому его shutdown должен происходить в lifespan FastAPI.
 """
 
+from __future__ import annotations
+
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ops.instrument import setup_metrics
-from core.logging import get_logger
 from classifiers.yaml_registry import YAMLRegistry
+from core.logging import get_logger
+from db.session import engine
+from ops.instrument import setup_metrics
 
 from .endpoints import (
     admin,
@@ -32,6 +41,7 @@ from .endpoints import (
     document_chunk_exports,
     document_pipeline_view,
     document_types,
+    exports,
     model_configs,
     playbook_runs,
     playbooks,
@@ -42,12 +52,12 @@ from .endpoints import (
     runner,
     runs,
     user_projects,
-    exports,
 )
-from .endpoints.documents.router import router as documents_router
-from .middleware.audit import AuditMiddleware
 from .endpoints.deals.router import router as deals_router
 from .endpoints.deals.runs import router as deal_runs_router
+from .endpoints.documents.router import router as documents_router
+from .middleware.audit import AuditMiddleware
+
 
 logger = get_logger(__name__)
 
@@ -59,14 +69,22 @@ async def lifespan(app: FastAPI):
 
     Для непрофессионального программиста:
     - Этот код запускается один раз при старте приложения (до yield).
-    - После yield — код выполняется при завершении приложения (shutdown).
-    - Используем современный подход через context manager вместо deprecated @app.on_event().
-    
+    - После yield приложение уже работает и обрабатывает HTTP-запросы.
+    - Когда приложение завершается, выполняется shutdown-часть.
+    - Это правильное место для cleanup общих ресурсов процесса,
+      например пула подключений к базе данных.
+
     Что происходит при startup:
     - Валидируем YAML Registry (все regex-паттерны в конфигах типов документов).
     - Если есть кривой паттерн — приложение не стартует (fail-fast).
     - Это критично для production: лучше упасть сразу, чем работать с неполными правилами.
+
+    Что происходит при shutdown:
+    - Корректно закрываем общий SQLAlchemy AsyncEngine.
+    - Это освобождает соединения из пула PostgreSQL перед завершением процесса API.
     """
+    _ = app
+
     # === STARTUP: валидация YAML Registry ===
     logger.info("Validating YAML registry on API startup...")
     registry = YAMLRegistry.get_instance(validate=True)
@@ -74,11 +92,19 @@ async def lifespan(app: FastAPI):
         "YAML registry validation passed",
         types_loaded=len(registry.list_types()),
     )
-    
-    yield  # Здесь FastAPI запускается и обрабатывает запросы
-    
-    # === SHUTDOWN: cleanup (если потребуется в будущем) ===
-    logger.info("API shutdown — cleanup complete")
+
+    try:
+        yield  # Здесь FastAPI запускается и обрабатывает запросы.
+    finally:
+        # === SHUTDOWN: cleanup process-level ресурсов ===
+        logger.info("API shutdown — disposing database engine")
+
+        try:
+            await engine.dispose()
+            logger.info("API shutdown — database engine disposed successfully")
+        except Exception:
+            logger.exception("API shutdown — failed to dispose database engine")
+            raise
 
 
 app = FastAPI(
@@ -87,12 +113,15 @@ app = FastAPI(
     lifespan=lifespan,  # Подключаем lifespan context manager
 )
 
+
 setup_metrics(app)
+
 
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
 
 app.add_middleware(AuditMiddleware)
 
@@ -103,6 +132,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Авторизация / логин.
 app.include_router(auth.router)
@@ -139,7 +169,7 @@ app.include_router(admin.router, prefix="/api/v1")
 app.include_router(deals_router, prefix="/api/v1")
 
 # Runs по сделке (GET /deals/{deal_id}/runs, POST /deals/{deal_id}/run).
-app.include_router(deal_runs_router, prefix="/api/v1/deals", tags=["deals"]) 
+app.include_router(deal_runs_router, prefix="/api/v1/deals", tags=["deals"])
 
 # DD-запросы и связанные эндпоинты.
 app.include_router(requests.router, prefix="/api/v1")
@@ -170,7 +200,5 @@ app.include_router(exports.router, prefix="/api/v1")
 
 # Журнал аудита (GET /deals/{deal_id}/audit, POST /audit-log)
 app.include_router(audit.router, prefix="/api/v1")
-
-
 
 

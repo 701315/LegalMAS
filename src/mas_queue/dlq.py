@@ -24,6 +24,8 @@
   - replay реализуется на уровне API / скриптов через данные из get_record().
 """
 
+from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -33,11 +35,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.logging import get_logger
 from db.models.ops import DLQRecord
 
+
 logger = get_logger(__name__)
 
 # Значение по умолчанию для поля next_action.
-# Означает "ждёт ручного разбора оператором".
 DLQ_NEXT_ACTION_DEFAULT = "retry_manual"
+DLQ_MAX_PAGE_SIZE = 500
 
 
 class DLQManager:
@@ -51,6 +54,9 @@ class DLQManager:
         task_type: str,
         failure_type: str,
         job_id: uuid.UUID | None = None,
+        *,
+        source_task_id: str | None = None,
+        dedupe_key: str | None = None,
         error_details: dict | None = None,
         artifact_refs: list[str] | None = None,
         retry_count: int = 0,
@@ -58,21 +64,22 @@ class DLQManager:
     ) -> DLQRecord:
         """
         Записать информацию о проваленной задаче в DLQ.
-
-        Аргументы:
-            task_type:      Тип задачи ("extract", "run_deal_checks" и т.п.).
-            failure_type:   Тип сбоя: "transient", "permanent", "timeout" и т.п.
-            job_id:         Связанный Job ID (если есть).
-            error_details:  Детали ошибки (сообщение, traceback, контекст).
-            artifact_refs:  Ссылки на связанные артефакты (S3 URI и т.п.).
-            retry_count:    Количество ретраев до финального провала.
-            next_action:    Предлагаемое следующее действие (по умолчанию
-                            DLQ_NEXT_ACTION_DEFAULT = "retry_manual").
         """
+        if not task_type:
+            raise ValueError("task_type must not be empty")
+        if not failure_type:
+            raise ValueError("failure_type must not be empty")
+        if retry_count < 0:
+            raise ValueError("retry_count must be >= 0")
+        if not next_action:
+            raise ValueError("next_action must not be empty")
+
         record = DLQRecord(
             job_id=job_id,
+            source_task_id=source_task_id,
             task_type=task_type,
             failure_type=failure_type,
+            dedupe_key=dedupe_key,
             error_details=error_details or {},
             artifact_refs=artifact_refs or [],
             retry_count=retry_count,
@@ -87,6 +94,10 @@ class DLQManager:
             task_type=task_type,
             failure_type=failure_type,
             job_id=str(job_id) if job_id else None,
+            source_task_id=source_task_id,
+            dedupe_key=dedupe_key,
+            retry_count=retry_count,
+            next_action=next_action,
         )
 
         return record
@@ -94,10 +105,6 @@ class DLQManager:
     async def get_record(self, record_id: uuid.UUID) -> DLQRecord | None:
         """
         Получить одну запись DLQ по ID.
-
-        Нужен для ручного разбора / replay на уровне API:
-        оператор получает полный error_details и kwargs задачи,
-        чтобы переотправить её вручную.
         """
         result = await self.session.execute(
             select(DLQRecord).where(DLQRecord.id == record_id)
@@ -113,18 +120,20 @@ class DLQManager:
     ) -> list[DLQRecord]:
         """
         Вернуть список записей DLQ для мониторинга с пагинацией.
-
-        Аргументы:
-            task_type:    Фильтр по типу задачи (опционально).
-            failure_type: Фильтр по типу сбоя (опционально).
-            limit:        Максимальное количество записей (по умолчанию 50).
-            offset:       Смещение для пагинации (по умолчанию 0).
         """
+        if limit <= 0:
+            raise ValueError("limit must be > 0")
+        if offset < 0:
+            raise ValueError("offset must be >= 0")
+
+        limit = min(limit, DLQ_MAX_PAGE_SIZE)
+
         stmt = select(DLQRecord)
         if task_type:
             stmt = stmt.where(DLQRecord.task_type == task_type)
         if failure_type:
             stmt = stmt.where(DLQRecord.failure_type == failure_type)
+
         stmt = stmt.order_by(DLQRecord.created_at.desc()).limit(limit).offset(offset)
 
         result = await self.session.execute(stmt)
@@ -137,9 +146,6 @@ class DLQManager:
     ) -> int:
         """
         Вернуть количество записей в DLQ.
-
-        Принимает те же фильтры, что и get_records() — удобно для
-        построения пагинации (total_count) в UI/API.
         """
         stmt = select(func.count(DLQRecord.id))
         if task_type:
@@ -148,36 +154,36 @@ class DLQManager:
             stmt = stmt.where(DLQRecord.failure_type == failure_type)
 
         result = await self.session.execute(stmt)
-        return result.scalar_one()
+        return int(result.scalar_one())
 
     async def delete_record(self, record_id: uuid.UUID) -> bool:
         """
         Удалить одну запись DLQ (после ручного разбора).
-
-        Возвращает True, если запись была найдена и удалена.
         """
         stmt = delete(DLQRecord).where(DLQRecord.id == record_id)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return result.rowcount > 0
+        return bool(result.rowcount and result.rowcount > 0)
 
     async def purge_old(self, retention_days: int = 30) -> int:
         """
         Удалить устаревшие записи DLQ старше retention_days.
-
-        Рекомендуется вызывать из периодической Celery Beat задачи.
-        Возвращает количество удалённых записей.
         """
+        if retention_days < 0:
+            raise ValueError("retention_days must be >= 0")
+
         cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         stmt = delete(DLQRecord).where(DLQRecord.created_at < cutoff)
         result = await self.session.execute(stmt)
         await self.session.flush()
-        deleted = result.rowcount
+
+        deleted = int(result.rowcount or 0)
         if deleted > 0:
             logger.info(
                 "Purged old DLQ records",
                 deleted=deleted,
                 retention_days=retention_days,
+                cutoff=cutoff.isoformat(),
             )
         return deleted
     

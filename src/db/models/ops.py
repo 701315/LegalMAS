@@ -27,11 +27,12 @@ Operational models: IdempotencyKey, AuditLog, DLQRecord.
   - помогает support‑команде находить, разбирать и при необходимости вручную переигрывать упавшие задачи.
 """
 
+from __future__ import annotations
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -75,7 +76,7 @@ class IdempotencyKey(Base):
     )
 
     expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),  # ← добавить DateTime с timezone=True
+        DateTime(timezone=True),
         nullable=True,
     )
 
@@ -139,6 +140,13 @@ class DLQRecord(Base):
     job_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         nullable=True,
+        index=True,
+    )
+
+    source_task_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Original Celery task_id that produced this DLQ record",
     )
 
     task_type: Mapped[str] = mapped_column(
@@ -152,25 +160,46 @@ class DLQRecord(Base):
         comment="transient, permanent, timeout, quota",
     )
 
-    error_details: Mapped[dict | None] = mapped_column(
-        JSONB,
+    dedupe_key: Mapped[str | None] = mapped_column(
+        String(255),
         nullable=True,
+        comment="Optional stable fingerprint for deduplication/grouping of repeated failures",
     )
 
-    artifact_refs: Mapped[list[str] | None] = mapped_column(
+    error_details: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
+
+    artifact_refs: Mapped[list[str]] = mapped_column(
         ARRAY(String(1000)),
-        nullable=True,
+        nullable=False,
+        default=list,
+        server_default=text("'{}'"),
     )
 
     retry_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
+        server_default=text("0"),
     )
 
     next_action: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         default="retry_manual",
+        server_default=text("'retry_manual'"),
         comment="retry_manual, skip, escalate",
     )
+
+    __table_args__ = (
+        Index("idx_dlq_created_at", "created_at"),
+        Index("idx_dlq_task_failure_created", "task_type", "failure_type", "created_at"),
+        Index("idx_dlq_next_action_created", "next_action", "created_at"),
+        Index("idx_dlq_source_task_id", "source_task_id"),
+        Index("idx_dlq_dedupe_key", "dedupe_key"),
+    )
+

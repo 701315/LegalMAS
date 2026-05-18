@@ -1,65 +1,84 @@
+# src/mas_queue/celery_app.py
+
 """
 Конфигурация Celery-приложения.
 
 Назначение:
- - создать единый экземпляр Celery (celery_app) для всего проекта;
- - настроить broker, backend результатов, сериализацию, очереди и надёжность;
- - подключить регистрацию всех задач через явный список worker-модулей;
- - настроить периодический запуск служебных задач через Celery Beat.
+- создать единый экземпляр Celery (celery_app) для всего проекта;
+- настроить broker, backend результатов, сериализацию, очереди и надёжность;
+- подключить регистрацию всех задач через явный список worker-модулей;
+- настроить периодический запуск служебных задач через Celery Beat;
+- централизованно закрывать process-level async ресурсы worker child process
+  при его завершении.
 
 Все воркеры импортируют celery_app из этого файла и регистрируют задачи через
 @celery_app.task(...), используя общий экземпляр приложения.
 
 Конфигурация очередей:
 
- high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
- default        — основной пайплайн и лёгкая оркестрация
-                  (extract, pii, structure, classify, scheduler/finalizer,
-                  language discovery).
-                  x-max-priority=5.
- system         — инфраструктурные и служебные задачи
-                  (outbox relay / maintenance / reconcile). x-max-priority=3.
- heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
-                  Без приоритетов, отдельные soft/hard time limits.
- low_priority   — фоновые задачи (export, relations). x-max-priority=1.
+high_priority  — срочные задачи (импорт, конвертация). x-max-priority=10.
+default        — основной пайплайн и лёгкая оркестрация
+                 (extract, pii, structure, classify, scheduler/finalizer,
+                 language discovery).
+                 x-max-priority=5.
+system         — инфраструктурные и служебные задачи
+                 (outbox relay / maintenance / reconcile). x-max-priority=3.
+heavy_llm      — LLM-тяжёлые атомарные задачи (run_single_check).
+                 Без приоритетов, отдельные soft/hard time limits.
+low_priority   — фоновые задачи (export, relations). x-max-priority=1.
 
 Политика надёжности (ключевые настройки):
 
- task_acks_late=True              — ACK только после успешного выполнения.
- worker_prefetch_multiplier=1     — воркер берёт ровно одну задачу за раз.
- task_reject_on_worker_lost=True  — при падении воркера задача возвращается.
- task_soft_time_limit             — мягкий лимит времени, даёт шанс записать
-                                    TIMEOUT / error_details до hard kill.
- task_time_limit                  — жёсткий лимит времени.
- visibility_timeout               — должен быть существенно больше максимального
-                                    task_time_limit, иначе Redis может отдать
-                                    задачу повторно до завершения воркера.
+task_acks_late=True              — ACK только после успешного выполнения.
+worker_prefetch_multiplier=1     — воркер берёт ровно одну задачу за раз.
+task_reject_on_worker_lost=True  — при падении воркера задача возвращается.
+task_soft_time_limit             — мягкий лимит времени, даёт шанс записать
+                                   TIMEOUT / error_details до hard kill.
+task_time_limit                  — жёсткий лимит времени.
+visibility_timeout               — должен быть существенно больше максимального
+                                   task_time_limit, иначе Redis может отдать
+                                   задачу повторно до завершения воркера.
 
 Важно:
- - SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
-   иначе задача может остаться в RUNNING без корректного статуса в БД.
- - Для heavy_llm рекомендуется отдельный Celery worker-процесс.
- - Для Redis visibility_timeout Celery рекомендует задавать это значение
-   согласованно в broker_transport_options, result_backend_transport_options
-   и visibility_timeout.
- - Для outbox relay нужен отдельный worker, который слушает очередь `system`,
-   и отдельный процесс `celery beat`, который будет регулярно ставить
-   `workers.outbox_dispatcher` в эту очередь.
+- SoftTimeLimitExceeded должен перехватываться в задачах/базовом таске,
+  иначе задача может остаться в RUNNING без корректного статуса в БД.
+- Для heavy_llm рекомендуется отдельный Celery worker-процесс.
+- Для Redis visibility_timeout Celery рекомендует задавать это значение
+  согласованно в broker_transport_options, result_backend_transport_options
+  и visibility_timeout.
+- Для outbox relay нужен отдельный worker, который слушает очередь `system`,
+  и отдельный процесс `celery beat`, который будет регулярно ставить
+  `workers.outbox_dispatcher` в эту очередь.
+
+Важно для lifecycle ресурсов:
+- В worker child process используется process-wide async SQLAlchemy engine
+  и process-wide worker event loop.
+- Эти ресурсы нельзя бросать "как есть" при завершении процесса.
+- Поэтому при shutdown child process мы сначала закрываем engine,
+  а затем закрываем worker event loop.
 
 Технический долг (актуальное):
- - Изолировать engine/session factory в тестах.
- - Покрыть run_async unit-тестами.
+- Изолировать engine/session factory в тестах.
+- Покрыть run_async unit-тестами.
+- Покрыть worker shutdown cleanup интеграционными тестами.
 """
+
+from __future__ import annotations
 
 from urllib.parse import urlparse, urlunparse
 
 from celery import Celery
+from celery.signals import worker_process_shutdown
 from kombu import Exchange, Queue
 
 from core.config import settings
 from core.logging import get_logger
+from db.session import engine
+from mas_queue.async_helpers import close_worker_loop, has_worker_loop, run_async
+
 
 logger = get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Экземпляр приложения
@@ -67,10 +86,10 @@ logger = get_logger(__name__)
 
 celery_app = Celery("mas_dd")
 
+
 # ---------------------------------------------------------------------------
 # Backend результатов
 # ---------------------------------------------------------------------------
-
 
 def _make_result_backend(broker_url: str, db: int = 1) -> str:
     """
@@ -86,6 +105,7 @@ def _make_result_backend(broker_url: str, db: int = 1) -> str:
 
 _result_backend = _make_result_backend(settings.REDIS_URL)
 
+
 # ---------------------------------------------------------------------------
 # Имена очередей
 # ---------------------------------------------------------------------------
@@ -95,6 +115,7 @@ QUEUE_DEFAULT = "default"
 QUEUE_SYSTEM = "system"
 QUEUE_HEAVY_LLM = "heavy_llm"
 QUEUE_LOW_PRIORITY = "low_priority"
+
 
 # ---------------------------------------------------------------------------
 # Лимиты задач
@@ -111,6 +132,7 @@ RUN_SINGLE_CHECK_TIME_LIMIT_SEC = 3600
 # visibility_timeout должен быть больше максимального hard limit с запасом.
 BROKER_VISIBILITY_TIMEOUT_SEC = 7200
 
+
 # ---------------------------------------------------------------------------
 # Периодические служебные задачи
 # ---------------------------------------------------------------------------
@@ -126,6 +148,7 @@ OUTBOX_DISPATCHER_BATCH_SIZE = 100
 # Нужно ли перед publish сначала возвращать зависшие processing-сообщения
 # обратно в pending.
 OUTBOX_DISPATCHER_REQUEUE_STUCK = True
+
 
 # ---------------------------------------------------------------------------
 # Конфигурация
@@ -158,6 +181,7 @@ celery_app.conf.update(
         "workers.run_orchestrator",
         "workers.segment_classifier",
         "workers.structure_builder",
+        "workers.debug_dlq_task",
     ],
 
     # --- Сериализация ---
@@ -307,6 +331,68 @@ celery_app.conf.update(
         },
     },
 )
+
+
+# ---------------------------------------------------------------------------
+# Cleanup worker child process resources
+# ---------------------------------------------------------------------------
+
+@worker_process_shutdown.connect
+def _cleanup_worker_process_async_resources(
+    pid: int | None = None,
+    exitcode: int | None = None,
+    **kwargs,
+) -> None:
+    """
+    Аккуратно закрыть process-level async ресурсы child process Celery.
+
+    Порядок действий очень важен:
+    1. Сначала закрываем SQLAlchemy AsyncEngine через run_async(...),
+       пока worker event loop ещё жив.
+    2. Потом закрываем сам worker event loop.
+
+    Для непрофессионального программиста:
+    - engine = это пул соединений к базе данных;
+    - worker loop = это async-движок внутри процесса воркера;
+    - если сначала "выключить loop", то engine уже может не успеть
+      корректно закрыть свои async-соединения.
+    """
+    logger.info(
+        "Celery worker process shutdown started",
+        extra={"pid": pid, "exitcode": exitcode},
+    )
+
+    if not has_worker_loop():
+        logger.info(
+            "Celery worker process shutdown: worker loop was never initialized, nothing to clean",
+            extra={"pid": pid, "exitcode": exitcode},
+        )
+        return
+
+    try:
+        run_async(engine.dispose())
+        logger.info(
+            "Celery worker process shutdown: database engine disposed",
+            extra={"pid": pid, "exitcode": exitcode},
+        )
+    except Exception:
+        logger.exception(
+            "Celery worker process shutdown: failed to dispose database engine",
+            extra={"pid": pid, "exitcode": exitcode},
+        )
+    finally:
+        try:
+            close_worker_loop()
+            logger.info(
+                "Celery worker process shutdown: worker event loop closed",
+                extra={"pid": pid, "exitcode": exitcode},
+            )
+        except Exception:
+            logger.exception(
+                "Celery worker process shutdown: failed to close worker event loop",
+                extra={"pid": pid, "exitcode": exitcode},
+            )
+
 
 
 

@@ -1,3 +1,5 @@
+# src/db/repositories/__init__.py
+
 """
 Public repository classes for the persistence layer.
 
@@ -16,6 +18,9 @@ from .check_result_repo import CheckResultRepository
 from .dd_request_repo import DDRequestRepository
 from .deal_repo import DealRepository
 from .document_repo import DocumentRepository
+from .document_segment_repo import DocumentSegmentRepository
+from .document_stage_execution_repo import DocumentStageExecutionRepository
+from .document_type_instruction_version_repo import DocumentTypeInstructionVersionRepository
 from .document_version_repo import DocumentVersionRepository
 from .export_repo import ExportRepository
 from .idempotency_repo import IdempotencyRepository
@@ -37,6 +42,9 @@ __all__ = [
     "DDRequestRepository",
     "DealRepository",
     "DocumentRepository",
+    "DocumentSegmentRepository",
+    "DocumentStageExecutionRepository",
+    "DocumentTypeInstructionVersionRepository",
     "DocumentVersionRepository",
     "ExportRepository",
     "IdempotencyRepository",

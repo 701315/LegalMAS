@@ -1,3 +1,5 @@
+# src/db/models/__init__.py
+
 """
 Import all ORM models so Alembic can discover them for autogenerate.
 """
@@ -7,7 +9,8 @@ from .calibration import ClassificationCalibration
 from .dd_request import DDRequest
 from .deal import Deal
 from .deal_member import DealMember
-from .document import Document, DocumentVersion
+from .document import Document, DocumentVersion, DocumentSegment, DocumentStageExecution
+from .document_type_instruction import DocumentTypeInstructionVersion
 from .export import Export
 from .ops import AuditLog, DLQRecord, IdempotencyKey
 from .outbox import OutboxMessage
@@ -29,10 +32,13 @@ __all__ = [
     "Deal",
     "DealMember",
     "Document",
+    "DocumentSegment",
+    "DocumentStageExecution",
     "DocumentFamily",
     "DocumentFamilyMember",
     "DocumentRelation",
     "DocumentVersion",
+    "DocumentTypeInstructionVersion",
     "Export",
     "IdempotencyKey",
     "Job",

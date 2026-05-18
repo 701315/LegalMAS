@@ -38,6 +38,7 @@ from workers.convert_document_for_language_discovery import convert_document_for
 
 # system / infrastructure workers
 from workers.outbox_dispatcher import outbox_dispatcher  # noqa: F401
+from workers.debug_dlq_task import always_fail_transient  # noqa: F401
 
 # оркестрация Run (запуск пайплайна по сделке)
 from workers.run_orchestrator import start_run_pipeline  # noqa: F401
