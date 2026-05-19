@@ -1,19 +1,23 @@
 # src/classifiers/stage8/_result_builder.py
+
 """
 Построение финального результата классификации.
 
 Отвечает за:
-  - определение applicable_triggers через YAMLRegistry;
-  - вычисление зоны уверенности (confident / low / unknown);
-  - сборку HybridClassificationResultDTO и возврат его как dict.
+ - определение applicable_triggers через YAMLRegistry;
+ - вычисление зоны уверенности (confident / low / unknown);
+ - применение unknown-corridor для final_type;
+ - сборку HybridClassificationResultDTO и возврат его как dict.
 """
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Optional
 
 from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO
 from ..yaml_registry import YAMLRegistry
 from core.logging import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -21,6 +25,14 @@ logger = get_logger(__name__)
 class ResultBuilder:
     """
     Строит финальный dict-результат из компонентов классификации.
+
+    ВАЖНО:
+    - HybridClassifier вызывает builder как финальную точку во множестве веток
+      (copied / early-return / hybrid voting / L4 / fallback).
+    - Поэтому builder должен сам гарантировать консистентный финальный контракт:
+      * details["confidence_zone"]
+      * details["requires_manual_review"]
+      * применение unknown corridor к final_type
     """
 
     def __init__(
@@ -83,6 +95,63 @@ class ResultBuilder:
         """
         return "UNKNOWN" if final_conf <= self.unknown_max else final_type
 
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _safe_float(self, value: object, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _normalize_candidates(
+        self,
+        candidates: list[dict] | None,
+    ) -> list[HybridClassificationCandidate]:
+        normalized: list[HybridClassificationCandidate] = []
+
+        for c in (candidates or []):
+            if not isinstance(c, dict):
+                logger.warning(
+                    "ResultBuilder: candidate is not a dict, skipped",
+                    extra={"candidate_type": type(c).__name__},
+                )
+                continue
+
+            normalized.append(
+                HybridClassificationCandidate(
+                    doctype=c.get("type_code") or c.get("doctype", "UNKNOWN"),
+                    confidence=self._safe_float(c.get("confidence")),
+                    level=str(c.get("level") or ""),
+                    method=c.get("method"),
+                    evidence=c.get("evidence"),
+                    language=c.get("language"),
+                    jurisdiction=c.get("jurisdiction"),
+                    extra={
+                        k: v
+                        for k, v in c.items()
+                        if k
+                        not in {
+                            "type_code",
+                            "doctype",
+                            "confidence",
+                            "level",
+                            "method",
+                            "evidence",
+                            "language",
+                            "jurisdiction",
+                        }
+                    },
+                )
+            )
+
+        return normalized
+
+    # ------------------------------------------------------------------
+    # Final assembly
+    # ------------------------------------------------------------------
+
     def build(
         self,
         *,
@@ -98,44 +167,49 @@ class ResultBuilder:
         **extra_fields,
     ) -> dict:
         """
-        Построить результат через HybridClassificationResultDTO и вернуть .__dict__.
+        Построить результат через HybridClassificationResultDTO и вернуть dict.
 
         Внешний контракт HybridClassifier.classify_document остаётся dict.
+
+        Builder сам гарантирует:
+        - details["confidence_zone"]
+        - details["requires_manual_review"]
+        - unknown corridor для final_type
         """
-        dto_candidates = [
-            HybridClassificationCandidate(
-                doctype=c.get("type_code") or c.get("doctype", "UNKNOWN"),
-                confidence=float(c.get("confidence") or 0.0),
-                level=str(c.get("level") or ""),
-                method=c.get("method"),
-                evidence=c.get("evidence"),
-                language=c.get("language"),
-                jurisdiction=c.get("jurisdiction"),
-                extra={
-                    k: v for k, v in c.items()
-                    if k not in {
-                        "type_code", "doctype", "confidence", "level",
-                        "method", "evidence", "language", "jurisdiction",
-                    }
-                },
-            )
-            for c in (candidates or [])
-        ]
+        safe_final_confidence = self._safe_float(final_confidence, 0.0)
+
+        # Defensive copy: builder — финальная граница контракта,
+        # не держим внешнюю mutable-ссылку на details.
+        safe_details = dict(details or {})
+
+        zone_name, manual_review = self.confidence_zone(safe_final_confidence)
+        safe_details["confidence_zone"] = zone_name
+        safe_details["requires_manual_review"] = manual_review
+
+        normalized_final_type = self.apply_unknown_corridor(
+            final_type=(final_type or "UNKNOWN"),
+            final_conf=safe_final_confidence,
+        )
+
+        dto_candidates = self._normalize_candidates(candidates)
 
         dto = HybridClassificationResultDTO(
-            final_type=final_type,
-            final_confidence=float(final_confidence or 0.0),
+            final_type=normalized_final_type,
+            final_confidence=safe_final_confidence,
             level=level,
             language=language,
             jurisdiction=jurisdiction,
             applicable_triggers=list(applicable_triggers or []),
             levels_tried=list(levels_tried or []),
             candidates=dto_candidates,
-            details=details or {},
+            details=safe_details,
         )
-        result = dto.__dict__
+
+        result = asdict(dto)
+
         # Любые extra-поля (например, copied_from_master) добавляем поверх
         result.update(extra_fields)
         return result
     
+
     

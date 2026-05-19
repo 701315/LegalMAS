@@ -5,11 +5,14 @@
 
 Production-версия:
 - учитывает confidence и вес уровня;
-- учитывает качество сигнала (signal_quality);
-- учитывает отрицательные сигналы (negative_hits);
-- учитывает ambiguity_penalty;
-- возвращает margin и ranking для HybridClassifier;
-- остаётся обратно совместимой по ключам type/confidence/language/jurisdiction.
+- поддерживает legacy/preferrred negative-сигналы;
+- не делает повторный penalty по signal_quality, если он уже учтён в confidence;
+- считает agreement по уникальным уровням, а не по количеству записей;
+- нормализует score по сумме весов реально активных уровней;
+- считает margin по нормализованной шкале;
+- возвращает ranking для HybridClassifier;
+- остаётся обратно совместимой по ключам:
+  type / confidence / margin / language / jurisdiction / ranking.
 """
 
 from __future__ import annotations
@@ -27,23 +30,25 @@ class WeightedVoter:
             "level": "L2",
             "language": "ru",
             "jurisdiction": "RU",
-            "signal_quality": 0.75,          # optional
-            "negative_hits": 1,              # optional, legacy fallback
-            "soft_negative_hits": 1,         # optional, preferred
-            "hard_negative_hits": 0,         # optional, preferred
-            "ambiguity_penalty": 0.10,       # optional
+            "signal_quality": 0.75,                # optional
+            "negative_hits": 1,                    # optional, legacy fallback
+            "soft_negative_hits": 1,               # optional, preferred
+            "hard_negative_hits": 0,               # optional, preferred
+            "ambiguity_penalty": 0.10,             # optional
+            "signal_quality_in_confidence": True,  # optional
         },
         ...
     ]
 
     И возвращает победителя или None.
 
-    Для непрофессионального программиста:
-    - каждый кандидат получает свой "эффективный балл";
-    - потом баллы складываются по типам документов;
-    - если один и тот же тип поддержан несколькими уровнями, это усиливает его;
-    - hard-negative сигнал считается критическим:
-      такой кандидат не должен выигрывать голосование.
+    Основная логика:
+    - каждый кандидат получает effective_score;
+    - effective_score суммируется по type_code;
+    - score типа затем нормализуется по сумме весов уровней,
+      которые реально внесли ненулевой вклад;
+    - agreement bonus добавляется после нормализации;
+    - ranking строится по финальной нормализованной шкале.
     """
 
     def __init__(self, level_weights: dict[str, float]) -> None:
@@ -75,22 +80,30 @@ class WeightedVoter:
         Логика production-голосования:
 
         1. Для каждого кандидата считаем effective_score:
-           effective_score =
-               confidence
-               * level_weight
-               * signal_quality
-               - negative_penalty
-               - ambiguity_penalty
+           base_score = confidence * level_weight * effective_signal_quality
 
-        2. Складываем effective_score по каждому type_code.
+           где:
+           - effective_signal_quality = 1.0, если signal_quality уже учтён
+             внутри confidence;
+           - иначе = signal_quality.
 
-        3. Даём небольшой bonus за agreement:
-           если один и тот же type_code поддержан несколькими уровнями,
-           это повышает доверие.
+        2. Применяем negative / ambiguity penalties:
+           - hard_negative_hits > 0 => effective_score = 0.0
+           - soft_negative_hits => мягкое ослабление
+           - ambiguity_penalty => мягкое ослабление
 
-        4. Считаем margin между первым и вторым местом.
+        3. Складываем effective_score по каждому type_code.
 
-        5. Возвращаем:
+        4. Нормализуем score каждого типа по сумме весов только тех уровней,
+           которые внесли положительный вклад.
+
+        5. После нормализации даём agreement bonus за поддержку типа
+           несколькими УНИКАЛЬНЫМИ уровнями.
+
+        6. Строим ranking и считаем margin между 1-м и 2-м местом
+           уже в нормализованной шкале.
+
+        7. Возвращаем:
            {
              "type": ...,
              "confidence": ...,
@@ -109,17 +122,21 @@ class WeightedVoter:
         if not candidates:
             return None
 
-        type_scores: dict[str, float] = {}
+        type_raw_scores: dict[str, float] = {}
         type_meta: dict[str, dict[str, Any]] = {}
-        type_support_count: dict[str, int] = {}
+        type_support_levels: dict[str, set[str]] = {}
+        type_active_weight_sum: dict[str, float] = {}
+        type_best_component_confidence: dict[str, float] = {}
+        type_best_component_score: dict[str, float] = {}
 
         for candidate in candidates:
             type_code = candidate.get("type_code")
             if not type_code:
                 continue
 
-            level = candidate.get("level", "L1")
+            level = str(candidate.get("level", "L1"))
             level_weight = self._safe_float(self.level_weights.get(level, 0.20), 0.20)
+            level_weight = self._clamp(level_weight, 0.0, 1.0)
 
             confidence = self._clamp(
                 self._safe_float(candidate.get("confidence", 0.0), 0.0),
@@ -132,12 +149,6 @@ class WeightedVoter:
                 1.0,
             )
 
-            # Новый preferred-контракт:
-            # - soft_negative_hits: штрафуем как обычные отрицательные сигналы
-            # - hard_negative_hits: считаем критическим конфликтом
-            #
-            # Legacy fallback:
-            # - если soft_negative_hits не передан, используем old negative_hits
             soft_negative_hits = max(
                 0,
                 self._safe_int(
@@ -156,73 +167,117 @@ class WeightedVoter:
                 0.5,
             )
 
-            # Дефекты 1 + 8: если signal_quality уже учтён внутри confidence (extended_v1),
-            # не применяем его повторно — иначе double-penalization
             sq_already_applied = bool(candidate.get("signal_quality_in_confidence", False))
-            effective_sq = 1.0 if sq_already_applied else signal_quality
-            base_score = confidence * level_weight * effective_sq
+            effective_signal_quality = 1.0 if sq_already_applied else signal_quality
 
-            # Hard-negative сигнал — защитный стоп-кран:
-            # такой кандидат не должен выигрывать голосование.
+            base_score = confidence * level_weight * effective_signal_quality
+
             if hard_negative_hits > 0:
-                negative_penalty = 1.0
                 effective_score = 0.0
             else:
-                negative_penalty = min(0.36, 0.12 * soft_negative_hits)
-                effective_score = max(0.0, base_score - negative_penalty - ambiguity_penalty)
+                # Мягкие negative-сигналы влияют пропорционально, а не абсолютным вычитанием.
+                negative_factor = 1.0 - min(0.60, 0.20 * soft_negative_hits)
+                negative_factor = self._clamp(negative_factor, 0.0, 1.0)
 
-            type_scores[type_code] = type_scores.get(type_code, 0.0) + effective_score
-            type_support_count[type_code] = type_support_count.get(type_code, 0) + 1
+                # Ambiguity ослабляет score, но не выбивает его фиксированным числом
+                # из другой шкалы.
+                ambiguity_factor = 1.0 - ambiguity_penalty
+                ambiguity_factor = self._clamp(ambiguity_factor, 0.50, 1.0)
 
-            prev = type_meta.get(type_code)
-            if prev is None or effective_score > prev.get("best_component_score", 0.0):
+                effective_score = base_score * negative_factor * ambiguity_factor
+                effective_score = self._clamp(effective_score, 0.0, 1.0)
+
+            type_raw_scores[type_code] = type_raw_scores.get(type_code, 0.0) + effective_score
+
+            if effective_score > 0.0:
+                type_support_levels.setdefault(type_code, set()).add(level)
+                type_active_weight_sum[type_code] = (
+                    type_active_weight_sum.get(type_code, 0.0) + level_weight
+                )
+
+            prev_best_score = type_best_component_score.get(type_code, -1.0)
+            if effective_score > prev_best_score:
+                type_best_component_score[type_code] = effective_score
+                type_best_component_confidence[type_code] = confidence
                 type_meta[type_code] = {
                     "language": candidate.get("language", "ru"),
                     "jurisdiction": candidate.get("jurisdiction", "RU"),
                     "best_component_score": effective_score,
+                    "best_component_confidence": confidence,
                     "best_level": level,
                 }
 
-        if not type_scores:
+        if not type_raw_scores:
             return None
 
-        # Agreement bonus удалён отсюда — применяется ПОСЛЕ нормализации (дефект 6).
-        # Применять до нормализации бессмысленно: бонус масштабируется вместе с best_score.
+        type_normalized_scores: dict[str, float] = {}
+        type_final_scores: dict[str, float] = {}
 
-        ranked = sorted(type_scores.items(), key=lambda item: item[1], reverse=True)
-        best_type, best_score = ranked[0]
-        second_score = ranked[1][1] if len(ranked) > 1 else 0.0
-        margin = max(0.0, best_score - second_score)
+        for type_code, raw_score in type_raw_scores.items():
+            active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
 
-        # Дефект 2: нормализация через сумму весов активных уровней.
-        # Без нормализации best_score при одном L2 максимально = 0.40,
-        # что делает final_confidence <= 0.55 — ниже hybrid_accept = 0.65.
-        active_weight_sum = sum(
-            self._safe_float(self.level_weights.get(c.get("level", "L1"), 0.20), 0.20)
-            for c in candidates
-            if c.get("type_code") == best_type
-        )
-        if active_weight_sum > 0:
-            normalized_confidence = best_score / active_weight_sum
-        else:
-            normalized_confidence = best_score
+            if active_weight_sum > 0.0:
+                normalized_score = raw_score / active_weight_sum
+            else:
+                normalized_score = 0.0
 
-        # Дефект 6: agreement_bonus применяется ПОСЛЕ нормализации.
-        # Предсказуемый эффект: +0.04 за каждый дополнительный согласный уровень, макс +0.08.
-        support_count_best = type_support_count.get(best_type, 1)
-        agreement_adj = min(0.08, 0.04 * (support_count_best - 1))
+            normalized_score = self._clamp(normalized_score, 0.0, 1.0)
+            type_normalized_scores[type_code] = normalized_score
 
-        # margin_bonus: уменьшен с min(0.15, margin) до min(0.10, margin * 0.5)
-        # чтобы компенсировать рост базового confidence от нормализации
+            support_level_count = len(type_support_levels.get(type_code, set()))
+            agreement_adj = min(0.08, 0.04 * max(0, support_level_count - 1))
+
+            final_score = self._clamp(normalized_score + agreement_adj, 0.0, 1.0)
+            type_final_scores[type_code] = final_score
+
+        def _ranking_key(item: tuple[str, float]) -> tuple[float, int, float, float, str]:
+            type_code, final_score = item
+            support_level_count = len(type_support_levels.get(type_code, set()))
+            active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
+            best_component_score = type_best_component_score.get(type_code, 0.0)
+            return (
+                final_score,
+                support_level_count,
+                active_weight_sum,
+                best_component_score,
+                type_code,
+            )
+
+        ranked = sorted(type_final_scores.items(), key=_ranking_key, reverse=True)
+
+        best_type, best_final_score = ranked[0]
+        second_final_score = ranked[1][1] if len(ranked) > 1 else 0.0
+        margin = max(0.0, best_final_score - second_final_score)
+
         margin_bonus = min(0.10, margin * 0.5)
 
         final_confidence = self._clamp(
-            normalized_confidence + agreement_adj + margin_bonus,
+            best_final_score + margin_bonus,
             0.0,
             1.0,
         )
 
         meta = type_meta.get(best_type, {})
+
+        ranking = []
+        for type_code, final_score in ranked[:5]:
+            ranking.append(
+                {
+                    "type": type_code,
+                    "score": round(final_score, 4),
+                    "raw_score": round(type_raw_scores.get(type_code, 0.0), 4),
+                    "normalized_score": round(type_normalized_scores.get(type_code, 0.0), 4),
+                    "support_count": len(type_support_levels.get(type_code, set())),
+                    "support_levels": sorted(type_support_levels.get(type_code, set())),
+                    "active_weight_sum": round(type_active_weight_sum.get(type_code, 0.0), 4),
+                    "best_component_score": round(
+                        type_best_component_score.get(type_code, 0.0), 4
+                    ),
+                    "best_component_confidence": round(
+                        type_best_component_confidence.get(type_code, 0.0), 4
+                    ),
+                }
+            )
 
         return {
             "type": best_type,
@@ -230,14 +285,7 @@ class WeightedVoter:
             "margin": round(margin, 4),
             "language": meta.get("language", "ru"),
             "jurisdiction": meta.get("jurisdiction", "RU"),
-            "ranking": [
-                {
-                    "type": type_code,
-                    "score": round(score, 4),
-                    "support_count": type_support_count.get(type_code, 0),
-                }
-                for type_code, score in ranked[:5]
-            ],
+            "ranking": ranking,
         }
     
 

@@ -14,6 +14,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
+import { documentKeys } from "./documents";
 import type { ClassificationReport, Run, RunCreateInput } from "../types";
 
 const RUN_POLL_INTERVAL_MS = 2000;
@@ -111,8 +112,7 @@ export function useStartRun(dealId: string) {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["deal", dealId] }),
-        qc.invalidateQueries({ queryKey: ["documents-count", dealId] }),
-        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
+        qc.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
         qc.invalidateQueries({ queryKey: runKeys.history(dealId, false) }),
         qc.invalidateQueries({ queryKey: runKeys.history(dealId, true) }),
       ]);

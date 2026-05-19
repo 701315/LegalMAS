@@ -5,6 +5,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import client from "./client";
+import { documentKeys } from "./documents";
+import { runKeys } from "./runs";
 import type {
   Deal,
   DealDetail,
@@ -160,8 +162,9 @@ export function useSetPrimaryLanguage(dealId: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["deal", dealId] }),
         queryClient.invalidateQueries({ queryKey: ["deals"] }),
-        queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, true] }),
-        queryClient.invalidateQueries({ queryKey: ["latest-run", dealId, false] }),
+        queryClient.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
+        queryClient.invalidateQueries({ queryKey: runKeys.history(dealId, false) }),
+        queryClient.invalidateQueries({ queryKey: runKeys.history(dealId, true) }),
       ]);
     },
   });

@@ -277,8 +277,21 @@ class HybridClassifier:
                 details=details,
             )
 
-        final_type_after_voting = final_type if voted is not None else "UNKNOWN"
-        final_conf_after_voting = final_conf if voted is not None else 0.0
+        final_type_after_voting, final_conf_after_voting, language, jurisdiction, pre_l4_source = (
+            self._best_pre_l4_signal(
+                voted=voted,
+                top_l1=top_l1,
+                top_l2=top_l2,
+                top_l3=top_l3,
+                language=language,
+                jurisdiction=jurisdiction,
+            )
+        )
+        details["pre_l4_best_signal"] = {
+            "source": pre_l4_source,
+            "type": final_type_after_voting,
+            "confidence": final_conf_after_voting,
+        }
 
         # ── L4: LLM-fallback ─────────────────────────────────────────
         llm_final = await self._run_l4(
@@ -394,11 +407,8 @@ class HybridClassifier:
         )
 
         if early is not None:
-            # Для сегмента применяем тот же builder, только triggers уже есть
-            result = dict(early)
-            result["applicable_triggers"] = applicable_triggers
-            return result
-
+            return early
+        
         candidates.sort(key=lambda c: float(c.get("confidence", 0.0)), reverse=True)
         if settings.CLASSIFICATION_TRACE_INCLUDE_CANDIDATES:
             details["candidates"] = candidates
@@ -447,8 +457,22 @@ class HybridClassifier:
                 details=details,
             )
 
-        final_type_after_voting = final_type if voted is not None else "UNKNOWN"
-        final_conf_after_voting = final_conf if voted is not None else 0.0
+        final_type_after_voting, final_conf_after_voting, language, jurisdiction, pre_l4_source = (
+            self._best_pre_l4_signal(
+                voted=voted,
+                top_l1=top_l1,
+                top_l2=None,
+                top_l3=top_l3,
+                language=language,
+                jurisdiction=jurisdiction,
+            )
+        )
+        details["pre_l4_best_signal"] = {
+            "source": pre_l4_source,
+            "type": final_type_after_voting,
+            "confidence": final_conf_after_voting,
+            "segment_id": segment_id,
+        }
 
         # ── L4: LLM-fallback по тексту сегмента ────────────────────────
         llm_final = await self._run_l4_for_segment(
@@ -463,16 +487,14 @@ class HybridClassifier:
             candidates=candidates,
             language=language,
             jurisdiction=jurisdiction,
+            applicable_triggers=applicable_triggers,
             started_at=started_at,
         )
-        if llm_final is not None:
-            # В сегментном кейсе добавляем applicable_triggers из L3
-            result = dict(llm_final)
-            result["applicable_triggers"] = applicable_triggers
-            return result
 
-        # ── Fallback: UNKNOWN или слабый HYBRID ────────────────────────
-        fallback = self._build_fallback_result(
+        if llm_final is not None:
+            return llm_final
+
+        return self._build_fallback_result(
             doc_id=f"segment:{segment_id}",
             final_type=final_type_after_voting,
             final_conf=final_conf_after_voting,
@@ -482,11 +504,8 @@ class HybridClassifier:
             language=language,
             jurisdiction=jurisdiction,
             started_at=started_at,
+            applicable_triggers=applicable_triggers,
         )
-        # Переопределяем applicable_triggers — для сегмента берём из L3
-        fallback["applicable_triggers"] = applicable_triggers
-        return fallback
-
 
     # ══════════════════════════════════════════════════════════════════
     # Приватные методы-шаги каскада
@@ -603,7 +622,7 @@ class HybridClassifier:
                 "extra": l2_extra or None,
             }
             if l2_result.doctype != "UNKNOWN":
-                top_l2 = l2_result
+                top_l2 = l2_result              
                 # extended_v1: signal_quality уже учтён внутри confidence (не применять повторно в voter)
                 # legacy-format: signal_quality НЕ входит в confidence (voter применяет как внешний множитель)
                 sq_in_conf = l2_extra.get("format") == "extended_v1"
@@ -622,6 +641,11 @@ class HybridClassifier:
                         "input_quality": float(l2_extra.get("input_quality", 1.0)),
                     }
                 )
+
+                details["L2_top"] = {
+                    "type": l2_result.doctype,
+                    "confidence": float(l2_result.confidence),
+                }
 
         logger.debug(
             "Hybrid L2 result",
@@ -713,6 +737,10 @@ class HybridClassifier:
                 "input_quality": float(l3_extra.get("input_quality", 1.0)),
                 "margin": float(l3_extra.get("margin", 0.0)),
             })
+            details["L3_top"] = {
+                "type": l3_result.doctype,
+                "confidence": float(l3_result.confidence),
+            }
 
         logger.debug(
             "Hybrid L3 result",
@@ -747,6 +775,33 @@ class HybridClassifier:
             type_code
             for type_code, _ in sorted(ranked.items(), key=lambda x: x[1], reverse=True)[:top_k]
         ]
+
+    def _build_llm_allowed_types(self, candidates: list[dict], base_top_k: int = 5, max_total: int = 12) -> list[str]:
+        """
+        Строит список allowed_types для L4 с мягким расширением:
+
+        1. Берёт top-K по голосованию (по умолчанию 5).
+        2. Если итоговый список < base_top_k, добивает его частыми типами из реестра.
+        3. Ограничивает длину max_total, чтобы не раздувать prompt.
+        """
+        shortlist = self._build_llm_shortlist(candidates, top_k=base_top_k)
+
+        if len(shortlist) >= base_top_k:
+            return shortlist[:max_total]
+
+        # Расширяем shortlist по registry, не добавляя дубли
+        try:
+            all_types = self.registry.list_types()
+        except Exception:
+            return shortlist[:max_total]
+
+        for t in all_types:
+            if t not in shortlist:
+                shortlist.append(t)
+            if len(shortlist) >= max_total:
+                break
+
+        return shortlist
 
     def _check_priority_rules(
         self,
@@ -953,6 +1008,148 @@ class HybridClassifier:
 
         return None
 
+    def _best_pre_l4_signal(
+        self,
+        *,
+        voted: dict | None,
+        top_l1: dict | None,
+        top_l2: Any | None,
+        top_l3: Any | None,
+        language: str | None,
+        jurisdiction: str | None,
+    ) -> tuple[str, float, str | None, str | None, str]:
+        """
+        Возвращает лучший сигнал ДО L4 для routing/fallback.
+
+        Приоритет:
+        1. voted result
+        2. top_l2
+        3. top_l3
+        4. top_l1
+        5. UNKNOWN
+
+        Это не ранний decision rule, а лишь честная оценка strongest-known signal,
+        чтобы не занижать final_conf_after_voting до 0.0 при отсутствии voted.
+        """
+        if voted is not None:
+            return (
+                str(voted.get("type") or "UNKNOWN"),
+                float(voted.get("confidence", 0.0)),
+                voted.get("language", language),
+                voted.get("jurisdiction", jurisdiction),
+                "VOTED",
+            )
+
+        if top_l2 is not None and getattr(top_l2, "doctype", "UNKNOWN") != "UNKNOWN":
+            return (
+                str(top_l2.doctype),
+                float(top_l2.confidence),
+                language,
+                jurisdiction,
+                "L2",
+            )
+
+        if top_l3 is not None and getattr(top_l3, "doctype", "UNKNOWN") != "UNKNOWN":
+            return (
+                str(top_l3.doctype),
+                float(top_l3.confidence),
+                getattr(top_l3, "language", language),
+                getattr(top_l3, "jurisdiction", jurisdiction),
+                "L3",
+            )
+
+        if top_l1 is not None and top_l1.get("type_code"):
+            return (
+                str(top_l1["type_code"]),
+                float(top_l1.get("confidence", 0.0)),
+                language,
+                jurisdiction,
+                "L1",
+            )
+
+        return "UNKNOWN", 0.0, language, jurisdiction, "NONE"
+
+    def _should_run_l4(
+        self,
+        *,
+        is_segment: bool,
+        llm_source_text: str,
+        allowed_types: list[str],
+        final_conf_after_voting: float,
+        voted_margin: float,
+        details: dict,
+    ) -> tuple[bool, bool, bool, bool, bool, bool]:
+        """
+        Централизованный gating для L4 (document + segment).
+
+        Возвращает кортеж флагов:
+        (l4_enabled, llm_available, has_source_and_types, need_adjudication, skip_l4, strong_single_no_conflict)
+
+        Логика:
+        - L4 вызывается только если:
+          * включён флагом,
+          * LLM-драйвер доступен,
+          * есть текст,
+          * есть allowed_types,
+          * нужен adjudication (низкая уверенность, маленький margin,
+            конфликт уровней или низкое input_quality),
+          * и нет блокирующих strong_final / strong_single_no_conflict.
+        """
+        l4_enabled = self.l4_enabled
+        llm_available = self._llm.is_available()
+        has_source_text = bool(llm_source_text)
+        has_allowed_types = bool(allowed_types)
+
+        strong_final = final_conf_after_voting >= self.hybrid_accept
+        contradiction = details.get("contradiction_detected", False)
+        input_quality = float(details.get("input_quality", 1.0))
+
+        # Для документа strong_single считается по L2/L3,
+        # для сегмента — только по L3 (L1 не используется как блокирующий сигнал).
+        strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
+        strong_l3 = float(getattr(settings, "CLASSIFICATION_L3_STRONG", 0.85))
+
+        top_l2 = details.get("L2_top")
+        top_l3 = details.get("L3_top")
+
+        if is_segment:
+            strong_single_no_conflict = (
+                (top_l3 is not None)
+                and float(top_l3.get("confidence", 0.0)) >= strong_l3
+                and not contradiction
+            )
+        else:
+            strong_single_no_conflict = False
+            if top_l2 is not None:
+                strong_single_no_conflict = (
+                    float(top_l2.get("confidence", 0.0)) >= strong_l2
+                    and not contradiction
+                )
+            if (not strong_single_no_conflict) and (top_l3 is not None):
+                strong_single_no_conflict = (
+                    float(top_l3.get("confidence", 0.0)) >= strong_l3
+                    and not contradiction
+                )
+
+        skip_l4 = strong_final or strong_single_no_conflict
+
+        need_adjudication = (
+            final_conf_after_voting < self.hybrid_accept
+            or voted_margin < 0.15
+            or contradiction
+            or input_quality < 0.60
+        )
+
+        return (
+            l4_enabled,
+            llm_available,
+            has_source_text and has_allowed_types,
+            need_adjudication,
+            skip_l4,
+            strong_single_no_conflict,
+        )
+
+
     def _apply_voting(
         self,
         doc_id: str,
@@ -964,59 +1161,73 @@ class HybridClassifier:
         details: dict,
     ) -> tuple[str, float, str | None, str | None, dict]:
         """
-        Применяет результат голосования и возможный L1-override.
+        Применяет результат голосования и безопасное L1-усиление без смены типа.
         Возвращает (final_type, final_conf, language, jurisdiction, details).
         """
-        if voted is None:
-            return "UNKNOWN", 0.0, language, jurisdiction, details
+        final_type = "UNKNOWN"
+        final_conf = 0.0
 
-        details["voting"] = voted
-        final_type = voted["type"]
-        final_conf = voted["confidence"]
-        language = voted.get("language", language)
-        jurisdiction = voted.get("jurisdiction", jurisdiction)
-        # NEW: сохраняем margin и ranking для дебага и возможного L4-routing
-        margin = voted.get("margin", 0.0)
-        ranking = voted.get("ranking", [])
-        details["voting_margin"] = margin
-        if settings.CLASSIFICATION_TRACE_INCLUDE_RANKING:
-            details["voting_ranking"] = ranking[:3]
+        if voted is not None:
+            details["voting"] = voted
+            final_type = str(voted["type"])
+            final_conf = float(voted["confidence"])
+            language = voted.get("language", language)
+            jurisdiction = voted.get("jurisdiction", jurisdiction)
 
-        logger.debug(
-            "Hybrid voting result with margin",
-            extra={
-                "doc_id": doc_id,
-                "final_type": final_type,
-                "final_conf": final_conf,
-                "margin": margin,
-                "top3": ranking[:3],
-            },
-        )
-
-        # Защитный кейс: сильный L1 конфликтует с L3, но проиграл голосование
-        strong_l1_conf = float(getattr(settings, "CLASSIFICATION_L1_STRONG", 0.9))
-        if (
-            top_l1 and top_l3
-            and top_l1["type_code"] != top_l3.doctype
-            and top_l1["confidence"] >= strong_l1_conf
-            and top_l3.confidence <= top_l1["confidence"] - 0.1
-        ):
-            details["voting_override"] = {
-                "strategy": "L1_OVERRIDE_L3",
-                "reason": "strong L1 (>=L1_STRONG) conflicting with close L3",
-                "original_voted": voted,
-            }
-            final_type = top_l1["type_code"]
-            final_conf = float(top_l1["confidence"])
+            margin = float(voted.get("margin", 0.0))
+            ranking = voted.get("ranking", [])
+            details["voting_margin"] = margin
+            if settings.CLASSIFICATION_TRACE_INCLUDE_RANKING:
+                details["voting_ranking"] = ranking[:3]
 
             logger.debug(
-                "Hybrid voting override by L1",
+                "Hybrid voting result with margin",
                 extra={
                     "doc_id": doc_id,
                     "final_type": final_type,
-                    "final_confidence": final_conf,
+                    "final_conf": final_conf,
+                    "margin": margin,
+                    "top3": ranking[:3],
                 },
             )
+        else:
+            details["voting"] = {
+                "strategy": "NO_VOTED_RESULT",
+                "reason": "voter returned None",
+            }
+            details["voting_margin"] = 0.0
+
+        # Production-safe rule:
+        # L1 никогда не меняет итоговый type сам по себе.
+        # Он может только слегка усилить confidence, если совпадает с уже выбранным итогом.
+        if (
+            voted is not None
+            and top_l1
+            and final_type != "UNKNOWN"
+            and top_l1.get("type_code") == final_type
+        ):
+            l1_conf = float(top_l1.get("confidence", 0.0))
+            if l1_conf > final_conf:
+                boosted_conf = min(1.0, final_conf + 0.05)
+                if boosted_conf > final_conf:
+                    details["voting_override"] = {
+                        "strategy": "L1_SUPPORTS_FINAL_TYPE",
+                        "reason": "strong filename signal agrees with voted type",
+                        "original_confidence": final_conf,
+                        "l1_confidence": l1_conf,
+                        "boosted_confidence": boosted_conf,
+                    }
+                    final_conf = boosted_conf
+
+                    logger.debug(
+                        "Hybrid voting confidence boosted by aligned L1",
+                        extra={
+                            "doc_id": doc_id,
+                            "final_type": final_type,
+                            "original_confidence": details["voting_override"]["original_confidence"],
+                            "boosted_confidence": boosted_conf,
+                        },
+                    )
 
         return final_type, final_conf, language, jurisdiction, details
 
@@ -1045,59 +1256,47 @@ class HybridClassifier:
         Возвращает готовый dict-результат или None (продолжаем fallback).
         """
         llm_source_text = _build_llm_source_text(header_text, snippet_text)
-        allowed_types = self._build_llm_shortlist(candidates, top_k=5) or self.registry.list_types()
-
-        strong_l1 = float(getattr(settings, "CLASSIFICATION_L1_STRONG", 0.90))
-        strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
-        # Дефект 4: исправлена логика блокировки L4.
-        # Старый strong_single блокировал L4 при уверенном L1/L2/L3,
-        # не учитывая противоречие между уровнями — именно при конфликте L4 нужнее всего.
-
-        # Вариант 1: voting уже дал уверенный результат — L4 не нужен
-        strong_final = final_conf_after_voting >= self.hybrid_accept
-
-        # Вариант 2: один уровень очень уверен И нет противоречия между уровнями
-        # L1 намеренно исключён: filename-паттерн недостаточен для блокировки LLM-вызова
-        contradiction = details.get("contradiction_detected", False)
-        strong_single_no_conflict = (
-            (top_l2 and top_l2.confidence >= strong_l2 and not contradiction)
-            or (top_l3 and top_l3.confidence >= strong_l2 and not contradiction)
-        )
-
-        skip_l4 = strong_final or strong_single_no_conflict
+        allowed_types = self._build_llm_allowed_types(candidates, base_top_k=5, max_total=12)
 
         voted_margin = float(details.get("voting_margin", 1.0))
-        need_adjudication = (
-            final_conf_after_voting < self.hybrid_accept
-            or voted_margin < 0.15
-            or details.get("contradiction_detected") is True
-            or float(details.get("input_quality", 1.0)) < 0.60
+
+        (
+            l4_enabled,
+            llm_available,
+            has_source_and_types,
+            need_adjudication,
+            skip_l4,
+            strong_single_no_conflict,
+        ) = self._should_run_l4(
+            is_segment=False,
+            llm_source_text=llm_source_text,
+            allowed_types=allowed_types,
+            final_conf_after_voting=final_conf_after_voting,
+            voted_margin=voted_margin,
+            details=details,
         )
 
-        if not (
-            self.l4_enabled
-            and self._llm.is_available()
-            and llm_source_text
-            and allowed_types
-            and need_adjudication
-            and not skip_l4
-        ):
+        if not (l4_enabled and llm_available and has_source_and_types and need_adjudication and not skip_l4):
             if settings.CLASSIFICATION_LOG_L4_SKIPS:
                 skip_reason = describe_l4_skip(
-                    l4_enabled=self.l4_enabled,
-                    llm_available=self._llm.is_available(),
-                    has_source_text=bool(llm_source_text),
+                    l4_enabled=l4_enabled,
+                    llm_available=llm_available,
+                    has_source_text=has_source_and_types,
                     need_adjudication=need_adjudication,
-                    strong_single=skip_l4,
+                    strong_single=strong_single_no_conflict,
                 )
+
                 logger.debug(
                     "l4_skipped",
                     extra={
                         "doc_id": doc_id,
                         "reason": skip_reason,
                         "need_adjudication": need_adjudication,
-                        "strong_single": skip_l4,
+                        "strong_single": strong_single_no_conflict,                        
+                        "strong_final": final_conf_after_voting >= self.hybrid_accept,
                         "final_conf_after_voting": final_conf_after_voting,
+                        "voting_margin": voted_margin,
+                        "input_quality": details.get("input_quality", 1.0),
                     },
                 )
             return None
@@ -1109,6 +1308,7 @@ class HybridClassifier:
             extra={
                 "doc_id": doc_id,
                 "final_conf_after_voting": final_conf_after_voting,
+                "pre_l4_best_signal": details.get("pre_l4_best_signal"),
                 "voting_margin": voted_margin,
                 "need_adjudication": need_adjudication,
                 "contradiction_detected": details.get("contradiction_detected", False),
@@ -1207,6 +1407,7 @@ class HybridClassifier:
         candidates: list[dict],
         language: str | None,
         jurisdiction: str | None,
+        applicable_triggers: list[str],
         started_at: float,
     ) -> dict | None:
         """
@@ -1221,55 +1422,47 @@ class HybridClassifier:
         if not llm_source_text:
             return None
 
-        allowed_types = self._build_llm_shortlist(candidates, top_k=5) or self.registry.list_types()
-
-        strong_l1 = float(getattr(settings, "CLASSIFICATION_L1_STRONG", 0.90))
-        strong_l3 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
-
-        # Дефект 4 (сегмент): аналогично _run_l4 — исправлена логика блокировки.
-        # L1 исключён из strong_single_no_conflict: filename ненадёжен для блокировки L4.
-
-        strong_final = final_conf_after_voting >= self.hybrid_accept
-
-        contradiction = details.get("contradiction_detected", False)
-        strong_single_no_conflict = (
-            top_l3 and top_l3.confidence >= strong_l3 and not contradiction
-        )
-
-        skip_l4 = strong_final or strong_single_no_conflict
+        allowed_types = self._build_llm_allowed_types(candidates, base_top_k=5, max_total=12)
 
         voted_margin = float(details.get("voting_margin", 1.0))
-        need_adjudication = (
-            final_conf_after_voting < self.hybrid_accept
-            or voted_margin < 0.15
-            or details.get("contradiction_detected") is True
-            or float(details.get("input_quality", 1.0)) < 0.60
+
+        (
+            l4_enabled,
+            llm_available,
+            has_source_and_types,
+            need_adjudication,
+            skip_l4,
+            strong_single_no_conflict,
+        ) = self._should_run_l4(
+            is_segment=True,
+            llm_source_text=llm_source_text,
+            allowed_types=allowed_types,
+            final_conf_after_voting=final_conf_after_voting,
+            voted_margin=voted_margin,
+            details=details,
         )
 
-        if not (
-            self.l4_enabled
-            and self._llm.is_available()
-            and llm_source_text
-            and allowed_types
-            and need_adjudication
-            and not skip_l4
-        ):
+        if not (l4_enabled and llm_available and has_source_and_types and need_adjudication and not skip_l4):
             if settings.CLASSIFICATION_LOG_L4_SKIPS:
                 skip_reason = describe_l4_skip(
-                    l4_enabled=self.l4_enabled,
-                    llm_available=self._llm.is_available(),
-                    has_source_text=bool(llm_source_text),
+                    l4_enabled=l4_enabled,
+                    llm_available=llm_available,
+                    has_source_text=has_source_and_types,
                     need_adjudication=need_adjudication,
-                    strong_single=skip_l4,
+                    strong_single=strong_single_no_conflict,
                 )
+
                 logger.debug(
                     "l4_skipped",
                     extra={
                         "segment_id": segment_id,
                         "reason": skip_reason,
                         "need_adjudication": need_adjudication,
-                        "strong_single": skip_l4,
+                        "strong_single": strong_single_no_conflict,
+                        "strong_final": final_conf_after_voting >= self.hybrid_accept,
                         "final_conf_after_voting": final_conf_after_voting,
+                        "voting_margin": voted_margin,
+                        "input_quality": details.get("input_quality", 1.0),
                     },
                 )
             return None
@@ -1282,6 +1475,7 @@ class HybridClassifier:
                 "segment_id": segment_id,
                 "final_conf_after_voting": final_conf_after_voting,
                 "voting_margin": voted_margin,
+                "pre_l4_best_signal": details.get("pre_l4_best_signal"),
                 "need_adjudication": need_adjudication,
                 "contradiction_detected": details.get("contradiction_detected", False),
                 "input_quality": details.get("input_quality", 1.0),
@@ -1362,7 +1556,7 @@ class HybridClassifier:
                 level="L4",
                 language=language,
                 jurisdiction=jurisdiction,
-                applicable_triggers=[],  # для сегмента мы потом подставим triggers из L3
+                applicable_triggers=applicable_triggers,
                 details=details,
             )
 
@@ -1381,6 +1575,7 @@ class HybridClassifier:
         language: str | None,
         jurisdiction: str | None,
         started_at: float,
+        applicable_triggers: list[str] | None = None,
     ) -> dict:
         """Финальный fallback: UNKNOWN или слабый HYBRID."""
         self.metrics.classification_duration.labels(source="fallback").observe(
@@ -1388,7 +1583,6 @@ class HybridClassifier:
         )
 
         final_type_out = self._builder.apply_unknown_corridor(final_type, final_conf)
-        applicable_triggers = self._builder.build_triggers(doc_id, final_type_out)
         zone, requires_review = self._builder.confidence_zone(final_conf)
 
         decided_by = (
@@ -1408,20 +1602,23 @@ class HybridClassifier:
             extra={"voted_type": voted["type"] if voted else None},
         )
 
-        details["confidence_zone"] = zone
-        details["requires_manual_review"] = requires_review
+        safe_applicable_triggers = (
+            list(applicable_triggers)
+            if applicable_triggers is not None
+            else self._builder.build_triggers(doc_id, final_type_out)
+        )
 
-        return {
-            "levels_tried": details["levels_tried"],
-            "candidates": candidates,
-            "final_type": final_type_out,
-            "final_confidence": final_conf,
-            "level": "HYBRID" if voted is not None and final_type_out != "UNKNOWN" else None,
-            "language": language,
-            "jurisdiction": jurisdiction,
-            "applicable_triggers": applicable_triggers,
-            "details": details,
-        }
+        return self._builder.build(
+            levels_tried=details["levels_tried"],
+            candidates=candidates,
+            final_type=final_type_out,
+            final_confidence=final_conf,
+            level="HYBRID" if voted is not None and final_type_out != "UNKNOWN" else None,
+            language=language,
+            jurisdiction=jurisdiction,
+            applicable_triggers=safe_applicable_triggers,
+            details=details,
+        )
 
     # ══════════════════════════════════════════════════════════════════
     # Вспомогательные методы
@@ -1432,13 +1629,18 @@ class HybridClassifier:
         return {
             "levels_tried": [],
             "candidates": [],
-            "final_type": None,
+            "final_type": "UNKNOWN",
             "final_confidence": 0.0,
             "level": None,
             "language": None,
             "jurisdiction": None,
             "applicable_triggers": [],
-            "details": {"levels_tried": [], "candidates": []},
+            "details": {
+                "levels_tried": [],
+                "candidates": [],
+                "confidence_zone": "unknown",
+                "requires_manual_review": True,
+            },
         }
 
     @staticmethod

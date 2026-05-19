@@ -6,8 +6,7 @@
 // - current run определяется только через deal.last_run_id;
 // - OverviewTab не вычисляет "последний run" самостоятельно;
 // - история запусков читается через runs API как history,
-//   но не используется для вычисления current run;
-// - obsolete query keys вида ["latest-run", ...] больше не используются.
+//   но не используется для вычисления current run.
 // =============================================================
 
 import React from "react";
@@ -20,7 +19,7 @@ import {
   useStartRun,
 } from "../../api/runs";
 import { useSetPrimaryLanguage, useUpdateDeal } from "../../api/deals";
-import { useDocumentsCount } from "../../api/documents";
+import { useDocuments } from "../../api/documents";
 import { useDealPermissions } from "../../hooks/usePermissions";
 import { useSSEProgress } from "../../hooks/useSSE";
 import { RUN_STATUS_CONFIG } from "../../utils/statusConfig";
@@ -524,7 +523,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
   const qc = useQueryClient();
 
   const { data: currentRun } = useRun(currentRunId ?? null, false);
-  const { data: documentsCount } = useDocumentsCount(deal.id);
+  const { data: documentsPage } = useDocuments(deal.id, 1);
+  const documentsCount = documentsPage?.total ?? 0;
   const { canStartRun, canUploadDocuments } = useDealPermissions(deal.id);
 
   const startRun = useStartRun(deal.id);
@@ -606,8 +606,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({ deal, currentRunId }) => {
     effectiveDeal.has_pending_manual_reclassifications &&
     (!!currentRun || !hasRestartedAfterReclass);
 
-  const hasDocuments =
-    typeof documentsCount === "number" ? documentsCount > 0 : false;
+  const hasDocuments = documentsCount > 0;
 
   const discoveryStatus = normalizeDiscoveryStatus(
     effectiveDeal.language_discovery_status,

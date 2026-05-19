@@ -1,58 +1,61 @@
 # src/api/endpoints/runs.py
 
+# src/api/endpoints/runs.py
+
 """
 Эндпоинты для запусков анализа (runs).
 
+Основные маршруты:
 - POST /runs                               — запуск анализа по сделке
 - GET  /runs/{run_id}                      — статус run + (опционально) stats классификации
 - GET  /runs/{run_id}/classification-report — подробный отчёт по классификации
+- GET  /runs/{run_id}/events               — SSE-стрим прогресса Run (status + completed/total)
 """
 
 from __future__ import annotations  # сильно упрощает жизнь с аннотациями
 
-import uuid
-from uuid import UUID
 import json
+import uuid
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.constants import RunStatus, LanguageDiscoveryStatus
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from services.run_progress_service import subscribe_run_progress
-
-from api.schemas.runs import DealRunSummaryResponse
-from api.deps.auth import CurrentUser, get_current_user
-from api.deps.security import require_project_role
-
-from db.session import get_db
-from db.repositories.deal_repo import DealRepository
-from db.repositories.playbook_repo import PlaybookRepository
-from db.repositories.run_repo import RunRepository
-from db.repositories.document_repo import DocumentRepository
-from db.repositories.export_repo import ExportRepository
-from db.repositories.result_repo import ResultRepository
-from db.repositories.audit_repo import AuditRepository
-
-from mas_queue.celery_app import celery_app
-from core.error_catalog import render_error_message
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
+from core.constants import LanguageDiscoveryStatus, RunStatus
+from core.error_catalog import render_error_message
+from core.logging import get_logger
 
-from ..schemas.runs import (
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_project_role
+from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
+from api.schemas.results import CheckResultResponse
+from api.schemas.runs import (
     RunCreate,
     RunResponse,
     ClassificationReportResponse,
+    DealRunSummaryResponse,
 )
-from ..schemas.results import CheckResultResponse
-from ..schemas.pagination import PaginatedResponse as PaginatedResponseSchema
-from core.logging import get_logger
+
+from db.repositories.audit_repo import AuditRepository
+from db.repositories.deal_repo import DealRepository
+from db.repositories.document_repo import DocumentRepository
+from db.repositories.export_repo import ExportRepository
+from db.repositories.playbook_repo import PlaybookRepository
+from db.repositories.result_repo import ResultRepository
+from db.repositories.run_repo import RunRepository
+from db.session import get_db
+
+from mas_queue.celery_app import celery_app
+
+from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
+from services.run_progress_service import subscribe_run_progress
 
 logger = get_logger(__name__)
-
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -118,7 +121,10 @@ async def _start_run_core(
     # 1.2. Пока language discovery ещё выполняется, запуск Run запрещён.
     # Это защита на backend уровне: даже если UI ошибётся или кто-то вызовет
     # API напрямую, analysis нельзя стартовать до завершения pre-run discovery.
-    if getattr(deal, "language_discovery_status", None) == LanguageDiscoveryStatus.PROCESSING:
+    if (
+        getattr(deal, "language_discovery_status", None)
+        == LanguageDiscoveryStatus.PROCESSING
+    ):
         logger.warning(
             "Run start rejected: language discovery is still in progress",
             extra={
@@ -141,7 +147,6 @@ async def _start_run_core(
                 "Please wait until it completes before starting analysis."
             ),
         )
-
 
     # 2. Берём playbook для сделки (привязанный или default)
     playbook = await playbook_repo.get_for_deal(deal_uuid)
@@ -181,7 +186,7 @@ async def _start_run_core(
 
     last_run = await run_repo.get_latest_for_deal(deal_uuid)
     if last_run:
-        same_model = (last_run.model_config_id == model_config_id)
+        same_model = last_run.model_config_id == model_config_id
         # TODO (env/reproducibility):
         #  - Run.environment_hash сейчас почти всегда None и не заполняется
         #    на уровне инфраструктуры;
@@ -249,7 +254,9 @@ async def _start_run_core(
             tenant_id=getattr(user, "tenant_id", None) or uuid.UUID(int=0),
             deal_id=deal_uuid,
             action="ANALYSIS_REQUESTED",
-            actor=str(getattr(user, "id", None)) if getattr(user, "id", None) else "unknown",
+            actor=str(getattr(user, "id", None))
+            if getattr(user, "id", None)
+            else "unknown",
             actor_role=getattr(user, "global_role", "user"),
             details={
                 "run_id": str(run.id),
@@ -285,7 +292,6 @@ async def _start_run_core(
     tenant_id = getattr(user, "tenant_id", None)
 
     try:
-
         logger.info(
             "Scheduling start_run_pipeline",
             extra={
@@ -305,6 +311,7 @@ async def _start_run_core(
                     and str(tenant_id) != "00000000-0000-0000-0000-000000000000"
                     else None
                 ),
+
                 "force_reclassify": bool(
                     data.force_reclassify
                     and getattr(settings, "API_ALLOW_FORCE_RECLASSIFY", False)
@@ -346,6 +353,9 @@ async def _start_run_core(
             reason=reason,
             message=msg,
         )
+        # В старой модели get_db мог сам коммитить; если ты уже перевёл
+        # session lifecycle на явные коммиты, сюда имеет смысл добавить:
+        # await db.commit()
         raise HTTPException(
             status_code=503,
             detail=http_detail,
@@ -508,6 +518,7 @@ async def get_run(
 )
 async def stream_run_events(
     run_id: uuid.UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -517,6 +528,12 @@ async def stream_run_events(
     URL: GET /api/v1/runs/{run_id}/events
     Формат событий:
       data: {"run_id": "...", "status": "...", "completed_checks": 10, "total_checks": 100, ...}
+
+    Важно:
+    - request-scoped db используется только для preflight-проверки run и доступа;
+    - сам стрим НЕ использует эту session;
+    - subscribe_run_progress открывает свои короткоживущие session на каждый poll;
+    - при отключении клиента stream завершается через request.is_disconnected().
 
     Доступ:
     - только участники проекта (viewer/editor/admin) для сделки этого run.
@@ -535,7 +552,15 @@ async def stream_run_events(
     )
 
     async def event_generator():
-        async for event in subscribe_run_progress(db, run_id):
+        async for event in subscribe_run_progress(run_id):
+            # Если клиент отключился — корректно выходим из генератора
+            if await request.is_disconnected():
+                logger.info(
+                    "run_progress_client_disconnected",
+                    extra={"run_id": str(run_id)},
+                )
+                break
+
             # by_alias=True и mode="json" -> UUID и datetime станут строками
             payload = event.model_dump(mode="json")
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
@@ -543,6 +568,11 @@ async def stream_run_events(
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -594,6 +624,7 @@ class RunExportCreate(BaseModel):
     requested_by / requester_role вычисляются на сервере
     по текущему пользователю и project role.
     """
+
     export_type: Literal[
         "grid_xlsx",
         "deal_summary_xlsx",
@@ -606,6 +637,7 @@ class RunExportResponse(BaseModel):
     """
     Краткий ответ об экспорте для UI.
     """
+
     id: uuid.UUID
     run_id: uuid.UUID
     deal_id: uuid.UUID
@@ -903,5 +935,4 @@ async def get_deal_run_summary(
         error_user_message=error_user_message,
         classification_stats=classification_stats,
     )
-
 

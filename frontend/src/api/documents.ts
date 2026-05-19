@@ -5,8 +5,9 @@
 //
 // Архитектурный принцип:
 // - список документов сделки имеет канонический query key: ["deal-documents", ...]
-// - invalidation должна быть адресной и касаться только нужной сделки;
-// - documentsCount считается отдельно и инвалидируется явно.
+// - invalidation адресная и касается только нужной сделки;
+// - total/count всегда берётся из канонического list-query ответа,
+//   а не из отдельного count-query.
 // =============================================================
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -69,6 +70,7 @@ function shouldPollDocumentDetail(data?: DocumentDetail): boolean {
  */
 export const documentKeys = {
   all: ["deal-documents"] as const,
+  byDeal: (dealId: string) => ["deal-documents", dealId] as const,
   list: (
     dealId: string,
     page: number,
@@ -79,8 +81,7 @@ export const documentKeys = {
     },
   ) =>
     [
-      "deal-documents",
-      dealId,
+      ...documentKeys.byDeal(dealId),
       page,
       {
         includeClassification: opts?.includeClassification ?? false,
@@ -88,7 +89,6 @@ export const documentKeys = {
         docType: opts?.docType ?? null,
       },
     ] as const,
-  count: (dealId: string) => ["documents-count", dealId] as const,
   detail: (docId: string) => ["document", docId] as const,
   family: (docId: string) => ["document-family", docId] as const,
   pdfUrl: (docId: string) => ["document-pdf-url", docId] as const,
@@ -352,21 +352,6 @@ export function useDocuments(dealId: string, page = 1) {
   });
 }
 
-/**
- * Лёгкий хук для получения общего количества документов по сделке.
- */
-export function useDocumentsCount(dealId: string) {
-  return useQuery({
-    queryKey: documentKeys.count(dealId),
-    queryFn: async () => {
-      const response = await documentApi.list(dealId, 1, 1);
-      return response.total;
-    },
-    enabled: !!dealId,
-    refetchOnWindowFocus: true,
-  });
-}
-
 export function useDocumentDetail(docId: string | null) {
   return useQuery({
     queryKey: docId ? documentKeys.detail(docId) : ["document", null],
@@ -439,7 +424,7 @@ export function useReclassifyDocument(docId: string, dealId: string) {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: documentKeys.detail(docId) }),
-        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
+        qc.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
         qc.invalidateQueries({ queryKey: ["audit", dealId] }),
       ]);
     },
@@ -454,8 +439,7 @@ export function useSoftDeleteDocument(dealId: string) {
     onSuccess: async (_data, docId) => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: documentKeys.detail(docId) }),
-        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
-        qc.invalidateQueries({ queryKey: documentKeys.count(dealId) }),
+        qc.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
         qc.invalidateQueries({ queryKey: ["deal", dealId] }),
       ]);
     },
@@ -472,8 +456,7 @@ export function useUploadDocuments(dealId: string) {
       }),
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
-        qc.invalidateQueries({ queryKey: documentKeys.count(dealId) }),
+        qc.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
         qc.invalidateQueries({ queryKey: ["deal", dealId] }),
       ]);
     },
@@ -491,7 +474,7 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
 
       if (dealId) {
         tasks.push(
-          qc.invalidateQueries({ queryKey: ["deal-documents", dealId] }),
+          qc.invalidateQueries({ queryKey: documentKeys.byDeal(dealId) }),
         );
       }
 
@@ -499,5 +482,4 @@ export function useSetDocumentReviewed(docId: string, dealId?: string) {
     },
   });
 }
-
 

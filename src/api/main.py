@@ -6,18 +6,23 @@
 Архитектурные договорённости по работе с БД:
 
 - HTTP-эндпоинты используют db: AsyncSession = Depends(get_db);
-  в них создаются репозитории и сервисы поверх одной сессии.
+  в них создаются репозитории и сервисы поверх одной request-scoped session.
 
-- Middleware и фоновые задачи НЕ используют get_db и DI FastAPI.
-  Им нужна своя AsyncSession через get_session или db_uow (для worker'ов).
+- Middleware и фоновые задачи не используют get_db и DI FastAPI.
+  Им нужна своя AsyncSession через get_session или db_uow.
 
-- Unit of Work для worker'ов реализован через db_uow (src/db/uow.py):
-  одна Celery-таска = один UnitOfWork/AsyncSession.
+- Unit of Work для worker'ов и фоновых write-операций реализован через db_uow
+  из src/db/session.py: одна операция = один явный transactional context.
 
 Важно для lifecycle ресурсов:
 - get_session() / get_db() / db_uow() закрывают отдельные AsyncSession;
 - но общий SQLAlchemy AsyncEngine живёт на уровне всего процесса API;
 - поэтому его shutdown должен происходить в lifespan FastAPI.
+
+Важно для streaming:
+- long-lived response (например SSE) не должен удерживать request-scoped session
+  на весь срок жизни ответа;
+- такие сценарии должны открывать короткоживущие session внутри сервиса.
 """
 
 from __future__ import annotations
@@ -34,8 +39,8 @@ from ops.instrument import setup_metrics
 
 from .endpoints import (
     admin,
-    auth,
     audit,
+    auth,
     classifier,
     deal_review,
     document_chunk_exports,
@@ -54,10 +59,8 @@ from .endpoints import (
     user_projects,
 )
 from .endpoints.deals.router import router as deals_router
-from .endpoints.deals.runs import router as deal_runs_router
 from .endpoints.documents.router import router as documents_router
 from .middleware.audit import AuditMiddleware
-
 
 logger = get_logger(__name__)
 
@@ -65,27 +68,18 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Lifespan context manager для FastAPI — управляет startup и shutdown событиями.
+    Lifespan context manager для startup/shutdown process-level ресурсов.
 
-    Для непрофессионального программиста:
-    - Этот код запускается один раз при старте приложения (до yield).
-    - После yield приложение уже работает и обрабатывает HTTP-запросы.
-    - Когда приложение завершается, выполняется shutdown-часть.
-    - Это правильное место для cleanup общих ресурсов процесса,
-      например пула подключений к базе данных.
+    Startup:
+    - валидирует YAML Registry fail-fast способом;
+    - если конфиги типов документов некорректны, приложение не стартует.
 
-    Что происходит при startup:
-    - Валидируем YAML Registry (все regex-паттерны в конфигах типов документов).
-    - Если есть кривой паттерн — приложение не стартует (fail-fast).
-    - Это критично для production: лучше упасть сразу, чем работать с неполными правилами.
-
-    Что происходит при shutdown:
-    - Корректно закрываем общий SQLAlchemy AsyncEngine.
-    - Это освобождает соединения из пула PostgreSQL перед завершением процесса API.
+    Shutdown:
+    - корректно закрывает SQLAlchemy AsyncEngine;
+    - освобождает соединения из пула PostgreSQL перед завершением процесса.
     """
     _ = app
 
-    # === STARTUP: валидация YAML Registry ===
     logger.info("Validating YAML registry on API startup...")
     registry = YAMLRegistry.get_instance(validate=True)
     logger.info(
@@ -94,11 +88,9 @@ async def lifespan(app: FastAPI):
     )
 
     try:
-        yield  # Здесь FastAPI запускается и обрабатывает запросы.
+        yield
     finally:
-        # === SHUTDOWN: cleanup process-level ресурсов ===
         logger.info("API shutdown — disposing database engine")
-
         try:
             await engine.dispose()
             logger.info("API shutdown — database engine disposed successfully")
@@ -110,18 +102,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="LegalMAS API",
     version="0.1.0",
-    lifespan=lifespan,  # Подключаем lifespan context manager
+    lifespan=lifespan,
 )
 
-
 setup_metrics(app)
-
 
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-
 
 app.add_middleware(AuditMiddleware)
 
@@ -133,7 +122,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Авторизация / логин.
 app.include_router(auth.router)
 
@@ -143,17 +131,16 @@ app.include_router(runner.router, prefix="/api/v1")
 # Классификация документов.
 app.include_router(classifier.router, prefix="/api/v1")
 
-# Документы (новый агрегирующий router из src/api/endpoints/documents/router.py).
+# Документы.
 app.include_router(documents_router, prefix="/api/v1")
 
-# Документы (pipeline view по стадиям обработки) — пока остаётся отдельным,
-# так как модуль находится вне пакета src/api/endpoints/documents/.
+# Pipeline view документов — отдельный router.
 app.include_router(document_pipeline_view.router, prefix="/api/v1")
 
 # Обзор сделки.
 app.include_router(deal_review.router, prefix="/api/v1")
 
-# Запуски (runs).
+# Runs.
 app.include_router(runs.router, prefix="/api/v1")
 
 # QC actions for review mode.
@@ -165,40 +152,36 @@ app.include_router(results.router, prefix="/api/v1")
 # Админские эндпоинты.
 app.include_router(admin.router, prefix="/api/v1")
 
-# Сделки (deals).
+# Сделки и вложенные deal-specific endpoints.
 app.include_router(deals_router, prefix="/api/v1")
-
-# Runs по сделке (GET /deals/{deal_id}/runs, POST /deals/{deal_id}/run).
-app.include_router(deal_runs_router, prefix="/api/v1/deals", tags=["deals"])
 
 # DD-запросы и связанные эндпоинты.
 app.include_router(requests.router, prefix="/api/v1")
 app.include_router(requests.requests_router, prefix="/api/v1")
 
-# Сделки (deals) по конкретному пользователю.
+# Сделки по конкретному пользователю.
 app.include_router(user_projects.router)
 
 # Пользователи / участники проектов.
 app.include_router(project_members.router, prefix="/api/v1")
 
-# Плейбуки (playbooks / global_checks / bundles).
+# Плейбуки.
 app.include_router(playbooks.router, prefix="/api/v1")
 
-# Типы документов (document types) из YAMLRegistry.
+# Типы документов.
 app.include_router(document_types.router, prefix="/api/v1")
 
 # История и пересборка плейбука по сделке.
 app.include_router(playbook_runs.router, prefix="/api/v1")
 
-# Конфигурации моделей (ModelConfig) для выбора модели на UI.
+# Конфигурации моделей.
 app.include_router(model_configs.router, prefix="/api/v1")
 
-# Документы (debug-экспорт чанков).
+# Debug-экспорт чанков.
 app.include_router(document_chunk_exports.router, prefix="/api/v1")
 
+# Exports.
 app.include_router(exports.router, prefix="/api/v1")
 
-# Журнал аудита (GET /deals/{deal_id}/audit, POST /audit-log)
+# Журнал аудита.
 app.include_router(audit.router, prefix="/api/v1")
-
-
