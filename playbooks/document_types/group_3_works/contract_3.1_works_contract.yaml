@@ -66,15 +66,162 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)подряд"
-      - "(?i)выполнени.*работ"
-      - "(?i)изготовлени"
-      - "(?i)ремонт.*договор"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда\\b"
+        kind: generic_form
+        weight: 0.60
+        # Общая юридическая форма подряда; для fallback-типа не должна доминировать над специализированными подвидами
+
+      - pattern: "(?i)\\bподряд\\b"
+        kind: generic_form
+        weight: 0.54
+        # Базовый русский маркер подряда без уточнения вида
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?выполнени[а-я]*[\\s_.-]*работ[а-я]*\\b"
+        kind: generic_form
+        weight: 0.56
+        # Выполнение работ — общая формула, шире чистого подряда
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*(?:на[\\s_.-]*)?изготовлени[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Подряд на изготовление вещи — ключевой subject-маркер общего подряда (locatio-conductio operis)
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*изготовлени[а-я]*[\\s_.-]*(?:продукци[а-я]*|изделий|вещи)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Изготовление продукции / изделий — прямой subject-маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*(?:на[\\s_.-]*)?переработк[а-я]*\\b|\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?переработк[а-я]*(?:[\\s_.-]*обработк[а-я]*)?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Переработка / обработка — из supported types, прямой маркер общего подряда
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*переработк[а-я]*[\\s_.-]*давальческ[а-я]*[\\s_.-]*сырь[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Переработка давальческого сырья — сильный и специфичный маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*с[\\s_.-]*давальческ[а-я]*[\\s_.-]*материал[а-я]*\\b|\\bдавальческ[а-я]*[\\s_.-]*(?:сырьё|материал)[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Давальческие материалы / сырьё — характерный маркер именно общего подряда
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?ремонт[а-я]*[\\s_.-]*(?:оборудовани[а-я]*|станк[а-я]*|техник[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Ремонт оборудования / станка / техники — из supported types; не строительство
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?капитальн[а-я]*[\\s_.-]*ремонт[а-я]*(?![\\s_.-]*(?:здани|объект|строительн|сооружени))\\b"
+        kind: specific_subject
+        weight: 0.80
+        # Капитальный ремонт без признаков строительного объекта — общий подряд
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*подряда[\\s_.-]*с[\\s_.-]*физическ[а-я]*[\\s_.-]*лиц[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Подряд с физическим лицом — из supported types; частый случай общего подряда
+
+      - pattern: "(?i)\\bworks?[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.58
+        # Works agreement / works contract — из supported types, прямая форма, но родовая
+
+      - pattern: "(?i)\\bcontract[\\s_.-]*for[\\s_.-]*work[s]?(?:[\\s_.-]*and[\\s_.-]*materials?)?\\b"
+        kind: generic_form
+        weight: 0.60
+        # Contract for work and materials — из supported types; достаточно специфично, но шире general works
+
+      - pattern: "(?i)\\bfabrication[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Fabrication contract — прямой маркер изготовления (locatio-conductio operis)
+
+      - pattern: "(?i)\\btoll[\\s_.-]*manufacturing(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Toll manufacturing — точный эквивалент переработки давальческого сырья
+
+      - pattern: "(?i)\\bprocessing[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Processing agreement — близко к переработке, но шире: конфликт с data processing, payment processing
+
+      - pattern: "(?i)\\bmanufacturing[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.54
+        # Manufacturing agreement конфликтует с production/supply: не всегда чистый works contract
+
+      - pattern: "(?i)\\bindependent[\\s_.-]*contractor[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.44
+        # Independent contractor agreement — в англоязычной практике часто service/consulting, а не works
+
+      - pattern: "(?i)\\bcontractor[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: context
+        weight: 0.24
+        # Contractor без works/work/fabrication qualifier слишком широк
+
+      - pattern: "(?i)\\bремонт\\b"
+        kind: context
+        weight: 0.22
+        # Ремонт без объекта и без договор-квалификатора слишком широк
+
+      - pattern: "(?i)\\bworks?\\b"
+        kind: context
+        weight: 0.18
+        # Works само по себе слишком неоднозначно
+
 
     folder_patterns:
-      - "(?i)подряд"
-      - "(?i)work.*contract"
-      - "(?i)contractors"
+      - pattern: "(?i)подряд(?:[_\\s-]*общ[а-я]*|[_\\s-]*general)?(?![_\\s-]*строительн)"
+        kind: specific_subject
+        weight: 0.80
+        # Папка подряда без признаков строительного подряда
+
+      - pattern: "(?i)изготовлени[а-я]*|fabrication"
+        kind: specific_subject
+        weight: 0.78
+        # Папка по изготовлению вещей
+
+      - pattern: "(?i)давальческ[а-я]*[_\\s-]*(?:сырь|материал)|toll[_\\s-]*manufactur"
+        kind: specific_subject
+        weight: 0.82
+        # Давальческое сырьё / toll manufacturing — сильный специфичный folder-marker
+
+      - pattern: "(?i)переработк[а-я]*[_\\s-]*(?:сырь|материал)|processing[_\\s-]*(?:of[_\\s-]*)?(?:materials?|raw)"
+        kind: specific_subject
+        weight: 0.80
+        # Переработка материалов / сырья
+
+      - pattern: "(?i)ремонт[_\\s-]*(?:оборудовани|техник|станк)|equipment[_\\s-]*repair|machinery[_\\s-]*repair"
+        kind: specific_subject
+        weight: 0.78
+        # Ремонт оборудования / техники в taxonomy папок
+
+      - pattern: "(?i)works?[_\\s-]*(?:agreement|contract)|contract[_\\s-]*for[_\\s-]*works?"
+        kind: generic_form
+        weight: 0.52
+        # Works contract taxonomy — полезна, но родовая
+
+      - pattern: "(?i)manufactur(?:ing)?(?![_\\s-]*(?:agreement|supply|goods))"
+        kind: generic_form
+        weight: 0.44
+        # Manufacturing folder без уточнения — возможен конфликт с supply/production
+
+      - pattern: "(?i)contractor[s]?|подрядчик"
+        kind: generic_form
+        weight: 0.38
+        # Contractor folder — полезен, но шире works contract
+
+      - pattern: "(?i)works?|работ[ы]?"
+        kind: context
+        weight: 0.20
+        # Слишком широкий folder-контекст
+
+      - pattern: "(?i)repair|ремонт"
+        kind: context
+        weight: 0.18
+        # Repair без объекта неоднозначен: строительный, бытовой, оборудования
 
     keywords:
 

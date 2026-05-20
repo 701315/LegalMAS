@@ -79,15 +79,182 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)прокат"
-      - "(?i)rental[\\s_.-]?consumer"
-      - "(?i)consumer[\\s_.-]?rental"
-      - "(?i)пункт[\\s_.-]?проката"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*проката\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора проката
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*(?:бытов[а-я]*|потребительск[а-я]*|краткосрочн[а-я]*)\\b|\\b(?:бытов[а-я]*|потребительск[а-я]*|краткосрочн[а-я]*)[\\s_.-]*прокат\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Прокат с явным consumer/бытовым/краткосрочным квалификатором
+
+      - pattern: "(?i)\\bпублично[а-я]*[\\s_.-]*договор[\\s_.-]*проката\\b|\\bоферта[\\s_.-]*(?:сервиса[\\s_.-]*)?проката\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Публичный договор проката / оферта сервиса проката — из supported types
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*(?:велосипед[а-я]*|электросамокат[а-я]*|самокат[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Прокат велосипедов / самокатов — специфичный потребительский subtype
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*(?:спортивн[а-я]*[\\s_.-]*инвентар[а-я]*|туристическ[а-я]*[\\s_.-]*снаряжени[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Прокат спортивного/туристического инвентаря
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*(?:инвентар[а-я]*|инструмент[а-я]*|бытов[а-я]*[\\s_.-]*техник[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Прокат инвентаря / инструмента / бытовой техники
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*(?:оборудовани[а-я]*|техник[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Прокат оборудования / техники из supported types; чуть ниже — возможен конфликт с коммерческой арендой
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*автомобил[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Прокат автомобиля — из supported types; car rental достаточно специфичен
+
+      - pattern: "(?i)\\bпрокат\\b"
+        kind: specific_subject
+        weight: 0.80
+        # Базовый русский маркер проката; без квалификатора чуть ниже, но достаточно специфичен
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*(?:имущества[\\s_.-]*)?(?:для[\\s_.-]*)?(?:бытов[а-я]*|личн[а-я]*|потребительск[а-я]*)[\\s_.-]*нужд\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Аренда для бытовых/личных нужд — из supported types, прямо указывает на прокат
+
+      - pattern: "(?i)\\bconsumer[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Consumer rental agreement — из supported types, прямой маркер потребительского проката
+
+      - pattern: "(?i)\\brental[\\s_.-]*(?:agreement[\\s_.-]*)?(?:for[\\s_.-]*)?personal[\\s_.-]*use\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Rental for personal use — хороший потребительский маркер
+
+      - pattern: "(?i)\\bhire[\\s_.-]*of[\\s_.-]*goods(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Hire of goods agreement — из supported types, достаточно специфичная consumer-форма
+
+      - pattern: "(?i)\\b(?:bicycle|bike)[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Bicycle rental agreement — из supported types
+
+      - pattern: "(?i)\\bscooter[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Scooter rental agreement — из supported types
+
+      - pattern: "(?i)\\brecreational[\\s_.-]*(?:equipment[\\s_.-]*)?rental(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Recreational equipment rental — из supported types
+
+      - pattern: "(?i)\\btool[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Tool rental — из supported types; инструмент почти всегда потребительский прокат
+
+      - pattern: "(?i)\\b(?:short[\\s_.-]*term[\\s_.-]*)?hire(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.58
+        # Hire agreement без goods/consumer квалификатора шире проката; конфликт с lease и commercial hire
+
+      - pattern: "(?i)\\bequipment[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.54
+        # Equipment rental без consumer/personal qualifier конфликтует с коммерческой арендой оборудования
+
+      - pattern: "(?i)\\bshort[\\s_.-]*term[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.52
+        # Short-term rental шире проката: возможен в real estate (vacation rental), commercial и т.д.
+
+      - pattern: "(?i)\\brental[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.46
+        # Rental agreement без квалификатора слишком широк
+
+      - pattern: "(?i)\\bпрокат[\\s_.-]*пункт\\b|\\bпункт[\\s_.-]*проката\\b"
+        kind: context
+        weight: 0.28
+        # Пункт проката — операционный контекст, не форма документа
+
+      - pattern: "(?i)\\bconsumer\\b"
+        kind: context
+        weight: 0.18
+        # Consumer без rental/прокат слишком широкий маркер
+
+      - pattern: "(?i)\\bpersonal[\\s_.-]*use\\b"
+        kind: context
+        weight: 0.18
+        # Personal use без rental контекста не определяет тип
+
 
     folder_patterns:
-      - "(?i)прокат"
-      - "(?i)consumer"
-      - "(?i)retail[\\s_]?rental"
+      - pattern: "(?i)прокат"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка по договорам проката
+
+      - pattern: "(?i)consumer[_\\s-]*rental|rental[_\\s-]*(?:for[_\\s-]*)?personal[_\\s-]*use"
+        kind: specific_subject
+        weight: 0.82
+        # Потребительская аренда в taxonomy папок
+
+      - pattern: "(?i)hire[_\\s-]*of[_\\s-]*goods"
+        kind: specific_subject
+        weight: 0.78
+        # Hire of goods — специфичная consumer-форма
+
+      - pattern: "(?i)(?:bicycle|bike|scooter|велосипед|самокат|электросамокат)[_\\s-]*rental"
+        kind: specific_subject
+        weight: 0.80
+        # Папки по специфическим объектам проката
+
+      - pattern: "(?i)(?:tool|instrument|recreational|sport)[_\\s-]*rental|прокат[_\\s-]*(?:инструмент|инвентар|спортивн)"
+        kind: specific_subject
+        weight: 0.76
+        # Папки по типовым объектам потребительского проката
+
+      - pattern: "(?i)short[_\\s-]*term[_\\s-]*rental|краткосрочн[а-я]*[_\\s-]*аренд|краткосрочн[а-я]*[_\\s-]*прокат"
+        kind: generic_form
+        weight: 0.52
+        # Краткосрочная аренда / short-term rental — полезна, но шире проката
+
+      - pattern: "(?i)equipment[_\\s-]*rental"
+        kind: generic_form
+        weight: 0.46
+        # Equipment rental folder конфликтует с коммерческой арендой оборудования
+
+      - pattern: "(?i)rental"
+        kind: generic_form
+        weight: 0.36
+        # Общий rental folder без квалификатора
+
+      - pattern: "(?i)hire"
+        kind: generic_form
+        weight: 0.32
+        # Hire folder без goods/consumer квалификатора слишком широк
+
+      - pattern: "(?i)consumer"
+        kind: context
+        weight: 0.20
+        # Consumer folder без rental контекста
+
+      - pattern: "(?i)b2c"
+        kind: context
+        weight: 0.18
+        # B2C — полезный, но не достаточный folder-marker
 
     keywords:
 

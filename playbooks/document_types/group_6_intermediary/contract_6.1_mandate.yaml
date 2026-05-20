@@ -66,17 +66,132 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)поручени"
-      - "(?i)доверител"
-      - "(?i)поверенн"
-      - "(?i)mandate"
-      - "(?i)representation"
+      # Русский — явные договоры поручения / представительства
+
+      - pattern: "(?i)договор[_\\s-]*поручени[яия]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор поручения
+
+      - pattern: "(?i)договор[_\\s-]*представител[ьствая]"
+        kind: specific_subject
+        weight: 0.95
+        # Договор представительства (в том числе судебного)
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*совершени[еия][_\\s-]*юридическ[ихие][_\\s-]*действи[йия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*представлени[еия][_\\s-]*интерес[оов][_\\s-]*в[_\\s-]*суд[еея]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*представлени[еия][_\\s-]*интерес[оов]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*поручени[яия][_\\s-]*на[_\\s-]*заключени[еия][_\\s-]*сдел[оок]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*поручени[яия][_\\s-]*на[_\\s-]*судебн[оеые][_\\s-]*представител[ьствоя]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*коммерческ[огоой][_\\s-]*представител[ьствая]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*поручени[яия][_\\s-]*с[_\\s-]*передовер[ииеям]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*судебн[огоой][_\\s-]*представител[ьствая]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Русские краткие маркеры поручения/поверенного — как generic/context
+
+      - pattern: "(?i)поручени[ея]"
+        kind: generic_form
+        weight: 0.6
+        # Без слова "договор" может быть просто поручение/инструкция
+
+      - pattern: "(?i)поверенн[ыйогоая]"
+        kind: context
+        weight: 0.45
+        # "Поверенный" в тексте названия без "договор" – слабый контекст
+
+      - pattern: "(?i)доверител[ь]"
+        kind: context
+        weight: 0.4
+        # Чтобы не путаться с доверительным управлением, оставляем как контекст
+
+      # Английский — mandate / representation / agency-like конструкции
+
+      - pattern: "(?i)mandate[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)agency[_\\s-]*mandate"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)representation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)authority[_\\s-]*to[_\\s-]*act[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)legal[_\\s-]*representation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)power[_\\s-]*of[_\\s-]*attorney[_\\s-]*with[_\\s-]*mandate"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие mandate/representation – generic/context
+
+      - pattern: "(?i)mandate"
+        kind: generic_form
+        weight: 0.6
+        # Без "agreement/contract" может быть и банкомандат, и внутренний документ
+
+      - pattern: "(?i)representation"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)power[_\\s-]*of[_\\s-]*attorney"
+        kind: generic_form
+        weight: 0.55
+        # Скорее самостоятельный тип доверенности, но полезен как контекст для поручения
 
     folder_patterns:
-      - "(?i)mandate"
-      - "(?i)representation"
-      - "(?i)поручени"
-      - "(?i)представител"
+      - pattern: "(?i)поручени[ея]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с договорами поручения / поручениями
+
+      - pattern: "(?i)представител[ьствая]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка представительства
+
+      - pattern: "(?i)mandate"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)representation"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)agency"
+        kind: context
+        weight: 0.4
+        # Общая "agency" папка – может включать и агентские договоры, и поручения
 
     keywords:
 

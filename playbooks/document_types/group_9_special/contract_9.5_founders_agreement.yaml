@@ -76,17 +76,165 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор\\s+об\\s+учреждени"
-      - "(?i)учредительн[а-яё]*\\s*(договор|соглашени)"
-      - "(?i)founders[\\s_.-]?agreement"
-      - "(?i)incorporation[\\s_.-]?agreement"
-      - "(?i)создани[а-яё]*\\s+(ооо|ао|общества)"
+      # Русский — договор об учреждении / учредительный договор / соглашения о создании
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*общества"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: «договор об учреждении общества»
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*(ООО|общества[_\\s-]*с[_\\s-]*ограниченн[ойыми][_\\s-]*ответственность[юи])"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*(АО|акционерн[огоое][_\\s-]*общества)"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)учредительн[ыйое][_\\s-]*(договор|соглашени[еия])"
+        kind: specific_subject
+        weight: 0.98
+        # «учредительный договор» / «учредительное соглашение»
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*учреждени[ея][_\\s-]*хозяйственн[огоого][_\\s-]*общества"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*учреждени[еи][_\\s-]*(ООО|общества[_\\s-]*с[_\\s-]*ограниченн[ойыми][_\\s-]*ответственность[юи])"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*учреждени[еи][_\\s-]*(АО|акционерн[огоое][_\\s-]*общества)"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*о[_\\s-]*создани[еи][_\\s-]*(ООО|АО|акционерн[огоое][_\\s-]*общества|общества)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*создани[еи][_\\s-]*(ООО|АО|акционерн[огоое][_\\s-]*общества|общества)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*учредител[ейя]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*учредител[ейя]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*о[_\\s-]*распределени[еи][_\\s-]*дол[еий]"
+        kind: specific_subject
+        weight: 0.9
+        # В док‑типах у тебя именно такой договор завязан на учредителей
+
+      # Более общие русские маркеры создания общества — как generic/context
+
+      - pattern: "(?i)договор\\s+об\\s+учреждени"
+        kind: generic_form
+        weight: 0.7
+        # Любой «договор об учреждении …» без слова «общества» может быть и про учреждение иного юрлица
+
+      - pattern: "(?i)создани[яеи][_\\s-]*(ООО|АО|общества)"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)учредительн[а-яё]*\\s*(договор|соглашени[еия])"
+        kind: generic_form
+        weight: 0.7
+        # Оставил твой паттерн как generic_form, потому что может быть и «учредительный договор фонда» и т.п.
+
+      # Английский — founders / incorporation / MOA / начальные shareholders agreement
+
+      - pattern: "(?i)founder(s)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)incorporation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)incorporator(s)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)memorandum[_\\s-]*of[_\\s-]*association"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)corporate[_\\s-]*formation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)constitutional[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)initial[_\\s-]*shareholders[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)subscription[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # В контексте учреждения часто является частью пакета учредительных договорённостей
+
+      - pattern: "(?i)subscription[_\\s-]*and[_\\s-]*shareholders[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)founders?[_\\s-]*charter"
+        kind: specific_subject
+        weight: 0.9
+
+      # Общий shareholders agreement — возможный конфликт с корпоративным договором,
+      # поэтому даём ему только generic_form
+
+      - pattern: "(?i)shareholders?[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+
+      # Общие 영어‑маркеры — generic/context
+
+      - pattern: "(?i)incorporation"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)formation[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
 
     folder_patterns:
-      - "(?i)учредител"
-      - "(?i)корпоратив"
-      - "(?i)incorporation"
-      - "(?i)founders"
+      - pattern: "(?i)учредител"
+        kind: specific_subject
+        weight: 0.8
+        # Папка «учредители/учреждение»
+
+      - pattern: "(?i)создани[ея][_\\s-]*ООО"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)создани[ея][_\\s-]*АО"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)incorporation"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)founder(s)?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)corporate[_\\s-]*formation"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)корпоративн[оеая]"
+        kind: context
+        weight: 0.4
+        # Слишком широкий корпоративный контекст, полезный, но не решающий
 
     keywords:
 

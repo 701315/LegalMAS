@@ -75,17 +75,182 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)агентск"
-      - "(?i)agency"
-      - "(?i)sales[\\s_.]?agent"
-      - "(?i)marketing[\\s_.]?agent"
-      - "(?i)дистриб"
+      # Русский — явные агентские договоры
+
+      - pattern: "(?i)агентск[ийого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: агентский договор
+
+      - pattern: "(?i)договор[_\\s-]*агентск[ихие][_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*оказани[еия][_\\s-]*агентск[ихие][_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)дистрибьюторск[ийого][_\\s-]*агентск[ийого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)маркетингов[ыйого][_\\s-]*агентск[ийого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*продвижени[еия][_\\s-]*товар[оа]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*продвижени[еия][_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)агентск[ийого][_\\s-]*договор[_\\s-]*на[_\\s-]*поиск[_\\s-]*клиент[оа]в?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)рамочн[ыйого][_\\s-]*агентск[ийого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)эксклюзивн[ыйого][_\\s-]*агентск[ийого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*продвижени[яия][_\\s-]*товар[оа]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Краткий русский маркер "агентск" с "договор"
+
+      - pattern: "(?i)договор[_\\s-]*агент[аы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)агент[аы][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)агентск"
+        kind: generic_form
+        weight: 0.6
+        # Любое "агентск" без "договор" – поддержка, не решающий сигнал
+
+      # Английский — agency / sales / distribution / referral
+
+      - pattern: "(?i)sales[_\\s-]*agency[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)agency[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)commercial[_\\s-]*agency[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)marketing[_\\s-]*agency[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)advertising[_\\s-]*agency[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)travel[_\\s-]*agency[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)distributor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)distribution[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)reseller[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)channel[_\\s-]*partner[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)referral[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)referral[_\\s-]*fee[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)introducer[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)sales[_\\s-]*representative[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      # Краткие маркеры agency/sales agent – generic/context
+
+      - pattern: "(?i)sales[\\s_.-]*agent"
+        kind: generic_form
+        weight: 0.6
+        # Может быть и job offer, поэтому не specific_subject
+
+      - pattern: "(?i)marketing[\\s_.-]*agent"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)agency"
+        kind: generic_form
+        weight: 0.55
+        # 'agency' само по себе слишком широкое (рекрутинг, госагентства, ad agency и т.п.)
+
+      - pattern: "(?i)distribution"
+        kind: context
+        weight: 0.4
+        # Distribution в filename – полезный контекст, но не решающий сам по себе
 
     folder_patterns:
-      - "(?i)agency"
-      - "(?i)агент"
-      - "(?i)sales"
-      - "(?i)distribution"
+      - pattern: "(?i)агент[аы][сск]?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "агентские" / "агенты"
+
+      - pattern: "(?i)agency"
+        kind: specific_subject
+        weight: 0.8
+        # Папка agency в договорном контексте
+
+      - pattern: "(?i)sales[_\\s-]*agency"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)marketing[_\\s-]*agency"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)distribution"
+        kind: specific_subject
+        weight: 0.75
+        # Папка distribution с договорами дистрибьюции/реселлинга
+
+      - pattern: "(?i)reseller"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)channel[_\\s-]*partners?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)referral"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

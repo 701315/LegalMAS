@@ -16,6 +16,7 @@ from typing import Optional
 
 from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO
 from ..yaml_registry import YAMLRegistry
+from core.config import settings
 from core.logging import get_logger
 
 
@@ -33,6 +34,7 @@ class ResultBuilder:
       * details["confidence_zone"]
       * details["requires_manual_review"]
       * применение unknown corridor к final_type
+      * согласованность level / applicable_triggers / details при UNKNOWN
     """
 
     def __init__(
@@ -175,31 +177,70 @@ class ResultBuilder:
         - details["confidence_zone"]
         - details["requires_manual_review"]
         - unknown corridor для final_type
+        - консистентность UNKNOWN-результата:
+          * level = None
+          * applicable_triggers = []
+          * details["unknown_corridor"] содержит факт override
         """
         safe_final_confidence = self._safe_float(final_confidence, 0.0)
+        original_final_type = final_type or "UNKNOWN"
 
-        # Defensive copy: builder — финальная граница контракта,
-        # не держим внешнюю mutable-ссылку на details.
         safe_details = dict(details or {})
+        safe_details.setdefault(
+            "schema_version",
+            int(getattr(settings, "CLASSIFICATION_DECISION_TRACE_SCHEMA_VERSION", 1)),
+        )
 
         zone_name, manual_review = self.confidence_zone(safe_final_confidence)
         safe_details["confidence_zone"] = zone_name
         safe_details["requires_manual_review"] = manual_review
 
         normalized_final_type = self.apply_unknown_corridor(
-            final_type=(final_type or "UNKNOWN"),
+            final_type=original_final_type,
             final_conf=safe_final_confidence,
         )
+
+        corridor_applied = normalized_final_type != original_final_type
+
+        if corridor_applied:
+            safe_details.setdefault("unknown_corridor", {})
+            safe_details["unknown_corridor"].update(
+                {
+                    "applied": True,
+                    "original_type": original_final_type,
+                    "original_confidence": safe_final_confidence,
+                    "threshold": self.unknown_max,
+                    "final_type_after_corridor": normalized_final_type,
+                }
+            )
+        else:
+            safe_details.setdefault("unknown_corridor", {})
+            safe_details["unknown_corridor"].update(
+                {
+                    "applied": False,
+                    "original_type": original_final_type,
+                    "original_confidence": safe_final_confidence,
+                    "threshold": self.unknown_max,
+                    "final_type_after_corridor": normalized_final_type,
+                }
+            )
+
+        safe_level = level
+        safe_applicable_triggers = list(applicable_triggers or [])
+
+        if normalized_final_type == "UNKNOWN":
+            safe_level = None
+            safe_applicable_triggers = []
 
         dto_candidates = self._normalize_candidates(candidates)
 
         dto = HybridClassificationResultDTO(
             final_type=normalized_final_type,
             final_confidence=safe_final_confidence,
-            level=level,
+            level=safe_level,
             language=language,
             jurisdiction=jurisdiction,
-            applicable_triggers=list(applicable_triggers or []),
+            applicable_triggers=safe_applicable_triggers,
             levels_tried=list(levels_tried or []),
             candidates=dto_candidates,
             details=safe_details,
@@ -207,7 +248,6 @@ class ResultBuilder:
 
         result = asdict(dto)
 
-        # Любые extra-поля (например, copied_from_master) добавляем поверх
         result.update(extra_fields)
         return result
     

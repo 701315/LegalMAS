@@ -273,6 +273,9 @@ class Settings(BaseSettings):
     CLASSIFICATION_L2_EXCL_HARD: int = 2
     CLASSIFICATION_L2_STRONG: float = 0.85
     CLASSIFICATION_L1_STRONG: float = 0.90
+    CLASSIFICATION_SINGLE_SOURCE_CAP: float = 0.80
+    CLASSIFICATION_L4_MARGIN_MIN: float = 0.15
+    CLASSIFICATION_L4_INPUT_QUALITY_MIN: float = 0.60
 
     # Embeddings для Runner/Stage 8 (shared с L3-классификатором)
     RUNNER_EMBEDDINGS_ENABLED: bool = True

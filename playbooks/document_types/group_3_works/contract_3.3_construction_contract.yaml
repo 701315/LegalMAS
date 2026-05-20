@@ -72,20 +72,197 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)строительн.*подряд"
-      - "(?i)генподряд"
-      - "(?i)строительно.монтажн"
-      - "(?i)смр.*договор"
-      - "(?i)капитальн.*строительств"
-      - "(?i)construction[\\s_.-]*(agreement|contract|work)"
-      - "(?i)general[\\s_.-]*(contractor|contract)"
-      - "(?i)строительн[а-я]+"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*строительн[а-я]*[\\s_.-]*подряда\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора строительного подряда
+
+      - pattern: "(?i)\\bстроительн[а-я]*[\\s_.-]*подряд\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Прямой русский subject-маркер строительного подряда
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?генподряда?\\b|\\bгенеральн[а-я]*[\\s_.-]*подряд\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Генподряд / генеральный подряд в строительстве
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:строительно[\\s_.-]*монтажн[а-я]*[\\s_.-]*работ[а-я]*|СМР)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # СМР / строительно-монтажные работы — прямой предметный маркер
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?выполнени[а-я]*[\\s_.-]*(?:строительно[\\s_.-]*монтажн[а-я]*[\\s_.-]*)?работ[а-я]*[\\s_.-]*(?:на[\\s_.-]*)?(?:объект[а-я]*|строительств[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Выполнение работ на объекте / на строительстве
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?капитальн[а-я]*[\\s_.-]*строительств[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Капитальное строительство — из supported types
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?реконструкци[а-я]*[\\s_.-]*(?:объект[а-я]*|здани[а-я]*|сооружени[а-я]*)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Реконструкция объекта — из supported types
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:строительства[\\s_.-]*)?под[\\s_.-]*ключ\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Строительство под ключ — turnkey construction
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?монтажн[а-я]*[\\s_.-]*работ[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Монтажные работы — из supported types
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?пусконаладочн[а-я]*[\\s_.-]*работ[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Пусконаладочные работы — из supported types
+
+      - pattern: "(?i)\\bconstruction[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Прямой английский маркер construction agreement / contract
+
+      - pattern: "(?i)\\b(?:EPC|EPCC|EPCM)[\\s_.-]*(?:contract|agreement)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # EPC / EPCC / EPCM — профессиональные формы строительного контракта
+
+      - pattern: "(?i)\\bengineering[\\s_.-]*procurement[\\s_.-]*construction(?:[\\s_.-]*(?:contract|agreement))?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Engineering procurement construction — полная форма EPC
+
+      - pattern: "(?i)\\bturnkey[\\s_.-]*(?:EPC[\\s_.-]*)?(?:contract|agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Turnkey contract / turnkey EPC
+
+      - pattern: "(?i)\\bdesign[\\s_.-]*(?:and[\\s_.-]*)?build[\\s_.-]*(?:contract|agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Design-build contract — из supported types
+
+      - pattern: "(?i)\\bconstruction[\\s_.-]*management[\\s_.-]*(?:contract|agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Construction management contract — из supported types
+
+      - pattern: "(?i)\\blump[\\s_.-]*sum[\\s_.-]*(?:turnkey[\\s_.-]*)?(?:contract|agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Lump sum / lump sum turnkey — из supported types
+
+      - pattern: "(?i)\\bre[\\s_.-]*?measurement[\\s_.-]*(?:contract|agreement)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Re-measurement contract — из supported types
+
+      - pattern: "(?i)\\bFIDIC[\\s_.-]*(?:Red|Yellow|Silver|Gold|Pink|Green|White|MDB)?[\\s_.-]*Book\\b"
+        kind: specific_subject
+        weight: 0.96
+        # FIDIC Book — профессиональный строительный стандарт, очень специфичен
+
+      - pattern: "(?i)\\bFIDIC\\b"
+        kind: specific_subject
+        weight: 0.88
+        # FIDIC без уточнения цвета книги — всё равно сильный строительный маркер
+
+      - pattern: "(?i)\\bNEC[\\s_.-]*(?:\\d|contract|option)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # NEC contract — британский строительный стандарт
+
+      - pattern: "(?i)\\bsubcontract(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.52
+        # Subcontract agreement без строительного контекста встречается в любых отраслях
+
+      - pattern: "(?i)\\bgeneral[\\s_.-]*contractor(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.54
+        # General contractor без construction контекста шире строительного подряда
+
+      - pattern: "(?i)\\bconstruction[\\s_.-]*work[s]?\\b"
+        kind: generic_form
+        weight: 0.56
+        # Construction works без agreement/contract квалификатора — шире
+
+      - pattern: "(?i)\\bстроительств[а-я]*\\b"
+        kind: context
+        weight: 0.26
+        # Строительство без подряд/договор/СМР — слишком широко
+
+      - pattern: "(?i)\\bconstruction\\b"
+        kind: context
+        weight: 0.22
+        # Construction без contract/agreement контекста — может быть часть названия компании, проекта и т.п.
+
+      - pattern: "(?i)\\bстроительн[а-я]*\\b"
+        kind: context
+        weight: 0.20
+        # Строительный без конкретизации слишком широк
+
 
     folder_patterns:
-      - "(?i)строительн.*подряд"
-      - "(?i)генподряд"
-      - "(?i)construction.*contract"
-      - "(?i)объект.*капитальн"
+      - pattern: "(?i)строительн[а-я]*[_\\s-]*подряд|генподряд|генеральн[а-я]*[_\\s-]*подряд"
+        kind: specific_subject
+        weight: 0.86
+        # Явные папки строительного / генерального подряда
+
+      - pattern: "(?i)(?:строительно[_\\s-]*монтажн[а-я]*[_\\s-]*)?(?:работ[а-я]*[_\\s-]*)?(?:смр|СМР)"
+        kind: specific_subject
+        weight: 0.84
+        # СМР / строительно-монтажные работы в taxonomy папок
+
+      - pattern: "(?i)(?:EPC|EPCC|EPCM|FIDIC|NEC)[_\\s-]*(?:contract|agreement)?"
+        kind: specific_subject
+        weight: 0.86
+        # Профессиональные строительные стандарты в taxonomy
+
+      - pattern: "(?i)design[_\\s-]*(?:and[_\\s-]*)?build|turnkey[_\\s-]*(?:epc|construction)?"
+        kind: specific_subject
+        weight: 0.82
+        # Design-build / turnkey папки
+
+      - pattern: "(?i)реконструкци[а-я]*[_\\s-]*(?:объект|здани|сооружени)|капитальн[а-я]*[_\\s-]*строительств"
+        kind: specific_subject
+        weight: 0.82
+        # Реконструкция / капитальное строительство в taxonomy
+
+      - pattern: "(?i)монтажн[а-я]*[_\\s-]*работ|пусконаладочн[а-я]*[_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.78
+        # Монтажные / пусконаладочные работы в taxonomy папок
+
+      - pattern: "(?i)construction[_\\s-]*(?:agreement|contract|management)"
+        kind: specific_subject
+        weight: 0.82
+        # Construction contract/management taxonomy
+
+      - pattern: "(?i)subcontract[_\\s-]*(?:agreement|construction)?|субподряд"
+        kind: generic_form
+        weight: 0.50
+        # Субподряд / subcontract полезен, но шире строительного подряда
+
+      - pattern: "(?i)general[_\\s-]*contractor|генеральн[а-я]*[_\\s-]*подрядчик"
+        kind: generic_form
+        weight: 0.46
+        # General contractor folder без явного строительного контекста
+
+      - pattern: "(?i)construction|строительств[оа]"
+        kind: context
+        weight: 0.26
+        # Широкий construction context без уточнения типа документа
+
+      - pattern: "(?i)объект[_\\s-]*капитальн|capital[_\\s-]*(?:project|construction)"
+        kind: context
+        weight: 0.24
+        # Капитальный объект — строительный контекст, но не обязательно подряд
 
     keywords:
 

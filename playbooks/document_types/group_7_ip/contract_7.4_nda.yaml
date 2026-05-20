@@ -71,16 +71,152 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)NDA"
-      - "(?i)неразглашен"
-      - "(?i)конфиденциальн[а-яё]*\\s*(соглашени|договор)"
-      - "(?i)confidential"
-      - "(?i)non[\\s_-]?disclosure"
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*неразглашени[яи]\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование соглашения о неразглашении
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*конфиденциальност[аи]\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Соглашение о конфиденциальности — прямой русский маркер NDA
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*о[\\s_.-]*неразглашени[яи]\\b"
+        kind: specific_subject
+        weight: 0.97
+        # Договор о неразглашении — из supported types
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*защит[а-я]*[\\s_.-]*(?:коммерческ[а-я]*[\\s_.-]*тайн[а-я]*|информаци[яи])\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Защита коммерческой тайны / защита информации — из supported types
+
+      - pattern: "(?i)\\b(?:двустороннее|взаимное)[\\s_.-]*соглашени[ея][\\s_.-]*о[\\s_.-]*конфиденциальност[аи]\\b"
+        kind: specific_subject
+        weight: 0.97
+        # Двустороннее / взаимное NDA — из supported types
+
+      - pattern: "(?i)\\bнеразглашени[яи]\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Базовый русский маркер неразглашения; достаточно специфичен в документарном контексте
+
+      - pattern: "(?i)(?<![A-Za-z])NDA(?![A-Za-z])"
+        kind: specific_subject
+        weight: 0.96
+        # NDA — прямая и общепринятая аббревиатура; очень специфична
+
+      - pattern: "(?i)(?<![A-Za-z])MNDA(?![A-Za-z])"
+        kind: specific_subject
+        weight: 0.96
+        # MNDA — mutual NDA, из supported types
+
+      - pattern: "(?i)(?<![A-Za-z])NDCA(?![A-Za-z])"
+        kind: specific_subject
+        weight: 0.90
+        # NDCA — Non-Disclosure and Confidentiality Agreement, из supported types
+
+      - pattern: "(?i)\\bnon[\\s_.-]*disclosure[\\s_.-]*(?:agreement|contract|deed)?\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Non-disclosure agreement — полная английская форма NDA
+
+      - pattern: "(?i)\\bconfidentiality[\\s_.-]*(?:agreement|deed|contract)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Confidentiality agreement / deed — прямой маркер NDA
+
+      - pattern: "(?i)\\bconfidential[\\s_.-]*(?:disclosure|information)[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Confidential Disclosure Agreement / CDA с раскрытием — из supported types
+
+      - pattern: "(?i)\\b(?:mutual|unilateral)[\\s_.-]*(?:non[\\s_.-]*disclosure|NDA|confidentiality)[\\s_.-]*(?:agreement|deed)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Mutual / unilateral NDA — из supported types, важные режимные маркеры
+
+      - pattern: "(?i)\\bsecrecy[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Secrecy agreement — из supported types, прямой синоним NDA
+
+      - pattern: "(?i)\\bproprietary[\\s_.-]*information[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Proprietary information agreement — из supported types; чуть ниже — может входить в IP/employment пакет
+
+      - pattern: "(?i)\\bconfidentiality[\\s_.-]*and[\\s_.-]*non[\\s_.-]*use[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Confidentiality and non-use agreement — из supported types, расширенная NDA-форма
+
+      - pattern: "(?i)(?<![A-Za-z])CDA(?![A-Za-z])"
+        kind: generic_form
+        weight: 0.62
+        # CDA — из supported types, но короткая аббревиатура с риском коллизии (Commercial Development Agreement и др.)
+
+      - pattern: "(?i)\\bnon[\\s_.-]*circumvention[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.52
+        # Non-circumvention — из supported types, но отдельное обязательство; часто идёт в пакете NCNDA
+
+      - pattern: "(?i)\\bconfidential\\b"
+        kind: context
+        weight: 0.18
+        # Confidential без agreement/NDA-квалификатора: confidential memo, confidential report и т.п.
+
+      - pattern: "(?i)\\bконфиденциальн[а-я]*\\b"
+        kind: context
+        weight: 0.16
+        # Конфиденциальный без соглашение-квалификатора слишком широко
+
 
     folder_patterns:
-      - "(?i)NDA"
-      - "(?i)confidential"
-      - "(?i)конфиденциальн"
+      - pattern: "(?i)(?:соглашени[ея]|договор)[_\\s-]*(?:о[_\\s-]*)?(?:неразглашени[яи]|конфиденциальност[аи])"
+        kind: specific_subject
+        weight: 0.88
+        # Прямые русскоязычные NDA-папки
+
+      - pattern: "(?i)(?<![A-Za-z])NDA(?![A-Za-z])|(?<![A-Za-z])MNDA(?![A-Za-z])|(?<![A-Za-z])NDCA(?![A-Za-z])"
+        kind: specific_subject
+        weight: 0.90
+        # NDA / MNDA / NDCA — явные аббревиатурные folder-markers
+
+      - pattern: "(?i)non[_\\s-]*disclosure[_\\s-]*(?:agreement)?|confidentiality[_\\s-]*(?:agreement|deed)?"
+        kind: specific_subject
+        weight: 0.86
+        # Прямые англоязычные NDA folder-markers
+
+      - pattern: "(?i)(?:mutual|unilateral)[_\\s-]*(?:nda|non[_\\s-]*disclosure|confidentiality)"
+        kind: specific_subject
+        weight: 0.86
+        # Режимные NDA папки — mutual / unilateral
+
+      - pattern: "(?i)secrecy[_\\s-]*agreement|proprietary[_\\s-]*information[_\\s-]*(?:agreement)?|confidentiality[_\\s-]*and[_\\s-]*non[_\\s-]*use"
+        kind: specific_subject
+        weight: 0.82
+        # Поддерживаемые NDA-формы в taxonomy папок
+
+      - pattern: "(?i)защит[а-я]*[_\\s-]*(?:коммерческ[а-я]*[_\\s-]*тайн|информаци[яи])|коммерческ[а-я]*[_\\s-]*тайн"
+        kind: specific_subject
+        weight: 0.82
+        # Защита коммерческой тайны / информации в taxonomy
+
+      - pattern: "(?i)non[_\\s-]*circumvention|(?<![A-Za-z])CDA(?![A-Za-z])"
+        kind: generic_form
+        weight: 0.48
+        # Non-circumvention / CDA: полезны в NDA-контексте, но шире или короче чистого NDA
+
+      - pattern: "(?i)confidential|конфиденциальн"
+        kind: context
+        weight: 0.22
+        # Confidential / конфиденциальный без NDA-уточнения слишком широкий folder-marker
+
+      - pattern: "(?i)(?:intellectual[_\\s-]*property|IP|интеллектуальн[а-я]*[_\\s-]*собственност)"
+        kind: context
+        weight: 0.18
+        # IP/ИС контекст: NDA часто живёт в IP-папке, но сама по себе не IP-сделка
 
     keywords:
 

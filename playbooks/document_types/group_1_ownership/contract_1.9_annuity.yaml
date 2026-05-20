@@ -62,20 +62,120 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор[_\\s-]*ренты"
-      - "(?i)постоянная[_\\s-]*рента"
-      - "(?i)пожизненная[_\\s-]*рента"
-      - "(?i)пожизненное[_\\s-]*содержание[_\\s-]*с[_\\s-]*иждивением"
-      - "(?i)содержание[_\\s-]*с[_\\s-]*иждивением"
-      - "(?i)рентный[_\\s-]*договор"
-      - "(?i)annuity"
-      - "(?i)lifetime[\\s_]*maintenance"
+      - pattern: "(?i)договор[_\\s-]*ренты"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое наименование договора ренты
+
+      - pattern: "(?i)договор[_\\s-]*постоянной[_\\s-]*ренты"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*пожизненной[_\\s-]*ренты"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*рены?ты[_\\s-]*с[_\\s-]*выкупом"
+        kind: specific_subject
+        weight: 0.9
+        # Договор ренты с выкупом
+
+      - pattern: "(?i)договор[_\\s-]*пожизненного[_\\s-]*содержани[яеи][_\\s-]*с[_\\s-]*иждивением"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*содержани[яеи][_\\s-]*с[_\\s-]*иждивением"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*передачи[_\\s-]*квартир[ыы][_\\s-]*под[_\\s-]*ренту"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)рентный[_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)рентн[а-я]*[_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+        # Обобщённая форма "рентный договор"
+
+      - pattern: "(?i)постоянная[_\\s-]*рента"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)пожизненная[_\\s-]*рента"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)пожизненное[_\\s-]*содержание[_\\s-]*с[_\\s-]*иждивением"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)содержание[_\\s-]*с[_\\s-]*иждивением"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)life[_\\s-]*annuity[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)perpetual[_\\s-]*annuity[_\\s-]*(contract|agreement)?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)private[_\\s-]*annuity[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*annuity"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)life[_\\s-]*tenancy[_\\s-]*arrangement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)annuity"
+        kind: generic_form
+        weight: 0.5
+        # Голое 'annuity' в имени файла — форма, может относиться и к финансовым продуктам
+
+      - pattern: "(?i)lifetime[\\s_]*maintenance"
+        kind: context
+        weight: 0.35
+        # Lifetime maintenance без рентной лексики — слабый контекстный сигнал
 
     folder_patterns:
-      - "(?i)ренты?"
-      - "(?i)annuity"
-      - "(?i)maintenance"
-      - "(?i)lifetime"
+      - pattern: "(?i)ренты?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "рента"/"ренты"
+
+      - pattern: "(?i)рентн[а-я]*"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с рентными договорами
+
+      - pattern: "(?i)annuity"
+        kind: specific_subject
+        weight: 0.8
+        # Annuity-папка в юридическом контексте
+
+      - pattern: "(?i)life[_\\s-]*annuity"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)lifetime"
+        kind: context
+        weight: 0.35
+        # Lifetime без annuity/maintenance — слишком общий термин
+
+      - pattern: "(?i)maintenance"
+        kind: context
+        weight: 0.35
+        # Maintenance в целом не специфичен, используем как слабый контекст
 
     keywords:
 

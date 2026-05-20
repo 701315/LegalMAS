@@ -75,15 +75,147 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)страхован"
-      - "(?i)полис"
-      - "(?i)insurance"
-      - "(?i)osago|осаго|каско"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*страховани[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора страхования
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:имущественн[а-я]*|личн[а-я]*)[\\s_.-]*страховани[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Имущественное / личное страхование — прямые предметные маркеры из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*страховани[а-я]*[\\s_.-]*(?:ответственност[аи]|имущества|груз[аов]*|жизни(?:[\\s_.-]*и[\\s_.-]*здоровь[яе]?)?)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Предметные формы страхования из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:добровольн[а-я]*|обязательн[а-я]*)[\\s_.-]*страховани[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Добровольное / обязательное страхование — режимный маркер из supported types
+
+      - pattern: "(?i)\\bстраховани[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Базовый русский маркер; достаточно специфичен, но немного ниже полных форм
+
+      - pattern: "(?i)\\bстраховой[\\s_.-]*полис\\b|\\bгенеральн[а-я]*[\\s_.-]*полис\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Страховой полис / генеральный полис — прямые страховые документы из supported types
+
+      - pattern: "(?i)\\b(?:ОСАГО|осаго|OSAGO)\\b"
+        kind: specific_subject
+        weight: 0.98
+        # ОСАГО — прямой маркер обязательного страхования автогражданской ответственности
+
+      - pattern: "(?i)\\b(?:КАСКО|каско|CASCO|casco)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # КАСКО — прямой маркер добровольного автострахования
+
+      - pattern: "(?i)\\binsurance[\\s_.-]*(?:policy|contract|agreement)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Insurance policy / contract / agreement — прямые англоязычные маркеры
+
+      - pattern: "(?i)\\bpolicy[\\s_.-]*wording\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Policy wording — специфичный страховой документ
+
+      - pattern: "(?i)\\b(?:marine|aviation|liability|health|life|cargo|property)[\\s_.-]*insurance(?:[\\s_.-]*(?:policy|contract|agreement))?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Предметные insurance types из supported types
+
+      - pattern: "(?i)\\b(?:insurance[\\s_.-]*binder|binder[\\s_.-]*agreement)\\b"
+        kind: generic_form
+        weight: 0.66
+        # Insurance binder / binder agreement — из supported types, но используется и как брокерский документ
+
+      - pattern: "(?i)\\bcover[\\s_.-]*note\\b"
+        kind: generic_form
+        weight: 0.62
+        # Cover note — временный страховой документ; полезный маркер, но встречается и как broker confirmation
+
+      - pattern: "(?i)\\breinsurance[\\s_.-]*(?:treaty|agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.60
+        # Reinsurance treaty — из supported types, но потенциально отдельный subtype; осторожно
+
+      - pattern: "(?i)\\b(?:facultative[\\s_.-]*reinsurance|quota[\\s_.-]*share[\\s_.-]*(?:agreement|treaty)?|excess[\\s_.-]*loss[\\s_.-]*(?:treaty|agreement)?)\\b"
+        kind: generic_form
+        weight: 0.56
+        # Специфические reinsurance формы — из supported types, но достаточно специальны для отдельного типа
+
+      - pattern: "(?i)\\bполис\\b"
+        kind: generic_form
+        weight: 0.44
+        # Полис без страховой квалификации — достаточно специфичен в контексте, но многозначен без qualifier
+
+      - pattern: "(?i)\\bpolicy\\b"
+        kind: context
+        weight: 0.20
+        # Policy без insurance qualifier слишком широко: company policy, privacy policy и т.д.
+
+      - pattern: "(?i)\\bcoverage\\b|\\bпокрыти[ея]\\b"
+        kind: context
+        weight: 0.16
+        # Coverage / покрытие — страховой контекст, но встречается и в других документах
+
 
     folder_patterns:
-      - "(?i)insurance"
-      - "(?i)страхован"
-      - "(?i)полис"
+      - pattern: "(?i)страхован"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка по страхованию
+
+      - pattern: "(?i)insurance[_\\s-]*(?:policy|contract|agreement|policies)?|страховани[ея][_\\s-]*(?:договор|полис)?"
+        kind: specific_subject
+        weight: 0.84
+        # Insurance/страхование taxonomy с уточнением типа документа
+
+      - pattern: "(?i)(?:ОСАГО|осаго|OSAGO|КАСКО|каско|CASCO)"
+        kind: specific_subject
+        weight: 0.86
+        # Прямые folder-markers российских страховых продуктов
+
+      - pattern: "(?i)(?:marine|aviation|liability|health|life|cargo|property)[_\\s-]*insurance"
+        kind: specific_subject
+        weight: 0.82
+        # Предметные insurance taxonomy папки
+
+      - pattern: "(?i)reinsurance[_\\s-]*(?:treaty|agreement)?|перестрахован"
+        kind: generic_form
+        weight: 0.52
+        # Перестрахование / reinsurance — потенциально отдельный subtype
+
+      - pattern: "(?i)(?:quota[_\\s-]*share|excess[_\\s-]*loss|facultative[_\\s-]*reinsurance)"
+        kind: generic_form
+        weight: 0.46
+        # Специфические reinsurance структуры
+
+      - pattern: "(?i)policy[_\\s-]*(?:wording|issuance)?|binder|cover[_\\s-]*note"
+        kind: generic_form
+        weight: 0.46
+        # Insurance document taxonomy: wording, binder, cover note
+
+      - pattern: "(?i)полис"
+        kind: generic_form
+        weight: 0.38
+        # Полис в taxonomy полезен, но шире страхового договора
+
+      - pattern: "(?i)policy"
+        kind: context
+        weight: 0.18
+        # Policy без insurance context слишком широкий folder-marker
+
+      - pattern: "(?i)coverage|покрыти[ея]"
+        kind: context
+        weight: 0.14
+        # Coverage без insurance-уточнения неоднозначен
 
     keywords:
 

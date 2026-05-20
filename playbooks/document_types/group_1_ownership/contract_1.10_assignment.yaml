@@ -79,22 +79,187 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор[_\\s-]*цесс[ии]"
-      - "(?i)договор[_\\s-]*уступк[иы][_\\s-]*прав[ао][_\\s-]*требован[ияи]"
-      - "(?i)соглашен[иея][_\\s-]*об[_\\s-]*уступк[еи][_\\s-]*прав[ао][_\\s-]*требован[ияи]"
-      - "(?i)договор[_\\s-]*продаж[ьи][_\\s-]*долг[ао]"
-      - "(?i)цессионн[а-я][_\\s-]*договор"
-      - "(?i)цесс[ияи]"
-      - "(?i)assignment"
-      - "(?i)debt[_\\s-]*sale"
-      - "(?i)claim[_\\s-]*assignment"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*цесси[яи]\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора цессии
+
+      - pattern: "(?i)\\bцессионн[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Цессионный договор — прямой русский маркер
+
+      - pattern: "(?i)\\bцесси[яи]\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Самостоятельное упоминание цессии обычно достаточно специфично
+
+      - pattern: "(?i)\\b(?:договор|соглашени[ея])[\\s_.-]*(?:об[\\s_.-]*)?уступк[а-я]*[\\s_.-]*прав[а-я]*[\\s_.-]*требован[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Прямая уступка права требования
+
+      - pattern: "(?i)\\b(?:договор|соглашени[ея])[\\s_.-]*уступк[а-я]*[\\s_.-]*требован[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.95
+        # Уступка требования без слова "права"
+
+      - pattern: "(?i)\\b(?:договор|соглашени[ея])[\\s_.-]*передач[аи][\\s_.-]*прав[а-я]*[\\s_.-]*требован[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Передача прав требования — функциональный эквивалент цессии
+
+      - pattern: "(?i)\\bуступк[а-я]*[\\s_.-]*дебиторск[а-я]*[\\s_.-]*задолженност[аи]\\b"
+        kind: specific_subject
+        weight: 0.93
+        # Assignment of receivables / дебиторской задолженности
+
+      - pattern: "(?i)\\b(?:частичн[а-я]*[\\s_.-]*цесси[яи]|partial[\\s_.-]*assignment)\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Частичная цессия — поддерживаемый subtype
+
+      - pattern: "(?i)\\b(?:уступк[а-я]*[\\s_.-]*будущ[а-я]*[\\s_.-]*требован[а-я]*|future[\\s_.-]*assignment)\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Уступка будущего требования / future assignment
+
+      - pattern: "(?i)\\b(?:уведомлени[ея][\\s_.-]*о[\\s_.-]*цесси[яи]|notice[\\s_.-]*of[\\s_.-]*assignment)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Notice of assignment поддерживается и достаточно специфично указывает на цессию
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*продаж[а-я]*[\\s_.-]*долг[а-я]*|debt[\\s_.-]*sale)\\b"
+        kind: specific_subject
+        weight: 0.82
+        # Продажа долга в практике часто описывает уступку требования
+
+      - pattern: "(?i)\\bclaims?[\\s_.-]*assignment\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Claims assignment — прямой предметный англоязычный маркер
+
+      - pattern: "(?i)\\bassignment[\\s_.-]*of[\\s_.-]*receivables\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Assignment of receivables — сильный subject marker
+
+      - pattern: "(?i)\\breceivables[\\s_.-]*assignment(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Receivables assignment agreement — сильный маркер, но потенциально близок к factoring
+
+      - pattern: "(?i)\\bdebt[\\s_.-]*assignment(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Debt assignment agreement — ближе к уступке требования, чем к продаже имущества
+
+      - pattern: "(?i)\\btransfer[\\s_.-]*of[\\s_.-]*claim(?:s)?[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Transfer of claim agreement — прямой эквивалент уступки требования
+
+      - pattern: "(?i)\\bassignment[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.60
+        # Assignment agreement без предмета слишком широко: contract/IP/rights assignment и др.
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*of[\\s_.-]*assignment\\b"
+        kind: generic_form
+        weight: 0.66
+        # Deed of assignment часто релевантен, но может относиться к иным объектам передачи прав
+
+      - pattern: "(?i)\\b(?:legal|equitable)[\\s_.-]*assignment\\b"
+        kind: generic_form
+        weight: 0.62
+        # Термины из англо-правовой традиции, релевантны assignment, но не всегда claim-only
+
+      - pattern: "(?i)\\bassignment[\\s_.-]*of[\\s_.-]*contractual[\\s_.-]*rights\\b"
+        kind: generic_form
+        weight: 0.56
+        # Assignment of contractual rights шире, чем уступка денежного/обязательственного требования
+
+      - pattern: "(?i)\\bassignment[\\s_.-]*of[\\s_.-]*rights[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.52
+        # Assignment of rights agreement слишком широкая формула
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*перемен[а-я]*[\\s_.-]*лиц[а-я]*[\\s_.-]*в[\\s_.-]*обязательств[еа]\\b"
+        kind: generic_form
+        weight: 0.58
+        # Перемена лица в обязательстве — родовая конструкция, шире чистой цессии
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:перевод[а-я]*|приняти[ея])[\\s_.-]*долг[а-я]*\\b"
+        kind: generic_form
+        weight: 0.42
+        # Из supported types, но семантически ближе к debt transfer / assumption, а не к классической цессии
+
+      - pattern: "(?i)\\bassignment[\\s_.-]*and[\\s_.-]*assumption[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.46
+        # Assignment and assumption — смешанная конструкция, шире pure assignment of claim
+
+      - pattern: "(?i)\\b(?:facultative[\\s_.-]*assignment|ковенант[а-я]*[\\s_.-]*о[\\s_.-]*передач[еи][\\s_.-]*прав)\\b"
+        kind: context
+        weight: 0.24
+        # Поддерживаемые, но слишком специальные/широкие формулы
+
+      - pattern: "(?i)\\bassignment\\b"
+        kind: context
+        weight: 0.18
+        # Bare assignment слишком неоднозначен
+
+      - pattern: "(?i)\\bуступк[а-я]*\\b"
+        kind: context
+        weight: 0.18
+        # Уступка без объекта тоже слишком широка
+
 
     folder_patterns:
-      - "(?i)цесс[ияи]"
-      - "(?i)уступк[аи]"
-      - "(?i)assignment"
-      - "(?i)debt[_\\s-]*sale"
-      - "(?i)claims?"
+      - pattern: "(?i)цесси[яи]"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка по цессии
+
+      - pattern: "(?i)уступк[а-я]*[_\\s-]*прав[_\\s-]*требован|уступк[а-я]*[_\\s-]*требован"
+        kind: specific_subject
+        weight: 0.84
+        # Папка по уступке требования / права требования
+
+      - pattern: "(?i)claims?[_\\s-]*assignment|assignment[_\\s-]*of[_\\s-]*receivables|receivables[_\\s-]*assignment|transfer[_\\s-]*of[_\\s-]*claim|debt[_\\s-]*assignment|debt[_\\s-]*sale"
+        kind: specific_subject
+        weight: 0.80
+        # Явные англоязычные folder-markers уступки требования / receivables assignment
+
+      - pattern: "(?i)future[_\\s-]*assignment|частичн[а-я]*[_\\s-]*цесси"
+        kind: specific_subject
+        weight: 0.72
+        # Subtype folders: future / partial assignment
+
+      - pattern: "(?i)notice[_\\s-]*of[_\\s-]*assignment|уведомлени[ея][_\\s-]*о[_\\s-]*цесси[яи]"
+        kind: generic_form
+        weight: 0.60
+        # Folder по notice-документам внутри assignment family
+
+      - pattern: "(?i)assignment|deed[_\\s-]*of[_\\s-]*assignment"
+        kind: generic_form
+        weight: 0.46
+        # Assignment-taxonomy полезна, но шире pure claim assignment
+
+      - pattern: "(?i)перемен[а-я]*[_\\s-]*лиц[а-я]*[_\\s-]*в[_\\s-]*обязательств|assignment[_\\s-]*and[_\\s-]*assumption|перевод[_\\s-]*долга|приняти[ея][_\\s-]*долга"
+        kind: generic_form
+        weight: 0.40
+        # Более широкое семейство transfer/assumption of obligations
+
+      - pattern: "(?i)уступк[аи]"
+        kind: context
+        weight: 0.26
+        # Слишком общий folder-marker без объекта уступки
+
+      - pattern: "(?i)claims?|receivables|debt"
+        kind: context
+        weight: 0.18
+        # Широкий контекст; может относиться к factoring, collections, debt purchase и др.
 
     keywords:
 

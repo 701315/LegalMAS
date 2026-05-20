@@ -62,22 +62,137 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор[_\\s-]*мены"
-      - "(?i)договор[_\\s-]*бартера"
-      - "(?i)договор[_\\s-]*товарообмена"
-      - "(?i)мен[аеыуой]"
-      - "(?i)бартер"
-      - "(?i)товарообмен"
-      - "(?i)barter"
-      - "(?i)exchange[\\s_]*agreement"
-      - "(?i)goods[_\\s-]*exchange"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*мены\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора мены
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*бартера\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Прямое наименование договора бартера
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*товарообмена\\b"
+        kind: specific_subject
+        weight: 0.97
+        # Прямое наименование договора товарообмена
+
+      - pattern: "(?i)\\bмен(?:а|ы|е|у|ой)\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Базовый русский маркер мены как правовой формы
+
+      - pattern: "(?i)\\bбартер\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Бартер — прямой синоним данного типа
+
+      - pattern: "(?i)\\bтоварообмен\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Товарообмен — прямой синоним barter/exchange of goods
+
+      - pattern: "(?i)(?:\\bмен(?:а|ы|е|у|ой)\\b.*\\b(?:недвижимост|квартир|земельн|жил[а-я]*[\\s_.-]*дом|нежил[а-я]*[\\s_.-]*помещени|здани|сооружени)\\b|\\b(?:недвижимост|квартир|земельн|жил[а-я]*[\\s_.-]*дом|нежил[а-я]*[\\s_.-]*помещени|здани|сооружени)\\b.*\\bмен(?:а|ы|е|у|ой)\\b)"
+        kind: specific_subject
+        weight: 0.95
+        # Мена недвижимости: должен побеждать barter, а не real_estate sale
+
+      - pattern: "(?i)(?:\\bмен(?:а|ы|е|у|ой)\\b.*\\b(?:транспортн[а-я]*[\\s_.-]*средств|автомобил|машин[аы]|тс)\\b|\\b(?:транспортн[а-я]*[\\s_.-]*средств|автомобил|машин[аы]|тс)\\b.*\\bмен(?:а|ы|е|у|ой)\\b)"
+        kind: specific_subject
+        weight: 0.92
+        # Мена транспортных средств — поддерживаемый subtype
+
+      - pattern: "(?i)(?:\\bмен(?:а|ы|е|у|ой)\\b.*\\b(?:акци[яйи]|дол(?:я|и|ей)|share[s]?|stock|equity|participation[\\s_.-]*interest)\\b|\\b(?:акци[яйи]|дол(?:я|и|ей)|share[s]?|stock|equity|participation[\\s_.-]*interest)\\b.*\\bмен(?:а|ы|е|у|ой)\\b)"
+        kind: specific_subject
+        weight: 0.94
+        # Мена акций/долей: должен побеждать barter, а не shares_sale
+
+      - pattern: "(?i)(?:\\bмен(?:а|ы|е|у|ой)\\b.*\\bдоплат[аы]\\b|\\bдоплат[аы]\\b.*\\bмен(?:а|ы|е|у|ой)\\b)"
+        kind: specific_subject
+        weight: 0.86
+        # Смешанный договор мены с доплатой
+
+      - pattern: "(?i)\\bbarter[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Прямой англоязычный маркер barter agreement
+
+      - pattern: "(?i)\\bcountertrade[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Countertrade agreement обычно ближе к barter/counter-exchange
+
+      - pattern: "(?i)\\breciprocal[\\s_.-]*trade[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Reciprocal trade agreement — сильный, но менее каноничный barter marker
+
+      - pattern: "(?i)\\bgoods[\\s_.-]*exchange\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Обмен товарами — хороший англоязычный маркер barter
+
+      - pattern: "(?i)\\bexchange[\\s_.-]*transaction[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.62
+        # Exchange transaction agreement поддерживается, но формулировка шире barter
+
+      - pattern: "(?i)\\bexchange[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.52
+        # Exchange agreement слишком широк: может относиться не только к barter
+
+      - pattern: "(?i)\\bсоглашени[а-я]*[\\s_.-]*о[\\s_.-]*встречн[а-я]*[\\s_.-]*поставк[а-я]*\\b"
+        kind: generic_form
+        weight: 0.64
+        # Встречные поставки близки к barter/countertrade, но могут пересекаться с supply
+
+      - pattern: "(?i)\\bswap[\\s_.-]*deal\\b"
+        kind: context
+        weight: 0.20
+        # Swap deal слишком неоднозначен из-за сильного конфликта с финансовыми инструментами
+
 
     folder_patterns:
-      - "(?i)мен[аы]"
-      - "(?i)бартер"
-      - "(?i)barter"
-      - "(?i)exchange"
-      - "(?i)товарообмен"
+      - pattern: "(?i)мен[аы]"
+        kind: specific_subject
+        weight: 0.82
+        # Явная папка по договорам мены
+
+      - pattern: "(?i)бартер|barter"
+        kind: specific_subject
+        weight: 0.84
+        # Прямой folder-marker barter
+
+      - pattern: "(?i)товарообмен|goods[_\\s-]*exchange"
+        kind: specific_subject
+        weight: 0.82
+        # Папка по товарообменным сделкам
+
+      - pattern: "(?i)countertrade|reciprocal[_\\s-]*trade"
+        kind: specific_subject
+        weight: 0.72
+        # Countertrade taxonomy обычно относится к barter-like сделкам
+
+      - pattern: "(?i)exchange[_\\s-]*transaction"
+        kind: generic_form
+        weight: 0.48
+        # Exchange transaction folder полезен, но шире чистой мены
+
+      - pattern: "(?i)встречн[а-я]*[_\\s-]*постав"
+        kind: generic_form
+        weight: 0.46
+        # Встречные поставки — слабее прямой мены, возможен конфликт с supply
+
+      - pattern: "(?i)exchange"
+        kind: context
+        weight: 0.22
+        # Exchange сам по себе слишком широкий folder-marker
+
+      - pattern: "(?i)swap"
+        kind: context
+        weight: 0.16
+        # Swap-folder может относиться к деривативам и иным не-barter документам
 
     keywords:
 

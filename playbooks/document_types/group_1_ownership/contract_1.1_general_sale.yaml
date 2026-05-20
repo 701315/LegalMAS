@@ -50,7 +50,6 @@ metadata:
 
     - "sale agreement"
     - "sale and purchase agreement"
-    - "SPA"
     - "purchase agreement"
     - "sales contract"
     - "contract of sale"
@@ -77,32 +76,144 @@ engine_expectations:
 classification_runtime_v1:
 
   scoring:
-    accept_threshold: 0.82
-    strong_signal_threshold: 0.90
-    ambiguity_margin: 0.22
+    accept_threshold: 0.76
+    strong_signal_threshold: 0.86
+    ambiguity_margin: 0.20
     input_quality_weight: 1.0
 
   rules:
 
     filename_patterns:
-      - "(?i)\\bкупли-?продажи\\b"
-      - "(?i)\\bдоговор[\\s_.-]*купли-?продажи\\b"
-      - "(?i)\\bsale[\\s_.-]*agreement\\b"
-      - "(?i)\\bpurchase[\\s_.-]*agreement\\b"
-      - "(?i)\\bgeneral[\\s_.-]*sale\\b"
-      - "(?i)договор[\\s_.-]*продажи(?!.*(поставк|розничн|недвижимост|аренд|лизинг))"
-      - "(?i)(?<![a-zA-Z])SPA(?![a-zA-Z])"
-      - "(?i)sale[\\s_.-]*and[\\s_.-]*purchase"
-      - "(?i)(?<![a-zA-Z])property(?![a-zA-Z])(?!.*real.estate)"
-      - "(?i)asset[s]?[\\s_.-]*sale"
-      - "(?i)asset[s]?[\\s_.-]*purchase"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*купли-?продажи\\b"
+        kind: generic_form
+        weight: 0.58
+        # Общая юридическая форма sale contract; недостаточна сама по себе для победы над специализированными sale-subtypes
+
+      - pattern: "(?i)\\bкупли-?продажи\\b"
+        kind: generic_form
+        weight: 0.52
+        # Базовая формула купли-продажи без указания предмета
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*продажи\\b"
+        kind: generic_form
+        weight: 0.48
+        # Общая форма договора продажи; subject не определён
+
+      - pattern: "(?i)\\bgeneral[\\s_.-]*sale\\b"
+        kind: specific_subject
+        weight: 0.82
+        # Явное указание, что документ относится именно к общему sale/fallback типу
+
+      - pattern: "(?i)\\bдвижим[а-яa-z]*[\\s_.-]*имуществ"
+        kind: specific_subject
+        weight: 0.88
+        # Прямое указание на movable property — сильный маркер в пользу general sale, а не real estate
+
+      - pattern: "(?i)\\bтовар[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.72
+        # Товар как типичный предмет общей купли-продажи; умеренно сильный маркер, но слабее supply-специфики
+
+      - pattern: "(?i)\\bимуществ[а-я]*\\b"
+        kind: context
+        weight: 0.34
+        # Имущество слишком широко: может встречаться в sale, lease, donation, transfer и т.п.
+
+      - pattern: "(?i)оборудовани[ея]\\b"
+        kind: specific_subject
+        weight: 0.74
+        # Оборудование типично для разовых/general sale сделок с движимым имуществом
+
+      - pattern: "(?i)материальн[а-я]*[\\s_.-]*ценност"
+        kind: specific_subject
+        weight: 0.72
+        # Материальные ценности / ТМЦ — хороший предметный сигнал общего имущественного sale
+
+      - pattern: "(?i)\\bТМЦ\\b"
+        kind: specific_subject
+        weight: 0.72
+        # Частый русский short-form для inventory / goods / tangible assets
+
+      - pattern: "(?i)\\bsale[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.48
+        # Общая англоязычная форма sale agreement
+
+      - pattern: "(?i)\\bpurchase[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.46
+        # Общая англоязычная форма purchase agreement
+
+      - pattern: "(?i)\\bsale[\\s_.-]*and[\\s_.-]*purchase[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.52
+        # Полная форма SPA без subject qualifier
+
+      - pattern: "(?i)\\bpurchase[\\s_.-]*and[\\s_.-]*sale[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.52
+        # PSA/APS без предметной конкретизации — generic, а не subject-specific
+
+      - pattern: "(?i)(?<![A-Za-z])SPA(?![A-Za-z])"
+        kind: generic_form
+        weight: 0.34
+        # SPA слишком неоднозначен: shares, assets, real estate, M&A и др.
+
+      - pattern: "(?i)\\bbill[\\s_.-]*of[\\s_.-]*sale\\b"
+        kind: generic_form
+        weight: 0.44
+        # Bill of sale часто связан с отчуждением движимого имущества, но не является строго уникальным маркером этого типа
+
+      - pattern: "(?i)asset[s]?[\\s_.-]*sale"
+        kind: context
+        weight: 0.38
+        # Asset sale нередко относится к structured deal / M&A; для general_sale слишком неоднозначно
+
+      - pattern: "(?i)asset[s]?[\\s_.-]*purchase"
+        kind: context
+        weight: 0.38
+        # Аналогично asset purchase: контекст сделки по активам, но не чистый маркер general sale
+
+      - pattern: "(?i)(?<![A-Za-z])property(?![A-Za-z])"
+        kind: context
+        weight: 0.22
+        # Property слишком широко; без explicit real/movable qualifier почти ничего не определяет
+
 
     folder_patterns:
-      - "(?i)sale"
-      - "(?i)purchase"
-      - "(?i)ownership"
-      - "(?i)transfer"
-      - "(?i)general[_\\s-]*sale"
+      - pattern: "(?i)general[_\\s-]*sale"
+        kind: specific_subject
+        weight: 0.76
+        # Папка явно размечена как general sale
+
+      - pattern: "(?i)movable[_\\s-]*property"
+        kind: specific_subject
+        weight: 0.72
+        # Явное указание на движимое имущество в folder taxonomy
+
+      - pattern: "(?i)goods"
+        kind: specific_subject
+        weight: 0.60
+        # Goods-folder — умеренный предметный маркер, но weaker than filename
+
+      - pattern: "(?i)sale"
+        kind: generic_form
+        weight: 0.30
+        # Слишком общая категория
+
+      - pattern: "(?i)purchase"
+        kind: generic_form
+        weight: 0.28
+
+      - pattern: "(?i)ownership"
+        kind: context
+        weight: 0.24
+        # Общий контекст transfer of ownership
+
+      - pattern: "(?i)transfer"
+        kind: context
+        weight: 0.22
+        # Общий контекст отчуждения/передачи
 
     keywords:
 
@@ -136,12 +247,6 @@ classification_runtime_v1:
           distinctiveness: high
           context: header
           description: "Соглашение о продаже имущества"
-
-        - pattern: "(?i)^\\s*sale\\s+and\\s+purchase\\s+agreement(?:\\s+of\\s+[\\w\\s]{1,40})?\\s*$"
-          weight: 0.9
-          distinctiveness: high
-          context: header
-          description: "Общая English-форма SPA без уточнения предмета"
 
         - pattern: "(?i)^\\s*sale\\s+agreement\\s*$"
           weight: 0.85

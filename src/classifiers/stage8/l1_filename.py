@@ -3,12 +3,11 @@
 """
 L1: Filename classifier с YAMLRegistry (Stage 8).
 
-
 Назначение:
 - Быстрый, «дешёвый» уровень классификации по имени файла и папки.
 - Использует регулярные выражения из YAML-конфигов типов документов.
-- Даёт сильный hint для очевидных случаев (например, 'SPA', 'SHA', 'Договор займа').
-
+- Даёт hint для очевидных случаев, но не должен доминировать над
+  более специфичными текстовыми сигналами из L2/L3.
 
 Источники правил:
 - YAMLRegistry загружает:
@@ -16,41 +15,33 @@ L1: Filename classifier с YAMLRegistry (Stage 8).
   - classification_runtime_v1.rules.folder_patterns
   - либо legacy rules.filename_patterns / rules.folder_patterns
 
-
-Как работает:
-- Для каждого типа документа берём список filename_patterns и folder_patterns
-  (это уже скомпилированные регулярные выражения re.Pattern).
-- Пробегаем по всем типам, матчим регулярные выражения против:
-  - полного имени файла (filename),
-  - полного пути к папке/каталогу (folder).
-- При наличии совпадений по типу добавляем кандидата:
+Поддерживаемые форматы правил:
+- legacy: list[str]
+- extended: list[dict], где каждый dict может содержать:
   {
-    "type_code": <код типа из YAML>,
-    "confidence": <рассчитанное значение>,
-    "level": "L1",
-    "method": "filename",
-    "details": {
-      "filename_matched": bool,
-      "folder_matched": bool,
-      "filename_hits": int,
-      "folder_hits": int,
-      "patterns_used": [str, ...],
-    },
+    "pattern": "...regex...",
+    "kind": "generic_form" | "specific_subject" | "context",
+    "weight": 1.0,
   }
-- Возвращаем список всех кандидатов, отсортированный по confidence по убыванию.
-
 
 Роль в каскаде:
 - L1 НЕ принимает финальное решение самостоятельно.
 - В HybridClassifier (Stage 8) L1 даёт подсказки (hint), которые
   учитываются при взвешенном голосовании вместе с L2 и L3.
+
+Ключевая идея:
+- generic form markers (например, "SPA") должны быть слабым сигналом;
+- specific subject markers ("real_estate", "factoring", "договор поставки")
+  должны быть сильнее generic;
+- если есть specific сигнал, generic не должен конкурировать с ним на равных.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List
 
-from ..yaml_registry import YAMLRegistry, DocumentTypeConfig
+from ..yaml_registry import YAMLRegistry
 from core.config import settings
 from core.logging import get_logger
 
@@ -64,11 +55,39 @@ class L1FilenameClassifier:
     Важно:
     - Этот уровень даёт только «подсказки» для каскада.
     - Ошибочное совпадение на L1 не фатально: его скорректируют L2 и L3.
+    - Generic filename-аббревиатуры сами по себе не должны давать
+      production-уровневую уверенность.
     """
 
     def __init__(self, registry: YAMLRegistry | None = None) -> None:
-        # Используем singleton по умолчанию, но даём возможность подменять в тестах.
         self._registry = registry or YAMLRegistry.get_instance()
+
+    @staticmethod
+    def _extract_rule_parts(rule: Any) -> tuple[re.Pattern | None, str, float, str]:
+        """
+        Нормализует правило из YAMLRegistry в единый runtime-вид.
+
+        Поддержка backward compatibility:
+        - legacy compiled regex: re.Pattern
+        - extended object: ожидается объект с .pattern / .kind / .weight / .raw_pattern
+
+        Возвращает:
+        - compiled_pattern
+        - rule_kind
+        - rule_weight
+        - raw_pattern_text
+        """
+        if hasattr(rule, "pattern") and isinstance(getattr(rule, "pattern"), re.Pattern):
+            compiled = getattr(rule, "pattern")
+            rule_kind = str(getattr(rule, "kind", "generic_form") or "generic_form")
+            rule_weight = float(getattr(rule, "weight", 1.0) or 1.0)
+            raw_pattern = str(getattr(rule, "raw_pattern", compiled.pattern))
+            return compiled, rule_kind, rule_weight, raw_pattern
+
+        if isinstance(rule, re.Pattern):
+            return rule, "generic_form", 1.0, rule.pattern
+
+        return None, "generic_form", 1.0, str(rule)
 
     def classify(self, filename: str | None, folder: str | None) -> List[Dict[str, Any]]:
         """
@@ -80,30 +99,26 @@ class L1FilenameClassifier:
 
         Поведение:
         - Если ни один паттерн не сработал, возвращаем пустой список.
-        - Если совпадения есть, каждый тип добавляется один раз, но с
-          учётом количества попаданий и того, где они произошли (filename/folder).
+        - Если совпадения есть, каждый тип добавляется один раз.
+        - confidence зависит не только от числа совпадений, но и от
+          типа сигнала: specific_subject > generic_form > context.
         """
         filename = (filename or "").strip()
         folder = (folder or "").strip()
 
         candidates: List[Dict[str, Any]] = []
 
-        # Если вообще нет ни имени, ни папки — классифицировать нечего.
         if not filename and not folder:
             return candidates
 
-        # Базовый уровень уверенности для L1 (можно регулировать в настройках)
         base_conf = float(getattr(settings, "CLASSIFICATION_L1_ACCEPT", 0.7))
 
-        # Перебираем все типы документов из реестра.
         for cfg in self._registry.get_all_configs():
-            # cfg: DocumentTypeConfig
             type_code: str = cfg.type_code
 
             filename_patterns = getattr(cfg, "filename_patterns", []) or []
             folder_patterns = getattr(cfg, "folder_patterns", []) or []
 
-            # Если ни одного паттерна нет, этот тип по L1 не участвует.
             if not filename_patterns and not folder_patterns:
                 continue
 
@@ -111,60 +126,94 @@ class L1FilenameClassifier:
             folder_hits = 0
             patterns_used: list[str] = []
 
-            # 1. Проверяем filename_patterns против имени файла.
-            for p in filename_patterns:
+            generic_hits = 0
+            generic_weight = 0.0
+            specific_hits = 0
+            specific_weight = 0.0
+            context_hits = 0
+            context_weight = 0.0
+
+            def _accumulate(rule_kind: str, rule_weight: float) -> None:
+                nonlocal generic_hits, generic_weight
+                nonlocal specific_hits, specific_weight
+                nonlocal context_hits, context_weight
+
+                if rule_kind == "specific_subject":
+                    specific_hits += 1
+                    specific_weight += rule_weight
+                elif rule_kind == "context":
+                    context_hits += 1
+                    context_weight += rule_weight
+                else:
+                    generic_hits += 1
+                    generic_weight += rule_weight
+
+            for rule in filename_patterns:
+                compiled, rule_kind, rule_weight, raw_pattern = self._extract_rule_parts(rule)
+                if compiled is None:
+                    continue
+
                 try:
-                    if filename and p.search(filename):
+                    if filename and compiled.search(filename):
                         filename_hits += 1
-                        patterns_used.append(getattr(p, "pattern", str(p)))
+                        patterns_used.append(raw_pattern)
+                        _accumulate(rule_kind, rule_weight)
                 except Exception as e:
                     logger.warning(
                         "Invalid filename pattern in YAMLRegistry",
                         extra={
-                            "pattern": getattr(p, "pattern", str(p)),
+                            "pattern": raw_pattern,
                             "type_code": type_code,
                             "error": str(e),
                         },
                     )
 
-            # 2. Проверяем folder_patterns против пути к папке.
-            for p in folder_patterns:
+            for rule in folder_patterns:
+                compiled, rule_kind, rule_weight, raw_pattern = self._extract_rule_parts(rule)
+                if compiled is None:
+                    continue
+
                 try:
-                    if folder and p.search(folder):
+                    if folder and compiled.search(folder):
                         folder_hits += 1
-                        patterns_used.append(getattr(p, "pattern", str(p)))
+                        patterns_used.append(raw_pattern)
+                        _accumulate(rule_kind, rule_weight * 0.75)
                 except Exception as e:
                     logger.warning(
                         "Invalid folder pattern in YAMLRegistry",
                         extra={
-                            "pattern": getattr(p, "pattern", str(p)),
+                            "pattern": raw_pattern,
                             "type_code": type_code,
                             "error": str(e),
                         },
                     )
 
-            # Если не было ни одного попадания — переходим к следующему типу.
             if filename_hits == 0 and folder_hits == 0:
                 continue
 
-            # ---- Расчёт confidence для L1 ----
             confidence = base_conf
 
-            # Матч по имени файла считаем более сильным, чем по папке.
-            if filename_hits > 0:
-                confidence += 0.1
-            elif folder_hits > 0:
-                # Если сработала только папка — лёгкий штраф.
-                confidence -= 0.05
+            if specific_hits > 0:
+                confidence = max(confidence, base_conf + 0.10)
+                confidence += min(specific_weight, 1.0) * 0.20
+                if generic_hits > 0:
+                    confidence += min(generic_weight, 0.5) * 0.05
+                if context_hits > 0:
+                    confidence += min(context_weight, 0.5) * 0.03
+                signal_kind = "specific_subject"
 
-            # Дополнительный буст за несколько попаданий по паттернам.
-            total_hits = filename_hits + folder_hits
-            extra_hits = max(total_hits - 1, 0)
-            if extra_hits > 0:
-                # Максимум +0.15 за мульти-хит, чтобы не разгонять выше 1.0.
-                confidence += 0.05 * min(extra_hits, 3)
+            elif generic_hits > 0:
+                confidence = min(max(confidence, 0.50 + min(generic_weight, 1.0) * 0.10), 0.65)
+                if context_hits > 0:
+                    confidence += min(context_weight, 0.5) * 0.02
+                signal_kind = "generic_form"
 
-            # Нормализация в диапазон [0.0, 1.0].
+            else:
+                confidence = min(confidence, 0.50)
+                if context_hits > 0:
+                    confidence += min(context_weight, 0.5) * 0.02
+                signal_kind = "context"
+
             confidence = max(0.0, min(1.0, confidence))
 
             candidates.append(
@@ -179,9 +228,36 @@ class L1FilenameClassifier:
                         "filename_hits": filename_hits,
                         "folder_hits": folder_hits,
                         "patterns_used": patterns_used,
+                        "signal_kind": signal_kind,
+                        "generic_hits": generic_hits,
+                        "specific_hits": specific_hits,
+                        "context_hits": context_hits,
+                        "generic_weight": round(generic_weight, 4),
+                        "specific_weight": round(specific_weight, 4),
+                        "context_weight": round(context_weight, 4),
                     },
                 }
             )
 
-        # Сортируем по убыванию confidence.
+        if not candidates:
+            return candidates
+
+        max_specific_conf = max(
+            (
+                c["confidence"]
+                for c in candidates
+                if c.get("details", {}).get("signal_kind") == "specific_subject"
+            ),
+            default=None,
+        )
+
+        if max_specific_conf is not None:
+            for c in candidates:
+                if c.get("details", {}).get("signal_kind") == "generic_form":
+                    c["confidence"] = min(c["confidence"], max_specific_conf - 0.10)
+                    c["confidence"] = max(0.0, c["confidence"])
+
         return sorted(candidates, key=lambda x: x["confidence"], reverse=True)
+    
+
+    

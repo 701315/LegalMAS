@@ -106,16 +106,241 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)коллективн[а-яё]*\\s*договор"
-      - "(?i)колдоговор"
-      - "(?i)collective[\\s_.-]?bargaining"
-      - "(?i)collective[\\s_.-]?agreement"
-      - "(?i)cba"
+      # Русский — явные коллективные договоры / соглашения
+
+      - pattern: "(?i)коллективн[ыйоеая][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+        # «коллективный договор», «коллективный трудовой договор» и вариации
+
+      - pattern: "(?i)коллективн[ыйоеая][_\\s-]*трудов[ыйое][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)колдоговор"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*трудов[оеое][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*между[_\\s-]*работодател[еемем][_\\s-]*и[_\\s-]*(работник[амиов]|трудов[ымым][_\\s-]*коллективом)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*работодател[яея][_\\s-]*и[_\\s-]*профсоюз[аов]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)профсоюзн[оеая][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*социальн[оы][_\\s-]*трудов[ыхые][_\\s-]*отношени[яхях]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*социальн[омом][_\\s-]*партнерств[еа]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия][_\\s-]*организаци[ии]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия][_\\s-]*предприяти[яия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коллективн[ыйое][_\\s-]*договор[_\\s-]*(организац[ииия]|филиал[аы]|представительств[ао]|предприяти[яия]|учреждени[яия])"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*по[_\\s-]*оплат[еы][_\\s-]*труд[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*по[_\\s-]*услови[ямях][_\\s-]*труд[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*по[_\\s-]*охран[еы][_\\s-]*труд[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Русские краткие маркеры
+
+      - pattern: "(?i)коллективн[ыйоеая][_\\s-]*договор"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)коллективн[оеая][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)колдоговор"
+        kind: specific_subject
+        weight: 0.98
+
+      # Английский — collective / union / enterprise bargaining
+
+      - pattern: "(?i)collective[_\\s-]*bargaining[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)collective[_\\s-]*labour[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)collective[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)collective[_\\s-]*employment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)union[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)trade[_\\s-]*union[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)enterprise[_\\s-]*bargaining[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)\\bEBA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)enterprise[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)workplace[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)industrial[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)industrial[_\\s-]*relations[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)workforce[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)works[_\\s-]*council[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)social[_\\s-]*partnership[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)sectoral[_\\s-]*collective[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)industry[-_\\s]*wide[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)company[_\\s-]*collective[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)framework[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)union[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)negotiated[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)master[_\\s-]*labor[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bMLA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bCBA\\b"
+        kind: specific_subject
+        weight: 0.98
+
+      # Короткие маркеры — generic/context
+
+      - pattern: "(?i)collective[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Может быть и просто коллективное соглашение акционеров; нужен трудовой контекст
+
+      - pattern: "(?i)collective[_\\s-]*bargaining"
+        kind: generic_form
+        weight: 0.7
+
+      - pattern: "(?i)labor[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)collective"
+        kind: context
+        weight: 0.4
 
     folder_patterns:
-      - "(?i)коллективн"
-      - "(?i)социальн[а-яё]*\\s*партнерств"
-      - "(?i)collective"
+      - pattern: "(?i)коллективн[ыйоеая]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка “коллективные договоры/соглашения”
+
+      - pattern: "(?i)колдоговор"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)социальн[оеая][_\\s-]*партнерств"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)collective[_\\s-]*agreements?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)collective[_\\s-]*bargaining"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)CBA[s]?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)union"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)industrial[_\\s-]*relations"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)labor"
+        kind: context
+        weight: 0.4
 
     keywords:
 

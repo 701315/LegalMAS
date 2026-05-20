@@ -70,22 +70,137 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)контрактаци[яи]"
-      - "(?i)contract[_\\s-]*farming"
-      - "(?i)agri[_\\s-]*contract"
-      - "(?i)agri[_\\s-]*procurement"
-      - "(?i)supply[_\\s-]*of[_\\s-]*agricultural[_\\s-]*products"
-      - "(?i)закупки?[_\\s-]*(?:сельхоз|сельскохозяйственн)[а-я]*[_\\s-]*продукци[ии]"
-      - "(?i)договор[_\\s-]*закупки[_\\s-]*зерн[ао]"
-      - "(?i)договор[_\\s-]*закупки[_\\s-]*(?:молок[ао]|мяс[ао]|скот[аоу]?|овощ[ейья]|фрукт[овы]?)"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*контрактаци[яи]\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора контрактации
+
+      - pattern: "(?i)\\bконтрактаци[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Базовый русский subject-marker данного типа
+
+      - pattern: "(?i)\\bcontract[\\s_.-]*farming(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.95
+        # Прямой англоязычный маркер contract farming
+
+      - pattern: "(?i)\\bcommodity[\\s_.-]*farming(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Поддерживаемая, но менее стандартная англоязычная форма
+
+      - pattern: "(?i)\\bagricultural[\\s_.-]*produce[\\s_.-]*(?:purchase|procurement)(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Agricultural produce purchase/procurement — хороший предметный маркер контрактации
+
+      - pattern: "(?i)\\bcrop[\\s_.-]*purchase(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Crop purchase agreement — специфичный маркер закупки урожая
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?закупк[а-я]*[\\s_.-]*(?:сельхоз|сельскохозяйственн)[а-я]*[\\s_.-]*продукци[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Прямая закупка сельскохозяйственной продукции
+
+      - pattern: "(?i)\\b(?:закупк[а-я]*|контрактаци[яи])[\\s_.-]*урожа[йя]\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Закупка/контрактация урожая — сильный subject-marker
+
+      - pattern: "(?i)\\b(?:сельхоз(?:продукци[а-я]*)?|сельскохозяйственн[а-я]*[\\s_.-]*продукци[а-я]*|урожа[йя])[\\s_.-]*на[\\s_.-]*корню\\b"
+        kind: specific_subject
+        weight: 0.93
+        # Закупка продукции/урожая на корню — очень характерный признак контрактации
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?закупк[а-я]*[\\s_.-]*(?:зерн[ао]|молок[ао]|мяс[ао]|скот[аоу]?|овощ[а-я]*|фрукт[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Закупка типичных сельхоз-товаров, перечисленных в supported doc types
+
+      - pattern: "(?i)(?=.*\\b(?:forward|форвардн[а-я]*)\\b)(?=.*\\b(?:agricultural|crop|grain|harvest|сельхоз|сельскохозяйственн|урожа[йя]|зерн[ао])\\b).*"
+        kind: specific_subject
+        weight: 0.80
+        # Forward agricultural / crop / harvest contract — поддерживаемый, но потенциально конфликтный с generic forward deal
+
+      - pattern: "(?i)\\bпоставк[аиу][\\s_.-]*зерн[ао][\\s_.-]*после[\\s_.-]*уборк[аи]\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Поставка зерна после уборки ближе к harvest procurement, чем к обычной supply
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?(?:на[\\s_.-]*)?поставк[аиу][\\s_.-]*(?:сельхоз|сельскохозяйственн)[а-я]*[\\s_.-]*продукци[а-я]*\\b"
+        kind: generic_form
+        weight: 0.58
+        # Формулировка из supported types, но слишком близка к goods_supply, поэтому не subject-specific
+
+      - pattern: "(?i)\\bsupply[\\s_.-]*of[\\s_.-]*agricultural[\\s_.-]*products?\\b"
+        kind: generic_form
+        weight: 0.56
+        # Англоязычная supply-форма для сельхозпродукции; учитываем осторожно из-за конфликта с supply
+
+      - pattern: "(?i)\\bgrain[\\s_.-]*supply(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: generic_form
+        weight: 0.54
+        # Grain supply agreement — поддерживаемая форма, но недостаточно специфична без иных agri-procurement сигналов
+
+      - pattern: "(?i)\\b(?:GAFTA|FOSFA)\\b"
+        kind: context
+        weight: 0.24
+        # Отраслевые commodity templates/forms, сами по себе не доказывают именно contract_farming
+
 
     folder_patterns:
-      - "(?i)контрактаци[яи]"
-      - "(?i)сельхоз"
-      - "(?i)selsk\\w*"
-      - "(?i)agri"
-      - "(?i)agro"
-      - "(?i)farming"
+      - pattern: "(?i)контрактаци[яи]"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка контрактации
+
+      - pattern: "(?i)contract[_\\s-]*farming"
+        kind: specific_subject
+        weight: 0.84
+        # Прямой англоязычный folder-marker
+
+      - pattern: "(?i)agricultural[_\\s-]*(?:produce|products)[_\\s-]*(?:purchase|procurement)"
+        kind: specific_subject
+        weight: 0.78
+        # Явная папка закупки сельхозпродукции
+
+      - pattern: "(?i)crop[_\\s-]*purchase|harvest[_\\s-]*purchase|закупк[а-я]*[_\\s-]*урожа[йя]"
+        kind: specific_subject
+        weight: 0.78
+        # Папка закупки урожая / crop purchase
+
+      - pattern: "(?i)forward[_\\s-]*(?:agricultural|crop|grain|harvest)|форвардн[а-я]*[_\\s-]*(?:урожа[йя]|зерн[ао]|сельхоз)"
+        kind: generic_form
+        weight: 0.58
+        # Forward agri-folder полезен, но возможен конфликт с более общими forward/commodity типами
+
+      - pattern: "(?i)supply[_\\s-]*(?:of[_\\s-]*)?(?:agricultural[_\\s-]*products?|grain)|поставк[а-я]*[_\\s-]*(?:сельхоз(?:продукц[а-я]*)?|зерн[ао])"
+        kind: generic_form
+        weight: 0.50
+        # Supply-taxonomy учитываем, но ослабляем из-за пересечения с goods_supply
+
+      - pattern: "(?i)сельхоз|сельскохозяйствен"
+        kind: context
+        weight: 0.30
+        # Слишком широкий отраслевой маркер
+
+      - pattern: "(?i)selsk\\w*|agri|agro"
+        kind: context
+        weight: 0.28
+        # Широкие отраслевые/translit-маркеры
+
+      - pattern: "(?i)farming|harvest|урожа[йя]"
+        kind: context
+        weight: 0.26
+        # Полезный, но не самодостаточный контекст
+
+      - pattern: "(?i)GAFTA|FOSFA"
+        kind: context
+        weight: 0.22
+        # Commodity-trade context, не уникален для contract_farming
 
     keywords:
 

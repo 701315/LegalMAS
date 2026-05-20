@@ -78,16 +78,175 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)лизинг"
-      - "(?i)финансов.*аренд"
-      - "(?i)leasing"
-      - "(?i)finance[\\s_.-]?lease"
-      - "(?i)лизингов"
+      # Русский – явные лизинговые договоры
+      - pattern: "(?i)договор[_\\s-]*лизинг[ауы]"
+        kind: specific_subject
+        weight: 1.0
+        # Классическое название договора лизинга
+
+      - pattern: "(?i)лизингов[ыйого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*финансов[ойой][_\\s-]*аренд[ыы]"
+        kind: specific_subject
+        weight: 0.98
+        # Финансовая аренда как эквивалент лизинга
+
+      - pattern: "(?i)договор[_\\s-]*финансов[огоой][_\\s-]*лизинг[ауы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*автолизинг[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*лизинг[ауы][_\\s-]*оборудовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*лизинг[ауы][_\\s-]*спецтехник[иы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*лизинг[ауы][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*возвратн[огоый][_\\s-]*лизинг[ауы]"
+        kind: specific_subject
+        weight: 0.95
+        # Возвратный лизинг (sale & leaseback)
+
+      - pattern: "(?i)договор[_\\s-]*международн[огоый][_\\s-]*лизинг[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*сублизинг[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*лизинг[ауы][_\\s-]*с[_\\s-]*правом[_\\s-]*выкуп[аау]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)лизинг[ауы]"
+        kind: specific_subject
+        weight: 0.85
+        # Одиночное "лизинг" в имени файла
+
+      - pattern: "(?i)лизингов[а-я]*"
+        kind: specific_subject
+        weight: 0.85
+
+      # Английский – finance/financial lease, leasing, hire purchase, sale & leaseback
+      - pattern: "(?i)finance[_\\s-]*lease[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 1.0
+        # Finance lease agreement – классическое название
+
+      - pattern: "(?i)financial[_\\s-]*lease[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)leasing[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Leasing agreement в корпоративном контексте
+
+      - pattern: "(?i)equipment[_\\s-]*leasing[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)vehicle[_\\s-]*lease[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Для этого типа трактуем vehicle lease как лизинг транспортных средств
+
+      - pattern: "(?i)commercial[_\\s-]*vehicle[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)lease[_\\s-]*financing[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Lease financing – явная конструкция финансовой аренды
+
+      - pattern: "(?i)sale[_\\s-]*and[_\\s-]*leaseback[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Sale and leaseback – типичный возвратный лизинг
+
+      - pattern: "(?i)lease[_\\s-]*back[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)hire[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Hire-purchase – англосаксонский аналог лизинговой конструкции
+
+      - pattern: "(?i)capital[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)leveraged[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.9
+
+      # Общие lease-формы – generic_form, чтобы не конфликтовать с обычной арендой
+      - pattern: "(?i)leasing"
+        kind: generic_form
+        weight: 0.5
+        # Голое 'leasing' без уточнения объекта/финансовой природы
+
+      - pattern: "(?i)lease"
+        kind: generic_form
+        weight: 0.4
+        # Одиночное 'lease' – может быть обычная аренда; приоритет остаётся у contract_2.1_lease
+
+      - pattern: "(?i)rent[\\s_.-]*agreement"
+        kind: context
+        weight: 0.3
+        # rent agreement – скорее аренда, а не лизинг; используем как слабый контекст при других сигналах
 
     folder_patterns:
-      - "(?i)лизинг"
-      - "(?i)leasing"
-      - "(?i)finance[\\s_]?lease"
+      - pattern: "(?i)лизинг"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "лизинг"
+
+      - pattern: "(?i)лизингов[а-я]*"
+        kind: specific_subject
+        weight: 0.8
+        # Лизинговые договоры / проекты
+
+      - pattern: "(?i)leasing"
+        kind: specific_subject
+        weight: 0.75
+        # Папка leasing в корпоративном контексте
+
+      - pattern: "(?i)finance[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)sale[_\\s-]*and[_\\s-]*leaseback"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)hire[_\\s-]*purchase"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)lease"
+        kind: generic_form
+        weight: 0.4
+        # Общая lease-папка: может содержать и обычную аренду
+
+      - pattern: "(?i)vehicle[_\\s-]*lease"
+        kind: context
+        weight: 0.4
+        # Vehicle lease как более широкий контекст (аренда/лизинг ТС)
 
     keywords:
 

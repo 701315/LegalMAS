@@ -73,15 +73,194 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)за[её]м"
-      - "(?i)займ"
-      - "(?i)loan"
-      - "(?i)расписк"
+      # Русский — явные договоры займа / расписки
+
+      - pattern: "(?i)договор[_\\s-]*за[её]ма"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор займа
+
+      - pattern: "(?i)договор[_\\s-]*денежн[огоой][_\\s-]*за[её]ма"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*процентн[огоой][_\\s-]*за[её]ма"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*беспроцентн[огоой][_\\s-]*за[её]ма"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*целев[огоой][_\\s-]*за[её]ма"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*между[_\\s-]*юридическ[имиими][_\\s-]*лиц[аеи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*между[_\\s-]*физическ[имиими][_\\s-]*лиц[аеи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*между[_\\s-]*ИП"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*в[_\\s-]*иностранн[ойой][_\\s-]*валют[ееи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*за[её]ма[_\\s-]*вещ[ейй][_\\s-]*определенн[ыхые][_\\s-]*родовым[иими][_\\s-]*признакам[иами]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*конвертируем[огоой][_\\s-]*за[её]ма"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)за[её]м[_\\s-]*учредител[яей]"
+        kind: specific_subject
+        weight: 0.95
+        # Заём учредителя
+
+      - pattern: "(?i)расписк[аы][_\\s-]*о[_\\s-]*за[её]ме"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)долгова[яэй][_\\s-]*расписк[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)расписк[аы].*получен[ияи][_\\s-]*денежн[ыхые][_\\s-]*средств"
+        kind: specific_subject
+        weight: 0.9
+
+      # Краткие русские маркеры с уточнением договора/расписки
+
+      - pattern: "(?i)договор[_\\s-]*за[её]м[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)за[её]м[ауы][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*займ[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)расписк[аы]"
+        kind: specific_subject
+        weight: 0.85
+        # Почти всегда долговая расписка, но оставляем немного ниже максимумов
+
+      # Английский — loan agreements / notes / facility
+
+      - pattern: "(?i)loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)convertible[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)shareholder[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)subordinated[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)intercompany[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)bridge[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)mezzanine[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)demand[_\\s-]*loan[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)promissory[_\\s-]*note"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)loan[_\\s-]*note[_\\s-]*instrument"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)note[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)facility[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # В банковской практике — кредитная/займовая линия
+
+      - pattern: "(?i)\\bIOU\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      # Общие loan/credit/cash — generic/context, чтобы не перехватывать всё подряд
+
+      - pattern: "(?i)loan"
+        kind: generic_form
+        weight: 0.6
+        # Голое 'loan' без agreement/contract – поддерживающий сигнал
+
+      - pattern: "(?i)credit[_\\s-]*facility"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)за[её]м"
+        kind: generic_form
+        weight: 0.6
+        # Просто 'заём' в имени файла без слова 'договор/расписка' – требует поддержки L2/L3
+
+      - pattern: "(?i)займ"
+        kind: generic_form
+        weight: 0.6
 
     folder_patterns:
-      - "(?i)loan"
-      - "(?i)за[её]м"
-      - "(?i)займ"
+      - pattern: "(?i)за[её]м[ыы]?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "займы/займ"
+
+      - pattern: "(?i)займ"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)loan[s]?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)intercompany[_\\s-]*loans?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)shareholder[_\\s-]*loans?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)debt"
+        kind: context
+        weight: 0.4
+        # Общий долг, может содержать и облигации/кредиты
+
+      - pattern: "(?i)financing"
+        kind: context
+        weight: 0.4
 
     keywords:
 

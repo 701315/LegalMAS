@@ -80,19 +80,250 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)поручительств"
-      - "(?i)залог"
-      - "(?i)ипотек"
-      - "(?i)pledge"
-      - "(?i)guarant"
-      - "(?i)surety"
+      # Русский — поручительство
+
+      - pattern: "(?i)договор[_\\s-]*поручительств[аы]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор поручительства
+
+      - pattern: "(?i)договор[_\\s-]*поручительств[аы][_\\s-]*по[_\\s-]*кредит[ууа]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*поручительств[аы][_\\s-]*по[_\\s-]*договор[ууа][_\\s-]*поставк[ии]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*поручител[яей]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)поручительств[оа][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)поручительств[оа]"
+        kind: generic_form
+        weight: 0.6
+        # “Поручительство” без слова “договор” — поддерживающий сигнал (могут быть и иски/письма)
+
+      # Русский — залог / ипотека
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор залога
+
+      - pattern: "(?i)договор[_\\s-]*ипотек[ии]"
+        kind: specific_subject
+        weight: 1.0
+        # Договор ипотеки
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*движим[огоой][_\\s-]*имуществ[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*прав[_\\s-]*требовани[яия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*дол[иьи]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*последующ[егоий][_\\s-]*залог[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*товар[овы][_\\s-]*в[_\\s-]*оборот[ееи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*товарн[огоой][_\\s-]*знак[аа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*акци[ийй]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*залог[ауы][_\\s-]*облигац[ийй]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)залог[ауы][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)ипотек[аы][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)залог[ауы]"
+        kind: generic_form
+        weight: 0.6
+        # “Залог” без “договор” – могут быть и судебные акты/уведомления, оставляем как generic
+
+      - pattern: "(?i)ипотек[аы]"
+        kind: generic_form
+        weight: 0.6
+
+      # Русский — обеспечительный/security/коллатеральный пакет
+
+      - pattern: "(?i)договор[_\\s-]*обеспечен[ияи][_\\s-]*исполнен[ияи]"
+        kind: specific_subject
+        weight: 0.9
+        # Общий “договор обеспечения” из doc_types_supported
+
+      - pattern: "(?i)договор[_\\s-]*обеспечен[ияи][_\\s-]*обязательств[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — guarantee / surety / pledge / security / charge / mortgage
+
+      - pattern: "(?i)guarantee[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)surety(ship)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*guarantee"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)pledge[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)security[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)security[_\\s-]*package[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*charge"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)mortgage[_\\s-]*deed"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)debenture"
+        kind: specific_subject
+        weight: 0.95
+        # В английском праве debenture обычно включает fixed/floating charge
+
+      - pattern: "(?i)floating[_\\s-]*charge"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)fixed[_\\s-]*charge"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)hypothecation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)pledge[_\\s-]*over[_\\s-]*bank[_\\s-]*account"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)collateral[_\\s-]*management[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)indemnity[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # В банковском/финансовом контексте часто часть security package
+
+      # Банковские гарантии / standby LC как обеспечительные
+
+      - pattern: "(?i)standby[_\\s-]*letter[_\\s-]*of[_\\s-]*credit"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bSBLC\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)independent[_\\s-]*guarantee"
+        kind: specific_subject
+        weight: 0.9
+
+      # Общие guarantee/pledge/security/collateral – generic/context
+
+      - pattern: "(?i)guarant(ee|y)"
+        kind: generic_form
+        weight: 0.6
+        # Без слова agreement/deed — поддерживающий сигнал
+
+      - pattern: "(?i)pledge"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)security"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)collateral"
+        kind: generic_form
+        weight: 0.55
 
     folder_patterns:
-      - "(?i)security"
-      - "(?i)collateral"
-      - "(?i)pledge"
-      - "(?i)залог"
-      - "(?i)поручительств"
+      - pattern: "(?i)поручительств"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с поручительствами
+
+      - pattern: "(?i)залог"
+        kind: specific_subject
+        weight: 0.8
+        # Папка залоговых договоров
+
+      - pattern: "(?i)ипотек"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)security"
+        kind: specific_subject
+        weight: 0.8
+        # Папка security / security package
+
+      - pattern: "(?i)collateral"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)pledge"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)guarantee"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)debenture"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)mortgage"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)SBLC"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)charge"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

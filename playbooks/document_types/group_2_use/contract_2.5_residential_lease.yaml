@@ -78,15 +78,172 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)найм.*жил"
-      - "(?i)наем.*квартир"
-      - "(?i)rental.*agreement"
-      - "(?i)residential.*lease"
+      # Русский — явный жилой найм / аренда жилья
+      - pattern: "(?i)договор[_\\s-]*найм[ауы][_\\s-]*жил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор найма жилого помещения
+
+      - pattern: "(?i)договор[_\\s-]*найм[ауы][_\\s-]*квартир[ыы]"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*найм[ауы][_\\s-]*комнат[ыы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*найм[ауы][_\\s-]*жил[а-я\\s]*дом"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*найм[ауы][_\\s-]*жиль[яа]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*коммерческ[огоой][_\\s-]*найм[ауы][_\\s-]*жил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 0.98
+        # Коммерческий найм жилого помещения
+
+      - pattern: "(?i)договор[_\\s-]*краткосрочн[огоой][_\\s-]*найм[ауы][_\\s-]*жиль[яа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*найм[ауы][_\\s-]*апартамент[аоы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*поднайм[ауы][_\\s-]*жил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 0.95
+        # Поднайм жилого помещения
+
+      - pattern: "(?i)договор[_\\s-]*сдач[ии][_\\s-]*квартир[ыы][_\\s-]*в[_\\s-]*наем"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*квартир[ыы]"
+        kind: specific_subject
+        weight: 0.95
+        # Форма "аренда квартиры" юридически всё равно попадает в этот тип
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*жил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*жиль[яа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*комнат[ыы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*жил[а-я\\s]*дом"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*квартир[ыы][_\\s-]*посуточн[оа]"
+        kind: specific_subject
+        weight: 0.95
+        # Посуточная аренда квартиры
+
+      - pattern: "(?i)найм.*жил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 0.9
+        # Более свободный паттерн на русском
+
+      - pattern: "(?i)аренд[аы].*квартир[ыы]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — residential / apartment / house / rental
+      - pattern: "(?i)residential[_\\s-]*lease[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)residential[_\\s-]*tenancy[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)apartment[_\\s-]*lease[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)apartment[_\\s-]*rental[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)house[_\\s-]*rental[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)lease[_\\s-]*of[_\\s-]*residential[_\\s-]*premises"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)short[_\\s-]*term[_\\s-]*rental[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Краткосрочный жилой найм
+
+      - pattern: "(?i)vacation[_\\s-]*rental[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)sublease[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+        # Для этого типа интерпретируем sublease как поднайм жилья, если L2/L3 дают жилой контекст
+
+      # Общие rental/lease — generic/context, чтобы не убивать commercial lease
+      - pattern: "(?i)rental[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.5
+        # Без residential/apartment/house/joined контекста это ещё не гарантированно жильё
+
+      - pattern: "(?i)tenancy[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.55
+        # Может быть и коммерческая tenancy, L2/L3 должны уточнить контекст
+
+      - pattern: "(?i)residential"
+        kind: context
+        weight: 0.35
+        # 'Residential' в имени файла — слабый, но полезный контекст
 
     folder_patterns:
-      - "(?i)найм"
-      - "(?i)аренда.*жилья"
-      - "(?i)residential"
+      - pattern: "(?i)найм"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "найм" в жилищном контексте
+
+      - pattern: "(?i)аренд[аы].*жиль[яа]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "аренда жилья"
+
+      - pattern: "(?i)аренд[аы].*квартир[ыы]"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)residential"
+        kind: specific_subject
+        weight: 0.75
+        # residential-папка для договоров
+
+      - pattern: "(?i)apartment[s]?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)rental"
+        kind: generic_form
+        weight: 0.5
+        # Общая rental-папка: может содержать и коммерческую аренду
+
+      - pattern: "(?i)tenancy"
+        kind: generic_form
+        weight: 0.5
 
     keywords:
 

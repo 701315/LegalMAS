@@ -89,18 +89,172 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)услуг"
-      - "(?i)service"
-      - "(?i)консалтинг"
-      - "(?i)аутсорсинг"
-      - "(?i)обслуживан"
-      - "(?i)сервисн"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*возмездн[а-я]*[\\s_.-]*оказани[а-я]*[\\s_.-]*услуг\\b"
+        kind: generic_form
+        weight: 0.72
+        # Базовая юридическая форма service contract; для parent-типа это generic, а не subject-specific
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*услуг\\b"
+        kind: generic_form
+        weight: 0.66
+        # Общая форма договора оказания услуг
+
+      - pattern: "(?i)\\bservices?[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.60
+        # Общая англоязычная форма services agreement
+
+      - pattern: "(?i)\\b(?:master|professional|framework)[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.64
+        # MSA / PSA / framework services — типовая рамочная форма service contracts
+
+      - pattern: "(?i)(?<![A-Za-z])MSA(?![A-Za-z])"
+        kind: generic_form
+        weight: 0.34
+        # MSA сам по себе слишком неоднозначен и часто требует дополнительных service-markers
+
+      - pattern: "(?i)\\b(?:абонентск[а-я]*[\\s_.-]*договор(?:[\\s_.-]*на[\\s_.-]*услуг[аи])?|retainer[\\s_.-]*agreement)\\b"
+        kind: generic_form
+        weight: 0.58
+        # Абонентская / retainer-модель характерна для услуг, но не уникальна для конкретного service subtype
+
+      - pattern: "(?i)\\b(?:service[\\s_.-]*level[\\s_.-]*agreement|statement[\\s_.-]*of[\\s_.-]*work)\\b"
+        kind: generic_form
+        weight: 0.42
+        # SLA / SOW часто используются в service-family, но нередко являются приложениями/рамочными документами
+
+      - pattern: "(?i)(?<![A-Za-z])SLA(?![A-Za-z])"
+        kind: context
+        weight: 0.16
+        # SLA как аббревиатура слишком коротка и неоднозначна
+
+      - pattern: "(?i)(?<![A-Za-z])SOW(?![A-Za-z])"
+        kind: context
+        weight: 0.14
+        # SOW — полезный, но очень неоднозначный структурный маркер
+
+      - pattern: "(?i)\\b(?:консалтингов(?:ый|ого)?[\\s_.-]*договор|договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*консультационн[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*консультационн[а-я]*[\\s_.-]*услуг|consulting[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.82
+        # Консультационные / consulting services — предметно service-oriented, но не рамочная форма
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*аутсорсинга|outsourcing[\\s_.-]*agreement|business[\\s_.-]*process[\\s_.-]*outsourcing[\\s_.-]*agreement|BPO[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Outsourcing / BPO — сильный service-model marker
+
+      - pattern: "(?i)\\b(?:managed[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|support[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|maintenance[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|technical[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.80
+        # Managed/support/maintenance/technical services — хорошие предметные service markers
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?обслуживани[а-я]*|договор[\\s_.-]*обслуживания|сервисн[а-я]*[\\s_.-]*договор|договор[\\s_.-]*техническ[а-я]*[\\s_.-]*поддержк[аи])\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Обслуживание / technical support / сервисный договор — типичные service-subject forms
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*юридическ[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*юридическ[а-я]*[\\s_.-]*услуг|legal[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Юридические услуги — supported subtype внутри service family
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*маркетингов[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*маркетингов[а-я]*[\\s_.-]*услуг|marketing[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Маркетинговые услуги — предметный service marker
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*(?:IT|it|ИТ|ит)[\\s_.-]*услуг|договор[\\s_.-]*(?:IT|it|ИТ|ит)[\\s_.-]*услуг|IT[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?|managed[\\s_.-]*IT[\\s_.-]*services?)\\b"
+        kind: specific_subject
+        weight: 0.78
+        # IT-услуги — частый service subtype, но всё ещё внутри family услуг
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*аудиторск[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*аудиторск[а-я]*[\\s_.-]*услуг|audit(?:ing)?[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Аудиторские услуги — supported service subtype
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*образовательн[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*образовательн[а-я]*[\\s_.-]*услуг|educational[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.76
+        # Образовательные услуги — supported subtype
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*(?:на[\\s_.-]*)?оказани[а-я]*[\\s_.-]*охранн[а-я]*[\\s_.-]*услуг|договор[\\s_.-]*охранн[а-я]*[\\s_.-]*услуг|security[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.78
+        # Охранные услуги — supported subtype
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*клининга|cleaning[\\s_.-]*services?[\\s_.-]*(?:agreement|contract)?)\\b"
+        kind: specific_subject
+        weight: 0.74
+        # Клининг / cleaning services — явный service subject
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аутстаффинга\\b|\\boutstaffing[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.50
+        # Аутстаффинг поддерживается, но может конкурировать с более специализированными personnel/staffing типами
+
+      - pattern: "(?i)\\bуслуг\\b"
+        kind: context
+        weight: 0.18
+        # Само слово "услуг" слишком общее
+
+      - pattern: "(?i)\\bservice(?:s)?\\b"
+        kind: context
+        weight: 0.16
+        # Service/services без qualifier слишком широки
+
 
     folder_patterns:
-      - "(?i)услуг"
-      - "(?i)service"
-      - "(?i)консалтинг"
-      - "(?i)аутсорсинг"
+      - pattern: "(?i)услуг|оказани[ея][_\\s-]*услуг|services?"
+        kind: generic_form
+        weight: 0.54
+        # Общая service taxonomy папок
+
+      - pattern: "(?i)(?:master|professional|framework|managed|support|maintenance|technical)[_\\s-]*services?"
+        kind: generic_form
+        weight: 0.58
+        # Типовые англоязычные service-family папки
+
+      - pattern: "(?i)консалтинг|consulting|консультационн[а-я]*[_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.76
+        # Consulting taxonomy — предметный service marker
+
+      - pattern: "(?i)аутсорсинг|outsourcing|business[_\\s-]*process[_\\s-]*outsourcing|BPO"
+        kind: specific_subject
+        weight: 0.80
+        # Outsourcing / BPO папки
+
+      - pattern: "(?i)обслуживани[ея]|сервис|техническ[а-я]*[_\\s-]*поддержк|support[_\\s-]*services?|maintenance[_\\s-]*services?"
+        kind: specific_subject
+        weight: 0.74
+        # Service operations / support / maintenance taxonomy
+
+      - pattern: "(?i)юридическ[а-я]*[_\\s-]*услуг|маркетингов[а-я]*[_\\s-]*услуг|аудиторск[а-я]*[_\\s-]*услуг|образовательн[а-я]*[_\\s-]*услуг|охранн[а-я]*[_\\s-]*услуг|(?:IT|it|ИТ|ит)[_\\s-]*услуг|клининг|legal[_\\s-]*services?|marketing[_\\s-]*services?|audit(?:ing)?[_\\s-]*services?|educational[_\\s-]*services?|security[_\\s-]*services?|cleaning[_\\s-]*services?"
+        kind: specific_subject
+        weight: 0.70
+        # Предметные service subtypes из supported doc types
+
+      - pattern: "(?i)retainer|абонентск[а-я]*[_\\s-]*договор"
+        kind: generic_form
+        weight: 0.48
+        # Retainer / subscription-like service folders
+
+      - pattern: "(?i)service[_\\s-]*level[_\\s-]*agreement|statement[_\\s-]*of[_\\s-]*work"
+        kind: generic_form
+        weight: 0.40
+        # SLA / SOW в taxonomy папок полезны, но не самодостаточны
+
+      - pattern: "(?i)(?<![A-Za-z])MSA(?![A-Za-z])|(?<![A-Za-z])SLA(?![A-Za-z])|(?<![A-Za-z])SOW(?![A-Za-z])"
+        kind: context
+        weight: 0.14
+        # Короткие аббревиатуры слишком неоднозначны без дополнительных сигналов
+
+      - pattern: "(?i)service|services"
+        kind: context
+        weight: 0.16
+        # Слишком общий folder-marker
 
     keywords:
 

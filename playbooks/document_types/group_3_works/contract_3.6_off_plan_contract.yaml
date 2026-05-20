@@ -84,16 +84,200 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)дду"
-      - "(?i)долев.*строительств"
-      - "(?i)ddu"
-      - "(?i)dolev.*"
+      # Русские маркеры ДДУ / долевого участия
+
+      - pattern: "(?i)договор[_\\s-]*участия[_\\s-]*в[_\\s-]*долев[омом][_\\s-]*строительств[еа]"
+        kind: specific_subject
+        weight: 1.0
+        # Классическое полное наименование ДДУ
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*участия"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*строительств[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*участия[_\\s-]*в[_\\s-]*строительств[еа][_\\s-]*жиль[яа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*участия[_\\s-]*в[_\\s-]*строительств[еа][_\\s-]*объект[ао][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*строительств[ао][_\\s-]*по[_\\s-]*214[_\\s-]*фз"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*участия[_\\s-]*по[_\\s-]*(?:214[_\\s-]*фз|фз[_\\s-]*214)"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*по[_\\s-]*214[_\\s-]*фз"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*строительств[ао][_\\s-]*по[_\\s-]*214[_\\s-]*фз"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*участия[_\\s-]*по[_\\s-]*фз[_\\s-]*214"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)ДДУ"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)\\bDДУ\\b"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)\\bDDU\\b"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)дду[_\\s-]*по[_\\s-]*214[_\\s-]*фз"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)эскроу[_\\s-]*ДДУ"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)ДДУ[_\\s-]*с[_\\s-]*эскроу"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*участия[_\\s-]*с[_\\s-]*использовани[емя][_\\s-]*сч[её]та[_\\s-]*эскроу"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*участия[_\\s-]*в[_\\s-]*долев[омом][_\\s-]*строительств[еа][_\\s-]*с[_\\s-]*эскроу"
+        kind: specific_subject
+        weight: 0.98
+
+      # Формулировки "договор с застройщиком" в новостройках
+
+      - pattern: "(?i)договор[_\\s-]*с[_\\s-]*застройщик[оа][м]?[_\\s-]*на[_\\s-]*квартир[уые][_\\s-]*в[_\\s-]*новостройк[еа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*приобретени[яия][_\\s-]*квартир[ыы][_\\s-]*в[_\\s-]*новостройк[еа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*покупк[ии][_\\s-]*квартир[ыы][_\\s-]*в[_\\s-]*строящ[еия][мс][_\\s-]*дом[еу]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*строящ[еия][йм][_\\s-]*недвижимост[ьию]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*объект[_\\s-]*долев[огоой][_\\s-]*строительств[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*приобретени[яия][_\\s-]*объект[ао][_\\s-]*долев[огоой][_\\s-]*строительств[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*приобретени[яия][_\\s-]*апартамент[аоы][_\\s-]*в[_\\s-]*строящ[еия][мс][_\\s-]*объект[еа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*будущ[уюего][_\\s-]*недвижимост[ьию]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*будущ[ийего][_\\s-]*объект[_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*участия[_\\s-]*в[_\\s-]*строительств[еа]"
+        kind: specific_subject
+        weight: 0.9
+        # Более общий, но в сочетании с 214‑ФЗ/новостройкой усилит ДДУ
+
+      - pattern: "(?i)договор[_\\s-]*долев[огоой][_\\s-]*инвестировани[яия][_\\s-]*в[_\\s-]*строительств[оа]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)инвестиционн[ыйого][_\\s-]*договор[_\\s-]*на[_\\s-]*квартир[ууы][_\\s-]*в[_\\s-]*новостройк[еа]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — off-plan / pre-construction / unit purchase
+
+      - pattern: "(?i)off[_\\s-]*plan[_\\s-]*(sales?|purchase)[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)pre[_\\s-]*construction[_\\s-]*(sale|purchase)[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)unit[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие dolев/214-ФЗ — generic/context, чтобы не ловить, например, иски/досудебку
+
+      - pattern: "(?i)долев[оеой]"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)214[_\\s-]*фз"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)новостройк[аи]"
+        kind: context
+        weight: 0.4
+
+      - pattern: "(?i)эскроу"
+        kind: context
+        weight: 0.4
 
     folder_patterns:
-      - "(?i)214.?фз"
-      - "(?i)долев.*строительств"
-      - "(?i)новостройк"
-      - "(?i)дду"
+      - pattern: "(?i)дду"
+        kind: specific_subject
+        weight: 0.8
+        # Папка под ДДУ
+
+      - pattern: "(?i)214[_\\s-]*фз"
+        kind: specific_subject
+        weight: 0.8
+        # Папка по 214‑ФЗ
+
+      - pattern: "(?i)долев[оеой][_\\s-]*строительств[оа]"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)долев[оеой][_\\s-]*участие"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)новостройк[аи]"
+        kind: specific_subject
+        weight: 0.75
+        # Папка "новостройки"
+
+      - pattern: "(?i)эскроу"
+        kind: specific_subject
+        weight: 0.75
+        # Папка по эскроу ДДУ/счетам, если в ней лежат договоры
+
+      - pattern: "(?i)off[_\\s-]*plan"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)pre[_\\s-]*construction"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

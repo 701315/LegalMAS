@@ -77,18 +77,218 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)перевозк"
-      - "(?i)transport"
-      - "(?i)carrier"
-      - "(?i)freight"
-      - "(?i)cargo"
-      - "(?i)логист"
+      # Русский — явные договоры перевозки груза
+
+      - pattern: "(?i)договор[_\\s-]*перевозк[иия][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор перевозки груза
+
+      - pattern: "(?i)договор[_\\s-]*автомобил[ьнойая][_\\s-]*перевозк[иия][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*железнодорожн[ойая][_\\s-]*перевозк[иия][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*воздушн[ойая][_\\s-]*перевозк[иия][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*морск[ойая][_\\s-]*перевозк[иия][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*перевозк[иия][_\\s-]*груз[аов][_\\s-]*автомобил[ьнымым][_\\s-]*транспортом"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*перевозк[иия][_\\s-]*груз[аов][_\\s-]*железнодорожн[ымым][_\\s-]*транспортом"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*перевозк[иия][_\\s-]*груз[аов][_\\s-]*внутренн[ымым][_\\s-]*водн[ымым][_\\s-]*транспортом"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*морск[ойая][_\\s-]*перевозк[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*железнодорожн[ойая][_\\s-]*перевозк[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*автомобил[ьнойая][_\\s-]*перевозк[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*воздушн[ойая][_\\s-]*перевозк[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*мультимодальн[ойая][_\\s-]*перевозк[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*организаци[ии][_\\s-]*перевозок[_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*фрахтовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+        # Фрахтование судна/места для перевозки грузов
+
+      - pattern: "(?i)договор[_\\s-]*перевозк[иия][_\\s-]*сборн[ыхые][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)транспортн[ыйое][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+        # "транспортный договор" в корпусе почти всегда про перевозки
+
+      - pattern: "(?i)рамочн[ыйое][_\\s-]*договор[_\\s-]*перевозк[иия]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более короткие русские маркеры с уточнением грузов
+
+      - pattern: "(?i)перевозк[аи][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)перевозк[аи][_\\s-]*сборн[ыхые][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — carriage / freight / shipping / transport of goods
+
+      - pattern: "(?i)contract[_\\s-]*of[_\\s-]*carriage"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)carriage[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)carriage[_\\s-]*of[_\\s-]*goods"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)freight[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)freight[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)shipping[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)transport[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Transport services в логистическом контексте
+
+      - pattern: "(?i)multimodal[_\\s-]*transport[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)charterparty[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Charterparty — фрахтовый контракт морской перевозки
+
+      # Документы перевозки, которые используются как договорные формы
+
+      - pattern: "(?i)bill[_\\s-]*of[_\\s-]*lading"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)sea[_\\s-]*waybill"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)air[_\\s-]*waybill"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bAWB\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bCMR\\b"
+        kind: specific_subject
+        weight: 0.9
+        # CMR — международная автоперевозка грузов
+
+      # Более общие слова transport/logistics — generic/context, чтобы не захватывать всё подряд
+
+      - pattern: "(?i)transport"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)carrier"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)cargo"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)логист"
+        kind: context
+        weight: 0.4
+
+      - pattern: "(?i)перевозк[аи]"
+        kind: generic_form
+        weight: 0.6
+        # Просто "перевозка" без слова "груза" — усилит тип, но не решит его сам по себе
 
     folder_patterns:
-      - "(?i)перевозк"
-      - "(?i)transport"
-      - "(?i)логист"
-      - "(?i)freight"
+      - pattern: "(?i)перевозк[аи]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "перевозки"
+
+      - pattern: "(?i)перевозк[аи][_\\s-]*груз[аов]"
+        kind: specific_subject
+        weight: 0.85
+        # Папка перевозки грузов
+
+      - pattern: "(?i)logistics"
+        kind: specific_subject
+        weight: 0.75
+        # Логистический контекст, часто именно про перевозку
+
+      - pattern: "(?i)freight"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)transport"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)cargo"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)shipping"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)CMR"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)carriage"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

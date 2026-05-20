@@ -66,17 +66,127 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)алиментн[а-яё]*\\s*(соглашени|договор)"
-      - "(?i)соглашени[а-яё]*\\s+об\\s+уплате\\s+алимент"
-      - "(?i)child[\\s_.-]?support"
-      - "(?i)alimony[\\s_.-]?agreement"
-      - "(?i)maintenance[\\s_.-]?agreement"
+      # Русский — алиментные соглашения
+
+      - pattern: "(?i)алиментн[оеаяый][_\\s-]*(соглашени[еия]|договор)"
+        kind: specific_subject
+        weight: 1.0
+        # «алиментное соглашение», «алиментный договор»
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*алимент[ахы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*несовершеннолетн[егоую][_\\s-]*ребенк[аа]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*нетрудоспособн[огоую][_\\s-]*совершеннолетн[егоую][_\\s-]*ребенк[аа]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*супруг[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*родител[яея]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*уплат[еы][_\\s-]*алимент[_\\s-]*на[_\\s-]*ин[оеы][_\\s-]*член[аы][_\\s-]*семь[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*алимент[ахы][_\\s-]*на[_\\s-]*ребенк[аа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*алимент[ахы][_\\s-]*на[_\\s-]*супруг[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*об[_\\s-]*индексац[иии][_\\s-]*алимент"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)медиативн[оеое][_\\s-]*соглашени[еия][_\\s-]*по[_\\s-]*алимент[амы]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Краткий русский маркер
+
+      - pattern: "(?i)алимент[ыы][_\\s-]*(соглашени[еия]|договор)"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)алимент"
+        kind: generic_form
+        weight: 0.6
+        # Само слово "алимент" без "соглашение/договор" – поддержка (может быть иск, решение суда)
+
+      # Английский — child support / alimony / maintenance (семейный контекст)
+
+      - pattern: "(?i)child[_\\s-]*support[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)alimony[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)maintenance[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)family[_\\s-]*support[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)agreement[_\\s-]*for[_\\s-]*maintenance[_\\s-]*of[_\\s-]*dependants?"
+        kind: specific_subject
+        weight: 0.95
+
+      # Короткие маркеры — generic/context
+
+      - pattern: "(?i)child[\\s_.-]?support"
+        kind: generic_form
+        weight: 0.7
+
+      - pattern: "(?i)alimony"
+        kind: generic_form
+        weight: 0.7
+
+      - pattern: "(?i)maintenance"
+        kind: generic_form
+        weight: 0.55
+        # Может быть и commercial maintenance (equipment), поэтому мягко
 
     folder_patterns:
-      - "(?i)алимент"
-      - "(?i)семейн"
-      - "(?i)family[\\s_]?law"
-      - "(?i)child[\\s_]?support"
+      - pattern: "(?i)алимент"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с алиментами
+
+      - pattern: "(?i)семейн[оеая][_\\s-]*право?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)family[_\\s-]*law"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)child[_\\s-]*support"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)maintenance"
+        kind: context
+        weight: 0.4
+        # Папка maintenance в семейном контексте помогает, но сама по себе не решает
 
     keywords:
 

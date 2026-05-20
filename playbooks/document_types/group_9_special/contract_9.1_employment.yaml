@@ -76,15 +76,142 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)трудов[а-яё]*\\s*(договор|контракт)"
-      - "(?i)employment[\\s_.-]?(contract|agreement)"
-      - "(?i)work[\\s_.-]?contract"
+      - pattern: "(?i)\\bтрудов[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование трудового договора
+
+      - pattern: "(?i)\\bтрудов[а-я]*[\\s_.-]*контракт\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Трудовой контракт — синоним трудового договора из supported types
+
+      - pattern: "(?i)\\bсрочн[а-я]*[\\s_.-]*трудов[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Срочный трудовой договор — из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:о[\\s_.-]*)?дистанционн[а-я]*[\\s_.-]*работ[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Договор дистанционной работы — из supported types; прямой трудовой режим
+
+      - pattern: "(?i)\\bтрудов[а-я]*[\\s_.-]*договор[\\s_.-]*по[\\s_.-]*совместительств[аую]\\b|\\bдоговор[\\s_.-]*по[\\s_.-]*совместительств[аую]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Трудовой договор по совместительству — из supported types
+
+      - pattern: "(?i)\\b(?:трудов[а-я]*[\\s_.-]*)?договор[\\s_.-]*с[\\s_.-]*(?:генеральн[а-я]*[\\s_.-]*директор[а-я]*|руководител[а-я]*[\\s_.-]*организаци[яи])\\b|\\bконтракт[\\s_.-]*с[\\s_.-]*генеральн[а-я]*[\\s_.-]*директор[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Трудовой договор с руководителем / генеральным директором — из supported types
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*неполн[а-я]*[\\s_.-]*рабочем[\\s_.-]*времен[аи]\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Соглашение о неполном рабочем времени — из supported types
+
+      - pattern: "(?i)\\bemployment[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Employment agreement / contract — прямые английские маркеры трудового договора
+
+      - pattern: "(?i)\\bcontract[\\s_.-]*of[\\s_.-]*employment\\b"
+        kind: specific_subject
+        weight: 0.97
+        # Contract of employment — классическая английская форма
+
+      - pattern: "(?i)\\b(?:fixed[\\s_.-]*term|part[\\s_.-]*time|remote[\\s_.-]*work)[\\s_.-]*employment[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Fixed-term / part-time / remote work employment — из supported types
+
+      - pattern: "(?i)\\bprobation[\\s_.-]*period[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Probation period agreement — из supported types; испытательный срок характерен для трудового договора
+
+      - pattern: "(?i)\\bexecutive[\\s_.-]*employment[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Executive employment contract — из supported types; employment-qualifier указывает на трудовой режим
+
+      - pattern: "(?i)\\bexecutive[\\s_.-]*service[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.58
+        # Executive service agreement — из supported types, но в ряде юрисдикций это service contract, а не трудовой договор
+
+      - pattern: "(?i)\\bsecondment[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.54
+        # Secondment agreement — из supported types; временное откомандирование, потенциально отдельный тип
+
+      - pattern: "(?i)\\blabor[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.62
+        # Labor agreement / contract — из supported types; в международном контексте может быть шире employment
+
+      - pattern: "(?i)\\bwork[\\s_.-]*contract\\b"
+        kind: generic_form
+        weight: 0.48
+        # Work contract без employment-квалификатора: может быть works contract / подряд
+
+      - pattern: "(?i)\\bтрудов[а-я]*\\b"
+        kind: context
+        weight: 0.22
+        # Трудовой без договор/контракт: трудовая книжка, трудовое законодательство и т.п.
+
+      - pattern: "(?i)\\bemployment\\b"
+        kind: context
+        weight: 0.20
+        # Employment без agreement/contract: employment policy, employment law и т.п.
+
+      - pattern: "(?i)\\bwork(?:place|force|er)?\\b"
+        kind: context
+        weight: 0.12
+        # Work/workplace/worker без contract-квалификатора слишком широко
+
 
     folder_patterns:
-      - "(?i)employment"
-      - "(?i)трудов"
-      - "(?i)кадр"
-      - "(?i)hr"
+      - pattern: "(?i)трудов[а-я]*[_\\s-]*(?:договор|контракт)|employment[_\\s-]*(?:agreement|contract)"
+        kind: specific_subject
+        weight: 0.86
+        # Прямая taxonomy трудовых договоров
+
+      - pattern: "(?i)(?:срочн[а-я]*[_\\s-]*трудов|совместительств|дистанционн[а-я]*[_\\s-]*работ|неполн[а-я]*[_\\s-]*рабочее[_\\s-]*врем)"
+        kind: specific_subject
+        weight: 0.82
+        # Subtype папки трудовых договоров из supported types
+
+      - pattern: "(?i)(?:fixed[_\\s-]*term|part[_\\s-]*time|remote[_\\s-]*work|probation[_\\s-]*period)[_\\s-]*employment"
+        kind: specific_subject
+        weight: 0.82
+        # Англоязычные employment subtype папки
+
+      - pattern: "(?i)(?:генеральн[а-я]*[_\\s-]*директор|руководител[а-я]*|executive)[_\\s-]*(?:трудов|employment|contract)"
+        kind: specific_subject
+        weight: 0.80
+        # Папки по договорам с руководителями / executives
+
+      - pattern: "(?i)executive[_\\s-]*service[_\\s-]*(?:agreement)?|secondment[_\\s-]*(?:agreement)?"
+        kind: generic_form
+        weight: 0.50
+        # Executive service / secondment — полезны в HR-контексте, но шире трудового договора
+
+      - pattern: "(?i)labor[_\\s-]*(?:agreement|contract|relations)|трудов[а-я]*[_\\s-]*отношени"
+        kind: generic_form
+        weight: 0.52
+        # Labor relations / трудовые отношения — шире трудового договора как документа
+
+      - pattern: "(?i)employment|трудов"
+        kind: context
+        weight: 0.24
+        # Общие employment / трудовой папки без уточнения типа документа
+
+      - pattern: "(?i)hr|кадр|personnel|персонал"
+        kind: context
+        weight: 0.16
+        # HR/кадровая папка охватывает всю кадровую документацию, не только трудовые договоры
 
     keywords:
 

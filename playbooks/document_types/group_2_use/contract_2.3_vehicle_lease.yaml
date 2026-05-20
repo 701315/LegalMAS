@@ -84,18 +84,207 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)аренд.*транспорт"
-      - "(?i)аренд.*автомобил"
-      - "(?i)фрахтован"
-      - "(?i)vehicle[\\s_.-]?lease"
-      - "(?i)charter"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*транспортн[а-я]*[\\s_.-]*средств[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора аренды транспортного средства
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*(?:тс|тс\\b)"
+        kind: specific_subject
+        weight: 0.94
+        # Аббревиатура ТС как объект аренды
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*(?:транспортн[а-я]*[\\s_.-]*средств[а-я]*[\\s_.-]*)?с[\\s_.-]*экипажем\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Аренда ТС с экипажем — одна из двух ключевых правовых моделей
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*(?:транспортн[а-я]*[\\s_.-]*средств[а-я]*[\\s_.-]*)?без[\\s_.-]*экипажа\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Аренда ТС без экипажа — вторая ключевая правовая модель
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*автомобил[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Аренда автомобиля — из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*(?:грузов[а-я]*[\\s_.-]*автомобил[а-я]*|коммерческ[а-я]*[\\s_.-]*транспорт[а-я]*|автобус[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Аренда грузового авто / коммерческого транспорта / автобуса
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*спецтехник[а-я]*\\b|\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*строительн[а-я]*[\\s_.-]*техник[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Аренда спецтехники / строительной техники
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*(?:морск[а-я]*[\\s_.-]*)?судн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Аренда судна / морского судна
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*аренд[а-я]*[\\s_.-]*воздушн[а-я]*[\\s_.-]*судн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Аренда воздушного судна
+
+      - pattern: "(?i)\\bфрахтовани[ея][\\s_.-]*на[\\s_.-]*время\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Фрахтование на время — специальное юридическое наименование
+
+      - pattern: "(?i)\\bтайм[\\s_.-]*чартер\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Тайм-чартер — прямой поддерживаемый subtype
+
+      - pattern: "(?i)\\bбербоут[\\s_.-]*чартер\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Бербоут-чартер — из supported types, точный правовой термин
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*фрахтовани[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Договор фрахтования из supported types
+
+      - pattern: "(?i)\\bvehicle[\\s_.-]*lease(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Прямой англоязычный маркер vehicle lease
+
+      - pattern: "(?i)\\bcar[\\s_.-]*lease(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Car lease — из supported types; lease (а не rental) указывает на аренду, а не прокат
+
+      - pattern: "(?i)\\bcommercial[\\s_.-]*vehicle[\\s_.-]*lease(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Commercial vehicle lease — из supported types
+
+      - pattern: "(?i)\\baircraft[\\s_.-]*lease(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Aircraft lease — из supported types
+
+      - pattern: "(?i)\\b(?:wet|dry)[\\s_.-]*lease(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Wet/dry lease — авиационные формы аренды из supported types
+
+      - pattern: "(?i)\\b(?:time[\\s_.-]*charter|тайм[\\s_.-]*чартер)(?:[\\s_.-]*(?:agreement|party))?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Time charter — точный юридический термин, высокий вес
+
+      - pattern: "(?i)\\b(?:bareboat|demise)[\\s_.-]*charter(?:[\\s_.-]*(?:agreement|party))?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Bareboat / demise charter — из supported types, точные термины
+
+      - pattern: "(?i)\\bvessel[\\s_.-]*charter(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Vessel charter agreement — из supported types
+
+      - pattern: "(?i)\\b(?:аренд[а-я]*[\\s_.-]*)?(?:машин[а-я]*|авто)\\b"
+        kind: specific_subject
+        weight: 0.72
+        # Машина / авто как объект аренды; ниже, чем автомобиль — более разговорный маркер
+
+      - pattern: "(?i)\\bvehicle[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.56
+        # Vehicle rental без lease-квалификатора: возможен конфликт с contract_2.2_rental (прокат)
+
+      - pattern: "(?i)\\bcar[\\s_.-]*rental(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.50
+        # Car rental — часто прокат, а не коммерческая аренда ТС
+
+      - pattern: "(?i)\\bfleet[\\s_.-]*lease(?:[\\s_.-]*agreement)?\\b"
+        kind: generic_form
+        weight: 0.58
+        # Fleet lease — из supported types; умеренный вес: fleet может относиться к разным типам
+
+      - pattern: "(?i)\\bequipment[\\s_.-]*and[\\s_.-]*vehicle[\\s_.-]*lease\\b"
+        kind: generic_form
+        weight: 0.52
+        # Equipment and vehicle lease — из supported types, но смешанный предмет
+
+      - pattern: "(?i)\\bфрахтовани[ея]\\b"
+        kind: generic_form
+        weight: 0.62
+        # Фрахтование без уточнения на время / договор — шире vehicle lease
+
+      - pattern: "(?i)\\bcharter\\b"
+        kind: context
+        weight: 0.22
+        # Charter сам по себе слишком широк: party charter, political charter и т.д.
+
+      - pattern: "(?i)\\btransport(?:ation)?[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: context
+        weight: 0.20
+        # Transportation agreement — ближе к перевозке, чем к аренде ТС
+
+      - pattern: "(?i)\\bvehicle\\b"
+        kind: context
+        weight: 0.18
+        # Vehicle без lease/rental/аренда слишком широкий маркер
+
 
     folder_patterns:
-      - "(?i)transport"
-      - "(?i)vehicle"
-      - "(?i)fleet"
-      - "(?i)charter"
-      - "(?i)аренд.*тс"
+      - pattern: "(?i)аренд[а-я]*[_\\s-]*(?:тс|транспортн[а-я]*[_\\s-]*средств|автомобил|спецтехник|судн|воздушн)"
+        kind: specific_subject
+        weight: 0.84
+        # Папки по аренде конкретных видов ТС
+
+      - pattern: "(?i)vehicle[_\\s-]*lease|car[_\\s-]*lease|aircraft[_\\s-]*lease|commercial[_\\s-]*vehicle[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.82
+        # Англоязычные lease-taxonomy папки по видам ТС
+
+      - pattern: "(?i)(?:time|bareboat|demise)[_\\s-]*charter|тайм[_\\s-]*чартер|бербоут[_\\s-]*чартер"
+        kind: specific_subject
+        weight: 0.84
+        # Charter-taxonomy папки — точные правовые формы
+
+      - pattern: "(?i)(?:wet|dry)[_\\s-]*lease|vessel[_\\s-]*charter"
+        kind: specific_subject
+        weight: 0.80
+        # Авиационные и судовые аренды в taxonomy
+
+      - pattern: "(?i)фрахтован"
+        kind: specific_subject
+        weight: 0.76
+        # Фрахтование в taxonomy папок
+
+      - pattern: "(?i)fleet[_\\s-]*lease|fleet[_\\s-]*management"
+        kind: generic_form
+        weight: 0.50
+        # Fleet folder полезен, но шире аренды ТС
+
+      - pattern: "(?i)vehicle[_\\s-]*rental|car[_\\s-]*rental"
+        kind: generic_form
+        weight: 0.40
+        # Rental-taxonomy конфликтует с прокатом
+
+      - pattern: "(?i)transport(?:ation)?|транспорт"
+        kind: context
+        weight: 0.24
+        # Слишком широкий transport-контекст
+
+      - pattern: "(?i)vehicle|fleet"
+        kind: context
+        weight: 0.20
+        # Общие fleet/vehicle маркеры без аренда/lease уточнения
+
+      - pattern: "(?i)charter"
+        kind: context
+        weight: 0.18
+        # Charter без уточнения типа слишком широк
 
     keywords:
 

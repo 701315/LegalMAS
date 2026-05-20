@@ -73,17 +73,157 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)НИОКР"
-      - "(?i)(НИР|ОКР)"
-      - "(?i)научно.исследовательск"
-      - "(?i)опытно.конструкторск"
-      - "(?i)(R&D|R\\sD|research.*development).*contract"
-    
+      - pattern: "(?i)\\bдоговор[\\s_.-]*НИОКР\\b|\\bНИОКР\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямой маркер НИОКР — наиболее специфичен для данного типа
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?выполнени[а-я]*[\\s_.-]*НИР\\b|\\bдоговор[\\s_.-]*НИР\\b|\\bНИР\\b"
+        kind: specific_subject
+        weight: 0.94
+        # НИР — прямой subject-marker исследовательских работ
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?выполнени[а-я]*[\\s_.-]*ОКР\\b|\\bдоговор[\\s_.-]*ОКР\\b|\\bОКР\\b"
+        kind: specific_subject
+        weight: 0.94
+        # ОКР — прямой subject-marker опытно-конструкторских работ
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?научно[\\s_.-]*исследовательск[а-я]*[\\s_.-]*работ[а-я]*\\b|\\bнаучно[\\s_.-]*исследовательск[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Научно-исследовательские работы — точный русский маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?опытно[\\s_.-]*конструкторск[а-я]*[\\s_.-]*работ[а-я]*\\b|\\bопытно[\\s_.-]*конструкторск[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Опытно-конструкторские работы — точный русский маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?технологическ[а-я]*[\\s_.-]*работ[а-я]*\\b|\\bтехнологическ[а-я]*[\\s_.-]*работ[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Технологические работы — поддерживаемый subject-маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*научно[\\s_.-]*техническ[а-я]*[\\s_.-]*разработк[а-я]*\\b|\\bнаучно[\\s_.-]*техническ[а-я]*[\\s_.-]*разработк[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Научно-техническая разработка — прямое покрытие supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*разработк[а-я]*[\\s_.-]*прототип[а-я]*\\b|\\bразработк[а-я]*[\\s_.-]*прототип[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Разработка прототипа — хороший предметный маркер НИОКР
+
+      - pattern: "(?i)\\bresearch[\\s_.-]*(?:and|&)\\s*[\\s_.-]*development(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Полная англоязычная форма research and development agreement
+
+      - pattern: "(?i)\\bR\\s*&\\s*D(?:[\\s_.-]*(?:agreement|contract))?\\b|\\bR[\\s_.-]?D(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # R&D / R D — прямой, но чуть менее надёжный из-за вариативности написания
+
+      - pattern: "(?i)\\btechnology[\\s_.-]*development(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Technology development agreement — прямой supported marker
+
+      - pattern: "(?i)\\bprototype[\\s_.-]*development(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Prototype development agreement — хороший R&D subject-marker
+
+      - pattern: "(?i)\\bsponsored[\\s_.-]*research(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Sponsored research agreement — типичная форма research contract
+
+      - pattern: "(?i)\\bcollaborative[\\s_.-]*research(?:[\\s_.-]*(?:agreement|contract))?\\b|\\bresearch[\\s_.-]*collaboration(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Collaborative research / research collaboration — поддерживаемые research-specific формы
+
+      - pattern: "(?i)\\bclinical[\\s_.-]*trial(?:[\\s_.-]*(?:agreement|contract))?\\b"
+        kind: generic_form
+        weight: 0.68
+        # Clinical trial agreement поддерживается, но может пересекаться с отдельными pharma/medical/service типами
+
+      - pattern: "(?i)\\bCRO[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.54
+        # CRO agreement поддерживается, но часто описывает outsourcing/services, а не чистый НИОКР
+
+      - pattern: "(?i)\\binnovation[\\s_.-]*(?:agreement|contract)\\b"
+        kind: generic_form
+        weight: 0.52
+        # Innovation agreement — слишком широкая формула, но релевантна family НИОКР
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*технологическ[а-я]*[\\s_.-]*партн[её]рств[ае]\\b"
+        kind: generic_form
+        weight: 0.56
+        # Технологическое партнёрство часто связано с R&D, но может быть шире чистого договора на выполнение работ
+
+      - pattern: "(?i)\\bresearch\\b"
+        kind: context
+        weight: 0.22
+        # Research без contract/agreement/works qualifier слишком широко
+
+      - pattern: "(?i)\\bdevelopment\\b|\\bразработк[а-я]*\\b"
+        kind: context
+        weight: 0.20
+        # Development / разработка без предмета может относиться к software, бизнесу, продукту и др.
+
+      - pattern: "(?i)\\bCTA\\b"
+        kind: context
+        weight: 0.12
+        # CTA слишком неоднозначна как аббревиатура
+
+
     folder_patterns:
-      - "(?i)НИОКР"
-      - "(?i)(НИР|ОКР)"
-      - "(?i)(R.?D|research)"
-      - "(?i)научные.*разработки"
+      - pattern: "(?i)НИОКР|НИР|ОКР"
+        kind: specific_subject
+        weight: 0.86
+        # Явная taxonomy папок по НИОКР / НИР / ОКР
+
+      - pattern: "(?i)научно[_\\s-]*исследовательск|опытно[_\\s-]*конструкторск|технологическ[_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.84
+        # Полные русские формы работ family НИОКР
+
+      - pattern: "(?i)научно[_\\s-]*техническ[_\\s-]*разработ|разработк[_\\s-]*прототип"
+        kind: specific_subject
+        weight: 0.82
+        # Научно-техническая разработка / prototype development в taxonomy папок
+
+      - pattern: "(?i)R\\s*&\\s*D|R[_\\s.-]?D|research[_\\s-]*(?:and|&)\\s*development"
+        kind: specific_subject
+        weight: 0.84
+        # Англоязычные R&D folder-markers
+
+      - pattern: "(?i)technology[_\\s-]*development|prototype[_\\s-]*development|sponsored[_\\s-]*research|research[_\\s-]*collaboration|collaborative[_\\s-]*research"
+        kind: specific_subject
+        weight: 0.80
+        # Поддерживаемые специализированные research/development папки
+
+      - pattern: "(?i)clinical[_\\s-]*trial|CRO"
+        kind: generic_form
+        weight: 0.46
+        # Clinical trial / CRO taxonomy полезна, но потенциально конфликтует с отдельными pharma/service типами
+
+      - pattern: "(?i)innovation|технологическ[_\\s-]*партн[её]рств"
+        kind: generic_form
+        weight: 0.40
+        # Innovation / tech partnership folders шире pure R&D contract
+
+      - pattern: "(?i)research|научн"
+        kind: context
+        weight: 0.22
+        # Научный / research контекст слишком широк
+
+      - pattern: "(?i)development|разработк"
+        kind: context
+        weight: 0.20
+        # Development / разработка без уточнения предмета неоднозначны
 
     keywords:
 

@@ -22,6 +22,7 @@ import hashlib
 import os
 import re
 import threading
+from dataclasses import dataclass
 from typing import Optional
 
 import yaml
@@ -33,19 +34,38 @@ logger = get_logger(__name__)
 _lock = threading.Lock()
 _instance: Optional["YAMLRegistry"] = None
 
+
 def _pattern_to_text(raw_pattern: str) -> str:
     """Извлекает читаемый текст из regex-паттерна для L3-прототипа.
-    
+
     Убирает regex-специфичный синтаксис, чтобы embedding-модель
     получала семантически осмысленный текст, а не шум из \\b, (?i) и т.п.
     """
     s = raw_pattern.strip()
-    s = re.sub(r'^\(\?[imsux]+\)', '', s)      # убираем флаги (?i), (?m) и т.п.
-    s = re.sub(r'\\[bBsSwWdD]', ' ', s)        # убираем \b, \s, \d и т.п.
-    s = re.sub(r'[+*?]|\{\d+,?\d*\}', '', s)   # убираем квантификаторы +, *, ?, {n,m}
-    s = re.sub(r'[\[\]()^$|\\]', ' ', s)       # убираем спец. символы
+    s = re.sub(r'^\(\?[imsux]+\)', '', s)
+    s = re.sub(r'\\[bBsSwWdD]', ' ', s)
+    s = re.sub(r'[+*?]|\{\d+,?\d*\}', '', s)
+    s = re.sub(r'[\[\]()^$|\\]', ' ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     return s
+
+
+@dataclass(slots=True)
+class FilenamePatternRule:
+    """
+    Rule object for L1 filename/folder matching.
+
+    kind:
+    - generic_form: общий маркер формы документа (например, SPA, agreement)
+    - specific_subject: предметно-специфичный маркер (real estate, factoring)
+    - context: вспомогательный контекстный маркер
+    """
+
+    pattern: re.Pattern
+    raw_pattern: str
+    kind: str = "generic_form"
+    weight: float = 1.0
+
 
 class DocumentTypeConfig:
     """
@@ -83,11 +103,8 @@ class DocumentTypeConfig:
         registry_entry_raw: dict | None = None,
         load_warnings: list[str] | None = None,
     ):
-        # Полный сырой YAML-конфиг, сохраняем "как есть" на случай,
-        # если где-то ещё нужны нестандартные поля.
         self.raw = raw or {}
 
-        # Provenance / audit metadata
         self.source_yaml = source_yaml
         self.source_path = source_path
         self.source_kind = source_kind
@@ -97,32 +114,26 @@ class DocumentTypeConfig:
             source_yaml if isinstance(source_yaml, str) and source_yaml.strip() else self._dump_canonical_yaml(self.raw)
         )
 
-        # Базовые поля типа
         self.type_code = str(self.raw.get("type", ""))
         self.name = str(self.raw.get("name", ""))
 
         runtime = self.raw.get("classification_runtime_v1") or {}
-        # Правила классификации: в приоритете блок classification_runtime_v1.rules
         rules = runtime.get("rules") or self.raw.get("rules", {}) or {}
         validation = self.raw.get("validation_engine_v3_2") or self.raw.get("validation_metadata") or {}
         self.triggerdefinitions = dict(
             runtime.get("trigger_definitions") or validation.get("trigger_definitions") or {}
         )
 
-        # === NEW: Scoring parameters ===
-        # Опциональные параметры для L2 engine, специфичные для данного типа документа
         self.scoring = runtime.get("scoring") or {}
 
-        # === FIX P2a: filename_patterns / folder_patterns через _compile_regex_list ===
-        self.filename_patterns = self._compile_regex_list(
+        # L1-specific structured rules with backward compatibility.
+        self.filename_patterns: list[FilenamePatternRule] = self._parse_filename_pattern_rules(
             rules.get("filename_patterns", [])
         )
-        self.folder_patterns = self._compile_regex_list(
+        self.folder_patterns: list[FilenamePatternRule] = self._parse_filename_pattern_rules(
             rules.get("folder_patterns", [])
         )
 
-        # --- header_patterns: для L2 ---
-        # 1) пытаемся взять явные header_patterns из YAML (runtime или корень)
         explicit_header = (
             runtime.get("header_patterns")
             or self.raw.get("header_patterns")
@@ -132,11 +143,12 @@ class DocumentTypeConfig:
         if explicit_header:
             header_source = explicit_header
         else:
-            # 2) если явных нет — используем keywords.high как паттерны заголовка
             header_source = rules.get("keywords", {}).get("high", []) or []
 
         self.header_patterns: list[re.Pattern] = []
         for p in header_source:
+            if isinstance(p, dict):
+                p = p.get("pattern", "")
             if not isinstance(p, str):
                 continue
             try:
@@ -148,35 +160,24 @@ class DocumentTypeConfig:
                     extra={"type_code": self.type_code, "pattern": p},
                 )
 
-        # === UPDATED: keywords.* с поддержкой расширенного формата ===
         kw = rules.get("keywords", {}) or {}
 
-        # NEW: Парсим расширенный формат для lexical_signals
         self.lexical_signals = {
             "high": self._parse_signal_list(kw.get("high", []), "high"),
             "medium": self._parse_signal_list(kw.get("medium", []), "medium"),
             "low": self._parse_signal_list(kw.get("low", []), "low"),
         }
 
-        # LEGACY: сохраняем старые compiled regex для обратной совместимости
-        # (на случай если где-то ещё используется keywords_high напрямую)
         self.keywords_high = self._compile_regex_list(kw.get("high", []))
         self.keywords_medium = self._compile_regex_list(kw.get("medium", []))
         self.keywords_low = self._compile_regex_list(kw.get("low", []))
 
-        # === UPDATED: exclusions с поддержкой severity ===
         self.negative_signals = self._parse_negative_signals(
             rules.get("exclusions", [])
         )
 
-        # LEGACY: сохраняем старые compiled regex для обратной совместимости
         self.exclusions = self._compile_regex_list(rules.get("exclusions", []))
 
-        # НОВОЕ: "сырые" keywords/phrases для семантического уровня (L3).
-        # Здесь мы не компилируем ничего в regex, а просто храним строки,
-        # чтобы L3 мог собрать текстовый прототип.
-        # Дефект 11: очищаем regex-синтаксис из паттернов для L3-прототипа.
-        # Embedding-модель должна получать читаемый текст, а не (?i)\bдоговор\s+купли-продажи\b
         def _extract_raw_pattern(x) -> str:
             return str(x) if isinstance(x, str) else str(x.get("pattern", ""))
 
@@ -205,13 +206,8 @@ class DocumentTypeConfig:
             "low": [str(x) for x in phrases.get("low", []) or []],
         }
 
-        # trigger_definitions → applicable_triggers list
-        # Keys of trigger_definitions become trigger IDs (используются в HybridClassifier).
         tdef = self.raw.get("trigger_definitions", {}) or {}
         self.trigger_ids: list[str] = list(tdef.keys())
-
-        # Полное описание триггеров, которое использует TriggerDetector,
-        # чтобы понять, какие триггеры реально нашли подтверждение в тексте.
         self.trigger_definitions: dict = tdef
 
         metadata = self.raw.get("metadata", {}) or {}
@@ -221,16 +217,10 @@ class DocumentTypeConfig:
         self.language: str = metadata.get("language", "ru")
         self.jurisdiction: str = metadata.get("jurisdiction", "RU")
 
-        # НОВОЕ: семантические маркеры для L3 и checks.
-        # aliases / section_markers могут использоваться как дополнительные сигналы.
         self.aliases: list[str] = list(metadata.get("aliases", []) or [])
         self.section_markers: list[str] = list(metadata.get("section_markers", []) or [])
 
-        # essential_elements передаём наверх, чтобы L3 и checks могли
-        # строить логику вокруг ключевых элементов договора.
         self.essential_elements: list[dict] = list(self.raw.get("essential_elements") or [])
-
-        # NEW: party role keywords from essential_elements.parties
         self.party_role_keywords: dict[str, str] = self._build_party_role_keywords(self.raw)
 
     @staticmethod
@@ -263,17 +253,11 @@ class DocumentTypeConfig:
         - логируем, но НЕ падаем при ошибке компиляции, чтобы
           один кривой паттерн не клал весь сервис.
 
-        Для непрофессионального программиста:
-        - Этот метод принимает список строк из YAML (например, keywords.high).
-        - Каждую строку превращает в скомпилированный regex-паттерн.
-        - Если паттерн невалидный — логируем warning и пропускаем его (не крашим приложение).
-
         UPDATED: теперь также поддерживает dict-элементы (расширенный формат),
         извлекая из них поле "pattern".
         """
         compiled: list[re.Pattern] = []
         for raw in items or []:
-            # NEW: поддержка dict-элементов
             if isinstance(raw, dict):
                 pattern_str = raw.get("pattern", "")
             elif isinstance(raw, str):
@@ -281,12 +265,10 @@ class DocumentTypeConfig:
             else:
                 continue
 
-            # убираем возможный префикс r и внешние кавычки из YAML
             pattern_str = pattern_str.lstrip("r").strip('"').strip("'")
             if not pattern_str:
                 continue
             try:
-                # Внутренний (?i) и другие флаги останутся рабочими.
                 compiled.append(re.compile(pattern_str))
             except re.error as e:
                 logger.warning(
@@ -295,32 +277,75 @@ class DocumentTypeConfig:
                 )
         return compiled
 
-    # === NEW: Парсинг расширенного формата lexical signals ===
+    @staticmethod
+    def _parse_filename_pattern_rules(items: list) -> list[FilenamePatternRule]:
+        """
+        Парсит filename_patterns/folder_patterns в typed rules.
+
+        Backward compatibility:
+        - legacy string -> kind='generic_form', weight=1.0
+        - dict -> используем pattern/kind/weight
+        """
+        allowed_kinds = {"generic_form", "specific_subject", "context"}
+        compiled_rules: list[FilenamePatternRule] = []
+
+        for raw in items or []:
+            if isinstance(raw, str):
+                pattern_str = raw
+                kind = "generic_form"
+                weight = 1.0
+            elif isinstance(raw, dict):
+                pattern_str = str(raw.get("pattern", "")).strip()
+                kind = str(raw.get("kind", "generic_form") or "generic_form").strip()
+                try:
+                    weight = float(raw.get("weight", 1.0))
+                except (TypeError, ValueError):
+                    weight = 1.0
+            else:
+                continue
+
+            pattern_str = pattern_str.lstrip("r").strip('"').strip("'")
+            if not pattern_str:
+                continue
+
+            if kind not in allowed_kinds:
+                logger.warning(
+                    "Invalid filename/folder rule kind, using 'generic_form'",
+                    extra={"pattern": pattern_str, "kind": kind},
+                )
+                kind = "generic_form"
+
+            if weight < 0:
+                logger.warning(
+                    "Negative filename/folder rule weight is not allowed, using 1.0",
+                    extra={"pattern": pattern_str, "weight": weight},
+                )
+                weight = 1.0
+
+            try:
+                compiled = re.compile(pattern_str)
+            except re.error as e:
+                logger.warning(
+                    "Invalid regex in YAML filename/folder patterns",
+                    extra={"pattern": raw, "error": str(e)},
+                )
+                continue
+
+            compiled_rules.append(
+                FilenamePatternRule(
+                    pattern=compiled,
+                    raw_pattern=pattern_str,
+                    kind=kind,
+                    weight=weight,
+                )
+            )
+
+        return compiled_rules
+
     def _parse_signal_list(self, items: list, group_level: str) -> list[dict]:
         """
         Парсит список сигналов из keywords.high/medium/low с поддержкой
         расширенного формата.
-
-        Входные данные:
-        - items: список элементов из YAML (могут быть строками или dict)
-        - group_level: "high"/"medium"/"low" для дефолтных весов
-
-        Возвращает:
-        - список dict с полями:
-          {
-            "pattern": compiled re.Pattern,
-            "weight": float,
-            "distinctiveness": "high"|"medium"|"low",
-            "context": "header"|"body"|"any",
-            "description": str (optional)
-          }
-
-        Для непрофессионального программиста:
-        - Если в YAML элемент — простая строка, используем дефолтные значения
-        - Если элемент — dict с полями pattern/weight/distinctiveness/context,
-          используем явные значения
-        - Это позволяет плавно мигрировать: старые YAML работают как раньше,
-          новые получают точный контроль
         """
         default_weights = {
             "high": 0.5,
@@ -396,27 +421,9 @@ class DocumentTypeConfig:
 
         return signals
 
-    # === NEW: Парсинг negative signals ===
     def _parse_negative_signals(self, items: list) -> list[dict]:
         """
         Парсит список exclusions с поддержкой расширенного формата.
-
-        Входные данные:
-        - items: список элементов из YAML (строки или dict)
-
-        Возвращает:
-        - список dict с полями:
-          {
-            "pattern": compiled re.Pattern,
-            "severity": "hard"|"soft",
-            "weight": float (negative),
-            "description": str (optional)
-          }
-
-        Для непрофессионального программиста:
-        - severity: "hard" полностью блокирует тип при совпадении
-        - severity: "soft" снижает confidence, но не блокирует
-        - Legacy строки интерпретируются как soft с весом -0.3
         """
         signals = []
         for item in items or []:
@@ -480,10 +487,6 @@ class DocumentTypeConfig:
     def _build_party_role_keywords(raw: dict) -> dict[str, str]:
         """
         Build {keyword_lower: ROLE_ID} from essential_elements.parties.party_roles.
-
-        Для непрофессионального программиста:
-        - В YAML могут быть роли сторон (Покупатель, Продавец и т.п.) с ключевыми словами.
-        - Здесь мы строим словарь, чтобы по ключевому слову быстро понять роль.
         """
         mapping: dict[str, str] = {}
         for elem in raw.get("essential_elements") or []:
@@ -524,17 +527,16 @@ class YAMLRegistry:
         return loaded if isinstance(loaded, dict) else {}
 
     @staticmethod
-    def _normalize_pattern_source(pattern: re.Pattern | str | None) -> str:
+    def _normalize_pattern_source(pattern: re.Pattern | FilenamePatternRule | str | None) -> str:
         """
         Нормализует regex-паттерн в строку для кросс-типового сравнения.
-
-        Для compiled regex берём .pattern.
-        Для строк убираем возможный префикс r и внешние кавычки.
         """
         if pattern is None:
             return ""
 
-        if isinstance(pattern, re.Pattern):
+        if isinstance(pattern, FilenamePatternRule):
+            raw = pattern.raw_pattern
+        elif isinstance(pattern, re.Pattern):
             raw = pattern.pattern
         else:
             raw = str(pattern)
@@ -663,15 +665,14 @@ class YAMLRegistry:
         """
         Валидация всех regex-паттернов в загруженных конфигах.
 
-        Returns:
-            (is_valid, errors_list)
-
         UPDATED: теперь также валидирует:
+        - kind/weight у filename_patterns и folder_patterns
         - поля weight, distinctiveness, context в lexical signals
         - поля severity, weight в negative signals
         - параметры scoring
         """
         errors = []
+        allowed_filename_kinds = {"generic_form", "specific_subject", "context"}
 
         for type_code, cfg in self._configs.items():
             raw = cfg.raw or {}
@@ -690,23 +691,62 @@ class YAMLRegistry:
             }
 
             for field_name, patterns in pattern_fields.items():
-                for pattern_str in patterns or []:
-                    if not isinstance(pattern_str, str):
+                for idx, item in enumerate(patterns or []):
+                    if isinstance(item, str):
+                        pattern_str = item
+                    elif isinstance(item, dict):
+                        pattern_str = item.get("pattern", "")
+                    else:
                         continue
-                    clean = pattern_str.lstrip("r").strip('"').strip("'")
+
+                    clean = str(pattern_str).lstrip("r").strip('"').strip("'")
                     if not clean:
                         continue
+
                     try:
                         re.compile(clean)
                     except re.error as e:
                         errors.append(
                             {
                                 "type_code": type_code,
-                                "field": field_name,
+                                "field": f"{field_name}[{idx}]",
                                 "pattern": pattern_str,
                                 "error": str(e),
                             }
                         )
+
+                    if field_name in ("filename_patterns", "folder_patterns") and isinstance(item, dict):
+                        kind = item.get("kind")
+                        if kind is not None and kind not in allowed_filename_kinds:
+                            errors.append(
+                                {
+                                    "type_code": type_code,
+                                    "field": f"{field_name}[{idx}].kind",
+                                    "pattern": pattern_str,
+                                    "error": f"Invalid value: {kind}, expected one of {sorted(allowed_filename_kinds)}",
+                                }
+                            )
+
+                        if "weight" in item:
+                            weight = item.get("weight")
+                            if not isinstance(weight, (int, float)):
+                                errors.append(
+                                    {
+                                        "type_code": type_code,
+                                        "field": f"{field_name}[{idx}].weight",
+                                        "pattern": pattern_str,
+                                        "error": f"Expected numeric weight, got {weight!r}",
+                                    }
+                                )
+                            elif weight < 0:
+                                errors.append(
+                                    {
+                                        "type_code": type_code,
+                                        "field": f"{field_name}[{idx}].weight",
+                                        "pattern": pattern_str,
+                                        "error": f"Expected weight >= 0, got {weight}",
+                                    }
+                                )
 
             kw = rules.get("keywords", {}) or {}
             for level in ("high", "medium", "low"):
@@ -823,28 +863,9 @@ class YAMLRegistry:
 
         return is_valid, errors
 
-
     def validate_cross_type_distinctive_patterns(self) -> list[dict]:
         """
         Ищет дублирующиеся distinctive lexical patterns между разными type_code.
-
-        Возвращает список warning-объектов вида:
-        [
-            {
-                "pattern": r"...",
-                "types": ["type_a", "type_b"],
-                "occurrences": [
-                    {"type_code": "type_a", "level": "high", "context": "header"},
-                    {"type_code": "type_b", "level": "high", "context": "any"},
-                ],
-            },
-            ...
-        ]
-
-        Важно:
-        - это WARNING, а не validation error;
-        - в текущей версии учитываем только extended-format сигналы,
-        где distinctiveness == "high".
         """
         index: dict[str, list[dict]] = {}
 
@@ -903,7 +924,6 @@ class YAMLRegistry:
 
         return warnings
 
-
     def get_all_configs(self) -> list[DocumentTypeConfig]:
         return list(self._configs.values())
 
@@ -914,12 +934,6 @@ class YAMLRegistry:
     def get_instance(cls, validate: bool = True) -> "YAMLRegistry":
         """
         Получить singleton-экземпляр YAMLRegistry.
-
-        Args:
-            validate: если True — после загрузки вызываем validate_all_patterns()
-                      и падаем с RuntimeError при наличии invalid regex-паттернов.
-                      Используйте validate=True при старте приложения (fail-fast).
-                      Используйте validate=False в тестах или для hot-reload.
         """
         global _instance
         if _instance is None:
@@ -966,11 +980,6 @@ class YAMLRegistry:
     def get_master_doc_types(self) -> list[str]:
         """
         Stage 7: Return doc_types suitable as family master documents.
-
-        A doc_type is a master candidate if:
-        - Its YAML config exists (already loaded in _configs)
-        - classification.level is "L2" or "L3"
-        - No "parent_doc_type" key is set (meaning it's not subordinate)
         """
         master_types: list[str] = []
 
@@ -997,21 +1006,6 @@ class YAMLRegistry:
         """
         Получить правила классификации (ClassificationRulesSpec-подобный dict)
         для HybridClassifier / L1 / L2 / L3.
-
-        Структура возвращаемого словаря:
-            {
-                "filename_patterns": list[Pattern],
-                "folder_patterns":   list[Pattern],
-                "keywords_high":     list[Pattern],
-                "keywords_medium":   list[Pattern],
-                "keywords_low":      list[Pattern],
-                "exclusions":        list[Pattern],
-            }
-
-        Для непрофессионального программиста:
-        - это "нарезка" из DocumentTypeConfig, которую удобно подавать
-          в L1FilenameClassifier, L2HeaderClassifier и L3SemanticClassifier,
-          не вытаскивая весь config.raw.
         """
         config = self.get_config(type_code)
         if not config:
@@ -1036,8 +1030,6 @@ class YAMLRegistry:
     def list_types(self) -> list[str]:
         """
         Вернуть список всех type_code, известных реестру.
-
-        Используется L1/L2/L3/HybridClassifier для обхода всех типов.
         """
         return list(self._configs.keys())
 
@@ -1047,7 +1039,6 @@ class YAMLRegistry:
         global _instance
         with _lock:
             _instance = None
-
             
 
 

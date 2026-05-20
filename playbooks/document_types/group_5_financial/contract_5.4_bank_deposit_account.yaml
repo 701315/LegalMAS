@@ -77,20 +77,221 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)банковск.*вклад"
-      - "(?i)банковск.*счет"
-      - "(?i)депозит"
-      - "(?i)расчетн.*счет"
-      - "(?i)account"
-      - "(?i)deposit"
-      - "(?i)рко"
+      # Русский — банковский вклад / депозит
+
+      - pattern: "(?i)договор[_\\s-]*банковск[огоой][_\\s-]*вклад[аы]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор банковского вклада
+
+      - pattern: "(?i)договор[_\\s-]*вклад[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)депозитн[ыйого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*срочн[огоой][_\\s-]*вклад[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*вклад[аы][_\\s-]*до[_\\s-]*востребовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*банковск[огоой][_\\s-]*вклад[аы][_\\s-]*физическ[огоой][_\\s-]*лиц[аеи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)депозитн[ыйого][_\\s-]*вклад"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)депозит[аы][_\\s-]*физическ[огоой][_\\s-]*лиц[аеи]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Русский — банковский счёт / РКО / ДБО / эскроу-счета
+
+      - pattern: "(?i)договор[_\\s-]*банковск[огоой][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 1.0
+        # Договор банковского счёта
+
+      - pattern: "(?i)договор[_\\s-]*расчетн[огоой][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*расчетно[_\\s-]*кассов[огоой][_\\s-]*обслуживан[ияи]"
+        kind: specific_subject
+        weight: 0.98
+        # Договор РКО
+
+      - pattern: "(?i)договор[_\\s-]*РКО\\b"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*расчетн[огоой][_\\s-]*счет[аы][_\\s-]*и[_\\s-]*РКО"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*текущ[егоий][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*открыти[еия][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*открыти[яия][_\\s-]*банковск[огоой][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*открыти[яия][_\\s-]*расчетн[огоой][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*обслуживан[ияи][_\\s-]*банковск[огоой][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*номинальн[огоой][_\\s-]*счет[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*счет[аы][_\\s-]*эскроу"
+        kind: specific_subject
+        weight: 0.95
+        # Escrow account agreement (в банке)
+
+      - pattern: "(?i)договор[_\\s-]*ДБО\\b"
+        kind: specific_subject
+        weight: 0.9
+        # ДБО как часть обслуживания банковского счёта
+
+      - pattern: "(?i)договор[_\\s-]*дистанционн[огоой][_\\s-]*банковск[огоой][_\\s-]*обслуживан[ияи]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — account / deposit / banking services / CM / treasury
+
+      - pattern: "(?i)account[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+        # В банковском контексте — договор счёта
+
+      - pattern: "(?i)bank(?:ing)?[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)deposit[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)savings[_\\s-]*account[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)escrow[_\\s-]*account[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)cash[_\\s-]*management[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)treasury[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)master[_\\s-]*current[_\\s-]*account[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)bank[_\\s-]*account[_\\s-]*terms?[_\\s-]*and[_\\s-]*conditions"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)certificate[_\\s-]*of[_\\s-]*deposit"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)CD[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие deposit/account/bank — generic/context, чтобы не ловить policy/отчёты
+
+      - pattern: "(?i)deposit"
+        kind: generic_form
+        weight: 0.6
+        # Может быть и security deposit, и кэш‑депозит по аренде, поэтому не максимальный
+
+      - pattern: "(?i)account"
+        kind: generic_form
+        weight: 0.6
+        # Просто 'account' без 'agreement/terms' — поддерживающий сигнал
+
+      - pattern: "(?i)банковск[ийоеая][_\\s-]*счет"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)банковск[ийоеая][_\\s-]*вклад"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)РКО\\b"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)вклад"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)счет"
+        kind: context
+        weight: 0.4
 
     folder_patterns:
-      - "(?i)bank"
-      - "(?i)deposit"
-      - "(?i)account"
-      - "(?i)вклад"
-      - "(?i)счет"
+      - pattern: "(?i)вклад[ыы]?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка вкладов/депозитов
+
+      - pattern: "(?i)депозит[ыы]?"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)счет[аы]?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка по банковским счетам
+
+      - pattern: "(?i)РКО\\b"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)account[s]?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)deposit[s]?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)cash[_\\s-]*management"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)treasury"
+        kind: context
+        weight: 0.4
+
+      - pattern: "(?i)bank"
+        kind: context
+        weight: 0.4
+        # Слишком широкий контекст, может содержать любые банковские документы
 
     keywords:
 

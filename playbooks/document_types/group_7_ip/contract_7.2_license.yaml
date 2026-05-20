@@ -74,14 +74,167 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)лицензи"
-      - "(?i)license"
-      - "(?i)право.*использован"
+      - pattern: "(?i)\\bлицензионн[а-я]*[\\s_.-]*договор\\b|\\bдоговор[\\s_.-]*лицензионн[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование лицензионного договора
+
+      - pattern: "(?i)\\bлицензионн[а-я]*[\\s_.-]*соглашени[ея]\\b|\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*лицензи[яи]\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Лицензионное соглашение — прямой русский маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:о[\\s_.-]*)?предоставлени[а-я]*[\\s_.-]*прав[а-я]*[\\s_.-]*использовани[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Предоставление права использования — прямая юридическая формула лицензии
+
+      - pattern: "(?i)\\bлицензи[яи]\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Базовый русский маркер лицензии; специфичен в документарном контексте
+
+      - pattern: "(?i)\\bпатентн[а-я]*[\\s_.-]*лицензи[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Патентная лицензия — прямой subtype из supported types
+
+      - pattern: "(?i)\\bлицензи[яи][\\s_.-]*на[\\s_.-]*товарн[а-я]*[\\s_.-]*знак\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Лицензия на товарный знак — из supported types
+
+      - pattern: "(?i)\\b(?:авторск[а-я]*[\\s_.-]*)?лицензионн[а-я]*[\\s_.-]*договор[\\s_.-]*(?:на[\\s_.-]*программн[а-я]*[\\s_.-]*обеспечени[ея])?\\b|\\bлицензи[яи][\\s_.-]*на[\\s_.-]*(?:программн[а-я]*[\\s_.-]*обеспечени[ея]|ПО|базу[\\s_.-]*данных|ноу[\\s_.-]*хау)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Лицензия на ПО / ноу-хау / базу данных — из supported types
+
+      - pattern: "(?i)\\bSaaS[\\s_.-]*лицензи[яи]\\b"
+        kind: specific_subject
+        weight: 0.92
+        # SaaS-лицензия — из supported types
+
+      - pattern: "(?i)\\blicense[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Прямой английский маркер license agreement
+
+      - pattern: "(?i)\\b(?:software|technology|enterprise|OEM|source[\\s_.-]*code)[\\s_.-]*license[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Предметные software/technology license формы из supported types
+
+      - pattern: "(?i)\\b(?:exclusive|non[\\s_.-]*exclusive)[\\s_.-]*license[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Исключительная / неисключительная лицензия — ключевые правовые режимы
+
+      - pattern: "(?i)\\bsublicense[\\s_.-]*(?:agreement|contract)?\\b|\\bсублицензионн[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Сублицензионный договор / sublicense agreement из supported types
+
+      - pattern: "(?i)\\bfield[\\s_.-]*of[\\s_.-]*use[\\s_.-]*license\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Field-of-use license — из supported types; специфичная ограниченная лицензия
+
+      - pattern: "(?i)\\bcompulsory[\\s_.-]*license\\b|\\bпринудительн[а-я]*[\\s_.-]*лицензи[яи]\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Принудительная / compulsory license — специфичный правовой режим
+
+      - pattern: "(?i)\\b(?:EULA|end[\\s_.-]*user[\\s_.-]*license[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # EULA — почти исключительно лицензионная форма
+
+      - pattern: "(?i)\\b(?:ELA|enterprise[\\s_.-]*license[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.92
+        # ELA — корпоративная лицензия, из supported types
+
+      - pattern: "(?i)\\bopen[\\s_.-]*source[\\s_.-]*license\\b"
+        kind: generic_form
+        weight: 0.64
+        # Open source license — из supported types, но технически не является двусторонним договором в классическом смысле
+
+      - pattern: "(?i)\\bsoftware[\\s_.-]*subscription[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.58
+        # Software subscription может быть SaaS-сервисом без лицензионной природы (услуга, а не право использования)
+
+      - pattern: "(?i)\\bclick[\\s_.-]*(?:through|wrap)[\\s_.-]*(?:license|agreement)?\\b"
+        kind: generic_form
+        weight: 0.54
+        # Click-through license — из supported types; технически лицензия, но форма ближе к публичной оферте
+
+      - pattern: "(?i)\\bterms[\\s_.-]*of[\\s_.-]*use\\b"
+        kind: generic_form
+        weight: 0.44
+        # Terms of use — из supported types, но высокий риск захвата user agreement / retail / retail sale документов
+
+      - pattern: "(?i)\\bправо[\\s_.-]*использовани[а-я]*\\b"
+        kind: generic_form
+        weight: 0.46
+        # Право использования без лицензионного квалификатора встречается в сервисных договорах, франшизе и т.п.
+
+      - pattern: "(?i)\\blicense\\b"
+        kind: context
+        weight: 0.20
+        # License без agreement/contract/лицензионный: business license, license plate и т.п.
+
+      - pattern: "(?i)\\bлицензи[яи]\\b(?![\\s_.-]*(?:договор|соглашени|на[\\s_.-]*(?:ПО|товарн|программн|патент|ноу|баз|использован)))"
+        kind: context
+        weight: 0.18
+        # Лицензия без предметного квалификатора: может быть лицензия на деятельность, государственная лицензия и т.п.
+
 
     folder_patterns:
-      - "(?i)IP"
-      - "(?i)интеллектуальн"
-      - "(?i)лицензи"
+      - pattern: "(?i)лицензионн[а-я]*[_\\s-]*(?:договор|соглашени[ея])|license[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.86
+        # Прямая taxonomy лицензионных договоров
+
+      - pattern: "(?i)(?:software|technology|enterprise|OEM)[_\\s-]*license|(?:EULA|ELA)"
+        kind: specific_subject
+        weight: 0.84
+        # Предметные license taxonomy папки
+
+      - pattern: "(?i)(?:exclusive|non[_\\s-]*exclusive|sublicense|field[_\\s-]*of[_\\s-]*use)[_\\s-]*license|(?:сублицензионн|исключительн[а-я]*[_\\s-]*лицензи)"
+        kind: specific_subject
+        weight: 0.82
+        # Режимные / subtype лицензионные папки
+
+      - pattern: "(?i)(?:патентн[а-я]*|товарн[а-я]*[_\\s-]*знак|ноу[_\\s-]*хау|программн[а-я]*[_\\s-]*обеспечени|база[_\\s-]*данных|SaaS)[_\\s-]*лицензи"
+        kind: specific_subject
+        weight: 0.84
+        # Предметные русскоязычные лицензионные папки из supported types
+
+      - pattern: "(?i)open[_\\s-]*source[_\\s-]*license|compulsory[_\\s-]*license|принудительн[а-я]*[_\\s-]*лицензи"
+        kind: generic_form
+        weight: 0.56
+        # Open source / compulsory license taxonomy — полезны, но специфичны
+
+      - pattern: "(?i)software[_\\s-]*subscription|click[_\\s-]*(?:through|wrap)|terms[_\\s-]*of[_\\s-]*use"
+        kind: generic_form
+        weight: 0.44
+        # Borderline формы — полезны в контексте, но шире чистой лицензии
+
+      - pattern: "(?i)(?:intellectual[_\\s-]*property|IP|интеллектуальн[а-я]*[_\\s-]*собственност)"
+        kind: context
+        weight: 0.26
+        # IP/ИС — полезный контекст, но шире лицензионных договоров (также отчуждение, защита прав и т.п.)
+
+      - pattern: "(?i)лицензи[яи]|license"
+        kind: context
+        weight: 0.20
+        # Базовый лицензионный folder без уточнения типа документа
+
+      - pattern: "(?i)право[_\\s-]*использовани[яе]|right[_\\s-]*(?:to[_\\s-]*)?use"
+        kind: context
+        weight: 0.18
+        # Право использования без лицензионного контекста встречается в сервисных и иных договорах
 
     keywords:
 

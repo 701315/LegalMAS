@@ -1,3 +1,5 @@
+# src/classifiers/stage8/_l4_llm.py
+
 """
 L4-fallback: вызов LLM для классификации документа и парсинг ответа.
 
@@ -19,6 +21,7 @@ from ..yaml_registry import YAMLRegistry, DocumentTypeConfig
 from engine.llm.client import LLMClient, LLMResponse
 from core.config import settings
 from core.logging import get_logger
+
 
 logger = get_logger(__name__)
 
@@ -90,14 +93,15 @@ class L4LLMClassifier:
         """
         Разобрать JSON из ответа LLM и привести к безопасным значениям.
 
-        Tolerant mode: лишние ключи от LLM игнорируются с warning,
-        неточный type_code матчится по prefix/substring (fuzzy fallback).
+        Tolerant mode:
+        - лишние ключи от LLM игнорируются с warning;
+        - неточный type_code допускает ограниченную нормализацию:
+          exact / case-insensitive exact / unique prefix fuzzy.
 
         Контракт возврата:
           {type_code, confidence, reasoning, parse_success, raw}
         """
         text = (getattr(response, "text", "") or "").strip()
-        allowed_set = set(allowed_types or [])
 
         raw: Dict[str, Any] = {
             "provider": getattr(response, "provider", None),
@@ -123,7 +127,6 @@ class L4LLMClassifier:
 
             raw["parsed_json"] = obj
 
-            # Дефект 5: tolerant mode — лишние ключи не ломают парсинг
             allowed_keys = {"type_code", "confidence", "reasoning"}
             extra_keys = set(obj.keys()) - allowed_keys
             if extra_keys:
@@ -132,7 +135,6 @@ class L4LLMClassifier:
                     extra={"extra_keys": sorted(extra_keys)},
                 )
                 raw["extra_keys_ignored"] = sorted(extra_keys)
-                # Продолжаем — три обязательных поля проверяются ниже независимо
 
             if "type_code" not in obj:
                 raise ValueError("Missing required key: type_code")
@@ -141,32 +143,11 @@ class L4LLMClassifier:
             if "reasoning" not in obj:
                 raise ValueError("Missing required key: reasoning")
 
-            raw_type = obj.get("type_code")
-            if raw_type is None:
-                parsed_type_code = "UNKNOWN"
-            elif isinstance(raw_type, str):
-                cleaned = raw_type.strip()
-                if not cleaned or cleaned.upper() == "UNKNOWN":
-                    parsed_type_code = "UNKNOWN"
-                elif cleaned in allowed_set:
-                    parsed_type_code = cleaned
-                else:
-                    # Дефект 5: fuzzy fallback — prefix/substring match
-                    best_match = next(
-                        (t for t in allowed_set
-                         if cleaned.startswith(t) or t.startswith(cleaned)),
-                        None,
-                    )
-                    if best_match:
-                        logger.warning(
-                            "L4LLMClassifier.parse: fuzzy type_code match",
-                            extra={"raw": cleaned, "matched": best_match},
-                        )
-                        parsed_type_code = best_match
-                    else:
-                        raise ValueError(f"type_code '{cleaned}' is not in allowed_types")
-            else:
-                raise ValueError("type_code must be string or null")
+            parsed_type_code, normalization_meta = self._normalize_type_code(
+                obj.get("type_code"),
+                allowed_types,
+            )
+            raw["type_code_normalization"] = normalization_meta
 
             raw_conf = obj.get("confidence")
             if isinstance(raw_conf, bool):
@@ -206,6 +187,17 @@ class L4LLMClassifier:
                     "parse_success": False,
                 }
             )
+            raw.setdefault(
+                "type_code_normalization",
+                {
+                    "raw_type_code": (raw.get("parsed_json") or {}).get("type_code")
+                    if isinstance(raw.get("parsed_json"), dict)
+                    else None,
+                    "normalization_strategy": "failed",
+                    "matched_type_code": None,
+                },
+            )
+
             type_code = "UNKNOWN"
             confidence = 0.0
             reasoning = ""
@@ -231,6 +223,78 @@ class L4LLMClassifier:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _normalize_type_code(
+        self,
+        raw_type: object,
+        allowed_types: list[str],
+    ) -> tuple[str, dict[str, Any]]:
+        """
+        Нормализует type_code из ответа LLM.
+
+        Стратегия:
+        1. None / пустое / UNKNOWN -> UNKNOWN
+        2. exact match
+        3. case-insensitive exact match
+        4. prefix match, только если кандидат ровно один
+        5. иначе ошибка
+        """
+        allowed_list = list(allowed_types or [])
+        allowed_set = set(allowed_list)
+
+        meta: dict[str, Any] = {
+            "raw_type_code": raw_type,
+            "normalization_strategy": None,
+            "matched_type_code": None,
+        }
+
+        if raw_type is None:
+            meta["normalization_strategy"] = "none_to_unknown"
+            meta["matched_type_code"] = "UNKNOWN"
+            return "UNKNOWN", meta
+
+        if not isinstance(raw_type, str):
+            raise ValueError("type_code must be string or null")
+
+        cleaned = raw_type.strip()
+        if not cleaned or cleaned.upper() == "UNKNOWN":
+            meta["normalization_strategy"] = "explicit_unknown"
+            meta["matched_type_code"] = "UNKNOWN"
+            return "UNKNOWN", meta
+
+        if cleaned in allowed_set:
+            meta["normalization_strategy"] = "exact"
+            meta["matched_type_code"] = cleaned
+            return cleaned, meta
+
+        lower_map = {t.lower(): t for t in allowed_list}
+        lowered = cleaned.lower()
+        if lowered in lower_map:
+            matched = lower_map[lowered]
+            meta["normalization_strategy"] = "case_insensitive_exact"
+            meta["matched_type_code"] = matched
+            return matched, meta
+
+        prefix_candidates = [
+            t for t in allowed_list
+            if cleaned.startswith(t) or t.startswith(cleaned)
+        ]
+        if len(prefix_candidates) == 1:
+            matched = prefix_candidates[0]
+            logger.warning(
+                "L4LLMClassifier.parse: fuzzy type_code match",
+                extra={"raw": cleaned, "matched": matched},
+            )
+            meta["normalization_strategy"] = "unique_prefix_fuzzy"
+            meta["matched_type_code"] = matched
+            return matched, meta
+
+        if len(prefix_candidates) > 1:
+            raise ValueError(
+                f"type_code '{cleaned}' ambiguously matches multiple allowed_types: {prefix_candidates}"
+            )
+
+        raise ValueError(f"type_code '{cleaned}' is not in allowed_types")
+
     def _build_prompt(
         self,
         *,
@@ -247,10 +311,15 @@ class L4LLMClassifier:
             folder_path=folder_path,
         )
 
-        prompt = template.format(
-            available_types=available_types_block,
-            document_fragment=document_fragment,
-        )
+        try:
+            prompt = template.format(
+                available_types=available_types_block,
+                document_fragment=document_fragment,
+            )
+        except KeyError as e:
+            raise ValueError(
+                f"L4 prompt template contains unsupported placeholder: {e}"
+            ) from e
 
         logger.debug(
             "L4 prompt built",
@@ -361,14 +430,14 @@ class L4LLMClassifier:
     def _extract_single_json_object(text: str) -> Dict[str, Any]:
         if not text:
             raise ValueError("Empty LLM response")
+
         stripped = text.strip()
-        # Надёжный способ: ищем первый { и последний }
-        # Работает и с markdown-обёрткой ```json {...} ```, и без неё
         start_idx = stripped.find("{")
         end_idx = stripped.rfind("}")
         if start_idx == -1 or end_idx == -1 or end_idx < start_idx:
             raise ValueError("No JSON object found in LLM response")
-        candidate = stripped[start_idx : end_idx + 1].strip()
+
+        candidate = stripped[start_idx:end_idx + 1].strip()
         try:
             return json.loads(candidate)
         except json.JSONDecodeError as e:

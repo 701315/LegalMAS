@@ -66,15 +66,172 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)бытов.*подряд"
-      - "(?i)потребитель.*подряд"
-      - "(?i)ремонт.*граждан"
-      - "(?i)заказ.*граждан"
+      # Русский — явный бытовой/потребительский подряд
+
+      - pattern: "(?i)договор[_\\s-]*бытов[оа][йя][_\\s-]*подряд[аы]?"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора бытового подряда
+
+      - pattern: "(?i)бытов[оа][йя][_\\s-]*подряд"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)потребительск[ийого][_\\s-]*подряд"
+        kind: specific_subject
+        weight: 0.95
+        # Потребительский подряд
+
+      - pattern: "(?i)договор[_\\s-]*бытов[ыи][хх]?[_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.95
+        # Договор бытовых услуг
+
+      - pattern: "(?i)договор[_\\s-]*бытов[оа][гоий][_\\s-]*обслуживан[ияи]"
+        kind: specific_subject
+        weight: 0.95
+        # Договор бытового обслуживания
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*выполнен[иеия][_\\s-]*работ[_\\s-]*для[_\\s-]*граждан"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*ремонт[_\\s-]*для[_\\s-]*физическ[огоих][_\\s-]*лиц?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*пошив[_\\s-]*одежд[ыы]"
+        kind: specific_subject
+        weight: 0.9
+        # Пошив одежды для граждан — типичный бытовой подряд
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*изготовлени[ея][_\\s-]*мебел[ии][_\\s-]*для[_\\s-]*граждан"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*ремонт[_\\s-]*квартир[ыы]"
+        kind: specific_subject
+        weight: 0.9
+        # Ремонт квартиры для физлица
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*ремонт[_\\s-]*жил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)ремонт[_\\s-]*для[_\\s-]*граждан"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)заказ[_\\s-]*граждан"
+        kind: specific_subject
+        weight: 0.85
+        # Заказ-гражданин как указание на потребительский характер работ
+
+      - pattern: "(?i)заказ[_\\s-]*на[_\\s-]*ремонт[_\\s-]*квартир[ыы]"
+        kind: specific_subject
+        weight: 0.85
+
+      # Английский — consumer / household / home / domestic
+
+      - pattern: "(?i)consumer[_\\s-]*works?[_\\s-]*contract"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)household[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)home[_\\s-]*improvement[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)residential[_\\s-]*repair[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)repair[_\\s-]*contract[_\\s-]*for[_\\s-]*consumers?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)domestic[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)handyman[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)custom[_\\s-]*manufacturing[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+        # Custom manufacturing для consumer-use (мебель, одежда и т.п.)
+
+      - pattern: "(?i)tailoring[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)installation[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+        # Installation для домашних/бытовых работ
+
+      - pattern: "(?i)repair[_\\s-]*work[_\\s-]*order"
+        kind: specific_subject
+        weight: 0.85
+        # Work order в контексте потребительского ремонта
+
+      # Более общие consumer/service — generic/context, чтобы не ловить все B2C‑договоры услуг
+
+      - pattern: "(?i)consumer[_\\s-]*contract"
+        kind: generic_form
+        weight: 0.6
+        # Может быть и consumer services, и consumer credit, и др.
+
+      - pattern: "(?i)consumer[_\\s-]*services?"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)consumer"
+        kind: context
+        weight: 0.3
+        # Признак B2C-контекста, но не конкретно бытовой подряд
 
     folder_patterns:
-      - "(?i)бытовой.*подряд"
-      - "(?i)consumer.*contract"
-      - "(?i)ремонт.*население"
+      - pattern: "(?i)бытов[оа][йя][_\\s-]*подряд"
+        kind: specific_subject
+        weight: 0.8
+        # Папка бытового подряда
+
+      - pattern: "(?i)бытов[ыи][хх]?[_\\s-]*услуг"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "бытовые услуги"
+
+      - pattern: "(?i)ремонт[_\\s-]*квартир"
+        kind: specific_subject
+        weight: 0.75
+        # Папка с ремонтами квартир для граждан
+
+      - pattern: "(?i)ремонт[_\\s-]*населен[ияи]"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)consumer[_\\s-]*works?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)household[_\\s-]*services?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)home[_\\s-]*improvement"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)consumer"
+        kind: context
+        weight: 0.4
+        # Общая consumer-папка: может содержать и иные потребительские договоры
 
     keywords:
 

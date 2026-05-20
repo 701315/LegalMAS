@@ -69,18 +69,160 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)экспедиц"
-      - "(?i)forwarding"
-      - "(?i)ТЭО"
-      - "(?i)логистик"
-      - "(?i)freight"
-      - "(?i)3PL"
+      # Русский — транспортная экспедиция / экспедирование / ТЭО
+
+      - pattern: '(?i)договор[_\s-]*транспортн[ойая][_\s-]*экспедиц[ииыя]'
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: '(?i)договор[_\s-]*транспортно[_\s-]*экспедиционн(ого|ое|ый)?[_\s-]*обслуживан[ияи]'
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: '(?i)договор[_\s-]*ТЭО'
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: '(?i)договор[_\s-]*экспедиторск(ого|ое|ий)?[_\s-]*обслуживан[ияи]'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)договор[_\s-]*экспедировани[яия]'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)договор[_\s-]*на[_\s-]*организаци[юи][_\s-]*перевозок'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)логистическ(ий|ого)?[_\s-]*контракт'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)договор[_\s-]*с[_\s-]*логистическ(им|ого)?[_\s-]*оператор(ом|а)'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)договор[_\s-]*экспедитор(а|у|ом)?'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)экспедиторск(ий|ое)?[_\s-]*договор'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)договор[_\s-]*логистическ(ого|ий)?[_\s-]*аутсорсинг[ауы]'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)договор[_\s-]*таможенн(ого|ое|ый)?[_\s-]*оформлени[яия]'
+        kind: specific_subject
+        weight: 0.85
+
+      # Английский — freight forwarding / logistics / 3PL/4PL / brokerage / NVOCC
+
+      - pattern: '(?i)freight[_\s-]*forwarding[_\s-]*agreement'
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: '(?i)forwarding[_\s-]*and[_\s-]*logistics[_\s-]*contract'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)logistics[_\s-]*services?[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)logistics[_\s-]*outsourcing[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)3PL[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)4PL[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: '(?i)freight[_\s-]*brokerage[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)customs[_\s-]*brokerage[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)customs[_\s-]*clearance[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)NVOCC[_\s-]*agreement'
+        kind: specific_subject
+        weight: 0.9
+
+      # Аббревиатуры/маркировки
+
+      - pattern: '(?i)\bТЭО\b'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)\b3PL\b'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)\b4PL\b'
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: '(?i)forwarding'
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: '(?i)логистик'
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: '(?i)freight'
+        kind: generic_form
+        weight: 0.55
 
     folder_patterns:
-      - "(?i)экспедиц"
-      - "(?i)forwarding"
-      - "(?i)логистик"
-      - "(?i)ТЭО"
+      - pattern: '(?i)экспедиц'
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: '(?i)ТЭО'
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: '(?i)forwarding'
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: '(?i)logistics'
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: '(?i)3PL'
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: '(?i)4PL'
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: '(?i)brokerage'
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: '(?i)customs'
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: '(?i)freight'
+        kind: generic_form
+        weight: 0.5
 
     keywords:
 

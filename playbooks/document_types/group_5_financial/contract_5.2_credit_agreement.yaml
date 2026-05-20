@@ -76,16 +76,182 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)кредитн"
-      - "(?i)credit"
-      - "(?i)loan[\\s_.]?agreement"
-      - "(?i)овердрафт"
-      - "(?i)кредитн[аяо]\\s+линия"
+      - pattern: "(?i)\\bкредитн[а-я]*[\\s_.-]*договор\\b|\\bдоговор[\\s_.-]*кредит[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование кредитного договора
+
+      - pattern: "(?i)\\bкредитн[а-я]*[\\s_.-]*соглашени[ея]\\b|\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*кредит[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.97
+        # Кредитное соглашение — из supported types
+
+      - pattern: "(?i)\\b(?:банковск[а-я]*[\\s_.-]*)?кредитн[а-я]*[\\s_.-]*(?:лини[яи]|линии)\\b|\\bдоговор[\\s_.-]*кредитн[а-я]*[\\s_.-]*лини[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Кредитная линия / договор кредитной линии — из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:об[\\s_.-]*)?открыти[а-я]*[\\s_.-]*кредитн[а-я]*[\\s_.-]*лини[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Договор об открытии кредитной линии — прямая форма из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:возобновляемой[\\s_.-]*)?кредитн[а-я]*[\\s_.-]*лини[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Возобновляемая / revolving кредитная линия
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?овердрафт[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Овердрафт — специфичный банковский кредитный продукт
+
+      - pattern: "(?i)\\b(?:потребительск[а-я]*[\\s_.-]*кредит|договор[\\s_.-]*потребительск[а-я]*[\\s_.-]*кредит[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Потребительский кредит — регулируется ФЗ-353
+
+      - pattern: "(?i)\\b(?:ипотечн[а-я]*[\\s_.-]*кредит|договор[\\s_.-]*ипотечн[а-я]*[\\s_.-]*кредит[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Ипотечный кредит — из supported types
+
+      - pattern: "(?i)\\b(?:корпоративн[а-я]*[\\s_.-]*кредитн[а-я]*[\\s_.-]*договор|синдицированн[а-я]*[\\s_.-]*кредит[а-я]*)\\b|\\bдоговор[\\s_.-]*синдицированн[а-я]*[\\s_.-]*кредит[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Корпоративный / синдицированный кредит — из supported types
+
+      - pattern: "(?i)\\b(?:договор[\\s_.-]*)?рефинансировани[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Рефинансирование — банковский кредитный продукт, но может встречаться и в иных контекстах
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*предоставлени[а-я]*[\\s_.-]*транш[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Соглашение о предоставлении траншей — из supported types, специфичен для кредитных линий
+
+      - pattern: "(?i)\\bcredit[\\s_.-]*(?:agreement|facility[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Credit agreement / credit facility agreement — прямые LMA-формы
+
+      - pattern: "(?i)\\bfacilities?[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Facilities agreement — в LMA-практике почти исключительно bank credit facility
+
+      - pattern: "(?i)\\bloan[\\s_.-]*facility[\\s_.-]*(?:agreement)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Loan facility agreement — из supported types, facility-qualifier отличает от simple loan
+
+      - pattern: "(?i)\\b(?:revolving[\\s_.-]*(?:credit[\\s_.-]*)?facility|revolving[\\s_.-]*facility[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Revolving credit facility — из supported types, сильный специфичный маркер
+
+      - pattern: "(?i)\\bterm[\\s_.-]*loan[\\s_.-]*(?:agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Term loan agreement — из supported types; term-qualifier отличает от demand/on-call loan
+
+      - pattern: "(?i)\\bmortgage[\\s_.-]*loan[\\s_.-]*(?:agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Mortgage loan agreement — из supported types
+
+      - pattern: "(?i)\\bsyndicated[\\s_.-]*(?:facilities?|credit|loan)[\\s_.-]*(?:agreement)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Syndicated facilities/credit/loan agreement — из supported types
+
+      - pattern: "(?i)\\b(?:senior|bridge|multicurrency)[\\s_.-]*(?:facilities?|credit|loan)[\\s_.-]*(?:agreement)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Senior / bridge / multicurrency facility — специфичные структурные кредитные формы
+
+      - pattern: "(?i)\\bborrowing[\\s_.-]*base[\\s_.-]*(?:agreement)?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Borrowing base agreement — из supported types, используется в ABL/structured credit
+
+      - pattern: "(?i)\\bloan[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.56
+        # Loan agreement без facility/bank/credit qualifier может быть межкорпоративным займом, shareholder loan и др.
+
+      - pattern: "(?i)\\bкредитн[а-я]*\\b"
+        kind: context
+        weight: 0.24
+        # Кредитный без договор/соглашение-квалификатора может относиться к кредитным нотам, кредитным историям и т.п.
+
+      - pattern: "(?i)\\bcredit\\b"
+        kind: context
+        weight: 0.20
+        # Credit без agreement/facility qualifier слишком широко: credit note, letter of credit, credit report и др.
+
+      - pattern: "(?i)\\bloan\\b"
+        kind: context
+        weight: 0.18
+        # Loan без qualifier: может быть shareholder loan, intercompany loan, demand loan и др.
+
+      - pattern: "(?i)\\bбанковск[а-я]*\\b"
+        kind: context
+        weight: 0.16
+        # Банковский без предмета — слишком широкий контекст
+
 
     folder_patterns:
-      - "(?i)credit"
-      - "(?i)кредит"
-      - "(?i)banking"
+      - pattern: "(?i)кредитн[а-я]*[_\\s-]*(?:договор|соглашени[ея]|лини[яи])|credit[_\\s-]*(?:agreement|facility|line)"
+        kind: specific_subject
+        weight: 0.86
+        # Явная taxonomy кредитных договоров / credit facilities
+
+      - pattern: "(?i)(?:syndicated|revolving|term|senior|bridge|multicurrency)[_\\s-]*(?:loan|credit|facilit)"
+        kind: specific_subject
+        weight: 0.84
+        # Специфические структурные кредитные папки
+
+      - pattern: "(?i)mortgage[_\\s-]*loan|ипотечн[а-я]*[_\\s-]*кредит"
+        kind: specific_subject
+        weight: 0.82
+        # Ипотечное кредитование в taxonomy
+
+      - pattern: "(?i)(?:overdraft|овердрафт|потребительск[а-я]*[_\\s-]*кредит|consumer[_\\s-]*credit)"
+        kind: specific_subject
+        weight: 0.82
+        # Продуктовые кредитные папки
+
+      - pattern: "(?i)facilities?[_\\s-]*agreement|loan[_\\s-]*facility"
+        kind: specific_subject
+        weight: 0.80
+        # LMA-taxonomy папок
+
+      - pattern: "(?i)loan[_\\s-]*agreement|borrowing[_\\s-]*base"
+        kind: generic_form
+        weight: 0.50
+        # Loan agreement folder — возможен конфликт с займом
+
+      - pattern: "(?i)рефинансировани[ея]|refinanc"
+        kind: generic_form
+        weight: 0.48
+        # Рефинансирование — кредитный контекст, но возможно и в mortgage/bond refinancing
+
+      - pattern: "(?i)кредит(?![а-я])|credit"
+        kind: context
+        weight: 0.22
+        # Общий кредитный folder-context без уточнения продукта
+
+      - pattern: "(?i)banking|банк"
+        kind: context
+        weight: 0.16
+        # Слишком широкий banking-контекст
+
+      - pattern: "(?i)(?:loan|заём|займ)"
+        kind: context
+        weight: 0.14
+        # Loan / заём без qualifier: конфликт с договором займа
 
     keywords:
 

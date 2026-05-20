@@ -77,28 +77,153 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)розничн[а-я]*[_\\s-]*купли-?продажи"
-      - "(?i)retail[_\\s-]*(?:sale|agreement|contract)"
-      - "(?i)e[\\-_]?commerce"
-      - "(?i)интернет[_\\s-]?магазин"
-      - "(?i)public[_\\s-]*offer"
-      - "(?i)public[_\\s-]*oferta"
-      - "(?i)публичн[а-я]*[_\\s-]*оферт[аы]"
-      - "(?i)(?:условия|terms)[_\\s-]*(?:продажи|sales)"
-      - "(?i)маркетплейс"
-      - "(?i)marketplace"
-      - "(?i)user[_\\s-]*agreement"
-      - "(?i)пользовательск[а-я]*[_\\s-]*соглашен"
+      - pattern: "(?i)розничн[а-я]*[_\\s-]*купли-?продажи"
+        kind: specific_subject
+        weight: 1.0
+        # Явное указание розничной купли-продажи в имени файла
+
+      - pattern: "(?i)retail[_\\s-]*(sale|agreement|contract)"
+        kind: specific_subject
+        weight: 0.95
+        # Retail sale / retail agreement / retail contract в имени файла
+
+      - pattern: "(?i)e[\\-_]?commerce"
+        kind: specific_subject
+        weight: 0.9
+        # E-commerce как явный маркер дистанционной/онлайн-розницы
+
+      - pattern: "(?i)интернет[_\\s-]?магазин"
+        kind: specific_subject
+        weight: 0.9
+        # Интернет-магазин в имени файла
+
+      - pattern: "(?i)маркетплейс"
+        kind: specific_subject
+        weight: 0.9
+        # Русское написание маркетплейса в имени файла
+
+      - pattern: "(?i)marketplace"
+        kind: specific_subject
+        weight: 0.9
+        # Marketplace в имени файла
+
+      - pattern: "(?i)public[_\\s-]*offer"
+        kind: specific_subject
+        weight: 0.9
+        # Public offer в имени файла — сильный маркер потребительской (B2C) оферты
+
+      - pattern: "(?i)public[_\\s-]*oferta"
+        kind: specific_subject
+        weight: 0.9
+        # Транслитерация public oferta
+
+      - pattern: "(?i)публичн[а-я]*[_\\s-]*оферт[аы]"
+        kind: specific_subject
+        weight: 0.95
+        # Публичная оферта — классический формат розницы и онлайн-продажи потребителю
+
+      - pattern: "(?i)(?:условия|terms)[_\\s-]*(?:продажи|sales)"
+        kind: specific_subject
+        weight: 0.85
+        # Условия продажи / terms of sale — типичный заголовок B2C-условий на сайте/маркетплейсе
+
+      - pattern: "(?i)user[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.4
+        # User agreement может относиться к разным сервисам, не только рознице
+
+      - pattern: "(?i)пользовательск[а-я]*[_\\s-]*соглашен"
+        kind: generic_form
+        weight: 0.4
+        # Пользовательское соглашение само по себе не гарантирует, что документ именно про B2C-продажу
+
+      - pattern: "(?i)online[_\\s-]*retail"
+        kind: specific_subject
+        weight: 0.9
+        # Online retail в имени файла
+
+      - pattern: "(?i)consumer[_\\s-]*(sale|purchase|agreement|terms)"
+        kind: specific_subject
+        weight: 0.9
+        # Consumer sale/purchase/terms — явный B2C-контекст
+
+      - pattern: "(?i)distance[_\\s-]*selling"
+        kind: specific_subject
+        weight: 0.9
+        # Distance selling agreement и подобные
+
+      - pattern: "(?i)webshop[_\\s-]*terms"
+        kind: specific_subject
+        weight: 0.9
+        # Webshop terms как явный формат интернет-магазина
+
+      - pattern: "(?i)point[_\\s-]*of[_\\s-]*sale"
+        kind: specific_subject
+        weight: 0.85
+        # Point-of-sale agreement — привязка к розничной точке
+
+      - pattern: "(?i)over[_\\s-]*the[_\\s-]*counter[_\\s-]*sale"
+        kind: specific_subject
+        weight: 0.85
+        # Over-the-counter sale — типичная оффлайн-розница
+
+      - pattern: "(?i)click[_\\s-]*wrap"
+        kind: context
+        weight: 0.35
+        # Click-wrap agreement часто B2C, но может быть и для иных сервисов
+
+      - pattern: "(?i)browse[_\\s-]*wrap"
+        kind: context
+        weight: 0.35
+        # Browse-wrap — аналогично
 
     folder_patterns:
-      - "(?i)retail"
-      - "(?i)розничн"
-      - "(?i)b2c"
-      - "(?i)e[\\-_]?commerce"
-      - "(?i)internet[_\\s-]*shop"
-      - "(?i)интернет[_\\s-]?магазин"
-      - "(?i)marketplace"
-      - "(?i)маркетплейс"
+      - pattern: "(?i)retail"
+        kind: specific_subject
+        weight: 0.75
+        # Каталог явно помечен как retail
+
+      - pattern: "(?i)розничн"
+        kind: specific_subject
+        weight: 0.75
+        # Русское 'розничн*' в структуре папок
+
+      - pattern: "(?i)b2c"
+        kind: specific_subject
+        weight: 0.8
+        # B2C как прямой маркер потребительских операций
+
+      - pattern: "(?i)e[\\-_]?commerce"
+        kind: specific_subject
+        weight: 0.75
+        # Папка e-commerce
+
+      - pattern: "(?i)internet[_\\s-]*shop"
+        kind: specific_subject
+        weight: 0.75
+        # Internet shop / интернет-магазин
+
+      - pattern: "(?i)интернет[_\\s-]?магазин"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)marketplace"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)маркетплейс"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)consumer"
+        kind: context
+        weight: 0.35
+        # Общий consumer-контекст в структуре папок
+
+      - pattern: "(?i)online[_\\s-]*retail"
+        kind: specific_subject
+        weight: 0.8
+        # Папка явно про online retail
 
     keywords:
 

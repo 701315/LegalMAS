@@ -78,18 +78,197 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)отчужден.*исключительн"
-      - "(?i)уступк.*патент"
-      - "(?i)уступк.*товарн.*знак"
-      - "(?i)передач.*исключительн.*прав"
-      - "(?i)ip[\\s_.-]?assign"
-      - "(?i)patent[\\s_.-]?assign"
-      - "(?i)trademark[\\s_.-]?assign"
+      # Русский — отчуждение / уступка исключительных прав
+
+      - pattern: "(?i)договор[_\\s-]*отчуждени[яия][_\\s-]*исключительн[ыхые][_\\s-]*прав"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор отчуждения исключительных прав
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао]"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*изобретен"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*полезн[уюой][_\\s-]*модель"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*промышленн[ыйое][_\\s-]*образец"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*товарн[ыйое][_\\s-]*знак"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*программ[ыу][_\\s-]*для[_\\s-]*ЭВМ"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*баз[уы][_\\s-]*данн[ыхые]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*произведен"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*об[_\\s-]*отчуждени[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао][_\\s-]*на[_\\s-]*секрет[_\\s-]*производств[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*уступк[иия][_\\s-]*патент[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*уступк[иия][_\\s-]*товарн[огоого][_\\s-]*знак[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*уступк[иия][_\\s-]*авторск[ихие][_\\s-]*прав"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*уступк[иия][_\\s-]*исключительн[огоых][_\\s-]*прав[ао]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*исключительн[ыхые][_\\s-]*прав"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*прав[_\\s-]*на[_\\s-]*ПО"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*прав[_\\s-]*на[_\\s-]*баз[уы][_\\s-]*данн[ыхые]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*ноу[_\\s-]*хау"
+        kind: specific_subject
+        weight: 0.95
+
+      # Краткая русская формулировка
+
+      - pattern: "(?i)отчуждени[еия][_\\s-]*исключительн[ыхые][_\\s-]*прав"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)уступк[аы][_\\s-]*исключительн[ыхые][_\\s-]*прав"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — IP assignment / assignment of IP / copyright/patent/trademark
+
+      - pattern: "(?i)IP[_\\s-]*assignment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)assignment[_\\s-]*of[_\\s-]*intellectual[_\\s-]*propert[y|ies][_\\s-]*rights?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)patent[_\\s-]*assignment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)trademark[_\\s-]*assignment[_\\s-]*(agreement|deed)?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)copyright[_\\s-]*(transfer|assignment)[_\\s-]*(agreement|deed)?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)invention[_\\s-]*assignment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)employee[_\\s-]*invention[_\\s-]*assignment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)global[_\\s-]*assignment[_\\s-]*of[_\\s-]*IP[_\\s-]*rights?"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)IP[_\\s-]*transfer[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      # Короткие assign‑маркеры в IP‑контексте
+
+      - pattern: "(?i)ip[\\s_.-]*assign"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)patent[\\s_.-]*assign"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)trademark[\\s_.-]*assign"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие “assignment/transfer” — generic/context
+
+      - pattern: "(?i)assignment[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Может быть assignment договорных прав/требований, а не IP
+
+      - pattern: "(?i)assignment"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)transfer[_\\s-]*of[_\\s-]*rights"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)передач[аи][_\\s-]*прав"
+        kind: generic_form
+        weight: 0.6
+        # Требует поддержки L2/L3, чтобы отличить IP от иных прав
 
     folder_patterns:
-      - "(?i)ip[\\s_-]?transfer"
-      - "(?i)интеллектуальн.*собственност"
-      - "(?i)патент"
+      - pattern: "(?i)интеллектуальн[аяые][_\\s-]*собственност"
+        kind: specific_subject
+        weight: 0.8
+        # Папка интеллектуальной собственности
+
+      - pattern: "(?i)ip[_\\s-]*transfer"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)ip[_\\s-]*assignment"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)patent[s]?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)trademark[s]?"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)copyright"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)licensing"
+        kind: context
+        weight: 0.4
+        # Лицензионные папки – соседний тип, полезный как контекст, но не subject
+
+      - pattern: "(?i)IP"
+        kind: context
+        weight: 0.4
 
     keywords:
 

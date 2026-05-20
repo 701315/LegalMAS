@@ -5,11 +5,13 @@
 
 Production-версия:
 - учитывает confidence и вес уровня;
-- поддерживает legacy/preferrred negative-сигналы;
+- поддерживает legacy/preferred negative-сигналы;
 - не делает повторный penalty по signal_quality, если он уже учтён в confidence;
 - считает agreement по уникальным уровням, а не по количеству записей;
 - нормализует score по сумме весов реально активных уровней;
 - считает margin по нормализованной шкале;
+- ограничивает single-source результат сверху (single-source cap);
+- отдельно возвращает voting_score и decision confidence;
 - возвращает ranking для HybridClassifier;
 - остаётся обратно совместимой по ключам:
   type / confidence / margin / language / jurisdiction / ranking.
@@ -18,6 +20,8 @@ Production-версия:
 from __future__ import annotations
 
 from typing import Any
+
+from core.config import settings
 
 
 class WeightedVoter:
@@ -30,12 +34,12 @@ class WeightedVoter:
             "level": "L2",
             "language": "ru",
             "jurisdiction": "RU",
-            "signal_quality": 0.75,                # optional
-            "negative_hits": 1,                    # optional, legacy fallback
-            "soft_negative_hits": 1,               # optional, preferred
-            "hard_negative_hits": 0,               # optional, preferred
-            "ambiguity_penalty": 0.10,             # optional
-            "signal_quality_in_confidence": True,  # optional
+            "signal_quality": 0.75,                 # optional
+            "negative_hits": 1,                     # optional, legacy fallback
+            "soft_negative_hits": 1,                # optional, preferred
+            "hard_negative_hits": 0,                # optional, preferred
+            "ambiguity_penalty": 0.10,              # optional
+            "signal_quality_in_confidence": True,   # optional
         },
         ...
     ]
@@ -48,11 +52,21 @@ class WeightedVoter:
     - score типа затем нормализуется по сумме весов уровней,
       которые реально внесли ненулевой вклад;
     - agreement bonus добавляется после нормализации;
-    - ranking строится по финальной нормализованной шкале.
+    - для single-source типа применяется верхний cap;
+    - ranking строится по финальной нормализованной шкале;
+    - decision confidence считается отдельно через margin bonus.
     """
 
     def __init__(self, level_weights: dict[str, float]) -> None:
         self.level_weights = level_weights
+        self.single_source_cap = self._clamp(
+            self._safe_float(
+                getattr(settings, "CLASSIFICATION_SINGLE_SOURCE_CAP", 0.80),
+                0.80,
+            ),
+            0.0,
+            1.0,
+        )
 
     @staticmethod
     def _safe_float(value: Any, default: float) -> float:
@@ -100,12 +114,15 @@ class WeightedVoter:
         5. После нормализации даём agreement bonus за поддержку типа
            несколькими УНИКАЛЬНЫМИ уровнями.
 
-        6. Строим ranking и считаем margin между 1-м и 2-м местом
-           уже в нормализованной шкале.
+        6. Если тип поддержан только одним уровнем, применяем single-source cap.
 
-        7. Возвращаем:
+        7. Строим ranking и считаем margin между 1-м и 2-м местом
+           уже в финальной нормализованной шкале.
+
+        8. Возвращаем:
            {
              "type": ...,
+             "voting_score": ...,
              "confidence": ...,
              "margin": ...,
              "language": ...,
@@ -175,12 +192,9 @@ class WeightedVoter:
             if hard_negative_hits > 0:
                 effective_score = 0.0
             else:
-                # Мягкие negative-сигналы влияют пропорционально, а не абсолютным вычитанием.
                 negative_factor = 1.0 - min(0.60, 0.20 * soft_negative_hits)
                 negative_factor = self._clamp(negative_factor, 0.0, 1.0)
 
-                # Ambiguity ослабляет score, но не выбивает его фиксированным числом
-                # из другой шкалы.
                 ambiguity_factor = 1.0 - ambiguity_penalty
                 ambiguity_factor = self._clamp(ambiguity_factor, 0.50, 1.0)
 
@@ -212,6 +226,8 @@ class WeightedVoter:
 
         type_normalized_scores: dict[str, float] = {}
         type_final_scores: dict[str, float] = {}
+        type_agreement_bonus: dict[str, float] = {}
+        type_single_source_capped: dict[str, bool] = {}
 
         for type_code, raw_score in type_raw_scores.items():
             active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
@@ -226,8 +242,16 @@ class WeightedVoter:
 
             support_level_count = len(type_support_levels.get(type_code, set()))
             agreement_adj = min(0.08, 0.04 * max(0, support_level_count - 1))
+            type_agreement_bonus[type_code] = agreement_adj
 
             final_score = self._clamp(normalized_score + agreement_adj, 0.0, 1.0)
+
+            single_source_capped = False
+            if support_level_count == 1 and final_score > self.single_source_cap:
+                final_score = self.single_source_cap
+                single_source_capped = True
+
+            type_single_source_capped[type_code] = single_source_capped
             type_final_scores[type_code] = final_score
 
         def _ranking_key(item: tuple[str, float]) -> tuple[float, int, float, float, str]:
@@ -267,6 +291,7 @@ class WeightedVoter:
                     "score": round(final_score, 4),
                     "raw_score": round(type_raw_scores.get(type_code, 0.0), 4),
                     "normalized_score": round(type_normalized_scores.get(type_code, 0.0), 4),
+                    "agreement_bonus": round(type_agreement_bonus.get(type_code, 0.0), 4),
                     "support_count": len(type_support_levels.get(type_code, set())),
                     "support_levels": sorted(type_support_levels.get(type_code, set())),
                     "active_weight_sum": round(type_active_weight_sum.get(type_code, 0.0), 4),
@@ -276,17 +301,25 @@ class WeightedVoter:
                     "best_component_confidence": round(
                         type_best_component_confidence.get(type_code, 0.0), 4
                     ),
+                    "single_source_capped": bool(
+                        type_single_source_capped.get(type_code, False)
+                    ),
                 }
             )
 
         return {
             "type": best_type,
+            "voting_score": round(best_final_score, 4),
             "confidence": round(final_confidence, 4),
             "margin": round(margin, 4),
             "language": meta.get("language", "ru"),
             "jurisdiction": meta.get("jurisdiction", "RU"),
+            "single_source_cap_applied": bool(
+                type_single_source_capped.get(best_type, False)
+            ),
+            "support_count": len(type_support_levels.get(best_type, set())),
+            "support_levels": sorted(type_support_levels.get(best_type, set())),
             "ranking": ranking,
         }
-    
 
     

@@ -63,19 +63,136 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор[_\\s-]*дарения"
-      - "(?i)дарственн[а-я]*"
-      - "(?i)пожертвования?"
-      - "(?i)gift"
-      - "(?i)donation"
-      - "(?i)charit(?:y|able)[_\\s-]*(?:donation|gift)"
+      - pattern: "(?i)договор[_\\s-]*дарения"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора дарения
+
+      - pattern: "(?i)договор[_\\s-]*пожертвования"
+        kind: specific_subject
+        weight: 0.95
+        # Пожертвование как разновидность дарения
+
+      - pattern: "(?i)обещани[ея][_\\s-]*дарения"
+        kind: specific_subject
+        weight: 0.9
+        # Обещание дарения
+
+      - pattern: "(?i)дарственн[а-я]*"
+        kind: specific_subject
+        weight: 0.95
+        # Дарственная / дарственная на квартиру и т.п.
+
+      - pattern: "(?i)дарственн[а-я]*[_\\s-]*на[_\\s-]*квартир"
+        kind: specific_subject
+        weight: 1.0
+        # Дарственная на квартиру (частый реальный паттерн)
+
+      - pattern: "(?i)дарственн[а-я]*[_\\s-]*на[_\\s-]*дол[юи][_\\s-]*в[_\\s-]*ооо"
+        kind: specific_subject
+        weight: 1.0
+        # Дарственная на долю в ООО
+
+      - pattern: "(?i)договор[_\\s-]*дарения[_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*дарения[_\\s-]*дол[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*дарения[_\\s-]*денежн[а-я\\s]*средств"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*дарения[_\\s-]*имущественн[а-я\\s]*прав"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)пожертвования?"
+        kind: specific_subject
+        weight: 0.9
+        # Пожертвование как отличие от возмездных сделок
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*gift"
+        kind: specific_subject
+        weight: 1.0
+        # Deed of gift
+
+      - pattern: "(?i)gift[_\\s-]*deed"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)donation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)gift[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)charitable[_\\s-]*contribution[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)charitable[_\\s-]*pledge"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)covenant[_\\s-]*to[_\\s-]*donate"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)gift"
+        kind: generic_form
+        weight: 0.5
+        # Одинокое 'gift' в имени файла – расширенный, но не 100% специфичный маркер
+
+      - pattern: "(?i)donation"
+        kind: generic_form
+        weight: 0.6
+        # 'donation' как generic-паттерн (усиливает тип, но не должен бить всех подряд без контекста)
+
+      - pattern: "(?i)charit(?:y|able)[_\\s-]*(donation|gift)"
+        kind: specific_subject
+        weight: 0.9
+        # Charitable donation/gift – предметно про безвозмездную передачу
+
+      - pattern: "(?i)charit(?:y|able)"
+        kind: context
+        weight: 0.35
+        # Широкий charity-контекст, может быть и про услуги/фандрайзинг, оставляем как контекст
 
     folder_patterns:
-      - "(?i)дарения?"
-      - "(?i)дарственн[а-я]*"
-      - "(?i)gift"
-      - "(?i)donation"
-      - "(?i)charit(?:y|able)"
+      - pattern: "(?i)дарения?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка дарения
+
+      - pattern: "(?i)дарственн[а-я]*"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с дарственными
+
+      - pattern: "(?i)пожертвования?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка пожертвований
+
+      - pattern: "(?i)gift"
+        kind: specific_subject
+        weight: 0.75
+        # Gift-папка в юридическом/финансовом контексте
+
+      - pattern: "(?i)donation"
+        kind: specific_subject
+        weight: 0.8
+        # Donation-папка
+
+      - pattern: "(?i)charit(?:y|able)"
+        kind: context
+        weight: 0.4
+        # Charity/charitable как общий благотворительный контекст (может содержать иные документы)
 
     keywords:
 

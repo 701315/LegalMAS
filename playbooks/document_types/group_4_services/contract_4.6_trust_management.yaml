@@ -93,15 +93,229 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)доверительн.*управлен"
-      - "(?i)договор.*ду\\b"
-      - "(?i)trust[\\s_.]?management"
-      - "(?i)asset[\\s_.]?management"
+      # Русский — явные договоры доверительного управления / управления активами
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*имуществом?"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор доверительного управления имуществом
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*ценн[ымиыми][_\\s-]*бумагами"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*имущественн[ымиыми][_\\s-]*правами"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*активами"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия]"
+        kind: specific_subject
+        weight: 0.98
+        # Общая формула ДУ, без уточнения объекта
+
+      - pattern: "(?i)договор[_\\s-]*ДУ\\b"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*ИДУ\\b"
+        kind: specific_subject
+        weight: 0.95
+        # Индивидуальное доверительное управление
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*имуществ[ао][_\\s-]*в[_\\s-]*доверительн[оеое][_\\s-]*управлени[еия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*управлени[яия][_\\s-]*активами"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*управлени[яия][_\\s-]*инвестициями"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*управлени[яия][_\\s-]*капитал[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*инвестиционн[ымым][_\\s-]*портфелем"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)инвестиционн[ыйого][_\\s-]*договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*индивидуальн[огоой][_\\s-]*доверительн[огоой][_\\s-]*управлени[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*пенсионн[ымиыми][_\\s-]*накоплени[ямиями]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*(ПИФ|ЗПИФ)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*управлени[яия][_\\s-]*ценн[ымиыми][_\\s-]*бумагами"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*доверительн[огоой][_\\s-]*управлени[яия][_\\s-]*наследственн[ымым][_\\s-]*имуществом?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*private[_\\s-]*banking[_\\s-]*advisory"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*family[_\\s-]*office[_\\s-]*управлени[яия][_\\s-]*активами"
+        kind: specific_subject
+        weight: 0.9
+
+      # Краткие русские маркеры
+
+      - pattern: "(?i)доверительн[оеаяы][_\\s-]*управлени[еия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bДУ\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bИДУ\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — trust / asset management / fiduciary
+
+      - pattern: "(?i)trust[_\\s-]*management[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)asset[_\\s-]*management[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)trust[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)declaration[_\\s-]*of[_\\s-]*trust"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*trust"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)trust[_\\s-]*deed"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)trustee[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)fiduciary[_\\s-]*management[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)fiduciary[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)custodial[_\\s-]*trust[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)nominee[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # nominee в контексте владения активами
+
+      - pattern: "(?i)private[_\\s-]*banking[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)discretionary[_\\s-]*wealth[_\\s-]*mandate"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)investment[_\\s-]*mandate[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)managed[_\\s-]*portfolio[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие trust/asset management – generic/context
+
+      - pattern: "(?i)trust[_\\s-]*management"
+        kind: generic_form
+        weight: 0.6
+        # Если нет слова agreement/contract, считается формой/контекстом
+
+      - pattern: "(?i)asset[_\\s-]*management"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)trust"
+        kind: context
+        weight: 0.35
+        # Может быть и про траст в англосаксонском смысле без договора управления активами
+
+      - pattern: "(?i)asset[_\\s-]*manager"
+        kind: context
+        weight: 0.35
 
     folder_patterns:
-      - "(?i)trust[\\s_]?management"
-      - "(?i)доверительн.*управлен"
-      - "(?i)asset[\\s_]?management"
+      - pattern: "(?i)доверительн[огоой][_\\s-]*управлени[яия]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка по договорам ДУ
+
+      - pattern: "(?i)ДУ\\b"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)asset[_\\s-]*management"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)trust[_\\s-]*management"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)fiduciary"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)private[_\\s-]*banking"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)family[_\\s-]*office"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)trust"
+        kind: context
+        weight: 0.4
+
+      - pattern: "(?i)wealth[_\\s-]*management"
+        kind: context
+        weight: 0.4
 
     keywords:
 

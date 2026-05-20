@@ -72,21 +72,155 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)продаж[аи].*предприяти"
-      - "(?i)купл[яи]_?продаж[аи].*предприяти"
-      - "(?i)предприяти[ея].*имущественн[ыйого]\\s*комплекс"
-      - "(?i)имущественн[ыйого]\\s*комплекс.*предприяти"
-      - "(?i)sale[\\s_.-]*of[\\s_.-]*enterprise"
-      - "(?i)enterprise[\\s_.-]*sale"
-      - "(?i)asset[\\s_.-]*purchase[\\s_.-]*agreement.*enterprise"
-      - "(?i)enterprise[\\s_.-]*transfer[\\s_.-]*agreement"
+      - pattern: "(?i)договор[_\\s-]*продажи[_\\s-]*предприяти[яея]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое имя: договор продажи предприятия
+
+      - pattern: "(?i)договор[_\\s-]*купл[яи]_?продаж[аи][_\\s-]*предприяти[яея]"
+        kind: specific_subject
+        weight: 1.0
+        # Договор купли-продажи предприятия
+
+      - pattern: "(?i)продаж[аи].*предприяти[яея]"
+        kind: specific_subject
+        weight: 0.95
+        # Продажа предприятия как имущественного комплекса (более свободная форма)
+
+      - pattern: "(?i)предприяти[ея].*имущественн[ыйого]\\s*комплекс"
+        kind: specific_subject
+        weight: 0.95
+        # Предприятие как имущественный комплекс
+
+      - pattern: "(?i)имущественн[ыйого]\\s*комплекс.*предприяти[яея]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*передачи[_\\s-]*имущественн[огоый]\\s*комплекс[аа]"
+        kind: specific_subject
+        weight: 0.9
+        # Договор передачи имущественного комплекса
+
+      - pattern: "(?i)договор[_\\s-]*продажи[_\\s-]*бизнес[-_\\s]*активов"
+        kind: specific_subject
+        weight: 0.9
+        # Прямое указание на продажу бизнес-активов в контексте предприятия
+
+      - pattern: "(?i)договор[_\\s-]*продажи[_\\s-]*предприяти[яея][_\\s-]*с[_\\s-]*торгов"
+        kind: specific_subject
+        weight: 0.9
+        # Продажа предприятия с торгов
+
+      - pattern: "(?i)sale[\\s_.-]*of[\\s_.-]*enterprise"
+        kind: specific_subject
+        weight: 1.0
+        # Sale of enterprise
+
+      - pattern: "(?i)enterprise[\\s_.-]*sale"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)enterprise[\\s_.-]*transfer[\\s_.-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Enterprise transfer agreement
+
+      - pattern: "(?i)asset[\\s_.-]*purchase[\\s_.-]*agreement.*enterprise"
+        kind: specific_subject
+        weight: 0.95
+        # APA явно привязан к enterprise
+
+      - pattern: "(?i)sale[\\s_.-]*of[\\s_.-]*business"
+        kind: specific_subject
+        weight: 0.9
+        # Sale of business (в данном типе трактуем как продажу предприятия в целом)
+
+      - pattern: "(?i)business[_\\s-]*sale[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)business[_\\s-]*transfer[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)business[_\\s-]*acquisition[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+        # Acquisition of business — ближе к enterprise-типу, но немного слабее
+
+      - pattern: "(?i)asset[_\\s-]*purchase[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # APA без уточнения enterprise/business — общая asset deal-форма
+
+      - pattern: "(?i)transfer[_\\s-]*of[_\\s-]*assets[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Transfer of assets agreement — может быть enterprise, а может просто asset sale
+
+      - pattern: "(?i)acquisition[_\\s-]*of[_\\s-]*assets[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)going[_\\s-]*concern[_\\s-]*sale[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Sale of business as a going concern — близкий аналог продажи предприятия
+
+      - pattern: "(?i)transfer[_\\s-]*of[_\\s-]*going[_\\s-]*concern"
+        kind: specific_subject
+        weight: 0.95
+        # TOGC
+
+      - pattern: "(?i)\\bTOGC\\b"
+        kind: context
+        weight: 0.4
+        # Аббревиатура TOGC сама по себе — контекстный сигнал
+
+      - pattern: "(?i)bulk[_\\s-]*sale[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.55
+        # Bulk sale — не всегда именно enterprise sale (может быть и inventory sale)
+
+      - pattern: "(?i)carve[-_\\s]*out[_\\s-]*transaction[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.55
+        # Carve-out transaction — общий M&A/asset-deal контекст
 
     folder_patterns:
-      - "(?i)enterprise"
-      - "(?i)asset[_\\s-]*deal"
-      - "(?i)asset[_\\s-]*sale"
-      - "(?i)имущественн[ыйого].*комплекс"
-      - "(?i)business[_\\s-]*sale"
+      - pattern: "(?i)enterprise"
+        kind: specific_subject
+        weight: 0.8
+        # Папка enterprise — сильный сигнал бизнес/предприятие как объект
+
+      - pattern: "(?i)имущественн[ыйого].*комплекс"
+        kind: specific_subject
+        weight: 0.8
+        # Папка для имущественного комплекса
+
+      - pattern: "(?i)business[_\\s-]*sale"
+        kind: specific_subject
+        weight: 0.8
+        # Папка бизнес-продаж, ближе к продажам предприятия/бизнеса целиком
+
+      - pattern: "(?i)asset[_\\s-]*deal"
+        kind: generic_form
+        weight: 0.5
+        # Asset deal как общий контекст (может включать и simple asset sales)
+
+      - pattern: "(?i)asset[_\\s-]*sale"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)business[_\\s-]*transfer"
+        kind: specific_subject
+        weight: 0.75
+        # Папка business transfer — ближе к enterprise sale
+
+      - pattern: "(?i)going[_\\s-]*concern"
+        kind: specific_subject
+        weight: 0.75
+        # Папка TOGC / going concern продаваемого бизнеса
 
     keywords:
 

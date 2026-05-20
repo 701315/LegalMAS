@@ -80,18 +80,194 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)аренд"
-      - "(?i)lease"
-      - "(?i)rent[\\s_.-]?agreement"
-      - "(?i)нежил"
-      - "(?i)office"
-      - "(?i)warehouse"
+      # Русский – явные арендные договоры
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое "договор аренды"
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*нежил[а-я\\s]*помещен"
+        kind: specific_subject
+        weight: 1.0
+        # Аренда нежилого помещения
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*офис[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*склад[аы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*(здани[яия]|сооружен[ияи])"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*земельн[а-я\\s]*участ"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*оборудовани[яия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*техник[иы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*помещен[ияи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*част[ии][_\\s-]*помещен[ияи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*машино[_\\s-]*мест"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коммерческ[аяий][_\\s-]*аренд[аы]"
+        kind: specific_subject
+        weight: 0.95
+        # Коммерческая аренда
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*с[_\\s-]*правом[_\\s-]*выкуп[аау]"
+        kind: specific_subject
+        weight: 0.9
+        # Аренда с правом выкупа (но не чистый лизинг)
+
+      # Базовый арендный маркер в имени файла
+      - pattern: "(?i)аренд[аоы]"
+        kind: specific_subject
+        weight: 0.8
+        # Любая форма "аренда" в имени файла (оснащено L2/L3, так что можно оставить)
+
+      # Английский – lease/tenancy/occupancy
+      - pattern: "(?i)commercial[_\\s-]*lease[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)office[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)premises[_\\s-]*lease[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)warehouse[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)equipment[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)ground[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)sublease[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Сублизинг/субаренда — тоже аренда для нашей иерархии
+
+      - pattern: "(?i)lease[_\\s-]*deed"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)tenancy[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)occupancy[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)triple[_\\s-]*net[_\\s-]*lease|\\bNNN[_\\s-]*lease\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)gross[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)modified[_\\s-]*gross[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)operating[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.85
+        # Оперейтинг‑лиз (в МСФО‑лексике) мы всё равно относим к аренде, не к финансовому лизингу
+
+      - pattern: "(?i)sub[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)lease[_\\s-]*back[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+        # Leaseback agreement
+
+      - pattern: "(?i)right[_\\s-]*of[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.85
+        # Right-of-use — договор пользования
+
+      # Общие rent/lease формы – generic_form, чтобы не ловить всё подряд
+      - pattern: "(?i)lease"
+        kind: generic_form
+        weight: 0.5
+        # Голое 'lease' в имени файла, без уточнения объекта
+
+      - pattern: "(?i)rent[\\s_.-]*agreement"
+        kind: generic_form
+        weight: 0.55
+        # Rent agreement — часто про аренду, но может быть и consumer/joint context
 
     folder_patterns:
-      - "(?i)lease"
-      - "(?i)rent"
-      - "(?i)аренд"
-      - "(?i)real[\\s_]?estate"
+      - pattern: "(?i)аренд[аоы]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "аренда"
+
+      - pattern: "(?i)lease"
+        kind: specific_subject
+        weight: 0.75
+        # Папка lease в юридическом/real estate контексте
+
+      - pattern: "(?i)rent"
+        kind: generic_form
+        weight: 0.5
+        # rent-папка может содержать и расчёты, и политики
+
+      - pattern: "(?i)commercial[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)office[_\\s-]*lease"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)warehouse"
+        kind: context
+        weight: 0.4
+        # Warehouse-папка — складской контекст, но не обязательно договоры
+
+      - pattern: "(?i)real[\\s_]?estate"
+        kind: context
+        weight: 0.4
+        # Реал эстейт-папка может содержать куплю-продажу и иные сделки
+
+      - pattern: "(?i)tenancy"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)sublease"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

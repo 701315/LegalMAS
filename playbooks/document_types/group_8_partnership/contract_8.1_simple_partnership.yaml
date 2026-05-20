@@ -64,18 +64,151 @@ classification_runtime_v1:
     input_quality_weight: 1.0
 
   rules:
+
     filename_patterns:
-      - "(?i)товарищест"
-      - "(?i)совместн[а-яё]*\\s*деятельн"
-      - "(?i)партнёр[а-яё]*\\s*(соглашени|договор)"
-      - "(?i)joint[\\s_.-]?venture"
-      - "(?i)consortium"
+      # Русский — простое товарищество / совместная деятельность / партнёрские соглашения
+
+      - pattern: "(?i)договор[_\\s-]*прост[огоое][_\\s-]*товариществ[ао]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор простого товарищества
+
+      - pattern: "(?i)договор[_\\s-]*о[_\\s-]*совместн[ойой][_\\s-]*деятельн[остии]"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)соглашени[ея][_\\s-]*о[_\\s-]*совместн[ойой][_\\s-]*деятельн[остии]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)партн[её]рск[оеий][_\\s-]*(соглашени[ея]|договор)"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)консорциумн[оеый][_\\s-]*соглашени[еия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*инвестиционн[огоой][_\\s-]*товариществ[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[еия][_\\s-]*о[_\\s-]*совместн[омой][_\\s-]*строительств[еа]"
+        kind: specific_subject
+        weight: 0.95
+
+      # Более общие русские маркеры — как generic/context
+
+      - pattern: "(?i)прост[оеой][_\\s-]*товариществ[оа]"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)совместн[а-яё]*\\s*деятельн"
+        kind: generic_form
+        weight: 0.6
+        # Оставляем как поддерживающий сигнал (могут быть и бизнес‑планы/презентации)
+
+      - pattern: "(?i)товариществ[оа]"
+        kind: context
+        weight: 0.45
+
+      - pattern: "(?i)партн[её]рств[оа]"
+        kind: context
+        weight: 0.4
+
+      # Английский — joint venture / consortium / alliance / teaming / JOA/JVA
+
+      - pattern: "(?i)joint[_\\s-]*venture[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)JV[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)JVA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)consortium[_\\s-]*(agreement|deed)"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)co[_\\s-]*venture[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)strategic[_\\s-]*alliance[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)alliance[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)teaming[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)cooperation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)joint[_\\s-]*operating[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)JOA\\b"
+        kind: specific_subject
+        weight: 0.9
+
+      # Короткие joint venture/consortium — generic/context
+
+      - pattern: "(?i)joint[\\s_.-]*venture"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)consortium"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)partnership"
+        kind: generic_form
+        weight: 0.55
+        # Partnership может быть и корпоративным (LLP/GP), не всегда простое товарищество
 
     folder_patterns:
-      - "(?i)partnership"
-      - "(?i)товарищество"
-      - "(?i)совместн"
-      - "(?i)joint[\\s_]?venture"
+      - pattern: "(?i)прост[оеой][_\\s-]*товариществ[оа]"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)совместн[аяой][_\\s-]*деятельн"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)partnership"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)joint[_\\s-]*venture"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)consortium"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)alliance"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)JV\\b"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)JOA\\b"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

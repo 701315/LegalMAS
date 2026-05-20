@@ -63,17 +63,137 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)брачн[а-яё]*\\s*(договор|контракт)"
-      - "(?i)prenup"
-      - "(?i)antenuptial"
-      - "(?i)postnuptial"
-      - "(?i)marriage[\\s_.-]?contract"
+      - pattern: "(?i)\\bбрачн[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование брачного договора
+
+      - pattern: "(?i)\\bбрачн[а-я]*[\\s_.-]*контракт\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Брачный контракт — прямой синоним из supported types
+
+      - pattern: "(?i)\\bбрачн[а-я]*[\\s_.-]*договор[\\s_.-]*(?:до[\\s_.-]*заключени[а-я]*[\\s_.-]*брак[а-я]*|в[\\s_.-]*период[\\s_.-]*брак[а-я]*)\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Брачный договор до заключения / в период брака — из supported types
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*раздел[а-я]*[\\s_.-]*имущества[\\s_.-]*супругов\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Соглашение о разделе имущества супругов — из supported types; достаточно специфично
+
+      - pattern: "(?i)\\bprenuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Prenuptial agreement — прямой английский маркер
+
+      - pattern: "(?i)\\bpre[\\s_.-]*nup(?:tial)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Pre-nup / prenup — из supported types, широко употребляемая форма
+
+      - pattern: "(?i)\\bantenuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Antenuptial agreement — классическая форма в ряде юрисдикций
+
+      - pattern: "(?i)\\bpostnuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Postnuptial agreement — из supported types; договор в период брака
+
+      - pattern: "(?i)\\bnuptial[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Nuptial agreement — из supported types; чуть ниже, так как менее стандартная форма
+
+      - pattern: "(?i)\\bmatrimonial[\\s_.-]*property[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Matrimonial property agreement — из supported types; property-qualifier делает его специфичным
+
+      - pattern: "(?i)\\bmarriage[\\s_.-]*contract\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Marriage contract — из supported types; contract-квалификатор достаточно специфичен
+
+      - pattern: "(?i)\\bspousal[\\s_.-]*property[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Spousal property agreement — из supported types; property-квалификатор достаточно специфичен
+
+      - pattern: "(?i)\\bmarital[\\s_.-]*(?:agreement|contract|property[\\s_.-]*agreement)\\b"
+        kind: generic_form
+        weight: 0.62
+        # Marital agreement без prenuptial/postnuptial/property-квалификатора шире брачного договора
+
+      - pattern: "(?i)\\bseparation[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.52
+        # Separation agreement — из supported types, но в английской практике часто divorce settlement, а не брачный договор
+
+      - pattern: "(?i)\\bбрачн[а-я]*\\b"
+        kind: context
+        weight: 0.24
+        # Брачный без договор/контракт: брачное свидетельство, брачный возраст и т.п.
+
+      - pattern: "(?i)\\bsuprugi|супруг[аи]\\b"
+        kind: context
+        weight: 0.16
+        # Супруги / супруг без договор-квалификатора слишком широко: алименты, раздел и т.п.
+
+      - pattern: "(?i)\\bmarriage\\b"
+        kind: context
+        weight: 0.14
+        # Marriage без contract/agreement-квалификатора слишком широко
+
 
     folder_patterns:
-      - "(?i)брачн"
-      - "(?i)семейн"
-      - "(?i)prenup"
-      - "(?i)family[\\s_]?law"
+      - pattern: "(?i)брачн[а-я]*[_\\s-]*(?:договор|контракт)"
+        kind: specific_subject
+        weight: 0.88
+        # Явная taxonomy папок брачного договора
+
+      - pattern: "(?i)(?:prenuptial|postnuptial|antenuptial|nuptial)[_\\s-]*(?:agreement|contract)?"
+        kind: specific_subject
+        weight: 0.88
+        # Прямые англоязычные NUP-taxonomy папки
+
+      - pattern: "(?i)раздел[_\\s-]*имущества[_\\s-]*супругов|matrimonial[_\\s-]*property|spousal[_\\s-]*property"
+        kind: specific_subject
+        weight: 0.82
+        # Раздел супружеского имущества в taxonomy
+
+      - pattern: "(?i)pre[_\\s-]*nup|prenup"
+        kind: specific_subject
+        weight: 0.86
+        # Pre-nup folder-marker — из supported types
+
+      - pattern: "(?i)marriage[_\\s-]*contract|marital[_\\s-]*(?:agreement|property)"
+        kind: generic_form
+        weight: 0.56
+        # Marriage contract / marital — полезны, но шире брачного договора
+
+      - pattern: "(?i)separation[_\\s-]*(?:agreement|deed)?"
+        kind: generic_form
+        weight: 0.44
+        # Separation folder: часто divorce settlement, а не брачный договор
+
+      - pattern: "(?i)брачн|nuptial|matrimonial"
+        kind: context
+        weight: 0.22
+        # Брачный / nuptial / matrimonial без уточнения типа документа
+
+      - pattern: "(?i)семейн|family[_\\s-]*(?:law|matters?)"
+        kind: context
+        weight: 0.16
+        # Семейное / family law — охватывает всё семейное право, не только брачные договоры
+
+      - pattern: "(?i)family|семья"
+        kind: context
+        weight: 0.12
+        # Слишком широкий family-context
 
     keywords:
 

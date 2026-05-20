@@ -64,15 +64,152 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)комисси"
-      - "(?i)консигнац"
-      - "(?i)commission"
-      - "(?i)consignment"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*комисси[яи]\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора комиссии
+
+      - pattern: "(?i)\\bкомиссионн[а-я]*[\\s_.-]*договор\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Комиссионный договор — прямой русский маркер
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*товарн[а-я]*[\\s_.-]*комисси[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Договор товарной комиссии — из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*субкомисси[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Субкомиссия — прямой subtype из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*комисси[яи][\\s_.-]*с[\\s_.-]*делькредере\\b|\\bделькредере\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Делькредере — почти исключительно комиссионный термин; очень специфичен
+
+      - pattern: "(?i)\\bкомисси[яи]\\b"
+        kind: specific_subject
+        weight: 0.82
+        # Базовый русский маркер комиссии; достаточно специфичен, но без договор-квалификатора чуть ниже
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*консигнаци[яи]\\b|\\bконсигнаци[яи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Консигнация — в RU-практике классическая форма товарной комиссии
+
+      - pattern: "(?i)\\bconsignment[\\s_.-]*(?:agreement|contract)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Consignment agreement — прямой английский эквивалент консигнации/комиссии
+
+      - pattern: "(?i)\\bcommission[\\s_.-]*(?:sale[\\s_.-]*contract|sales?[\\s_.-]*agreement)\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Commission sale contract / sales agreement — из supported types, sale-контекст указывает на товарную комиссию
+
+      - pattern: "(?i)\\bdel[\\s_.-]*credere[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Del credere agreement — из supported types, почти исключительно комиссионный термин
+
+      - pattern: "(?i)(?=.*\\bкомисси[яи]\\b)(?=.*\\b(?:реализаци[яи]|закупк[аи]|товар[а-я]*)\\b).*"
+        kind: specific_subject
+        weight: 0.90
+        # Комиссия в связке с реализацией / закупкой / товаром — из supported types (договор на реализацию/закупку товара)
+
+      - pattern: "(?i)\\bcommission[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.58
+        # Commission agreement без sale/consignment/товарного квалификатора: может быть fee agreement, real estate commission и т.п.
+
+      - pattern: "(?i)\\bresale[\\s_.-]*commission[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.62
+        # Resale commission — из supported types, но шире комиссии по ГК: может быть дистрибьюторским fee
+
+      - pattern: "(?i)\\bbroker[\\s_.-]*commission[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.54
+        # Broker commission agreement: граница с брокерским/агентским договором
+
+      - pattern: "(?i)\\bselling[\\s_.-]*agency[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.52
+        # Selling agency agreement — из supported types, но граница с агентским договором размыта
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?реализаци[а-я]*[\\s_.-]*товар[а-я]*\\b"
+        kind: generic_form
+        weight: 0.54
+        # Договор на реализацию товара без комиссионного квалификатора тяготеет к sale / supply
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:на[\\s_.-]*)?закупк[а-я]*[\\s_.-]*товар[а-я]*\\b"
+        kind: generic_form
+        weight: 0.48
+        # Договор на закупку товара без комиссионного квалификатора тяготеет к supply / procurement
+
+      - pattern: "(?i)\\bкомисси[яи]\\b(?![\\s_.-]*(?:договор|вознаграждени|товарн|субкомисси|делькредере))"
+        kind: context
+        weight: 0.20
+        # Комиссия без уточнения типа документа: может быть комиссионное вознаграждение, government commission и т.п.
+
+      - pattern: "(?i)\\bcommission\\b"
+        kind: context
+        weight: 0.16
+        # Commission без sale/consignment/agreement qualifier: слишком широко
+
 
     folder_patterns:
-      - "(?i)commission"
-      - "(?i)комисси"
-      - "(?i)consignment"
+      - pattern: "(?i)комисси[яи]|commission[_\\s-]*(?:sale|sales|agreement|contract)"
+        kind: specific_subject
+        weight: 0.86
+        # Явная taxonomy папок по комиссии / commission sale
+
+      - pattern: "(?i)консигнаци[яи]|consignment[_\\s-]*(?:agreement|contract)?"
+        kind: specific_subject
+        weight: 0.86
+        # Консигнация / consignment в taxonomy папок
+
+      - pattern: "(?i)делькредере|del[_\\s-]*credere"
+        kind: specific_subject
+        weight: 0.88
+        # Делькредере — очень специфичный folder-marker
+
+      - pattern: "(?i)субкомисси[яи]|sub[_\\s-]*commission"
+        kind: specific_subject
+        weight: 0.84
+        # Субкомиссия — прямой subtype folder
+
+      - pattern: "(?i)товарн[а-я]*[_\\s-]*комисси[яи]|commission[_\\s-]*sale[s]?"
+        kind: specific_subject
+        weight: 0.82
+        # Товарная комиссия / commission sales taxonomy
+
+      - pattern: "(?i)resale[_\\s-]*commission|selling[_\\s-]*agency"
+        kind: generic_form
+        weight: 0.52
+        # Resale commission / selling agency — полезны, но размытая граница с агентским договором
+
+      - pattern: "(?i)broker[_\\s-]*commission|брокерск[а-я]*[_\\s-]*комисси"
+        kind: generic_form
+        weight: 0.46
+        # Broker commission folder — граница с брокерским/агентским договором
+
+      - pattern: "(?i)реализаци[яи][_\\s-]*товар|закупк[а-я]*[_\\s-]*товар"
+        kind: generic_form
+        weight: 0.40
+        # Реализация / закупка товара без комиссионного квалификатора тяготеет к sale / supply
+
+      - pattern: "(?i)commission"
+        kind: context
+        weight: 0.18
+        # Commission folder без уточнения типа слишком широкий
+
+      - pattern: "(?i)intermediary|посредник"
+        kind: context
+        weight: 0.16
+        # Посредник / intermediary: общий контекст intermediary family
 
     keywords:
 

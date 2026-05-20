@@ -110,17 +110,304 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)проектн"
-      - "(?i)изыскан"
-      - "(?i)ПИР"
-      - "(?i)design[\\s_.]?contract"
-      - "(?i)survey[\\s_.]?contract"
+      # Русский — проектные работы
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*выполнен[иеия][_\\s-]*проектн[ыхые][_\\s-]*работ"
+        kind: specific_subject
+        weight: 1.0
+        # Договор на выполнение проектных работ
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*выполнен[иеия][_\\s-]*изыскательск[ихие][_\\s-]*работ"
+        kind: specific_subject
+        weight: 1.0
+        # Договор на выполнение изыскательских работ
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*выполнен[иеия][_\\s-]*проектн[ыхые][_\\s-]*и[_\\s-]*изыскательск[ихие][_\\s-]*работ"
+        kind: specific_subject
+        weight: 1.0
+        # Договор на выполнение проектных и изыскательских работ (ПИР)
+
+      - pattern: "(?i)договор[_\\s-]*подряда[_\\s-]*на[_\\s-]*проектировани[ея]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*проектировани[яия]"
+        kind: specific_subject
+        weight: 0.95
+        # Договор проектирования / на проектирование объекта
+
+      - pattern: "(?i)договор[_\\s-]*генеральн[огоый][_\\s-]*проектировани[яия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*генеральн[огоый][_\\s-]*проектировщик[а]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*проектно[_\\s-]*сметн[ойые][_\\s-]*документаци[ии]"
+        kind: specific_subject
+        weight: 0.95
+        # Проектно‑сметная документация / ПСД
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*проектн[ойые][_\\s-]*документаци[ии]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*рабоч[ейая][_\\s-]*документаци[ии]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*ПСД"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*сметн[ойые][_\\s-]*документаци[ии]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*архитектурн[огоого][_\\s-]*проектировани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*инженерн[огоого][_\\s-]*проектировани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*архитектурн[ойой][_\\s-]*концепци[ии]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*концепци[ии][_\\s-]*объект[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*проектно[_\\s-]*конструкторск[ихие][_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*разработк[ыу][_\\s-]*техническ[ойой][_\\s-]*документаци[ии]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*на[_\\s-]*выпуск[_\\s-]*рабоч[ейая][_\\s-]*документаци[ии]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*BIM[_\\s-]*проектировани[яия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*информационн[огоого][_\\s-]*моделировани[яия][_\\s-]*объект[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Русский — инженерные изыскания / обследования
+
+      - pattern: "(?i)договор[_\\s-]*инженерн[ыхые][_\\s-]*изыскан"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*инженерно[_\\s-]*геологическ[ихие][_\\s-]*изыскан"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*инженерно[_\\s-]*геодезическ[ихие][_\\s-]*изыскан"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*инженерно[_\\s-]*экологическ[ихие][_\\s-]*изыскан"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*инженерно[_\\s-]*гидрометеорологическ[ихие][_\\s-]*изыскан"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*геологическ[ихие][_\\s-]*изыскан"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*геодезическ[ихие][_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*геотехническ[ихие][_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*геологоразведочн[ыхые][_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*обследовани[яия][_\\s-]*земельн[огоого][_\\s-]*участк[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*обследовани[яия][_\\s-]*объект[ао]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*техническ[огоого][_\\s-]*обследовани[яия][_\\s-]*здани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*строительн[огоого][_\\s-]*обследовани[яия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*предпроектн[огоого][_\\s-]*обследовани[яия]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Краткие маркеры ПИР/проект/изыскания (осторожно, но как specific_subject)
+
+      - pattern: "(?i)ПИР"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)проектн[а-я]*[_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)изыскан[иия][а-я]*[_\\s-]*работ"
+        kind: specific_subject
+        weight: 0.85
+
+      # Английский — engineering/design/survey для строительства/изысканий
+
+      - pattern: "(?i)engineering[_\\s-]*design[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)design[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)engineering[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)architectural[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)architect[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)consulting[_\\s-]*engineer[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)engineering[_\\s-]*consult(ancy|ing)?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)design[_\\s-]*consultant[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)survey[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # В этом типе трактуем survey как инженерные/геодезические изыскания
+
+      - pattern: "(?i)geotechnical[_\\s-]*investigation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)site[_\\s-]*investigation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)geodetic[_\\s-]*survey[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)geological[_\\s-]*survey[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)topographical[_\\s-]*survey[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)land[_\\s-]*survey[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)environmental[_\\s-]*assessment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)environmental[_\\s-]*survey[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие design/survey – generic/context, чтобы не ловить UX/marketing
+
+      - pattern: "(?i)design[\\s_.-]*contract"
+        kind: generic_form
+        weight: 0.55
+        # Может быть и про UX/graphic design, нужна поддержка L2/L3
+
+      - pattern: "(?i)survey[\\s_.-]*contract"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)design"
+        kind: context
+        weight: 0.3
+
+      - pattern: "(?i)survey"
+        kind: context
+        weight: 0.3
 
     folder_patterns:
-      - "(?i)проектн"
-      - "(?i)изыскан"
-      - "(?i)design"
-      - "(?i)ПИР"
+      - pattern: "(?i)проектн"
+        kind: specific_subject
+        weight: 0.8
+        # Папка проектных работ
+
+      - pattern: "(?i)изыскан"
+        kind: specific_subject
+        weight: 0.8
+        # Папка изысканий
+
+      - pattern: "(?i)ПИР"
+        kind: specific_subject
+        weight: 0.8
+        # Папка ПИР
+
+      - pattern: "(?i)design"
+        kind: specific_subject
+        weight: 0.75
+        # Design‑папка в инженерном/строительном контексте
+
+      - pattern: "(?i)engineering"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)survey"
+        kind: specific_subject
+        weight: 0.75
+        # Survey‑папка (для инженерных/геодезических изысканий)
+
+      - pattern: "(?i)geotechnical"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)geological"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)geodetic"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)environmental[_\\s-]*assessment"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

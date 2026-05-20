@@ -86,30 +86,228 @@ classification_runtime_v1:
 
   rules:
 
+  rules:
+
     filename_patterns:
-      - "(?i)дол[ьи][_\\s-]*в[_\\s-]*ооо"
-      - "(?i)дол[ьи].*ооо"
-      - "(?i)акци[йяия]"
-      - "(?i)share[\\s_.-]*purchase"
-      - "(?i)share[\\s_.-]*sale"
-      - "(?i)share[\\s_.-]*deal"
-      - "(?i)\\bSPA\\b"
-      - "(?i)share[_\\s-]*purchase[_\\s-]*agreement"
-      - "(?i)corporate[\\s_.-]*rights?"
-      - "(?i)equity[\\s_.-]*(deal|sale|purchase)"
-      - "(?i)\\bM[&]?A\\b"
-      - "(?i)merger[_\\s-]*and[_\\s-]*acquisition"
-      - "(?i)M[_\\s-]*and[_\\s-]*A"
+      - pattern: "(?i)договор[_\\s-]*купли-?продажи[_\\s-]*акци"
+        kind: specific_subject
+        weight: 1.0
+        # Явная купля-продажа акций
+
+      - pattern: "(?i)договор[_\\s-]*отчуждени[яи][_\\s-]*акци"
+        kind: specific_subject
+        weight: 0.98
+        # Явное отчуждение акций
+
+      - pattern: "(?i)договор[_\\s-]*купли-?продажи[_\\s-]*дол[иьи]"
+        kind: specific_subject
+        weight: 1.0
+        # Явная купля-продажа доли
+
+      - pattern: "(?i)договор[_\\s-]*отчуждени[яи][_\\s-]*дол[иьи]"
+        kind: specific_subject
+        weight: 0.98
+        # Явное отчуждение доли
+
+      - pattern: "(?i)дол[ьи][_\\s-]*в[_\\s-]*ооо"
+        kind: specific_subject
+        weight: 1.0
+        # Явное указание доли в ООО в имени файла
+
+      - pattern: "(?i)дол[ьи].*ооо"
+        kind: specific_subject
+        weight: 0.95
+        # Более свободная форма: доля + ООО в одном имени файла
+
+      - pattern: "(?i)доля[_\\s-]*участия"
+        kind: specific_subject
+        weight: 0.92
+        # Продажа / отчуждение доли участия
+
+      - pattern: "(?i)пакет[_\\s-]*акци"
+        kind: specific_subject
+        weight: 0.95
+        # Продажа пакета акций / контрольного пакета
+
+      - pattern: "(?i)контрольн(?:ого|ый)?[_\\s-]*пакет"
+        kind: specific_subject
+        weight: 0.9
+        # Контрольный пакет как частый корпоративный sale-marker
+
+      - pattern: "(?i)акци[йяия]"
+        kind: specific_subject
+        weight: 0.75
+        # Акции как предмет сделки, но не максимальный вес из-за возможного шума
+
+      - pattern: "(?i)share[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+        # Классическая форма SPA для акций/долей
+
+      - pattern: "(?i)stock[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+        # Stock purchase agreement
+
+      - pattern: "(?i)membership[_\\s-]*interest[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+        # Membership interest purchase agreement
+
+      - pattern: "(?i)share[\\s_.-]*purchase"
+        kind: specific_subject
+        weight: 0.9
+        # Общая форма share purchase
+
+      - pattern: "(?i)share[\\s_.-]*sale"
+        kind: specific_subject
+        weight: 0.9
+        # Share sale
+
+      - pattern: "(?i)share[\\s_.-]*transfer"
+        kind: specific_subject
+        weight: 0.88
+        # Share transfer agreement / deed
+
+      - pattern: "(?i)stock[_\\s-]*transfer"
+        kind: specific_subject
+        weight: 0.85
+        # Stock transfer form / agreement
+
+      - pattern: "(?i)share[\\s_.-]*deal"
+        kind: specific_subject
+        weight: 0.85
+        # Share deal — M&A-лексика с явной оговоркой на shares
+
+      - pattern: "(?i)deed[_\\s-]*of[_\\s-]*transfer[_\\s-]*of[_\\s-]*shares"
+        kind: specific_subject
+        weight: 0.9
+        # Deed of transfer of shares
+
+      - pattern: "(?i)sale[\\s_.-]*and[\\s_.-]*purchase[\\s_.-]*of[\\s_.-]*shares"
+        kind: specific_subject
+        weight: 1.0
+        # Sale and purchase of shares
+
+      - pattern: "(?i)sale[\\s_.-]*and[\\s_.-]*purchase[\\s_.-]*of[\\s_.-]*membership[_\\s-]*interest"
+        kind: specific_subject
+        weight: 0.95
+        # Sale and purchase of membership interest
+
+      - pattern: "(?i)equity[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Equity purchase agreement
+
+      - pattern: "(?i)equity[\\s_.-]*(deal|sale|purchase)"
+        kind: specific_subject
+        weight: 0.88
+        # Equity sale/purchase/deal
+
+      - pattern: "(?i)equity[\\s_.-]*transfer"
+        kind: specific_subject
+        weight: 0.85
+        # Equity transfer
+
+      - pattern: "(?i)share[_\\s-]*acquisition[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Share acquisition agreement
+
+      - pattern: "(?i)securities[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.88
+        # Securities purchase agreement — достаточно близко к предмету
+
+      - pattern: "(?i)corporate[\\s_.-]*rights?"
+        kind: specific_subject
+        weight: 0.85
+        # Корпоративные права — предметный маркер, но шире, чем shares/dole
+
+      - pattern: "(?i)\\bSPA\\b"
+        kind: generic_form
+        weight: 0.4
+        # Чистый SPA без уточнения — generic form
+
+      - pattern: "(?i)\\bM[&]?A\\b"
+        kind: generic_form
+        weight: 0.4
+        # M&A без уточнения объекта — общий deal-контекст
+
+      - pattern: "(?i)merger[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.35
+        # Merger agreement ближе к реорганизации, чем к чистому shares sale
+
+      - pattern: "(?i)business[_\\s-]*combination[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.35
+        # Business combination — слишком широко для shares_sale
+
+      - pattern: "(?i)acquisition[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.35
+        # Acquisition agreement без share/equity — неоднозначно
+
+      - pattern: "(?i)M[_\\s-]*and[_\\s-]*A"
+        kind: generic_form
+        weight: 0.45
+        # Альтернативная форма M and A
+
+      - pattern: "(?i)equity"
+        kind: context
+        weight: 0.25
+        # Само по себе equity слишком широко
+
+      - pattern: "(?i)acquisition"
+        kind: context
+        weight: 0.25
+        # Acquisition без указания shares/equity
 
     folder_patterns:
-      - "(?i)corporate"
-      - "(?i)m\\s*&\\s*a"
-      - "(?i)mergers?"
-      - "(?i)acquisitions?"
-      - "(?i)shares?"
-      - "(?i)equity"
-      - "(?i)ооо"
-      - "(?i)акци[йяия]"
+      - pattern: "(?i)shares?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка явно про shares
+
+      - pattern: "(?i)акци[йяия]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка явно про акции
+
+      - pattern: "(?i)дол[ьи]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка по долям / доле
+
+      - pattern: "(?i)ооо"
+        kind: context
+        weight: 0.3
+        # ООО — корпоративный контекст, но не обязательно shares sale
+
+      - pattern: "(?i)equity"
+        kind: context
+        weight: 0.35
+        # Equity в названии папки слишком широко для specific_subject
+
+      - pattern: "(?i)corporate"
+        kind: context
+        weight: 0.3
+        # Общая корпоративная папка
+
+      - pattern: "(?i)m\\s*&\\s*a"
+        kind: generic_form
+        weight: 0.4
+        # M&A-папка как deal-контекст
+
+      - pattern: "(?i)mergers?"
+        kind: generic_form
+        weight: 0.35
+        # Mergers — уже ближе к реорганизации
+
+      - pattern: "(?i)acquisitions?"
+        kind: generic_form
+        weight: 0.4
 
     keywords:
 

@@ -74,25 +74,202 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)договор[_\\s-]*энергоснабжения"
-      - "(?i)энергоснабжения?"
-      - "(?i)энергосбыт"
-      - "(?i)электроснабжения?"
-      - "(?i)теплоснабжения?"
-      - "(?i)водоснабжения?"
-      - "(?i)газоснабжения?"
-      - "(?i)energy[_\\s-]*supply"
-      - "(?i)power[_\\s-]*supply"
-      - "(?i)договор[_\\s-]*с[_\\s-]*гарантирующим[_\\s-]*поставщиком"
-      - "(?i)договор[_\\s-]*ресурсоснабжения"
+      - pattern: "(?i)договор[_\\s-]*энергоснабжения"
+        kind: specific_subject
+        weight: 1.0
+        # Явное наименование договора энергоснабжения
+
+      - pattern: "(?i)договор[_\\s-]*снабжен[ияи][_\\s-]*энергией"
+        kind: specific_subject
+        weight: 0.95
+        # Договор снабжения энергией
+
+      - pattern: "(?i)договор[_\\s-]*электроснабжения?"
+        kind: specific_subject
+        weight: 0.95
+        # Договор электроснабжения
+
+      - pattern: "(?i)договор[_\\s-]*теплоснабжения?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*водоснабжения?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*газоснабжения?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*холодного[_\\s-]*водоснабжения"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*горячего[_\\s-]*водоснабжения"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*водоотведения"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*купли-?продажи[_\\s-]*электрическ[ойой][_\\s-]*энергии"
+        kind: specific_subject
+        weight: 0.95
+        # Купля-продажа электроэнергии как energy_supply, а не general_sale
+
+      - pattern: "(?i)договор[_\\s-]*купли-?продажи[_\\s-]*мощност[иьи]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*с[_\\s-]*гарантирующим[_\\s-]*поставщиком"
+        kind: specific_subject
+        weight: 0.95
+        # Типичный B2C/B2B-договор энергоснабжения с гарантирующим поставщиком
+
+      - pattern: "(?i)договор[_\\s-]*ресурсоснабжения"
+        kind: specific_subject
+        weight: 0.95
+        # Ресурсоснабжение (электро-, тепло-, вода, газ) как обобщение энергоснабжения
+
+      - pattern: "(?i)энергоснабжен[ияи]?"
+        kind: specific_subject
+        weight: 0.9
+        # Общее "энергоснабжение" в имени файла
+
+      - pattern: "(?i)электроснабжен[ияи]?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)теплоснабжен[ияи]?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)водоснабжен[ияи]?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)газоснабжен[ияи]?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)energy[_\\s-]*supply"
+        kind: specific_subject
+        weight: 0.95
+        # Energy supply agreement
+
+      - pattern: "(?i)power[_\\s-]*supply"
+        kind: specific_subject
+        weight: 0.95
+        # Power supply agreement
+
+      - pattern: "(?i)electricity[_\\s-]*supply[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)gas[_\\s-]*supply[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)water[_\\s-]*supply[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)heat[_\\s-]*supply[_\\s-]*(agreement|contract)?"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)power[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+        # PPA — классический контракт купли-продажи электроэнергии
+
+      - pattern: "(?i)renewable[_\\s-]*energy[_\\s-]*ppa"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)energy[_\\s-]*purchase[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)heat[_\\s-]*supply[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)water[_\\s-]*supply[_\\s-]*and[_\\s-]*sanitation[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)utility[_\\s-]*services?[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Общие utility services могут включать и иные услуги; трактуем как форму, не чистый subject
+
+      - pattern: "(?i)tolling[_\\s-]*agreement"
+        kind: context
+        weight: 0.4
+        # Tolling может быть рядом с электроэнергией, но сам по себе не гарантирует энергоснабжение
+
+      - pattern: "(?i)balancing[_\\s-]*agreement"
+        kind: context
+        weight: 0.4
+        # Balancing agreement — специфичный энергетический контекст, но лучше как поддерживающий сигнал
+
+      - pattern: "(?i)gas[_\\s-]*transportation[_\\s-]*agreement"
+        kind: context
+        weight: 0.4
+        # Договор транспортировки газа — близок, но не всегда тождественен купле-продаже/энергоснабжению
+
+      - pattern: "(?i)energy[_\\s-]*service[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Energy service (ESA) может быть ESCO/энергоэффективность; сохраняем как форму
+
+      - pattern: "(?i)\\bPPA\\b"
+        kind: specific_subject
+        weight: 0.9
+        # Аббревиатура PPA в имени файла почти всегда про power purchase
+
+      - pattern: "(?i)\\bESA\\b"
+        kind: context
+        weight: 0.35
+        # ESA неоднозначен, используем как слабый контекстный сигнал
 
     folder_patterns:
-      - "(?i)энергоснабжен"
-      - "(?i)ресурсоснабжен"
-      - "(?i)коммунальных?\\s*услуг"
-      - "(?i)utilities"
-      - "(?i)energy"
-      - "(?i)power"
+      - pattern: "(?i)энергоснабжен"
+        kind: specific_subject
+        weight: 0.8
+        # Папка энергоснабжения
+
+      - pattern: "(?i)ресурсоснабжен"
+        kind: specific_subject
+        weight: 0.8
+        # Папка ресурсоснабжения (электро-, тепло-, вода, газ)
+
+      - pattern: "(?i)коммунальных?\\s*услуг"
+        kind: specific_subject
+        weight: 0.75
+        # Коммунальные услуги (utilities) как предметный контекст
+
+      - pattern: "(?i)utilities"
+        kind: specific_subject
+        weight: 0.75
+        # Utilities в структуре папок
+
+      - pattern: "(?i)energy"
+        kind: context
+        weight: 0.4
+        # Общий energy-контекст, может включать и не контрактные документы
+
+      - pattern: "(?i)power"
+        kind: context
+        weight: 0.4
+        # Папка 'power' — дополнительный, но не решающий сигнал
+
+      - pattern: "(?i)ppa"
+        kind: specific_subject
+        weight: 0.8
+        # Папка PPA почти однозначно собрание power purchase agreements
 
     keywords:
 

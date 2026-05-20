@@ -89,23 +89,169 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)\\bдоговор[\\s_.-]*поставки\\b"
-      - "(?i)\\bпоставки\\b"
-      - "(?i)\\bпоставщик[а-я]*\\b"
-      - "(?i)\\bsupply[_\\s-]*(?:agreement|contract)?\\b"
-      - "(?i)frame[_\\s-]*supply[_\\s-]*agreement"
-      - "(?i)framework[_\\s-]*supply[_\\s-]*contract"
-      - "(?i)договор[\\s_.-]*поставки.*графиком"
-      - "(?i)договор[\\s_.-]*международной[\\s_.-]*поставки"
-      - "(?i)поставки?(?!.*(розничн|retail|consumer|личных\\s+нужд))"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*поставки\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Явное имя "договор поставки" — главный маркер типа
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*поставки[\\s_.-]*товар[ао]\\b"
+        kind: specific_subject
+        weight: 0.95
+        # Договор поставки товара — подчёркивает B2B-поставку
+
+      - pattern: "(?i)договор[\\s_.-]*поставки.*график"
+        kind: specific_subject
+        weight: 0.95
+        # Договор поставки с графиком — типичный признак длящейся поставки партиями
+
+      - pattern: "(?i)долгосрочн[а-я]*[\\s_.-]*договор[\\s_.-]*поставки"
+        kind: specific_subject
+        weight: 0.95
+        # Долгосрочный договор поставки
+
+      - pattern: "(?i)договор[\\s_.-]*международной[\\s_.-]*поставки"
+        kind: specific_subject
+        weight: 0.95
+        # Международная поставка
+
+      - pattern: "(?i)договор[\\s_.-]*снабжен[ияи]"
+        kind: specific_subject
+        weight: 0.9
+        # Договор снабжения как синоним поставочного контракта
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*оптов[ойы][\\s_.-]*поставки\\b"
+        kind: specific_subject
+        weight: 0.9
+        # Оптовая поставка — характерный B2B-паттерн
+
+      - pattern: "(?i)\\bпоставки?\\b"
+        kind: specific_subject
+        weight: 0.85
+        # Одинокое слово "поставка" в имени файла, но без явных retail-маркеров
+
+      - pattern: "(?i)\\bпоставки?(?!.*(розничн|retail|consumer|личных\\s+нужд))"
+        kind: specific_subject
+        weight: 0.9
+        # Поставка без признаков розницы/consumer — усиленный B2B-сигнал
+
+      - pattern: "(?i)\\bпоставщик[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.85
+        # Фигура поставщика в имени файла
+
+      - pattern: "(?i)\\bsupply[_\\s-]*(agreement|contract)\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Supply agreement / supply contract
+
+      - pattern: "(?i)master[_\\s-]*supply[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Master Supply Agreement (MSA в поставочном контексте)
+
+      - pattern: "(?i)framework[_\\s-]*supply[_\\s-]*(agreement|contract)"
+        kind: specific_subject
+        weight: 0.95
+        # Framework / frame supply agreement/contract
+
+      - pattern: "(?i)long[_\\s-]*term[_\\s-]*supply[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+        # Long Term Supply Agreement / LTSA
+
+      - pattern: "(?i)call[_\\s-]*off[_\\s-]*supply[_\\s-]*contract"
+        kind: specific_subject
+        weight: 0.9
+        # Call-off supply contract
+
+      - pattern: "(?i)offtake[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Offtake agreement как поставочный контракт
+
+      - pattern: "(?i)distributor[_\\s-]*supply[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Дистрибьюторская поставка
+
+      - pattern: "(?i)supply[_\\s-]*framework[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+        # Supply framework agreement
+
+      - pattern: "(?i)procurement[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Procurement agreement — закупочная документация, часто поставка, но не всегда
+
+      - pattern: "(?i)vendor[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.5
+        # Vendor agreement — общая форма поставщика/подрядчика
+
+      - pattern: "(?i)purchase[_\\s-]*order[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.55
+        # PO agreement — может быть supply, но также и другие B2B-схемы
+
+      - pattern: "(?i)PO[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)blanket[_\\s-]*purchase[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Blanket purchase — часто поставочный, но без прямого слова supply
+
+      - pattern: "(?i)requirements[_\\s-]*contract"
+        kind: generic_form
+        weight: 0.55
+        # Requirements/output contract — могут быть supply, но на уровне filename лучше считать generic
+
+      - pattern: "(?i)output[_\\s-]*contract"
+        kind: generic_form
+        weight: 0.55
+
+      - pattern: "(?i)MSA\\b"
+        kind: context
+        weight: 0.35
+        # Аббревиатура MSA неоднозначна (Master Service/Supply Agreement), её лучше трактовать как контекст
+
+      - pattern: "(?i)LTSA\\b"
+        kind: context
+        weight: 0.35
+        # LTSA как слабый контекстный сигнал без явного "supply" в имени файла
 
     folder_patterns:
-      - "(?i)поставки?"
-      - "(?i)supply"
-      - "(?i)logistics"
-      - "(?i)procurement"
-      - "(?i)закупки?"
-      - "(?i)b2b"
+      - pattern: "(?i)поставки?"
+        kind: specific_subject
+        weight: 0.8
+        # Папка явно под поставки
+
+      - pattern: "(?i)supply"
+        kind: specific_subject
+        weight: 0.8
+        # Supply-папка
+
+      - pattern: "(?i)procurement"
+        kind: specific_subject
+        weight: 0.75
+        # Закупки, чаще всего поставочная документация
+
+      - pattern: "(?i)закупки?"
+        kind: specific_subject
+        weight: 0.75
+        # Русское 'закупки' как аналог procurement
+
+      - pattern: "(?i)logistics"
+        kind: context
+        weight: 0.4
+        # Логистика — близкий, но не всегда чисто поставочный контекст
+
+      - pattern: "(?i)b2b"
+        kind: context
+        weight: 0.4
+        # Общий B2B-маркер; усиливает гипотезу supply против retail/general_sale, но не решает её
 
     keywords:
 
@@ -182,11 +328,7 @@ classification_runtime_v1:
           context: body
           description: "Роль поставщика в диспозитивной части договора"
 
-        - pattern: "(?i)\\bпокупатель\\s+обязуется\\s+принять\\b"
-          weight: 0.85
-          distinctiveness: high
-          context: body
-          description: "Типовая обязанность покупателя по поставке — принять товар"
+
 
         - pattern: "(?i)предпринимательская\\s+деятельность"
           weight: 0.75
@@ -296,6 +438,12 @@ classification_runtime_v1:
           distinctiveness: medium
           context: body
           description: "Общий термин поставки в теле; вес снижен — встречается и в других типах"
+
+        - pattern: "(?i)\\bпокупатель\\s+обязуется\\s+принять\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: body
+          description: "Общий для купли-продажи оборот, учитывается только в сочетании с предметно-специфичными сигналами поставки"
 
         - pattern: "(?i)технический\\s+регламент\\s+(?:таможенного\\s+союза|ТС|ТР\\s*ТС)"
           weight: 0.65
@@ -432,6 +580,12 @@ classification_runtime_v1:
         weight: -1.0
         description: "Ресурсоснабжение не является договором поставки"
         
+      - pattern: "(?i)ЕГРН|Росреестр|кадастр[а-я]"
+        severity: hard
+        weight: -1.0
+        description: "Наличие реестрной лексики недвижимости снижает уверенность в том, что это поставка товаров"
+
+
 # ════════════════════════════════════════════════════════════════════════════
 #  БЛОК 2: ТРИГГЕРЫ
 #  Читается: TriggerDetector → doc.applicable_triggers

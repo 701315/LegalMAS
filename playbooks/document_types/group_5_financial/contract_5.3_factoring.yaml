@@ -67,16 +67,147 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)факторинг"
-      - "(?i)финансировани.*под.*уступ"
-      - "(?i)factoring"
-      - "(?i)debtor"
-      - "(?i)receivables"
+      - pattern: "(?i)\\bдоговор[\\s_.-]*факторинга\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование договора факторинга
+
+      - pattern: "(?i)\\bфакторинг\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Базовый русский маркер; достаточно специфичен для данного типа
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*финансировани[а-я]*[\\s_.-]*под[\\s_.-]*уступк[а-я]*[\\s_.-]*(?:денежн[а-я]*[\\s_.-]*)?требовани[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Полная юридическая формула из ст. 824 ГК РФ
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:финансировани[а-я]*[\\s_.-]*(?:под|дебиторск[а-я]*)|финансировани[а-я]*[\\s_.-]*дебиторск[а-я]*)[\\s_.-]*задолженност[аи]\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Финансирование под / дебиторской задолженности — прямое покрытие из supported types
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*факторинга[\\s_.-]*(?:с|без)[\\s_.-]*регресс[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Факторинг с регрессом / без регресса — ключевые subtypes
+
+      - pattern: "(?i)\\bдоговор[\\s_.-]*(?:открытого|скрытого|международного)[\\s_.-]*факторинга\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Открытый / скрытый / международный факторинг из supported types
+
+      - pattern: "(?i)\\bfactoring[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Прямой английский маркер factoring agreement
+
+      - pattern: "(?i)\\bmaster[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Master factoring agreement — рамочная форма из supported types
+
+      - pattern: "(?i)\\bnotification[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Notification factoring — из supported types, open factoring subtype
+
+      - pattern: "(?i)\\bundisclosed[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Undisclosed factoring — аналог скрытого факторинга из supported types
+
+      - pattern: "(?i)\\breceivables[\\s_.-]*financing[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Receivables financing — financing-элемент отличает от чистой цессии
+
+      - pattern: "(?i)\\baccounts[\\s_.-]*receivable[s]?[\\s_.-]*purchase[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Accounts receivable purchase — из supported types; purchase-элемент указывает на factoring, а не assignment
+
+      - pattern: "(?i)\\bdebtor[\\s_.-]*finance[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Debtor finance agreement — из supported types, финансирование под дебиторку
+
+      - pattern: "(?i)\\breverse[\\s_.-]*factoring[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Reverse factoring — из supported types; supplier finance subtype
+
+      - pattern: "(?i)\\bsupply[\\s_.-]*chain[\\s_.-]*finance[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Supply chain finance — из supported types; шире reverse factoring, но в его семействе
+
+      - pattern: "(?i)\\binvoice[\\s_.-]*discounting[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.66
+        # Invoice discounting из supported types; без factoring-квалификатора может быть treasury/banking инструментом
+
+      - pattern: "(?i)\\binvoice[\\s_.-]*financ(?:ing|e)[\\s_.-]*(?:agreement|contract)?\\b"
+        kind: generic_form
+        weight: 0.60
+        # Invoice financing шире factoring: может быть кредитование под залог инвойсов без уступки
+
+      - pattern: "(?i)\\bfinансировани[а-я]*[\\s_.-]*(?:под[\\s_.-]*)?требовани[а-я]*\\b"
+        kind: generic_form
+        weight: 0.58
+        # Финансирование под требование — релевантно, но без уступки-квалификатора шире
+
+      - pattern: "(?i)\\bdebtor\\b"
+        kind: context
+        weight: 0.16
+        # Debtor сам по себе: встречается в assignment, кредите, банкротстве и т.д.
+
+      - pattern: "(?i)\\breceivables?\\b"
+        kind: context
+        weight: 0.14
+        # Receivables без financing/factoring qualifier: конфликт с assignment
+
 
     folder_patterns:
-      - "(?i)factoring"
-      - "(?i)факторинг"
-      - "(?i)receivables"
+      - pattern: "(?i)факторинг|factoring"
+        kind: specific_subject
+        weight: 0.88
+        # Явная taxonomy папок по факторингу
+
+      - pattern: "(?i)(?:master|notification|undisclosed|reverse)[_\\s-]*factoring"
+        kind: specific_subject
+        weight: 0.86
+        # Специфические factoring-subtype папки
+
+      - pattern: "(?i)receivables[_\\s-]*financ(?:ing|e)|accounts[_\\s-]*receivable[s]?[_\\s-]*purchase"
+        kind: specific_subject
+        weight: 0.82
+        # Receivables financing / AR purchase — financing-элемент отличает от цессии
+
+      - pattern: "(?i)debtor[_\\s-]*finance|финансировани[ея][_\\s-]*(?:под[_\\s-]*)?(?:дебиторск|требовани)"
+        kind: specific_subject
+        weight: 0.82
+        # Debtor finance / финансирование дебиторки в taxonomy
+
+      - pattern: "(?i)supply[_\\s-]*chain[_\\s-]*finance|reverse[_\\s-]*factoring"
+        kind: specific_subject
+        weight: 0.78
+        # Supply chain finance / reverse factoring папки
+
+      - pattern: "(?i)invoice[_\\s-]*discount(?:ing)?|invoice[_\\s-]*financ(?:ing|e)"
+        kind: generic_form
+        weight: 0.54
+        # Invoice discounting / financing folder — полезны, но шире чистого факторинга
+
+      - pattern: "(?i)receivables?|дебиторск[а-я]*[_\\s-]*задолженност"
+        kind: context
+        weight: 0.18
+        # Receivables / дебиторка без factoring/financing qualifier: конфликт с assignment, credit
+
+      - pattern: "(?i)финансировани[ея]|financing"
+        kind: context
+        weight: 0.14
+        # Financing без предмета слишком широко: кредит, лизинг, облигации и т.д.
 
     keywords:
 

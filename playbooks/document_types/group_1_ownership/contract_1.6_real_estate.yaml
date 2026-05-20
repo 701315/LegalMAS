@@ -68,25 +68,167 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)\\bproperty\\b"
-      - "(?i)\\bSPA\\b"
-      - "(?i)execution[\\s_-]*version"
-      - "(?i)недвижимост"
-      - "(?i)квартир"
-      - "(?i)земельн"
-      - "(?i)real[\\s_.]?estate"
-      - "(?i)real[\\s_.-]*estate[\\s_.-]*sale[\\s_.-]*and[\\s_.-]*purchase"
-      - "(?i)real[\\s_.-]*estate[\\s_.-]*spa"
-      - "(?i)purchase[\\s_.-]*and[\\s_.-]*sale"
-      - "(?i)land[\\s_.-]*sale"
-      - "(?i)real[\\s_.-]*property"
-      - "(?i)deed[\\s_.-]*of[\\s_.-]*sale"
+      - pattern: "(?i)\\bнедвижимост"
+        kind: specific_subject
+        weight: 1.0
+        # Прямой предметный маркер недвижимости
+
+      - pattern: "(?i)\\bквартир"
+        kind: specific_subject
+        weight: 0.95
+        # Квартира как явный объект сделки с недвижимостью
+
+      - pattern: "(?i)\\bземельн"
+        kind: specific_subject
+        weight: 0.95
+        # Земельный участок — сильный предметный маркер real estate
+
+      - pattern: "(?i)\\bжило[а-я]*[\\s_.-]*дом\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Жилой дом из doc_types_supported
+
+      - pattern: "(?i)\\bнежило[а-я]*[\\s_.-]*помещени"
+        kind: specific_subject
+        weight: 0.92
+        # Нежилое помещение — явный real estate object
+
+      - pattern: "(?i)\\b(?:здани[а-я]|сооружени[а-я])\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Здание / сооружение из doc_types_supported
+
+      - pattern: "(?i)\\bкоммерческ[а-я]*[\\s_.-]*недвижимост"
+        kind: specific_subject
+        weight: 0.94
+        # Коммерческая недвижимость — прямое покрытие из supported types
+
+      - pattern: "(?i)\\bобъект[\\s_.-]*незавершённ|незавершённ[а-я]*[\\s_.-]*строительств"
+        kind: specific_subject
+        weight: 0.90
+        # Объект незавершённого строительства — специфичный real estate subtype
+
+      - pattern: "(?i)real[\\s_.]?estate"
+        kind: specific_subject
+        weight: 1.0
+        # Явное указание на real estate
+
+      - pattern: "(?i)real[\\s_.-]*estate[\\s_.-]*sale[\\s_.-]*and[\\s_.-]*purchase"
+        kind: specific_subject
+        weight: 1.0
+        # Полная английская форма real estate SPA
+
+      - pattern: "(?i)real[\\s_.-]*estate[\\s_.-]*spa"
+        kind: specific_subject
+        weight: 0.95
+        # SPA с явным real estate modifier
+
+      - pattern: "(?i)land[\\s_.-]*sale"
+        kind: specific_subject
+        weight: 0.95
+        # Продажа земли
+
+      - pattern: "(?i)real[\\s_.-]*property"
+        kind: specific_subject
+        weight: 0.90
+        # Real property — обычно именно недвижимость
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*of[\\s_.-]*sale\\b"
+        kind: specific_subject
+        weight: 0.85
+        # Часто используется именно для сделок с недвижимостью
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*of[\\s_.-]*conveyance\\b|\\bconveyance[\\s_.-]*deed\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Conveyance deed — юридически более специфична для real estate, чем deed of sale
+
+      - pattern: "(?i)\\btransfer[\\s_.-]*deed\\b"
+        kind: specific_subject
+        weight: 0.82
+        # Transfer deed из supported types; чуть ниже conveyance deed — более общая форма
+
+      - pattern: "(?i)\\bcondominium[\\s_.-]*purchase(?:[\\s_.-]*agreement)?\\b"
+        kind: specific_subject
+        weight: 0.84
+        # Condominium purchase из supported types; умеренный вес — leasehold-interest возможен
+
+      - pattern: "(?i)\\bsale[\\s_.-]*of[\\s_.-]*leasehold(?:[\\s_.-]*interest)?\\b"
+        kind: specific_subject
+        weight: 0.72
+        # Sale of leasehold interest из supported types; leasehold ≠ полный transfer of ownership
+
+      - pattern: "(?i)\\bpurchase[\\s_.-]*and[\\s_.-]*sale\\b"
+        kind: generic_form
+        weight: 0.50
+        # PSA/APS — распространённая форма, но не только для недвижимости
+
+      - pattern: "(?i)(?<![A-Za-z])SPA(?![A-Za-z])"
+        kind: generic_form
+        weight: 0.35
+        # Сам по себе SPA слишком неоднозначен: может быть shares, assets, M&A и др.
+
+      - pattern: "(?i)\\bescrow[\\s_.-]*instructions?\\b"
+        kind: context
+        weight: 0.26
+        # Escrow instructions из supported types, но встречаются и в других сделках с высокой стоимостью
+
+      - pattern: "(?i)\\bМКД\\b|многоквартирн"
+        kind: context
+        weight: 0.28
+        # МКД / многоквартирный дом — контекстный маркер сделок с общим имуществом в доме
+
+      - pattern: "(?i)\\bproperty\\b"
+        kind: context
+        weight: 0.30
+        # Property без real/estate слишком широкое слово
+
+      - pattern: "(?i)execution[\\s_-]*version"
+        kind: context
+        weight: 0.15
+        # Технический артефакт версии, не предмет договора
+
 
     folder_patterns:
-      - "(?i)real[\\s_]?estate"
-      - "(?i)недвижим"
-      - "(?i)property"
-      - "(?i)real[_\\s-]*property"
+      - pattern: "(?i)real[\\s_]?estate"
+        kind: specific_subject
+        weight: 0.85
+        # Явная real-estate папка
+
+      - pattern: "(?i)недвижим"
+        kind: specific_subject
+        weight: 0.80
+        # Русский эквивалент real estate в структуре папок
+
+      - pattern: "(?i)real[_\\s-]*property"
+        kind: specific_subject
+        weight: 0.75
+        # Предметный folder-marker
+
+      - pattern: "(?i)земельн[_\\s-]*(?:участ|участок)?|land[_\\s-]*(?:sale|plot|parcel)"
+        kind: specific_subject
+        weight: 0.76
+        # Земельный участок / land sale folder
+
+      - pattern: "(?i)\\bквартир"
+        kind: specific_subject
+        weight: 0.74
+        # Папка по квартирным сделкам
+
+      - pattern: "(?i)нежило[а-я]*[_\\s-]*помещени|коммерческ[а-я]*[_\\s-]*недвижимост"
+        kind: specific_subject
+        weight: 0.74
+        # Нежилое / коммерческая недвижимость в taxonomy папок
+
+      - pattern: "(?i)conveyance|deed[_\\s-]*of[_\\s-]*(?:sale|conveyance)|transfer[_\\s-]*deed"
+        kind: generic_form
+        weight: 0.44
+        # Deed-taxonomy folder: полезный, но возможен в иных правовых системах
+
+      - pattern: "(?i)property"
+        kind: context
+        weight: 0.25
+        # Слишком общий folder context
 
     keywords:
 

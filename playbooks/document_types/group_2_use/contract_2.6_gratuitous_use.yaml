@@ -75,16 +75,153 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)безвозмездн.*пользован"
-      - "(?i)ссуд.*имуществ"
-      - "(?i)бесплатн.*пользован"
-      - "(?i)free.*loan"
-      - "(?i)gratuitous.*use"
+      # Русский — явные договоры безвозмездного пользования / ссуды
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое название: договор безвозмездного пользования
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*имуществом?"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*помещени[яия]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*оборудовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*безвозмездн[огоой][_\\s-]*пользовани[яия][_\\s-]*транспортн[а-я\\s]*средств[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*ссуд[ыы]"
+        kind: specific_subject
+        weight: 0.98
+        # Договор ссуды
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*имуществ[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*недвижимост[иьи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*оборудовани[яия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)ссуд[аы][_\\s-]*транспортн[а-я\\s]*средств[ао]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*передач[ии][_\\s-]*имуществ[ао][_\\s-]*в[_\\s-]*безвозмездн[оеое][_\\s-]*пользовани[ею]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)соглашени[ея][_\\s-]*о[_\\s-]*безвозмездн[омым][_\\s-]*пользовани[иия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)соглашени[ея][_\\s-]*о[_\\s-]*бесплатн[омым][_\\s-]*пользовани[иия]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)безвозмездн[оеаяы][_\\s-]*пользовани[еия]"
+        kind: specific_subject
+        weight: 0.9
+        # Свободная форма "безвозмездное пользование" в имени файла
+
+      - pattern: "(?i)бесплатн[оеаяы][_\\s-]*пользовани[еия]"
+        kind: specific_subject
+        weight: 0.85
+
+      - pattern: "(?i)ссудн[а-я]*[_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — gratuitous use / loan for use / commodatum
+
+      - pattern: "(?i)gratuitous[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)free[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)agreement[_\\s-]*for[_\\s-]*free[_\\s-]*use[_\\s-]*of[_\\s-]*propert[y|ies]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)loan[_\\s-]*for[_\\s-]*use[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)gratuitous[_\\s-]*bailment"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)commodatum"
+        kind: specific_subject
+        weight: 0.9
+        # commodatum как латинский термин договора ссуды/безвозмездного пользования
+
+      # Более общие "free use/loan" — как generic/context, чтобы не ловить все free-политики
+
+      - pattern: "(?i)gratuitous[_\\s-]*use"
+        kind: generic_form
+        weight: 0.6
+        # Если нет слова agreement/contract, оставляем как форму
+
+      - pattern: "(?i)free[_\\s-]*use"
+        kind: generic_form
+        weight: 0.5
+
+      - pattern: "(?i)free[_\\s-]*loan"
+        kind: generic_form
+        weight: 0.5
+        # Может быть и про финансовый "беспроцентный заём", а не пользование вещью
 
     folder_patterns:
-      - "(?i)ссуда"
-      - "(?i)безвозмездн"
-      - "(?i)free.*use"
+      - pattern: "(?i)ссуда"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с договорами ссуды / безвозмездного пользования
+
+      - pattern: "(?i)безвозмездн"
+        kind: specific_subject
+        weight: 0.8
+        # Папка "безвозмездное пользование" / "безвозмездные договоры"
+
+      - pattern: "(?i)бесплатн[оеаяы]"
+        kind: specific_subject
+        weight: 0.75
+        # Папка "бесплатное пользование" и т.п.
+
+      - pattern: "(?i)free[_\\s-]*use"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)gratuitous"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)loan[_\\s-]*for[_\\s-]*use"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)commodatum"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

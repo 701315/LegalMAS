@@ -68,16 +68,160 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)хранен"
-      - "(?i)storage"
-      - "(?i)custody"
-      - "(?i)ответхран"
-      - "(?i)складск"
+      # Русский — явные договоры хранения / складского/ответственного хранения
+
+      - pattern: "(?i)договор[_\\s-]*хранени[яия]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовый договор хранения
+
+      - pattern: "(?i)договор[_\\s-]*складск[огоого][_\\s-]*хранени[яия]"
+        kind: specific_subject
+        weight: 0.98
+        # Договор складского хранения
+
+      - pattern: "(?i)договор[_\\s-]*ответственн[огоого][_\\s-]*хранени[яия]"
+        kind: specific_subject
+        weight: 0.98
+        # Договор ответственного хранения
+
+      - pattern: "(?i)договор[_\\s-]*ответхранени[яия]"
+        kind: specific_subject
+        weight: 0.98
+        # Сокращение "ответхранение"
+
+      - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*товар[овы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*на[_\\s-]*склад[еуа]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*в[_\\s-]*ломбард[еуа]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*аренд[ыы][_\\s-]*банковск[ойой][_\\s-]*ячейк[ии]"
+        kind: specific_subject
+        weight: 0.9
+        # Формально аренда ячейки, но по сути хранение ценностей
+
+      - pattern: "(?i)договор[_\\s-]*секвестр[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)хранени[яия][_\\s-]*товар[овы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)складск[ойая][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)договор[_\\s-]*хранени[яия][_\\s-]*в[_\\s-]*банковск[ойой][_\\s-]*ячейк[ееи]"
+        kind: specific_subject
+        weight: 0.9
+
+      # Английский — warehousing / storage / safekeeping / custody / bailment
+
+      - pattern: "(?i)warehous(?:e|ing)[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+        # Warehousing agreement
+
+      - pattern: "(?i)warehouse[_\\s-]*services?[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)storekeeping[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)safekeeping[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)custody[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)bailment[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)bonded[_\\s-]*storage[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)cold[_\\s-]*storage[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)self[_\\s-]*storage[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)warehouse[_\\s-]*receipt[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      # Более общие storage/custody — generic/context, чтобы не ловить, например, data storage
+
+      - pattern: "(?i)storage[_\\s-]*agreement"
+        kind: generic_form
+        weight: 0.6
+        # Может быть и data storage; нужен контекст L2/L3
+
+      - pattern: "(?i)custody"
+        kind: generic_form
+        weight: 0.55
+        # Custody может быть и инвестиционным/клиринговым; всё равно усиливает хранение
+
+      - pattern: "(?i)storage"
+        kind: context
+        weight: 0.4
+
+      - pattern: "(?i)складск"
+        kind: context
+        weight: 0.4
+
+      - pattern: "(?i)хранени[яия]"
+        kind: generic_form
+        weight: 0.6
+        # "Хранение" без указания договора/обслуживания — поддерживающий сигнал, не решение
 
     folder_patterns:
-      - "(?i)хранен"
-      - "(?i)storage"
-      - "(?i)складск"
+      - pattern: "(?i)хранени[яия]"
+        kind: specific_subject
+        weight: 0.8
+        # Папка по договорам хранения
+
+      - pattern: "(?i)складск"
+        kind: specific_subject
+        weight: 0.8
+        # Папка складского хранения / склада
+
+      - pattern: "(?i)storage"
+        kind: specific_subject
+        weight: 0.75
+        # Папка storage в логистическом/хозяйственном контексте
+
+      - pattern: "(?i)warehouse"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)custody"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)safekeeping"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)bailment"
+        kind: specific_subject
+        weight: 0.75
 
     keywords:
 

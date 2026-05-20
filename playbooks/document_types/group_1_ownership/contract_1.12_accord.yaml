@@ -66,18 +66,172 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)отступн"
-      - "(?i)dation[_\\s-]*in[_\\s-]*payment"
-      - "(?i)deed[\\s_.-]*in[\\s_.-]*lieu"
-      - "(?i)in[_\\s-]*lieu[_\\s-]*of[_\\s-]*payment"
-      - "(?i)в[_\\s-]+счет[_\\s-]+погашения"
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*об[\\s_.-]*отступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 1.0
+        # Прямое наименование соглашения об отступном
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*предоставлени[а-я]*[\\s_.-]*отступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Прямое покрытие из supported types
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*прекращени[а-я]*[\\s_.-]*обязательств[а-я]*[\\s_.-]*отступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.98
+        # Прекращение обязательства отступным — юридически точная формула
+
+      - pattern: "(?i)\\bотступн[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Базовый русский маркер; достаточно специфичен для данного типа
+
+      - pattern: "(?i)\\bсоглашени[ея][\\s_.-]*о[\\s_.-]*замен[а-я]*[\\s_.-]*исполнени[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Замена исполнения — функциональный эквивалент отступного из supported types
+
+      - pattern: "(?i)\\bпогашени[ея][\\s_.-]*долг[а-я]*[\\s_.-]*имуществ[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Погашение долга имуществом — прямой subject-маркер отступного
+
+      - pattern: "(?i)\\bпогашени[ея][\\s_.-]*долг[а-я]*[\\s_.-]*прав[а-я]*[\\s_.-]*требован[а-я]*\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Погашение долга правом требования из supported types
+
+      - pattern: "(?i)\\bотступн[а-я]*[\\s_.-]*(?:по[\\s_.-]*кредитн[а-я]*[\\s_.-]*договор[а-я]*|недвижимост[а-я]*|векселем)\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Предметные формы отступного: по кредиту, недвижимостью, векселем
+
+      - pattern: "(?i)\\baccord[\\s_.-]*and[\\s_.-]*satisfaction\\b"
+        kind: specific_subject
+        weight: 0.96
+        # Прямой англоязычный юридический термин
+
+      - pattern: "(?i)\\baccord[\\s_.-]*agreement\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Accord agreement — поддерживаемый английский маркер
+
+      - pattern: "(?i)\\bdation[\\s_.-]*in[\\s_.-]*payment\\b"
+        kind: specific_subject
+        weight: 0.94
+        # Dation in payment — романо-правовой аналог отступного, достаточно специфичен
+
+      - pattern: "(?i)\\btransfer[\\s_.-]*in[\\s_.-]*satisfaction[\\s_.-]*of[\\s_.-]*debt\\b"
+        kind: specific_subject
+        weight: 0.92
+        # Transfer in satisfaction of debt — прямой маркер из supported types
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*in[\\s_.-]*satisfaction\\b"
+        kind: specific_subject
+        weight: 0.88
+        # Deed in satisfaction — формальная английская форма
+
+      - pattern: "(?i)\\bdeed[\\s_.-]*in[\\s_.-]*lieu(?:[\\s_.-]*of[\\s_.-]*(?:payment|foreclosure))?\\b"
+        kind: specific_subject
+        weight: 0.86
+        # Deed in lieu (of payment/foreclosure) — практически применяемая форма
+
+      - pattern: "(?i)\\bsettlement[\\s_.-]*in[\\s_.-]*lieu[\\s_.-]*of[\\s_.-]*performance\\b"
+        kind: specific_subject
+        weight: 0.90
+        # Settlement in lieu of performance — из supported types, достаточно специфично
+
+      - pattern: "(?i)(?=.*\\bв[\\s_.-]*счёт\\b|\\bв[\\s_.-]*счет\\b)(?=.*\\bпогашени[а-я]*\\b).*"
+        kind: specific_subject
+        weight: 0.84
+        # В счёт погашения — характерная формула для отступного, более специфична в связке
+
+      - pattern: "(?i)\\bin[\\s_.-]*lieu[\\s_.-]*of[\\s_.-]*payment\\b"
+        kind: specific_subject
+        weight: 0.82
+        # In lieu of payment — функциональный маркер отступного
+
+      - pattern: "(?i)\\bdebt[\\s_.-]*settlement[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.56
+        # Debt settlement agreement из supported types, но шире отступного; конфликт с debt restructuring
+
+      - pattern: "(?i)\\bsettlement[\\s_.-]*and[\\s_.-]*release[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.52
+        # Settlement and release шире отступного: может быть litigation settlement, general release
+
+      - pattern: "(?i)\\bcomposition[\\s_.-]*agreement\\b"
+        kind: generic_form
+        weight: 0.46
+        # Composition agreement в ряде юрисдикций ближе к реструктуризации/рассрочке, чем к отступному
+
+      - pattern: "(?i)\\bsettlement[\\s_.-]*agreement\\b"
+        kind: context
+        weight: 0.22
+        # Settlement agreement без уточнения слишком широко: litigation, commercial, employment и т.д.
+
+      - pattern: "(?i)\\bsettlement\\b"
+        kind: context
+        weight: 0.16
+        # Сам по себе settlement — слишком широкий контекстный маркер
+
 
     folder_patterns:
-      - "(?i)termination"
-      - "(?i)settlement"
-      - "(?i)отступн"
-      - "(?i)obligation"
-      - "(?i)debt[_\\s-]*settlement"
+      - pattern: "(?i)отступн"
+        kind: specific_subject
+        weight: 0.86
+        # Явная папка по соглашениям об отступном
+
+      - pattern: "(?i)accord[_\\s-]*(?:and[_\\s-]*)?satisfaction|dation[_\\s-]*in[_\\s-]*payment"
+        kind: specific_subject
+        weight: 0.84
+        # Прямые англоязычные folder-markers отступного
+
+      - pattern: "(?i)transfer[_\\s-]*in[_\\s-]*satisfaction|deed[_\\s-]*in[_\\s-]*(?:satisfaction|lieu)"
+        kind: specific_subject
+        weight: 0.80
+        # Folder по deed/transfer in satisfaction формам
+
+      - pattern: "(?i)замен[а-я]*[_\\s-]*исполнени|погашени[ея][_\\s-]*долг[а-я]*[_\\s-]*имуществ"
+        kind: specific_subject
+        weight: 0.76
+        # Папка по русскоязычным эквивалентам отступного
+
+      - pattern: "(?i)debt[_\\s-]*settlement"
+        kind: generic_form
+        weight: 0.50
+        # Debt settlement folder полезен, но шире чистого отступного
+
+      - pattern: "(?i)settlement[_\\s-]*(?:and[_\\s-]*release|in[_\\s-]*lieu)"
+        kind: generic_form
+        weight: 0.46
+        # Settlement with qualifier — умеренно полезен, но неоднозначен
+
+      - pattern: "(?i)obligation[_\\s-]*termination|прекращени[ея][_\\s-]*обязательств"
+        kind: generic_form
+        weight: 0.44
+        # Прекращение обязательств — правильный контекст, но шире отступного (новация, зачёт и др.)
+
+      - pattern: "(?i)settlement"
+        kind: context
+        weight: 0.20
+        # Settlement folder слишком широк
+
+      - pattern: "(?i)termination"
+        kind: context
+        weight: 0.18
+        # Termination folder неоднозначен: termination of contract, of employment и т.д.
+
+      - pattern: "(?i)obligation"
+        kind: context
+        weight: 0.16
+        # Obligation folder почти ничего не определяет
+
+      - pattern: "(?i)debt"
+        kind: context
+        weight: 0.16
+        # Debt folder слишком широк: collections, restructuring, assignment и др.
 
     keywords:
 

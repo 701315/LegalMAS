@@ -65,15 +65,147 @@ classification_runtime_v1:
   rules:
 
     filename_patterns:
-      - "(?i)франчайз"
-      - "(?i)франшиз"
-      - "(?i)концесси"
-      - "(?i)franchise"
+      # Русский — коммерческая концессия / франчайзинг / франшиза
+
+      - pattern: "(?i)договор[_\\s-]*коммерческ[ойая][_\\s-]*концесс[ииия]"
+        kind: specific_subject
+        weight: 1.0
+        # Базовое: договор коммерческой концессии
+
+      - pattern: "(?i)коммерческ[аяой][_\\s-]*концесс[ияи][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*франчайзинг[ауы]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*франшиз[ыау]"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)договор[_\\s-]*франчайзинга[_\\s-]*общепит[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)мастер[_\\s-]*франчайз[инг]?"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)мастер[_\\s-]*франшиз[ауы]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*мастер[_\\s-]*франчайзинга"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)субконцесс[ияи]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*субконцесс[ииия]"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)договор[_\\s-]*субфранчайзинга"
+        kind: specific_subject
+        weight: 0.95
+
+      - pattern: "(?i)сетевой[_\\s-]*лицензионн[ыйого][_\\s-]*договор"
+        kind: specific_subject
+        weight: 0.9
+        # В описанной модели – сетевой лицензионный договор = франчайзинг
+
+      - pattern: "(?i)франчайзинг"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)франшиз[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)коммерческ[аяой][_\\s-]*франшиз[ауы]"
+        kind: specific_subject
+        weight: 0.9
+
+
+      # Английский — franchise agreements
+
+      - pattern: "(?i)franchise[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)master[_\\s-]*franchise[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 1.0
+
+      - pattern: "(?i)area[_\\s-]*franchise[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)development[_\\s-]*franchise[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)franchise[_\\s-]*development[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.98
+
+      - pattern: "(?i)franchise[_\\s-]*renewal[_\\s-]*agreement"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)franchise[_\\s-]*disclosure[_\\s-]*document"
+        kind: specific_subject
+        weight: 0.9
+
+      - pattern: "(?i)\\bFDD\\b"
+        kind: specific_subject
+        weight: 0.85
+
+      # Короткий маркер franchise/franchising – generic/context (чтобы не ловить маркетинговые материалы)
+
+      - pattern: "(?i)franchis(e|ing)"
+        kind: generic_form
+        weight: 0.6
+
+      - pattern: "(?i)концесс[ииия]"
+        kind: generic_form
+        weight: 0.55
+        # На случай, если встречается "концессия" без слова "коммерческая/договор",
+        # т.к. может быть и публичная концессия по другим главам
 
     folder_patterns:
-      - "(?i)franchise"
-      - "(?i)франчайз"
-      - "(?i)IP"
+      - pattern: "(?i)franchise"
+        kind: specific_subject
+        weight: 0.8
+        # Папка с франчайзинговыми договорами
+
+      - pattern: "(?i)франчайз"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)франшиз"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)коммерческ[аяой][_\\s-]*концесс"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)master[_\\s-]*franchise"
+        kind: specific_subject
+        weight: 0.8
+
+      - pattern: "(?i)subfranchise|sub[_\\s-]*franchise"
+        kind: specific_subject
+        weight: 0.75
+
+      - pattern: "(?i)IP"
+        kind: context
+        weight: 0.4
+        # Общая IP‑папка: полезный контекст, но не единственный маркер франчайзинга
 
     keywords:
 
