@@ -88,12 +88,22 @@ Run lifecycle semantics:
   - run gating до выполнения этих условий.
 - Этот файл отвечает только за post-run-start document pipeline orchestration.
 
-Важное правило работы с ORM:
+Важное правило работы с ORM (snapshot architecture):
 - SQLAlchemy asyncpg не допускает синхронный lazy reload атрибутов ORM-объектов
   после await-границы (MissingGreenlet).
-- Поэтому все нужные поля ORM-объектов (version.id, execution.id и т.д.)
-  сохраняются в примитивные переменные сразу после загрузки объекта,
-  до первого await-вызова с этим объектом.
+- Кроме того, session.rollback() (даже внутри savepoint-recovery) помечает все
+  ORM-объекты сессии как expired, после чего любое обращение к атрибуту
+  провоцирует lazy reload.
+- Поэтому orchestration-слой работает по принципу:
+  1) READ PHASE — загрузить ORM-объекты (Run, Deal, Documents, Version);
+  2) SNAPSHOT — немедленно снять все нужные поля в snapshot/dataclass/примитивы;
+  3) DECISION PHASE — строить планы только на snapshot-данных;
+  4) WRITE PHASE — создавать execution / dispatch;
+  5) POST PHASE — checks gate и maybe_start_run_checks только на snapshot-данных.
+- Живые ORM-объекты не передаются в helper-функции и не используются
+  после первого await.
+- Shared snapshot-контракты для pipeline/orchestration слоя живут в
+  core.pipeline_snapshots и переиспользуются всеми orchestration/worker файлами.
 """
 
 from __future__ import annotations
@@ -106,7 +116,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DocumentStatus, RunStatus
 from core.logging import get_logger
-from db.models.run import Run
+from core.pipeline_snapshots import (
+    RunSnapshot,
+    DocumentSnapshot,
+    VersionSnapshot,
+    snapshot_run,
+    snapshot_document,
+    snapshot_version,
+)
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
@@ -140,51 +157,6 @@ CONVERTIBLE_TO_PDF: set[str] = {
 
 ORCHESTRATION_STRATEGY_V2_ONLY = "V2_ONLY"
 
-# ─── Version snapshot ────────────────────────────────────────────────────────
-#
-# Хранит примитивные значения, снятые с ORM-объекта DocumentVersion
-# сразу после загрузки — до первой await-границы.
-# Это необходимо, чтобы избежать MissingGreenlet при повторном обращении
-# к атрибутам ORM-объекта после await.
-
-@dataclass(slots=True)
-class _VersionSnapshot:
-    """Snapshot примитивов DocumentVersion, снятых до первого await."""
-    version_id: uuid.UUID
-    version_id_str: str
-    origin_filetype: str
-    converted_pdf_ref: str | None
-    original_ref: str | None
-    primary_source_ref: str | None
-    layout_primary_ref: str | None
-    layout_primary_sanitized_ref: str | None
-    file_graph_ref: str | None
-    chunks_manifest_v2_ref: str | None
-    segments_count: int | None
-
-
-def _snapshot_version(version: Any) -> _VersionSnapshot:
-    """
-    Снять все нужные поля с ORM-объекта DocumentVersion в примитивы.
-
-    Вызывать сразу после получения объекта, до первого await.
-    """
-    return _VersionSnapshot(
-        version_id=version.id,
-        version_id_str=str(version.id),
-        origin_filetype=str(getattr(version, "origin_filetype", "") or "").lower(),
-        converted_pdf_ref=getattr(version, "converted_pdf_ref", None),
-        original_ref=getattr(version, "original_ref", None),
-        primary_source_ref=getattr(version, "primary_source_ref", None),
-        layout_primary_ref=getattr(version, "layout_primary_ref", None),
-        layout_primary_sanitized_ref=getattr(
-            version, "layout_primary_sanitized_ref", None
-        ),
-        file_graph_ref=getattr(version, "file_graph_ref", None),
-        chunks_manifest_v2_ref=getattr(version, "chunks_manifest_v2_ref", None),
-        segments_count=getattr(version, "segments_count", None),
-    )
-
 
 # ─── TaskPlan ─────────────────────────────────────────────────────────────────
 
@@ -198,7 +170,7 @@ class TaskPlan:
 
 # ─── Segment helpers ──────────────────────────────────────────────────────────
 
-def _is_multi_document_snapshot(snap: _VersionSnapshot) -> bool:
+def _is_multi_document_snapshot(snap: VersionSnapshot) -> bool:
     """Multi-document критерий по snapshot: segments_count > 1."""
     return bool(snap.segments_count and snap.segments_count > 1)
 
@@ -231,7 +203,7 @@ async def _count_unclassified_segments(
 
 async def _are_all_segments_classified(
     seg_repo: DocumentSegmentRepository,
-    snap: _VersionSnapshot,
+    snap: VersionSnapshot,
 ) -> bool:
     """
     Readiness-предикат для segment-level классификации.
@@ -253,26 +225,31 @@ async def _are_all_segments_classified(
 
 
 async def _can_start_checks_for_run(
-    run_obj: Run,
-    docs: list,
+    run_snap: RunSnapshot,
+    doc_snaps: list[DocumentSnapshot],
     ver_repo: DocumentVersionRepository,
     seg_repo: DocumentSegmentRepository,
 ) -> bool:
     """
     Пред-гейт для maybe_start_run_checks.
 
+    Важно:
+    - orchestration helper работает только с snapshot/примитивами, а не с живыми ORM;
+    - это защищает от MissingGreenlet после длинной await-цепочки
+      и после savepoint rollback path в create_planned_or_none_on_conflict.
+
+    Логика:
     - для single-document документов: условий дополнительных нет;
     - для multi-document документов: хотя бы один документ run'a с сегментами
       ещё не имеет завершённой segment-level классификации — checks не запускаем.
     """
-    run_id = str(run_obj.id)
-    for doc in docs:
-        version = await ver_repo.get_latest(doc.id)
+    for doc_snap in doc_snaps:
+        version = await ver_repo.get_latest(doc_snap.document_id)
         if version is None:
             continue
 
         # Снимаем snapshot сразу — дальше segment-запросы через await
-        snap = _snapshot_version(version)
+        snap = snapshot_version(version)
 
         if _is_multi_document_snapshot(snap):
             all_segments_classified = await _are_all_segments_classified(seg_repo, snap)
@@ -280,8 +257,8 @@ async def _can_start_checks_for_run(
                 logger.info(
                     "Run checks postponed: multi-document has unclassified segments",
                     extra={
-                        "run_id": run_id,
-                        "document_id": str(doc.id),
+                        "run_id": run_snap.run_id_str,
+                        "document_id": doc_snap.document_id_str,
                         "document_version_id": snap.version_id_str,
                         "segments_count": snap.segments_count,
                     },
@@ -380,29 +357,20 @@ async def _start_run_pipeline_async(
     """
     Async-ядро оркестрации Run.
 
-    Правило:
+    Архитектура read / snapshot / decision / write / post:
+    - READ:     загружаем ORM-объекты (Run, Deal, Documents);
+    - SNAPSHOT: немедленно снимаем snapshots в dataclass/примитивы;
+    - DECISION: строим TaskPlan для каждого документа по snapshot-данным;
+    - WRITE:    создаём execution-записи и dispatch Celery tasks;
+    - POST:     проверяем segment readiness и вызываем maybe_start_run_checks.
+
+    Правила:
     - на один проход оркестратора для одного документа ставим не более ОДНОЙ
       следующей стадии;
     - решение принимается по status + наличию артефактов версии;
-    - RUNNING run допускает повторный вход (re-entry) оркестратора.
-
-    После введения document_stage_executions:
-    - перед постановкой задачи мы пытаемся создать execution-запись;
-    - если активная запись уже есть, задачу повторно не ставим.
-
-    ВАЖНО:
-    - В новой pre-run архитектуре определение языков документов и выбор
-      primary_language сделки происходят ДО старта анализа.
-    - Поэтому run_orchestrator НЕ должен запускать document pipeline,
-      если deal.primary_language ещё не выбран.
-    - build_primary_language_source в рамках Run больше не используется
-      как fallback-механизм deal-level language discovery / language selection.
-
-    ORM-правило:
-    - Все поля ORM-объектов (version.id, execution.id и т.п.) снимаются в
-      примитивные переменные сразу после await-загрузки, до следующего await.
-      Это предотвращает MissingGreenlet при попытке SQLAlchemy сделать
-      синхронный lazy reload атрибута после await-границы.
+    - RUNNING run допускает повторный вход (re-entry) оркестратора;
+    - после snapshot-фазы живые ORM-объекты не используются;
+    - helper-функции принимают только snapshots / примитивы, не ORM.
     """
 
     logger.info(
@@ -421,8 +389,10 @@ async def _start_run_pipeline_async(
     dse_repo = DocumentStageExecutionRepository(db)
     audit_repo = AuditRepository(db)
 
+    # ── READ + SNAPSHOT: Run ──────────────────────────────────────────────────
+
     run_uuid = uuid.UUID(run_id)
-    run_obj: Run | None = await run_repo.get_by_id(run_uuid)
+    run_obj = await run_repo.get_by_id(run_uuid)
 
     if run_obj is None:
         await run_repo.update_status(
@@ -445,16 +415,23 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
         }
 
-    # Снимаем run_obj-поля до первого await после него
-    run_deal_id = run_obj.deal_id
-    run_deal_id_str = str(run_deal_id) if run_deal_id else None
-    current_status = run_obj.status
+    # Снимаем snapshot сразу после загрузки ORM-объекта Run.
+    # Дальше orchestration работает только с run_snap, а не с run_obj.
+    run_snap = snapshot_run(run_obj)
+    current_status = run_snap.status
+
+    # ── Run lifecycle gate ────────────────────────────────────────────────────
 
     if current_status == RunStatus.PENDING.value:
         started = await run_repo.try_start_run(run_uuid)
         if not started:
             run_obj = await run_repo.get_by_id(run_uuid)
-            current_status = run_obj.status if run_obj is not None else None
+            if run_obj is not None:
+                run_snap = snapshot_run(run_obj)
+                current_status = run_snap.status
+            else:
+                current_status = None
+
             if current_status != RunStatus.RUNNING.value:
                 logger.info(
                     "Run pipeline cannot be started from non-pending state, skipping orchestration",
@@ -462,7 +439,7 @@ async def _start_run_pipeline_async(
                 )
                 return {
                     "run_id": run_id,
-                    "deal_id": run_deal_id_str,
+                    "deal_id": run_snap.deal_id_str,
                     "tenant_id": tenant_id,
                     "documents_total": 0,
                     "tasks_scheduled": 0,
@@ -476,14 +453,14 @@ async def _start_run_pipeline_async(
             try:
                 await audit_repo.log(
                     tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
-                    deal_id=run_deal_id,
+                    deal_id=run_snap.deal_id,
                     action="ANALYSIS_STARTED",
                     actor="system",
                     actor_role="worker",
                     details={
                         "run_id": run_id,
-                        "deal_id": run_deal_id_str,
-                        "pipeline_strategy": getattr(run_obj, "pipeline_strategy", None),
+                        "deal_id": run_snap.deal_id_str,
+                        "pipeline_strategy": run_snap.pipeline_strategy,
                         "force_reclassify": force_reclassify,
                     },
                 )
@@ -510,7 +487,7 @@ async def _start_run_pipeline_async(
         )
         return {
             "run_id": run_id,
-            "deal_id": run_deal_id_str,
+            "deal_id": run_snap.deal_id_str,
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
@@ -524,14 +501,14 @@ async def _start_run_pipeline_async(
         )
         return {
             "run_id": run_id,
-            "deal_id": run_deal_id_str,
+            "deal_id": run_snap.deal_id_str,
             "tenant_id": tenant_id,
             "documents_total": 0,
             "tasks_scheduled": 0,
             "documents_with_plan": 0,
         }
 
-    pipeline_strategy = getattr(run_obj, "pipeline_strategy", "REUSE_STRUCTURE")
+    pipeline_strategy = run_snap.pipeline_strategy or "REUSE_STRUCTURE"
     is_full_rerun = pipeline_strategy == "FULL_RERUN"
 
     logger.info(
@@ -543,7 +520,9 @@ async def _start_run_pipeline_async(
         },
     )
 
-    deal_uuid = run_deal_id if run_deal_id else (
+    # ── Resolve deal ──────────────────────────────────────────────────────────
+
+    deal_uuid = run_snap.deal_id if run_snap.deal_id else (
         uuid.UUID(deal_id) if deal_id else None
     )
     if deal_uuid is None:
@@ -575,6 +554,8 @@ async def _start_run_pipeline_async(
         db=db,
     )
 
+    # ── READ + SNAPSHOT: Deal ─────────────────────────────────────────────────
+
     deal_repo = DealRepository(db)
     deal = await deal_repo.get_by_id(deal_uuid)
 
@@ -602,8 +583,12 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
         }
 
-    # Снимаем нужные deal-поля до первого await после него
+    # Снимаем нужные deal-поля в примитивы сразу после загрузки ORM-объекта.
     deal_primary_language: str | None = getattr(deal, "primary_language", None)
+    deal_language_discovery_status: str | None = getattr(
+        deal, "language_discovery_status", None
+    )
+    deal_languages: list[str] | None = getattr(deal, "languages", None)
 
     if not deal_primary_language:
         logger.warning(
@@ -612,10 +597,8 @@ async def _start_run_pipeline_async(
                 "run_id": run_id,
                 "deal_id": deal_id_str,
                 "tenant_id": tenant_id_str,
-                "language_discovery_status": getattr(
-                    deal, "language_discovery_status", None
-                ),
-                "deal_languages": getattr(deal, "languages", None),
+                "language_discovery_status": deal_language_discovery_status,
+                "deal_languages": deal_languages,
             },
         )
         return {
@@ -627,6 +610,8 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
             "blocked_reason": "primary_language_not_selected",
         }
+
+    # ── READ + SNAPSHOT: Documents ────────────────────────────────────────────
 
     docs = await doc_repo.get_by_deal(deal_uuid)
     if not docs:
@@ -644,15 +629,21 @@ async def _start_run_pipeline_async(
             "documents_with_plan": 0,
         }
 
+    # Снимаем snapshots документов сразу после batch-read.
+    # Дальше orchestration работает только с doc_snaps, а не с live ORM Document.
+    doc_snaps: list[DocumentSnapshot] = [snapshot_document(doc) for doc in docs]
+    documents_total = len(doc_snaps)
+
+    # ── DECISION + WRITE: per-document loop ───────────────────────────────────
+
     tasks_scheduled = 0
     documents_with_plan = 0
     seg_repo = DocumentSegmentRepository(db)
 
-    for doc in docs:
-        # Снимаем doc-поля до первого await по doc
-        doc_id: uuid.UUID = doc.id
-        doc_id_str = str(doc_id)
-        status: str = doc.status or ""
+    for doc_snap in doc_snaps:
+        doc_id: uuid.UUID = doc_snap.document_id
+        doc_id_str = doc_snap.document_id_str
+        status: str = doc_snap.status
 
         logger.info(
             "Evaluating document for run pipeline",
@@ -660,8 +651,8 @@ async def _start_run_pipeline_async(
                 "run_id": run_id,
                 "document_id": doc_id_str,
                 "status": status,
-                "doc_type": getattr(doc, "doc_type", None),
-                "classification_level": getattr(doc, "classification_level", None),
+                "doc_type": doc_snap.doc_type,
+                "classification_level": doc_snap.classification_level,
                 "deal_primary_language": deal_primary_language,
             },
         )
@@ -671,16 +662,16 @@ async def _start_run_pipeline_async(
         # ── КРИТИЧЕСКИ ВАЖНО ──────────────────────────────────────────────────
         # Снимаем snapshot СРАЗУ после загрузки version, до любого следующего
         # await-вызова. Это предотвращает MissingGreenlet: после await SQLAlchemy
-        # помечает ORM-объект expired и при следующем обращении к атрибуту
-        # пытается сделать синхронный lazy reload — что в asyncpg запрещено.
+        # может пометить ORM-объект expired, и при следующем обращении к атрибуту
+        # попытается сделать синхронный lazy reload — что в asyncpg запрещено.
         # ─────────────────────────────────────────────────────────────────────
-        snap: _VersionSnapshot | None = (
-            _snapshot_version(version) if version is not None else None
+        ver_snap: VersionSnapshot | None = (
+            snapshot_version(version) if version is not None else None
         )
 
         plan = await _build_document_task_plan(
             doc_id_str=doc_id_str,
-            snap=snap,
+            snap=ver_snap,
             status=status,
             run_id=run_id,
             deal_id_str=deal_id_str,
@@ -702,7 +693,7 @@ async def _start_run_pipeline_async(
             )
             continue
 
-        if snap is None:
+        if ver_snap is None:
             logger.warning(
                 "Task plan produced for document without version, skipping execution scheduling",
                 extra={"run_id": run_id, "document_id": doc_id_str, "status": status},
@@ -714,7 +705,7 @@ async def _start_run_pipeline_async(
         execution = await dse_repo.create_planned_or_none_on_conflict(
             run_id=run_uuid,
             document_id=doc_id,
-            document_version_id=snap.version_id,
+            document_version_id=ver_snap.version_id,
             from_status=status,
             to_status=_target_status_for_stage(plan.stage),
             orchestration_strategy=orchestration_strategy,
@@ -727,7 +718,7 @@ async def _start_run_pipeline_async(
                 extra={
                     "run_id": run_id,
                     "document_id": doc_id_str,
-                    "document_version_id": snap.version_id_str,
+                    "document_version_id": ver_snap.version_id_str,
                     "status": status,
                     "task_name": plan.task_name,
                     "stage": plan.stage,
@@ -746,7 +737,7 @@ async def _start_run_pipeline_async(
             extra={
                 "run_id": run_id,
                 "document_id": doc_id_str,
-                "document_version_id": snap.version_id_str,
+                "document_version_id": ver_snap.version_id_str,
                 "status": status,
                 "task_name": plan.task_name,
                 "stage": plan.stage,
@@ -763,7 +754,7 @@ async def _start_run_pipeline_async(
             deal_id=deal_id_str,
             tenant_id=tenant_id_str,
             document_id=doc_id_str,
-            document_version_id=snap.version_id_str,
+            document_version_id=ver_snap.version_id_str,
             orchestration_strategy=orchestration_strategy,
         )
 
@@ -778,16 +769,18 @@ async def _start_run_pipeline_async(
             "run_id": run_id,
             "deal_id": deal_id_str,
             "tenant_id": tenant_id_str,
-            "documents_total": len(docs),
+            "documents_total": documents_total,
             "tasks_scheduled": tasks_scheduled,
             "documents_with_plan": documents_with_plan,
         },
     )
 
+    # ── POST PHASE: segment readiness gate + maybe_start_run_checks ───────────
+
     seg_repo_for_checks = DocumentSegmentRepository(db)
     can_start_checks = await _can_start_checks_for_run(
-        run_obj=run_obj,
-        docs=docs,
+        run_snap=run_snap,
+        doc_snaps=doc_snaps,
         ver_repo=ver_repo,
         seg_repo=seg_repo_for_checks,
     )
@@ -797,7 +790,7 @@ async def _start_run_pipeline_async(
             extra={"run_id": run_id},
         )
     else:
-        await maybe_start_run_checks(db=db, run_id=run_uuid)
+        await maybe_start_run_checks(db=db, run_id=run_snap.run_id)
 
     logger.info(
         "Run pipeline scheduling complete",
@@ -805,7 +798,7 @@ async def _start_run_pipeline_async(
             "run_id": run_id,
             "deal_id": deal_id_str,
             "tenant_id": tenant_id_str,
-            "documents_total": len(docs),
+            "documents_total": documents_total,
             "tasks_scheduled": tasks_scheduled,
             "documents_with_plan": documents_with_plan,
         },
@@ -815,7 +808,7 @@ async def _start_run_pipeline_async(
         "run_id": run_id,
         "deal_id": deal_id_str,
         "tenant_id": tenant_id_str,
-        "documents_total": len(docs),
+        "documents_total": documents_total,
         "tasks_scheduled": tasks_scheduled,
         "documents_with_plan": documents_with_plan,
     }
@@ -827,11 +820,6 @@ def _target_status_for_stage(stage: str) -> str:
     """
     Map internal stage name to *intended* DocumentStatus
     on successful completion of this stage.
-
-    Это не исчерпывающий список всех возможных финальных статусов.
-    В частности, stage-воркеры могут в error / edge-кейсах переводить
-    документ в другие статусы (например, QUARANTINE), но здесь мы
-    фиксируем именно целевой happy-path для orchestration.
     """
     if stage == "convert_to_pdf":
         return DocumentStatus.PENDING.value
@@ -855,7 +843,7 @@ def _target_status_for_stage(stage: str) -> str:
 async def _build_document_task_plan(
     *,
     doc_id_str: str,
-    snap: _VersionSnapshot | None,
+    snap: VersionSnapshot | None,
     status: str,
     run_id: str,
     deal_id_str: str,
@@ -868,14 +856,8 @@ async def _build_document_task_plan(
     """
     Строит план следующей document-level стадии для одного документа в рамках Run.
 
-    Принимает _VersionSnapshot вместо ORM-объекта, чтобы гарантировать
+    Принимает VersionSnapshot вместо ORM-объекта, чтобы гарантировать
     отсутствие обращений к expired ORM-атрибутам через await-границу.
-
-    ВАЖНО:
-    - В новой pre-run архитектуре deal_primary_language обязан быть выбран
-      ДО запуска run_orchestrator.
-    - build_primary_language_source используется только как stage worker,
-      который строит primary source для уже выбранного target_language.
     """
     if not deal_primary_language:
         logger.error(
@@ -1353,6 +1335,5 @@ def _send_task(
     })
     result = celery_app.send_task(plan.task_name, kwargs=kwargs)
     return result.id
-
 
     

@@ -259,6 +259,7 @@ class DocumentStageExecutionRepository:
 
         return execution
 
+
     async def create_planned_or_none_on_conflict(
         self,
         run_id: uuid.UUID,
@@ -278,19 +279,28 @@ class DocumentStageExecutionRepository:
 
         Это удобно именно для orchestration-кода, чтобы он мог спокойно сказать:
         "задача уже активна, повторно не ставим".
+
+        Важно про savepoint:
+        - Мы используем session.begin_nested() вместо прямого rollback().
+        - begin_nested() создаёт PostgreSQL SAVEPOINT внутри текущей транзакции.
+        - При IntegrityError откатывается только этот savepoint.
+        - Основная транзакция сессии остаётся живой.
+        - Все ORM-объекты, загруженные до этого вызова, остаются валидными.
+        - Это предотвращает MissingGreenlet при последующем обращении к атрибутам
+        ранее загруженных объектов (run_obj, docs, version и т.д.).
         """
         try:
-            return await self.create_planned(
-                run_id=run_id,
-                document_id=document_id,
-                document_version_id=document_version_id,
-                from_status=from_status,
-                to_status=to_status,
-                orchestration_strategy=orchestration_strategy,
-                task_name=task_name,
-            )
+            async with self.session.begin_nested():
+                return await self.create_planned(
+                    run_id=run_id,
+                    document_id=document_id,
+                    document_version_id=document_version_id,
+                    from_status=from_status,
+                    to_status=to_status,
+                    orchestration_strategy=orchestration_strategy,
+                    task_name=task_name,
+                )
         except IntegrityError:
-            await self.session.rollback()
             return None
         
         

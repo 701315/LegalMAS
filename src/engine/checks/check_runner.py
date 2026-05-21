@@ -10,6 +10,14 @@ CheckRunner: тонкий оркестратор playbook-based checks.
 - нормализацию результатов → result_normalizer
 - сохранение → result_saver
 - выполнение → CheckExecutor
+
+Важное правило работы с ORM:
+- ORM-объекты не должны переноситься между разными db_uow()/AsyncSession.
+- Поэтому документы, прочитанные в одном UoW, сразу снимаются в snapshots,
+  а дальше checks execution stack работает только с immutable value objects.
+- Shared snapshot-контракты живут в core.pipeline_snapshots.
+- DocumentSnapshot из core.pipeline_snapshots является superset всех полей,
+  нужных checks execution stack.
 """
 
 from __future__ import annotations
@@ -21,12 +29,13 @@ from typing import Any, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
-from db.repositories.document_repo import DocumentRepository
+from core.pipeline_snapshots import DocumentSnapshot, snapshot_document
 from db.repositories.run_repo import RunRepository
 from db.repositories.runner_repo import RunnerRepository
 from db.uow import db_uow
 from db.repositories.document_version_repo import DocumentVersionRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
+from db.repositories.document_repo import DocumentRepository
 from engine.checks.executor import CheckExecutor
 from engine.checks.planning.chunks import ChunksPreparer
 from engine.checks.planning.planner import CheckPlanner
@@ -38,6 +47,21 @@ logger = get_logger(__name__)
 
 MAX_DOCS_PER_RUN = 500
 MAX_ERRORS_PER_RUN = 50
+
+
+# ─── Document snapshot helper ────────────────────────────────────────────────
+
+def _snapshot_check_doc(doc: Any) -> DocumentSnapshot:
+    """
+    Снять immutable snapshot документа сразу после загрузки ORM-объекта.
+
+    Использует shared контракт DocumentSnapshot из core.pipeline_snapshots.
+    Это superset всех полей, нужных checks execution stack:
+    - id, doc_type, applicable_triggers, classification_confidence.
+
+    Вызывать сразу после получения ORM-объекта, до первого await.
+    """
+    return snapshot_document(doc)
 
 
 class CheckRunner:
@@ -73,7 +97,7 @@ class CheckRunner:
     def checks_mode(self, value: str) -> None:
         self._planner.checks_mode = value
 
-    # ── Публичный API (сохраняем сигнатуры 1:1) ────────────────────
+    # ── Публичный API ──────────────────────────────────────────────
 
     async def run_deal_checks(
         self,
@@ -106,28 +130,35 @@ class CheckRunner:
             "errors": 0,
         }
 
+        # READ + SNAPSHOT:
+        # Документы читаем в одном UoW и сразу превращаем в snapshots
+        # через shared контракт core.pipeline_snapshots.
+        # Нельзя переносить live ORM Document через границу закрытого UoW.
         async with db_uow() as uow_for_docs:
             runner_repo = RunnerRepository(uow_for_docs.session)
             docs = await runner_repo.get_non_duplicate_docs(deal_id)
+            doc_snaps: list[DocumentSnapshot] = [
+                _snapshot_check_doc(doc) for doc in docs
+            ]
 
-        if not docs:
+        if not doc_snaps:
             logger.info(
                 "CheckRunner: no non-duplicate documents",
                 extra={"deal_id": str(deal_id), "run_id": str(run_id)},
             )
             return summary
 
-        if len(docs) > MAX_DOCS_PER_RUN:
+        if len(doc_snaps) > MAX_DOCS_PER_RUN:
             logger.warning(
                 "CheckRunner: truncating documents",
-                extra={"count": len(docs), "max_docs": MAX_DOCS_PER_RUN},
+                extra={"count": len(doc_snaps), "max_docs": MAX_DOCS_PER_RUN},
             )
-            docs = docs[:MAX_DOCS_PER_RUN]
+            doc_snaps = doc_snaps[:MAX_DOCS_PER_RUN]
 
-        for doc in docs:
+        for doc_snap in doc_snaps:
             try:
                 checks_count, failed_count = await self._run_checks_for_document(
-                    doc,
+                    doc_snap,
                     run_id,
                     playbook,
                 )
@@ -156,7 +187,7 @@ class CheckRunner:
                 logger.error(
                     "CheckRunner: checks failed for document",
                     extra={
-                        "doc_id": str(getattr(doc, "id", None)),
+                        "doc_id": doc_snap.document_id_str,
                         "error": str(e),
                     },
                 )
@@ -182,7 +213,13 @@ class CheckRunner:
         )
 
     def find_check_for_document(self, doc, playbook, check_id: str):
-        """Делегирует планировщику."""
+        """
+        Legacy-совместимый helper.
+
+        Принимает любой duck-typed объект (ORM Document или DocumentSnapshot).
+        Planner читает только id / doc_type / applicable_triggers через getattr,
+        поэтому DocumentSnapshot полностью совместим с этим контрактом.
+        """
         return self._planner.find_check_for_document(doc, playbook, check_id)
 
     async def execute_single_check(
@@ -199,33 +236,37 @@ class CheckRunner:
         """
         Выполнить одну проверку и сохранить результат.
 
-        ВАЖНО:
-        - здесь мы не различаем compute vs persist на уровне статусов,
-          но не скрываем исключения из save_check_result;
-        - Celery-воркер вокруг этого метода уже ловит SoftTimeLimitExceeded
-          и generic Exception, выставляя execution_status="TIMEOUT"/"FAILED".
+        Публичную сигнатуру сохраняем: caller всё ещё передаёт `doc`.
+        Но сразу внутри приводим его к DocumentSnapshot из core.pipeline_snapshots,
+        чтобы дальше deeper layers не зависели от live ORM.
+        Это устраняет класс ошибок, когда ORM-объект живёт слишком долго
+        через await-цепочки.
         """
-
         if self.executor is None:
             raise RuntimeError(
                 "CheckRunner.execute_single_check вызван без llm_client. "
                 "Передайте llm_client= при создании CheckRunner для задач выполнения."
             )
 
-        check = self._planner.find_check_for_document(doc, playbook, check_id)
+        # Если caller уже передал snapshot — не переснимаем.
+        doc_snap: DocumentSnapshot = (
+            doc if isinstance(doc, DocumentSnapshot) else _snapshot_check_doc(doc)
+        )
+
+        check = self._planner.find_check_for_document(doc_snap, playbook, check_id)
 
         if check is None:
             logger.warning(
                 "CheckRunner.execute_single_check: check not applicable",
                 extra={
-                    "doc_id": str(getattr(doc, "id", None)),
+                    "doc_id": doc_snap.document_id_str,
                     "check_id": check_id,
                 },
             )
             await save_not_applicable_result(
                 repo=repo,
                 run_id=run_id,
-                doc=doc,
+                doc=doc_snap,
                 check_id=check_id,
                 playbook_version_id=self.playbook_version_id,
             )
@@ -234,16 +275,16 @@ class CheckRunner:
         if safe_chunks is None:
             safe_chunks = await self._chunks.build_safe_chunks(
                 session=session,
-                doc=doc,
+                doc=doc_snap,
                 checks=[check],
             )
 
-        exec_result = self.executor.execute(doc, check, safe_chunks)
+        exec_result = self.executor.execute(doc_snap, check, safe_chunks)
 
         await save_check_result(
             repo=repo,
             run_id=run_id,
-            doc=doc,
+            doc=doc_snap,
             check=check,
             exec_result=exec_result,
             playbook_version_id=self.playbook_version_id,
@@ -254,66 +295,69 @@ class CheckRunner:
             "failed": exec_result.get("result") == "fail",
         }
 
-    async def _is_multi_document(self, session: AsyncSession, doc) -> bool:
+    async def _is_multi_document(
+        self,
+        session: AsyncSession,
+        document_id: uuid.UUID,
+    ) -> bool:
         """
         Определить, участвует ли документ в multi-document пайплайне (есть сегменты).
-
-        Для непрофессионального программиста:
-        - Если по последней версии документа есть хотя бы один сегмент с segment_id,
-          значит документ обрабатывается как multi-document.
-        - В этом случае проверки будем запускать по сегментам, а не только по целому файлу.
         """
         version_repo = DocumentVersionRepository(session)
         segment_repo = DocumentSegmentRepository(session)
 
-        version = await version_repo.get_latest(doc.id)
+        version = await version_repo.get_latest(document_id)
         if not version:
             return False
 
         count = await segment_repo.count_by_version_and_has_segment_id(version.id)
         return count > 0
 
-    async def _iter_segments_for_document(self, session: AsyncSession, doc):
+    async def _iter_segments_for_document(
+        self,
+        session: AsyncSession,
+        document_id: uuid.UUID,
+    ):
         """
         Вернуть (version, список сегментов) для документа.
-
-        Для непрофессионального программиста:
-        - Этот метод нужен, чтобы не дублировать код получения версии и сегментов.
-        - Если нет версии или сегментов, возвращает (None, []).
         """
         version_repo = DocumentVersionRepository(session)
         segment_repo = DocumentSegmentRepository(session)
 
-        version = await version_repo.get_latest(doc.id)
+        version = await version_repo.get_latest(document_id)
         if not version:
             return None, []
 
         segments = await segment_repo.list_by_version(version.id)
         return version, segments
 
-    # ── Внутренние методы ───────────────────────────────────────────
+    # ── Внутренние методы ──────────────────────────────────────────
 
     async def _run_checks_for_document(
         self,
-        doc,
+        doc_snap: DocumentSnapshot,
         run_id: uuid.UUID,
         playbook,
     ) -> Tuple[int, int]:
         """
         Выполнить все релевантные checks для одного документа.
 
-        Для непрофессионального программиста:
-        - В обычном режиме (single-document) всё работает как раньше.
-        - В multi-document режиме checks подбираются отдельно для каждого сегмента
-          по его segment_doc_type и segment_applicable_triggers.
+        Сюда приходит DocumentSnapshot из core.pipeline_snapshots, а не live ORM.
+        Deeper layers получают только snapshot.
+        В текущем UoW обращаемся к БД только там, где действительно нужно:
+        latest version, segments, запись результатов, mark completed.
         """
         total_checks = 0
         failed_checks = 0
 
         async with db_uow() as uow:
             repo = uow.check_results
+            doc_repo = DocumentRepository(uow.session)
 
-            is_multi = await self._is_multi_document(uow.session, doc)
+            is_multi = await self._is_multi_document(
+                uow.session,
+                doc_snap.document_id,
+            )
 
             if not is_multi:
                 (
@@ -323,12 +367,12 @@ class CheckRunner:
                     applicable_triggers,
                     global_checks,
                     doc_type_checks,
-                ) = self._planner.select_checks_for_document(doc, playbook)
+                ) = self._planner.select_checks_for_document(doc_snap, playbook)
 
                 logger.info(
                     "CheckRunner: checks selected (document-level)",
                     extra={
-                        "doc_id": str(getattr(doc, "id", None)),
+                        "doc_id": doc_snap.document_id_str,
                         "doc_type": doc_type,
                         "checks_mode": mode,
                         "global_checks": len(global_checks),
@@ -342,7 +386,7 @@ class CheckRunner:
                     return 0, 0
 
                 ctx = self._planner.build_context_for_document(
-                    doc=doc,
+                    doc=doc_snap,
                     document_version_id=None,
                 )
 
@@ -354,16 +398,16 @@ class CheckRunner:
 
                 safe_chunks = await self._chunks.build_safe_chunks(
                     session=uow.session,
-                    doc=doc,
+                    doc=doc_snap,
                     checks=checks,
                 )
 
                 for check in checks:
-                    exec_result = self.executor.execute(doc, check, safe_chunks)
+                    exec_result = self.executor.execute(doc_snap, check, safe_chunks)
                     await save_check_result(
                         repo=repo,
                         run_id=run_id,
-                        doc=doc,
+                        doc=doc_snap,
                         check=check,
                         exec_result=exec_result,
                         playbook_version_id=self.playbook_version_id,
@@ -372,11 +416,13 @@ class CheckRunner:
                     if exec_result.get("result") == "fail":
                         failed_checks += 1
 
-                doc_repo = DocumentRepository(uow.session)
-                await doc_repo.set_completed(doc.id)
+                await doc_repo.set_completed(doc_snap.document_id)
                 return total_checks, failed_checks
 
-            version, segments = await self._iter_segments_for_document(uow.session, doc)
+            version, segments = await self._iter_segments_for_document(
+                uow.session,
+                doc_snap.document_id,
+            )
             if not version or not segments:
                 (
                     checks,
@@ -385,12 +431,12 @@ class CheckRunner:
                     applicable_triggers,
                     global_checks,
                     doc_type_checks,
-                ) = self._planner.select_checks_for_document(doc, playbook)
+                ) = self._planner.select_checks_for_document(doc_snap, playbook)
 
                 logger.info(
                     "CheckRunner: checks selected (fallback to document-level, no segments)",
                     extra={
-                        "doc_id": str(getattr(doc, "id", None)),
+                        "doc_id": doc_snap.document_id_str,
                         "doc_type": doc_type,
                         "checks_mode": mode,
                         "global_checks": len(global_checks),
@@ -404,7 +450,7 @@ class CheckRunner:
                     return 0, 0
 
                 ctx = self._planner.build_context_for_document(
-                    doc=doc,
+                    doc=doc_snap,
                     document_version_id=None,
                 )
 
@@ -416,16 +462,16 @@ class CheckRunner:
 
                 safe_chunks = await self._chunks.build_safe_chunks(
                     session=uow.session,
-                    doc=doc,
+                    doc=doc_snap,
                     checks=checks,
                 )
 
                 for check in checks:
-                    exec_result = self.executor.execute(doc, check, safe_chunks)
+                    exec_result = self.executor.execute(doc_snap, check, safe_chunks)
                     await save_check_result(
                         repo=repo,
                         run_id=run_id,
-                        doc=doc,
+                        doc=doc_snap,
                         check=check,
                         exec_result=exec_result,
                         playbook_version_id=self.playbook_version_id,
@@ -434,19 +480,20 @@ class CheckRunner:
                     if exec_result.get("result") == "fail":
                         failed_checks += 1
 
-                doc_repo = DocumentRepository(uow.session)
-                await doc_repo.set_completed(doc.id)
+                await doc_repo.set_completed(doc_snap.document_id)
                 return total_checks, failed_checks
 
             for segment in segments:
                 segment_doc_type = getattr(segment, "segment_doc_type", None)
-                segment_triggers = getattr(segment, "segment_applicable_triggers", None) or []
+                segment_triggers = (
+                    getattr(segment, "segment_applicable_triggers", None) or []
+                )
 
                 if not segment_doc_type:
                     logger.info(
                         "CheckRunner: segment skipped (no segment_doc_type)",
                         extra={
-                            "doc_id": str(getattr(doc, "id", None)),
+                            "doc_id": doc_snap.document_id_str,
                             "segment_id": getattr(segment, "segment_id", None),
                         },
                     )
@@ -459,7 +506,7 @@ class CheckRunner:
                 )
 
                 ctx = self._planner.build_context_for_segment(
-                    doc=doc,
+                    doc=doc_snap,
                     document_version_id=version.id,
                     segment_info=segment_info,
                 )
@@ -476,7 +523,7 @@ class CheckRunner:
                 logger.info(
                     "CheckRunner: checks selected (segment-level)",
                     extra={
-                        "doc_id": str(getattr(doc, "id", None)),
+                        "doc_id": doc_snap.document_id_str,
                         "segment_id": ctx.segment_id,
                         "segment_doc_type": ctx.segment_doc_type,
                         "effective_doc_type": effective_doc_type,
@@ -499,15 +546,14 @@ class CheckRunner:
 
                 safe_chunks = await self._chunks.build_safe_chunks_for_segment(
                     session=uow.session,
-                    doc=doc,
+                    doc=doc_snap,
                     checks=checks,
                     segment_id=ctx.segment_id,
                 )
 
                 for check in checks:
-                    exec_result = self.executor.execute(doc, check, safe_chunks)
+                    exec_result = self.executor.execute(doc_snap, check, safe_chunks)
 
-                    # Добавляем segment metadata в exec_result для downstream normalizer/saver
                     exec_result["segment_id"] = getattr(segment, "segment_id", None)
                     exec_result["segment_type"] = getattr(segment, "segment_type", None)
                     exec_result["segment_title"] = getattr(segment, "segment_title", None)
@@ -517,7 +563,7 @@ class CheckRunner:
                     await save_check_result(
                         repo=repo,
                         run_id=run_id,
-                        doc=doc,
+                        doc=doc_snap,
                         check=check,
                         exec_result=exec_result,
                         playbook_version_id=self.playbook_version_id,
@@ -526,8 +572,7 @@ class CheckRunner:
                     if exec_result.get("result") == "fail":
                         failed_checks += 1
 
-            doc_repo = DocumentRepository(uow.session)
-            await doc_repo.set_completed(doc.id)
+            await doc_repo.set_completed(doc_snap.document_id)
 
         return total_checks, failed_checks
 
@@ -540,12 +585,6 @@ class CheckRunner:
         """
         Логирует checks из текущего контекста, которые имеют conditional trigger,
         но не срабатывают из-за отсутствия нужного триггера в ctx.triggers.
-
-        Для непрофессионального программиста:
-        - Здесь мы смотрим не на весь playbook, а только на уже выбранный
-          planner'ом список checks для данного контекста.
-        - Это делает логирование точным: логируем только то, что реально
-          относится к текущему document/segment flow.
         """
         try:
             effective_doc_type = (
@@ -569,9 +608,6 @@ class CheckRunner:
                 if not conditional:
                     continue
 
-                # Поддерживаем оба формата:
-                # 1) legacy: conditional.trigger
-                # 2) multi-trigger: conditional.triggers = [TriggerCondition(...)]
                 required_triggers: set[str] = set()
 
                 single_trigger = getattr(conditional, "trigger", None)
@@ -583,8 +619,6 @@ class CheckRunner:
                     trigger_name = getattr(item, "name", None)
                     trigger_state = getattr(item, "state", None)
 
-                    # Нас интересуют только включённые триггеры ("on"),
-                    # потому что именно так сейчас формируются TriggerCondition из YAML.
                     if trigger_name and (trigger_state in (None, "on")):
                         required_triggers.add(str(trigger_name).strip())
 
@@ -617,8 +651,9 @@ class CheckRunner:
                     },
                 )
         except Exception:
-            # Логирование условных скипов не должно ломать основной пайплайн.
             pass
 
+
+        
 
         

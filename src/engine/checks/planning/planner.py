@@ -1,3 +1,5 @@
+# src/engine/checks/planning/planner.py
+
 """
 Планирование проверок: выбор checks для документа или сегмента
 по doc_type / segment_doc_type, триггерам и режиму.
@@ -11,6 +13,7 @@ from typing import Any, Iterable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
+from core.pipeline_snapshots import DocumentSnapshot, snapshot_document
 from db.repositories.document_repo import DocumentRepository
 from engine.doc_type_checks.loader import DocTypeCheckLoader
 from .context import CheckContext
@@ -84,11 +87,12 @@ class CheckPlanner:
         """
         Построить CheckContext для документа (scope="document").
 
-        Для непрофессионального программиста:
-        - Берём doc_type и applicable_triggers из doc,
-          оборачиваем в CheckContext.
-        - document_version_id можно получить заранее в раннере
-          через DocumentVersionRepository.get_latest(doc.id).
+        Принимает любой duck-typed объект с полями id / doc_type / applicable_triggers:
+        - ORM Document,
+        - DocumentSnapshot из core.pipeline_snapshots.
+
+        document_version_id можно получить заранее через
+        DocumentVersionRepository.get_latest(doc.id).
         """
         raw_doc_type = getattr(doc, "doc_type", "") or ""
         raw_triggers = getattr(doc, "applicable_triggers", None) or []
@@ -252,6 +256,10 @@ class CheckPlanner:
         """
         Legacy helper. Оставлен для обратной совместимости.
 
+        Принимает любой duck-typed объект с полями doc_type / applicable_triggers:
+        - ORM Document,
+        - DocumentSnapshot из core.pipeline_snapshots.
+
         Новый код должен использовать build_context_for_document.
         """
         raw_doc_type = getattr(doc, "doc_type", "") or ""
@@ -268,11 +276,11 @@ class CheckPlanner:
         """
         Legacy API для document-level. Сохраняем сигнатуру 1:1.
 
+        Принимает любой duck-typed объект (ORM или DocumentSnapshot).
         Внутри просто строим document-context и делегируем в select_checks_for_context.
         """
         doc_type, applicable_triggers = self.get_document_profile(doc)
 
-        # Для legacy-режима document_version_id нам не критичен, оставляем None.
         ctx = CheckContext(
             scope="document",
             document_id=_to_uuid(getattr(doc, "id", None)),
@@ -305,6 +313,8 @@ class CheckPlanner:
     ):
         """
         Legacy API. Сохраняет поведение find_check_for_document через document-context.
+
+        Принимает любой duck-typed объект (ORM или DocumentSnapshot).
         """
         doc_type, applicable_triggers = self.get_document_profile(doc)
 
@@ -335,6 +345,12 @@ class CheckPlanner:
 
         Пока планирование остаётся document-level (scope="document"),
         но внутри уже используется CheckContext.
+
+        Важно про snapshot:
+        - После загрузки docs сразу снимаем DocumentSnapshot из core.pipeline_snapshots.
+        - Цикл планирования работает только со snapshot-данными.
+        - Это предотвращает случайное обращение к ORM-атрибутам
+          после await-границы в будущих изменениях метода.
         """
         processed_docs = 0
         total_checks = 0
@@ -356,14 +372,21 @@ class CheckPlanner:
             )
             docs = docs[:MAX_DOCS_PER_RUN]
 
-        for doc in docs:
+        # Снимаем DocumentSnapshot сразу после загрузки ORM-объектов
+        # через shared контракт core.pipeline_snapshots.
+        # Цикл планирования не делает await, но snapshot защищает
+        # от будущих добавлений await в этот метод.
+        doc_snaps: list[DocumentSnapshot] = [
+            snapshot_document(doc) for doc in docs
+        ]
+
+        for doc_snap in doc_snaps:
             try:
-                # Здесь можно позже внедрить version_repo и планирование по сегментам.
-                doc_type, applicable_triggers = self.get_document_profile(doc)
+                doc_type, applicable_triggers = self.get_document_profile(doc_snap)
 
                 ctx = CheckContext(
                     scope="document",
-                    document_id=_to_uuid(getattr(doc, "id", None)),
+                    document_id=doc_snap.id,
                     document_version_id=None,
                     document_type=doc_type or None,
                     segment_id=None,
@@ -383,8 +406,8 @@ class CheckPlanner:
                 logger.info(
                     "CheckPlanner: planned checks for document",
                     extra={
-                        "doc_id": str(getattr(doc, "id", None)),
-                        "deal_id": str(getattr(doc, "deal_id", "")),
+                        "doc_id": doc_snap.document_id_str,
+                        "deal_id": str(deal_id),
                         "run_id": str(run_id),
                         "scope": ctx.scope,
                         "doc_type": effective_doc_type,
@@ -402,7 +425,7 @@ class CheckPlanner:
                         continue
                     pairs.append(
                         {
-                            "doc_id": str(doc.id),
+                            "doc_id": doc_snap.document_id_str,
                             "check_id": str(check_id),
                         }
                     )
@@ -415,8 +438,8 @@ class CheckPlanner:
                 logger.exception(
                     "CheckPlanner: failed to plan checks for document",
                     extra={
-                        "doc_id": str(getattr(doc, "id", None)),
-                        "deal_id": str(getattr(doc, "deal_id", "")),
+                        "doc_id": doc_snap.document_id_str,
+                        "deal_id": str(deal_id),
                         "run_id": str(run_id),
                         "error": str(e),
                     },
@@ -438,7 +461,6 @@ class CheckPlanner:
             "total_checks": total_checks,
             "errors": errors,
         }
-    
-    
+        
     
     

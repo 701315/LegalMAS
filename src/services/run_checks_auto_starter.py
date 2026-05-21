@@ -27,10 +27,11 @@ Run Checks Auto-Starter Service.
   не должен блокировать checks по остальным документам сделки.
 
 Замечание по транзакциям:
-- Внутри функции при конфликте уникального ограничения выполняется rollback()
-  на переданном AsyncSession. Поэтому вызывать maybe_start_run_checks нужно
-  ПОСЛЕ всех критичных обновлений в текущем UoW, как это уже сделано
-  в classifier.py и run_orchestrator.py.
+- Внутри функции при конфликте уникального ограничения используется savepoint
+  (session.begin_nested()), а не полный rollback().
+- Это гарантирует, что основная транзакция сессии остаётся живой после конфликта.
+- Вызывать maybe_start_run_checks нужно ПОСЛЕ всех критичных обновлений
+  в текущем UoW, как это уже сделано в classifier.py и run_orchestrator.py.
 """
 
 import uuid
@@ -64,6 +65,12 @@ async def maybe_start_run_checks(
       * checks уже запускались для этого Run (есть Job с task_type=run_deal_checks);
       * ещё остались участвующие документы, которые не дошли до CLASSIFIED/COMPLETED.
     - Если всё готово — она один раз поставит Celery-задачу для run_deal_checks.
+
+    Важно про savepoint:
+    - При конкурентной гонке (два воркера пытаются создать Job одновременно)
+      мы используем savepoint (begin_nested), а не полный rollback сессии.
+    - Это позволяет основной транзакции остаться живой после конфликта.
+    - Все ORM-объекты, загруженные до этого вызова, остаются валидными.
     """
     if not run_id:
         return
@@ -85,12 +92,17 @@ async def maybe_start_run_checks(
         )
         return
 
-    if run_obj.status != RunStatus.RUNNING.value:
+    # Снимаем нужные поля в примитивы сразу после загрузки
+    run_status: str = run_obj.status
+    run_deal_id: uuid.UUID = run_obj.deal_id
+    deal_id_str: str = str(run_deal_id)
+
+    if run_status != RunStatus.RUNNING.value:
         logger.debug(
             "maybe_start_run_checks: run is not RUNNING, skip",
             extra={
                 "run_id": run_id_str,
-                "status": run_obj.status,
+                "status": run_status,
             },
         )
         return
@@ -106,10 +118,8 @@ async def maybe_start_run_checks(
 
     # 3) Читаем документы сделки.
     doc_repo = DocumentRepository(db)
-    deal_id = run_obj.deal_id
-    deal_id_str = str(deal_id)
 
-    docs = await doc_repo.get_by_deal(deal_id)
+    docs = await doc_repo.get_by_deal(run_deal_id)
     if not docs:
         logger.info(
             "maybe_start_run_checks: no documents for deal, nothing to check",
@@ -131,13 +141,21 @@ async def maybe_start_run_checks(
         DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value,
     }
 
-    participating_docs = [
-        d for d in docs if d.status not in non_participating_statuses
+    # Снимаем статусы документов в примитивы сразу после загрузки,
+    # до любого следующего await. Это предотвращает MissingGreenlet
+    # при обращении к doc.status после возможного savepoint rollback.
+    doc_statuses: list[str] = [
+        str(d.status or "") for d in docs
+    ]
+
+    participating_statuses = [
+        s for s in doc_statuses
+        if s not in non_participating_statuses
     ]
 
     # Если participating_docs нет, всё равно запускаем run_deal_checks,
     # чтобы корректно отработать zero-check run и финализировать Run.
-    if not participating_docs:
+    if not participating_statuses:
         logger.info(
             "maybe_start_run_checks: no participating documents, scheduling zero-check run",
             extra={
@@ -146,42 +164,46 @@ async def maybe_start_run_checks(
             },
         )
     else:
-        all_ready = all(d.status in ready_statuses for d in participating_docs)
+        all_ready = all(s in ready_statuses for s in participating_statuses)
         if not all_ready:
             logger.debug(
                 "maybe_start_run_checks: not all documents are ready for checks",
                 extra={
                     "run_id": run_id_str,
                     "deal_id": deal_id_str,
-                    "participating_docs": len(participating_docs),
+                    "participating_docs": len(participating_statuses),
                     "ready_docs": sum(
-                        1 for d in participating_docs if d.status in ready_statuses
+                        1 for s in participating_statuses if s in ready_statuses
                     ),
                     "blocked_docs": sum(
-                        1
-                        for d in docs
-                        if d.status == DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value
+                        1 for s in doc_statuses
+                        if s == DocumentStatus.LANGUAGE_SELECTION_REQUIRED.value
                     ),
                 },
             )
             return
 
     # 4) Все условия выполняются — пытаемся атомарно создать Job.
-    # Полагаемся на уникальный индекс jobs(run_id, task_type),
-    # чтобы защититься от гонок.
+    # Используем savepoint (begin_nested) вместо полного rollback сессии.
+    # При конкурентном конфликте (IntegrityError) откатывается только savepoint,
+    # основная транзакция и все загруженные ORM-объекты остаются валидными.
+    job_id_str: str | None = None
     try:
-        job = Job(
-            run_id=run_id,
-            document_id=None,
-            task_type="run_deal_checks",
-            status=JobStatus.QUEUED.value,
-        )
-        db.add(job)
-        await db.flush()
+        async with db.begin_nested():
+            job = Job(
+                run_id=run_id,
+                document_id=None,
+                task_type="run_deal_checks",
+                status=JobStatus.QUEUED.value,
+            )
+            db.add(job)
+            await db.flush()
+            # Снимаем job.id в примитив внутри savepoint,
+            # пока объект гарантированно валиден
+            job_id_str = str(job.id)
     except IntegrityError:
         # Кто-то другой уже успел создать Job для run_deal_checks.
-        # Считаем, что checks уже запущены или запланированы.
-        await db.rollback()
+        # Savepoint откатился сам, основная транзакция цела.
         logger.info(
             "maybe_start_run_checks: run_deal_checks job was created concurrently, skip duplicate",
             extra={"run_id": run_id_str},
@@ -193,10 +215,8 @@ async def maybe_start_run_checks(
         extra={
             "run_id": run_id_str,
             "deal_id": deal_id_str,
-            # tenant_id намеренно не подменяем, пусть downstream сам резолвит,
-            # как это делает run_orchestrator.
             "checks_planned": None,
-            "job_id": str(job.id),
+            "job_id": job_id_str,
         },
     )
 
@@ -215,7 +235,7 @@ async def maybe_start_run_checks(
             "run_id": run_id_str,
             "deal_id": deal_id_str,
             "tenant_id": None,
-            "job_id": str(job.id),
+            "job_id": job_id_str,
         },
     )
 

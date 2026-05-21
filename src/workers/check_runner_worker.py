@@ -22,6 +22,14 @@ CheckRunner Worker — запуск playbook-checks по уже классифи
 - run_single_check выполняет ровно одну проверку для одного документа.
 - finalize_run_if_ready — отдельная lightweight task, которая смотрит на CheckResult и
   решает, пора ли перевести Run в COMPLETED / COMPLETED_WITH_ERRORS.
+
+Важное правило работы с ORM (snapshot architecture):
+- SQLAlchemy asyncpg не допускает синхронный lazy reload атрибутов ORM-объектов
+  после await-границы (MissingGreenlet).
+- Поэтому все нужные поля ORM-объектов снимаются в snapshot/примитивы сразу
+  после загрузки объекта, до следующего await-вызова.
+- Shared snapshot-контракты живут в core.pipeline_snapshots и переиспользуются
+  всеми orchestration/worker файлами.
 """
 
 from __future__ import annotations
@@ -33,6 +41,10 @@ from celery.exceptions import SoftTimeLimitExceeded
 
 from core.constants import CheckExecutionStatus, RunStatus
 from core.logging import get_logger
+from core.pipeline_snapshots import (
+    RunSnapshot,
+    snapshot_run,
+)
 from db.repositories.document_repo import DocumentRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
@@ -50,8 +62,10 @@ from ops.metrics import get_metrics
 logger = get_logger(__name__)
 
 # Один экземпляр LLMClient на весь процесс воркера.
-# Модель загружается один раз при старте — не при каждой задаче.
 _shared_llm_client = LLMClient()
+
+
+# ─── run_deal_checks ──────────────────────────────────────────────────────────
 
 
 @celery_app.task(
@@ -107,29 +121,31 @@ def run_deal_checks(
                 if run_obj is None:
                     raise ValueError(f"Run not found: {run_uuid}")
 
+                # Снимаем snapshot сразу после загрузки ORM-объекта Run.
+                # Дальше orchestration работает только с run_snap,
+                # а не с run_obj.
+                run_snap: RunSnapshot = snapshot_run(run_obj)
+
                 started = await run_repo.try_start_run(run_uuid)
-                if not started and run_obj.status != RunStatus.RUNNING.value:
+                if not started and run_snap.status != RunStatus.RUNNING.value:
                     logger.info(
                         "Run deal checks scheduler: run already started or finalized, skipping",
                         extra={
                             "run_id": run_id,
                             "deal_id": deal_id,
-                            "current_status": run_obj.status,
+                            "current_status": run_snap.status,
                         },
                     )
                     return {
                         "status": "SKIPPED",
                         "reason": "run_not_pending",
-                        "current_status": run_obj.status,
+                        "current_status": run_snap.status,
                     }
 
-                checks_mode = getattr(run_obj, "checks_mode", "global_and_doc_type")
-                checks_scope = getattr(run_obj, "checks_scope", None)
-
-                pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
+                pb_version = await pb_repo.get_by_id(run_snap.playbook_version_id)
                 if pb_version is None:
                     raise ValueError(
-                        f"PlaybookVersion not found: {run_obj.playbook_version_id}"
+                        f"PlaybookVersion not found: {run_snap.playbook_version_id}"
                     )
 
                 playbook = load_playbook_from_version(pb_version)
@@ -139,18 +155,18 @@ def run_deal_checks(
                     extra={
                         "run_id": run_id,
                         "deal_id": deal_id,
-                        "playbook_version_id": str(run_obj.playbook_version_id),
-                        "checks_mode": checks_mode,
-                        "checks_scope": checks_scope,
+                        "playbook_version_id": str(run_snap.playbook_version_id),
+                        "checks_mode": run_snap.checks_mode,
+                        "checks_scope": run_snap.checks_scope,
                     },
                 )
 
                 runner = CheckRunner(
                     llm_client=_shared_llm_client,
-                    playbook_version_id=run_obj.playbook_version_id,
-                    checks_mode=checks_mode,
+                    playbook_version_id=run_snap.playbook_version_id,
+                    checks_mode=run_snap.checks_mode or "global_and_doc_type",
                     run_repo=run_repo,
-                    checks_scope=checks_scope,
+                    checks_scope=run_snap.checks_scope,
                 )
 
                 plan = await runner.plan_checks_for_run(
@@ -174,8 +190,8 @@ def run_deal_checks(
                         "pairs_count": len(pairs),
                         "total_checks": total_checks,
                         "planning_errors": errors,
-                        "checks_mode": checks_mode,
-                        "checks_scope": checks_scope,
+                        "checks_mode": run_snap.checks_mode,
+                        "checks_scope": run_snap.checks_scope,
                     },
                 )
 
@@ -205,15 +221,14 @@ def run_deal_checks(
                             "deal_id": deal_id,
                             "doc_id": pair["doc_id"],
                             "check_id": pair["check_id"],
-                            "playbook_version_id": str(run_obj.playbook_version_id),
-                            "checks_mode": checks_mode,
+                            "playbook_version_id": str(run_snap.playbook_version_id),
+                            "checks_mode": run_snap.checks_mode,
                             "force": False,
                         },
                         queue="heavy_llm",
                     )
                     scheduled += 1
 
-                # Аудит: checks scheduler построил и поставил execution plan
                 try:
                     await audit_repo.log(
                         tenant_id=uuid.UUID(tenant_id) if tenant_id else uuid.UUID(int=0),
@@ -223,9 +238,9 @@ def run_deal_checks(
                         actor_role="worker",
                         details={
                             "run_id": run_id,
-                            "playbook_version_id": str(run_obj.playbook_version_id),
-                            "checks_mode": checks_mode,
-                            "checks_scope": checks_scope,
+                            "playbook_version_id": str(run_snap.playbook_version_id),
+                            "checks_mode": run_snap.checks_mode,
+                            "checks_scope": run_snap.checks_scope,
                             "processed_docs": processed_docs,
                             "total_checks": total_checks,
                             "pairs_count": len(pairs),
@@ -242,16 +257,13 @@ def run_deal_checks(
                 duration = time.time() - started_at
 
                 try:
-                    metrics.checks_duration.labels(stage="deal_checks_schedule").observe(
-                        duration
-                    )
+                    metrics.checks_duration.labels(
+                        stage="deal_checks_schedule"
+                    ).observe(duration)
                 except Exception:
                     logger.exception(
                         "run_deal_checks scheduler: failed to update checks_duration metric",
-                        extra={
-                            "run_id": run_id,
-                            "deal_id": deal_id,
-                        },
+                        extra={"run_id": run_id, "deal_id": deal_id},
                     )
 
                 logger.info(
@@ -276,8 +288,8 @@ def run_deal_checks(
                             "deal_id": deal_id,
                             "processed_docs": processed_docs,
                             "planning_errors": errors,
-                            "checks_mode": checks_mode,
-                            "checks_scope": checks_scope,
+                            "checks_mode": run_snap.checks_mode,
+                            "checks_scope": run_snap.checks_scope,
                         },
                     )
 
@@ -287,8 +299,11 @@ def run_deal_checks(
                             f"Run not found during zero-check finalize: {run_uuid}"
                         )
 
+                    # Снимаем snapshot финализированного Run сразу после получения.
+                    finalized_snap: RunSnapshot = snapshot_run(finalized)
+
                     return {
-                        "status": finalized.status,
+                        "status": finalized_snap.status,
                         "processed_docs": processed_docs,
                         "total_checks": total_checks,
                         "scheduled_checks": scheduled,
@@ -327,6 +342,9 @@ def run_deal_checks(
                 raise
 
     return run_async(_run())
+
+
+# ─── run_single_check ─────────────────────────────────────────────────────────
 
 
 @celery_app.task(
@@ -386,18 +404,20 @@ def run_single_check(
                 if run_obj is None:
                     raise ValueError(f"Run not found: {run_uuid}")
 
-                effective_checks_mode = checks_mode or getattr(
-                    run_obj, "checks_mode", "global_and_doc_type"
-                )
-                effective_pb_version_id = pb_version_uuid or run_obj.playbook_version_id
+                # Снимаем snapshot сразу после загрузки ORM-объекта Run.
+                # Дальше работаем только с run_snap, а не с run_obj.
+                run_snap: RunSnapshot = snapshot_run(run_obj)
 
-                if run_obj.deal_id != deal_uuid:
+                effective_checks_mode = checks_mode or run_snap.checks_mode or "global_and_doc_type"
+                effective_pb_version_id = pb_version_uuid or run_snap.playbook_version_id
+
+                if run_snap.deal_id != deal_uuid:
                     logger.warning(
                         "run_single_check: deal_id mismatch between task and Run",
                         extra={
                             "run_id": run_id,
                             "deal_id_task": str(deal_uuid),
-                            "deal_id_run": str(run_obj.deal_id),
+                            "deal_id_run": run_snap.deal_id_str,
                         },
                     )
 
@@ -412,19 +432,6 @@ def run_single_check(
                 if doc is None:
                     raise ValueError(f"Document not found: {doc_uuid}")
 
-                # ВАЖНО:
-                # ResultRepository уже segment-aware:
-                # одна logical check-проверка на документ может материализоваться
-                # в одной whole-document строке или в нескольких segment-level строках.
-                #
-                # Поэтому orchestration-слой не должен читать конкретную storage-строку
-                # через get_one(..., segment_id=...).
-                #
-                # Здесь нам нужен агрегирующий вопрос:
-                # "Есть ли уже успешный результат по (run, doc, check)
-                # хотя бы на одном сегменте / в whole-document записи?"
-                #
-                # Если да — при force=False повторный запуск не нужен.
                 already_success = await result_repo.has_success_for_doc_check(
                     run_id=run_uuid,
                     document_id=doc_uuid,
@@ -432,9 +439,6 @@ def run_single_check(
                 )
 
                 if already_success and not force:
-                    # Debug-only observability:
-                    # вытаскиваем конкретную SUCCESS-строку, чтобы в логах было видно,
-                    # какой именно сегмент уже "закрыл" этот (doc, check).
                     success_row = await result_repo.get_first_success_for_doc_check(
                         run_id=run_uuid,
                         document_id=doc_uuid,
@@ -490,16 +494,17 @@ def run_single_check(
                         "reason": "already_success",
                     }
 
-                checks_scope = getattr(run_obj, "checks_scope", None)
-
                 runner = CheckRunner(
                     llm_client=_shared_llm_client,
                     playbook_version_id=effective_pb_version_id,
                     checks_mode=effective_checks_mode,
                     run_repo=run_repo,
-                    checks_scope=checks_scope,
+                    checks_scope=run_snap.checks_scope,
                 )
 
+                # doc здесь — живой ORM Document, загруженный в этом UoW.
+                # execute_single_check внутри сразу снимает DocumentCheckSnapshot
+                # через _snapshot_check_doc() в engine/checks/check_runner.py.
                 outcome = await runner.execute_single_check(
                     session=uow.session,
                     repo=result_repo,
@@ -512,8 +517,6 @@ def run_single_check(
                 exec_result = outcome["exec_result"]
                 duration = time.time() - started_at
 
-                # Если check не применим (exec_result=None), мы уже записали
-                # not_applicable в save_not_applicable_result.
                 if exec_result is None:
                     logger.info(
                         "run_single_check completed: check not applicable",
@@ -556,10 +559,6 @@ def run_single_check(
                 }
 
             except SoftTimeLimitExceeded as e:
-                # Таймаут на уровне Celery — это уникальный случай:
-                # executor / saver могли не успеть ничего записать.
-                # Здесь мы по-прежнему явно пишем TIMEOUT в CheckResult,
-                # но уже используем CheckExecutionStatus.
                 logger.warning(
                     "run_single_check: soft time limit exceeded",
                     extra={
@@ -587,7 +586,7 @@ def run_single_check(
                     conditional_check_triggered=False,
                     trigger_name=None,
                     origin=None,
-                    playbook_version_id=effective_pb_version_id,
+                    playbook_version_id=pb_version_uuid,
                     page=None,
                     clause_uid=None,
                     element_id=None,
@@ -598,9 +597,6 @@ def run_single_check(
                 raise
 
             except Exception as e:
-                # Здесь мы по-прежнему пишем технический FAILED, но теперь
-                # различаем permanent/transient DB-ошибки, которые уже были
-                # залогированы в check_result_persist_errors внутри ResultRepository.
                 logger.exception(
                     "run_single_check failed",
                     extra={
@@ -614,8 +610,6 @@ def run_single_check(
 
                 message = str(e)
 
-                # Простейшая эвристика: смотрим префикс сообщения, который
-                # ставит ResultRepository.upsert_single_check_result.
                 is_permanent_db_error = message.startswith(
                     "Permanent DB error while upserting check_result"
                 )
@@ -623,9 +617,6 @@ def run_single_check(
                     "Transient DB error while upserting check_result"
                 )
 
-                # В любом случае пробуем сохранить FAILED в CheckResult,
-                # но для permanent DB-ошибки запись в основную таблицу может
-                # снова упасть. Это нормально: payload уже есть в fallback-таблице.
                 try:
                     await result_repo.upsert_single_check_result(
                         run_id=run_uuid,
@@ -645,7 +636,7 @@ def run_single_check(
                         conditional_check_triggered=False,
                         trigger_name=None,
                         origin=None,
-                        playbook_version_id=effective_pb_version_id,
+                        playbook_version_id=pb_version_uuid,
                         page=None,
                         clause_uid=None,
                         element_id=None,
@@ -654,8 +645,6 @@ def run_single_check(
                         error_details={"type": "exception", "message": message},
                     )
                 except Exception:
-                    # Вторичный провал persist мы намеренно не ретраим здесь,
-                    # потому что он уже зафиксирован в check_result_persist_errors.
                     logger.exception(
                         "run_single_check: failed to persist FAILED status after exception",
                         extra={
@@ -666,19 +655,9 @@ def run_single_check(
                         },
                     )
 
-                # Дальше — политика retry:
-                # - permanent DB error: не ретраим, просто падаем;
-                # - transient DB error: можем попросить Celery повторить задачу;
-                # - прочие ошибки: оставляем текущее поведение (no retry).
                 if is_transient_db_error:
-                    # Здесь можно настроить max_retries/backoff через options таски
-                    # или напрямую self.retry(countdown=...).
-                    raise self.retry(
-                        exc=e,
-                        countdown=30,   # пример: повтор через 30 секунд
-                    )
+                    raise self.retry(exc=e, countdown=30)
 
-                # Permanent DB error (и любые прочие) — не ретраим.
                 raise
 
             finally:
@@ -701,6 +680,9 @@ def run_single_check(
     return run_async(_run())
 
 
+# ─── finalize_run_if_ready ────────────────────────────────────────────────────
+
+
 @celery_app.task(
     base=MASBaseTask,
     bind=True,
@@ -714,12 +696,6 @@ def finalize_run_if_ready(
 ) -> dict:
     """
     Проверить, завершены ли все checks по Run, и при готовности финализировать Run.
-
-    Используем единую логику RunRepository.finalize_run_if_finished(), чтобы не
-    дублировать правила переходов RUNNING / COMPLETED / COMPLETED_WITH_ERRORS.
-
-    Инвариант:
-    - zero-check run (total_checks == 0) не должен бесконечно оставаться non-terminal.
     """
     logger.info(
         "Finalize run task received",
@@ -738,7 +714,9 @@ def finalize_run_if_ready(
             if run_obj is None:
                 raise ValueError(f"Run not found: {run_uuid}")
 
-            total_checks = int(getattr(run_obj, "total_checks", 0) or 0)
+            # Снимаем snapshot сразу после загрузки ORM-объекта Run.
+            run_snap: RunSnapshot = snapshot_run(run_obj)
+
             finished_checks = await result_repo.count_finished_checks_for_run(run_uuid)
             materialized_checks = (
                 await result_repo.count_distinct_checks_for_run(run_uuid)
@@ -748,79 +726,80 @@ def finalize_run_if_ready(
             if updated_run is None:
                 raise ValueError(f"Run not found during finalize: {run_uuid}")
 
+            # Снимаем snapshot финализированного Run сразу после получения,
+            # до следующего await.
+            updated_snap: RunSnapshot = snapshot_run(updated_run)
+
             logger.info(
                 "finalize_run_if_ready: run state synced",
                 extra={
                     "run_id": run_id,
-                    "status": updated_run.status,
-                    "run_total_checks": updated_run.total_checks,
-                    "run_completed_checks": updated_run.completed_checks,
+                    "status": updated_snap.status,
+                    "run_total_checks": updated_snap.total_checks,
+                    "run_completed_checks": updated_snap.completed_checks,
                     "materialized_checks": materialized_checks,
                     "finished_checks": finished_checks,
-                    "has_errors": updated_run.has_errors,
+                    "has_errors": updated_snap.has_errors,
                 },
             )
 
-            # Если Run перешёл в терминальный статус, пишем аудит.
-            if updated_run.status in (
+            # Если Run перешёл в терминальный статус — пишем аудит.
+            if updated_snap.status in (
                 RunStatus.COMPLETED.value,
                 RunStatus.COMPLETED_WITH_ERRORS.value,
                 RunStatus.FAILED.value,
             ):
-                # Определяем тип события для аудита
-                if updated_run.status == RunStatus.COMPLETED.value:
+                if updated_snap.status == RunStatus.COMPLETED.value:
                     action = "ANALYSIS_COMPLETED"
-                elif updated_run.status == RunStatus.COMPLETED_WITH_ERRORS.value:
+                elif updated_snap.status == RunStatus.COMPLETED_WITH_ERRORS.value:
                     action = "ANALYSIS_COMPLETED_WITH_ERRORS"
                 else:
                     action = "ANALYSIS_FAILED"
 
                 try:
                     await audit_repo.log(
-                        tenant_id=uuid.UUID(int=0),  # TODO: заменить на реальный tenant
-                        deal_id=updated_run.deal_id,
+                        tenant_id=uuid.UUID(int=0),
+                        deal_id=updated_snap.deal_id,
                         action=action,
                         actor="system",
                         actor_role="worker",
                         details={
                             "run_id": run_id,
-                            "status": updated_run.status,
-                            "total_checks": updated_run.total_checks,
-                            "completed_checks": updated_run.completed_checks,
+                            "status": updated_snap.status,
+                            "total_checks": updated_snap.total_checks,
+                            "completed_checks": updated_snap.completed_checks,
                             "materialized_checks": materialized_checks,
                             "finished_checks": finished_checks,
-                            "has_errors": updated_run.has_errors,
+                            "has_errors": updated_snap.has_errors,
                         },
                     )
-                    # commit делать не нужно: finalize работает в рамках одного uow,
-                    # запись аудита закоммитится вместе с остальными изменениями.
                 except Exception:
                     logger.warning(
                         "finalize_run_if_ready: failed to write audit log for run finalization",
                         extra={
                             "run_id": run_id,
-                            "status": updated_run.status,
+                            "status": updated_snap.status,
                         },
                     )
 
                 return {
-                    "status": updated_run.status,
-                    "total_checks": updated_run.total_checks,
-                    "completed_checks": updated_run.completed_checks,
-                    "has_errors": updated_run.has_errors,
+                    "status": updated_snap.status,
+                    "total_checks": updated_snap.total_checks,
+                    "completed_checks": updated_snap.completed_checks,
+                    "has_errors": updated_snap.has_errors,
                 }
 
-            if total_checks <= 0:
+            if run_snap.total_checks <= 0:
                 logger.error(
                     "finalize_run_if_ready: zero-check run is still non-terminal after repository finalize",
                     extra={
                         "run_id": run_id,
-                        "status": updated_run.status,
-                        "run_total_checks": updated_run.total_checks,
-                        "run_completed_checks": updated_run.completed_checks,
+                        "status": updated_snap.status,
+                        "run_total_checks": updated_snap.total_checks,
+                        "run_completed_checks": updated_snap.completed_checks,
                         "materialized_checks": materialized_checks,
                         "finished_checks": finished_checks,
-                        "has_errors": updated_run.has_errors,
+                        "has_errors": updated_snap.has_errors,
                     },
                 )
                 raise RuntimeError(
@@ -829,12 +808,11 @@ def finalize_run_if_ready(
 
             return {
                 "status": "NOT_READY",
-                "total_checks": total_checks,
+                "total_checks": run_snap.total_checks,
                 "finished_checks": finished_checks,
                 "materialized_checks": materialized_checks,
-                "run_status": updated_run.status,
+                "run_status": updated_snap.status,
             }
 
     return run_async(_run())
-
 

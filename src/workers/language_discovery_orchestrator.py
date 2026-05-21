@@ -58,6 +58,15 @@ Routing policy:
   только как secondary hints, если origin_filetype не даёт однозначный ответ;
 - если route неоднозначен, предпочитаем prepare stage как safest path для
   conversion-first language discovery.
+
+Важное правило работы с ORM (snapshot architecture):
+- SQLAlchemy asyncpg не допускает синхронный lazy reload атрибутов ORM-объектов
+  после await-границы (MissingGreenlet).
+- Поэтому orchestration-слой снимает snapshots ORM-объектов сразу после загрузки
+  и дальше работает только с примитивами.
+- Shared snapshot-контракты живут в core.pipeline_snapshots.
+- Все snapshot-типы используют shared контракт из core.pipeline_snapshots
+  (DocumentSnapshot, VersionSnapshot). Локальных приватных snapshot-классов нет.
 """
 
 from __future__ import annotations
@@ -69,6 +78,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import PermanentError
 from core.logging import get_logger
+from core.pipeline_snapshots import (
+    DocumentSnapshot,
+    VersionSnapshot,
+    snapshot_document,
+    snapshot_version,
+)
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.document_repo import DocumentRepository
@@ -144,31 +159,18 @@ NATIVE_EXTRACTION_STRATEGIES = {
 DEFAULT_OCR_CONFIDENCE_THRESHOLD = 0.70
 
 
-def _normalize_route_value(value: Any) -> str | None:
-    if value is None or not isinstance(value, str):
-        return None
-    normalized = value.strip().lower()
-    return normalized or None
+# ─── Route helpers ────────────────────────────────────────────────────────────
 
 
-def _normalize_ocr_confidence(value: Any) -> float | None:
-    if value is None:
-        return None
-    try:
-        confidence = float(value)
-    except (TypeError, ValueError):
-        return None
-
-    if confidence < 0:
-        return 0.0
-    if confidence > 1:
-        return 1.0
-    return confidence
-
-
-def _select_language_discovery_task_name(version: Any) -> str:
+def _select_language_discovery_task_name(
+    ver_snap: VersionSnapshot,
+) -> str:
     """
     Выбрать worker для language discovery на уровне документа.
+
+    Принимает VersionSnapshot из core.pipeline_snapshots, а не ORM-объект,
+    чтобы гарантировать отсутствие обращений к expired ORM-атрибутам
+    через await-границу.
 
     Production contract:
     1) Office filetypes -> prepare_document_for_language_discovery;
@@ -177,44 +179,37 @@ def _select_language_discovery_task_name(version: Any) -> str:
     4) strategy hints используются только как secondary fallback;
     5) если route всё ещё неоднозначен, выбираем prepare stage как safest path.
     """
-    pipeline_strategy = _normalize_route_value(
-        getattr(version, "pipeline_strategy", None)
-    )
-    extraction_strategy = _normalize_route_value(
-        getattr(version, "extraction_strategy", None)
-    )
-    origin_filetype = _normalize_route_value(
-        getattr(version, "origin_filetype", None)
-    )
-    ocr_confidence = _normalize_ocr_confidence(
-        getattr(version, "ocr_confidence", None)
-    )
-
-    if origin_filetype in OFFICE_FILETYPES:
+    if ver_snap.origin_filetype in OFFICE_FILETYPES:
         return PREPARE_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if origin_filetype == "pdf":
+    if ver_snap.origin_filetype == "pdf":
         return NATIVE_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if origin_filetype in OCR_FILETYPES:
+    if ver_snap.origin_filetype in OCR_FILETYPES:
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if pipeline_strategy in OCR_PIPELINE_STRATEGIES:
+    if ver_snap.pipeline_strategy in OCR_PIPELINE_STRATEGIES:
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if pipeline_strategy in NATIVE_PIPELINE_STRATEGIES:
+    if ver_snap.pipeline_strategy in NATIVE_PIPELINE_STRATEGIES:
         return NATIVE_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if extraction_strategy in OCR_EXTRACTION_STRATEGIES:
+    if ver_snap.extraction_strategy in OCR_EXTRACTION_STRATEGIES:
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if extraction_strategy in NATIVE_EXTRACTION_STRATEGIES:
+    if ver_snap.extraction_strategy in NATIVE_EXTRACTION_STRATEGIES:
         return NATIVE_LANGUAGE_DISCOVERY_TASK_NAME
 
-    if ocr_confidence is not None and ocr_confidence < DEFAULT_OCR_CONFIDENCE_THRESHOLD:
+    if (
+        ver_snap.ocr_confidence is not None
+        and ver_snap.ocr_confidence < DEFAULT_OCR_CONFIDENCE_THRESHOLD
+    ):
         return OCR_LANGUAGE_DISCOVERY_TASK_NAME
 
     return PREPARE_LANGUAGE_DISCOVERY_TASK_NAME
+
+
+# ─── Audit helper ─────────────────────────────────────────────────────────────
 
 
 async def _write_deal_audit(
@@ -244,6 +239,9 @@ async def _write_deal_audit(
                 "action": action,
             },
         )
+
+
+# ─── Celery task entrypoint ───────────────────────────────────────────────────
 
 
 @celery_app.task(
@@ -290,6 +288,9 @@ def start_language_discovery(
     return run_async(_wrapper())
 
 
+# ─── Async core ───────────────────────────────────────────────────────────────
+
+
 async def _start_language_discovery_async(
     *,
     deal_id: str,
@@ -300,12 +301,18 @@ async def _start_language_discovery_async(
     """
     Async-ядро orchestration-only language discovery.
 
+    Архитектура read / snapshot / decision / write:
+    - READ:     загружаем ORM-объекты (Deal, Documents, Versions);
+    - SNAPSHOT: немедленно снимаем snapshots через core.pipeline_snapshots;
+    - DECISION: выбираем task routing по snapshot-данным;
+    - WRITE:    claim document + enqueue Celery task.
+
     Алгоритм:
     1) валидируем deal;
     2) переводим deal-level discovery в processing;
-    3) выбираем документы-кандидаты;
+    3) выбираем документы-кандидаты и снимаем snapshots;
     4) для каждого документа пытаемся атомарно "захватить" его под dispatch;
-    5) находим latest version и ставим document-level task;
+    5) находим latest version snapshot и ставим document-level task;
     6) пересчитываем aggregate state сделки.
     """
     deal_uuid = uuid.UUID(deal_id)
@@ -329,11 +336,14 @@ async def _start_language_discovery_async(
     doc_repo = DocumentRepository(db)
     ver_repo = DocumentVersionRepository(db)
 
+    # ── READ + validate: Deal ─────────────────────────────────────────────────
+
     deal = await deal_repo.get_by_id(deal_uuid)
     if not deal:
         raise PermanentError(
             f"Deal {deal_id} not found for language discovery orchestration"
         )
+    # deal ORM-объект больше не используется после этой точки
 
     await _write_deal_audit(
         db=db,
@@ -358,6 +368,8 @@ async def _start_language_discovery_async(
             deal_uuid,
             "processing",
         )
+
+        # ── READ + SNAPSHOT: Documents ────────────────────────────────────────
 
         docs = await doc_repo.get_for_language_discovery(
             deal_id=deal_uuid,
@@ -416,66 +428,86 @@ async def _start_language_discovery_async(
             )
             return result
 
-        latest_versions = await ver_repo.get_latest_for_documents(
-            [doc.id for doc in docs]
+        # Снимаем DocumentSnapshot сразу после batch-read через shared контракт.
+        # detected_languages нам нужен для preserve_detected_languages ниже —
+        # он есть в DocumentSnapshot.detected_languages.
+        doc_snaps: list[DocumentSnapshot] = [snapshot_document(doc) for doc in docs]
+
+        # ── READ + SNAPSHOT: Versions ─────────────────────────────────────────
+
+        latest_versions_orm = await ver_repo.get_latest_for_documents(
+            [ds.document_id for ds in doc_snaps]
         )
+
+        # Снимаем VersionSnapshot сразу после batch-read через shared контракт.
+        # VersionSnapshot содержит все нужные поля для routing:
+        # origin_filetype, pipeline_strategy, extraction_strategy, ocr_confidence.
+        version_snaps: dict[uuid.UUID, VersionSnapshot] = {
+            doc_id: snapshot_version(ver)
+            for doc_id, ver in latest_versions_orm.items()
+        }
+
+        # ── DECISION + WRITE: per-document loop ──────────────────────────────
 
         enqueued_document_ids: list[str] = []
         duplicate_guard_skipped_document_ids: list[str] = []
         failed_pre_dispatch_document_ids: list[str] = []
 
-        for doc in docs:
-            doc_id_str = str(doc.id)
+        for doc_snap in doc_snaps:
+            ver_snap = version_snaps.get(doc_snap.document_id)
 
-            version = latest_versions.get(doc.id)
-            if not version:
+            if ver_snap is None:
                 logger.warning(
                     "Language discovery orchestration: latest version not found, document marked failed",
                     extra={
                         "deal_id": deal_id,
                         "tenant_id": tenant_id,
-                        "document_id": doc_id_str,
+                        "document_id": doc_snap.document_id_str,
                     },
                 )
 
-                # ── ИЗМЕНЕНИЕ 1 из 2 ──────────────────────────────────────────
-                # Стало: doc_repo.update_language_discovery(...)
                 await doc_repo.update_language_discovery(
-                    doc.id,
+                    doc_snap.document_id,
                     detected_languages=[],
                     status="failed",
                 )
-                failed_pre_dispatch_document_ids.append(doc_id_str)
+                failed_pre_dispatch_document_ids.append(doc_snap.document_id_str)
                 continue
 
-            # ── ИЗМЕНЕНИЕ 2 из 2 ─────────────────────────────────────────────
-            # Стало: doc_repo.try_mark_language_discovery_pending(...)
+            # detected_languages берём из DocumentSnapshot.
+            # tuple → list для совместимости с API repo-метода.
+            preserve_languages: list[str] | None = (
+                list(doc_snap.detected_languages)
+                if doc_snap.detected_languages
+                else None
+            )
+
             claimed_doc = await doc_repo.try_mark_language_discovery_pending(
-                doc.id,
+                doc_snap.document_id,
                 allowed_current_statuses=REDISTRIBUTABLE_LANGUAGE_STATES,
-                preserve_detected_languages=getattr(doc, "detected_languages", None),
+                preserve_detected_languages=preserve_languages,
             )
 
             if not claimed_doc:
-                duplicate_guard_skipped_document_ids.append(doc_id_str)
+                duplicate_guard_skipped_document_ids.append(doc_snap.document_id_str)
                 logger.info(
                     "Language discovery orchestration: document already claimed by another worker",
                     extra={
                         "deal_id": deal_id,
                         "tenant_id": tenant_id,
-                        "document_id": doc_id_str,
+                        "document_id": doc_snap.document_id_str,
                     },
                 )
                 continue
 
-            task_name = _select_language_discovery_task_name(version)
+            task_name = _select_language_discovery_task_name(ver_snap)
 
             try:
                 celery_app.send_task(
                     task_name,
                     kwargs={
-                        "document_id": doc_id_str,
-                        "document_version_id": str(version.id),
+                        "document_id": doc_snap.document_id_str,
+                        "document_version_id": ver_snap.version_id_str,
                         "deal_id": deal_id,
                         "tenant_id": tenant_id,
                     },
@@ -493,34 +525,32 @@ async def _start_language_discovery_async(
                     extra={
                         "deal_id": deal_id,
                         "tenant_id": tenant_id,
-                        "document_id": doc_id_str,
-                        "document_version_id": str(version.id),
+                        "document_id": doc_snap.document_id_str,
+                        "document_version_id": ver_snap.version_id_str,
                         "task_name": task_name,
-                        "pipeline_strategy": getattr(version, "pipeline_strategy", None),
-                        "extraction_strategy": getattr(
-                            version, "extraction_strategy", None
-                        ),
-                        "ocr_confidence": getattr(version, "ocr_confidence", None),
-                        "origin_filetype": getattr(version, "origin_filetype", None),
+                        "pipeline_strategy": ver_snap.pipeline_strategy,
+                        "extraction_strategy": ver_snap.extraction_strategy,
+                        "ocr_confidence": ver_snap.ocr_confidence,
+                        "origin_filetype": ver_snap.origin_filetype,
                         "error": str(e),
                     },
                 )
                 raise
 
-            enqueued_document_ids.append(doc_id_str)
+            enqueued_document_ids.append(doc_snap.document_id_str)
 
             logger.info(
                 "Language discovery orchestration: detection task enqueued",
                 extra={
                     "deal_id": deal_id,
                     "tenant_id": tenant_id,
-                    "document_id": doc_id_str,
-                    "document_version_id": str(version.id),
+                    "document_id": doc_snap.document_id_str,
+                    "document_version_id": ver_snap.version_id_str,
                     "task_name": task_name,
-                    "pipeline_strategy": getattr(version, "pipeline_strategy", None),
-                    "extraction_strategy": getattr(version, "extraction_strategy", None),
-                    "ocr_confidence": getattr(version, "ocr_confidence", None),
-                    "origin_filetype": getattr(version, "origin_filetype", None),
+                    "pipeline_strategy": ver_snap.pipeline_strategy,
+                    "extraction_strategy": ver_snap.extraction_strategy,
+                    "ocr_confidence": ver_snap.ocr_confidence,
+                    "origin_filetype": ver_snap.origin_filetype,
                 },
             )
 
@@ -536,7 +566,7 @@ async def _start_language_discovery_async(
         result = {
             "deal_id": deal_id,
             "tenant_id": tenant_id,
-            "documents_total": len(docs),
+            "documents_total": len(doc_snaps),
             "documents_enqueued": len(enqueued_document_ids),
             "documents_skipped": len(skipped_document_ids),
             "documents_skipped_as_duplicate": len(duplicate_guard_skipped_document_ids),
@@ -598,6 +628,5 @@ async def _start_language_discovery_async(
             },
         )
         raise
-
 
     

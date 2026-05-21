@@ -1,5 +1,18 @@
 # src/engine/checks/planning/context.py
 
+"""
+Immutable value objects для checks planning pipeline.
+
+Что живёт в этом модуле:
+- CheckContext — универсальный контекст для подбора checks (document или segment scope).
+- SegmentInfo — компактный carrier-object с данными сегмента.
+
+Что НЕ живёт в этом модуле:
+- DocumentCheckSnapshot / DocumentSnapshot — shared read-model contract,
+  который переиспользуется всеми orchestration/worker/engine слоями.
+  Живёт в core.pipeline_snapshots.DocumentSnapshot.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -89,4 +102,7 @@ class SegmentInfo:
     def has_doc_type(self) -> bool:
         """Есть ли у сегмента определённый segment_doc_type."""
         return bool(self.segment_doc_type)
+    
+
+    
 

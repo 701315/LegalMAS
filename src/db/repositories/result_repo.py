@@ -571,9 +571,17 @@ class ResultRepository:
         """
         Создать или обновить результат одной проверки.
 
-        Идемпотентность теперь по ключу (run, doc, segment_id, check):
+        Идемпотентность по ключу (run, doc, segment_id, check):
         - для single-document: segment_id = None;
         - для multi-document: отдельная запись на каждый сегмент.
+
+        Важно про savepoint:
+        - Мы используем session.begin_nested() вместо прямого rollback().
+        - begin_nested() создаёт PostgreSQL SAVEPOINT внутри текущей транзакции.
+        - При DBAPIError откатывается только этот savepoint.
+        - Основная транзакция сессии остаётся живой.
+        - Все ORM-объекты, загруженные до этого вызова, остаются валидными.
+        - log_error() выполняется в рамках той же основной транзакции.
         """
         now = datetime.now(UTC)
 
@@ -604,81 +612,85 @@ class ResultRepository:
                 status_value = CheckExecutionStatus.FAILED.value
 
         try:
-            existing = await self.get_one(run_id, document_id, check_id, segment_id)
+            # Используем savepoint (begin_nested) вместо прямого rollback сессии.
+            # При DBAPIError откатывается только этот savepoint, основная транзакция
+            # и все уже загруженные ORM-объекты остаются живыми и валидными.
+            async with self.session.begin_nested():
+                existing = await self.get_one(run_id, document_id, check_id, segment_id)
 
-            if existing is None:
-                cr = CheckResult(
-                    run_id=run_id,
-                    document_id=document_id,
-                    check_id=check_id,
-                    check_name=check_name,
-                    result=result,
-                    severity=severity,
-                    value_text=value_text,
-                    evidence_ref=evidence_ref,
-                    confidence=confidence,
-                    detector_used=detector_used,
-                    quality_flags=quality_flags or {},
-                    structured_data=structured_data,
-                    conditional_check_triggered=conditional_check_triggered,
-                    trigger_name=trigger_name,
-                    origin=origin,
-                    playbook_version_id=playbook_version_id,
-                    page=page,
-                    clause_uid=clause_uid,
-                    element_id=element_id,
-                    bbox=bbox,
-                    segment_id=segment_id,
-                    segment_type=segment_type,
-                    segment_title=segment_title,
-                    segment_order=segment_order,
-                    is_primary_segment=is_primary_segment,
-                    execution_status=status_value,
-                    started_at=now if status_value in started_statuses else None,
-                    finished_at=now if status_value in finished_statuses else None,
-                    error_details=error_details,
-                )
-                self.session.add(cr)
+                if existing is None:
+                    cr = CheckResult(
+                        run_id=run_id,
+                        document_id=document_id,
+                        check_id=check_id,
+                        check_name=check_name,
+                        result=result,
+                        severity=severity,
+                        value_text=value_text,
+                        evidence_ref=evidence_ref,
+                        confidence=confidence,
+                        detector_used=detector_used,
+                        quality_flags=quality_flags or {},
+                        structured_data=structured_data,
+                        conditional_check_triggered=conditional_check_triggered,
+                        trigger_name=trigger_name,
+                        origin=origin,
+                        playbook_version_id=playbook_version_id,
+                        page=page,
+                        clause_uid=clause_uid,
+                        element_id=element_id,
+                        bbox=bbox,
+                        segment_id=segment_id,
+                        segment_type=segment_type,
+                        segment_title=segment_title,
+                        segment_order=segment_order,
+                        is_primary_segment=is_primary_segment,
+                        execution_status=status_value,
+                        started_at=now if status_value in started_statuses else None,
+                        finished_at=now if status_value in finished_statuses else None,
+                        error_details=error_details,
+                    )
+                    self.session.add(cr)
+                    await self.session.flush()
+                    return cr
+
+                existing.check_name = check_name
+                existing.result = result
+                existing.severity = severity
+                existing.value_text = value_text
+                existing.evidence_ref = evidence_ref
+                existing.confidence = confidence
+                existing.detector_used = detector_used
+                existing.quality_flags = quality_flags or {}
+                existing.structured_data = structured_data
+                existing.conditional_check_triggered = conditional_check_triggered
+                existing.trigger_name = trigger_name
+                existing.origin = origin
+                existing.playbook_version_id = playbook_version_id
+                existing.page = page
+                existing.clause_uid = clause_uid
+                existing.element_id = element_id
+                existing.bbox = bbox
+                existing.segment_id = segment_id
+                existing.segment_type = segment_type
+                existing.segment_title = segment_title
+                existing.segment_order = segment_order
+                existing.is_primary_segment = is_primary_segment
+                existing.execution_status = status_value
+                existing.error_details = error_details
+
+                if existing.started_at is None and status_value in started_statuses:
+                    existing.started_at = now
+
+                if status_value in finished_statuses:
+                    existing.finished_at = now
+
                 await self.session.flush()
-                return cr
-
-            existing.check_name = check_name
-            existing.result = result
-            existing.severity = severity
-            existing.value_text = value_text
-            existing.evidence_ref = evidence_ref
-            existing.confidence = confidence
-            existing.detector_used = detector_used
-            existing.quality_flags = quality_flags or {}
-            existing.structured_data = structured_data
-            existing.conditional_check_triggered = conditional_check_triggered
-            existing.trigger_name = trigger_name
-            existing.origin = origin
-            existing.playbook_version_id = playbook_version_id
-            existing.page = page
-            existing.clause_uid = clause_uid
-            existing.element_id = element_id
-            existing.bbox = bbox
-            existing.segment_id = segment_id
-            existing.segment_type = segment_type
-            existing.segment_title = segment_title
-            existing.segment_order = segment_order
-            existing.is_primary_segment = is_primary_segment
-            existing.execution_status = status_value
-            existing.error_details = error_details
-
-            if existing.started_at is None and status_value in started_statuses:
-                existing.started_at = now
-
-            if status_value in finished_statuses:
-                existing.finished_at = now
-
-            await self.session.flush()
-            return existing
+                return existing
 
         except DBAPIError as err:
-            await self.session.rollback()
-
+            # Savepoint уже откатился автоматически при выходе из begin_nested().
+            # Основная транзакция сессии жива — можно продолжать работу с ней.
             permanent = is_permanent_db_error(err)
             orig = getattr(err, "orig", None)
             sqlstate = getattr(orig, "sqlstate", None)
@@ -715,6 +727,10 @@ class ResultRepository:
                 "error_details": error_details,
             }
 
+            # log_error теперь выполняется в рамках основной транзакции,
+            # а не после её разрушения через rollback.
+            # Это архитектурно правильнее: fallback-запись и основная транзакция
+            # коммитятся вместе, либо откатываются вместе при внешней ошибке.
             persist_error_repo = CheckResultPersistErrorRepository(self.session)
             await persist_error_repo.log_error(
                 run_id=run_id,

@@ -17,12 +17,20 @@ Database session management.
         * middleware,
         * специальных внутренних сценариях, где commit контролируется явно.
 
-- db_uow():
-    явный transactional Unit of Work.
+- transactional_session():
+    explicit transactional context manager для raw AsyncSession
+    с commit-on-success / rollback-on-error.
+    Используется в:
+        * специальных write-сервисах, которым нужен именно AsyncSession,
+          а не UnitOfWork-обёртка;
+        * внутренних инфраструктурных сценариях.
+
+- db.uow.db_uow():
+    канонический UnitOfWork для application / worker-кода.
     Используется в:
         * Celery worker'ах,
         * фоновых write-сервисах,
-        * местах, где нужно commit-on-success поведение.
+        * местах, где доменный код работает через uow.session / uow.repositories.
 
 - get_db():
     FastAPI dependency для HTTP-эндпоинтов.
@@ -34,6 +42,12 @@ Database session management.
 - long-lived response (например StreamingResponse / SSE) не должен
   удерживать одну и ту же request-scoped session на весь срок жизни ответа;
 - read lifecycle и write lifecycle разделены явно.
+
+Важно про naming:
+- В проекте канонический db_uow находится в модуле db.uow.
+- Историческая функция db.session.db_uow оставлена ниже только как
+  deprecated compatibility alias поверх transactional_session().
+- Новый код НЕ должен импортировать db_uow из db.session.
 """
 
 from __future__ import annotations
@@ -89,7 +103,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     Важно:
     - этот context manager никогда не делает commit автоматически;
     - если вызывающий код изменяет данные, он должен сам вызвать commit(),
-      либо использовать db_uow().
+      либо использовать db.uow.db_uow() / transactional_session().
     """
     session = AsyncSessionLocal()
     try:
@@ -102,13 +116,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @asynccontextmanager
-async def db_uow() -> AsyncGenerator[AsyncSession, None]:
+async def transactional_session() -> AsyncGenerator[AsyncSession, None]:
     """
-    Явный transactional Unit of Work.
+    Явный transactional context manager для raw AsyncSession.
 
     Использование:
 
-        async with db_uow() as session:
+        async with transactional_session() as session:
             ...
             session.add(obj)
 
@@ -118,11 +132,11 @@ async def db_uow() -> AsyncGenerator[AsyncSession, None]:
     - при исключении делает rollback;
     - в любом случае закрывает session.
 
-    Используйте db_uow() для write-сценариев:
-    - create/update/delete,
-    - Celery jobs,
-    - фоновые операции,
-    - сервисы, где commit должен происходить атомарно в конце блока.
+    Используйте transactional_session() для write-сценариев,
+    где нужен именно AsyncSession, а не UnitOfWork-обёртка:
+    - специальные инфраструктурные сервисы;
+    - локальные internal utilities;
+    - узкие места, где repositories/UoW не используются.
     """
     session = AsyncSessionLocal()
     try:
@@ -133,6 +147,26 @@ async def db_uow() -> AsyncGenerator[AsyncSession, None]:
         raise
     finally:
         await session.close()
+
+
+@asynccontextmanager
+async def db_uow() -> AsyncGenerator[AsyncSession, None]:
+    """
+    DEPRECATED compatibility alias.
+
+    Исторически этот модуль экспортировал db_uow() как transactional
+    AsyncSession context manager. Сейчас канонический db_uow находится
+    в db.uow и возвращает UnitOfWork.
+
+    Новый код:
+    - для worker/application слоя должен использовать db.uow.db_uow;
+    - для raw AsyncSession transactional lifecycle должен использовать
+      db.session.transactional_session().
+
+    Этот alias оставлен только для безопасной обратной совместимости.
+    """
+    async with transactional_session() as session:
+        yield session
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
