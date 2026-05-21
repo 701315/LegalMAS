@@ -4,11 +4,16 @@
 L4-fallback: вызов LLM для классификации документа и парсинг ответа.
 
 Production-ready версия:
-- prompt template loading from prompts/classification/classify_document.txt
+- prompt template loading from settings.CLASSIFICATION_L4_PROMPT_PATH
 - structured rendering of allowed_types using YAML metadata
 - strict JSON parsing and validation
 - safe truncation of document fragment before LLM call
 - raw diagnostics for HybridClassifier / postmortem analysis
+
+Контракт:
+  call() требует непустой allowed_types — это защитная проверка
+  архитектурного инварианта (policy не должна допускать пустой space).
+  registry.get_config() вызывается tolerant — сбой registry не роняет L4.
 """
 
 from __future__ import annotations
@@ -35,6 +40,11 @@ class L4LLMClassifier:
     Отвечает за два шага L4:
       1. build_prompt + call_with_retries -> LLMResponse
       2. parse -> {type_code, confidence, reasoning, parse_success, raw}
+
+    Инварианты:
+      - call() требует непустой allowed_types (защитная проверка контракта policy).
+      - registry.get_config() вызывается в tolerant-режиме: сбой registry
+        не прерывает L4, type попадает в prompt без метаданных.
     """
 
     def __init__(self, llm_client: LLMClient, registry: YAMLRegistry) -> None:
@@ -56,9 +66,20 @@ class L4LLMClassifier:
         """
         Вызывает LLM для задачи классификации документа.
 
-        Возвращает:
-          (LLMResponse | None, errordetails: dict)
+        Контракт: allowed_types должен быть непустым.
+        Это архитектурный инвариант: policy (build_llm_allowed_types +
+        should_run_l4) не должна допускать вызов L4 с пустым candidate space.
+        Эта проверка защищает от нарушения контракта, а не заменяет policy.
+
+        Возвращает: (LLMResponse | None, errordetails: dict)
         """
+        if not allowed_types:
+            raise ValueError(
+                "L4LLMClassifier.call requires non-empty allowed_types. "
+                "L4 should not be called without a candidate space — "
+                "this is a policy violation (see _l4_policy.should_run_l4)."
+            )
+
         prompt = self._build_prompt(
             text=text,
             filename=filename,
@@ -69,8 +90,8 @@ class L4LLMClassifier:
         logger.info(
             "L4LLMClassifier.call",
             extra={
-                "allowed_types_count": len(allowed_types or []),
-                "allowed_types": allowed_types or [],
+                "allowed_types_count": len(allowed_types),
+                "allowed_types": allowed_types,
                 "filename": filename,
                 "folder_path": folder_path,
                 "prompt_preview": prompt[:300],
@@ -290,7 +311,8 @@ class L4LLMClassifier:
 
         if len(prefix_candidates) > 1:
             raise ValueError(
-                f"type_code '{cleaned}' ambiguously matches multiple allowed_types: {prefix_candidates}"
+                f"type_code '{cleaned}' ambiguously matches multiple allowed_types: "
+                f"{prefix_candidates}"
             )
 
         raise ValueError(f"type_code '{cleaned}' is not in allowed_types")
@@ -324,7 +346,7 @@ class L4LLMClassifier:
         logger.debug(
             "L4 prompt built",
             extra={
-                "allowed_types_count": len(allowed_types or []),
+                "allowed_types_count": len(allowed_types),
                 "document_fragment_len": len(document_fragment),
                 "prompt_len": len(prompt),
             },
@@ -332,33 +354,56 @@ class L4LLMClassifier:
         return prompt
 
     def _load_prompt_template(self) -> str:
+        """
+        Загружает prompt-шаблон из пути, заданного в settings.
+
+        Путь берётся из settings.CLASSIFICATION_L4_PROMPT_PATH.
+        По умолчанию в config.py это абсолютный путь, собранный
+        от корня проекта через Path(__file__).resolve().
+        Можно переопределить через переменную окружения.
+        """
         if self._prompt_template_cache:
             return self._prompt_template_cache
 
-        configured = getattr(
-            settings,
-            "CLASSIFICATION_L4_PROMPT_PATH",
-            "/home/vladi/projects/LegalMAS/prompts/classification/classify_document.txt",
-        )
-        path = Path(configured)
+        path = Path(settings.CLASSIFICATION_L4_PROMPT_PATH)
 
         if not path.exists():
-            raise FileNotFoundError(f"L4 prompt template not found: {path}")
+            raise FileNotFoundError(
+                f"L4 prompt template not found: {path}\n"
+                f"Проверь настройку CLASSIFICATION_L4_PROMPT_PATH в config.py или .env"
+            )
 
         template = path.read_text(encoding="utf-8").strip()
+
         if "{available_types}" not in template:
-            raise ValueError("Prompt template missing required placeholder: {available_types}")
+            raise ValueError(
+                "Prompt template missing required placeholder: {available_types}"
+            )
         if "{document_fragment}" not in template:
-            raise ValueError("Prompt template missing required placeholder: {document_fragment}")
+            raise ValueError(
+                "Prompt template missing required placeholder: {document_fragment}"
+            )
 
         self._prompt_template_cache = template
         return template
 
     def _render_available_types(self, allowed_types: list[str]) -> str:
+        """
+        Рендерит allowed_types в JSON-блок для prompt.
+
+        registry.get_config() вызывается в tolerant-режиме:
+        если registry бросит исключение или тип не найден,
+        type попадает в prompt без метаданных (только type_code).
+        Это не прерывает L4-вызов.
+        """
         rendered: list[dict[str, Any]] = []
 
         for type_code in allowed_types or []:
-            cfg: DocumentTypeConfig | None = self.registry.get_config(type_code)
+            # Tolerant registry access — сбой не роняет весь L4
+            try:
+                cfg: DocumentTypeConfig | None = self.registry.get_config(type_code)
+            except Exception:
+                cfg = None
 
             if cfg is None:
                 rendered.append(

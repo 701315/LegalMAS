@@ -127,7 +127,12 @@ class Settings(BaseSettings):
     CLASSIFIER_UNCERTAIN_THRESHOLD: float = 0.50
     CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"  # L3
     CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
-    CLASSIFICATION_L4_PROMPT_PATH: str = "prompts/classification/classify_document.txt"
+    CLASSIFICATION_L4_PROMPT_PATH: str = str(
+        Path(__file__).resolve().parent.parent.parent
+        / "prompts"
+        / "classification"
+        / "classify_document.txt"
+    )
     CLASSIFICATION_L4_MAX_INPUT_CHARS: int = 6000
 
     # NEW: L2 Extended Format — global defaults для scoring parameters
@@ -271,10 +276,10 @@ class Settings(BaseSettings):
     CLASSIFICATION_HYBRID_ACCEPT: float = 0.65
     CLASSIFICATION_UNKNOWN_MAX: float = 0.40
     CLASSIFICATION_L2_EXCL_HARD: int = 2
-    CLASSIFICATION_L2_STRONG: float = 0.85
+    CLASSIFICATION_L2_STRONG: float = 0.90
     CLASSIFICATION_L1_STRONG: float = 0.90
     CLASSIFICATION_SINGLE_SOURCE_CAP: float = 0.80
-    CLASSIFICATION_L4_MARGIN_MIN: float = 0.15
+    CLASSIFICATION_L4_MARGIN_MIN: float = 0.25
     CLASSIFICATION_L4_INPUT_QUALITY_MIN: float = 0.60
 
     # Embeddings для Runner/Stage 8 (shared с L3-классификатором)

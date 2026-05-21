@@ -11,10 +11,20 @@ Production-версия:
 - нормализует score по сумме весов реально активных уровней;
 - считает margin по нормализованной шкале;
 - ограничивает single-source результат сверху (single-source cap);
+- учитывает dominant component floor для сильного multi-level сигнала;
 - отдельно возвращает voting_score и decision confidence;
 - возвращает ranking для HybridClassifier;
 - остаётся обратно совместимой по ключам:
   type / confidence / margin / language / jurisdiction / ranking.
+
+UPDATED FINAL:
+- bounded aggregation внутри одного уровня: вклад type_code на уровне
+  не суммируется бесконтрольно по всем rows, а берётся как best-per-level score;
+- dominant floor стал более score-driven и не опирается на raw confidence;
+- dominant floor uplift не применяется для single-source;
+- agreement bonus применяется более консервативно для слабых normalized scores;
+- active weight sum считается по уникальным support levels;
+- ranking/debug payload дополнен per-level contribution breakdown.
 """
 
 from __future__ import annotations
@@ -29,17 +39,19 @@ class WeightedVoter:
     Принимает список кандидатов вида:
     [
         {
-            "type_code": "contract1.3goodssupply",
+            "type_code": "contract_1.3_supply",
             "confidence": 0.82,
             "level": "L2",
             "language": "ru",
             "jurisdiction": "RU",
-            "signal_quality": 0.75,                 # optional
-            "negative_hits": 1,                     # optional, legacy fallback
-            "soft_negative_hits": 1,                # optional, preferred
-            "hard_negative_hits": 0,                # optional, preferred
-            "ambiguity_penalty": 0.10,              # optional
-            "signal_quality_in_confidence": True,   # optional
+            "signal_quality": 0.75,
+            "negative_hits": 1,
+            "soft_negative_hits": 1,
+            "hard_negative_hits": 0,
+            "ambiguity_penalty": 0.10,
+            "signal_quality_in_confidence": True,
+            "parent": "class_1_transfer_of_ownership",
+            "group": "group_1_ownership",
         },
         ...
     ]
@@ -48,17 +60,20 @@ class WeightedVoter:
 
     Основная логика:
     - каждый кандидат получает effective_score;
-    - effective_score суммируется по type_code;
+    - внутри каждого уровня вклад type_code ограничивается best-per-level score;
     - score типа затем нормализуется по сумме весов уровней,
       которые реально внесли ненулевой вклад;
     - agreement bonus добавляется после нормализации;
-    - для single-source типа применяется верхний cap;
+    - dominant floor не даёт сильному лучшему multi-level сигналу слишком "просесть",
+      но не должен искусственно переоценивать raw-confidence spike;
+    - для single-source типа применяется upper cap;
     - ranking строится по финальной нормализованной шкале;
     - decision confidence считается отдельно через margin bonus.
     """
 
     def __init__(self, level_weights: dict[str, float]) -> None:
         self.level_weights = level_weights
+
         self.single_source_cap = self._clamp(
             self._safe_float(
                 getattr(settings, "CLASSIFICATION_SINGLE_SOURCE_CAP", 0.80),
@@ -68,9 +83,53 @@ class WeightedVoter:
             1.0,
         )
 
+        self.single_source_high_quality_cap = self._clamp(
+            self._safe_float(
+                getattr(settings, "CLASSIFICATION_SINGLE_SOURCE_HIGH_QUALITY_CAP", 0.88),
+                0.88,
+            ),
+            0.0,
+            1.0,
+        )
+
+        self.dominant_floor_factor = self._clamp(
+            self._safe_float(
+                getattr(settings, "CLASSIFICATION_DOMINANT_FLOOR_FACTOR", 0.85),
+                0.85,
+            ),
+            0.0,
+            1.0,
+        )
+
+        self.max_agreement_bonus = self._clamp(
+            self._safe_float(
+                getattr(settings, "CLASSIFICATION_MAX_AGREEMENT_BONUS", 0.08),
+                0.08,
+            ),
+            0.0,
+            0.20,
+        )
+
+        self.agreement_bonus_step = self._clamp(
+            self._safe_float(
+                getattr(settings, "CLASSIFICATION_AGREEMENT_BONUS_STEP", 0.04),
+                0.04,
+            ),
+            0.0,
+            0.10,
+        )
+
+        self.multi_level_floor_uplift = self._clamp(
+            self._safe_float(
+                getattr(settings, "CLASSIFICATION_MULTI_LEVEL_FLOOR_UPLIFT", 0.03),
+                0.03,
+            ),
+            0.0,
+            0.08,
+        )
+
     @staticmethod
     def _safe_float(value: Any, default: float) -> float:
-        """Безопасно преобразует значение в float."""
         try:
             return float(value)
         except (TypeError, ValueError):
@@ -78,7 +137,6 @@ class WeightedVoter:
 
     @staticmethod
     def _safe_int(value: Any, default: int = 0) -> int:
-        """Безопасно преобразует значение в int."""
         try:
             return int(value)
         except (TypeError, ValueError):
@@ -86,72 +144,118 @@ class WeightedVoter:
 
     @staticmethod
     def _clamp(value: float, low: float, high: float) -> float:
-        """Ограничивает число диапазоном [low, high]."""
         return max(low, min(high, value))
 
+    @staticmethod
+    def _normalize_type_code(value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    @staticmethod
+    def _choose_single_source_cap(
+        best_component_confidence: float,
+        strict_cap: float,
+        high_quality_cap: float,
+    ) -> float:
+        if best_component_confidence >= 0.90:
+            return max(strict_cap, high_quality_cap)
+        return strict_cap
+
+    @staticmethod
+    def _compute_margin_bonus(
+        best_voting_score: float,
+        margin: float,
+        support_level_count: int,
+    ) -> float:
+        """
+        Margin bonus — это reward за уверенный structural lead,
+        а не просто за относительный отрыв при слабом single-source сигнале.
+        """
+        if support_level_count < 2:
+            return 0.0
+        if best_voting_score >= 0.70:
+            return min(0.08, margin * 0.40)
+        if best_voting_score >= 0.60:
+            return min(0.04, margin * 0.20)
+        return 0.0
+
+    def _compute_agreement_bonus(
+        self,
+        *,
+        normalized_score: float,
+        support_level_count: int,
+    ) -> float:
+        """
+        Agreement bonus зависит от количества уникальных уровней,
+        но ослабляется для слабого normalized score, чтобы не усиливать
+        искусственно слабый consensus.
+        """
+        raw_bonus = min(
+            self.max_agreement_bonus,
+            self.agreement_bonus_step * max(0, support_level_count - 1),
+        )
+
+        if raw_bonus <= 0.0:
+            return 0.0
+        if normalized_score < 0.45:
+            return 0.0
+        if normalized_score < 0.60:
+            return raw_bonus * 0.5
+        return raw_bonus
+
+    def _compute_dominant_floor(
+        self,
+        *,
+        best_component_score: float,
+        normalized_score: float,
+        support_level_count: int,
+    ) -> float:
+        """
+        Dominant floor должен быть score-driven.
+        Для single-source uplift не применяется.
+        Для multi-level разрешён только небольшой controlled uplift.
+        """
+        best_component_score = self._clamp(best_component_score, 0.0, 1.0)
+        normalized_score = self._clamp(normalized_score, 0.0, 1.0)
+
+        if support_level_count <= 1:
+            return best_component_score
+
+        anchor = max(best_component_score, normalized_score)
+        uplift_cap = best_component_score + self.multi_level_floor_uplift
+        factor_cap = best_component_score * max(1.0, self.dominant_floor_factor)
+        floor = min(max(anchor, best_component_score), uplift_cap, factor_cap)
+
+        return self._clamp(max(best_component_score, floor), 0.0, 1.0)
+
     def vote(self, candidates: list[dict]) -> dict | None:
-        """
-        Логика production-голосования:
-
-        1. Для каждого кандидата считаем effective_score:
-           base_score = confidence * level_weight * effective_signal_quality
-
-           где:
-           - effective_signal_quality = 1.0, если signal_quality уже учтён
-             внутри confidence;
-           - иначе = signal_quality.
-
-        2. Применяем negative / ambiguity penalties:
-           - hard_negative_hits > 0 => effective_score = 0.0
-           - soft_negative_hits => мягкое ослабление
-           - ambiguity_penalty => мягкое ослабление
-
-        3. Складываем effective_score по каждому type_code.
-
-        4. Нормализуем score каждого типа по сумме весов только тех уровней,
-           которые внесли положительный вклад.
-
-        5. После нормализации даём agreement bonus за поддержку типа
-           несколькими УНИКАЛЬНЫМИ уровнями.
-
-        6. Если тип поддержан только одним уровнем, применяем single-source cap.
-
-        7. Строим ranking и считаем margin между 1-м и 2-м местом
-           уже в финальной нормализованной шкале.
-
-        8. Возвращаем:
-           {
-             "type": ...,
-             "voting_score": ...,
-             "confidence": ...,
-             "margin": ...,
-             "language": ...,
-             "jurisdiction": ...,
-             "ranking": [...]
-           }
-
-        Важно:
-        - если signal_quality не передан, берём 1.0;
-        - если negative_hits не передан, берём 0;
-        - если ambiguity_penalty не передан, берём 0.0;
-        - если hard_negative_hits > 0, кандидат принудительно получает 0 score.
-        """
         if not candidates:
             return None
 
-        type_raw_scores: dict[str, float] = {}
         type_meta: dict[str, dict[str, Any]] = {}
         type_support_levels: dict[str, set[str]] = {}
-        type_active_weight_sum: dict[str, float] = {}
         type_best_component_confidence: dict[str, float] = {}
         type_best_component_score: dict[str, float] = {}
+        type_component_count: dict[str, int] = {}
+        type_active_component_count: dict[str, int] = {}
+        type_candidate_breakdown: dict[str, list[dict[str, Any]]] = {}
+        type_parent_values: dict[str, set[str]] = {}
+        type_group_values: dict[str, set[str]] = {}
+
+        # bounded aggregation per level
+        type_level_scores: dict[str, dict[str, float]] = {}
+        type_level_best_component: dict[str, dict[str, dict[str, Any]]] = {}
 
         for candidate in candidates:
-            type_code = candidate.get("type_code")
+            if not isinstance(candidate, dict):
+                continue
+
+            type_code = self._normalize_type_code(candidate.get("type_code"))
             if not type_code:
                 continue
 
-            level = str(candidate.get("level", "L1"))
+            level = str(candidate.get("level", "L1") or "L1").strip()
             level_weight = self._safe_float(self.level_weights.get(level, 0.20), 0.20)
             level_weight = self._clamp(level_weight, 0.0, 1.0)
 
@@ -190,6 +294,8 @@ class WeightedVoter:
             base_score = confidence * level_weight * effective_signal_quality
 
             if hard_negative_hits > 0:
+                negative_factor = 0.0
+                ambiguity_factor = 1.0
                 effective_score = 0.0
             else:
                 negative_factor = 1.0 - min(0.60, 0.20 * soft_negative_hits)
@@ -201,13 +307,31 @@ class WeightedVoter:
                 effective_score = base_score * negative_factor * ambiguity_factor
                 effective_score = self._clamp(effective_score, 0.0, 1.0)
 
-            type_raw_scores[type_code] = type_raw_scores.get(type_code, 0.0) + effective_score
+            type_component_count[type_code] = type_component_count.get(type_code, 0) + 1
 
             if effective_score > 0.0:
                 type_support_levels.setdefault(type_code, set()).add(level)
-                type_active_weight_sum[type_code] = (
-                    type_active_weight_sum.get(type_code, 0.0) + level_weight
+                type_active_component_count[type_code] = (
+                    type_active_component_count.get(type_code, 0) + 1
                 )
+
+                prev_level_score = type_level_scores.setdefault(type_code, {}).get(level, 0.0)
+                if effective_score > prev_level_score:
+                    type_level_scores[type_code][level] = effective_score
+                    type_level_best_component.setdefault(type_code, {})[level] = {
+                        "effective_score": effective_score,
+                        "confidence": confidence,
+                        "signal_quality": signal_quality,
+                        "signal_quality_in_confidence": sq_already_applied,
+                        "effective_signal_quality": effective_signal_quality,
+                        "level_weight": level_weight,
+                        "soft_negative_hits": soft_negative_hits,
+                        "hard_negative_hits": hard_negative_hits,
+                        "negative_factor": negative_factor,
+                        "ambiguity_penalty": ambiguity_penalty,
+                        "ambiguity_factor": ambiguity_factor,
+                        "base_score": base_score,
+                    }
 
             prev_best_score = type_best_component_score.get(type_code, -1.0)
             if effective_score > prev_best_score:
@@ -221,13 +345,56 @@ class WeightedVoter:
                     "best_level": level,
                 }
 
-        if not type_raw_scores:
+            parent = self._normalize_type_code(candidate.get("parent"))
+            group = self._normalize_type_code(candidate.get("group"))
+            if parent:
+                type_parent_values.setdefault(type_code, set()).add(parent)
+            if group:
+                type_group_values.setdefault(type_code, set()).add(group)
+
+            type_candidate_breakdown.setdefault(type_code, []).append(
+                {
+                    "level": level,
+                    "confidence": round(confidence, 4),
+                    "signal_quality": round(signal_quality, 4),
+                    "signal_quality_in_confidence": sq_already_applied,
+                    "effective_signal_quality": round(effective_signal_quality, 4),
+                    "level_weight": round(level_weight, 4),
+                    "soft_negative_hits": soft_negative_hits,
+                    "hard_negative_hits": hard_negative_hits,
+                    "negative_factor": round(negative_factor, 4),
+                    "ambiguity_penalty": round(ambiguity_penalty, 4),
+                    "ambiguity_factor": round(ambiguity_factor, 4),
+                    "base_score": round(base_score, 4),
+                    "effective_score": round(effective_score, 4),
+                }
+            )
+
+        if not type_level_scores:
             return None
 
+        type_raw_scores: dict[str, float] = {
+            type_code: sum(level_scores.values())
+            for type_code, level_scores in type_level_scores.items()
+        }
+
+        type_active_weight_sum: dict[str, float] = {}
+        for type_code, support_levels in type_support_levels.items():
+            type_active_weight_sum[type_code] = sum(
+                self._clamp(
+                    self._safe_float(self.level_weights.get(level, 0.20), 0.20),
+                    0.0,
+                    1.0,
+                )
+                for level in support_levels
+            )
+
         type_normalized_scores: dict[str, float] = {}
-        type_final_scores: dict[str, float] = {}
+        type_voting_scores: dict[str, float] = {}
         type_agreement_bonus: dict[str, float] = {}
         type_single_source_capped: dict[str, bool] = {}
+        type_dominant_floor: dict[str, float] = {}
+        type_cap_used: dict[str, float] = {}
 
         for type_code, raw_score in type_raw_scores.items():
             active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
@@ -241,42 +408,84 @@ class WeightedVoter:
             type_normalized_scores[type_code] = normalized_score
 
             support_level_count = len(type_support_levels.get(type_code, set()))
-            agreement_adj = min(0.08, 0.04 * max(0, support_level_count - 1))
+            agreement_adj = self._compute_agreement_bonus(
+                normalized_score=normalized_score,
+                support_level_count=support_level_count,
+            )
             type_agreement_bonus[type_code] = agreement_adj
 
-            final_score = self._clamp(normalized_score + agreement_adj, 0.0, 1.0)
+            score_after_agreement = self._clamp(normalized_score + agreement_adj, 0.0, 1.0)
+
+            best_component_conf = type_best_component_confidence.get(type_code, 0.0)
+            best_component_score = type_best_component_score.get(type_code, 0.0)
+
+            dominant_floor = self._compute_dominant_floor(
+                best_component_score=best_component_score,
+                normalized_score=normalized_score,
+                support_level_count=support_level_count,
+            )
+            type_dominant_floor[type_code] = dominant_floor
+
+            voting_score = max(score_after_agreement, dominant_floor)
+            voting_score = self._clamp(voting_score, 0.0, 1.0)
 
             single_source_capped = False
-            if support_level_count == 1 and final_score > self.single_source_cap:
-                final_score = self.single_source_cap
-                single_source_capped = True
+            cap_used = 1.0
+            if support_level_count == 1:
+                cap_used = self._choose_single_source_cap(
+                    best_component_confidence=best_component_conf,
+                    strict_cap=self.single_source_cap,
+                    high_quality_cap=self.single_source_high_quality_cap,
+                )
+                if voting_score > cap_used:
+                    voting_score = cap_used
+                    single_source_capped = True
 
+            type_cap_used[type_code] = cap_used
             type_single_source_capped[type_code] = single_source_capped
-            type_final_scores[type_code] = final_score
+            type_voting_scores[type_code] = voting_score
 
         def _ranking_key(item: tuple[str, float]) -> tuple[float, int, float, float, str]:
-            type_code, final_score = item
+            type_code, voting_score = item
             support_level_count = len(type_support_levels.get(type_code, set()))
             active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
             best_component_score = type_best_component_score.get(type_code, 0.0)
             return (
-                final_score,
+                voting_score,
                 support_level_count,
                 active_weight_sum,
                 best_component_score,
                 type_code,
             )
 
-        ranked = sorted(type_final_scores.items(), key=_ranking_key, reverse=True)
+        ranked = sorted(type_voting_scores.items(), key=_ranking_key, reverse=True)
 
-        best_type, best_final_score = ranked[0]
-        second_final_score = ranked[1][1] if len(ranked) > 1 else 0.0
-        margin = max(0.0, best_final_score - second_final_score)
+        best_type, best_voting_score = ranked[0]
+        second_type = ranked[1][0] if len(ranked) > 1 else None
+        second_voting_score = ranked[1][1] if len(ranked) > 1 else 0.0
+        margin = max(0.0, best_voting_score - second_voting_score)
 
-        margin_bonus = min(0.10, margin * 0.5)
+        best_parents = type_parent_values.get(best_type, set())
+        second_parents = type_parent_values.get(second_type, set()) if second_type else set()
+        best_groups = type_group_values.get(best_type, set())
+        second_groups = type_group_values.get(second_type, set()) if second_type else set()
 
-        final_confidence = self._clamp(
-            best_final_score + margin_bonus,
+        parent_conflict = bool(
+            best_parents and second_parents and best_parents.isdisjoint(second_parents)
+        )
+        group_conflict = bool(
+            best_groups and second_groups and best_groups.isdisjoint(second_groups)
+        )
+        domain_conflict = parent_conflict or group_conflict
+
+        best_support_level_count = len(type_support_levels.get(best_type, set()))
+        margin_bonus = self._compute_margin_bonus(
+            best_voting_score=best_voting_score,
+            margin=margin,
+            support_level_count=best_support_level_count,
+        )
+        decision_confidence = self._clamp(
+            best_voting_score + margin_bonus,
             0.0,
             1.0,
         )
@@ -284,14 +493,43 @@ class WeightedVoter:
         meta = type_meta.get(best_type, {})
 
         ranking = []
-        for type_code, final_score in ranked[:5]:
+        for type_code, voting_score in ranked[:5]:
+            per_level_contributions = []
+            for level, level_score in sorted(type_level_scores.get(type_code, {}).items()):
+                level_meta = type_level_best_component.get(type_code, {}).get(level, {})
+                per_level_contributions.append(
+                    {
+                        "level": level,
+                        "score": round(level_score, 4),
+                        "confidence": round(level_meta.get("confidence", 0.0), 4),
+                        "base_score": round(level_meta.get("base_score", 0.0), 4),
+                        "effective_score": round(level_meta.get("effective_score", 0.0), 4),
+                        "signal_quality": round(level_meta.get("signal_quality", 1.0), 4),
+                        "signal_quality_in_confidence": bool(
+                            level_meta.get("signal_quality_in_confidence", False)
+                        ),
+                        "effective_signal_quality": round(
+                            level_meta.get("effective_signal_quality", 1.0), 4
+                        ),
+                        "level_weight": round(level_meta.get("level_weight", 0.0), 4),
+                        "soft_negative_hits": int(level_meta.get("soft_negative_hits", 0)),
+                        "hard_negative_hits": int(level_meta.get("hard_negative_hits", 0)),
+                        "negative_factor": round(level_meta.get("negative_factor", 1.0), 4),
+                        "ambiguity_penalty": round(
+                            level_meta.get("ambiguity_penalty", 0.0), 4
+                        ),
+                        "ambiguity_factor": round(level_meta.get("ambiguity_factor", 1.0), 4),
+                    }
+                )
+
             ranking.append(
                 {
                     "type": type_code,
-                    "score": round(final_score, 4),
+                    "score": round(voting_score, 4),
                     "raw_score": round(type_raw_scores.get(type_code, 0.0), 4),
                     "normalized_score": round(type_normalized_scores.get(type_code, 0.0), 4),
                     "agreement_bonus": round(type_agreement_bonus.get(type_code, 0.0), 4),
+                    "dominant_floor": round(type_dominant_floor.get(type_code, 0.0), 4),
                     "support_count": len(type_support_levels.get(type_code, set())),
                     "support_levels": sorted(type_support_levels.get(type_code, set())),
                     "active_weight_sum": round(type_active_weight_sum.get(type_code, 0.0), 4),
@@ -304,22 +542,41 @@ class WeightedVoter:
                     "single_source_capped": bool(
                         type_single_source_capped.get(type_code, False)
                     ),
+                    "single_source_cap_used": round(type_cap_used.get(type_code, 1.0), 4),
+                    "component_count": type_component_count.get(type_code, 0),
+                    "active_component_count": type_active_component_count.get(type_code, 0),
+                    "parent_values": sorted(type_parent_values.get(type_code, set())),
+                    "group_values": sorted(type_group_values.get(type_code, set())),
+                    "level_contributions": per_level_contributions,
+                    "components": type_candidate_breakdown.get(type_code, []),
                 }
             )
 
         return {
             "type": best_type,
-            "voting_score": round(best_final_score, 4),
-            "confidence": round(final_confidence, 4),
+            "voting_score": round(best_voting_score, 4),
+            "confidence": round(decision_confidence, 4),
             "margin": round(margin, 4),
             "language": meta.get("language", "ru"),
             "jurisdiction": meta.get("jurisdiction", "RU"),
             "single_source_cap_applied": bool(
                 type_single_source_capped.get(best_type, False)
             ),
-            "support_count": len(type_support_levels.get(best_type, set())),
+            "single_source_cap_used": round(type_cap_used.get(best_type, 1.0), 4),
+            "support_count": best_support_level_count,
             "support_levels": sorted(type_support_levels.get(best_type, set())),
+            "best_level": meta.get("best_level", "L1"),
+            "best_component_confidence": round(
+                type_best_component_confidence.get(best_type, 0.0), 4
+            ),
+            "dominant_floor": round(type_dominant_floor.get(best_type, 0.0), 4),
+            "domain_conflict": domain_conflict,
+            "parent_conflict": parent_conflict,
+            "group_conflict": group_conflict,
+            "top2_types": [best_type] + ([second_type] if second_type else []),
             "ranking": ranking,
         }
+    
+    
 
     

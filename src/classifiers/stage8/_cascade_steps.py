@@ -172,6 +172,15 @@ class CascadeSteps:
         exclusion_hits = int(l2_extra.get("exclusion_hits", 0))
         excl_hard = int(getattr(settings, "CLASSIFICATION_L2_EXCL_HARD", 2))
 
+        # input_quality — общий quality profile для downstream логики:
+        # best_pre_l4_signal(...) и should_run_l4(...).
+        # L2 тоже может деградировать этот профиль, а не только L3.
+        # Используем min(...), чтобы сохранить "наихудшую" известную оценку качества.
+        details["input_quality"] = min(
+            float(details.get("input_quality", 1.0)),
+            float(l2_extra.get("input_quality", 1.0)),
+        )
+
         if has_exclusion_hit and exclusion_hits >= excl_hard:
             details["L2"] = {
                 "type": "UNKNOWN",

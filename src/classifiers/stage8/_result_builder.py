@@ -9,6 +9,7 @@
  - применение unknown-corridor для final_type;
  - сборку HybridClassificationResultDTO и возврат его как dict.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -18,7 +19,6 @@ from classifiers.base import HybridClassificationCandidate, HybridClassification
 from ..yaml_registry import YAMLRegistry
 from core.config import settings
 from core.logging import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -51,28 +51,38 @@ class ResultBuilder:
     # Public API
     # ------------------------------------------------------------------
 
-    def build_triggers(self, doc_id: str, final_type: str) -> list[str]:
+    def build_triggers(self, entity_id: str, final_type: str) -> list[str]:
         """
-        Построить applicable_triggers для финального типа документа.
+        Построить applicable_triggers для финального типа документа/сегмента.
         Если тип UNKNOWN или конфиг не найден — возвращаем [].
         """
-        if not isinstance(final_type, str) or not final_type or final_type == "UNKNOWN":
+        normalized_final_type = self._normalize_final_type(final_type)
+        if normalized_final_type == "UNKNOWN":
             return []
 
-        cfg = self.registry.get_config(final_type)
+        try:
+            cfg = self.registry.get_config(normalized_final_type)
+        except Exception as e:
+            logger.warning(
+                "ResultBuilder: failed to load YAML config for final_type",
+                extra={"entity_id": entity_id, "final_type": normalized_final_type, "error": str(e)},
+            )
+            return []
+
         if cfg is None:
             logger.info(
                 "ResultBuilder: no YAML config found for final_type",
-                extra={"doc_id": doc_id, "final_type": final_type},
+                extra={"entity_id": entity_id, "final_type": normalized_final_type},
             )
             return []
 
         try:
-            return list(getattr(cfg, "trigger_ids", []) or [])
+            raw = list(getattr(cfg, "trigger_ids", []) or [])
+            return [str(x).strip() for x in raw if str(x).strip()]
         except Exception as e:
             logger.warning(
                 "ResultBuilder: failed to build applicable_triggers",
-                extra={"doc_id": doc_id, "final_type": final_type, "error": str(e)},
+                extra={"entity_id": entity_id, "final_type": normalized_final_type, "error": str(e)},
             )
             return []
 
@@ -93,9 +103,10 @@ class ResultBuilder:
 
     def apply_unknown_corridor(self, final_type: str, final_conf: float) -> str:
         """
-        Если уверенность ниже unknown_max — принудительно возвращаем 'UNKNOWN'.
+        Если уверенность ниже или равна unknown_max — принудительно возвращаем 'UNKNOWN'.
         """
-        return "UNKNOWN" if final_conf <= self.unknown_max else final_type
+        normalized_final_type = self._normalize_final_type(final_type)
+        return "UNKNOWN" if final_conf <= self.unknown_max else normalized_final_type
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -106,6 +117,29 @@ class ResultBuilder:
             return float(value)
         except (TypeError, ValueError):
             return default
+
+    def _normalize_final_type(self, value: object) -> str:
+        if value is None:
+            return "UNKNOWN"
+        result = str(value).strip()
+        if not result:
+            return "UNKNOWN"
+        if result.upper() == "UNKNOWN":
+            return "UNKNOWN"
+        return result
+
+    def _normalize_string_list(self, values: list[object] | None) -> list[str]:
+        result: list[str] = []
+        seen: set[str] = set()
+
+        for value in values or []:
+            text = str(value).strip() if value is not None else ""
+            if not text or text in seen:
+                continue
+            result.append(text)
+            seen.add(text)
+
+        return result
 
     def _normalize_candidates(
         self,
@@ -123,7 +157,9 @@ class ResultBuilder:
 
             normalized.append(
                 HybridClassificationCandidate(
-                    doctype=c.get("type_code") or c.get("doctype", "UNKNOWN"),
+                    doctype=self._normalize_final_type(
+                        c.get("type_code") or c.get("doctype")
+                    ),
                     confidence=self._safe_float(c.get("confidence")),
                     level=str(c.get("level") or ""),
                     method=c.get("method"),
@@ -149,6 +185,28 @@ class ResultBuilder:
             )
 
         return normalized
+
+    def _merge_extra_fields(self, result: dict, extra_fields: dict) -> dict:
+        reserved = {
+            "final_type",
+            "final_confidence",
+            "level",
+            "language",
+            "jurisdiction",
+            "applicable_triggers",
+            "levels_tried",
+            "candidates",
+            "details",
+        }
+        for key, value in (extra_fields or {}).items():
+            if key in reserved:
+                logger.warning(
+                    "ResultBuilder: extra_field ignored because it would overwrite canonical result field",
+                    extra={"field": key},
+                )
+                continue
+            result[key] = value
+        return result
 
     # ------------------------------------------------------------------
     # Final assembly
@@ -183,7 +241,7 @@ class ResultBuilder:
           * details["unknown_corridor"] содержит факт override
         """
         safe_final_confidence = self._safe_float(final_confidence, 0.0)
-        original_final_type = final_type or "UNKNOWN"
+        original_final_type = self._normalize_final_type(final_type)
 
         safe_details = dict(details or {})
         safe_details.setdefault(
@@ -191,42 +249,42 @@ class ResultBuilder:
             int(getattr(settings, "CLASSIFICATION_DECISION_TRACE_SCHEMA_VERSION", 1)),
         )
 
-        zone_name, manual_review = self.confidence_zone(safe_final_confidence)
-        safe_details["confidence_zone"] = zone_name
-        safe_details["requires_manual_review"] = manual_review
-
         normalized_final_type = self.apply_unknown_corridor(
             final_type=original_final_type,
             final_conf=safe_final_confidence,
         )
-
         corridor_applied = normalized_final_type != original_final_type
 
-        if corridor_applied:
-            safe_details.setdefault("unknown_corridor", {})
-            safe_details["unknown_corridor"].update(
-                {
-                    "applied": True,
-                    "original_type": original_final_type,
-                    "original_confidence": safe_final_confidence,
-                    "threshold": self.unknown_max,
-                    "final_type_after_corridor": normalized_final_type,
-                }
-            )
-        else:
-            safe_details.setdefault("unknown_corridor", {})
-            safe_details["unknown_corridor"].update(
-                {
-                    "applied": False,
-                    "original_type": original_final_type,
-                    "original_confidence": safe_final_confidence,
-                    "threshold": self.unknown_max,
-                    "final_type_after_corridor": normalized_final_type,
-                }
-            )
+        zone_name, manual_review_by_confidence = self.confidence_zone(safe_final_confidence)
+        existing_requires_review = bool(safe_details.get("requires_manual_review", False))
+
+        safe_details["confidence_zone"] = zone_name
+        safe_details["requires_manual_review_by_confidence"] = manual_review_by_confidence
+        safe_details["requires_manual_review"] = (
+            existing_requires_review
+            or manual_review_by_confidence
+            or normalized_final_type == "UNKNOWN"
+        )
+        safe_details["final_decision_zone"] = (
+            "unknown" if normalized_final_type == "UNKNOWN" else zone_name
+        )
+
+        if not isinstance(safe_details.get("unknown_corridor"), dict):
+            safe_details["unknown_corridor"] = {}
+
+        safe_details["unknown_corridor"].update(
+            {
+                "applied": corridor_applied,
+                "original_type": original_final_type,
+                "original_confidence": safe_final_confidence,
+                "threshold": self.unknown_max,
+                "final_type_after_corridor": normalized_final_type,
+            }
+        )
 
         safe_level = level
-        safe_applicable_triggers = list(applicable_triggers or [])
+        safe_applicable_triggers = self._normalize_string_list(applicable_triggers)
+        safe_levels_tried = self._normalize_string_list(levels_tried)
 
         if normalized_final_type == "UNKNOWN":
             safe_level = None
@@ -241,15 +299,13 @@ class ResultBuilder:
             language=language,
             jurisdiction=jurisdiction,
             applicable_triggers=safe_applicable_triggers,
-            levels_tried=list(levels_tried or []),
+            levels_tried=safe_levels_tried,
             candidates=dto_candidates,
             details=safe_details,
         )
 
         result = asdict(dto)
-
-        result.update(extra_fields)
-        return result
+        return self._merge_extra_fields(result, extra_fields)
     
 
     

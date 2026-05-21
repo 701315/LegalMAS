@@ -13,6 +13,11 @@ UPDATED:
 - exposes raw YAML snapshot and SHA256 for durable persistence into
   DocumentTypeInstructionVersion;
 - keeps backward compatibility for all existing classifier consumers.
+
+ADDITIONAL UPDATES:
+- exposes registry-level group and type-level parent on DocumentTypeConfig;
+- preserves registry.yaml grouping metadata for file-based configs when missing in type YAML;
+- exposes helper accessors for parent/group and family lookup.
 """
 
 from __future__ import annotations
@@ -39,7 +44,7 @@ def _pattern_to_text(raw_pattern: str) -> str:
     """Извлекает читаемый текст из regex-паттерна для L3-прототипа.
 
     Убирает regex-специфичный синтаксис, чтобы embedding-модель
-    получала семантически осмысленный текст, а не шум из \\b, (?i) и т.п.
+    получала семантически осмысленный текст, а не шум из \b, (?i) и т.п.
     """
     s = raw_pattern.strip()
     s = re.sub(r'^\(\?[imsux]+\)', '', s)
@@ -116,6 +121,12 @@ class DocumentTypeConfig:
 
         self.type_code = str(self.raw.get("type", ""))
         self.name = str(self.raw.get("name", ""))
+
+        # Registry-level grouping (registry.yaml)
+        self.group: str = str(self.raw.get("group", "") or "").strip()
+
+        # Type-level family/class (individual type YAML)
+        self.parent: str = str(self.raw.get("parent", "") or "").strip()
 
         runtime = self.raw.get("classification_runtime_v1") or {}
         rules = runtime.get("rules") or self.raw.get("rules", {}) or {}
@@ -211,11 +222,12 @@ class DocumentTypeConfig:
         self.trigger_definitions: dict = tdef
 
         metadata = self.raw.get("metadata", {}) or {}
-        self.category: str = metadata.get("category", "contract")
-        self.complexity: str = metadata.get("complexity", "medium")
-        self.risk_level: str = metadata.get("risk_level", "medium")
-        self.language: str = metadata.get("language", "ru")
-        self.jurisdiction: str = metadata.get("jurisdiction", "RU")
+        self.category: str = str(metadata.get("category", "contract"))
+        self.subcategory: str = str(metadata.get("subcategory", "") or "").strip()
+        self.complexity: str = str(metadata.get("complexity", "medium"))
+        self.risk_level: str = str(metadata.get("risk_level", "medium"))
+        self.language: str = str(metadata.get("language", "ru"))
+        self.jurisdiction: str = str(metadata.get("jurisdiction", "RU"))
 
         self.aliases: list[str] = list(metadata.get("aliases", []) or [])
         self.section_markers: list[str] = list(metadata.get("section_markers", []) or [])
@@ -392,7 +404,15 @@ class DocumentTypeConfig:
                     )
                     continue
 
-                weight = float(item.get("weight", default_weights.get(group_level, 0.3)))
+                try:
+                    weight = float(item.get("weight", default_weights.get(group_level, 0.3)))
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Invalid weight in lexical signals, using default",
+                        extra={"pattern": pattern_str, "weight": item.get("weight")},
+                    )
+                    weight = default_weights.get(group_level, 0.3)
+
                 distinctiveness = item.get("distinctiveness", "medium")
                 context = item.get("context", "any")
                 description = item.get("description")
@@ -464,7 +484,14 @@ class DocumentTypeConfig:
                     continue
 
                 severity = item.get("severity", "soft")
-                weight = float(item.get("weight", -0.3))
+                try:
+                    weight = float(item.get("weight", -0.3))
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Invalid weight in exclusions, using default",
+                        extra={"pattern": pattern_str, "weight": item.get("weight")},
+                    )
+                    weight = -0.3
                 description = item.get("description")
 
                 if severity not in ("hard", "soft"):
@@ -642,8 +669,16 @@ class YAMLRegistry:
                 )
                 continue
 
+            merged_raw = dict(type_raw or {})
+
+            # Preserve registry-level metadata for runtime access when missing in type YAML.
+            # Do not overwrite fields explicitly defined in the type YAML.
+            for key in ("group", "category", "name", "type"):
+                if key not in merged_raw and key in entry:
+                    merged_raw[key] = entry[key]
+
             self._configs[type_code] = DocumentTypeConfig(
-                type_raw,
+                merged_raw,
                 source_yaml=source_yaml,
                 source_path=yaml_path,
                 source_sha256=DocumentTypeConfig._compute_sha256(source_yaml),
@@ -929,6 +964,56 @@ class YAMLRegistry:
 
     def get_config(self, type_code: str) -> DocumentTypeConfig | None:
         return self._configs.get(type_code)
+
+    def get_parent(self, type_code: str) -> str | None:
+        """
+        Return type-level parent class from individual YAML, if available.
+        Example: class_1_transfer_of_ownership
+        """
+        cfg = self._configs.get(type_code)
+        if not cfg:
+            return None
+        parent = getattr(cfg, "parent", "") or ""
+        return parent or None
+
+    def get_group(self, type_code: str) -> str | None:
+        """
+        Return registry-level group from registry.yaml, if available.
+        Example: group_1_ownership
+        """
+        cfg = self._configs.get(type_code)
+        if not cfg:
+            return None
+        group = getattr(cfg, "group", "") or ""
+        return group or None
+
+    def get_types_by_parent(self, parent: str) -> list[str]:
+        """
+        Return all type_code values that belong to the given parent class.
+        """
+        parent = (parent or "").strip()
+        if not parent:
+            return []
+
+        return [
+            type_code
+            for type_code, cfg in self._configs.items()
+            if (getattr(cfg, "parent", "") or "") == parent
+        ]
+
+    def get_types_by_group(self, group: str) -> list[str]:
+        """
+        Return all type_code values that belong to the given registry group.
+        """
+        group = (group or "").strip()
+        if not group:
+            return []
+
+        return [
+            type_code
+            for type_code, cfg in self._configs.items()
+            if (getattr(cfg, "group", "") or "") == group
+        ]
 
     @classmethod
     def get_instance(cls, validate: bool = True) -> "YAMLRegistry":

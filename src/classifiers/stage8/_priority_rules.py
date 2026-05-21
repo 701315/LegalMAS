@@ -1,5 +1,7 @@
 # src/classifiers/stage8/_priority_rules.py
 
+# src/classifiers/stage8/_priority_rules.py
+
 """
 Специальные правила приоритета ДО голосования.
 
@@ -472,6 +474,10 @@ class PriorityRulesEvaluator:
             applicable_triggers=self._builder.build_triggers(doc_id, l2_type),
             details=details,
         )
+
+
+
+
 
 
 
