@@ -251,12 +251,6 @@ classification_runtime_v1:
           context: header
           description: "Лицензионное соглашение"
 
-        - pattern: "(?i)лицензи[яи]\\b"
-          weight: 0.85
-          distinctiveness: high
-          context: any
-          description: "Общий маркер лицензии в IP-контексте"
-
         - pattern: "(?i)договор\\s+о\\s+предоставлен[иии]\\s+прав[ао]\\s+использован[ияия]"
           weight: 0.95
           distinctiveness: high
@@ -383,6 +377,12 @@ classification_runtime_v1:
           distinctiveness: medium
           context: any
           description: "Срок действия лицензии"
+
+        - pattern: "(?i)лицензи[яи]\\b"
+          weight: 0.5
+          distinctiveness: medium
+          context: any
+          description: "Общий маркер лицензии в IP-контексте"
 
         - pattern: "(?i)\\bотч[её]тност[ьи]\\b"
           weight: 0.5

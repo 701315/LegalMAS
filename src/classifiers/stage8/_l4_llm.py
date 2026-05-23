@@ -333,15 +333,11 @@ class L4LLMClassifier:
             folder_path=folder_path,
         )
 
-        try:
-            prompt = template.format(
-                available_types=available_types_block,
-                document_fragment=document_fragment,
-            )
-        except KeyError as e:
-            raise ValueError(
-                f"L4 prompt template contains unsupported placeholder: {e}"
-            ) from e
+        prompt = template.replace(
+            "{available_types}", available_types_block
+        ).replace(
+            "{document_fragment}", document_fragment
+        )
 
         logger.debug(
             "L4 prompt built",
