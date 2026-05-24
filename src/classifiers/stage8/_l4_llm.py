@@ -5,9 +5,11 @@ L4-fallback: вызов LLM для классификации документа
 
 Production-ready версия:
 - prompt template loading from settings.CLASSIFICATION_L4_PROMPT_PATH
+- ChatML-обёртка для qwen2.5-instruct и совместимых моделей
+- оптимизированный рендеринг allowed_types (без aliases/doc_types_supported)
+- динамическая триммация document_fragment с учётом бюджета токенов
 - structured rendering of allowed_types using YAML metadata
 - strict JSON parsing and validation
-- safe truncation of document fragment before LLM call
 - raw diagnostics for HybridClassifier / postmortem analysis
 
 Контракт:
@@ -29,6 +31,22 @@ from core.logging import get_logger
 
 
 logger = get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Константы ChatML
+# ---------------------------------------------------------------------------
+
+_CHATML_SYSTEM_INSTRUCTION = (
+    "Ты — юридический ассистент. Отвечай СТРОГО одним JSON-объектом "
+    "с полями type_code, confidence, reasoning. "
+    "Никаких пояснений, никакого markdown, никаких блоков ```json. "
+    "Только JSON."
+)
+
+# Токены ChatML-формата (Qwen2.5-Instruct / ChatML-совместимые модели)
+_CHATML_IM_START = "<|im_start|>"
+_CHATML_IM_END = "<|im_end|>"
 
 
 def _clamp(value: float, min_val: float, max_val: float) -> float:
@@ -69,7 +87,6 @@ class L4LLMClassifier:
         Контракт: allowed_types должен быть непустым.
         Это архитектурный инвариант: policy (build_llm_allowed_types +
         should_run_l4) не должна допускать вызов L4 с пустым candidate space.
-        Эта проверка защищает от нарушения контракта, а не заменяет policy.
 
         Возвращает: (LLMResponse | None, errordetails: dict)
         """
@@ -87,18 +104,19 @@ class L4LLMClassifier:
             allowed_types=allowed_types,
         )
 
-        # === БЮДЖЕТ-ПРОВЕРКА: предотвращение переполнения контекста ===
+        # === БЮДЖЕТ-ПРОВЕРКА ===
+        # Финальный промпт уже должен быть в бюджете после _build_prompt,
+        # но оставляем проверку как защитный слой.
         estimated_prompt_tokens = self._estimate_token_count(prompt)
         max_allowed_tokens = (
             settings.LLM_CONTEXT_LIMIT
             - settings.LLM_MAX_TOKENS
             - settings.LLM_SAFETY_MARGIN_TOKENS
         )
-        
+
         if estimated_prompt_tokens > max_allowed_tokens:
-            # Логгируем предупреждение с деталями
             logger.warning(
-                "L4 prompt exceeds safe token budget, aborting to prevent context overflow",
+                "L4 prompt exceeds safe token budget after build, aborting",
                 extra={
                     "estimated_prompt_tokens": estimated_prompt_tokens,
                     "max_allowed_tokens": max_allowed_tokens,
@@ -109,14 +127,12 @@ class L4LLMClassifier:
                     "filename": filename,
                 },
             )
-            # Возвращаем явный сигнал об ошибке без падения
-            errordetails = {
+            return None, {
                 "failure_reason": "prompt_exceeds_token_budget",
                 "error_type": "context_limit_prevention",
                 "estimated_tokens": estimated_prompt_tokens,
                 "max_allowed": max_allowed_tokens,
             }
-            return None, errordetails
         # === КОНЕЦ БЮДЖЕТ-ПРОВЕРКИ ===
 
         logger.info(
@@ -148,8 +164,7 @@ class L4LLMClassifier:
 
         Tolerant mode:
         - лишние ключи от LLM игнорируются с warning;
-        - неточный type_code допускает ограниченную нормализацию:
-          exact / case-insensitive exact / unique prefix fuzzy.
+        - неточный type_code допускает ограниченную нормализацию.
 
         Контракт возврата:
           {type_code, confidence, reasoning, parse_success, raw}
@@ -338,7 +353,7 @@ class L4LLMClassifier:
             if cleaned.startswith(t) or t.startswith(cleaned)
         ]
         if len(prefix_candidates) == 1:
-            matched = prefix_candidates[0]
+            matched = prefix_candidates
             logger.warning(
                 "L4LLMClassifier.parse: fuzzy type_code match",
                 extra={"raw": cleaned, "matched": matched},
@@ -363,38 +378,135 @@ class L4LLMClassifier:
         folder_path: str,
         allowed_types: list[str],
     ) -> str:
+        """
+        Собирает финальный промпт с ChatML-обёрткой и динамической триммацией.
+
+        Порядок сборки:
+        1. Рассчитываем бюджет токенов.
+        2. Рендерим available_types_block (оптимизированный, без aliases/doc_types).
+        3. Подставляем template → получаем «скелет» без document_fragment.
+        4. Рассчитываем, сколько токенов осталось на document_fragment.
+        5. Динамически обрезаем fragment под оставшийся бюджет.
+        6. Оборачиваем в ChatML.
+        """
         template = self._load_prompt_template()
+
+        # --- Шаг 1: вычисляем бюджет ---
+        n_ctx = settings.LLM_CONTEXT_LIMIT
+        max_tokens_output = settings.LLM_MAX_TOKENS
+        safety_margin = settings.LLM_SAFETY_MARGIN_TOKENS
+        # Оставляем на промпт: весь контекст минус зарезервированное под ответ и запас
+        max_prompt_tokens = n_ctx - max_tokens_output - safety_margin
+        # ChatML-служебные токены (~25 токенов: теги + system_instruction)
+        chatml_overhead_tokens = self._estimate_token_count(
+            f"{_CHATML_IM_START}system\n{_CHATML_SYSTEM_INSTRUCTION}{_CHATML_IM_END}\n"
+            f"{_CHATML_IM_START}user\n{_CHATML_IM_END}\n{_CHATML_IM_START}assistant\n"
+        )
+
+        usable_prompt_tokens = max_prompt_tokens - chatml_overhead_tokens
+
+        # --- Шаг 2: рендерим available_types_block ---
         available_types_block = self._render_available_types(allowed_types)
+        available_types_tokens = self._estimate_token_count(available_types_block)
+
+        # --- Шаг 3: «скелет» промпта без fragment ---
+        skeleton = template.replace(
+            "{available_types}", available_types_block
+        ).replace(
+            "{document_fragment}", ""
+        )
+        skeleton_tokens = self._estimate_token_count(skeleton)
+
+        # --- Шаг 4: бюджет на document_fragment ---
+        fragment_budget_tokens = usable_prompt_tokens - skeleton_tokens
+        # Минимум 300 токенов на текст документа — иначе L4 бессмысленен
+        fragment_budget_tokens = max(300, fragment_budget_tokens)
+        fragment_budget_chars = fragment_budget_tokens * 3  # обратное от len // 3
+
+        # --- Шаг 5: строим fragment с динамической триммацией ---
         document_fragment = self._build_document_fragment(
             text=text,
             filename=filename,
             folder_path=folder_path,
+            max_chars=fragment_budget_chars,
+        )
+        fragment_tokens = self._estimate_token_count(document_fragment)
+
+        # --- Расширенное логирование бюджета ---
+        logger.debug(
+            "L4 prompt budget breakdown",
+            extra={
+                "n_ctx": n_ctx,
+                "max_tokens_output": max_tokens_output,
+                "safety_margin": safety_margin,
+                "max_prompt_tokens": max_prompt_tokens,
+                "chatml_overhead_tokens": chatml_overhead_tokens,
+                "usable_prompt_tokens": usable_prompt_tokens,
+                "skeleton_tokens": skeleton_tokens,
+                "available_types_block_tokens": available_types_tokens,
+                "fragment_budget_tokens": fragment_budget_tokens,
+                "fragment_budget_chars": fragment_budget_chars,
+                "fragment_actual_tokens": fragment_tokens,
+                "fragment_actual_chars": len(document_fragment),
+                "allowed_types_count": len(allowed_types),
+            },
         )
 
-        prompt = template.replace(
+        # --- Шаг 6: собираем user_content и оборачиваем в ChatML ---
+        user_content = template.replace(
             "{available_types}", available_types_block
         ).replace(
             "{document_fragment}", document_fragment
         )
 
+        prompt = self._wrap_chatml(
+            system_instruction=_CHATML_SYSTEM_INSTRUCTION,
+            user_content=user_content,
+        )
+
         logger.debug(
             "L4 prompt built",
             extra={
-                "allowed_types_count": len(allowed_types),
+                "prompt_len_chars": len(prompt),
+                "prompt_est_tokens": self._estimate_token_count(prompt),
                 "document_fragment_len": len(document_fragment),
-                "prompt_len": len(prompt),
             },
         )
         return prompt
+
+    @staticmethod
+    def _wrap_chatml(*, system_instruction: str, user_content: str) -> str:
+        """
+        Оборачивает промпт в ChatML-формат для Qwen2.5-Instruct и совместимых моделей.
+
+        Структура:
+            <|im_start|>system
+            {system_instruction}
+            <|im_end|>
+            <|im_start|>user
+            {user_content}
+            <|im_end|>
+            <|im_start|>assistant
+
+        Открытый тег <|im_start|>assistant без закрывающего <|im_end|>
+        является стандартным способом «подсказать» модели начать генерацию.
+        """
+        return (
+            f"{_CHATML_IM_START}system\n"
+            f"{system_instruction}\n"
+            f"{_CHATML_IM_END}\n"
+            f"{_CHATML_IM_START}user\n"
+            f"{user_content}\n"
+            f"{_CHATML_IM_END}\n"
+            f"{_CHATML_IM_START}assistant\n"
+        )
 
     def _load_prompt_template(self) -> str:
         """
         Загружает prompt-шаблон из пути, заданного в settings.
 
         Путь берётся из settings.CLASSIFICATION_L4_PROMPT_PATH.
-        По умолчанию в config.py это абсолютный путь, собранный
-        от корня проекта через Path(__file__).resolve().
-        Можно переопределить через переменную окружения.
+        Кэшируется в памяти после первого чтения.
         """
         if self._prompt_template_cache:
             return self._prompt_template_cache
@@ -423,17 +535,18 @@ class L4LLMClassifier:
 
     def _render_available_types(self, allowed_types: list[str]) -> str:
         """
-        Рендерит allowed_types в JSON-блок для prompt.
+        Рендерит allowed_types в компактный JSON-блок для prompt.
+
+        Оптимизирован для малых моделей (3B): рендерит только
+        type_code, name и short_desc (~35-40% меньше токенов,
+        чем полный рендер с aliases/doc_types_supported/description).
 
         registry.get_config() вызывается в tolerant-режиме:
-        если registry бросит исключение или тип не найден,
-        type попадает в prompt без метаданных (только type_code).
-        Это не прерывает L4-вызов.
+        сбой не прерывает L4 — тип попадает без метаданных.
         """
         rendered: list[dict[str, Any]] = []
 
         for type_code in allowed_types or []:
-            # Tolerant registry access — сбой не роняет весь L4
             try:
                 cfg: DocumentTypeConfig | None = self.registry.get_config(type_code)
             except Exception:
@@ -444,43 +557,44 @@ class L4LLMClassifier:
                     {
                         "type_code": type_code,
                         "name": "",
-                        "category": "",
-                        "language": "",
-                        "jurisdiction": "",
-                        "risk_level": "",
+                        "short_desc": "",
                     }
                 )
                 continue
 
-            metadata = (cfg.raw or {}).get("metadata", {}) or {}
-            description = str((cfg.raw or {}).get("description", "") or "").strip()
-            doc_types_supported = metadata.get("doc_types_supported", []) or []
-            subcategory = metadata.get("subcategory", "")
+            # Берём description как short_desc — обрезаем до первого предложения
+            # или первых 150 символов (достаточно для 3B-модели)
+            raw_description = str(
+                (cfg.raw or {}).get("description", "") or ""
+            ).strip()
+            short_desc = self._truncate_to_sentence(raw_description, max_chars=150)
 
-            item: dict[str, Any] = {
-                "type_code": cfg.type_code,
-                "name": cfg.name,
-                "category": cfg.category,
-                "subcategory": subcategory,
-                "language": cfg.language,
-                "jurisdiction": cfg.jurisdiction,
-                "risk_level": cfg.risk_level,
-            }
-
-            if description:
-                item["description"] = description[:500]
-
-            if doc_types_supported:
-                item["doc_types_supported"] = [
-                    str(x)[:120] for x in doc_types_supported[:8] if str(x).strip()
-                ]
-
-            if cfg.aliases:
-                item["aliases"] = [str(x)[:80] for x in cfg.aliases[:6] if str(x).strip()]
-
-            rendered.append(item)
+            rendered.append(
+                {
+                    "type_code": cfg.type_code,
+                    "name": cfg.name,
+                    "short_desc": short_desc,
+                }
+            )
 
         return json.dumps(rendered, ensure_ascii=False, separators=(",", ":"))
+
+    @staticmethod
+    def _truncate_to_sentence(text: str, max_chars: int) -> str:
+        """
+        Обрезает текст до первого завершённого предложения в пределах max_chars.
+        Если предложение не заканчивается в пределах max_chars — обрезает по символу.
+        """
+        if not text:
+            return ""
+        if len(text) <= max_chars:
+            return text
+        # Ищем конец первого предложения
+        for sep in (".", "!", "?", "\n"):
+            idx = text.find(sep)
+            if 0 < idx < max_chars:
+                return text[: idx + 1].strip()
+        return text[:max_chars].rstrip()
 
     def _build_document_fragment(
         self,
@@ -488,8 +602,21 @@ class L4LLMClassifier:
         text: str,
         filename: str,
         folder_path: str,
+        max_chars: int | None = None,
     ) -> str:
-        max_chars = int(getattr(settings, "CLASSIFICATION_L4_MAX_INPUT_CHARS", 6000))
+        """
+        Строит фрагмент документа для промпта с динамической триммацией.
+
+        max_chars: если задан — используется как бюджет (передаётся из _build_prompt).
+                   Если None — fallback к settings.CLASSIFICATION_L4_MAX_INPUT_CHARS.
+
+        Приоритет: начало документа (заголовок, предмет договора).
+        """
+        if max_chars is None:
+            max_chars = int(
+                getattr(settings, "CLASSIFICATION_L4_MAX_INPUT_CHARS", 6000)
+            )
+
         safe_text = (text or "").strip()
 
         prefix = (
@@ -521,24 +648,20 @@ class L4LLMClassifier:
             return json.loads(candidate)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON: {e}") from e
-            
-    
+
     @staticmethod
     def _estimate_token_count(text: str) -> int:
         """
         Грубая эвристика оценки количества токенов в тексте.
-        
+
         Для смешанного русско-английского текста:
-        - ~2.8-3.2 символа на токен (включая пробелы и пунктуацию)
-        - Для кириллицы коэффициент чуть выше (~3.0-3.3)
-        
+        ~2.8-3.2 символа на токен (включая пробелы и пунктуацию).
+
         Это не замена реальному токенизатору, а защитная оценка
         для предотвращения переполнения контекста.
         """
         if not text:
             return 0
-        # Эвристика: делим длину на 3 для консервативной оценки
-        # (лучше недооценить, чем переполнить контекст)
         return max(1, len(text) // 3)
     
 

@@ -220,6 +220,8 @@ class HybridClassifier:
                 "doc_id": doc_id,
                 "has_header": bool(header_text),
                 "has_snippet": bool(snippet_text),
+                "header_len": len(header_text or ""),
+                "snippet_len": len(snippet_text or ""),
                 "header_preview": repr((header_text or "")[:200]),
                 "snippet_preview": repr((snippet_text or "")[:200]),
             },
