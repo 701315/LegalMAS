@@ -126,16 +126,10 @@ class PriorityRulesEvaluator:
         if not top_l2:
             return None
 
-        global_strong_l2 = float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.85))
-        l1_consensus_min = float(
-            getattr(settings, "CLASSIFICATION_L1_CONSENSUS_MIN", 0.90)
-        )
-        l3_consensus_min_raw = float(
-            getattr(settings, "CLASSIFICATION_L3_CONSENSUS_RAW_MIN", 0.60)
-        )
-        l3_strong_conflict_raw = float(
-            getattr(settings, "CLASSIFICATION_L3_STRONG_CONFLICT_RAW", 0.75)
-        )
+        global_strong_l2: float = settings.CLASSIFICATION_L2_STRONG
+        l1_consensus_min: float = settings.CLASSIFICATION_L1_CONSENSUS_MIN
+        l3_consensus_min_raw: float = settings.CLASSIFICATION_L3_CONSENSUS_RAW_MIN
+        l3_strong_conflict_raw: float = settings.CLASSIFICATION_L3_STRONG_CONFLICT_RAW
 
         l2_type = top_l2.doctype
         l2_conf = float(top_l2.confidence)
@@ -330,8 +324,8 @@ class PriorityRulesEvaluator:
             top_l1
             and top_l2
             and top_l1["type_code"] == top_l2.doctype
-            and float(top_l1["confidence"]) >= 0.7
-            and float(top_l2.confidence) >= 0.7
+            and float(top_l1["confidence"]) >= settings.CLASSIFICATION_L1_L2_AGREE_MIN
+            and float(top_l2.confidence) >= settings.CLASSIFICATION_L1_L2_AGREE_MIN
         ):
             return None
 
@@ -345,7 +339,7 @@ class PriorityRulesEvaluator:
 
         details["voting"] = build_voting_details(
             strategy="L1_L2_AGREE",
-            reason="L1 and L2 agree with >= 0.7",
+            reason=f"L1 and L2 agree with >= {settings.CLASSIFICATION_L1_L2_AGREE_MIN}",
             extra={
                 "type": final_type,
                 "score": final_conf,

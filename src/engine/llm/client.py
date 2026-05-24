@@ -102,7 +102,7 @@ class LLMClient:
         Этот метод только проверяет финальный инвариант и выбрасывает LLMContextLimitError.
         """
         model_limit = getattr(settings, "LLM_CONTEXT_LIMIT", None)
-        safety_margin = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
+        safety_margin = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512))
         min_output_tokens = int(getattr(settings, "LLM_MIN_OUTPUT_TOKENS", 64))
 
         diagnostics = {

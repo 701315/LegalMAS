@@ -202,7 +202,7 @@ class LLMDetector:
         _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         if _limit > 0:
-            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256)) - _template_tokens
+            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512)) - _template_tokens
             _context_budget = max(200, _context_budget)
             context_text = self._fit_context_to_budget(context_chunks, _context_budget)
         else:
@@ -306,7 +306,7 @@ class LLMDetector:
         _max_out = int(config.max_tokens or settings.LLM_MAX_TOKENS)
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         if _limit > 0:
-            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256)) - _template_tokens
+            _context_budget = _limit - _max_out - int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512)) - _template_tokens
             _context_budget = max(200, _context_budget)
             context_text = self._fit_context_to_budget(context_chunks, _context_budget)
         else:

@@ -170,7 +170,7 @@ class CascadeSteps:
         l2_extra = getattr(l2_result, "extra", {}) or {}
         has_exclusion_hit = bool(l2_extra.get("has_exclusion_hit"))
         exclusion_hits = int(l2_extra.get("exclusion_hits", 0))
-        excl_hard = int(getattr(settings, "CLASSIFICATION_L2_EXCL_HARD", 2))
+        excl_hard: int = settings.CLASSIFICATION_L2_EXCL_HARD
 
         # input_quality — общий quality profile для downstream логики:
         # best_pre_l4_signal(...) и should_run_l4(...).
@@ -355,7 +355,7 @@ class CascadeSteps:
                     "jurisdiction": jurisdiction,
                     "raw_similarity": raw_sim,
                     "signal_quality": l3_extra.get(
-                        "signal_quality", min(1.0, raw_sim + 0.15)
+                        "signal_quality", min(1.0, raw_sim + settings.CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT)
                     ),
                     "negative_hits": int(l3_extra.get("negative_hits", 0)),
                     "ambiguity_penalty": float(

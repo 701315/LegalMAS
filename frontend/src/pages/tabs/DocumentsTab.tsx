@@ -52,18 +52,6 @@ interface DocumentsTabProps {
   onViewerLocationConsumed?: () => void;
 }
 
-const LOW_CONFIDENCE_THRESHOLD = 0.6;
-
-interface ClassificationStats {
-  L0: number;
-  L1: number;
-  L2: number;
-  L3: number;
-  L4: number;
-  L_manual: number;
-  low_confidence: number;
-}
-
 interface PipelinePreviewState {
   stage: PipelineStageViewDTO;
   stages: PipelineStageViewDTO[];
@@ -407,42 +395,10 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
     return tempSelectedIds.some((id) => !current.has(id));
   }, [tempSelectedIds, visibleColumnIds]);
 
-  const { classificationStats, lowConfidenceDocs } = useMemo(() => {
-    const stats: ClassificationStats = {
-      L0: 0,
-      L1: 0,
-      L2: 0,
-      L3: 0,
-      L4: 0,
-      L_manual: 0,
-      low_confidence: 0,
-    };
-
-    const lowsByThreshold: DocumentListItem[] = [];
-    const lowsByFlag: DocumentListItem[] = [];
-
-    for (const doc of classifiedDocs) {
-      const level =
-        (doc.classification_level as keyof ClassificationStats) || "L0";
-      stats[level] = (stats[level] || 0) + 1;
-
-      const confidence =
-        typeof doc.classification_confidence === "number"
-          ? doc.classification_confidence
-          : null;
-
-      if (confidence !== null && confidence < LOW_CONFIDENCE_THRESHOLD) {
-        lowsByThreshold.push(doc);
-        stats.low_confidence++;
-      }
-
-      if (doc.classification_requires_review ?? false) {
-        lowsByFlag.push(doc);
-      }
-    }
-
-    const lowDocs = lowsByFlag.length > 0 ? lowsByFlag : lowsByThreshold;
-    return { classificationStats: stats, lowConfidenceDocs: lowDocs };
+  const reviewDocs = useMemo(() => {
+    return classifiedDocs.filter(
+      (doc) => doc.classification_requires_review === true,
+    );
   }, [classifiedDocs]);
 
   React.useEffect(() => {
@@ -546,9 +502,9 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
   const renderCellValue = (
     value: unknown,
     isPrimaryCell: boolean,
-    isLowConfidence: boolean,
+    showReviewFlag: boolean,
   ): React.ReactNode => {
-    if (isPrimaryCell && isLowConfidence) {
+    if (isPrimaryCell && showReviewFlag) {
       return (
         <span className="flex items-center gap-1.5">
           <span className="truncate">{String(value ?? "")}</span>
@@ -642,18 +598,17 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
               </div>
             )}
 
-            {!isPipelinePreviewOpen &&
-              classificationStats.low_confidence > 0 && (
-                <div className="shrink-0">
-                  <ClassificationWarningBanner
-                    count={classificationStats.low_confidence}
-                    docs={lowConfidenceDocs}
-                    isExpanded={isBannerExpanded}
-                    onToggle={() => setIsBannerExpanded((v) => !v)}
-                    onSelectDoc={handleSelectDocument}
-                  />
-                </div>
-              )}
+            {!isPipelinePreviewOpen && reviewDocs.length > 0 && (
+              <div className="shrink-0">
+                <ClassificationWarningBanner
+                  count={reviewDocs.length}
+                  docs={reviewDocs}
+                  isExpanded={isBannerExpanded}
+                  onToggle={() => setIsBannerExpanded((v) => !v)}
+                  onSelectDoc={handleSelectDocument}
+                />
+              </div>
+            )}
 
             {isLoading && (
               <div className="shrink-0 px-5 py-3 text-sm text-[var(--text-secondary)]">
@@ -711,12 +666,8 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
 
                           <tbody>
                             {documents.map((doc) => {
-                              const isLowConfidence =
-                                (typeof doc.classification_confidence ===
-                                  "number" &&
-                                  doc.classification_confidence <
-                                    LOW_CONFIDENCE_THRESHOLD) ||
-                                (doc.classification_requires_review ?? false);
+                              const showReviewFlag =
+                                doc.classification_requires_review === true;
 
                               const isSelected = selectedDocId === doc.id;
 
@@ -830,7 +781,7 @@ const DocumentsTab: React.FC<DocumentsTabProps> = ({
                                         {renderCellValue(
                                           value,
                                           isPrimaryCell,
-                                          isLowConfidence,
+                                          showReviewFlag,
                                         )}
                                       </td>
                                     );

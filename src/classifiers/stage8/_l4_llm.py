@@ -87,6 +87,38 @@ class L4LLMClassifier:
             allowed_types=allowed_types,
         )
 
+        # === БЮДЖЕТ-ПРОВЕРКА: предотвращение переполнения контекста ===
+        estimated_prompt_tokens = self._estimate_token_count(prompt)
+        max_allowed_tokens = (
+            settings.LLM_CONTEXT_LIMIT
+            - settings.LLM_MAX_TOKENS
+            - settings.LLM_SAFETY_MARGIN_TOKENS
+        )
+        
+        if estimated_prompt_tokens > max_allowed_tokens:
+            # Логгируем предупреждение с деталями
+            logger.warning(
+                "L4 prompt exceeds safe token budget, aborting to prevent context overflow",
+                extra={
+                    "estimated_prompt_tokens": estimated_prompt_tokens,
+                    "max_allowed_tokens": max_allowed_tokens,
+                    "LLM_CONTEXT_LIMIT": settings.LLM_CONTEXT_LIMIT,
+                    "LLM_MAX_TOKENS": settings.LLM_MAX_TOKENS,
+                    "LLM_SAFETY_MARGIN_TOKENS": settings.LLM_SAFETY_MARGIN_TOKENS,
+                    "prompt_len_chars": len(prompt),
+                    "filename": filename,
+                },
+            )
+            # Возвращаем явный сигнал об ошибке без падения
+            errordetails = {
+                "failure_reason": "prompt_exceeds_token_budget",
+                "error_type": "context_limit_prevention",
+                "estimated_tokens": estimated_prompt_tokens,
+                "max_allowed": max_allowed_tokens,
+            }
+            return None, errordetails
+        # === КОНЕЦ БЮДЖЕТ-ПРОВЕРКИ ===
+
         logger.info(
             "L4LLMClassifier.call",
             extra={
@@ -188,11 +220,17 @@ class L4LLMClassifier:
             parsed_reasoning = raw_reasoning.strip()
             if not parsed_reasoning:
                 raise ValueError("reasoning must be non-empty")
-            if len(parsed_reasoning) > 1000:
-                parsed_reasoning = parsed_reasoning[:1000].rstrip()
+            if len(parsed_reasoning) > settings.CLASSIFICATION_L4_REASONING_MAX_CHARS:
+                parsed_reasoning = parsed_reasoning[
+                    :settings.CLASSIFICATION_L4_REASONING_MAX_CHARS
+                ].rstrip()
 
             if parsed_type_code == "UNKNOWN":
-                parsed_confidence = 0.0 if parsed_confidence < 0.05 else parsed_confidence
+                parsed_confidence = (
+                    0.0
+                    if parsed_confidence < settings.CLASSIFICATION_L4_UNKNOWN_MIN_CONFIDENCE
+                    else parsed_confidence
+                )
 
             type_code = parsed_type_code
             confidence = round(_clamp(parsed_confidence, 0.0, 1.0), 4)
@@ -485,4 +523,22 @@ class L4LLMClassifier:
             raise ValueError(f"Invalid JSON: {e}") from e
             
     
+    @staticmethod
+    def _estimate_token_count(text: str) -> int:
+        """
+        Грубая эвристика оценки количества токенов в тексте.
+        
+        Для смешанного русско-английского текста:
+        - ~2.8-3.2 символа на токен (включая пробелы и пунктуацию)
+        - Для кириллицы коэффициент чуть выше (~3.0-3.3)
+        
+        Это не замена реальному токенизатору, а защитная оценка
+        для предотвращения переполнения контекста.
+        """
+        if not text:
+            return 0
+        # Эвристика: делим длину на 3 для консервативной оценки
+        # (лучше недооценить, чем переполнить контекст)
+        return max(1, len(text) // 3)
     
+

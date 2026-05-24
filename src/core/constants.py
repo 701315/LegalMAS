@@ -24,7 +24,7 @@ class DocumentStatus(str, Enum):
     COMPLETED = "completed"
     QUARANTINE = "quarantine"
     DUPLICATE = "duplicate"
-    DELETED = "deleted"   # исключён из активной работы, но данные сохраняются для аудита/истории
+    DELETED = "deleted"  # excluded from active work, retained for audit/history
     FAILED = "failed"
 
 
@@ -50,19 +50,19 @@ class CheckExecutionStatus(str, Enum):
     """
     Technical execution status of a single check.
 
-    Важно:
-    - это НЕ бизнес-результат проверки;
-    - бизнес-результат хранится отдельно в CheckResult.result;
-    - этот enum описывает именно технический факт исполнения check.
+    Important:
+    - this is NOT the business result of the check;
+    - the business result is stored separately in CheckResult.result;
+    - this enum describes only the technical execution outcome.
 
-    Семантика:
-    - PENDING         — check ещё не исполнялся;
-    - RUNNING         — check запущен, но ещё не завершён;
-    - SUCCESS         — compute и persist завершились успешно;
-    - COMPUTE_FAILED  — check не смог корректно вычислиться;
-    - PERSIST_FAILED  — check вычислился, но запись результата в БД не удалась;
-    - TIMEOUT         — check не завершился из-за таймаута;
-    - FAILED          — legacy terminal статус, сохраняем для обратной совместимости.
+    Semantics:
+    - PENDING         — check has not started yet;
+    - RUNNING         — check is in progress;
+    - SUCCESS         — compute and persist completed successfully;
+    - COMPUTE_FAILED  — check could not be computed correctly;
+    - PERSIST_FAILED  — check was computed, but DB persist failed;
+    - TIMEOUT         — check did not finish due to timeout;
+    - FAILED          — legacy terminal status kept for backward compatibility.
     """
 
     PENDING = "PENDING"
@@ -165,19 +165,19 @@ class LanguageDiscoveryStatus(StrEnum):
     """
     Status of the pre-run language discovery lifecycle.
 
-    Используется на двух уровнях:
-    - document-level: статус определения языков для конкретного документа
-      (хранится в documents.language_discovery_status)
-    - deal-level: агрегированный статус по всем документам сделки
-      (хранится в deals.language_discovery_status)
+    Used at two levels:
+    - document-level: language discovery status for a specific document
+      (stored in documents.language_discovery_status)
+    - deal-level: aggregated status across all deal documents
+      (stored in deals.language_discovery_status)
 
-    Семантика:
-    - PENDING    — ожидает запуска определения языков
-    - PROCESSING — определение языков запущено и выполняется
-    - COMPLETED  — языки успешно определены
-    - FAILED     — определение языков завершилось с ошибкой
-    - PARTIAL    — часть документов completed, часть failed
-                   (только на уровне сделки)
+    Semantics:
+    - PENDING    — language discovery is waiting to start
+    - PROCESSING — language discovery is in progress
+    - COMPLETED  — languages were determined successfully
+    - FAILED     — language discovery finished with an error
+    - PARTIAL    — some documents completed, some failed
+                   (deal-level only)
     """
 
     PENDING = "pending"
@@ -205,7 +205,7 @@ class DetectorType(str, Enum):
 
 
 class PIIEntityType(str, Enum):
-    """Сущности для детекции PII."""
+    """Entity types for PII detection."""
 
     PERSON_NAME = "person_name"
     PASSPORT = "passport"
@@ -218,35 +218,20 @@ class PIIEntityType(str, Enum):
 
 
 class PIITokenPolicy(str, Enum):
-    """Политика токенизации PII."""
+    """Policy for PII tokenization."""
 
-    TOKENIZE = "tokenize"  # заменить на TYPE_N
-    PRESERVE = "preserve"  # оставить как есть
-    ROLE_MAP = "role_map"  # заменить на роль стороны договора
+    TOKENIZE = "tokenize"  # replace with TYPE_N
+    PRESERVE = "preserve"  # keep as is
+    ROLE_MAP = "role_map"  # replace with contractual party role
 
 
 class ClassificationLevel(str, Enum):
-    """Уровни каскада классификации."""
+    """Classification cascade levels."""
 
     L1_RULES = "L1"      # Filename/path/extension — weak hint only
     L2_KEYWORDS = "L2"   # Keywords/phrases/regex from YAML
     L3_SEMANTIC = "L3"   # Embeddings similarity
     L4_LLM = "L4"        # LLM fallback (local GGUF or cloud API)
     HYBRID = "HYBRID"    # Weighted voting across levels
-
-
-# Настройки классификации
-CLASSIFICATION_WEIGHTS = {
-    "L1": 0.20,  # Weak hint — NEVER final verdict
-    "L2": 0.40,  # Keywords/regex from YAML — primary signal
-    "L3": 0.40,  # Embeddings similarity
-}
-
-CLASSIFICATION_THRESHOLDS = {
-    "L2_accept": 0.85,
-    "L3_accept": 0.80,
-    "voting_threshold": 0.75,
-    "uncertain_threshold": 0.50,
-}
 
 

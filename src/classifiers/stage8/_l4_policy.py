@@ -548,17 +548,11 @@ def should_run_l4(
     domain_conflict = bool(details.get("domain_conflict", False))
     input_quality = _safe_float(details.get("input_quality", 1.0), 1.0)
 
-    strong_l2 = _safe_float(getattr(settings, "CLASSIFICATION_L2_STRONG", 0.90), 0.90)
-    strong_l3 = _safe_float(getattr(settings, "CLASSIFICATION_L3_STRONG", 0.85), 0.85)
-    margin_min = _safe_float(getattr(settings, "CLASSIFICATION_L4_MARGIN_MIN", 0.25), 0.25)
-    min_input_quality = _safe_float(
-        getattr(settings, "CLASSIFICATION_L4_INPUT_QUALITY_MIN", 0.60),
-        0.60,
-    )
-    review_quality_floor = _safe_float(
-        getattr(settings, "CLASSIFICATION_L4_REVIEW_QUALITY_FLOOR", 0.30),
-        0.30,
-    )
+    strong_l2: float = settings.CLASSIFICATION_L2_STRONG
+    strong_l3: float = settings.CLASSIFICATION_L3_STRONG
+    margin_min: float = settings.CLASSIFICATION_L4_MARGIN_MIN
+    min_input_quality: float = settings.CLASSIFICATION_L4_INPUT_QUALITY_MIN
+    review_quality_floor: float = settings.CLASSIFICATION_L4_REVIEW_QUALITY_FLOOR
 
     voting = details.get("voting") if isinstance(details.get("voting"), dict) else {}
     support_count = _safe_int(
@@ -596,7 +590,7 @@ def should_run_l4(
     )
 
     # ── strong_single_no_conflict: сильный одиночный сигнал без конфликта ──
-    minimal_margin = 0.15
+    minimal_margin: float = settings.CLASSIFICATION_SINGLE_SOURCE_MARGIN_MIN
     if is_segment:
         strong_single_no_conflict = (
             top_l3_conf >= strong_l3

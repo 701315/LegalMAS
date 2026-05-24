@@ -41,7 +41,7 @@ from ..playbook.models import CheckDefinition
 logger = get_logger(__name__)
 
 
-RULES_CONFIDENCE_THRESHOLD = getattr(settings, "RULES_CONFIDENCE_THRESHOLD", 0.7)
+RULES_CONFIDENCE_THRESHOLD = settings.RULES_CONFIDENCE_THRESHOLD
 
 RUN_LLM_ON_RULES_CLEAN_NEGATIVE = bool(
     getattr(settings, "RUN_LLM_ON_RULES_CLEAN_NEGATIVE", False)
@@ -167,7 +167,7 @@ class HybridDetector:
         except (TypeError, ValueError):
             cls_conf = 0.0
 
-        doc_type_for_llm = doc_type if cls_conf >= 0.70 else ""
+        doc_type_for_llm = doc_type if cls_conf >= RULES_CONFIDENCE_THRESHOLD else ""
         cls_conf_percent = f"{cls_conf:.0%}"
 
         extra_variables = {

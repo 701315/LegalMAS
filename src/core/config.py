@@ -1,6 +1,5 @@
 # src/core/config.py
 
-
 """
 Application configuration.
 Loads settings from environment variables / .env file.
@@ -41,7 +40,6 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "DEBUG"
     LOG_FORMAT: str = "console"  # "console" for dev, "json" for production
     LLM_EXTRACTION_JSON_GRAMMAR_PATH: str | None = None
-
     LOG_FILE_DIR: str | None = None  # ./logs — только для dev, не для production
 
     # --- Classification explainability / observability ---
@@ -56,7 +54,6 @@ class Settings(BaseSettings):
     CLASSIFICATION_REGISTRY_PATH: str = "playbooks/document_types/registry.yaml"
 
     # --- LLM Providers (общий верхнеуровневый) ---
-    # Эти ключи можно использовать в других частях системы, если понадобится.
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     LOCAL_LLM_ENDPOINT: str = "http://localhost:11434"
@@ -71,9 +68,8 @@ class Settings(BaseSettings):
         ".pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.tiff,.tif"
     )
     IMPORT_MAX_FILES_PER_BUNDLE: int = 10000
-    # CLASSIFIER_REGISTRY_PATH уже задан выше и используется Import Worker'ом.
 
-    # --- Extractor (Stage 4) ---
+    # --- Extractor ---
     EXTRACTION_MIN_TEXT_LENGTH_PER_PAGE: int = 50
     EXTRACTION_OCR_QUARANTINE_THRESHOLD: float = 0.6
     EXTRACTION_HYBRID_MIN_OCR_RATE_FOR_QUARANTINE: float = 0.5
@@ -94,7 +90,7 @@ class Settings(BaseSettings):
     # --- Testing / Integration ---
     DISABLE_DOWNSTREAM_TASKS: bool = False
 
-    # --- PII Sanitization (Stage 5) ---
+    # --- PII Sanitization ---
     PII_ENCRYPTION_KEY: str = ""
     PII_NER_ENABLED: bool = True
     PII_PRESERVE_INN: bool = True
@@ -104,29 +100,35 @@ class Settings(BaseSettings):
     PII_AUDIT_ENABLED: bool = True
     PII_SKIP_IF_ALREADY_SANITIZED: bool = True
 
-    # --- Structure Builder (Stage 6) ---
+    # --- Structure Builder ---
     STRUCTURE_MIN_CLAUSE_COVERAGE: float = 0.60
     STRUCTURE_DEGRADED_CHUNK_TOKENS: int = 500
     STRUCTURE_MAX_CLAUSE_TITLE_LEN: int = 100
-    STRUCTURE_ENABLE_SEGMENTATION: bool = False  # feature-flag для multi-doc pipeline
-    STRUCTURE_STORE_FILE_GRAPH: bool = True   # v2 pipeline: file_graph + segment trees
-    ALLOW_LEGACY_LAYOUT_FALLBACK: bool = False  # не нужен в v2-only режиме
-    STRUCTURE_STORE_SEGMENT_TREES: bool = True    # сохранять segment_* trees (если STORE_FILE_GRAPH=True)
+    STRUCTURE_ENABLE_SEGMENTATION: bool = False
+    STRUCTURE_STORE_FILE_GRAPH: bool = True
+    ALLOW_LEGACY_LAYOUT_FALLBACK: bool = False
+    STRUCTURE_STORE_SEGMENT_TREES: bool = True
 
-    # --- Chunks / CHUNKS v2 (Stage 6.5) ---
-    # Управляет тем, какой режим chunking используется:
-    # - False: legacy CHUNKS v1 (один chunks.json на файл, schema_version=1);
-    # - True: CHUNKS v2 (per-segment snapshots + file-level manifest).
-    CHUNKS_V2_ENABLED: bool = True   # v2-only pipeline: per-segment snapshots + manifest
+    # --- Chunks / CHUNKS v2 ---
+    # False: legacy CHUNKS v1 (один chunks.json на файл, schema_version=1)
+    # True:  CHUNKS v2 (per-segment snapshots + file-level manifest)
+    CHUNKS_V2_ENABLED: bool = True
 
-    # --- Classifier (Stage 6) ---
-    CLASSIFIER_L1_WEIGHT: float = 0.20  # L1 — слабый hint, не финальный вердикт
-    CLASSIFIER_L2_ACCEPT_THRESHOLD: float = 0.85
-    CLASSIFIER_L3_ACCEPT_THRESHOLD: float = 0.80
-    CLASSIFIER_VOTING_THRESHOLD: float = 0.75
-    CLASSIFIER_UNCERTAIN_THRESHOLD: float = 0.50
-    CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"  # L3
+    # ---------------------------------------------------------------------------
+    # --- Classifier (L1 → L2 → L3 → L4 → voting) ---
+    # ---------------------------------------------------------------------------
+
+    # Модель embeddings и пути
+    CLASSIFIER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"
     CLASSIFIER_REGISTRY_PATH: str = "playbooks/document_types"
+
+    # Веса уровней каскада (используются в hybrid_classifier.py)
+    # L1 — слабый hint (filename), L2/L3 — основные сигналы
+    CLASSIFIER_L1_WEIGHT: float = 0.20
+    CLASSIFIER_L2_WEIGHT: float = 0.40
+    CLASSIFIER_L3_WEIGHT: float = 0.40
+
+    # L4 LLM — prompt и ограничения входного текста
     CLASSIFICATION_L4_PROMPT_PATH: str = str(
         Path(__file__).resolve().parent.parent.parent
         / "prompts"
@@ -134,74 +136,184 @@ class Settings(BaseSettings):
         / "classify_document.txt"
     )
     CLASSIFICATION_L4_MAX_INPUT_CHARS: int = 6000
+    CLASSIFIER_L4_ENABLED: bool = True
 
-    # NEW: L2 Extended Format — global defaults для scoring parameters
-    # Эти значения используются когда в YAML типа нет блока classification_runtime_v1.scoring
-    CLASSIFICATION_L2_ACCEPT_THRESHOLD: float = 0.75  # минимальный confidence для accept
-    CLASSIFICATION_L2_STRONG_THRESHOLD: float = 0.85   # порог для "strong signal" (early win)
+    # --- L1: пороги принятия и силы сигнала ---
+    CLASSIFICATION_L1_ACCEPT: float = 0.90        # early-win порог
+    CLASSIFICATION_L1_STRONG: float = 0.90        # "strong" signal для priority rules
+    CLASSIFICATION_L1_CONSENSUS_MIN: float = 0.90  # минимум для L1-consensus rule
+    L1_FILENAME_SPECIFIC_WEIGHT_FACTOR: float = 0.20
+    L1_FILENAME_GENERIC_WEIGHT_FACTOR: float = 0.05
+    L1_FILENAME_CONTEXT_WEIGHT_FACTOR: float = 0.03
+    L1_FILENAME_CONTEXT_WEIGHT_SECONDARY_FACTOR: float = 0.02
+    L1_FILENAME_BASE_CONF_DELTA: float = 0.10
+    L1_FILENAME_MAX_SPECIFIC_DELTA: float = 0.10
+    L1_FILENAME_RULE_WEIGHT_DECAY: float = 0.75
+    L1_FILENAME_GENERIC_MIN_CONF: float = 0.50
+    L1_FILENAME_GENERIC_MIN_EXTRA: float = 0.10
+    L1_FILENAME_GENERIC_MAX_CONF: float = 0.65
+    L1_FILENAME_GENERIC_WEIGHT_CAP: float = 0.50
+    L1_FILENAME_CONTEXT_WEIGHT_CAP: float = 0.50
+
+    # --- L1 filename classifier (Stage 8 canonical names) ---
+    CLASSIFICATION_L1_FOLDER_RULE_WEIGHT_FACTOR: float = 0.75
+
+    CLASSIFICATION_L1_SPECIFIC_CONF_BOOST: float = 0.10
+    CLASSIFICATION_L1_SPECIFIC_WEIGHT_FACTOR: float = 0.20
+
+    CLASSIFICATION_L1_GENERIC_WEIGHT_CAP: float = 0.50
+    CLASSIFICATION_L1_GENERIC_WEIGHT_FACTOR: float = 0.05
+    CLASSIFICATION_L1_CONTEXT_WEIGHT_CAP: float = 0.50
+    CLASSIFICATION_L1_CONTEXT_WEIGHT_FACTOR_SPECIFIC: float = 0.03
+    CLASSIFICATION_L1_CONTEXT_WEIGHT_FACTOR_GENERIC: float = 0.02
+    CLASSIFICATION_L1_CONTEXT_WEIGHT_FACTOR_CONTEXT_ONLY: float = 0.03
+
+    CLASSIFICATION_L1_GENERIC_MIN_CONF: float = 0.50
+    CLASSIFICATION_L1_GENERIC_MIN_EXTRA_FACTOR: float = 0.10
+    CLASSIFICATION_L1_GENERIC_MAX_CONF: float = 0.65
+
+    CLASSIFICATION_L1_CONTEXT_ONLY_MAX_CONF: float = 0.65
+    CLASSIFICATION_L1_GENERIC_UNDER_SPECIFIC_MARGIN: float = 0.10
+
+
+    # --- L2: пороги, scoring defaults, ambiguity ---
+    CLASSIFICATION_L2_ACCEPT: float = 0.85        # early-win порог
+    CLASSIFICATION_L2_STRONG: float = 0.90        # "strong" signal для priority rules
     CLASSIFICATION_L2_AMBIGUITY_MARGIN: float = 0.15   # минимальный отрыв top1-top2
+    CLASSIFICATION_L2_L3_TIEBREAK_DELTA: float = 0.05  # отрыв L3 vs L2 при pre-L4 fallback
     CLASSIFICATION_L2_INPUT_QUALITY_WEIGHT: float = 1.0  # вес input_quality в формуле
+    # LEGACY: управляется через YAML severity, эти значения — fallback для legacy-формата
+    CLASSIFICATION_L2_EXCL_HARD: int = 1   # количество hard exclusions для suppression
+    CLASSIFICATION_L2_DEFAULT_POSITIVE_WEIGHT: float = 0.3
+    CLASSIFICATION_L2_DEFAULT_NEGATIVE_WEIGHT: float = -0.3
+    CLASSIFICATION_L2_INPUT_QUALITY_FULL_CHARS: float = 120.0
 
-    # LEGACY: старые пороги для exclusions (теперь управляется через YAML severity)
-    # Оставлены для backwards compatibility с legacy форматом
-    CLASSIFICATION_L2_EXCL_HARD: int = 1   # количество hard exclusions для suppression (legacy)
-    CLASSIFICATION_L2_EXCL_SOFT: int = 1   # порог soft exclusions для penalty (legacy)
+    # --- L3: semantic classifier tuning ---
+    CLASSIFICATION_L3_INPUT_QUALITY_MIN_CHARS: int = 300
+    CLASSIFICATION_L3_INPUT_QUALITY_FULL_CHARS: int = 1500
 
-    # --- LLM Provider (Stage 6/8 L4) ---
-    # Базовый провайдер LLM для Stage 6/8:
-    #   "none"    — LLM полностью выключен.
-    #   "openai"  — OpenAI-совместимый HTTP API (опция).
-    #   "ollama"  — локальный сервер Ollama (опция).
-    #   "llamacpp" — локальная GGUF-модель (наша базовая конфигурация).
+    CLASSIFICATION_L3_SINGLE_WINDOW_MAX_CHARS: int = 1000
+    CLASSIFICATION_L3_MULTI_WINDOW_MIN_TEXT_CHARS: int = 1500
+    CLASSIFICATION_L3_WINDOW_HEAD_CHARS: int = 800
+    CLASSIFICATION_L3_WINDOW_MIDDLE_CHARS: int = 600
+    CLASSIFICATION_L3_WINDOW_TAIL_CHARS: int = 400
+
+    CLASSIFICATION_L3_WINDOW_WEIGHT_HEAD: float = 0.50
+    CLASSIFICATION_L3_WINDOW_WEIGHT_MIDDLE: float = 0.30
+    CLASSIFICATION_L3_WINDOW_WEIGHT_TAIL: float = 0.20
+
+    CLASSIFICATION_L3_NEGATIVE_PROTOTYPE_FACTOR: float = 0.35
+
+    CLASSIFICATION_L3_AMBIGUITY_MARGIN: float = 0.20
+    CLASSIFICATION_L3_MAX_AMBIGUITY_PENALTY: float = 0.15
+
+    CLASSIFICATION_L3_CONFIDENCE_SIMILARITY_WEIGHT: float = 0.70
+    CLASSIFICATION_L3_CONFIDENCE_MARGIN_WEIGHT: float = 0.30
+    CLASSIFICATION_L3_MARGIN_SATURATION: float = 0.20
+
+    CLASSIFICATION_L3_TOP_ALTERNATIVES: int = 3
+
+    CLASSIFICATION_L3_POSITIVE_PROTOTYPE_MAX_CHARS: int = 4000
+    CLASSIFICATION_L3_NEGATIVE_PROTOTYPE_MAX_CHARS: int = 2000
+
+    # --- L3: пороги принятия и конфликта ---
+    CLASSIFICATION_L3_ACCEPT: float = 0.80        # early-win порог
+    CLASSIFICATION_L3_STRONG: float = 0.85        # "strong" signal для priority rules
+    CLASSIFICATION_L3_CONSENSUS_RAW_MIN: float = 0.60   # минимум raw sim для consensus
+    CLASSIFICATION_L3_STRONG_CONFLICT_RAW: float = 0.75  # порог strong conflict detection
+    CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT: float = 0.15
+
+    # --- L4: пороги вызова, качества входа и post-review ---
+    CLASSIFICATION_L4_ACCEPT: float = 0.70        # порог принятия L4-результата
+    CLASSIFICATION_L4_MARGIN_MIN: float = 0.25    # минимальный margin для usable voted signal
+    CLASSIFICATION_L4_INPUT_QUALITY_MIN: float = 0.60  # минимальное качество входа для L4
+    CLASSIFICATION_L4_REVIEW_QUALITY_FLOOR: float = 0.30  # floor для post-review quality check
+    CLASSIFICATION_L4_UNKNOWN_MIN_CONFIDENCE: float = 0.05
+    CLASSIFICATION_L4_REASONING_MAX_CHARS: int = 1000
+
+    # --- Voting / ensemble ---
+    CLASSIFICATION_HYBRID_ACCEPT: float = 0.45      # multi-source accept (нормализация по total_ws)
+    CLASSIFICATION_UNKNOWN_MAX: float = 0.40        # максимум confidence для UNKNOWN
+    CLASSIFICATION_SINGLE_SOURCE_CAP: float = 0.80  # cap для single-source кандидатов
+    CLASSIFICATION_SINGLE_SOURCE_HIGH_QUALITY_CAP: float = 0.88
+    CLASSIFICATION_SINGLE_SOURCE_MARGIN_MIN: float = 0.15  # для strong_single_no_conflict
+    CLASSIFICATION_DOMINANT_FLOOR_FACTOR: float = 0.85    
+    CLASSIFICATION_MAX_AGREEMENT_BONUS: float = 0.08     
+    CLASSIFICATION_AGREEMENT_BONUS_STEP: float = 0.04    
+    CLASSIFICATION_MULTI_LEVEL_FLOOR_UPLIFT: float = 0.03   
+    CLASSIFICATION_SINGLE_SOURCE_HIGH_CONF_MIN: float = 0.90
+    CLASSIFICATION_MARGIN_BONUS_STRONG_SCORE_MIN: float = 0.70
+    CLASSIFICATION_MARGIN_BONUS_MEDIUM_SCORE_MIN: float = 0.60
+    CLASSIFICATION_MARGIN_BONUS_STRONG_CAP: float = 0.08
+    CLASSIFICATION_MARGIN_BONUS_STRONG_FACTOR: float = 0.40
+    CLASSIFICATION_MARGIN_BONUS_MEDIUM_CAP: float = 0.04
+    CLASSIFICATION_MARGIN_BONUS_MEDIUM_FACTOR: float = 0.20
+    CLASSIFICATION_AGREEMENT_BONUS_MIN_SCORE: float = 0.45
+    CLASSIFICATION_AGREEMENT_BONUS_FULL_SCORE: float = 0.60
+    CLASSIFICATION_AGREEMENT_BONUS_WEAK_FACTOR: float = 0.50
+    CLASSIFICATION_AMBIGUITY_PENALTY_MAX: float = 0.50
+    CLASSIFICATION_AMBIGUITY_FACTOR_MIN: float = 0.50
+    CLASSIFICATION_SOFT_NEGATIVE_MAX_PENALTY: float = 0.60
+    CLASSIFICATION_SOFT_NEGATIVE_STEP: float = 0.20
+
+    # Fallback-вес для уровней классификации (если нет явного в level_weights)
+    CLASSIFICATION_DEFAULT_LEVEL_WEIGHT: float = 0.20
+
+
+    # --- Priority rules: межуровневые согласования ---
+    CLASSIFICATION_L1_L2_AGREE_MIN: float = 0.70   # минимум для L1+L2 agree rule
+
+    # ---------------------------------------------------------------------------
+
+    # --- LLM Provider ---
+    # "none"     — LLM полностью выключен
+    # "openai"   — OpenAI-совместимый HTTP API
+    # "ollama"   — локальный сервер Ollama
+    # "llamacpp" — локальная GGUF-модель (базовая конфигурация)
     LLM_PROVIDER: str = "llamacpp"
 
-    # Общие настройки для всех провайдеров.
-    # Время ожидания ответа от LLM в секундах.
+    # Общие настройки для всех провайдеров
     LLM_TIMEOUT_SECONDS: int = 3600
-    # Температура выборки (0.0 — максимально детерминированный ответ).
     LLM_TEMPERATURE: float = 0.0
-    # Максимальное количество токенов, которое модель может сгенерировать в ответе.
-    LLM_MAX_TOKENS: int = 512
+    LLM_MAX_TOKENS: int = 256
 
-    # --- OpenAI‑совместимый провайдер ("openai") — опционально ---
+    # --- OpenAI-совместимый провайдер ("openai") --- опционально ---
     LLM_OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     LLM_OPENAI_API_KEY: str = ""
     LLM_OPENAI_MODEL: str = "gpt-4o-mini"
 
-    # --- Локальный провайдер Ollama ("ollama") — опционально ---
+    # --- Локальный провайдер Ollama ("ollama") --- опционально ---
     LLM_OLLAMA_BASE_URL: str = "http://localhost:11434"
     LLM_OLLAMA_MODEL: str = "llama3.1"
 
-    # --- Локальный провайдер llama-cpp ("llamacpp") — базовый ---
-    # Путь к локальному GGUF-файлу модели.
-    # Важно: используем Windows-путь по умолчанию, но в коде он нормализуется
-    # (обратные слэши меняются на прямые), чтобы работало и под WSL/Linux.
+    # --- Локальный провайдер llama-cpp ("llamacpp") --- базовый ---
+    # Важно: Windows-путь нормализуется в коде (обратные слэши → прямые)
     LLM_LOCAL_MODEL_PATH: str = r"C:\LegalMAS\LLMmodel\model.gguf"
 
-    # Контекстное окно и слои для CPU/GPU при использовании llama-cpp. Qwen2.5 обучена на 32768, использование 4096 = 12% capacity
-    LLM_LOCAL_N_CTX: int = 8192 # минимум для нормальной работы
+    # Контекстное окно и слои для CPU/GPU
+    # Qwen2.5 обучена на 32768; использование 8192 = ~25% capacity
+    LLM_LOCAL_N_CTX: int = 8192
     LLM_LOCAL_N_GPU_LAYERS: int = 0  # 0 = CPU only, >0 = GPU offload
 
     # --- LLM: контроль контекстного окна ---
-    # Максимальный размер контекстного окна модели в токенах.
-    # Для llamacpp должен совпадать с LLM_LOCAL_N_CTX.
-    # Если None или 0 — бюджетная проверка отключена (небезопасно для llamacpp).
-    LLM_CONTEXT_LIMIT: int = 8192 # ОБЯЗАН совпадать с N_CTX
+    # ОБЯЗАН совпадать с LLM_LOCAL_N_CTX для llamacpp
+    LLM_CONTEXT_LIMIT: int = 8192
 
     # Запас токенов между концом промпта и концом окна.
-    # Компенсирует неточность подсчёта токенов и системные overhead'ы модели.
-    # При n_ctx=8192: под context останется 8192 - 512 - 512 - 4252 = 2916 реальных токенов — это ~750 слов договора, нормально для extraction чека.
-    LLM_SAFETY_MARGIN_TOKENS: int = 512 # поднять: компенсирует ×2.5 vs ×3.8
+    # При n_ctx=8192: под context останется ~2916 токенов (≈750 слов) — достаточно для extraction.
+    LLM_SAFETY_MARGIN_TOKENS: int = 512
 
     # Минимальный бюджет под ответ. Если после промпта остаётся меньше —
     # вызов блокируется с LLMContextLimitError.
     LLM_MIN_OUTPUT_TOKENS: int = 64
 
-    # Старые "облачные" поля оставляем для совместимости (если где-то ещё используются).
+    # Совместимость (legacy cloud fields)
     LLM_CLOUD_MODEL: str = "gpt-4o-mini"
     LLM_CLOUD_API_KEY: str = ""
 
-    # Structure LLM Refiner
+    LLM_DEFAULT_CONFIDENCE: float = 0.70
+
+    # --- Structure LLM Refiner ---
     STRUCTURE_ENABLE_LLM_REFINER: bool = True
     STRUCTURE_LLM_PROVIDER: str = "llamacpp"
     STRUCTURE_LLM_MODEL: str = "..."
@@ -211,7 +323,7 @@ class Settings(BaseSettings):
     STRUCTURE_LLM_MAX_CONTEXT_CHARS: int = 1200
     STRUCTURE_LLM_SHADOW_MODE: bool = False
 
-    # --- Dedup & Relations (Stage 7) ---
+    # --- Dedup & Relations ---
     DEDUP_EXACT_ENABLED: bool = True
     RELATIONS_FILENAME_ENABLED: bool = True
     RELATIONS_TEXT_ENABLED: bool = True
@@ -228,30 +340,19 @@ class Settings(BaseSettings):
         "ServiceAgreement",
     ]
     FAMILY_MASTER_MIN_CLASSIFICATION_LEVEL: str = "L1"
-    FAMILY_CLASSIFICATION_LEVEL_PRIORITY: list[str] = [
-        "L0",
-        "L1",
-        "L2",
-        "L3",
-    ]
+    FAMILY_CLASSIFICATION_LEVEL_PRIORITY: list[str] = ["L0", "L1", "L2", "L3"]
 
-    # --- Runner / Core Engine (Stage 8) ---
-
-    # Интеграция со Stage 7
-    RELATIONS_DEDUP_ENABLED: bool = True  # использовать dedup слоя Stage 7
-    RELATIONS_ENABLED: bool = True  # учитывать relations/families
+    # --- Runner / Core Engine ---
+    RELATIONS_DEDUP_ENABLED: bool = True
+    RELATIONS_ENABLED: bool = True
 
     # Runner: retrieval и весовые коэффициенты
     RUNNER_RETRIEVAL_TOP_K: int = 5
-    RUNNER_DENSE_WEIGHT: float = 0.6  # embeddings (shared)
-    RUNNER_SPARSE_WEIGHT: float = 0.3  # BM25
+    RUNNER_DENSE_WEIGHT: float = 0.6    # embeddings (shared)
+    RUNNER_SPARSE_WEIGHT: float = 0.3   # BM25
     RUNNER_METADATA_WEIGHT: float = 0.1  # doc_type / meta
 
     # Runner: metadata-boost для RetrievalEngine
-    # Для непрофессионального программиста:
-    # - Эти коэффициенты задают, насколько сильно влияют разные метаданные
-    #   (тип чанка, заголовки, позиция в документе, summary) на итоговый score.
-    # - Их можно тюнить через переменные окружения без изменения кода.
     RUNNER_METADATA_KIND_BONUS_SUBCLAUSE: float = 0.3
     RUNNER_METADATA_KIND_PENALTY_SECTION: float = 0.1
     RUNNER_METADATA_SECTION_TITLE_BOOST: float = 1.0
@@ -265,24 +366,7 @@ class Settings(BaseSettings):
     #   "doc_type_only"       — только doc-type YAML
     CHECK_RUNNER_MODE: str = "global_and_doc_type"
 
-    # Runner: классификационные пороги (для HybridClassifier Stage 8)
-    CLASSIFICATION_L1_ACCEPT: float = 0.90
-    CLASSIFICATION_L2_ACCEPT: float = 0.85
-    CLASSIFICATION_L3_ACCEPT: float = 0.80
-    CLASSIFICATION_L4_ACCEPT: float = 0.70
-    CLASSIFICATION_VOTING_THRESHOLD: float = 0.75
-
-    # Дополнительные пороги для HybridClassifier (Stage 8)
-    CLASSIFICATION_HYBRID_ACCEPT: float = 0.65
-    CLASSIFICATION_UNKNOWN_MAX: float = 0.40
-    CLASSIFICATION_L2_EXCL_HARD: int = 2
-    CLASSIFICATION_L2_STRONG: float = 0.90
-    CLASSIFICATION_L1_STRONG: float = 0.90
-    CLASSIFICATION_SINGLE_SOURCE_CAP: float = 0.80
-    CLASSIFICATION_L4_MARGIN_MIN: float = 0.25
-    CLASSIFICATION_L4_INPUT_QUALITY_MIN: float = 0.60
-
-    # Embeddings для Runner/Stage 8 (shared с L3-классификатором)
+    # Embeddings для Runner (shared с L3-классификатором)
     RUNNER_EMBEDDINGS_ENABLED: bool = True
     RUNNER_EMBEDDINGS_MODEL: str = "intfloat/multilingual-e5-small"
     RUNNER_EMBEDDINGS_CACHE_DIR: str = ".cache/embeddings"
@@ -292,7 +376,7 @@ class Settings(BaseSettings):
     PLAYBOOK_DEFAULT_PATH: str = "playbooks/test/v1.0/playbook.yaml"
     PROMPTS_DIR: str = "prompts"
 
-    # Порог уверенности rules, при котором LLM не вызывается.
+    # Порог уверенности rules, при котором LLM не вызывается
     RULES_CONFIDENCE_THRESHOLD: float = 0.7
     CHECK_PASS_THRESHOLD: float = 0.6
     CHECK_UNCLEAR_THRESHOLD: float = 0.3
@@ -341,8 +425,5 @@ class Settings(BaseSettings):
     CELERY_HEAVY_WORKER_CONCURRENCY: int = 1
 
 
-
-
 # Singleton: one settings instance for the whole application
 settings = Settings()
-

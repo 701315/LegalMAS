@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from core.config import settings
 from core.logging import get_logger
 from ..detectors.extraction_llm_detector import ExtractionLLMDetector
 from ..llm.client import LLMClient
@@ -25,6 +26,10 @@ from ..playbook.models import (
 )
 
 logger = get_logger(__name__)
+
+LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
+_EXTRACTION_RULES_REGEX_CONFIDENCE: float = 0.8
+_EXTRACTION_RULES_KEYWORD_CONFIDENCE: float = 0.5
 
 # Набор "мусорных" значений которые LLM возвращает когда не нашёл ответ.
 # Все значения в нижнем регистре — сравниваем через .lower().strip()
@@ -159,11 +164,11 @@ class ExtractionExecutor:
                         )
                         continue
 
-                    conf_raw = llm_payload.get("confidence", 0.7)
+                    conf_raw = llm_payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
                     try:
                         confidence_llm = float(conf_raw)
                     except (TypeError, ValueError):
-                        confidence_llm = 0.7
+                        confidence_llm = LLM_DEFAULT_CONFIDENCE
 
                     # Локация конкретного поля, если LLM её вернул (иначе общая base_location).
                     field_location = llm_payload.get("location") or base_location
@@ -442,7 +447,7 @@ class ExtractionExecutor:
                     "value": value,
                     "unit": field_cfg.unit,
                     "source": "rules",
-                    "confidence": 0.8,
+                    "confidence": _EXTRACTION_RULES_REGEX_CONFIDENCE,
                     "found": True,
                 }
 
@@ -465,7 +470,7 @@ class ExtractionExecutor:
                     "value": value,
                     "unit": field_cfg.unit,
                     "source": "rules",
-                    "confidence": 0.5,
+                    "confidence": _EXTRACTION_RULES_KEYWORD_CONFIDENCE,
                     "found": True,
                 }
 

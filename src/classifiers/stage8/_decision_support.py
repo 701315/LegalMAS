@@ -356,18 +356,10 @@ def best_pre_l4_signal(
     contradiction = bool(details.get("contradiction_detected", False))
     input_quality = _safe_float(details.get("input_quality", 1.0), 1.0)
 
-    margin_min = _safe_float(
-        getattr(settings, "CLASSIFICATION_L4_MARGIN_MIN", 0.25),
-        0.25,
-    )
-    accept_threshold = _safe_float(
-        getattr(settings, "CLASSIFIER_ACCEPT_THRESHOLD", 0.65),
-        0.65,
-    )
-    review_quality_floor = _safe_float(
-        getattr(settings, "CLASSIFICATION_L4_REVIEW_QUALITY_FLOOR", 0.30),
-        0.30,
-    )
+    margin_min: float = settings.CLASSIFICATION_L4_MARGIN_MIN
+    accept_threshold: float = settings.CLASSIFICATION_L4_ACCEPT
+    review_quality_floor: float = settings.CLASSIFICATION_L4_REVIEW_QUALITY_FLOOR
+    tiebreak_delta: float = settings.CLASSIFICATION_L2_L3_TIEBREAK_DELTA
 
     voted_is_present = voted is not None and voted_type != "UNKNOWN"
     voted_is_structurally_strong = (
@@ -449,11 +441,11 @@ def best_pre_l4_signal(
     )
 
     if l3_candidate and l2_candidate:
-        if l3_candidate[1] >= l2_candidate[1] + 0.05:
+        if l3_candidate[1] >= l2_candidate[1] + tiebreak_delta:
             details["pre_l4_signal_decision"]["selected_source"] = "L3"
             details["pre_l4_signal_decision"]["selected_quality"] = "fallback_candidate"
             return l3_candidate
-        if l2_candidate[1] >= l3_candidate[1] + 0.05:
+        if l2_candidate[1] >= l3_candidate[1] + tiebreak_delta:
             details["pre_l4_signal_decision"]["selected_source"] = "L2"
             details["pre_l4_signal_decision"]["selected_quality"] = "fallback_candidate"
             return l2_candidate

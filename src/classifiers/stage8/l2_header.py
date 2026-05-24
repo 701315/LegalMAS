@@ -48,6 +48,24 @@ from core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# После строки: logger = get_logger(__name__)
+# Добавить:
+
+# ---------------------------------------------------------------------------
+# L2 Legacy scoring constants
+# Используются только в _classify_with_legacy_format.
+# Не выносятся в config.py — это внутренняя алгоритмическая логика,
+# а не системные пороги, управляемые оператором.
+# ---------------------------------------------------------------------------
+_LEGACY_HEADER_PATTERN_BASE: float = 0.35   # базовый вклад header_pattern hit
+_LEGACY_HEADER_PATTERN_EXTRA: float = 0.10  # бонус за каждый доп. hit (max 2)
+_LEGACY_DISTINCTIVE_HIGH_BASE: float = 0.05  # базовый вклад distinctive_high hit
+_LEGACY_DISTINCTIVE_HIGH_EXTRA: float = 0.02 # бонус за каждый доп. hit (max 2)
+_LEGACY_GENERIC_MEDIUM_BASE: float = 0.02   # базовый вклад generic_medium hit
+_LEGACY_GENERIC_MEDIUM_EXTRA: float = 0.01  # бонус за каждый доп. hit (max 2)
+_LEGACY_LOW_HIT_WEIGHT: float = 0.01        # вклад каждого low hit (max 3)
+_LEGACY_SOFT_EXCL_PENALTY: float = 0.20     # штраф за каждый soft exclusion hit (max 2)
+_LEGACY_MAX_AMBIGUITY_PENALTY: float = 0.15 # максимальный ambiguity penalty
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
     """Clamp float value to an inclusive range."""
@@ -69,9 +87,12 @@ def _estimate_input_quality(header_text: str) -> float:
     text_len = len((header_text or "").strip())
     if text_len <= 0:
         return 0.0
-    if text_len >= 120:
+    if text_len >= settings.CLASSIFICATION_L2_INPUT_QUALITY_FULL_CHARS:
         return 1.0
-    return round(max(0.5, text_len / 120.0), 3)
+    return round(
+        max(0.5, text_len / settings.CLASSIFICATION_L2_INPUT_QUALITY_FULL_CHARS),
+        3,
+    )
 
 
 def _normalize_context(value: Any) -> str:
@@ -228,12 +249,10 @@ class L2HeaderClassifier(BaseClassifier):
 
         scored_candidates: List[Dict[str, Any]] = []
 
-        global_accept = float(getattr(settings, "CLASSIFICATION_L2_ACCEPT", 0.75))
-        global_ambiguity_margin = 0.15
+        global_accept: float = settings.CLASSIFICATION_L2_ACCEPT
+        global_ambiguity_margin: float = settings.CLASSIFICATION_L2_AMBIGUITY_MARGIN
 
         for cfg in self._registry.get_all_configs():
-            cfg = cfg  # type: DocumentTypeConfig
-
             has_extended = hasattr(cfg, "lexical_signals") and cfg.lexical_signals
             has_negative = hasattr(cfg, "negative_signals") and cfg.negative_signals
 
@@ -281,11 +300,11 @@ class L2HeaderClassifier(BaseClassifier):
                 )
 
             if ambiguity_margin > 0 and margin < ambiguity_margin:
-                ambiguity_penalty = 0.15 * (1.0 - margin / ambiguity_margin)
+                ambiguity_penalty = _LEGACY_MAX_AMBIGUITY_PENALTY * (1.0 - margin / ambiguity_margin)
 
             if best_extra:
                 best_extra["ambiguity_penalty"] = round(
-                    _clamp(ambiguity_penalty, 0.0, 0.15),
+                    _clamp(ambiguity_penalty, 0.0, _LEGACY_MAX_AMBIGUITY_PENALTY),
                     3,
                 )
                 best_extra["top2_margin"] = round(margin, 4)
@@ -411,7 +430,9 @@ class L2HeaderClassifier(BaseClassifier):
             signals = lexical_signals.get(level, []) or []
             for signal in signals:
                 pattern = signal.get("pattern")
-                weight = float(signal.get("weight", 0.3))
+                weight = float(
+                    signal.get("weight", settings.CLASSIFICATION_L2_DEFAULT_POSITIVE_WEIGHT)
+                )
                 distinctiveness = str(signal.get("distinctiveness", "medium")).strip().lower()
                 context = _normalize_context(signal.get("context", "any"))
 
@@ -491,7 +512,11 @@ class L2HeaderClassifier(BaseClassifier):
                     snippet_text=snippet_text,
                 )
                 if matched:
-                    penalty_weight = abs(float(neg_signal.get("weight", -0.3)))
+                    penalty_weight = abs(
+                        float(
+                            neg_signal.get("weight", settings.CLASSIFICATION_L2_DEFAULT_NEGATIVE_WEIGHT)
+                        )
+                    )
                     soft_excl_penalty += penalty_weight
 
         conf = positive_score * signal_quality - soft_excl_penalty
@@ -684,21 +709,18 @@ class L2HeaderClassifier(BaseClassifier):
         conf = 0.0
 
         if header_pattern_hits > 0:
-            conf += 0.35 + 0.10 * min(header_pattern_hits - 1, 2)
+            conf += _LEGACY_HEADER_PATTERN_BASE + _LEGACY_HEADER_PATTERN_EXTRA * min(header_pattern_hits - 1, 2)
 
-        # ВАЖНО:
-        # Формулу не меняем. keywords_high по-прежнему усиливают confidence
-        # через тот же вес, просто теперь правильно отражаются в diagnostics.
         if distinctive_high_hits > 0:
-            conf += 0.05 + 0.02 * min(distinctive_high_hits - 1, 2)
+            conf += _LEGACY_DISTINCTIVE_HIGH_BASE + _LEGACY_DISTINCTIVE_HIGH_EXTRA * min(distinctive_high_hits - 1, 2)
 
         if generic_medium_hits > 0:
-            conf += 0.02 + 0.01 * min(generic_medium_hits - 1, 2)
+            conf += _LEGACY_GENERIC_MEDIUM_BASE + _LEGACY_GENERIC_MEDIUM_EXTRA * min(generic_medium_hits - 1, 2)
 
-        conf += 0.01 * min(low_hits, 3)
+        conf += _LEGACY_LOW_HIT_WEIGHT * min(low_hits, 3)
 
         if soft_exclusion_hits > 0:
-            conf -= 0.20 * min(soft_exclusion_hits, 2)
+            conf -= _LEGACY_SOFT_EXCL_PENALTY * min(soft_exclusion_hits, 2)
 
         conf = _clamp(conf, 0.0, 1.0)
 

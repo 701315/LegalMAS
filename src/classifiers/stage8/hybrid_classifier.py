@@ -25,24 +25,19 @@
   _cascade_steps.py     — шаги каскада L1, L2, L3
 """
 
-
 from __future__ import annotations
-
 
 import time
 from typing import Any
 
-
 from ..yaml_registry import YAMLRegistry
 from ops.metrics import get_metrics
-
 
 from core.config import settings
 from core.logging import get_logger
 from db.repositories.runner_repo import RunnerRepository
 from engine.content.document_content_service import DocumentContentService
 from engine.llm.client import LLMClient
-
 
 from .l1_filename import L1FilenameClassifier
 from .l2_header import L2HeaderClassifier
@@ -60,17 +55,13 @@ from ._cascade_steps import CascadeSteps
 from ._l4_executor import L4Executor
 from ._decision_logger import DecisionStrategy, log_classification_decision
 
-
-# Реэкспорт контрактов — внешние импорты не ломаются
 from classifiers.base import HybridClassificationCandidate, HybridClassificationResultDTO  # noqa: F401
-
 
 __all__ = [
     "HybridClassifier",
     "HybridClassificationCandidate",
     "HybridClassificationResultDTO",
 ]
-
 
 logger = get_logger(__name__)
 
@@ -97,20 +88,14 @@ class HybridClassifier:
         self.registry = YAMLRegistry.get_instance()
 
         # Пороги
-        base_accept = float(getattr(settings, "CLASSIFICATION_HYBRID_ACCEPT", 0.65))
-        base_unknown = float(getattr(settings, "CLASSIFICATION_UNKNOWN_MAX", 0.40))
-        self.hybrid_accept: float = float(
-            getattr(settings, "CLASSIFIER_ACCEPT_THRESHOLD", base_accept)
-        )
-        self.unknown_max: float = float(
-            getattr(settings, "CLASSIFIER_UNKNOWN_THRESHOLD", base_unknown)
-        )
-        self.l4_enabled: bool = bool(getattr(settings, "CLASSIFIER_L4_ENABLED", True))
+        self.hybrid_accept: float = settings.CLASSIFICATION_HYBRID_ACCEPT
+        self.unknown_max: float = settings.CLASSIFICATION_UNKNOWN_MAX
+        self.l4_enabled: bool = settings.CLASSIFIER_L4_ENABLED
 
         level_weights: dict[str, float] = {
-            "L1": float(getattr(settings, "CLASSIFIER_L1_WEIGHT", 0.20)),
-            "L2": 0.40,
-            "L3": 0.40,
+            "L1": settings.CLASSIFIER_L1_WEIGHT,
+            "L2": settings.CLASSIFIER_L2_WEIGHT,
+            "L3": settings.CLASSIFIER_L3_WEIGHT,
         }
 
         # Делегаты

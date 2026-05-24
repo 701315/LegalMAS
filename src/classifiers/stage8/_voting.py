@@ -8,7 +8,9 @@ Production-версия:
 - поддерживает legacy/preferred negative-сигналы;
 - не делает повторный penalty по signal_quality, если он уже учтён в confidence;
 - считает agreement по уникальным уровням, а не по количеству записей;
-- нормализует score по сумме весов реально активных уровней;
+- нормализует score по ПОЛНОЙ сумме весов всех сконфигурированных уровней
+  (а не только активных), что гарантирует монотонность поддержки:
+  добавление любого неотрицательного согласованного сигнала не уменьшает итоговый score;
 - считает margin по нормализованной шкале;
 - ограничивает single-source результат сверху (single-source cap);
 - учитывает dominant component floor для сильного multi-level сигнала;
@@ -25,6 +27,15 @@ UPDATED FINAL:
 - agreement bonus применяется более консервативно для слабых normalized scores;
 - active weight sum считается по уникальным support levels;
 - ranking/debug payload дополнен per-level contribution breakdown.
+
+REFACTOR (monotonicity fix):
+- нормализация теперь делится на _total_weight_sum (сумма весов ВСЕХ уровней),
+  а не на active_weight_sum (сумма весов только уровней с ненулевым вкладом);
+- это устраняет эффект "размывания score" при добавлении слабого уровня:
+  general_sale (L1 only, conf=0.65) больше не побеждает real_estate (L1+L2+L3);
+- _ranking_key: active_weight_sum заменён на raw_score как tie-breaker —
+  тип с большим суммарным сигналом предпочтительнее при равном voting_score;
+- ranking payload дополнен полем total_weight_sum для самодостаточных логов.
 """
 
 from __future__ import annotations
@@ -61,8 +72,8 @@ class WeightedVoter:
     Основная логика:
     - каждый кандидат получает effective_score;
     - внутри каждого уровня вклад type_code ограничивается best-per-level score;
-    - score типа затем нормализуется по сумме весов уровней,
-      которые реально внесли ненулевой вклад;
+    - score типа нормализуется по _total_weight_sum — сумме весов ВСЕХ
+      сконфигурированных уровней (инвариант монотонности поддержки);
     - agreement bonus добавляется после нормализации;
     - dominant floor не даёт сильному лучшему multi-level сигналу слишком "просесть",
       но не должен искусственно переоценивать raw-confidence spike;
@@ -74,59 +85,39 @@ class WeightedVoter:
     def __init__(self, level_weights: dict[str, float]) -> None:
         self.level_weights = level_weights
 
-        self.single_source_cap = self._clamp(
-            self._safe_float(
-                getattr(settings, "CLASSIFICATION_SINGLE_SOURCE_CAP", 0.80),
-                0.80,
+        # Знаменатель нормализации — сумма весов ВСЕХ уровней (не только активных).
+        # Гарантирует INV-1 (монотонность): добавление любого уровня
+        # с effective_score >= 0 не уменьшает normalized_score.
+        self._total_weight_sum: float = max(
+            sum(
+                self._clamp(self._safe_float(w, 0.0), 0.0, 1.0)
+                for w in level_weights.values()
             ),
-            0.0,
-            1.0,
+            1e-9,
         )
 
-        self.single_source_high_quality_cap = self._clamp(
-            self._safe_float(
-                getattr(settings, "CLASSIFICATION_SINGLE_SOURCE_HIGH_QUALITY_CAP", 0.88),
-                0.88,
-            ),
-            0.0,
-            1.0,
-        )
+        self.single_source_cap: float = settings.CLASSIFICATION_SINGLE_SOURCE_CAP
+        self.single_source_high_quality_cap: float = settings.CLASSIFICATION_SINGLE_SOURCE_HIGH_QUALITY_CAP
+        self.dominant_floor_factor: float = settings.CLASSIFICATION_DOMINANT_FLOOR_FACTOR
+        self.max_agreement_bonus: float = settings.CLASSIFICATION_MAX_AGREEMENT_BONUS
+        self.agreement_bonus_step: float = settings.CLASSIFICATION_AGREEMENT_BONUS_STEP
+        self.multi_level_floor_uplift: float = settings.CLASSIFICATION_MULTI_LEVEL_FLOOR_UPLIFT
+        self.single_source_high_conf_min: float = settings.CLASSIFICATION_SINGLE_SOURCE_HIGH_CONF_MIN
+        self.margin_bonus_strong_score_min = settings.CLASSIFICATION_MARGIN_BONUS_STRONG_SCORE_MIN
+        self.margin_bonus_medium_score_min = settings.CLASSIFICATION_MARGIN_BONUS_MEDIUM_SCORE_MIN
+        self.margin_bonus_strong_cap = settings.CLASSIFICATION_MARGIN_BONUS_STRONG_CAP
+        self.margin_bonus_strong_factor = settings.CLASSIFICATION_MARGIN_BONUS_STRONG_FACTOR
+        self.margin_bonus_medium_cap = settings.CLASSIFICATION_MARGIN_BONUS_MEDIUM_CAP
+        self.margin_bonus_medium_factor = settings.CLASSIFICATION_MARGIN_BONUS_MEDIUM_FACTOR
+        self.agreement_bonus_min_score = settings.CLASSIFICATION_AGREEMENT_BONUS_MIN_SCORE
+        self.agreement_bonus_full_score = settings.CLASSIFICATION_AGREEMENT_BONUS_FULL_SCORE
+        self.agreement_bonus_weak_factor = settings.CLASSIFICATION_AGREEMENT_BONUS_WEAK_FACTOR
+        self.ambiguity_penalty_max = settings.CLASSIFICATION_AMBIGUITY_PENALTY_MAX
+        self.ambiguity_factor_min = settings.CLASSIFICATION_AMBIGUITY_FACTOR_MIN
+        self.soft_negative_max_penalty = settings.CLASSIFICATION_SOFT_NEGATIVE_MAX_PENALTY
+        self.soft_negative_step = settings.CLASSIFICATION_SOFT_NEGATIVE_STEP
+        self.default_level_weight: float = settings.CLASSIFICATION_DEFAULT_LEVEL_WEIGHT
 
-        self.dominant_floor_factor = self._clamp(
-            self._safe_float(
-                getattr(settings, "CLASSIFICATION_DOMINANT_FLOOR_FACTOR", 0.85),
-                0.85,
-            ),
-            0.0,
-            1.0,
-        )
-
-        self.max_agreement_bonus = self._clamp(
-            self._safe_float(
-                getattr(settings, "CLASSIFICATION_MAX_AGREEMENT_BONUS", 0.08),
-                0.08,
-            ),
-            0.0,
-            0.20,
-        )
-
-        self.agreement_bonus_step = self._clamp(
-            self._safe_float(
-                getattr(settings, "CLASSIFICATION_AGREEMENT_BONUS_STEP", 0.04),
-                0.04,
-            ),
-            0.0,
-            0.10,
-        )
-
-        self.multi_level_floor_uplift = self._clamp(
-            self._safe_float(
-                getattr(settings, "CLASSIFICATION_MULTI_LEVEL_FLOOR_UPLIFT", 0.03),
-                0.03,
-            ),
-            0.0,
-            0.08,
-        )
 
     @staticmethod
     def _safe_float(value: Any, default: float) -> float:
@@ -157,27 +148,24 @@ class WeightedVoter:
         best_component_confidence: float,
         strict_cap: float,
         high_quality_cap: float,
+        high_conf_min: float,
     ) -> float:
-        if best_component_confidence >= 0.90:
+        if best_component_confidence >= high_conf_min:
             return max(strict_cap, high_quality_cap)
         return strict_cap
 
-    @staticmethod
     def _compute_margin_bonus(
+        self,
         best_voting_score: float,
         margin: float,
         support_level_count: int,
     ) -> float:
-        """
-        Margin bonus — это reward за уверенный structural lead,
-        а не просто за относительный отрыв при слабом single-source сигнале.
-        """
         if support_level_count < 2:
             return 0.0
-        if best_voting_score >= 0.70:
-            return min(0.08, margin * 0.40)
-        if best_voting_score >= 0.60:
-            return min(0.04, margin * 0.20)
+        if best_voting_score >= self.margin_bonus_strong_score_min:
+            return min(self.margin_bonus_strong_cap, margin * self.margin_bonus_strong_factor)
+        if best_voting_score >= self.margin_bonus_medium_score_min:
+            return min(self.margin_bonus_medium_cap, margin * self.margin_bonus_medium_factor)
         return 0.0
 
     def _compute_agreement_bonus(
@@ -198,10 +186,10 @@ class WeightedVoter:
 
         if raw_bonus <= 0.0:
             return 0.0
-        if normalized_score < 0.45:
+        if normalized_score < self.agreement_bonus_min_score:
             return 0.0
-        if normalized_score < 0.60:
-            return raw_bonus * 0.5
+        if normalized_score < self.agreement_bonus_full_score:
+            return raw_bonus * self.agreement_bonus_weak_factor
         return raw_bonus
 
     def _compute_dominant_floor(
@@ -256,7 +244,10 @@ class WeightedVoter:
                 continue
 
             level = str(candidate.get("level", "L1") or "L1").strip()
-            level_weight = self._safe_float(self.level_weights.get(level, 0.20), 0.20)
+            level_weight = self._safe_float(
+                self.level_weights.get(level, self.default_level_weight),
+                self.default_level_weight,
+            )
             level_weight = self._clamp(level_weight, 0.0, 1.0)
 
             confidence = self._clamp(
@@ -285,7 +276,7 @@ class WeightedVoter:
             ambiguity_penalty = self._clamp(
                 self._safe_float(candidate.get("ambiguity_penalty", 0.0), 0.0),
                 0.0,
-                0.5,
+                self.ambiguity_penalty_max,
             )
 
             sq_already_applied = bool(candidate.get("signal_quality_in_confidence", False))
@@ -298,11 +289,15 @@ class WeightedVoter:
                 ambiguity_factor = 1.0
                 effective_score = 0.0
             else:
-                negative_factor = 1.0 - min(0.60, 0.20 * soft_negative_hits)
+                negative_penalty = min(
+                    self.soft_negative_max_penalty,
+                    self.soft_negative_step * soft_negative_hits,
+                )
+                negative_factor = 1.0 - negative_penalty
                 negative_factor = self._clamp(negative_factor, 0.0, 1.0)
 
                 ambiguity_factor = 1.0 - ambiguity_penalty
-                ambiguity_factor = self._clamp(ambiguity_factor, 0.50, 1.0)
+                ambiguity_factor = self._clamp(ambiguity_factor, self.ambiguity_factor_min, 1.0)
 
                 effective_score = base_score * negative_factor * ambiguity_factor
                 effective_score = self._clamp(effective_score, 0.0, 1.0)
@@ -352,23 +347,44 @@ class WeightedVoter:
             if group:
                 type_group_values.setdefault(type_code, set()).add(group)
 
-            type_candidate_breakdown.setdefault(type_code, []).append(
-                {
-                    "level": level,
-                    "confidence": round(confidence, 4),
-                    "signal_quality": round(signal_quality, 4),
-                    "signal_quality_in_confidence": sq_already_applied,
-                    "effective_signal_quality": round(effective_signal_quality, 4),
-                    "level_weight": round(level_weight, 4),
-                    "soft_negative_hits": soft_negative_hits,
-                    "hard_negative_hits": hard_negative_hits,
-                    "negative_factor": round(negative_factor, 4),
-                    "ambiguity_penalty": round(ambiguity_penalty, 4),
-                    "ambiguity_factor": round(ambiguity_factor, 4),
-                    "base_score": round(base_score, 4),
-                    "effective_score": round(effective_score, 4),
-                }
-            )
+            if hard_negative_hits > 0:
+                type_candidate_breakdown.setdefault(type_code, []).append(
+                    {
+                        "level": level,
+                        "confidence": round(confidence, 4),
+                        "signal_quality": round(signal_quality, 4),
+                        "signal_quality_in_confidence": sq_already_applied,
+                        "effective_signal_quality": round(effective_signal_quality, 4),
+                        "level_weight": round(level_weight, 4),
+                        "soft_negative_hits": soft_negative_hits,
+                        "hard_negative_hits": hard_negative_hits,
+                        "negative_factor": 0.0,
+                        "ambiguity_penalty": round(ambiguity_penalty, 4),
+                        "ambiguity_factor": 1.0,
+                        "base_score": round(base_score, 4),
+                        "effective_score": 0.0,
+                        "hard_suppressed": True,
+                    }
+                )
+            else:
+                type_candidate_breakdown.setdefault(type_code, []).append(
+                    {
+                        "level": level,
+                        "confidence": round(confidence, 4),
+                        "signal_quality": round(signal_quality, 4),
+                        "signal_quality_in_confidence": sq_already_applied,
+                        "effective_signal_quality": round(effective_signal_quality, 4),
+                        "level_weight": round(level_weight, 4),
+                        "soft_negative_hits": soft_negative_hits,
+                        "hard_negative_hits": hard_negative_hits,
+                        "negative_factor": round(negative_factor, 4),
+                        "ambiguity_penalty": round(ambiguity_penalty, 4),
+                        "ambiguity_factor": round(ambiguity_factor, 4),
+                        "base_score": round(base_score, 4),
+                        "effective_score": round(effective_score, 4),
+                        "hard_suppressed": False,
+                    }
+                )
 
         if not type_level_scores:
             return None
@@ -382,7 +398,10 @@ class WeightedVoter:
         for type_code, support_levels in type_support_levels.items():
             type_active_weight_sum[type_code] = sum(
                 self._clamp(
-                    self._safe_float(self.level_weights.get(level, 0.20), 0.20),
+                    self._safe_float(
+                        self.level_weights.get(level, self.default_level_weight),
+                        self.default_level_weight,
+                    ),
                     0.0,
                     1.0,
                 )
@@ -397,13 +416,11 @@ class WeightedVoter:
         type_cap_used: dict[str, float] = {}
 
         for type_code, raw_score in type_raw_scores.items():
-            active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
-
-            if active_weight_sum > 0.0:
-                normalized_score = raw_score / active_weight_sum
-            else:
-                normalized_score = 0.0
-
+            # ─── FIX: делим на _total_weight_sum (сумма весов ВСЕХ уровней),
+            # а не на active_weight_sum (только активных).
+            # Это устраняет нарушение монотонности: тип L1+L2+L3 с суммарным
+            # raw_score > raw_score типа L1-only теперь гарантированно выигрывает.
+            normalized_score = raw_score / self._total_weight_sum
             normalized_score = self._clamp(normalized_score, 0.0, 1.0)
             type_normalized_scores[type_code] = normalized_score
 
@@ -436,6 +453,7 @@ class WeightedVoter:
                     best_component_confidence=best_component_conf,
                     strict_cap=self.single_source_cap,
                     high_quality_cap=self.single_source_high_quality_cap,
+                    high_conf_min=self.single_source_high_conf_min,
                 )
                 if voting_score > cap_used:
                     voting_score = cap_used
@@ -448,12 +466,16 @@ class WeightedVoter:
         def _ranking_key(item: tuple[str, float]) -> tuple[float, int, float, float, str]:
             type_code, voting_score = item
             support_level_count = len(type_support_levels.get(type_code, set()))
-            active_weight_sum = type_active_weight_sum.get(type_code, 0.0)
+            # ─── FIX: raw_score вместо active_weight_sum.
+            # Тип с большим суммарным взвешенным сигналом предпочтительнее
+            # при равном voting_score. active_weight_sum не несёт этой семантики
+            # после перехода на total_weight_sum нормализацию.
+            raw_score = type_raw_scores.get(type_code, 0.0)
             best_component_score = type_best_component_score.get(type_code, 0.0)
             return (
                 voting_score,
                 support_level_count,
-                active_weight_sum,
+                raw_score,
                 best_component_score,
                 type_code,
             )
@@ -533,6 +555,9 @@ class WeightedVoter:
                     "support_count": len(type_support_levels.get(type_code, set())),
                     "support_levels": sorted(type_support_levels.get(type_code, set())),
                     "active_weight_sum": round(type_active_weight_sum.get(type_code, 0.0), 4),
+                    # ─── NEW: total_weight_sum в каждой строке ranking —
+                    # делает лог самодостаточным при разборе без контекста вызова.
+                    "total_weight_sum": round(self._total_weight_sum, 4),
                     "best_component_score": round(
                         type_best_component_score.get(type_code, 0.0), 4
                     ),
@@ -545,6 +570,7 @@ class WeightedVoter:
                     "single_source_cap_used": round(type_cap_used.get(type_code, 1.0), 4),
                     "component_count": type_component_count.get(type_code, 0),
                     "active_component_count": type_active_component_count.get(type_code, 0),
+                    "selected_component_count": len(type_level_scores.get(type_code, {})),
                     "parent_values": sorted(type_parent_values.get(type_code, set())),
                     "group_values": sorted(type_group_values.get(type_code, set())),
                     "level_contributions": per_level_contributions,

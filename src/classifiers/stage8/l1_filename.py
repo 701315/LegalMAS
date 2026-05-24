@@ -62,6 +62,49 @@ class L1FilenameClassifier:
     def __init__(self, registry: YAMLRegistry | None = None) -> None:
         self._registry = registry or YAMLRegistry.get_instance()
 
+        self._base_conf: float = settings.CLASSIFICATION_L1_ACCEPT
+
+        self._folder_rule_weight_factor: float = (
+            settings.CLASSIFICATION_L1_FOLDER_RULE_WEIGHT_FACTOR
+        )
+
+        self._specific_conf_boost: float = (
+            settings.CLASSIFICATION_L1_SPECIFIC_CONF_BOOST
+        )
+        self._specific_weight_factor: float = (
+            settings.CLASSIFICATION_L1_SPECIFIC_WEIGHT_FACTOR
+        )
+
+        self._generic_weight_cap: float = settings.CLASSIFICATION_L1_GENERIC_WEIGHT_CAP
+        self._generic_weight_factor: float = (
+            settings.CLASSIFICATION_L1_GENERIC_WEIGHT_FACTOR
+        )
+
+        self._context_weight_cap: float = settings.CLASSIFICATION_L1_CONTEXT_WEIGHT_CAP
+        self._context_weight_factor_specific: float = (
+            settings.CLASSIFICATION_L1_CONTEXT_WEIGHT_FACTOR_SPECIFIC
+        )
+        self._context_weight_factor_generic: float = (
+            settings.CLASSIFICATION_L1_CONTEXT_WEIGHT_FACTOR_GENERIC
+        )
+        self._context_weight_factor_context_only: float = (
+            settings.CLASSIFICATION_L1_CONTEXT_WEIGHT_FACTOR_CONTEXT_ONLY
+        )
+
+        self._generic_min_conf: float = settings.CLASSIFICATION_L1_GENERIC_MIN_CONF
+        self._generic_min_extra_factor: float = (
+            settings.CLASSIFICATION_L1_GENERIC_MIN_EXTRA_FACTOR
+        )
+        self._generic_max_conf: float = settings.CLASSIFICATION_L1_GENERIC_MAX_CONF
+
+        self._context_only_max_conf: float = (
+            settings.CLASSIFICATION_L1_CONTEXT_ONLY_MAX_CONF
+        )
+
+        self._generic_under_specific_margin: float = (
+            settings.CLASSIFICATION_L1_GENERIC_UNDER_SPECIFIC_MARGIN
+        )
+
     @staticmethod
     def _extract_rule_parts(rule: Any) -> tuple[re.Pattern | None, str, float, str]:
         """
@@ -89,6 +132,10 @@ class L1FilenameClassifier:
 
         return None, "generic_form", 1.0, str(rule)
 
+    @staticmethod
+    def _clamp(value: float, low: float, high: float) -> float:
+        return max(low, min(high, value))
+
     def classify(self, filename: str | None, folder: str | None) -> List[Dict[str, Any]]:
         """
         Вернуть список кандидатов {type_code, confidence, level, method, details}.
@@ -110,8 +157,6 @@ class L1FilenameClassifier:
 
         if not filename and not folder:
             return candidates
-
-        base_conf = float(getattr(settings, "CLASSIFICATION_L1_ACCEPT", 0.7))
 
         for cfg in self._registry.get_all_configs():
             type_code: str = cfg.type_code
@@ -177,7 +222,7 @@ class L1FilenameClassifier:
                     if folder and compiled.search(folder):
                         folder_hits += 1
                         patterns_used.append(raw_pattern)
-                        _accumulate(rule_kind, rule_weight * 0.75)
+                        _accumulate(rule_kind, rule_weight * self._folder_rule_weight_factor)
                 except Exception as e:
                     logger.warning(
                         "Invalid folder pattern in YAMLRegistry",
@@ -191,30 +236,56 @@ class L1FilenameClassifier:
             if filename_hits == 0 and folder_hits == 0:
                 continue
 
-            confidence = base_conf
+            confidence = self._base_conf
 
             if specific_hits > 0:
-                confidence = max(confidence, base_conf + 0.10)
-                confidence += min(specific_weight, 1.0) * 0.20
+                confidence = max(confidence, self._base_conf + self._specific_conf_boost)
+                confidence += min(specific_weight, 1.0) * self._specific_weight_factor
+
                 if generic_hits > 0:
-                    confidence += min(generic_weight, 0.5) * 0.05
+                    confidence += (
+                        min(generic_weight, self._generic_weight_cap)
+                        * self._generic_weight_factor
+                    )
+
                 if context_hits > 0:
-                    confidence += min(context_weight, 0.5) * 0.03
+                    confidence += (
+                        min(context_weight, self._context_weight_cap)
+                        * self._context_weight_factor_specific
+                    )
+
                 signal_kind = "specific_subject"
 
             elif generic_hits > 0:
-                confidence = min(max(confidence, 0.50 + min(generic_weight, 1.0) * 0.10), 0.65)
+                confidence = min(
+                    max(
+                        confidence,
+                        self._generic_min_conf
+                        + min(generic_weight, 1.0) * self._generic_min_extra_factor,
+                    ),
+                    self._generic_max_conf,
+                )
+
                 if context_hits > 0:
-                    confidence += min(context_weight, 0.5) * 0.02
+                    confidence += (
+                        min(context_weight, self._context_weight_cap)
+                        * self._context_weight_factor_generic
+                    )
+
                 signal_kind = "generic_form"
 
             else:
-                confidence = min(confidence, 0.50)
+                confidence = min(confidence, self._context_only_max_conf)
+
                 if context_hits > 0:
-                    confidence += min(context_weight, 0.5) * 0.02
+                    confidence += (
+                        min(context_weight, self._context_weight_cap)
+                        * self._context_weight_factor_context_only
+                    )
+
                 signal_kind = "context"
 
-            confidence = max(0.0, min(1.0, confidence))
+            confidence = self._clamp(confidence, 0.0, 1.0)
 
             candidates.append(
                 {
@@ -254,10 +325,12 @@ class L1FilenameClassifier:
         if max_specific_conf is not None:
             for c in candidates:
                 if c.get("details", {}).get("signal_kind") == "generic_form":
-                    c["confidence"] = min(c["confidence"], max_specific_conf - 0.10)
+                    c["confidence"] = min(
+                        c["confidence"],
+                        max_specific_conf - self._generic_under_specific_margin,
+                    )
                     c["confidence"] = max(0.0, c["confidence"])
 
         return sorted(candidates, key=lambda x: x["confidence"], reverse=True)
-    
 
     

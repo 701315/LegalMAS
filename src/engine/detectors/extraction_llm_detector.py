@@ -148,7 +148,7 @@ from typing import Any
 from core.logging import get_logger
 from core.config import settings
 from ..llm.client import _extract_json
-from ..llm.client import LLMClient, LLMResponse
+from ..llm.client import LLMClient
 from ..playbook.models import (
     CheckDefinition,
     ExtractionConfig,
@@ -159,8 +159,7 @@ from ..playbook.models import (
 
 logger = get_logger(__name__)
 
-
-PLAYBOOKS_DIR = os.getenv("PLAYBOOKS_DIR", "playbooks")
+LLM_DEFAULT_CONFIDENCE: float = settings.LLM_DEFAULT_CONFIDENCE
 EXTRACTION_PROMPT_PATH = os.path.join(
     settings.BASE_DIR, "playbooks", "json_format_ru.txt"
 )
@@ -228,7 +227,7 @@ class ExtractionLLMDetector:
         # ------------------------------------------------------------------
         _limit = int(getattr(settings, "LLM_CONTEXT_LIMIT", 0) or 0)
         _max_out = int(getattr(settings, "LLM_MAX_TOKENS", 512))
-        _safety = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 256))
+        _safety = int(getattr(settings, "LLM_SAFETY_MARGIN_TOKENS", 512))
 
         if _limit > 0:
             # ------------------------------------------------------------------
@@ -590,11 +589,11 @@ class ExtractionLLMDetector:
             if not isinstance(payload, dict):
                 continue
             value = payload.get("value")
-            conf_raw = payload.get("confidence", 0.7)
+            conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
             try:
                 confidence = float(conf_raw)
             except (TypeError, ValueError):
-                confidence = 0.7
+                confidence = LLM_DEFAULT_CONFIDENCE
 
             result[name] = {
                 "value": value,
@@ -635,11 +634,11 @@ class ExtractionLLMDetector:
                 continue
 
             value = payload.get("value")
-            conf_raw = payload.get("confidence", 0.7)
+            conf_raw = payload.get("confidence", LLM_DEFAULT_CONFIDENCE)
             try:
                 confidence_f = float(conf_raw)
             except (TypeError, ValueError):
-                confidence_f = 0.7
+                confidence_f = LLM_DEFAULT_CONFIDENCE
 
             # Жёстко обрезаем confidence в [0.0, 1.0]
             if confidence_f < 0.0:

@@ -72,6 +72,10 @@ from services.embeddings.embedding_service import embedding_service
 
 logger = get_logger(__name__)
 
+_L3_VECTOR_NORM_EPSILON: float = 1e-9
+_L3_WEIGHT_SUM_TOLERANCE: float = 1e-3
+_L3_DEFAULT_NEGATIVE_PROTOTYPE_TEXT: str = "neutral document"
+
 
 def _clamp(value: float, min_val: float, max_val: float) -> float:
     """Ограничение значения в диапазоне [min_val, max_val]."""
@@ -81,27 +85,56 @@ def _clamp(value: float, min_val: float, max_val: float) -> float:
 def _estimate_input_quality(text: str) -> float:
     """
     Оценка качества входа для orchestrator/voter.
-    Короткий текст (< 300 символов) даёт менее надёжный сигнал.
+
+    Короткий текст даёт менее надёжный сигнал. Параметры шкалы
+    управляются через settings.
     """
     text_len = len((text or "").strip())
     if text_len <= 0:
         return 0.0
-    if text_len >= 1500:
+
+    min_chars: int = settings.CLASSIFICATION_L3_INPUT_QUALITY_MIN_CHARS
+    full_chars: int = settings.CLASSIFICATION_L3_INPUT_QUALITY_FULL_CHARS
+
+    if text_len >= full_chars:
         return 1.0
-    return round(_clamp(0.5 + (text_len - 300) / 1200.0 * 0.5, 0.5, 1.0), 3)
+
+    quality_span = max(1, full_chars - min_chars)
+    return round(
+        _clamp(0.5 + (text_len - min_chars) / quality_span * 0.5, 0.5, 1.0),
+        3,
+    )
+
+
+def _validate_weight_sum(weights: List[float], name: str) -> None:
+    """Логируем неконсистентную конфигурацию весов."""
+    total = float(sum(weights))
+    if not np.isclose(total, 1.0, atol=_L3_WEIGHT_SUM_TOLERANCE):
+        logger.warning(
+            f"L3 {name} weights sum is not 1.0",
+            extra={
+                "weights": [round(float(w), 6) for w in weights],
+                "weights_sum": round(total, 6),
+            },
+        )
 
 
 class L3SemanticClassifier(BaseClassifier):
-    """L3: multi-window cosine similarity with positive/negative prototypes."""
+    """
+    L3: semantic classifier на embeddings.
+
+    Production-версия с:
+    - multi-window encoding с размерами и весами из settings,
+    - positive/negative prototypes,
+    - margin-based calibration для confidence,
+    - полной диагностикой для orchestrator и voting.
+    """
 
     def __init__(self, registry: YAMLRegistry | None = None) -> None:
         self._registry = registry or YAMLRegistry.get_instance()
         self._positive_prototypes: Dict[str, np.ndarray] = {}
         self._negative_prototypes: Dict[str, np.ndarray] = {}
         self._meta: Dict[str, dict] = {}
-        self._threshold: float = float(
-            getattr(settings, "CLASSIFICATION_L3_ACCEPT", 0.75)
-        )
 
         self._load_prototypes()
 
@@ -128,7 +161,9 @@ class L3SemanticClassifier(BaseClassifier):
                 continue
 
             positive_texts.append(pos_proto)
-            negative_texts.append(neg_proto if neg_proto.strip() else "neutral document")
+            negative_texts.append(
+                neg_proto if neg_proto.strip() else _L3_DEFAULT_NEGATIVE_PROTOTYPE_TEXT
+            )
             type_codes.append(cfg.type_code)
             meta_list.append(
                 {
@@ -160,8 +195,12 @@ class L3SemanticClassifier(BaseClassifier):
         pos_vecs = np.asarray(pos_vecs, dtype=np.float32)
         neg_vecs = np.asarray(neg_vecs, dtype=np.float32)
 
-        pos_vecs = pos_vecs / (np.linalg.norm(pos_vecs, axis=1, keepdims=True) + 1e-9)
-        neg_vecs = neg_vecs / (np.linalg.norm(neg_vecs, axis=1, keepdims=True) + 1e-9)
+        pos_vecs = pos_vecs / (
+            np.linalg.norm(pos_vecs, axis=1, keepdims=True) + _L3_VECTOR_NORM_EPSILON
+        )
+        neg_vecs = neg_vecs / (
+            np.linalg.norm(neg_vecs, axis=1, keepdims=True) + _L3_VECTOR_NORM_EPSILON
+        )
 
         for tc, pv, nv, m in zip(type_codes, pos_vecs, neg_vecs, meta_list):
             self._positive_prototypes[tc] = pv
@@ -176,48 +215,45 @@ class L3SemanticClassifier(BaseClassifier):
     def _create_dual_prototypes(self, cfg: DocumentTypeConfig) -> Tuple[str, str]:
         pos_parts: List[str] = []
         neg_parts: List[str] = []
-        
-        # === Positive prototype ===
+
         pos_parts.append(str(cfg.name or ""))
         raw = cfg.raw or {}
         pos_parts.append(str(raw.get("description", "") or ""))
-        
-        # Ключевые слова по уровням (high, medium, low)
+
         for impact in ("high", "medium", "low"):
             pos_parts.extend(cfg.rules_keywords.get(impact, []) or [])
             pos_parts.extend(cfg.rules_phrases.get(impact, []) or [])
-        
-        # Семантические маркеры
+
         pos_parts.extend(cfg.aliases or [])
         pos_parts.extend(cfg.section_markers or [])
-        
-        # Essential elements
+
         for elem in cfg.essential_elements or []:
             pos_parts.append(str(elem.get("element", "") or ""))
             pos_parts.extend(elem.get("keywords", []) or [])
             pos_parts.extend(elem.get("phrases", []) or [])
-        
-        # === Negative prototype (anti-scope) ===
-        # Извлекаем exclusions из rules_keywords (YAML структура)
-        exclusions = []
-        
-        # Вариант 1: exclusions в rules_keywords["exclusions"]
-        if hasattr(cfg, 'rules_keywords') and isinstance(cfg.rules_keywords, dict):
+
+        exclusions: List[str] = []
+
+        if hasattr(cfg, "rules_keywords") and isinstance(cfg.rules_keywords, dict):
             exclusions = cfg.rules_keywords.get("exclusions", []) or []
-        
-        # Вариант 2 (fallback): отдельное поле cfg.exclusions
-        if not exclusions and hasattr(cfg, 'exclusions'):
-            exclusions = getattr(cfg, 'exclusions', []) or []
-        
+
+        if not exclusions and hasattr(cfg, "exclusions"):
+            exclusions = getattr(cfg, "exclusions", []) or []
+
         neg_parts.extend(exclusions)
-        
-        # Склейка
+
         clean_pos = [str(p) for p in pos_parts if p and isinstance(p, (str, int, float))]
         clean_neg = [str(p) for p in neg_parts if p and isinstance(p, (str, int, float))]
-        
-        positive = " ".join(clean_pos)[:4000]
-        negative = " ".join(clean_neg)[:2000] if clean_neg else ""
-        
+
+        positive = " ".join(clean_pos)[
+            : settings.CLASSIFICATION_L3_POSITIVE_PROTOTYPE_MAX_CHARS
+        ]
+        negative = (
+            " ".join(clean_neg)[: settings.CLASSIFICATION_L3_NEGATIVE_PROTOTYPE_MAX_CHARS]
+            if clean_neg
+            else ""
+        )
+
         logger.debug(
             "L3 dual prototypes built",
             extra={
@@ -227,55 +263,69 @@ class L3SemanticClassifier(BaseClassifier):
                 "exclusions_count": len(exclusions),
             },
         )
-        
+
         return positive, negative
 
     def _extract_windows(self, text: str) -> List[str]:
         """
-        Извлекает 3 окна из текста для multi-window encoding:
-        - Первые 800 символов (заголовок + начало)
-        - Средние 600 символов (центральная часть)
-        - Последние 400 символов (окончание, подписи)
+        Извлекает окна из текста для multi-window encoding.
 
-        Для коротких текстов (< 1500 символов) возвращает 1 окно.
+        Для коротких текстов возвращает одно окно, для длинных — head/middle/tail.
+        Все размеры управляются через settings.
         """
         text_len = len(text)
 
-        if text_len <= 1500:
-            return [text[:1000]]
+        multi_window_min_chars: int = settings.CLASSIFICATION_L3_MULTI_WINDOW_MIN_TEXT_CHARS
+        single_window_max_chars: int = settings.CLASSIFICATION_L3_SINGLE_WINDOW_MAX_CHARS
+        head_chars: int = settings.CLASSIFICATION_L3_WINDOW_HEAD_CHARS
+        middle_chars: int = settings.CLASSIFICATION_L3_WINDOW_MIDDLE_CHARS
+        tail_chars: int = settings.CLASSIFICATION_L3_WINDOW_TAIL_CHARS
 
-        w1 = text[:800]
+        if text_len <= multi_window_min_chars:
+            return [text[:single_window_max_chars]]
 
-        mid_start = max(800, (text_len - 600) // 2)
-        mid_end = mid_start + 600
+        w1 = text[:head_chars]
+
+        mid_start = max(head_chars, (text_len - middle_chars) // 2)
+        mid_end = mid_start + middle_chars
         w2 = text[mid_start:mid_end]
 
-        w3 = text[-400:]
+        w3 = text[-tail_chars:]
 
         return [w1, w2, w3]
 
-    def _compute_multi_window_embedding(
-        self, windows: List[str]
-    ) -> np.ndarray:
+    def _compute_multi_window_embedding(self, windows: List[str]) -> np.ndarray:
         """
-        Кодирует каждое окно и возвращает взвешенную сумму.
+        Кодирует окна документа и возвращает нормализованную взвешенную сумму.
 
-        Веса окон:
-        - Первое окно (заголовок): 0.50
-        - Среднее окно: 0.30
-        - Последнее окно: 0.20
+        Веса окон управляются через settings.
         """
         if len(windows) == 1:
             vec = embedding_service.encode(windows)[0]
             vec = np.asarray(vec, dtype=np.float32)
-            return vec / (np.linalg.norm(vec) + 1e-9)
+            return vec / (np.linalg.norm(vec) + _L3_VECTOR_NORM_EPSILON)
 
         vecs = embedding_service.encode(windows)
         vecs = [np.asarray(v, dtype=np.float32) for v in vecs]
 
-        weights = [0.50, 0.30, 0.20]
+        weights = [
+            settings.CLASSIFICATION_L3_WINDOW_WEIGHT_HEAD,
+            settings.CLASSIFICATION_L3_WINDOW_WEIGHT_MIDDLE,
+            settings.CLASSIFICATION_L3_WINDOW_WEIGHT_TAIL,
+        ]
+        _validate_weight_sum(weights, "window")
+
+        if len(vecs) != len(weights):
+            logger.warning(
+                "L3 window vectors/weights length mismatch",
+                extra={
+                    "windows_count": len(vecs),
+                    "weights_count": len(weights),
+                },
+            )
+
         combined = sum(w * v for w, v in zip(weights, vecs))
-        combined = combined / (np.linalg.norm(combined) + 1e-9)
+        combined = combined / (np.linalg.norm(combined) + _L3_VECTOR_NORM_EPSILON)
 
         return combined
 
@@ -376,6 +426,8 @@ class L3SemanticClassifier(BaseClassifier):
         neg_sims: Dict[str, float] = {}
         adjusted_sims: Dict[str, float] = {}
 
+        negative_factor: float = settings.CLASSIFICATION_L3_NEGATIVE_PROTOTYPE_FACTOR
+
         for tc in self._positive_prototypes.keys():
             pos_proto = self._positive_prototypes[tc]
             neg_proto = self._negative_prototypes.get(tc)
@@ -386,7 +438,7 @@ class L3SemanticClassifier(BaseClassifier):
             pos_sims[tc] = pos_sim
             neg_sims[tc] = neg_sim
 
-            adjusted = pos_sim - 0.35 * neg_sim
+            adjusted = pos_sim - negative_factor * neg_sim
             adjusted_sims[tc] = adjusted
 
         if not adjusted_sims:
@@ -419,13 +471,24 @@ class L3SemanticClassifier(BaseClassifier):
         if len(sorted_types) >= 2:
             margin = best_adjusted_sim - sorted_types[1][1]
 
-        signal_quality = min(1.0, best_adjusted_sim + 0.15)
+        signal_quality = min(
+            1.0,
+            best_adjusted_sim + settings.CLASSIFICATION_L3_SIGNAL_QUALITY_UPLIFT,
+        )
 
         ambiguity_penalty = 0.0
-        if margin < 0.20:
-            ambiguity_penalty = 0.15 * (1.0 - margin / 0.20)
-            ambiguity_penalty = _clamp(ambiguity_penalty, 0.0, 0.15)
+        ambiguity_margin: float = settings.CLASSIFICATION_L3_AMBIGUITY_MARGIN
+        max_ambiguity_penalty: float = settings.CLASSIFICATION_L3_MAX_AMBIGUITY_PENALTY
 
+        if ambiguity_margin > 0.0 and margin < ambiguity_margin:
+            ambiguity_penalty = max_ambiguity_penalty * (1.0 - margin / ambiguity_margin)
+            ambiguity_penalty = _clamp(
+                ambiguity_penalty,
+                0.0,
+                max_ambiguity_penalty,
+            )
+
+        top_alternatives: int = max(0, settings.CLASSIFICATION_L3_TOP_ALTERNATIVES)
         alternatives = [
             {
                 "type": t,
@@ -433,7 +496,7 @@ class L3SemanticClassifier(BaseClassifier):
                 "positive_sim": round(pos_sims[t], 4),
                 "negative_sim": round(neg_sims[t], 4),
             }
-            for t, s in sorted_types[1:4]
+            for t, s in sorted_types[1 : 1 + top_alternatives]
         ]
 
         logger.info(
@@ -452,23 +515,26 @@ class L3SemanticClassifier(BaseClassifier):
             },
         )
 
-        # Дефект 10: пересмотрена формула confidence.
-        # Старая формула давала ~0.35 при sim=0.75, margin=0.05 — L3 систематически
-        # занижал confidence при narrow margin (неоднозначных документах).
-        # Новая формула: similarity-driven с margin как модификатором.
-        sim_threshold = float(getattr(settings, "CLASSIFICATION_L3_ACCEPT", 0.75))
+        sim_threshold: float = settings.CLASSIFICATION_L3_ACCEPT
 
-        # Базовый confidence линейно от similarity выше порога
         if best_adjusted_sim >= sim_threshold:
             sim_component = (best_adjusted_sim - sim_threshold) / (1.0 - sim_threshold)
         else:
             sim_component = 0.0
 
-        # Margin как модификатор: при margin >= 0.20 штрафа нет, ниже — штраф
-        margin_factor = _clamp(margin / 0.20, 0.0, 1.0)
+        margin_saturation: float = settings.CLASSIFICATION_L3_MARGIN_SATURATION
+        sim_weight: float = settings.CLASSIFICATION_L3_CONFIDENCE_SIMILARITY_WEIGHT
+        margin_weight: float = settings.CLASSIFICATION_L3_CONFIDENCE_MARGIN_WEIGHT
 
-        # Веса: similarity важнее margin (0.70 / 0.30)
-        confidence_raw = 0.70 * sim_component + 0.30 * margin_factor
+        _validate_weight_sum([sim_weight, margin_weight], "confidence")
+
+        margin_factor = (
+            _clamp(margin / margin_saturation, 0.0, 1.0)
+            if margin_saturation > 0.0
+            else 0.0
+        )
+
+        confidence_raw = sim_weight * sim_component + margin_weight * margin_factor
         confidence = round(_clamp(confidence_raw, 0.0, 1.0), 4)
 
         meta = self._meta.get(best_type, {})
@@ -501,7 +567,11 @@ class L3SemanticClassifier(BaseClassifier):
             confidence=confidence,
             level=self.level,
             method="embedding_similarity",
-            evidence=f"pos_sim={best_pos_sim:.3f}, neg_sim={best_neg_sim:.3f}, margin={margin:.3f}",
+            evidence=(
+                f"pos_sim={best_pos_sim:.3f}, "
+                f"neg_sim={best_neg_sim:.3f}, "
+                f"margin={margin:.3f}"
+            ),
             language=meta.get("language", "ru"),
             jurisdiction=meta.get("jurisdiction", "RU"),
             alternative_types=alternatives,
