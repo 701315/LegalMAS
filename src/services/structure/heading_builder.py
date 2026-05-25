@@ -8,12 +8,19 @@
 - проверяет обязательный scope-aware контракт;
 - извлекает heading candidates;
 - выполняет deterministic scoring;
+- умеет использовать TOC match index как дополнительный scoring signal;
 - делает scope-aware deduplication;
 - возвращает accepted HeadingCandidate для hierarchy builder.
 
 Главный принцип:
 heading_builder больше не "угадывает" scope и не исправляет upstream.
 Если сегментация/metadata не были проставлены — это ошибка входа.
+
+TOC integration policy:
+- toc_match_index является опциональным входом;
+- отсутствие TOC signal не считается ошибкой;
+- exact/fuzzy TOC match усиливает хорошие кандидаты;
+- stale или noisy TOC не должен сам по себе производить accepted candidate.
 """
 
 from __future__ import annotations
@@ -34,6 +41,7 @@ from services.structure.heading_scoring import (
     CandidateStatus,
     score_heading_candidate,
 )
+from services.structure.toc_match_utils import toc_match_payload
 from services.structure.hierarchy_builder import HeadingCandidate
 from services.structure.models import DEFAULT_SCOPE, make_effective_uid
 
@@ -229,20 +237,37 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
     """
     Deterministic ranking для conflict resolution внутри одного scope/raw_uid.
 
-    Текущая лестница:
-    accepted > ambiguous > rejected
-    score
-    не-list_item
-    глубина uid
-    информативность title
-    earlier position
+    Policy ladder:
+    1. decision quality: accepted > ambiguous > rejected
+    2. TOC match quality: exact > fuzzy > no_match
+    3. local score
+    4. не-list_item
+    5. глубина uid
+    6. информативность title
+    7. earlier position
+
+    Важно:
+    - TOC match должен влиять на resolution конфликтов сильнее, чем локальный score;
+    - stale / no_match TOC не даёт приоритета;
+    - ranking остаётся deterministic и explainable.
     """
     decision = _candidate_decision(candidate)
     status_weight = {"accepted": 2, "ambiguous": 1, "rejected": 0}.get(decision, 0)
 
+    metadata = getattr(candidate, "metadata", {}) or {}
+
+    toc_match_type = normalize_spaces(str(metadata.get("toc_match_type") or "")).lower()
+    toc_match_score = _safe_float(metadata.get("toc_match_score"), 0.0)
+
+    if toc_match_type == "exact" and toc_match_score > 0.0:
+        toc_priority = 3
+    elif toc_match_type == "fuzzy" and toc_match_score > 0.0:
+        toc_priority = 2
+    else:
+        toc_priority = 0
+
     score = float(getattr(candidate, "score", 0.0) or 0.0)
 
-    metadata = getattr(candidate, "metadata", {}) or {}
     element_type = normalize_spaces(str(metadata.get("element_type") or "")).lower()
     non_list_bonus = 1 if element_type != "list_item" else 0
 
@@ -257,6 +282,7 @@ def _candidate_priority_tuple(candidate: ScoredHeadingCandidate) -> tuple:
 
     return (
         status_weight,
+        toc_priority,
         score,
         non_list_bonus,
         uid_depth,
@@ -391,7 +417,24 @@ def collect_scored_heading_candidates(
     elements: list[dict[str, Any]],
     *,
     document_id: str,
+    toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> list[ScoredHeadingCandidate]:
+    
+    """
+    Собирает ScoredHeadingCandidate из layout elements.
+
+    Поведение:
+    - валидирует обязательный structure contract;
+    - парсит heading-like raw text;
+    - вычисляет local context для scorer;
+    - опционально подмешивает TOC match payload в scoring.
+
+    Важно:
+    - toc_match_index является weak/strong evidence, но не заменяет базовые guards;
+    - отсутствие toc_match_index должно давать полностью корректное поведение;
+    - все TOC-derived поля сохраняются в candidate metadata для diagnostics.
+    """
+
     scored_candidates: list[ScoredHeadingCandidate] = []
     reject_stats: Counter[str] = Counter()
     context_map = _build_context_windows(elements)
@@ -487,22 +530,17 @@ def collect_scored_heading_candidates(
         local_context = context_map.get(elem_i, {})
         prev_heading_uid = local_context.get("prev_heading_uid")
         next_heading_uid = local_context.get("next_heading_uid")
-        toc_match = None
+        toc_match = toc_match_payload(
+            raw_uid=parsed_raw_uid,
+            title=parsed_title,
+            toc_match_index=toc_match_index,
+        )
 
         score_result = score_heading_candidate(
             uid=parsed_raw_uid,
             title=parsed_title,
             raw_text=raw_text,
-            scope=scope,
-            segment_type=segment_type,
-            page=page,
-            page_offset=_safe_float(page_offset, 0.0) if page_offset is not None else None,
-            formatting=formatting,
-            prev_heading_uid=prev_heading_uid,
-            next_heading_uid=next_heading_uid,
             toc_match=toc_match,
-            element_type=element_type,
-            ocr_confidence=_safe_float(ocr_confidence, 0.0) if ocr_confidence is not None else None,
         )
 
         decision = _status_to_decision(getattr(score_result, "status", None))
@@ -538,6 +576,9 @@ def collect_scored_heading_candidates(
             "ocr_confidence": ocr_confidence,
             "prev_heading_uid": prev_heading_uid,
             "next_heading_uid": next_heading_uid,
+            "toc_match": toc_match,
+            "toc_match_type": getattr(score_result, "toc_match_type", None),
+            "toc_match_score": float(getattr(score_result, "toc_match_score", 0.0) or 0.0),
         }
 
         if decision == "accepted" and not parsed_title:
@@ -590,6 +631,8 @@ def collect_scored_heading_candidates(
             "element_type": element_type,
             "prev_heading_uid": prev_heading_uid,
             "next_heading_uid": next_heading_uid,
+            "toc_match_type": getattr(score_result, "toc_match_type", None),
+            "toc_match_score": float(getattr(score_result, "toc_match_score", 0.0) or 0.0),
         }
 
         if decision == "accepted":
@@ -678,10 +721,28 @@ def build_heading_candidates(
     elements: list[dict[str, Any]],
     *,
     document_id: str,
+    toc_match_index: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> list[HeadingCandidate]:
+    
+    """
+    Строит accepted HeadingCandidate для hierarchy builder.
+
+    Поведение:
+    - сначала собирает scored candidates из elements;
+    - затем опционально пропускает ambiguous случаи через LLM refiner;
+    - после этого оставляет только accepted candidates и нормализует их
+      для hierarchy builder.
+
+    TOC integration:
+    - toc_match_index опционален;
+    - при наличии index-а TOC signal участвует в deterministic scoring;
+    - LLM refiner работает поверх уже обогащённых metadata.
+    """
+
     scored_candidates = collect_scored_heading_candidates(
         elements,
         document_id=document_id,
+        toc_match_index=toc_match_index,
     )
 
     if not scored_candidates:

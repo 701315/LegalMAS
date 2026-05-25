@@ -15,18 +15,12 @@
 9. Quality gates + degraded fallback
 10. Сборка ClauseTree / FileGraph
 
-Главные отличия от legacy-подхода:
-- сегментация больше не является архитектурно опциональной;
-- build_file_structure() — каноническая точка входа;
-- build_structure() — backward-compatible wrapper;
-- heading_builder требует scope/segment metadata на каждом element;
-- hierarchy_builder возвращает canonical nodes_index по effective_uid;
-- degraded mode — это explicit structural signal, а не молчаливый fallback.
-
 Важно:
-- TOC parsing здесь пока ещё legacy-lite: TOC определяется и исключается из body,
-  но не строится как полноценная ParsedTOC model.
-- Это допустимо как промежуточный шаг до полноценного Sprint 2.
+- structured TOC flow не обязан быть идеально точным, чтобы быть полезным;
+- stale или noisy TOC entries считаются diagnostics signal, а не fatal error;
+- legacy TOC cutoff может сохраняться как rollback-safe fallback,
+  но не должен быть основным Sprint 2 путём.
+
 """
 
 from __future__ import annotations
@@ -60,6 +54,14 @@ from services.structure.models import (
     make_segment_id,
 )
 from services.structure.segmenter import segment_elements
+from services.structure.toc_matcher import attach_toc_matches, build_toc_match_index
+from services.structure.toc_parser import (
+    compute_partial_reliability,
+    detect_toc_block,
+    evaluate_toc_alignment,
+    parse_toc_entries,
+)
+
 
 logger = get_logger(__name__)
 
@@ -344,15 +346,21 @@ def _summarize_element_types(elements: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
     """
-    Возвращает подробный результат legacy TOC-lite детекции.
+    Legacy TOC cutoff heuristic.
 
-    ВАЖНО:
-    Это временная TOC-lite логика.
-    Она только вырезает TOC из body, но не превращает его в полноценный
-    structured signal. Для Sprint 2 должна быть заменена на:
+    Используется только как rollback-safe fallback во время миграции
+    на structured TOC pipeline.
+
+    Новый основной путь:
     - detect_toc_block()
     - parse_toc_entries()
+    - attach_toc_matches()
     - evaluate_toc_alignment()
+    - compute_partial_reliability()
+
+    Важно:
+    эта функция не строит structured TOC model и не должна использоваться
+    как primary TOC logic в Sprint 2 flow.
     """
     if not elements:
         return TocDetectionResult(
@@ -756,20 +764,27 @@ def _build_single_segment_tree(
     build_started = time.perf_counter()
 
     t_toc = time.perf_counter()
-    toc_result = _find_toc_end(elements)
+    toc_block = detect_toc_block(elements)
+    parsed_toc = parse_toc_entries(toc_block)
+
+    body_elements = elements
+    if toc_block.detected and toc_block.end_index > 0:
+        body_elements = elements[toc_block.end_index:] or elements
+
+    if not body_elements:
+        body_elements = elements
+
     _log_timing(
         f"{log_prefix} toc_detection",
         t_toc,
         document_id=document_id,
         segment_id=segment_id,
-        toc_detected=toc_result.detected,
-        toc_end_idx=toc_result.end_index,
-        toc_reason=toc_result.reason,
+        toc_detected=toc_block.detected,
+        toc_start_idx=toc_block.start_index,
+        toc_end_idx=toc_block.end_index,
+        toc_reason=toc_block.reason,
+        toc_entries_parsed=len(parsed_toc.entries),
     )
-
-    body_elements = elements[toc_result.end_index:] or elements
-    if not body_elements:
-        body_elements = elements
 
     missing_element_ids = sum(
         1 for el in body_elements if not str(el.get("element_id") or "").strip()
@@ -795,12 +810,25 @@ def _build_single_segment_tree(
 
     diagnostics: dict[str, Any] = {
         "toc": {
-            "detected": toc_result.detected,
-            "start_index": toc_result.start_index,
-            "end_index": toc_result.end_index,
-            "toc_skipped_elements": toc_result.end_index,
-            "mode": "legacy_toc_cutoff",
-            "reason": toc_result.reason,
+            "detected": toc_block.detected,
+            "start_index": toc_block.start_index,
+            "end_index": toc_block.end_index,
+            "toc_skipped_elements": toc_block.end_index if toc_block.detected else 0,
+            "mode": "structured_toc_v2",
+            "reason": toc_block.reason,
+            "entries_total": len(parsed_toc.entries),
+            "entries_with_page_hint": parsed_toc.parser_diagnostics.get("entries_with_page_hint", 0),
+            "multiline_entries": parsed_toc.parser_diagnostics.get("multiline_entries", 0),
+            "toc_alignment_score": 0.0,
+            "partial_reliability": 0.0,
+            "is_reliable": False,
+            "confidence_band": "none",
+            "exact_matches": 0,
+            "fuzzy_matches": 0,
+            "no_matches": 0,
+            "stale_entries": 0,
+            "mismatch_details": [],
+            "reasons": [],
         },
         "layout": {
             "degraded": layout_degraded,
@@ -896,6 +924,28 @@ def _build_single_segment_tree(
         )
         return result
 
+    parsed_toc = attach_toc_matches(parsed_toc, headings)
+    toc_alignment = evaluate_toc_alignment(parsed_toc)
+    toc_reliability = compute_partial_reliability(parsed_toc, toc_alignment)
+    toc_match_index = build_toc_match_index(parsed_toc)
+
+    diagnostics["toc"].update(
+        {
+            "entries_total": toc_alignment.entries_total,
+            "toc_alignment_score": round(toc_alignment.toc_alignment_score, 4),
+            "partial_reliability": round(toc_reliability.partial_reliability, 4),
+            "is_reliable": toc_reliability.is_reliable,
+            "confidence_band": toc_reliability.confidence_band,
+            "exact_matches": toc_alignment.exact_matches,
+            "fuzzy_matches": toc_alignment.fuzzy_matches,
+            "no_matches": toc_alignment.no_matches,
+            "stale_entries": toc_alignment.stale_entries,
+            "mismatch_details": toc_alignment.mismatch_details[:20],
+            "reasons": list(toc_reliability.reasons),
+            "match_index_size": len(toc_match_index),
+        }
+    )
+
     heading_summary = _summarize_headings(headings)
 
     logger.info(
@@ -911,7 +961,16 @@ def _build_single_segment_tree(
             "missing_element_ids": missing_element_ids,
             "layout_degraded": layout_degraded,
             "layout_degraded_reason": layout_degraded_reason,
-            "toc_skipped_elements": toc_result.end_index,
+            "toc_detected": diagnostics["toc"]["detected"],
+            "toc_skipped_elements": diagnostics["toc"]["toc_skipped_elements"],
+            "toc_entries_total": diagnostics["toc"]["entries_total"],
+            "toc_alignment_score": diagnostics["toc"]["toc_alignment_score"],
+            "toc_partial_reliability": diagnostics["toc"]["partial_reliability"],
+            "toc_is_reliable": diagnostics["toc"]["is_reliable"],
+            "toc_exact_matches": diagnostics["toc"]["exact_matches"],
+            "toc_fuzzy_matches": diagnostics["toc"]["fuzzy_matches"],
+            "toc_no_matches": diagnostics["toc"]["no_matches"],
+            "toc_stale_entries": diagnostics["toc"]["stale_entries"],
             "numeric_headings_count": heading_summary["numeric_count"],
             "numeric_headings_ratio": round(heading_summary["numeric_ratio"], 3),
             "empty_title_count": heading_summary["empty_title_count"],

@@ -6,6 +6,7 @@ Scoring / decision слой для heading detection.
 Задача этого модуля:
 - принимать raw heading hypothesis (uid, title, raw_text);
 - использовать feature/predicate слой из heading_features.py;
+- учитывать TOC match как дополнительный structural signal;
 - возвращать структурированное решение: accepted / rejected / ambiguous;
 - сохранять explainability: score + accept_reasons + reject_reasons.
 
@@ -15,6 +16,11 @@ Scoring / decision слой для heading detection.
 - Это НЕ LLM-refiner.
 - Это deterministic decision layer между parse_raw_heading(...)
   и дальнейшей сборкой ClauseTree.
+
+TOC integration policy:
+- TOC match не должен отменять жёсткие reject-guards;
+- exact/fuzzy TOC match может повышать confidence;
+- stale/noisy TOC не должен сам по себе приводить к accepted.
 """
 
 from __future__ import annotations
@@ -37,7 +43,6 @@ from services.structure.heading_features import (
 )
 from services.structure.heading_patterns import normalize_spaces, _normalize_title
 
-
 class CandidateStatus(str, Enum):
     """
     Итоговый статус кандидата.
@@ -57,10 +62,13 @@ class HeadingScoreResult:
     """
     Результат scoring-слоя.
 
-    - status         — основное решение (ACCEPTED / REJECTED / AMBIGUOUS);
-    - score          — балл доверия 0.0..1.0;
-    - primary_reason — короткая причина для логов;
-    - accept_reasons / reject_reasons — полное объяснение решения.
+    - status           — основное решение (ACCEPTED / REJECTED / AMBIGUOUS);
+    - score            — итоговый балл доверия 0.0..1.0;
+    - primary_reason   — короткая причина для логов;
+    - accept_reasons   — положительные explainability reasons;
+    - reject_reasons   — отрицательные explainability reasons;
+    - toc_match_score  — вклад TOC match в итоговую confidence-оценку;
+    - toc_match_type   — exact / fuzzy / no_match / None.
     """
 
     status: CandidateStatus
@@ -68,6 +76,8 @@ class HeadingScoreResult:
     primary_reason: str
     accept_reasons: list[str] = field(default_factory=list)
     reject_reasons: list[str] = field(default_factory=list)
+    toc_match_score: float = 0.0
+    toc_match_type: str | None = None
 
     @property
     def is_accepted(self) -> bool:
@@ -124,9 +134,17 @@ def score_heading_candidate(
     uid: str,
     title: str,
     raw_text: str,
+    *,
+    toc_match: dict[str, object] | None = None,
 ) -> HeadingScoreResult:
     """
     Основной deterministic scorer для heading candidate.
+
+    Вход:
+    - uid: распарсенный heading uid;
+    - title: распарсенный heading title;
+    - raw_text: исходная строка элемента;
+    - toc_match: опциональный TOC match payload, уже подготовленный builder-ом.
 
     Порядок проверок (важен — не менять без понимания последствий):
     1. Нормализация входных данных
@@ -138,9 +156,15 @@ def score_heading_candidate(
     7. Мусорный / плохой title (garbage / bad)
     8. Вычисление uid_kind / numeric_uid / level
     9. Plausibility uid формата
-    10. digit_uid без текстового title (после plausibility — чтобы причина была точной)
+    10. digit_uid без текстового title
     11. Похоже на body-предложение
-    12. Финальное решение по типу uid и уровню вложенности
+    12. TOC match bonus
+    13. Финальное решение по типу uid и уровню вложенности
+
+    TOC policy:
+    - TOC match используется только после прохождения жёстких reject-guards;
+    - exact/fuzzy TOC match повышает confidence, но не заменяет базовые признаки;
+    - stale/no_match TOC остаётся нейтральным сигналом.
     """
 
     # ── 1. Нормализация ──────────────────────────────────────────────────────
@@ -266,13 +290,21 @@ def score_heading_candidate(
     # чтобы LLM-refiner мог досмотреть.
     if looks_like_body_sentence_title(uid, title):
         if numeric_uid and level >= 2:
+            toc_bonus, toc_match_type, toc_accept_reasons = _toc_match_bonus(toc_match)
+            local_accept_reasons = accept_reasons.copy()
+            if toc_accept_reasons:
+                local_accept_reasons.extend(toc_accept_reasons)
+
             return HeadingScoreResult(
                 status=CandidateStatus.AMBIGUOUS,
-                score=0.45,
+                score=min(1.0, 0.45 + min(toc_bonus, 0.03)),
                 primary_reason="body_like_sentence_title",
-                accept_reasons=accept_reasons.copy(),
+                accept_reasons=local_accept_reasons,
                 reject_reasons=["body_like_sentence_title"],
+                toc_match_score=min(toc_bonus, 0.03),
+                toc_match_type=toc_match_type,
             )
+        
         return HeadingScoreResult(
             status=CandidateStatus.REJECTED,
             score=0.10,
@@ -281,73 +313,106 @@ def score_heading_candidate(
             reject_reasons=["body_like_sentence_title"],
         )
 
-    # ── 12. Финальное решение по типу uid и уровню вложенности ───────────────
+    # ── 12. TOC match bonus ──────────────────────────────────────────────────
+    toc_bonus, toc_match_type, toc_accept_reasons = _toc_match_bonus(toc_match)
+    if toc_accept_reasons:
+        accept_reasons.extend(toc_accept_reasons)
+
+    # ── 13. Финальное решение по типу uid и уровню вложенности ───────────────
 
     if numeric_uid:
         if level == 1:
             # Пример: "1.", "2.", "10." — корневые разделы
+            base_score = 0.95
+            final_score = min(1.0, base_score + toc_bonus)
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
-                score=0.95,
+                score=final_score,
                 primary_reason="accepted",
                 accept_reasons=accept_reasons + ["top_level_numeric_heading"],
                 reject_reasons=reject_reasons,
+                toc_match_score=toc_bonus,
+                toc_match_type=toc_match_type,
             )
 
         if level == 2:
             # Пример: "1.1", "2.3", "10.5" — подразделы
+            base_score = 0.90
+            final_score = min(1.0, base_score + toc_bonus)
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
-                score=0.90,
+                score=final_score,
                 primary_reason="accepted",
                 accept_reasons=accept_reasons + ["nested_numeric_heading"],
                 reject_reasons=reject_reasons,
+                toc_match_score=toc_bonus,
+                toc_match_type=toc_match_type,
             )
 
         if level == 3:
             # Пример: "1.1.1", "2.3.4" — типичные leaf-клаузы,
             # критичные для построения корректного дерева и downstream анализа.
+            base_score = 0.85
+            final_score = min(1.0, base_score + toc_bonus)
             return HeadingScoreResult(
                 status=CandidateStatus.ACCEPTED,
-                score=0.85,
+                score=final_score,
                 primary_reason="accepted",
                 accept_reasons=accept_reasons + ["deep_numeric_heading_l3"],
                 reject_reasons=reject_reasons,
+                toc_match_score=toc_bonus,
+                toc_match_type=toc_match_type,
             )
 
         # level >= 4: очень глубокая вложенность — принимаем осторожно
+        base_score = 0.65
+        final_score = min(1.0, base_score + toc_bonus)
         return HeadingScoreResult(
             status=CandidateStatus.AMBIGUOUS,
-            score=0.65,
+            score=final_score,
             primary_reason="very_deep_numeric_heading",
             accept_reasons=accept_reasons + ["very_deep_numeric_heading"],
             reject_reasons=reject_reasons,
+            toc_match_score=toc_bonus,
+            toc_match_type=toc_match_type,
         )
 
     if uid_kind == "roman":
+        base_score = 0.82
+        final_score = min(1.0, base_score + toc_bonus)
         return HeadingScoreResult(
             status=CandidateStatus.ACCEPTED,
-            score=0.82,
+            score=final_score,
             primary_reason="accepted",
             accept_reasons=accept_reasons + ["roman_heading"],
             reject_reasons=reject_reasons,
+            toc_match_score=toc_bonus,
+            toc_match_type=toc_match_type,
         )
 
     if uid_kind == "alpha":
+        base_score = 0.60
+        final_score = min(1.0, base_score + toc_bonus)
         return HeadingScoreResult(
             status=CandidateStatus.AMBIGUOUS,
-            score=0.60,
+            score=final_score,
             primary_reason="alpha_heading",
             accept_reasons=accept_reasons + ["alpha_heading"],
             reject_reasons=reject_reasons,
+            toc_match_score=toc_bonus,
+            toc_match_type=toc_match_type,
         )
 
+    base_score = 0.50
+    final_score = min(1.0, base_score + toc_bonus)
     return HeadingScoreResult(
         status=CandidateStatus.AMBIGUOUS,
-        score=0.50,
+        score=final_score,
         primary_reason="fallback_ambiguous",
         accept_reasons=accept_reasons,
         reject_reasons=reject_reasons,
+        toc_match_score=toc_bonus,
+        toc_match_type=toc_match_type,
     )
 
 
@@ -355,6 +420,8 @@ def validate_heading_candidate_with_reason(
     uid: str,
     title: str,
     raw_text: str,
+    *,
+    toc_match: dict | None = None,
 ) -> tuple[bool, str]:
     """
     Legacy-compatible bridge.
@@ -364,7 +431,7 @@ def validate_heading_candidate_with_reason(
     - AMBIGUOUS → (False, primary_reason)
     - REJECTED  → (False, primary_reason)
     """
-    result = score_heading_candidate(uid, title, raw_text)
+    result = score_heading_candidate(uid, title, raw_text, toc_match=toc_match)
     if result.is_accepted:
         return True, result.primary_reason
     return False, result.primary_reason
@@ -374,10 +441,56 @@ def validate_heading_candidate(
     uid: str,
     title: str,
     raw_text: str,
+    *,
+    toc_match: dict | None = None,
 ) -> bool:
     """Старый бинарный интерфейс."""
-    ok, _ = validate_heading_candidate_with_reason(uid, title, raw_text)
+    ok, _ = validate_heading_candidate_with_reason(
+        uid,
+        title,
+        raw_text,
+        toc_match=toc_match,
+    )
     return ok
 
+def _toc_match_bonus(
+    toc_match: dict[str, object] | None,
+) -> tuple[float, str | None, list[str]]:
+    """
+    Возвращает вклад TOC match в confidence scorer-а.
 
+    Правила:
+    - exact match даёт максимальный бонус;
+    - fuzzy match даёт градуированный бонус по similarity score;
+    - stale / missing-in-body TOC entry бонус не даёт;
+    - отсутствие TOC match — это нейтральный случай, не штраф.
+
+    Возвращает:
+    - bonus: float 0.0..0.08
+    - match_type: exact / fuzzy / no_match / None
+    - reasons: explainability reasons для accept_reasons
+    """
+    if not toc_match:
+        return 0.0, None, []
+
+    match_type = str(toc_match.get("match_type") or "").strip() or None
+    match_score = toc_match.get("match_score")
+    toc_missing_in_body = bool(toc_match.get("toc_missing_in_body"))
+
+    if toc_missing_in_body:
+        return 0.0, match_type or "no_match", []
+
+    if match_type == "exact":
+        return 0.08, "exact", ["toc_exact_match"]
+
+    if match_type == "fuzzy":
+        numeric_score = float(match_score or 0.0)
+        if numeric_score >= 92:
+            return 0.06, "fuzzy", ["toc_fuzzy_match_strong"]
+        if numeric_score >= 87:
+            return 0.045, "fuzzy", ["toc_fuzzy_match"]
+        if numeric_score >= 82:
+            return 0.03, "fuzzy", ["toc_fuzzy_match_weak"]
+
+    return 0.0, match_type, []
 
