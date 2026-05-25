@@ -323,6 +323,29 @@ def _is_toc_continuation_line(text: str) -> bool:
 
     return True
 
+def _is_toc_tail_line(text: str) -> bool:
+    """
+    Строка выглядит как хвост multiline TOC entry:
+    - есть page_hint;
+    - нет собственного heading uid;
+    - короткая;
+    """
+    t = _normalize_toc_text(text)
+    if not t:
+        return False
+
+    text_wo_page, page_hint = _extract_page_hint(t)
+    if page_hint is None:
+        return False
+
+    parsed = parse_raw_heading(text_wo_page)
+    if parsed is not None:
+        return False
+
+    if len(text_wo_page.split()) > 12:
+        return False
+
+    return True
 
 def detect_toc_block(elements: list[dict[str, Any]]) -> TOCBlock:
     """
@@ -510,6 +533,15 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
         if _is_likely_toc_marker(text):
             continue
 
+        # Приоритет 1: tail line для уже начатой multiline entry
+        if buffer_texts and _is_toc_tail_line(text):
+            buffer_texts.append(text)
+            buffer_indexes.append(global_idx)
+            if _extract_page_hint(" ".join(buffer_texts))[1] is not None:
+                flush_buffer()
+            continue
+
+        # Приоритет 2: самостоятельная TOC entry с page_hint
         if _is_likely_toc_entry_line(text):
             flush_buffer()
             buffer_texts = [text]
@@ -518,6 +550,15 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
                 flush_buffer()
             continue
 
+        # Приоритет 3: строка с heading uid, но без page_hint — начинаем multiline
+        parsed = parse_raw_heading(text)
+        if parsed is not None:
+            flush_buffer()
+            buffer_texts = [text]
+            buffer_indexes = [global_idx]
+            continue
+
+        # Приоритет 4: continuation line для уже открытой entry
         if _is_toc_continuation_line(text) and buffer_texts:
             buffer_texts.append(text)
             buffer_indexes.append(global_idx)
@@ -525,6 +566,7 @@ def parse_toc_entries(toc_block: TOCBlock) -> ParsedTOC:
                 flush_buffer()
             continue
 
+        # Fallback: строка не подошла ни под один паттерн
         flush_buffer()
 
     flush_buffer()
