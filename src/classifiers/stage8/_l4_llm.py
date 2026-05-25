@@ -353,7 +353,7 @@ class L4LLMClassifier:
             if cleaned.startswith(t) or t.startswith(cleaned)
         ]
         if len(prefix_candidates) == 1:
-            matched = prefix_candidates
+            matched = prefix_candidates[0]    # ← FIX: берём элемент, не список
             logger.warning(
                 "L4LLMClassifier.parse: fuzzy type_code match",
                 extra={"raw": cleaned, "matched": matched},
@@ -361,7 +361,6 @@ class L4LLMClassifier:
             meta["normalization_strategy"] = "unique_prefix_fuzzy"
             meta["matched_type_code"] = matched
             return matched, meta
-
         if len(prefix_candidates) > 1:
             raise ValueError(
                 f"type_code '{cleaned}' ambiguously matches multiple allowed_types: "
