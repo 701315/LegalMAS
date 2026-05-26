@@ -329,7 +329,7 @@ def make_effective_uid(scope: str, raw_uid: str) -> str:
     normalized_raw_uid = _norm_str(raw_uid)
     if not normalized_raw_uid:
         raise ValueError("raw_uid must be non-empty to build effective_uid")
-    return f"{normalized_scope}::{normalized_raw_uid}"
+    return f"{normalized_scope}:{normalized_raw_uid}"
 
 
 def split_effective_uid(effective_uid: str) -> tuple[str, str]:
@@ -337,13 +337,13 @@ def split_effective_uid(effective_uid: str) -> tuple[str, str]:
     if not normalized:
         raise ValueError("effective_uid must be non-empty")
 
-    if "::" not in normalized:
+    if ":" not in normalized:
         raise ValueError(
             f"Invalid effective_uid={normalized!r}. "
-            "Expected canonical '<scope>::<raw_uid>' format"
+            "Expected canonical 'scope:raw_uid' format"
         )
 
-    scope, raw_uid = normalized.split("::", 1)
+    scope, raw_uid = normalized.split(":", 1)
     scope = _validate_scope_name(scope)
     raw_uid = _norm_str(raw_uid)
 
