@@ -47,14 +47,14 @@ from db.repositories.document_repo import DocumentRepository
 from db.repositories.document_segment_repo import DocumentSegmentRepository
 from db.repositories.document_version_repo import DocumentVersionRepository
 from engine.content.clause_tree_builder import ClauseTreeBuilder
-from engine.content.chunk_snapshot_builder import (
-    _add_position_ratio,
-    _add_summary,
-    _build_sized_chunks_from_leaf,
-    _ensure_clause_metadata,
-    _extract_total_pages,
-    _normalize_clause_chunk_text,
-    _propagate_language_filter,
+from engine.content.chunk_canonicalization import (
+    add_position_ratio,
+    add_summary,
+    build_sized_chunks_from_leaf,
+    ensure_clause_metadata,
+    extract_total_pages,
+    normalize_clause_chunk_text,
+    propagate_language_filter,
 )
 from storage.artifact_store import ArtifactStore
 
@@ -338,7 +338,7 @@ class SegmentChunkBuilderV2:
             )
 
         layout_meta = layout.get("metadata") or {}
-        total_pages = _extract_total_pages(layout_meta)
+        total_pages = extract_total_pages(layout_meta)
 
         logger.debug(
             "SegmentChunkBuilderV2: layout loaded",
@@ -531,18 +531,50 @@ class SegmentChunkBuilderV2:
         for ch in leaf_chunks:
             meta = ch.get("metadata") or {}
             before = ch.get("text") or ""
-            after = _normalize_clause_chunk_text(
+            after = normalize_clause_chunk_text(
                 text=before,
-                clause_uid=str(meta.get("clause_uid")) if meta.get("clause_uid") is not None else None,
+                raw_uid=str(meta.get("raw_uid")) if meta.get("raw_uid") is not None else None,
                 title=meta.get("title"),
             )
             ch["text"] = after
 
-        _propagate_language_filter(leaf_chunks, layout_meta)
+        propagate_language_filter(leaf_chunks, layout_meta)
         if total_pages:
-            _add_position_ratio(leaf_chunks, total_pages)
+            add_position_ratio(leaf_chunks, total_pages)
 
-        clause_chunks = _ensure_clause_metadata(document_id, leaf_chunks)
+        clause_chunks = ensure_clause_metadata(document_id, leaf_chunks)
+
+        invalid_clause_chunks = [
+            ch for ch in clause_chunks
+            if not ((ch.get("metadata") or {}).get("effective_uid"))
+        ]
+        if invalid_clause_chunks:
+            logger.warning(
+                "SegmentChunkBuilderV2: clause chunks without effective_uid after ensure",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "invalid_count": len(invalid_clause_chunks),
+                },
+            )
+
+        invalid_clause_kinds = [
+            ch for ch in clause_chunks
+            if (ch.get("metadata") or {}).get("chunk_kind") != "clause"
+        ]
+        if invalid_clause_kinds:
+            logger.warning(
+                "SegmentChunkBuilderV2: non-clause chunks detected in clause collection",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "invalid_count": len(invalid_clause_kinds),
+                },
+            )
+
+
         clause_chunks = self._enrich_segment_metadata(
             chunks=clause_chunks,
             segment=segment,
@@ -551,9 +583,9 @@ class SegmentChunkBuilderV2:
             segment_clause_tree_ref=segment_clause_tree_ref,
             total_pages=total_pages,
         )
-        clause_chunks = _add_summary(clause_chunks)
+        clause_chunks = add_summary(clause_chunks)
 
-        subclause_chunks = _build_sized_chunks_from_leaf(
+        subclause_chunks = build_sized_chunks_from_leaf(
             doc_id=document_id,
             leaf_chunks=leaf_chunks,
             target_tokens=target_tokens,
@@ -561,6 +593,22 @@ class SegmentChunkBuilderV2:
             overlap_ratio=overlap_ratio,
             total_pages=total_pages,
         )
+
+        invalid_subclause_kinds = [
+            ch for ch in subclause_chunks
+            if (ch.get("metadata") or {}).get("chunk_kind") != "subclause"
+        ]
+        if invalid_subclause_kinds:
+            logger.warning(
+                "SegmentChunkBuilderV2: non-subclause chunks detected in subclause collection",
+                extra={
+                    "document_id": str(document_id),
+                    "document_version_id": str(document_version_id),
+                    "segment_id": segment.segment_id,
+                    "invalid_count": len(invalid_subclause_kinds),
+                },
+            )
+
         subclause_chunks = self._enrich_segment_metadata(
             chunks=subclause_chunks,
             segment=segment,
@@ -569,7 +617,7 @@ class SegmentChunkBuilderV2:
             segment_clause_tree_ref=segment_clause_tree_ref,
             total_pages=total_pages,
         )
-        subclause_chunks = _add_summary(subclause_chunks)
+        subclause_chunks = add_summary(subclause_chunks)
 
         section_chunks = self._build_section_chunks_safe(
             document_id=document_id,
@@ -584,6 +632,10 @@ class SegmentChunkBuilderV2:
         )
 
         total_leaf_nodes = leaf_result.total_leaf_nodes
+
+        # Coverage считается по leaf -> clause chunk mapping.
+        # То есть leaf_nodes_without_chunks означает отсутствие clause chunk,
+        # а не вообще любого derived chunk.
         leaf_nodes_without_chunks = max(0, total_leaf_nodes - len(clause_chunks))
         leaf_nodes_without_element_ids = leaf_result.leaf_nodes_without_element_ids
         leaf_nodes_empty_after_filtering = leaf_result.leaf_nodes_empty_after_filtering
@@ -698,6 +750,21 @@ class SegmentChunkBuilderV2:
                 )
                 return []
 
+            invalid_section_kinds = [
+                ch for ch in section_chunks
+                if (ch.get("metadata") or {}).get("chunk_kind") != "section"
+            ]
+            if invalid_section_kinds:
+                logger.warning(
+                    "SegmentChunkBuilderV2: non-section chunks detected in section collection",
+                    extra={
+                        "document_id": str(document_id),
+                        "document_version_id": str(document_version_id),
+                        "segment_id": segment.segment_id,
+                        "invalid_count": len(invalid_section_kinds),
+                    },
+                )
+
             enriched = self._enrich_segment_metadata(
                 chunks=section_chunks,
                 segment=segment,
@@ -706,7 +773,7 @@ class SegmentChunkBuilderV2:
                 segment_clause_tree_ref=segment_clause_tree_ref,
                 total_pages=total_pages,
             )
-            return _add_summary(enriched)
+            return add_summary(enriched)
 
         except Exception as e:
             logger.warning(

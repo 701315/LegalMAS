@@ -20,7 +20,6 @@
 - stale или noisy TOC entries считаются diagnostics signal, а не fatal error;
 - legacy TOC cutoff может сохраняться как rollback-safe fallback,
   но не должен быть основным Sprint 2 путём.
-
 """
 
 from __future__ import annotations
@@ -29,10 +28,11 @@ import re
 import time
 from dataclasses import dataclass
 from typing import Any
-from services.structure.element_classifier import classify_elements
+
 from core.config import settings
 from core.logging import get_logger
 from services.structure.crossrefs import extract_references
+from services.structure.element_classifier import classify_elements
 from services.structure.file_graph_builder import build_file_graph
 from services.structure.heading_builder import build_heading_candidates
 from services.structure.heading_features import has_letters, looks_like_toc_line
@@ -46,11 +46,11 @@ from services.structure.models import (
     SegmentDocument,
     SEGMENT_CONFIDENCE_HIGH,
     SEGMENT_TYPE_CONTRACT,
-    SEGMENT_TYPE_UNKNOWN,
     STRUCTURE_CONFIDENCE_FAILED,
     STRUCTURE_CONFIDENCE_HIGH,
     STRUCTURE_CONFIDENCE_LOW,
     STRUCTURE_CONFIDENCE_MEDIUM,
+    make_effective_uid,
     make_segment_id,
 )
 from services.structure.segmenter import segment_elements
@@ -61,7 +61,6 @@ from services.structure.toc_parser import (
     evaluate_toc_alignment,
     parse_toc_entries,
 )
-
 
 logger = get_logger(__name__)
 
@@ -316,6 +315,7 @@ def _summarize_headings(headings: list[HeadingCandidate]) -> dict[str, Any]:
         "scope_distribution": scope_distribution,
     }
 
+
 def _summarize_element_types(elements: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Лёгкая сводка по element_type после secondary classification.
@@ -347,20 +347,6 @@ def _summarize_element_types(elements: list[dict[str, Any]]) -> dict[str, Any]:
 def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
     """
     Legacy TOC cutoff heuristic.
-
-    Используется только как rollback-safe fallback во время миграции
-    на structured TOC pipeline.
-
-    Новый основной путь:
-    - detect_toc_block()
-    - parse_toc_entries()
-    - attach_toc_matches()
-    - evaluate_toc_alignment()
-    - compute_partial_reliability()
-
-    Важно:
-    эта функция не строит structured TOC model и не должна использоваться
-    как primary TOC logic в Sprint 2 flow.
     """
     if not elements:
         return TocDetectionResult(
@@ -398,12 +384,7 @@ def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
                         "toc_last_page": toc_last_page,
                     },
                 )
-                return TocDetectionResult(
-                    detected=True,
-                    start_index=toc_start_idx,
-                    end_index=i,
-                    reason="page_threshold",
-                )
+                return TocDetectionResult(True, toc_start_idx, i, "page_threshold")
 
             text = normalize_spaces(el.get("text", ""))
             parsed = parse_raw_heading(text)
@@ -423,12 +404,7 @@ def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
                             "toc_last_page": toc_last_page,
                         },
                     )
-                    return TocDetectionResult(
-                        detected=True,
-                        start_index=toc_start_idx,
-                        end_index=i,
-                        reason="heading_after_toc",
-                    )
+                    return TocDetectionResult(True, toc_start_idx, i, "heading_after_toc")
 
             if not parsed and len(text) > 80 and has_letters(text):
                 logger.debug(
@@ -439,12 +415,7 @@ def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
                         "toc_last_page": toc_last_page,
                     },
                 )
-                return TocDetectionResult(
-                    detected=True,
-                    start_index=toc_start_idx,
-                    end_index=i,
-                    reason="long_text_after_toc",
-                )
+                return TocDetectionResult(True, toc_start_idx, i, "long_text_after_toc")
 
             toc_last_page = el_page
 
@@ -456,12 +427,7 @@ def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
                 "toc_last_page": toc_last_page,
             },
         )
-        return TocDetectionResult(
-            detected=True,
-            start_index=toc_start_idx,
-            end_index=toc_start_idx + 1,
-            reason="marker_only_fallback",
-        )
+        return TocDetectionResult(True, toc_start_idx, toc_start_idx + 1, "marker_only_fallback")
 
     cluster_count = 0
     cluster_last_idx = 0
@@ -493,12 +459,7 @@ def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
                     "cluster_count": cluster_count,
                 },
             )
-            return TocDetectionResult(
-                detected=True,
-                start_index=cluster_start_idx,
-                end_index=cluster_last_idx + 1,
-                reason="cluster_fallback",
-            )
+            return TocDetectionResult(True, cluster_start_idx, cluster_last_idx + 1, "cluster_fallback")
 
         cluster_count = 0
         cluster_start_idx = None
@@ -512,20 +473,10 @@ def _find_toc_end(elements: list[dict]) -> TocDetectionResult:
                 "cluster_count": cluster_count,
             },
         )
-        return TocDetectionResult(
-            detected=True,
-            start_index=cluster_start_idx,
-            end_index=cluster_last_idx + 1,
-            reason="cluster_fallback_end",
-        )
+        return TocDetectionResult(True, cluster_start_idx, cluster_last_idx + 1, "cluster_fallback_end")
 
     logger.debug("STRUCTURE toc_not_detected")
-    return TocDetectionResult(
-        detected=False,
-        start_index=None,
-        end_index=0,
-        reason="not_detected",
-    )
+    return TocDetectionResult(False, None, 0, "not_detected")
 
 
 # ── Coverage и quality ───────────────────────────────────────────────────────
@@ -608,6 +559,13 @@ def _degraded_tree(
     *,
     structure_confidence: str = STRUCTURE_CONFIDENCE_LOW,
     diagnostics: dict[str, Any] | None = None,
+    scope_name: str = "main_contract",
+    segment_id: str | None = None,
+    segment_type: str | None = None,
+    segment_title: str | None = None,
+    segment_page_range: tuple[int, int] | None = None,
+    segment_order: int | None = None,
+    is_primary_segment: bool = False,
 ) -> ClauseTree:
     """
     Строит технический ClauseTree из равномерных чанков по токенам.
@@ -632,34 +590,37 @@ def _degraded_tree(
             "coverage": round(coverage, 3),
             "max_tokens_per_chunk": max_tokens,
             "structure_confidence": structure_confidence,
+            "scope_name": scope_name,
+            "segment_id": segment_id,
         },
     )
 
     def _flush_chunk() -> None:
         nonlocal chunk_idx, current_ids, current_text_parts, current_tokens, current_start_page
+
         start_page = current_start_page or last_page
         end_page = last_page
         own_text = " ".join(current_text_parts) if current_text_parts else None
 
         raw_uid = str(chunk_idx)
-        effective_uid = f"degraded_chunk::{raw_uid}"
+        effective_uid = make_effective_uid(scope_name, raw_uid)
 
         chunks.append(
             ClauseNode(
                 effective_uid=effective_uid,
                 raw_uid=raw_uid,
-                scope="degraded_chunk",
-                clause_uid=raw_uid,
+                scope=scope_name,
                 title=f"Chunk {chunk_idx}",
                 level=1,
                 node_kind="leaf",
-                own_element_ids=current_ids,
+                own_element_ids=list(current_ids),
                 subtree_element_ids=list(current_ids),
                 own_text=own_text,
                 subtree_text=own_text,
                 start_page=start_page,
                 end_page=end_page,
-                clause_uid_alias_mode=True,
+                children=[],
+                range_end_reason="segment_end",
                 diagnostics={"degraded_chunk": True},
             )
         )
@@ -668,12 +629,13 @@ def _degraded_tree(
             "STRUCTURE degraded_chunk_built",
             extra={
                 "document_id": document_id,
-                "chunk_uid": raw_uid,
+                "raw_uid": raw_uid,
                 "effective_uid": effective_uid,
                 "element_ids_count": len(current_ids),
                 "start_page": start_page,
                 "end_page": end_page,
                 "tokens": current_tokens,
+                "scope_name": scope_name,
             },
         )
 
@@ -685,15 +647,15 @@ def _degraded_tree(
 
     for idx, el in enumerate(elements):
         text = el.get("text", "")
-        tokens = len(text.split())
+        tokens = len(str(text or "").split())
         page = el.get("page", 1)
 
         if current_tokens + tokens > max_tokens and current_ids:
             _flush_chunk()
 
         current_ids.append(_stable_element_id(el, idx))
-        if text.strip():
-            current_text_parts.append(text.strip())
+        if str(text or "").strip():
+            current_text_parts.append(str(text).strip())
         current_tokens += tokens
         if current_start_page is None:
             current_start_page = page
@@ -709,10 +671,12 @@ def _degraded_tree(
             "chunks": len(chunks),
             "coverage": round(coverage, 3),
             "structure_confidence": structure_confidence,
+            "scope_name": scope_name,
+            "segment_id": segment_id,
         },
     )
 
-    diagnostics = diagnostics or {}
+    diagnostics = dict(diagnostics or {})
     diagnostics.setdefault("quality_gates", {})
     diagnostics["quality_gates"].update(
         {
@@ -730,7 +694,14 @@ def _degraded_tree(
         degraded=True,
         nodes_index={node.effective_uid: node for node in chunks},
         structure_diagnostics=diagnostics,
-        clause_uid_alias_mode=True,
+        segment_id=segment_id,
+        segment_type=segment_type,
+        segment_title=segment_title,
+        segment_page_range=segment_page_range,
+        segment_order=segment_order,
+        scope_name=scope_name,
+        is_primary_segment=is_primary_segment,
+        schema_version="3.0",
     )
 
 
@@ -752,16 +723,9 @@ def _build_single_segment_tree(
 ) -> ClauseTree:
     """
     Строит ClauseTree для одного логического сегмента.
-
-    Внутренний flow:
-    1. TOC-lite detection
-    2. contract validation для body elements
-    3. heading candidate extraction
-    4. hierarchy + crossrefs
-    5. coverage + structural quality
-    6. quality gates / degraded fallback
     """
     build_started = time.perf_counter()
+    normalized_scope_name = str(scope_name or "main_contract").strip() or "main_contract"
 
     t_toc = time.perf_counter()
     toc_block = detect_toc_block(elements)
@@ -858,15 +822,12 @@ def _build_single_segment_tree(
                 **diagnostics,
                 "degraded_reason": "element_contract_validation_failed",
             },
-        )
-        _apply_segment_fields(
-            result,
+            scope_name=normalized_scope_name,
             segment_id=segment_id,
             segment_type=segment_type,
             segment_title=segment_title,
             segment_page_range=segment_page_range,
             segment_order=segment_order,
-            scope_name=scope_name,
             is_primary_segment=is_primary_segment,
         )
         _log_timing(
@@ -903,15 +864,12 @@ def _build_single_segment_tree(
                 **diagnostics,
                 "degraded_reason": "no_headings_detected",
             },
-        )
-        _apply_segment_fields(
-            result,
+            scope_name=normalized_scope_name,
             segment_id=segment_id,
             segment_type=segment_type,
             segment_title=segment_title,
             segment_page_range=segment_page_range,
             segment_order=segment_order,
-            scope_name=scope_name,
             is_primary_segment=is_primary_segment,
         )
         _log_timing(
@@ -954,7 +912,7 @@ def _build_single_segment_tree(
             "document_id": document_id,
             "segment_id": segment_id,
             "segment_type": segment_type,
-            "scope_name": scope_name,
+            "scope_name": normalized_scope_name,
             "total_elements": len(elements),
             "body_elements": len(body_elements),
             "headings_found": len(headings),
@@ -980,7 +938,7 @@ def _build_single_segment_tree(
     )
 
     t_tree = time.perf_counter()
-    root_nodes, nodes, element_to_uid, structure_degraded = build_clause_hierarchy(
+    root_nodes, nodes, element_to_effective_uid, structure_degraded = build_clause_hierarchy(
         headings=headings,
         elements=body_elements,
         document_id=document_id,
@@ -989,7 +947,7 @@ def _build_single_segment_tree(
 
     references = extract_references(
         elements=body_elements,
-        element_to_uid=element_to_uid,
+        element_to_effective_uid=element_to_effective_uid,
         nodes=nodes,
         document_id=document_id,
         stable_element_id_resolver=_stable_element_id,
@@ -1077,15 +1035,12 @@ def _build_single_segment_tree(
                 **diagnostics,
                 "degraded_reason": degraded_reason,
             },
-        )
-        _apply_segment_fields(
-            result,
+            scope_name=normalized_scope_name,
             segment_id=segment_id,
             segment_type=segment_type,
             segment_title=segment_title,
             segment_page_range=segment_page_range,
             segment_order=segment_order,
-            scope_name=scope_name,
             is_primary_segment=is_primary_segment,
         )
         _log_timing(
@@ -1106,18 +1061,14 @@ def _build_single_segment_tree(
         degraded=bool(structure_degraded),
         nodes_index=nodes,
         structure_diagnostics=diagnostics,
-        clause_uid_alias_mode=True,
-    )
-
-    _apply_segment_fields(
-        result,
         segment_id=segment_id,
         segment_type=segment_type,
         segment_title=segment_title,
         segment_page_range=segment_page_range,
         segment_order=segment_order,
-        scope_name=scope_name,
+        scope_name=normalized_scope_name,
         is_primary_segment=is_primary_segment,
+        schema_version="3.0",
     )
 
     _log_timing(
@@ -1147,7 +1098,6 @@ def _apply_segment_fields(
     """
     if segment_id is not None:
         tree.segment_id = segment_id
-        tree.schema_version = "2.0"
     if segment_type is not None:
         tree.segment_type = segment_type
     if segment_title is not None:
@@ -1159,6 +1109,7 @@ def _apply_segment_fields(
     if scope_name is not None:
         tree.scope_name = scope_name
     tree.is_primary_segment = is_primary_segment
+    tree.schema_version = "3.0"
 
 
 # ── Legacy wrapper ───────────────────────────────────────────────────────────
@@ -1170,10 +1121,6 @@ def build_structure(
 ) -> ClauseTree:
     """
     Legacy-compatible вход.
-
-    Новый смысл:
-    - build_file_structure() является канонической точкой входа;
-    - build_structure() остаётся wrapper для старых downstream consumers.
     """
     result = build_file_structure(
         document_id=document_id,
@@ -1195,8 +1142,6 @@ def _make_single_segment_list(
     """
     Возвращает список из одного SegmentDocument,
     который покрывает весь файл.
-
-    Это не "segmentation disabled", а valid single-segment result.
     """
     page_start, page_end = _pages_for_elements(elements)
 
@@ -1213,10 +1158,9 @@ def _make_single_segment_list(
         element_end=len(elements),
         confidence=SEGMENT_CONFIDENCE_HIGH,
         is_primary=True,
+        segmentation_confidence_score=1.0,
+        segmentation_reasons=["single_segment_pipeline_fallback"],
     )
-    single_segment.scope_name = "main_contract"
-    single_segment.segmentation_confidence_score = 1.0
-    single_segment.segmentation_reasons = ["single_segment_pipeline_fallback"]
     return [single_segment]
 
 
@@ -1228,8 +1172,6 @@ def _segment_document(
 ) -> list[SegmentDocument]:
     """
     Всегда пытается выполнить сегментацию.
-
-    Если segmenter падает, возвращает корректный single-segment fallback.
     """
     try:
         segments = segment_elements(document_id=document_id, elements=elements)
@@ -1296,18 +1238,6 @@ def build_file_structure(
 ) -> FileStructureResult:
     """
     Каноническая точка входа для scope-aware file structure.
-
-    Поведение:
-    - файл всегда проходит через segmentation core;
-    - результат сегментации может быть:
-      - single-segment
-      - multi-segment
-    - но архитектурная ветка "совсем без сегментации" больше не используется.
-
-    Инварианты:
-    - каждый segment tree строится только по своим element slice;
-    - каждый element в segment tree имеет scope/segment metadata;
-    - primary_tree выбирается по file_graph.primary_segment_id.
     """
     if not document_id:
         logger.warning("STRUCTURE build_file_structure: empty document_id, using placeholder")
@@ -1427,15 +1357,12 @@ def build_file_structure(
                         "structure_confidence": STRUCTURE_CONFIDENCE_FAILED,
                     },
                 },
-            )
-            _apply_segment_fields(
-                tree,
+                scope_name=seg.scope_name,
                 segment_id=seg.segment_id,
                 segment_type=seg.segment_type,
                 segment_title=seg.segment_title,
                 segment_page_range=(seg.page_start, seg.page_end),
                 segment_order=seg.segment_order,
-                scope_name=seg.scope_name,
                 is_primary_segment=seg.is_primary,
             )
             segment_trees.append(tree)

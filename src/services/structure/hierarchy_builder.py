@@ -11,16 +11,6 @@
 - только собирать scope-aware дерево ClauseNode из уже принятых heading candidates
   и layout elements.
 
-Что изменено по сравнению с legacy-подходом:
-- канонический ключ узла основан на effective_uid, а не на raw_uid;
-- повторяющиеся raw_uid в разных scope допустимы и больше не конфликтуют;
-- parent lookup выполняется только внутри того же scope;
-- глобальный индекс nodes хранится как effective_uid -> ClauseNode;
-- own-диапазоны считаются с явной диагностикой причины конца диапазона;
-- invalid/unbounded own range считается признаком structural degradation;
-- конец диапазона "segment_end" теперь действительно означает конец scope/сегмента,
-  а не конец всего документа.
-
 Контракт входных heading candidates:
 - сюда попадают только уже accepted headings;
 - каждый heading обязан иметь:
@@ -34,13 +24,15 @@
 Контракт возврата build_clause_hierarchy():
 - root_nodes: список корневых узлов дерева;
 - nodes: глобальный индекс effective_uid -> ClauseNode;
-- element_to_uid: stable_element_id -> effective_uid;
+- element_to_effective_uid: stable_element_id -> effective_uid;
 - structure_degraded: bool, true если обнаружены опасные structural anomalies.
 
-Этот модуль не должен пытаться "угадывать" структуру заново.
-Если heading_builder уже дал плохой набор headings, задача hierarchy_builder —
-собрать дерево максимально детерминированно и честно зафиксировать деградацию
-через diagnostics/logs.
+Clean-break contract:
+- canonical identity узла = effective_uid в формате "<scope>::<raw_uid>";
+- parent lookup выполняется только внутри того же scope;
+- глобальный индекс nodes хранится как effective_uid -> ClauseNode;
+- никакого legacy fallback на raw-only canonical ids;
+- invalid/incomplete heading candidates не "лечатся", а честно пропускаются с diagnostics/logs.
 """
 
 from __future__ import annotations
@@ -50,9 +42,10 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from core.logging import get_logger
-from services.structure.models import ClauseNode, DEFAULT_SCOPE, make_effective_uid
+from services.structure.models import ClauseNode, DEFAULT_SCOPE, make_effective_uid, split_effective_uid
 
 logger = get_logger(__name__)
+
 
 _NUMERIC_UID_RE = re.compile(r"^\d+(?:\.\d+)*$")
 
@@ -79,14 +72,6 @@ def _is_strict_numeric_uid(uid: str) -> bool:
 
 
 def _normalize_scope(value: Any) -> str:
-    """
-    Нормализация scope.
-
-    Backward-compatible поведение:
-    - None -> DEFAULT_SCOPE
-    - пустая строка -> DEFAULT_SCOPE
-    - пробельный мусор обрезается
-    """
     if value is None:
         return DEFAULT_SCOPE
     scope = str(value).strip()
@@ -94,22 +79,18 @@ def _normalize_scope(value: Any) -> str:
 
 
 def _normalize_uid(value: Any) -> str:
-    """
-    Нормализация uid-подобных строк.
-    """
+    return str(value or "").strip()
+
+
+def _normalize_title(value: Any) -> str:
     return str(value or "").strip()
 
 
 def _effective_uid_from_scope(scope: str, raw_uid: str) -> str:
-    """
-    Канонический способ получить effective_uid из scope + raw_uid.
-    """
     scope = _normalize_scope(scope)
     raw_uid = _normalize_uid(raw_uid)
-
     if not raw_uid:
-        return raw_uid
-
+        raise ValueError("raw_uid must be non-empty to build effective_uid")
     return make_effective_uid(scope, raw_uid)
 
 
@@ -153,7 +134,8 @@ def _heading_raw_uid(heading: HeadingCandidate) -> str:
 def _heading_effective_uid(heading: HeadingCandidate) -> str:
     explicit = _normalize_uid(getattr(heading, "effective_uid", None))
     if explicit:
-        return explicit
+        scope, raw_uid = split_effective_uid(explicit)
+        return make_effective_uid(scope, raw_uid)
     return _effective_uid_from_scope(_heading_scope(heading), _heading_raw_uid(heading))
 
 
@@ -161,7 +143,10 @@ def level_from_uid(uid: str) -> int:
     """
     Глубина numeric uid по количеству уровней.
     """
-    return uid.count(".") + 1
+    normalized = _normalize_uid(uid)
+    if not _is_strict_numeric_uid(normalized):
+        raise ValueError(f"level_from_uid expects strict numeric uid, got {uid!r}")
+    return normalized.count(".") + 1
 
 
 def find_parent_raw_uid_within_scope(
@@ -190,15 +175,15 @@ def find_parent_raw_uid_within_scope(
 
 def _collect_own_text(
     elements: list[dict[str, Any]],
-    elem_i: int,
-    next_elem_i: int,
+    start_elem_i: int,
+    end_elem_i: int,
 ) -> str:
     """
     Собирает нормализованный текст элементов layout, принадлежащих только этому узлу.
     """
     parts: list[str] = []
-    upper_bound = min(next_elem_i, len(elements))
-    for j in range(max(elem_i, 0), upper_bound):
+    upper_bound = min(end_elem_i, len(elements))
+    for j in range(max(start_elem_i, 0), upper_bound):
         text = (elements[j].get("text") or "").strip()
         if text:
             parts.append(text)
@@ -230,7 +215,7 @@ def _build_scope_boundaries(
     в котором живёт этот scope.
 
     Если scope встречается несколькими непрерывными кусками, берём
-    минимальный start и максимальный end. Для v1 этого достаточно как safe bound.
+    минимальный start и максимальный end. Для текущего контракта это safe bound.
     """
     bounds: dict[str, list[int]] = {}
 
@@ -251,6 +236,9 @@ def _build_heading_positions(
     Строит две служебные карты по ключу (scope, raw_uid):
     1. key_to_elem_i
     2. key_to_heading_index
+
+    duplicate keys не допускаются на этом уровне silently:
+    сохраняем первое вхождение, остальное будет диагностироваться выше.
     """
     key_to_elem_i: dict[tuple[str, str], int] = {}
     key_to_heading_index: dict[tuple[str, str], int] = {}
@@ -281,7 +269,7 @@ def _find_first_child_elem_i(
     first_child_elem_i: int | None = None
 
     for child in node.children:
-        child_raw_uid = _normalize_uid(child.raw_uid or child.clause_uid)
+        child_raw_uid = _normalize_uid(child.raw_uid)
         if not child_raw_uid:
             continue
 
@@ -313,17 +301,17 @@ def _find_next_same_or_higher_level_elem_i(
     if idx is None:
         return None
 
-    for h in headings[idx + 1:]:
-        if _heading_scope(h) != scope:
+    for heading in headings[idx + 1:]:
+        if _heading_scope(heading) != scope:
             continue
 
-        h_raw_uid = _heading_raw_uid(h)
-        if not h_raw_uid:
+        heading_raw_uid = _heading_raw_uid(heading)
+        if not heading_raw_uid:
             continue
 
-        h_level = level_from_uid(h_raw_uid) if _is_strict_numeric_uid(h_raw_uid) else 1
-        if h_level <= node_level:
-            return int(h.elem_i)
+        heading_level = level_from_uid(heading_raw_uid) if _is_strict_numeric_uid(heading_raw_uid) else 1
+        if heading_level <= node_level:
+            return int(heading.elem_i)
 
     return None
 
@@ -370,7 +358,6 @@ def _compute_own_range(
 
     first_child_elem_i = _find_first_child_elem_i(node, key_to_elem_i, scope)
 
-    # Собираем все кандидаты на границу
     candidates: list[tuple[int, str]] = []
     if first_child_elem_i is not None and first_child_elem_i > heading_elem_i:
         candidates.append((first_child_elem_i, "first_child"))
@@ -383,7 +370,6 @@ def _compute_own_range(
     elif len(elements) > heading_elem_i:
         candidates.append((len(elements), "fallback_boundary"))
 
-    # Если ни одна граница не валидна, это unbounded_error
     if not candidates:
         return OwnRangeComputation(
             start_elem_i=heading_elem_i,
@@ -391,7 +377,6 @@ def _compute_own_range(
             range_end_reason="unbounded_error",
         )
 
-    # Берём ближайшую валидную границу
     end_elem_i, reason = min(candidates, key=lambda item: item[0])
 
     return OwnRangeComputation(
@@ -423,22 +408,26 @@ def build_clause_hierarchy(
     Возвращает:
     - root_nodes
     - nodes
-    - element_to_uid
+    - element_to_effective_uid
     - structure_degraded
     """
+    normalized_document_id = str(document_id or "").strip()
+
     nodes: dict[str, ClauseNode] = {}
     root_nodes: list[ClauseNode] = []
-    element_to_uid: dict[str, str] = {}
+    element_to_effective_uid: dict[str, str] = {}
 
     if not headings:
-        return root_nodes, nodes, element_to_uid, False
+        return root_nodes, nodes, element_to_effective_uid, False
 
     scope_stats: dict[str, int] = {}
     own_range_invalid_count = 0
     own_range_missing_count = 0
     duplicate_effective_uid_skipped_count = 0
+    duplicate_scope_raw_uid_skipped_count = 0
     suspicious_leaf_nodes_count = 0
     element_ownership_conflicts = 0
+    invalid_heading_candidates_count = 0
 
     headings_by_scope = _group_headings_by_scope(headings)
     scope_boundaries = _build_scope_boundaries(elements)
@@ -449,7 +438,7 @@ def build_clause_hierarchy(
     logger.debug(
         "STRUCTURE hierarchy_build_scopes",
         extra={
-            "document_id": document_id,
+            "document_id": normalized_document_id,
             "scope_stats": scope_stats,
             "scope_boundaries": scope_boundaries,
         },
@@ -457,291 +446,344 @@ def build_clause_hierarchy(
 
     key_to_elem_i, key_to_heading_index = _build_heading_positions(headings)
 
-    # scope -> raw_uid -> ClauseNode
     nodes_by_scope: dict[str, dict[str, ClauseNode]] = {}
 
-    # Первый проход: собираем дерево отдельно внутри каждого scope
     for scope, scope_headings in headings_by_scope.items():
         scope_nodes = nodes_by_scope.setdefault(scope, {})
 
         for local_idx, heading in enumerate(scope_headings):
-            elem_i = int(heading.elem_i)
-            raw_uid = _heading_raw_uid(heading)
-            effective_uid = _heading_effective_uid(heading)
-            title = str(heading.title or "").strip()
-            page = int(heading.page)
+            try:
+                elem_i = int(heading.elem_i)
+                raw_uid = _heading_raw_uid(heading)
+                effective_uid = _heading_effective_uid(heading)
+                title = _normalize_title(heading.title)
+                page = int(heading.page)
 
-            if not raw_uid:
-                logger.warning(
-                    "STRUCTURE node_empty_uid_skipped",
-                    extra={
-                        "document_id": document_id,
-                        "scope": scope,
-                        "page": page,
-                        "elem_i": elem_i,
-                    },
+                if elem_i < 0:
+                    raise ValueError("elem_i must be >= 0")
+                if page < 1:
+                    raise ValueError("page must be >= 1")
+                if not raw_uid:
+                    raise ValueError("raw_uid must be non-empty")
+                if not effective_uid:
+                    raise ValueError("effective_uid must be non-empty")
+
+                inferred_scope, inferred_raw_uid = split_effective_uid(effective_uid)
+                if inferred_scope != scope:
+                    raise ValueError(
+                        f"heading scope mismatch: heading.scope={scope!r}, "
+                        f"effective_uid implies {inferred_scope!r}"
+                    )
+                if inferred_raw_uid != raw_uid:
+                    raise ValueError(
+                        f"heading raw_uid mismatch: raw_uid={raw_uid!r}, "
+                        f"effective_uid implies {inferred_raw_uid!r}"
+                    )
+
+                if (scope, raw_uid) in {(scope, key) for key in scope_nodes.keys()}:
+                    duplicate_scope_raw_uid_skipped_count += 1
+                    logger.warning(
+                        "STRUCTURE node_duplicate_scope_raw_uid_skipped",
+                        extra={
+                            "document_id": normalized_document_id,
+                            "raw_uid": raw_uid,
+                            "effective_uid": effective_uid,
+                            "title": title,
+                            "page": page,
+                            "elem_i": elem_i,
+                            "scope": scope,
+                            "reason": "duplicate_raw_uid_within_same_scope",
+                        },
+                    )
+                    continue
+
+                if effective_uid in nodes:
+                    duplicate_effective_uid_skipped_count += 1
+                    logger.warning(
+                        "STRUCTURE node_duplicate_effective_uid_skipped",
+                        extra={
+                            "document_id": normalized_document_id,
+                            "raw_uid": raw_uid,
+                            "effective_uid": effective_uid,
+                            "title": title,
+                            "page": page,
+                            "elem_i": elem_i,
+                            "scope": scope,
+                            "reason": "duplicate_canonical_id",
+                        },
+                    )
+                    continue
+
+                next_elem_i = (
+                    int(scope_headings[local_idx + 1].elem_i)
+                    if local_idx + 1 < len(scope_headings)
+                    else scope_boundaries.get(scope, (0, len(elements)))[1]
                 )
-                continue
 
-            if not effective_uid:
-                effective_uid = _effective_uid_from_scope(scope, raw_uid)
+                if next_elem_i > elem_i and next_elem_i - 1 < len(elements):
+                    end_page = int(elements[next_elem_i - 1].get("page", page) or page)
+                else:
+                    end_page = page
 
-            next_elem_i = (
-                int(scope_headings[local_idx + 1].elem_i)
-                if local_idx + 1 < len(scope_headings)
-                else scope_boundaries.get(scope, (0, len(elements)))[1]
-            )
+                numeric_uid = _is_strict_numeric_uid(raw_uid)
+                level = level_from_uid(raw_uid) if numeric_uid else 1
 
-            if next_elem_i > elem_i and next_elem_i - 1 < len(elements):
-                end_page = int(elements[next_elem_i - 1].get("page", page) or page)
-            else:
-                end_page = page
+                node = ClauseNode(
+                    effective_uid=effective_uid,
+                    raw_uid=raw_uid,
+                    scope=scope,
+                    title=title,
+                    level=level,
+                    node_kind="leaf",
+                    own_element_ids=[],
+                    subtree_element_ids=[],
+                    own_text=None,
+                    subtree_text=None,
+                    start_page=page,
+                    end_page=end_page,
+                    children=[],
+                    range_end_reason=None,
+                    diagnostics={},
+                )
 
-            numeric_uid = _is_strict_numeric_uid(raw_uid)
-            level = level_from_uid(raw_uid) if numeric_uid else 1
+                nodes[effective_uid] = node
+                scope_nodes[raw_uid] = node
 
-            if effective_uid in nodes:
-                duplicate_effective_uid_skipped_count += 1
-                logger.warning(
-                    "STRUCTURE node_duplicate_effective_uid_skipped",
+                logger.debug(
+                    "structure.node.created",
                     extra={
-                        "document_id": document_id,
-                        "clause_uid": raw_uid,
+                        "document_id": normalized_document_id,
                         "raw_uid": raw_uid,
                         "effective_uid": effective_uid,
-                        "title": title,
-                        "page": page,
-                        "elem_i": elem_i,
+                        "title": node.title,
+                        "level": node.level,
+                        "own_count": 0,
+                        "own_text_len": 0,
+                        "start_page": node.start_page,
+                        "end_page": node.end_page,
+                        "heading_elem_i": elem_i,
+                        "next_heading_elem_i": next_elem_i,
+                        "numeric_uid": numeric_uid,
                         "scope": scope,
-                        "reason": "duplicate_canonical_id",
+                    },
+                )
+
+                parent_uid = find_parent_raw_uid_within_scope(raw_uid, scope_nodes)
+
+                if parent_uid and parent_uid in scope_nodes:
+                    parent_node = scope_nodes[parent_uid]
+                    parent_node.children.append(node)
+
+                    logger.debug(
+                        "structure.node.parenting",
+                        extra={
+                            "document_id": normalized_document_id,
+                            "raw_uid": raw_uid,
+                            "effective_uid": effective_uid,
+                            "parent_uid": parent_uid,
+                            "parent_effective_uid": parent_node.effective_uid,
+                            "level": node.level,
+                            "attached_to_root": False,
+                            "scope": scope,
+                        },
+                    )
+                else:
+                    root_nodes.append(node)
+
+                    logger.debug(
+                        "structure.node.parenting",
+                        extra={
+                            "document_id": normalized_document_id,
+                            "raw_uid": raw_uid,
+                            "effective_uid": effective_uid,
+                            "parent_uid": None,
+                            "parent_effective_uid": None,
+                            "level": node.level,
+                            "attached_to_root": True,
+                            "scope": scope,
+                        },
+                    )
+
+            except Exception as exc:
+                invalid_heading_candidates_count += 1
+                logger.warning(
+                    "STRUCTURE invalid_heading_candidate_skipped",
+                    extra={
+                        "document_id": normalized_document_id,
+                        "scope": scope,
+                        "elem_i": getattr(heading, "elem_i", None),
+                        "page": getattr(heading, "page", None),
+                        "raw_uid": getattr(heading, "raw_uid", None),
+                        "uid": getattr(heading, "uid", None),
+                        "effective_uid": getattr(heading, "effective_uid", None),
+                        "title": getattr(heading, "title", None),
+                        "error": str(exc),
                     },
                 )
                 continue
 
-            node = ClauseNode(
-                effective_uid=effective_uid,
+    for heading in headings:
+        try:
+            raw_uid = _heading_raw_uid(heading)
+            if not raw_uid:
+                continue
+
+            scope = _heading_scope(heading)
+            effective_uid = _heading_effective_uid(heading)
+
+            node = nodes.get(effective_uid)
+            if node is None:
+                continue
+
+            scope_headings = headings_by_scope.get(scope, [])
+
+            range_info = _compute_own_range(
                 raw_uid=raw_uid,
+                node=node,
+                headings=scope_headings,
+                elements=elements,
+                key_to_elem_i=key_to_elem_i,
+                key_to_heading_index=key_to_heading_index,
                 scope=scope,
-                clause_uid=raw_uid,
-                title=title,
-                level=level,
-                node_kind="leaf",
-                own_element_ids=[],
-                subtree_element_ids=[],
-                own_text=None,
-                subtree_text=None,
-                start_page=page,
-                end_page=end_page,
-                children=[],
-                range_end_reason=None,
-                diagnostics={},
-                clause_uid_alias_mode=True,
+                scope_boundaries=scope_boundaries,
             )
 
-            nodes[effective_uid] = node
-            scope_nodes[raw_uid] = node
+            node.range_end_reason = range_info.range_end_reason
+
+            if range_info.start_elem_i < 0 or range_info.end_elem_i is None:
+                own_range_missing_count += 1
+                node.range_end_reason = "unbounded_error"
+                node.diagnostics["own_range_status"] = "missing"
+                node.diagnostics["own_range_unbounded"] = True
+
+                logger.warning(
+                    "STRUCTURE node_own_range_missing",
+                    extra={
+                        "document_id": normalized_document_id,
+                        "raw_uid": raw_uid,
+                        "effective_uid": effective_uid,
+                        "scope": scope,
+                        "structure_degraded": True,
+                    },
+                )
+                continue
+
+            if range_info.end_elem_i <= range_info.start_elem_i:
+                own_range_invalid_count += 1
+                node.range_end_reason = "unbounded_error"
+                node.diagnostics["own_range_status"] = "invalid"
+                node.diagnostics["own_range_unbounded"] = True
+
+                logger.warning(
+                    "STRUCTURE node_own_range_invalid",
+                    extra={
+                        "document_id": normalized_document_id,
+                        "raw_uid": raw_uid,
+                        "effective_uid": effective_uid,
+                        "scope": scope,
+                        "heading_elem_i": range_info.start_elem_i,
+                        "own_end": range_info.end_elem_i,
+                        "range_end_reason": "unbounded_error",
+                        "structure_degraded": True,
+                    },
+                )
+                continue
+
+            own_element_ids: list[str] = []
+            upper_bound = min(range_info.end_elem_i, len(elements))
+
+            for j in range(max(range_info.start_elem_i, 0), upper_bound):
+                stable_id = stable_element_id_resolver(elements[j], j)
+                stable_id = str(stable_id or "").strip()
+                if not stable_id:
+                    continue
+
+                own_element_ids.append(stable_id)
+
+                if stable_id in element_to_effective_uid:
+                    existing_uid = element_to_effective_uid[stable_id]
+                    if existing_uid != effective_uid:
+                        element_ownership_conflicts += 1
+                        logger.warning(
+                            "STRUCTURE element_ownership_conflict",
+                            extra={
+                                "document_id": normalized_document_id,
+                                "stable_id": stable_id,
+                                "existing_uid": existing_uid,
+                                "conflicting_uid": effective_uid,
+                                "scope": scope,
+                                "elem_i": j,
+                            },
+                        )
+                else:
+                    element_to_effective_uid[stable_id] = effective_uid
+
+            own_element_ids = list(dict.fromkeys(own_element_ids))
+            own_text = _collect_own_text(elements, range_info.start_elem_i, range_info.end_elem_i)
+
+            node.own_element_ids = own_element_ids
+            node.own_text = own_text if own_text else None
+            node.diagnostics["own_range_status"] = "ok"
+            node.diagnostics["own_range_unbounded"] = False
+            node.diagnostics["own_range_span"] = max(0, range_info.end_elem_i - range_info.start_elem_i)
+
+            if (
+                not node.children
+                and node.diagnostics["own_range_span"] >= _SUSPICIOUS_LEAF_RANGE_SPAN_THRESHOLD
+            ):
+                suspicious_leaf_nodes_count += 1
+                node.diagnostics["suspicious_leaf_range"] = True
+
+                logger.warning(
+                    "STRUCTURE node_suspicious_leaf_range",
+                    extra={
+                        "document_id": normalized_document_id,
+                        "raw_uid": raw_uid,
+                        "effective_uid": effective_uid,
+                        "scope": scope,
+                        "own_range_span": node.diagnostics["own_range_span"],
+                        "threshold": _SUSPICIOUS_LEAF_RANGE_SPAN_THRESHOLD,
+                    },
+                )
+            else:
+                node.diagnostics["suspicious_leaf_range"] = False
 
             logger.debug(
-                "structure.node.created",
+                "structure.node.own_scope_built",
                 extra={
-                    "document_id": document_id,
-                    "clause_uid": node.clause_uid,
-                    "raw_uid": raw_uid,
-                    "effective_uid": effective_uid,
-                    "title": node.title,
-                    "level": node.level,
-                    "own_count": 0,
-                    "own_text_len": 0,
-                    "start_page": node.start_page,
-                    "end_page": node.end_page,
-                    "heading_elem_i": elem_i,
-                    "next_heading_elem_i": next_elem_i,
-                    "numeric_uid": numeric_uid,
-                    "scope": scope,
-                },
-            )
-
-            parent_uid = find_parent_raw_uid_within_scope(raw_uid, scope_nodes)
-
-            if parent_uid and parent_uid in scope_nodes:
-                parent_node = scope_nodes[parent_uid]
-                parent_node.children.append(node)
-
-                logger.debug(
-                    "structure.node.parenting",
-                    extra={
-                        "document_id": document_id,
-                        "clause_uid": node.clause_uid,
-                        "raw_uid": raw_uid,
-                        "effective_uid": effective_uid,
-                        "parent_uid": parent_uid,
-                        "parent_effective_uid": parent_node.effective_uid,
-                        "level": node.level,
-                        "attached_to_root": False,
-                        "scope": scope,
-                    },
-                )
-            else:
-                root_nodes.append(node)
-
-                logger.debug(
-                    "structure.node.parenting",
-                    extra={
-                        "document_id": document_id,
-                        "clause_uid": node.clause_uid,
-                        "raw_uid": raw_uid,
-                        "effective_uid": effective_uid,
-                        "parent_uid": None,
-                        "parent_effective_uid": None,
-                        "level": node.level,
-                        "attached_to_root": True,
-                        "scope": scope,
-                    },
-                )
-
-    # Второй проход: заполняем own_element_ids / own_text / diagnostics
-    for heading in headings:
-        raw_uid = _heading_raw_uid(heading)
-        if not raw_uid:
-            continue
-
-        scope = _heading_scope(heading)
-        effective_uid = _heading_effective_uid(heading)
-
-        node = nodes.get(effective_uid)
-        if node is None:
-            continue
-
-        scope_headings = headings_by_scope.get(scope, [])
-
-        range_info = _compute_own_range(
-            raw_uid=raw_uid,
-            node=node,
-            headings=scope_headings,
-            elements=elements,
-            key_to_elem_i=key_to_elem_i,
-            key_to_heading_index=key_to_heading_index,
-            scope=scope,
-            scope_boundaries=scope_boundaries,
-        )
-
-        node.range_end_reason = range_info.range_end_reason
-
-        if range_info.start_elem_i < 0 or range_info.end_elem_i is None:
-            own_range_missing_count += 1
-            node.range_end_reason = "unbounded_error"
-            node.diagnostics["own_range_status"] = "missing"
-            node.diagnostics["own_range_unbounded"] = True
-
-            logger.warning(
-                "STRUCTURE node_own_range_missing",
-                extra={
-                    "document_id": document_id,
-                    "clause_uid": raw_uid,
-                    "raw_uid": raw_uid,
-                    "effective_uid": effective_uid,
-                    "scope": scope,
-                    "structure_degraded": True,
-                },
-            )
-            continue
-
-        if range_info.end_elem_i <= range_info.start_elem_i:
-            own_range_invalid_count += 1
-            node.range_end_reason = "unbounded_error"
-            node.diagnostics["own_range_status"] = "invalid"
-            node.diagnostics["own_range_unbounded"] = True
-
-            logger.warning(
-                "STRUCTURE node_own_range_invalid",
-                extra={
-                    "document_id": document_id,
-                    "clause_uid": raw_uid,
+                    "document_id": normalized_document_id,
                     "raw_uid": raw_uid,
                     "effective_uid": effective_uid,
                     "scope": scope,
                     "heading_elem_i": range_info.start_elem_i,
                     "own_end": range_info.end_elem_i,
-                    "range_end_reason": "unbounded_error",
+                    "range_end_reason": range_info.range_end_reason,
+                    "own_count": len(own_element_ids),
+                    "own_text_len": len(own_text),
+                    "children_count": len(node.children),
+                    "first_child_elem_i": _find_first_child_elem_i(node, key_to_elem_i, scope),
+                },
+            )
+
+        except Exception as exc:
+            own_range_missing_count += 1
+            logger.warning(
+                "STRUCTURE node_own_range_build_failed",
+                extra={
+                    "document_id": normalized_document_id,
+                    "scope": getattr(heading, "scope", None),
+                    "raw_uid": getattr(heading, "raw_uid", None),
+                    "uid": getattr(heading, "uid", None),
+                    "effective_uid": getattr(heading, "effective_uid", None),
+                    "error": str(exc),
                     "structure_degraded": True,
                 },
             )
             continue
 
-        own_element_ids: list[str] = []
-        upper_bound = min(range_info.end_elem_i, len(elements))
-
-        for j in range(max(range_info.start_elem_i, 0), upper_bound):
-            stable_id = stable_element_id_resolver(elements[j], j)
-            own_element_ids.append(stable_id)
-            if stable_id in element_to_uid:
-                existing_uid = element_to_uid[stable_id]
-                if existing_uid != effective_uid:
-                    element_ownership_conflicts += 1
-                    logger.warning(
-                        "STRUCTURE element_ownership_conflict",
-                        extra={
-                            "document_id": document_id,
-                            "stable_id": stable_id,
-                            "existing_uid": existing_uid,
-                            "conflicting_uid": effective_uid,
-                            "scope": scope,
-                            "elem_i": j,
-                        },
-                    )
-            else:
-                element_to_uid[stable_id] = effective_uid
-
-        own_text = _collect_own_text(elements, range_info.start_elem_i, range_info.end_elem_i)
-
-        node.own_element_ids = own_element_ids
-        node.own_text = own_text if own_text else None
-        node.diagnostics["own_range_status"] = "ok"
-        node.diagnostics["own_range_unbounded"] = False
-        node.diagnostics["own_range_span"] = max(0, range_info.end_elem_i - range_info.start_elem_i)
-
-        if (
-            not node.children
-            and node.diagnostics["own_range_span"] >= _SUSPICIOUS_LEAF_RANGE_SPAN_THRESHOLD
-        ):
-            suspicious_leaf_nodes_count += 1
-            node.diagnostics["suspicious_leaf_range"] = True
-
-            logger.warning(
-                "STRUCTURE node_suspicious_leaf_range",
-                extra={
-                    "document_id": document_id,
-                    "raw_uid": raw_uid,
-                    "effective_uid": effective_uid,
-                    "scope": scope,
-                    "own_range_span": node.diagnostics["own_range_span"],
-                    "threshold": _SUSPICIOUS_LEAF_RANGE_SPAN_THRESHOLD,
-                },
-            )
-        else:
-            node.diagnostics["suspicious_leaf_range"] = False
-
-        logger.debug(
-            "structure.node.own_scope_built",
-            extra={
-                "document_id": document_id,
-                "clause_uid": raw_uid,
-                "raw_uid": raw_uid,
-                "effective_uid": effective_uid,
-                "scope": scope,
-                "heading_elem_i": range_info.start_elem_i,
-                "own_end": range_info.end_elem_i,
-                "range_end_reason": range_info.range_end_reason,
-                "own_count": len(own_element_ids),
-                "own_text_len": len(own_text),
-                "children_count": len(node.children),
-                "first_child_elem_i": _find_first_child_elem_i(node, key_to_elem_i, scope),
-            },
-        )
-
     populate_subtree_element_ids(
         root_nodes,
-        document_id=document_id,
+        document_id=normalized_document_id,
     )
 
     for node in nodes.values():
@@ -759,15 +801,17 @@ def build_clause_hierarchy(
             own_range_invalid_count > 0,
             own_range_missing_count > 0,
             duplicate_effective_uid_skipped_count > 0,
+            duplicate_scope_raw_uid_skipped_count > 0,
             suspicious_leaf_nodes_count > 0,
             element_ownership_conflicts > 0,
+            invalid_heading_candidates_count > 0,
         ]
     )
 
     logger.info(
         "STRUCTURE hierarchy_build_diagnostics",
         extra={
-            "document_id": document_id,
+            "document_id": normalized_document_id,
             "headings_count": len(headings),
             "nodes_count": len(nodes),
             "root_count": len(root_nodes),
@@ -776,13 +820,15 @@ def build_clause_hierarchy(
             "own_range_invalid_count": own_range_invalid_count,
             "own_range_missing_count": own_range_missing_count,
             "duplicate_effective_uid_skipped_count": duplicate_effective_uid_skipped_count,
+            "duplicate_scope_raw_uid_skipped_count": duplicate_scope_raw_uid_skipped_count,
+            "invalid_heading_candidates_count": invalid_heading_candidates_count,
             "suspicious_leaf_nodes_count": suspicious_leaf_nodes_count,
-            "element_ownership_conflicts": element_ownership_conflicts, 
+            "element_ownership_conflicts": element_ownership_conflicts,
             "structure_degraded": structure_degraded,
         },
     )
 
-    return root_nodes, nodes, element_to_uid, structure_degraded
+    return root_nodes, nodes, element_to_effective_uid, structure_degraded
 
 
 def populate_subtree_element_ids(
@@ -798,6 +844,7 @@ def populate_subtree_element_ids(
     - subtree_text: own_text + тексты всех потомков через пробел;
     - node_kind: "leaf" если детей нет, "section" если есть.
     """
+    normalized_document_id = str(document_id or "").strip()
     if not root_nodes:
         return
 
@@ -824,8 +871,7 @@ def populate_subtree_element_ids(
             logger.debug(
                 "structure.node.subtree_built",
                 extra={
-                    "document_id": document_id,
-                    "clause_uid": node.clause_uid,
+                    "document_id": normalized_document_id,
                     "raw_uid": node.raw_uid,
                     "effective_uid": node.effective_uid,
                     "scope": node.scope,
@@ -843,7 +889,6 @@ def populate_subtree_element_ids(
                     ),
                 },
             )
-            
 
         
         

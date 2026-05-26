@@ -392,6 +392,14 @@ class ChunkCorpusReaderV2:
 
         chunks_by_level = snapshot.get("chunks") or {}
         if not isinstance(chunks_by_level, dict):
+            logger.warning(
+                "ChunkCorpusReaderV2: segment snapshot has invalid chunks payload",
+                extra={
+                    **context,
+                    "segment_chunks_ref": segment_chunks_ref,
+                    "chunks_type": type(chunks_by_level).__name__,
+                },
+            )
             return []
 
         out: list[dict[str, Any]] = []
@@ -422,8 +430,8 @@ class ChunkCorpusReaderV2:
                 # Обогащаем metadata, чтобы downstream код не зависел от writer'а.
                 if "segment_id" not in metadata:
                     metadata["segment_id"] = segment_id
-                if "level" not in metadata:
-                    metadata["level"] = lvl_normalized
+                if "chunk_kind" not in metadata:
+                    metadata["chunk_kind"] = lvl_normalized
 
                 out.append(
                     {

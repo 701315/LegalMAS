@@ -80,20 +80,31 @@ def build_file_graph(
             extra={"document_id": document_id},
         )
 
+    validation = _validate_graph_inputs(
+        document_id=document_id,
+        segments=safe_segments,
+        trees=safe_trees,
+    )
+
     primary_segment_id = _pick_primary_segment(safe_segments)
     _sync_primary_flags(safe_segments, primary_segment_id)
 
     cross_links = _extract_cross_links(safe_segments, safe_trees)
-    degraded = any(bool(getattr(t, "degraded", False)) for t in safe_trees)
+    degraded = (
+        bool(validation["has_errors"])
+        or any(bool(getattr(t, "degraded", False)) for t in safe_trees)
+    )
     structural_confidence = _derive_file_confidence(
         trees=safe_trees,
         primary_segment_id=primary_segment_id,
+        validation_has_errors=bool(validation["has_errors"]),
     )
     diagnostics = _build_file_graph_diagnostics(
         segments=safe_segments,
         trees=safe_trees,
         cross_links=cross_links,
         primary_segment_id=primary_segment_id,
+        validation=validation,
     )
 
     graph = FileGraph(
@@ -105,7 +116,7 @@ def build_file_graph(
         degraded=degraded,
         structural_confidence=structural_confidence,
         diagnostics=diagnostics,
-        schema_version="2.0",
+        schema_version="3.0",
     )
 
     logger.info(
@@ -114,14 +125,126 @@ def build_file_graph(
             "document_id": document_id,
             "document_version_id": document_version_id,
             "segments_count": len(safe_segments),
+            "trees_count": len(safe_trees),
             "cross_links_count": len(cross_links),
             "primary_segment_id": primary_segment_id,
             "degraded": degraded,
             "structural_confidence": structural_confidence,
+            "validation_errors_count": len(validation["errors"]),
         },
     )
 
     return graph
+
+
+def _validate_graph_inputs(
+    *,
+    document_id: str,
+    segments: list[SegmentDocument],
+    trees: list[ClauseTree],
+) -> dict[str, Any]:
+    """
+    Проверяет согласованность segments и segment_trees до сборки FileGraph.
+    """
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+
+    segment_ids = [seg.segment_id for seg in segments if getattr(seg, "segment_id", None)]
+    tree_ids = [tree.segment_id for tree in trees if getattr(tree, "segment_id", None)]
+
+    duplicate_segment_ids = sorted({seg_id for seg_id in segment_ids if segment_ids.count(seg_id) > 1})
+    duplicate_tree_ids = sorted({tree_id for tree_id in tree_ids if tree_ids.count(tree_id) > 1})
+
+    if duplicate_segment_ids:
+        errors.append(
+            {
+                "type": "duplicate_segment_ids",
+                "segment_ids": duplicate_segment_ids,
+            }
+        )
+
+    if duplicate_tree_ids:
+        errors.append(
+            {
+                "type": "duplicate_tree_ids",
+                "segment_ids": duplicate_tree_ids,
+            }
+        )
+
+    segment_id_set = set(segment_ids)
+    tree_id_set = set(tree_ids)
+
+    missing_trees = sorted(segment_id_set - tree_id_set)
+    extra_trees = sorted(tree_id_set - segment_id_set)
+
+    if missing_trees:
+        errors.append(
+            {
+                "type": "missing_trees_for_segments",
+                "segment_ids": missing_trees,
+            }
+        )
+
+    if extra_trees:
+        errors.append(
+            {
+                "type": "trees_without_segments",
+                "segment_ids": extra_trees,
+            }
+        )
+
+    if len(segments) != len(trees):
+        warnings.append(
+            {
+                "type": "count_mismatch",
+                "segments_count": len(segments),
+                "trees_count": len(trees),
+            }
+        )
+
+    for seg in segments:
+        if not seg.segment_id:
+            errors.append({"type": "segment_missing_id", "segment_order": seg.segment_order})
+        if not seg.scope_name:
+            errors.append({"type": "segment_missing_scope", "segment_id": seg.segment_id})
+
+    for tree in trees:
+        if not getattr(tree, "segment_id", None):
+            errors.append({"type": "tree_missing_segment_id"})
+            continue
+
+        matching_segment = next((seg for seg in segments if seg.segment_id == tree.segment_id), None)
+        if matching_segment is None:
+            continue
+
+        tree_scope_name = getattr(tree, "scope_name", None)
+        if tree_scope_name and matching_segment.scope_name and tree_scope_name != matching_segment.scope_name:
+            errors.append(
+                {
+                    "type": "scope_mismatch",
+                    "segment_id": tree.segment_id,
+                    "segment_scope_name": matching_segment.scope_name,
+                    "tree_scope_name": tree_scope_name,
+                }
+            )
+
+    if errors or warnings:
+        logger.warning(
+            "STRUCTURE file_graph_input_validation",
+            extra={
+                "document_id": document_id,
+                "errors_count": len(errors),
+                "warnings_count": len(warnings),
+                "errors_preview": errors[:10],
+                "warnings_preview": warnings[:10],
+            },
+        )
+
+    return {
+        "has_errors": bool(errors),
+        "errors": errors,
+        "warnings": warnings,
+    }
 
 
 def _pick_primary_segment(segments: list[SegmentDocument]) -> str | None:
@@ -177,21 +300,26 @@ def _derive_file_confidence(
     *,
     trees: list[ClauseTree],
     primary_segment_id: str | None,
+    validation_has_errors: bool,
 ) -> str:
     """
     Агрегирует structural_confidence на уровне файла.
 
     Консервативная логика:
+    - validation errors -> FAILED
     - нет деревьев -> FAILED
     - primary FAILED -> FAILED
     - primary LOW -> LOW
     - primary degraded -> LOW
+    - любой FAILED вне primary -> LOW
     - все degraded -> LOW
     - все HIGH и никто не degraded -> HIGH
-    - primary HIGH -> HIGH
-    - если среди trees есть FAILED, но primary не FAILED -> LOW
+    - primary HIGH + есть LOW/MEDIUM -> MEDIUM
     - иначе MEDIUM
     """
+    if validation_has_errors:
+        return STRUCTURE_CONFIDENCE_FAILED
+
     if not trees:
         return STRUCTURE_CONFIDENCE_FAILED
 
@@ -226,14 +354,16 @@ def _derive_file_confidence(
     if primary_degraded or all_degraded:
         return STRUCTURE_CONFIDENCE_LOW
 
-    if confidence_set == {STRUCTURE_CONFIDENCE_HIGH}:
+    if STRUCTURE_CONFIDENCE_FAILED in confidence_set:
+        return STRUCTURE_CONFIDENCE_LOW
+
+    if confidence_set == {STRUCTURE_CONFIDENCE_HIGH} and not any(
+        bool(getattr(t, "degraded", False)) for t in trees
+    ):
         return STRUCTURE_CONFIDENCE_HIGH
 
     if primary_conf == STRUCTURE_CONFIDENCE_HIGH:
-        return STRUCTURE_CONFIDENCE_HIGH
-
-    if STRUCTURE_CONFIDENCE_FAILED in confidence_set:
-        return STRUCTURE_CONFIDENCE_LOW
+        return STRUCTURE_CONFIDENCE_MEDIUM
 
     return STRUCTURE_CONFIDENCE_MEDIUM
 
@@ -244,6 +374,7 @@ def _build_file_graph_diagnostics(
     trees: list[ClauseTree],
     cross_links: list[CrossDocumentLink],
     primary_segment_id: str | None,
+    validation: dict[str, Any],
 ) -> dict[str, Any]:
     """
     File-level diagnostics для отладки и rollout.
@@ -276,12 +407,14 @@ def _build_file_graph_diagnostics(
                 "tree_confidence": getattr(tree, "structure_confidence", None) if tree else None,
                 "tree_degraded": bool(getattr(tree, "degraded", False)) if tree else None,
                 "tree_scope_name": getattr(tree, "scope_name", None) if tree else None,
+                "tree_schema_version": getattr(tree, "schema_version", None) if tree else None,
             }
         )
 
     return {
-        "schema_version": "2.0",
+        "schema_version": "3.0",
         "segments_count": len(segments),
+        "trees_count": len(trees),
         "segment_types": [s.segment_type for s in segments],
         "segment_scopes": [s.scope_name for s in segments],
         "primary_segment_id": primary_segment_id,
@@ -290,6 +423,7 @@ def _build_file_graph_diagnostics(
         "degraded_segment_ids": degraded_segment_ids,
         "cross_links_count": len(cross_links),
         "cross_link_types": sorted({lnk.link_type for lnk in cross_links}),
+        "validation": validation,
         "segment_summaries": segment_summaries,
     }
 
@@ -305,9 +439,6 @@ def _extract_cross_links(
     Сейчас это очень простая логика:
     если в тексте одного сегмента явно встречается title другого сегмента,
     считаем, что между ними есть слабая связь title_mention.
-
-    Это НЕ полноценный semantic graph.
-    Это просто первый безопасный слой, который можно улучшать позже.
     """
     if not segments or not trees:
         return []
@@ -326,7 +457,12 @@ def _extract_cross_links(
         if not source_segment_id:
             continue
 
-        if source_segment_id not in seg_by_id:
+        source_segment = seg_by_id.get(source_segment_id)
+        if source_segment is None:
+            logger.warning(
+                "STRUCTURE file_graph_crosslink_tree_without_segment",
+                extra={"source_segment_id": source_segment_id},
+            )
             continue
 
         nodes_index = getattr(tree, "nodes_index", {}) or {}
@@ -351,9 +487,7 @@ def _extract_cross_links(
                     continue
 
                 target_title = (target_segment.segment_title or "").strip()
-                if not target_title:
-                    continue
-                if len(target_title) < 3:
+                if not target_title or len(target_title) < 3:
                     continue
 
                 if target_title.lower() not in text_lower:

@@ -9,11 +9,11 @@
 - а только искать в тексте ссылки вида "см. п. 3.2", "ст. 5", "Clause 7" и т.п.,
   а затем разрешать их на существующие узлы дерева.
 
-Production notes:
-- модуль backward-compatible с legacy nodes_index/raw uid;
-- если у ClauseNode уже есть scope/raw_uid/effective_uid, резолвинг становится
-  scope-aware;
-- если таких полей ещё нет, используется legacy fallback по raw uid.
+Sprint 3 contract:
+- canonical identity узла = effective_uid;
+- raw_uid используется только как номер внутри scope и для explainability;
+- резолвинг выполняется scope-aware;
+- CrossReference всегда возвращается в canonical effective_uid space.
 """
 
 from __future__ import annotations
@@ -22,17 +22,19 @@ import re
 from typing import Any, Callable
 
 from core.logging import get_logger
-from services.structure.models import ClauseNode, CrossReference
+from services.structure.models import (
+    ClauseNode,
+    CrossReference,
+    DEFAULT_SCOPE,
+    make_effective_uid,
+    split_effective_uid,
+)
 
 logger = get_logger(__name__)
 
-_DEFAULT_SCOPE = "main_contract"
+
 _UID_RE = r"\d+(?:\.\d+)*"
 
-# Более аккуратный и расширяемый regex:
-# - поддерживает RU/EN базовые формы;
-# - выделяет target uid в именованную группу;
-# - сохраняет matched text для explainability.
 _CROSS_REF = re.compile(
     rf"""
     (?:
@@ -63,12 +65,16 @@ _CROSS_REF = re.compile(
 
 def _normalize_scope(value: Any) -> str:
     if value is None:
-        return _DEFAULT_SCOPE
+        return DEFAULT_SCOPE
     scope = str(value).strip()
-    return scope or _DEFAULT_SCOPE
+    return scope or DEFAULT_SCOPE
 
 
 def _normalize_uid(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _normalize_text(value: Any) -> str:
     return str(value or "").strip()
 
 
@@ -77,25 +83,19 @@ def _node_scope(node: ClauseNode) -> str:
 
 
 def _node_raw_uid(node: ClauseNode) -> str:
-    raw_uid = _normalize_uid(getattr(node, "raw_uid", None))
-    if raw_uid:
-        return raw_uid
-    return _normalize_uid(getattr(node, "clause_uid", None))
+    return _normalize_uid(getattr(node, "raw_uid", None))
 
 
 def _node_effective_uid(node: ClauseNode) -> str:
     effective_uid = _normalize_uid(getattr(node, "effective_uid", None))
-    if effective_uid:
-        return effective_uid
+    if not effective_uid:
+        raw_uid = _node_raw_uid(node)
+        if not raw_uid:
+            raise ValueError("ClauseNode must have non-empty effective_uid or raw_uid")
+        return make_effective_uid(_node_scope(node), raw_uid)
 
-    scope = _node_scope(node)
-    raw_uid = _node_raw_uid(node)
-
-    if not raw_uid:
-        return raw_uid
-    if scope == _DEFAULT_SCOPE:
-        return raw_uid
-    return f"{scope}::{raw_uid}"
+    scope, raw_uid = split_effective_uid(effective_uid)
+    return make_effective_uid(scope, raw_uid)
 
 
 def _extract_target_uid(match: re.Match[str]) -> str:
@@ -120,33 +120,51 @@ def _match_kind(match: re.Match[str]) -> str:
 def _build_scope_indexes(
     nodes: dict[str, ClauseNode],
 ) -> tuple[
-    dict[str, ClauseNode],
+    dict[str, list[ClauseNode]],
     dict[tuple[str, str], ClauseNode],
     dict[str, ClauseNode],
 ]:
     """
     Возвращает:
-    - raw_uid_index: legacy raw_uid -> node
+    - raw_uid_index: raw_uid -> list[ClauseNode]
     - scoped_raw_index: (scope, raw_uid) -> node
     - effective_uid_index: effective_uid -> node
+
+    Важная деталь:
+    raw_uid больше не считается глобально уникальным, поэтому в global index
+    храним список кандидатов.
     """
-    raw_uid_index: dict[str, ClauseNode] = {}
+    raw_uid_index: dict[str, list[ClauseNode]] = {}
     scoped_raw_index: dict[tuple[str, str], ClauseNode] = {}
     effective_uid_index: dict[str, ClauseNode] = {}
 
-    for legacy_key, node in nodes.items():
-        raw_uid = _node_raw_uid(node) or _normalize_uid(legacy_key)
-        scope = _node_scope(node)
-        effective_uid = _node_effective_uid(node)
+    for key, node in nodes.items():
+        try:
+            effective_uid = _node_effective_uid(node)
+            raw_uid = _node_raw_uid(node)
+            scope = _node_scope(node)
 
-        if raw_uid and raw_uid not in raw_uid_index:
-            raw_uid_index[raw_uid] = node
+            if _normalize_uid(key) and _normalize_uid(key) != effective_uid:
+                raise ValueError(
+                    f"nodes index key mismatch: key={key!r}, node.effective_uid={effective_uid!r}"
+                )
 
-        if raw_uid:
+            if not raw_uid:
+                raise ValueError(f"node raw_uid is empty for effective_uid={effective_uid!r}")
+
+            effective_uid_index.setdefault(effective_uid, node)
+            raw_uid_index.setdefault(raw_uid, []).append(node)
             scoped_raw_index.setdefault((scope, raw_uid), node)
 
-        if effective_uid:
-            effective_uid_index.setdefault(effective_uid, node)
+        except Exception as exc:
+            logger.warning(
+                "STRUCTURE crossrefs_index_node_skipped",
+                extra={
+                    "node_key": _normalize_uid(key),
+                    "error": str(exc),
+                },
+            )
+            continue
 
     return raw_uid_index, scoped_raw_index, effective_uid_index
 
@@ -155,7 +173,7 @@ def _resolve_target_node(
     *,
     source_node: ClauseNode,
     target_raw_uid: str,
-    raw_uid_index: dict[str, ClauseNode],
+    raw_uid_index: dict[str, list[ClauseNode]],
     scoped_raw_index: dict[tuple[str, str], ClauseNode],
     effective_uid_index: dict[str, ClauseNode],
 ) -> tuple[ClauseNode | None, str]:
@@ -164,37 +182,39 @@ def _resolve_target_node(
 
     1. exact same-scope raw uid
     2. exact effective uid for source scope
-    3. legacy global raw uid fallback
+    3. global raw uid fallback, только если кандидат ровно один
+    4. иначе unresolved / ambiguous
 
     Возвращает:
     - target node или None
     - resolution_mode
     """
     source_scope = _node_scope(source_node)
-    target_raw_uid = _normalize_uid(target_raw_uid)
-    if not target_raw_uid:
+    normalized_target_raw_uid = _normalize_uid(target_raw_uid)
+    if not normalized_target_raw_uid:
         return None, "empty_target"
 
-    same_scope = scoped_raw_index.get((source_scope, target_raw_uid))
+    same_scope = scoped_raw_index.get((source_scope, normalized_target_raw_uid))
     if same_scope is not None:
         return same_scope, "same_scope_raw_uid"
 
-    if source_scope != _DEFAULT_SCOPE:
-        effective_candidate = f"{source_scope}::{target_raw_uid}"
-        by_effective = effective_uid_index.get(effective_candidate)
-        if by_effective is not None:
-            return by_effective, "same_scope_effective_uid"
+    effective_candidate = make_effective_uid(source_scope, normalized_target_raw_uid)
+    by_effective = effective_uid_index.get(effective_candidate)
+    if by_effective is not None:
+        return by_effective, "same_scope_effective_uid"
 
-    global_fallback = raw_uid_index.get(target_raw_uid)
-    if global_fallback is not None:
-        return global_fallback, "global_raw_uid_fallback"
+    global_candidates = raw_uid_index.get(normalized_target_raw_uid, [])
+    if len(global_candidates) == 1:
+        return global_candidates[0], "global_unique_raw_uid_fallback"
+    if len(global_candidates) > 1:
+        return None, "ambiguous_global_raw_uid"
 
     return None, "not_found"
 
 
 def extract_references(
     elements: list[dict],
-    element_to_uid: dict[str, str],
+    element_to_effective_uid: dict[str, str],
     nodes: dict[str, ClauseNode],
     *,
     document_id: str,
@@ -205,30 +225,32 @@ def extract_references(
 
     elements:
         layout-элементы (text_layout_raw.elements)
-    element_to_uid:
-        mapping element_id -> clause_uid, построенный при сборке дерева
+    element_to_effective_uid:
+        mapping stable_element_id -> source effective_uid
     nodes:
-        индекс ClauseNode по uid
+        индекс ClauseNode по effective_uid
     stable_element_id_resolver:
         функция/метод, превращающая элемент + индекс в стабильный element_id
         (обычно StructureBuilder._stable_element_id)
 
-    Возвращает список CrossReference.
-
-    Backward-compatible поведение:
-    - если nodes содержат только legacy clause_uid без scope-атрибутов,
-      работаем как раньше;
-    - если node имеет scope/raw_uid/effective_uid, используем scope-aware resolution.
+    Возвращает список CrossReference в canonical effective_uid contract.
     """
+    normalized_document_id = _normalize_text(document_id)
+
     references: list[CrossReference] = []
     seen_refs: set[tuple[str, str, str]] = set()
+
+    unresolved_count = 0
+    ambiguous_count = 0
+    invalid_source_mapping_count = 0
+    malformed_stable_element_id_count = 0
 
     raw_uid_index, scoped_raw_index, effective_uid_index = _build_scope_indexes(nodes)
 
     logger.debug(
         "STRUCTURE crossrefs_index_built",
         extra={
-            "document_id": document_id,
+            "document_id": normalized_document_id,
             "nodes_count": len(nodes),
             "raw_uid_index_count": len(raw_uid_index),
             "scoped_raw_index_count": len(scoped_raw_index),
@@ -238,24 +260,39 @@ def extract_references(
 
     for idx, el in enumerate(elements):
         try:
-            text = str(el.get("text", "") or "")
-            if not text.strip():
+            text = _normalize_text(el.get("text", ""))
+            if not text:
                 continue
 
-            stable_el_id = stable_element_id_resolver(el, idx)
-            source_uid = _normalize_uid(element_to_uid.get(stable_el_id))
-            if not source_uid:
+            stable_el_id = _normalize_text(stable_element_id_resolver(el, idx))
+            if not stable_el_id:
+                malformed_stable_element_id_count += 1
+                logger.debug(
+                    "STRUCTURE crossref_stable_element_id_missing",
+                    extra={
+                        "document_id": normalized_document_id,
+                        "element_index": idx,
+                    },
+                )
                 continue
 
-            source_node = nodes.get(source_uid)
+            source_effective_uid = _normalize_uid(element_to_effective_uid.get(stable_el_id))
+            if not source_effective_uid:
+                continue
+
+            source_scope_check, source_raw_uid_check = split_effective_uid(source_effective_uid)
+            source_effective_uid = make_effective_uid(source_scope_check, source_raw_uid_check)
+
+            source_node = nodes.get(source_effective_uid)
             if source_node is None:
+                invalid_source_mapping_count += 1
                 logger.debug(
                     "STRUCTURE crossref_source_node_missing",
                     extra={
-                        "document_id": document_id,
+                        "document_id": normalized_document_id,
                         "element_index": idx,
                         "stable_element_id": stable_el_id,
-                        "source_uid": source_uid,
+                        "source_effective_uid": source_effective_uid,
                     },
                 )
                 continue
@@ -279,13 +316,19 @@ def extract_references(
                     scoped_raw_index=scoped_raw_index,
                     effective_uid_index=effective_uid_index,
                 )
+
                 if target_node is None:
+                    if resolution_mode == "ambiguous_global_raw_uid":
+                        ambiguous_count += 1
+                    else:
+                        unresolved_count += 1
+
                     logger.debug(
                         "STRUCTURE crossref_target_not_resolved",
                         extra={
-                            "document_id": document_id,
+                            "document_id": normalized_document_id,
                             "element_index": idx,
-                            "source_uid": source_uid,
+                            "source_effective_uid": source_effective_uid,
                             "source_scope": source_scope,
                             "target_raw_uid": target_raw_uid,
                             "reference_text": match.group(),
@@ -294,53 +337,57 @@ def extract_references(
                     )
                     continue
 
-                target_uid = _normalize_uid(getattr(target_node, "clause_uid", None))
                 target_scope = _node_scope(target_node)
                 target_effective_uid = _node_effective_uid(target_node)
+                target_raw_uid_resolved = _node_raw_uid(target_node)
 
-                if not target_uid or target_uid == source_uid:
+                if not target_effective_uid or target_effective_uid == source_effective_uid:
                     continue
 
-                key = (source_uid, target_uid, match.group())
+                reference_text = _normalize_text(match.group())
+                key = (source_effective_uid, target_effective_uid, reference_text)
                 if key in seen_refs:
                     continue
 
                 seen_refs.add(key)
                 references.append(
                     CrossReference(
-                        source_clause_uid=source_uid,
-                        target_clause_uid=target_uid,
-                        reference_text=match.group(),
+                        source_effective_uid=source_effective_uid,
+                        target_effective_uid=target_effective_uid,
+                        reference_text=reference_text,
+                        source_raw_uid=source_raw_uid,
+                        target_raw_uid=target_raw_uid_resolved,
+                        source_scope=source_scope,
+                        target_scope=target_scope,
+                        resolution_mode=resolution_mode,
                     )
                 )
 
                 logger.debug(
                     "STRUCTURE crossref_extracted",
                     extra={
-                        "document_id": document_id,
+                        "document_id": normalized_document_id,
                         "element_index": idx,
                         "stable_element_id": stable_el_id,
-                        "source_uid": source_uid,
                         "source_raw_uid": source_raw_uid,
                         "source_effective_uid": source_effective_uid,
                         "source_scope": source_scope,
-                        "target_uid": target_uid,
-                        "target_raw_uid": _node_raw_uid(target_node),
+                        "target_raw_uid": target_raw_uid_resolved,
                         "target_effective_uid": target_effective_uid,
                         "target_scope": target_scope,
-                        "reference_text": match.group(),
+                        "reference_text": reference_text,
                         "match_kind": _match_kind(match),
                         "resolution_mode": resolution_mode,
                     },
                 )
 
-        except Exception as e:
+        except Exception as exc:
             logger.error(
                 "STRUCTURE cross-ref unexpected error",
                 extra={
-                    "document_id": document_id,
+                    "document_id": normalized_document_id,
                     "element_index": idx,
-                    "error": str(e),
+                    "error": str(exc),
                 },
             )
             continue
@@ -348,9 +395,13 @@ def extract_references(
     logger.info(
         "STRUCTURE crossrefs_extraction_completed",
         extra={
-            "document_id": document_id,
+            "document_id": normalized_document_id,
             "references_count": len(references),
             "elements_count": len(elements),
+            "unresolved_count": unresolved_count,
+            "ambiguous_count": ambiguous_count,
+            "invalid_source_mapping_count": invalid_source_mapping_count,
+            "malformed_stable_element_id_count": malformed_stable_element_id_count,
         },
     )
 

@@ -1,27 +1,37 @@
 # src/engine/content/clause_tree_builder.py
 
 """
-Clause tree → клауза- и section-чанки.
+Legacy clause tree materialization helper (Sprint 3).
 
-Здесь:
-- вся логика обхода clause tree;
-- сборка текста клаузы по element_ids из layout;
-- сборка текста раздела по subtree_element_ids из layout;
-- универсальные хелперы для:
-  * root-узлов,
-  * индекса элементов layout.
+ВАЖНО:
+- Это legacy helper для materialization из clause tree + layout.
+- Основной retrieval corpus живёт в chunk snapshots v2 (CHUNKS v2).
+- Этот builder используется только для старых документов и вспомогательных
+  сценариев вроде header/snippet.
 
-Важно:
-- Этот модуль не знает про БД и MinIO.
-- Он работает только с уже загруженными JSON-объектами.
+Canonical chunk contract (Sprint 3):
+- canonical identity узла = effective_uid (обязательное поле);
+- raw_uid используется как display/reference field;
+- scope фиксирует область интерпретации raw_uid;
+- metadata чанков сохраняет effective_uid/raw_uid/scope;
+- chunk_kind различает "clause" и "section";
+- node_kind различает "leaf" и "section" узлы дерева;
+- section chunks разрешены только при открытом quality gate;
+- leaf chunks строятся только по own_element_ids;
+- section chunks строятся только по subtree_element_ids;
+- если effective_uid отсутствует, это structural anomaly.
+
+Модуль не знает про БД и MinIO — работает только с загруженными JSON.
 """
 
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, List
 from dataclasses import dataclass
+from typing import Any, Dict, List
+
 from core.logging import get_logger
+from engine.content.chunk_ids import build_leaf_chunk_id, build_section_chunk_id
 
 logger = get_logger(__name__)
 
@@ -29,7 +39,7 @@ logger = get_logger(__name__)
 @dataclass
 class LeafChunkBuildResult:
     """
-    Результат сборки leaf‑чанков по clause tree.
+    Результат сборки leaf-чанков по clause tree.
 
     chunks:
       - список нормализованных чанков по листовым клаузам;
@@ -49,14 +59,54 @@ class LeafChunkBuildResult:
 
 class ClauseTreeBuilder:
     """
-    Класс-хелпер для работы с clause tree.
+    Legacy clause tree materialization helper (Sprint 3).
+
+    ВАЖНО:
+    - Это legacy helper для материализации clause tree + layout в chunks.
+    - Source of truth для retrieval — CHUNKS v2 snapshots, а не этот builder.
+    - Используется только для старых документов и header/snippet scenarios.
 
     Для непрофессионального программиста:
-    - Этот класс не знает про БД и MinIO.
+    - Класс не знает про БД и MinIO.
     - Ему дают уже загруженный JSON clause tree и JSON layout,
-      и он возвращает список "чистых" чанков по листовым клаузам
-      и (при необходимости) по разделам верхнего уровня.
+      и он возвращает список canonical chunks по листовым клаузам
+      и (опционально) по разделам верхнего уровня.
+    - Chunk metadata строго следует Sprint 3 canonical contract:
+      effective_uid/raw_uid/scope/chunk_kind/node_kind.
     """
+
+    @staticmethod
+    def _normalize_uid(value: Any) -> str | None:
+        if value is None:
+            return None
+        uid = str(value).strip()
+        return uid or None
+
+    @staticmethod
+    def _normalize_title(value: Any) -> str | None:
+        if value is None:
+            return None
+        title = str(value).strip()
+        return title or None
+
+    @classmethod
+    def _node_effective_uid(cls, node: Dict[str, Any]) -> str | None:
+        return cls._normalize_uid(node.get("effective_uid"))
+
+    @classmethod
+    def _node_raw_uid(cls, node: Dict[str, Any]) -> str | None:
+        return cls._normalize_uid(node.get("raw_uid"))
+
+    @classmethod
+    def _node_scope(cls, node: Dict[str, Any]) -> str | None:
+        return cls._normalize_uid(node.get("scope"))
+
+    @classmethod
+    def _node_chunk_identity(cls, node: Dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+        effective_uid = cls._node_effective_uid(node)
+        raw_uid = cls._node_raw_uid(node)
+        scope = cls._node_scope(node)
+        return effective_uid, raw_uid, scope
 
     # ------------------------------------------------------------------
     # Базовые хелперы
@@ -92,19 +142,7 @@ class ClauseTreeBuilder:
     @staticmethod
     def build_element_index(layout: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """
-        Построить индекс element_id → элемент layout'а.
-
-        Это ускоряет сбор текста: вместо линейного поиска по всему
-        списку elements мы обращаемся к нужному элементу напрямую по ключу.
-
-        Формат элемента (см. build_text_layout_raw):
-          {
-            "element_id": str,
-            "type": "heading" | "text" | "listitem",
-            "text": str,
-            "page": int,
-            ...
-          }
+        Построить индекс element_id -> элемент layout'а.
         """
         elements = layout.get("elements") or []
         index: Dict[str, Dict[str, Any]] = {}
@@ -146,7 +184,7 @@ class ClauseTreeBuilder:
         return index
 
     # ------------------------------------------------------------------
-    # Leaf‑чанки (только тело клаузы по own_element_ids)
+    # Leaf-чанки
     # ------------------------------------------------------------------
 
     @classmethod
@@ -162,17 +200,12 @@ class ClauseTreeBuilder:
         Возвращает:
         [
           {
-            "id": "<doc_id>:<clause_uid>",
+            "id": "<doc_id>:<effective_uid>",
             "text": "<тело клаузы без заголовка>",
             "metadata": {...}
           },
           ...
         ]
-
-        Важно:
-        - Заголовки (heading-элементы) из layout в тело клаузы не попадают.
-        - Текст заголовка может быть использован только как fallback,
-          если у листа нет другого текста (см. _collect_leaf_chunks).
         """
         root_children = cls.extract_root_children(tree)
 
@@ -206,11 +239,9 @@ class ClauseTreeBuilder:
         element_index = cls.build_element_index(layout)
 
         chunks: List[Dict[str, Any]] = []
-
         total_leaf_nodes = 0
         leaf_nodes_without_element_ids = 0
         leaf_nodes_empty_after_filtering = 0
-
 
         for child in root_children:
             if not isinstance(child, dict):
@@ -238,7 +269,7 @@ class ClauseTreeBuilder:
         leaf_count = len(chunks)
 
         uid_with_none = sum(
-            1 for ch in chunks if (ch.get("metadata") or {}).get("clause_uid") is None
+            1 for ch in chunks if (ch.get("metadata") or {}).get("effective_uid") is None
         )
         empty_text_chunks = sum(
             1 for ch in chunks if not (ch.get("text") or "").strip()
@@ -251,7 +282,7 @@ class ClauseTreeBuilder:
                 "total_chunks": leaf_count,
                 "tree_root_nodes": len(root_children),
                 "layout_elements": len(layout.get("elements") or []),
-                "chunks_without_clause_uid": uid_with_none,
+                "chunks_without_effective_uid": uid_with_none,
                 "chunks_with_empty_text": empty_text_chunks,
                 "total_leaf_nodes": total_leaf_nodes,
                 "leaf_nodes_without_element_ids": leaf_nodes_without_element_ids,
@@ -259,17 +290,17 @@ class ClauseTreeBuilder:
             },
         )
 
-        sample_clause_uids = [
-            str((ch.get("metadata") or {}).get("clause_uid"))
+        sample_effective_uids = [
+            str((ch.get("metadata") or {}).get("effective_uid"))
             for ch in chunks[:10]
-            if (ch.get("metadata") or {}).get("clause_uid") is not None
+            if (ch.get("metadata") or {}).get("effective_uid") is not None
         ]
-        if sample_clause_uids:
+        if sample_effective_uids:
             logger.debug(
-                "ClauseTreeBuilder: sample leaf clause_uids",
+                "ClauseTreeBuilder: sample leaf effective_uids",
                 extra={
                     "document_id": str(doc_id),
-                    "sample_clause_uids": sample_clause_uids,
+                    "sample_effective_uids": sample_effective_uids,
                 },
             )
 
@@ -294,26 +325,7 @@ class ClauseTreeBuilder:
         (leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc)
         """
 
-        def _normalize_uid(value: Any) -> str | None:
-            if value is None:
-                return None
-            uid = str(value).strip()
-            return uid or None
-
-        def _normalize_title(value: Any) -> str | None:
-            if value is None:
-                return None
-            title = str(value).strip()
-            return title or None
-
-        def _extract_section_title(node_level: Any, path: List[str]) -> str | None:
-            """
-            Аккуратно достать заголовок раздела верхнего уровня для клаузы.
-
-            Пока придерживаемся простого правила:
-            - считаем, что path[0] — заголовок корневого раздела (level==1);
-            - если путь пустой, section_title = None.
-            """
+        def _extract_section_title(path: List[str]) -> str | None:
             if not path:
                 return None
             return path[0]
@@ -323,43 +335,35 @@ class ClauseTreeBuilder:
         empty_after_filtering_inc = 0
 
         current_path: List[str] = list(path_titles or [])
-        node_title_raw = node.get("title")
-        node_title = _normalize_title(node_title_raw)
+        node_title = cls._normalize_title(node.get("title"))
         if node_title:
             current_path.append(node_title)
 
         children = node.get("children") or []
 
-        # ------------------------------------------------------------------
-        # Листовой узел: здесь собираем один клауза-чанк.
-        # ------------------------------------------------------------------
         if not children:
             leaf_seen_inc += 1
-            clause_uid = _normalize_uid(node.get("clause_uid"))
 
-            own_element_ids = node.get("own_element_ids") or []
-            legacy_element_ids = node.get("element_ids") or []
+            effective_uid, raw_uid, scope = cls._node_chunk_identity(node)
 
-            # Новый контракт: берём только own_element_ids; element_ids — мягкий fallback.
-            element_ids: List[str] = own_element_ids or legacy_element_ids or []
+            own_element_ids: List[str] = node.get("own_element_ids") or []
 
-            if not element_ids:
-                # Важная диагностика: лист вообще не привязан к layout по element_ids.
+            if not own_element_ids:
                 logger.warning(
-                    "ClauseTreeBuilder: leaf node has no element_ids",
+                    "ClauseTreeBuilder: leaf node has no own_element_ids",
                     extra={
                         "document_id": str(doc_id),
-                        "clause_uid": clause_uid,
+                        "effective_uid": effective_uid,
+                        "raw_uid": raw_uid,
+                        "scope": scope,
                         "title": node_title,
-                        "level": node.get("level"),
-                        "has_own_element_ids": bool(own_element_ids),
-                        "has_legacy_element_ids": bool(legacy_element_ids),
                     },
                 )
                 no_element_ids_inc += 1
                 return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
 
-            # Этап 3: заранее проверяем сценарий "один element, и он heading".
+            element_ids = own_element_ids
+
             single_heading_element = False
             heading_raw_text: str | None = None
             heading_page: int | None = None
@@ -395,7 +399,6 @@ class ClauseTreeBuilder:
                 if isinstance(page, int):
                     pages.append(page)
 
-                # Для leaf‑клаузы heading‑элементы считаем частью заголовка и выкидываем.
                 if el_type == "heading":
                     heading_elements += 1
                     last_page = page if isinstance(page, int) else last_page
@@ -405,7 +408,6 @@ class ClauseTreeBuilder:
                     continue
 
                 if last_page is not None and page is not None and page != last_page:
-                    # Переход на другую страницу — вставляем пустую строку как мягкий разделитель.
                     texts.append("")
 
                 texts.append(text)
@@ -418,7 +420,9 @@ class ClauseTreeBuilder:
                     "ClauseTreeBuilder: some element_ids from leaf node not found in layout index",
                     extra={
                         "document_id": str(doc_id),
-                        "clause_uid": clause_uid,
+                        "effective_uid": effective_uid,
+                        "raw_uid": raw_uid,
+                        "scope": scope,
                         "title": node_title,
                         "level": node.get("level"),
                         "element_ids_count": len(element_ids),
@@ -427,17 +431,6 @@ class ClauseTreeBuilder:
                     },
                 )
 
-            # ------------------------------------------------------------------
-            # Этап 3: fallback для листа, состоящего только из одного heading.
-            #
-            # Сценарий:
-            # - у листа один element_id,
-            # - этот элемент — heading,
-            # - после фильтрации body пустой.
-            #
-            # В этом случае лучше взять текст заголовка как тело клаузы, чем
-            # совсем потерять чанк.
-            # ------------------------------------------------------------------
             if not full_text and single_heading_element and heading_raw_text:
                 full_text = heading_raw_text
                 if heading_page is not None:
@@ -447,7 +440,9 @@ class ClauseTreeBuilder:
                     "ClauseTreeBuilder: single-heading leaf fallback uses heading text as body",
                     extra={
                         "document_id": str(doc_id),
-                        "clause_uid": clause_uid,
+                        "effective_uid": effective_uid,
+                        "raw_uid": raw_uid,
+                        "scope": scope,
                         "title": node_title,
                         "level": node.get("level"),
                         "element_ids_count": len(element_ids),
@@ -456,13 +451,14 @@ class ClauseTreeBuilder:
                     },
                 )
 
-            # Если даже после fallback текста нет — лист полностью пропускаем.
             if not full_text:
                 logger.info(
                     "ClauseTreeBuilder: leaf node produced empty text after filtering",
                     extra={
                         "document_id": str(doc_id),
-                        "clause_uid": clause_uid,
+                        "effective_uid": effective_uid,
+                        "raw_uid": raw_uid,
+                        "scope": scope,
                         "title": node_title,
                         "level": node.get("level"),
                         "element_ids_count": len(element_ids),
@@ -475,12 +471,29 @@ class ClauseTreeBuilder:
 
             start_page = min(pages) if pages else node.get("start_page")
             end_page = max(pages) if pages else node.get("end_page")
+            section_title = _extract_section_title(current_path)
 
-            section_title = _extract_section_title(node.get("level"), current_path)
+            if not effective_uid:
+                logger.warning(
+                    "ClauseTreeBuilder: leaf node missing effective_uid, skipping chunk",
+                    extra={
+                        "document_id": str(doc_id),
+                        "raw_uid": raw_uid,
+                        "scope": scope,
+                        "title": node_title,
+                        "level": node.get("level"),
+                    },
+                )
+                empty_after_filtering_inc += 1
+                return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
 
             metadata = {
                 "doc_id": str(doc_id),
-                "clause_uid": clause_uid,
+                "chunk_kind": "clause",
+                "effective_uid": effective_uid,
+                "raw_uid": raw_uid,
+                "scope": scope,
+                "node_kind": "leaf",
                 "title": node_title,
                 "level": node.get("level"),
                 "path_titles": current_path,
@@ -490,20 +503,28 @@ class ClauseTreeBuilder:
                 "element_ids": element_ids,
             }
 
+            range_end_reason = node.get("range_end_reason")
+            if range_end_reason:
+                metadata["range_end_reason"] = range_end_reason
+
+            chunk_id = build_leaf_chunk_id(doc_id, effective_uid)
+
             out.append(
                 {
-                    "id": f"{doc_id}:{clause_uid or 'full'}",
+                    "id": chunk_id,
                     "text": full_text,
                     "metadata": metadata,
                 }
             )
 
-            if clause_uid in ("1", "1.1", "1.2"):
+            if raw_uid in ("1", "1.1", "1.2") or effective_uid in ("main_contract::1", "main_contract::1.1", "main_contract::1.2"):
                 logger.debug(
                     "ClauseTreeBuilder: sample built leaf chunk",
                     extra={
                         "document_id": str(doc_id),
-                        "clause_uid": clause_uid,
+                        "effective_uid": effective_uid,
+                        "raw_uid": raw_uid,
+                        "scope": scope,
                         "title": node_title,
                         "level": node.get("level"),
                         "path_depth": len(current_path),
@@ -516,16 +537,14 @@ class ClauseTreeBuilder:
 
             return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
 
-        # ------------------------------------------------------------------
-        # Нелистовой узел: просто рекурсивно обходим детей.
-        # ------------------------------------------------------------------
         for child in children:
             if not isinstance(child, dict):
                 logger.warning(
                     "ClauseTreeBuilder: child is not a dict, skipping",
                     extra={
                         "document_id": str(doc_id),
-                        "parent_clause_uid": node.get("clause_uid"),
+                        "parent_effective_uid": cls._node_effective_uid(node),
+                        "parent_raw_uid": cls._node_raw_uid(node),
                         "parent_title": node_title,
                         "child_type": type(child).__name__,
                     },
@@ -543,12 +562,10 @@ class ClauseTreeBuilder:
             no_element_ids_inc += c_no_ids
             empty_after_filtering_inc += c_empty
 
-
         return leaf_seen_inc, no_element_ids_inc, empty_after_filtering_inc
 
-
     # ------------------------------------------------------------------
-    # Section‑чанки (разделы верхнего уровня по subtree_element_ids)
+    # Section-чанки
     # ------------------------------------------------------------------
 
     @classmethod
@@ -559,17 +576,29 @@ class ClauseTreeBuilder:
         layout: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         """
-        Построить section‑чанки по узлам верхнего уровня (root children)
+        Построить section-чанки по узлам верхнего уровня (root children)
         на основе clause tree + layout.
 
-        Новый контракт:
-        - один section‑чанк на каждый узел верхнего уровня (root‑child);
-        - text = материализованный текст всего поддерева раздела
-          (subtree_element_ids, включая заголовки);
-        - element_ids = subtree_element_ids (fallback на own_element_ids / element_ids);
-        - clause_uid = uid корневого раздела (например, "3");
-        - title / section_title = заголовок раздела.
+        ВАЖНО (Sprint 3):
+        - Это legacy-only метод для старых документов.
+        - Для современных документов section chunks идут из CHUNKS v2 snapshot.
+        - Section chunking разрешён только при открытом quality gate.
+        - Если quality_gates.section_chunking_allowed == False, возвращается пустой список.
         """
+
+        quality_gates = (tree.get("structure_diagnostics") or {}).get("quality_gates") or {}
+        if not quality_gates.get("section_chunking_allowed", True):
+            logger.warning(
+                "ClauseTreeBuilder: section_chunking_blocked_by_quality_gate",
+                extra={
+                    "document_id": str(doc_id),
+                    "structure_confidence": quality_gates.get("structure_confidence"),
+                    "technical_fallback_only": quality_gates.get("technical_fallback_only"),
+                },
+            )
+            return []
+
+
         root_children = cls.extract_root_children(tree)
 
         if not root_children:
@@ -595,7 +624,6 @@ class ClauseTreeBuilder:
         )
 
         element_index = cls.build_element_index(layout)
-
         chunks: List[Dict[str, Any]] = []
 
         for node in root_children:
@@ -637,57 +665,28 @@ class ClauseTreeBuilder:
         out: List[Dict[str, Any]],
     ) -> None:
         """
-        Построить один section‑чанк для узла верхнего уровня.
-
-        В отличие от leaf‑клаузы:
-        - используем subtree_element_ids (fallback на own_element_ids / element_ids);
-        - НЕ выкидываем heading‑элементы (заголовок раздела должен быть в тексте);
-        - text = весь текст поддерева.
+        Построить один section-чанк для узла верхнего уровня.
         """
 
-        def _normalize_uid(value: Any) -> str | None:
-            if value is None:
-                return None
-            uid = str(value).strip()
-            return uid or None
+        effective_uid, raw_uid, scope = cls._node_chunk_identity(node)
+        node_title = cls._normalize_title(node.get("title"))
 
-        def _normalize_title(value: Any) -> str | None:
-            if value is None:
-                return None
-            title = str(value).strip()
-            return title or None
+        subtree_element_ids: List[str] = node.get("subtree_element_ids") or []
 
-        clause_uid = _normalize_uid(node.get("clause_uid"))
-        node_title = _normalize_title(node.get("title"))
-
-        subtree_element_ids = node.get("subtree_element_ids") or []
-        own_element_ids = node.get("own_element_ids") or []
-        legacy_element_ids = node.get("element_ids") or []
-
-        # Новый контракт:
-        # - приоритет subtree_element_ids (весь раздел),
-        # - fallback own_element_ids,
-        # - потом legacy element_ids.
-        element_ids: List[str] = (
-            list(subtree_element_ids)
-            or list(own_element_ids)
-            or list(legacy_element_ids)
-        )
-
-        if not element_ids:
+        if not subtree_element_ids:
             logger.warning(
-                "ClauseTreeBuilder: root node has no subtree/own element_ids for section chunk",
+                "ClauseTreeBuilder: section node has no subtree_element_ids",
                 extra={
                     "document_id": str(doc_id),
-                    "clause_uid": clause_uid,
+                    "effective_uid": effective_uid,
+                    "raw_uid": raw_uid,
+                    "scope": scope,
                     "title": node_title,
-                    "level": node.get("level"),
-                    "has_subtree_element_ids": bool(subtree_element_ids),
-                    "has_own_element_ids": bool(own_element_ids),
-                    "has_legacy_element_ids": bool(legacy_element_ids),
                 },
             )
             return
+
+        element_ids = subtree_element_ids
 
         missing_elements = 0
         texts: List[str] = []
@@ -702,14 +701,11 @@ class ClauseTreeBuilder:
 
             raw_text = el.get("text") or ""
             text = raw_text.strip()
-
-            el_type = (el.get("type") or "").strip().lower()
             page = el.get("page")
 
             if isinstance(page, int):
                 pages.append(page)
 
-            # Для section‑чанка заголовки включаем в текст.
             if not text:
                 continue
 
@@ -726,7 +722,9 @@ class ClauseTreeBuilder:
                 "ClauseTreeBuilder: some element_ids from section node not found in layout index",
                 extra={
                     "document_id": str(doc_id),
-                    "clause_uid": clause_uid,
+                    "effective_uid": effective_uid,
+                    "raw_uid": raw_uid,
+                    "scope": scope,
                     "title": node_title,
                     "level": node.get("level"),
                     "element_ids_count": len(element_ids),
@@ -739,7 +737,9 @@ class ClauseTreeBuilder:
                 "ClauseTreeBuilder: root node produced empty section text",
                 extra={
                     "document_id": str(doc_id),
-                    "clause_uid": clause_uid,
+                    "effective_uid": effective_uid,
+                    "raw_uid": raw_uid,
+                    "scope": scope,
                     "title": node_title,
                     "level": node.get("level"),
                     "element_ids_count": len(element_ids),
@@ -751,9 +751,26 @@ class ClauseTreeBuilder:
         start_page = min(pages) if pages else node.get("start_page")
         end_page = max(pages) if pages else node.get("end_page")
 
+        if not effective_uid:
+            logger.warning(
+                "ClauseTreeBuilder: section node missing effective_uid, skipping chunk",
+                extra={
+                    "document_id": str(doc_id),
+                    "raw_uid": raw_uid,
+                    "scope": scope,
+                    "title": node_title,
+                    "level": node.get("level"),
+                },
+            )
+            return
+
         metadata = {
             "doc_id": str(doc_id),
-            "clause_uid": clause_uid,
+            "chunk_kind": "section",
+            "effective_uid": effective_uid,
+            "raw_uid": raw_uid,
+            "scope": scope,
+            "node_kind": "section",
             "title": node_title,
             "level": node.get("level"),
             "path_titles": [node_title] if node_title else [],
@@ -763,20 +780,28 @@ class ClauseTreeBuilder:
             "element_ids": element_ids,
         }
 
+        range_end_reason = node.get("range_end_reason")
+        if range_end_reason:
+            metadata["range_end_reason"] = range_end_reason
+
+        chunk_id = build_section_chunk_id(doc_id, effective_uid)
+
         out.append(
             {
-                "id": f"{doc_id}:{clause_uid or 'section'}",
+                "id": chunk_id,
                 "text": full_text,
                 "metadata": metadata,
             }
         )
 
-        if clause_uid in ("1", "2", "3"):
+        if raw_uid in ("1", "2", "3") or effective_uid in ("main_contract::1", "main_contract::2", "main_contract::3"):
             logger.debug(
                 "ClauseTreeBuilder: sample built section chunk",
                 extra={
                     "document_id": str(doc_id),
-                    "clause_uid": clause_uid,
+                    "effective_uid": effective_uid,
+                    "raw_uid": raw_uid,
+                    "scope": scope,
                     "title": node_title,
                     "level": node.get("level"),
                     "text_preview": full_text[:500],

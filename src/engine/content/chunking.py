@@ -6,14 +6,24 @@
 Здесь нет работы с БД и MinIO. Только чистые функции:
 - построение summary для чанка;
 - разбиение текста клаузы на под-чанки (по предложениям и абзацам);
-- построение "section"-чанков из списка клауз.
+- построение section-чанков из списка clause-чанков.
+
+Sprint 3 contract:
+- canonical identity = effective_uid;
+- raw_uid остаётся display/reference field;
+- scope обязателен как часть identity space;
+- section chunks тоже должны иметь canonical identity, если они создаются
+  как полноценные retrieval/viewer objects.
 """
 
 from __future__ import annotations
 
+from collections import defaultdict
+import re
 from typing import Any, Dict, List
-from engine.content.clause_tree_builder import ClauseTreeBuilder
+
 from core.logging import get_logger
+from engine.content.chunk_ids import build_section_chunk_id, build_section_effective_uid
 from engine.retrieval.tokenization import count_tokens
 
 logger = get_logger(__name__)
@@ -24,15 +34,16 @@ def build_chunk_summary(path_titles: List[str], text: str, max_len: int = 200) -
     Построить короткое текстовое summary для чанка.
 
     Для непрофессионального программиста:
-    - summary — это короткое описание чанка.
-    - Мы склеиваем путь заголовков (path_titles) и первые 1–2 предложения текста.
-    - Это нужно для:
-      * более понятного UI,
-      * более качественного поиска (retrieval/rerank по summary).
-    """
-    import re
+    - summary — это короткое описание чанка;
+    - мы склеиваем путь заголовков (path_titles) и первые 1-2 предложения текста;
+    - это помогает UI, retrieval и rerank.
 
-    path = " / ".join(path_titles) if path_titles else ""
+    Поведение:
+    - если текста нет, возвращаем только путь;
+    - если path_titles пустой, summary строится только из текста;
+    - длина summary ограничивается max_len.
+    """
+    path = " / ".join(str(p).strip() for p in (path_titles or []) if str(p).strip())
     text = (text or "").strip()
     if not text:
         return path
@@ -46,7 +57,7 @@ def build_chunk_summary(path_titles: List[str], text: str, max_len: int = 200) -
         base = head or path
 
     if len(base) > max_len:
-        return base[:max_len]
+        return base[: max_len - 1].rstrip() + "…"
     return base
 
 
@@ -57,13 +68,31 @@ def split_text_to_sized_chunks(
     overlap_ratio: float,
 ) -> List[str]:
     """
-    Режет текст клаузы на несколько меньших текстов (под-чанков).
-    """
-    import re
+    Разбить текст клаузы на несколько меньших под-чанков.
 
+    Алгоритм:
+    1) Если текст короткий, возвращаем его как один chunk.
+    2) Иначе пытаемся разбить по абзацам и предложениям.
+    3) Набираем предложения до target_tokens / max_tokens.
+    4) Между соседними чанками сохраняем overlap по последним предложениям.
+
+    Важно:
+    - Если отдельное предложение само по себе длиннее max_tokens,
+      оно остаётся отдельным chunk как fallback.
+    - Функция не должна терять текст.
+    """
     text = (text or "").strip()
     if not text:
         return []
+
+    if target_tokens <= 0:
+        raise ValueError("target_tokens must be > 0")
+    if max_tokens <= 0:
+        raise ValueError("max_tokens must be > 0")
+    if target_tokens > max_tokens:
+        raise ValueError("target_tokens must be <= max_tokens")
+
+    overlap_ratio = max(0.0, min(float(overlap_ratio), 1.0))
 
     TOO_LONG_CHARS = 10_000
     is_too_long = len(text) > TOO_LONG_CHARS
@@ -76,6 +105,9 @@ def split_text_to_sized_chunks(
     sentences: List[str] = []
     for p in paragraphs:
         parts = re.split(r"(?<=[.!?])\s+(?=[A-ZА-Я0-9])", p)
+        if len(parts) == 1:
+            parts = re.split(r"(?<=[.;])\s+(?=[A-ZА-Я0-9])", p)
+
         for s in parts:
             s = s.strip()
             if s:
@@ -87,10 +119,11 @@ def split_text_to_sized_chunks(
     chunks: List[str] = []
     current_sentences: List[str] = []
     current_tokens = 0
-
     overlap_window: List[str] = []
 
     def _tokens_of(parts: List[str]) -> int:
+        if not parts:
+            return 0
         return count_tokens(" ".join(parts))
 
     for sent in sentences:
@@ -113,8 +146,8 @@ def split_text_to_sized_chunks(
                 current_sentences,
                 overlap_ratio=overlap_ratio,
             )
-            current_sentences = []
-            current_tokens = 0
+            current_sentences = list(overlap_window)
+            current_tokens = _tokens_of(current_sentences)
 
         current_sentences.append(sent)
         current_tokens += sent_tokens
@@ -131,8 +164,7 @@ def split_text_to_sized_chunks(
     if current_sentences:
         chunks.append(" ".join(current_sentences).strip())
 
-    result = [c for c in chunks if c.strip()]
-
+    result = [c.strip() for c in chunks if c and c.strip()]
     return result or [text]
 
 
@@ -141,11 +173,17 @@ def take_overlap_window(
     overlap_ratio: float,
 ) -> List[str]:
     """
-    Взять "хвост" из последних предложений для overlap между чанками.
+    Взять хвост из последних предложений для overlap между chunk'ами.
+
+    overlap_ratio:
+    - 0.0 -> overlap нет;
+    - 0.15 -> примерно последние 15% предложений;
+    - 1.0 -> весь chunk (на практике это обычно бессмысленно, но допустимо).
     """
     if not sentences or overlap_ratio <= 0:
         return []
 
+    overlap_ratio = max(0.0, min(float(overlap_ratio), 1.0))
     n = max(1, int(len(sentences) * overlap_ratio))
     return sentences[-n:]
 
@@ -156,25 +194,18 @@ def build_section_chunks_from_clauses(
     max_tokens: int = 1200,
 ) -> List[Dict[str, Any]]:
     """
-    Собрать "крупные" section-чанки на основе клауз.
+    Собрать крупные section-чанки на основе списка clause-чанков.
 
-    Для непрофессионального программиста:
-    - У каждой клаузы есть path_titles — список заголовков от корня до листа.
-      Например:
-        ["ПРЕДМЕТ ДОГОВОРА", "1 В течение 5 (пяти) рабочих дней ..."].
-    - Мы хотим сделать один крупный блок на каждый РАЗДЕЛ договора.
-      Раздел — это как раз верхний заголовок path_titles[0]:
-        "ПРЕДМЕТ ДОГОВОРА",
-        "ЦЕНА ЗЕМЕЛЬНОГО УЧАСТКА...",
-        "ГАРАНТИИ" и т.п.
-    - Поэтому:
-      * группируем клаузы только по ПЕРВОМУ заголовку пути (path_titles[0]);
-      * склеиваем тексты всех клауз из группы в один большой блок.
-    - Такой блок и есть "section"-чанк, который удобно показывать во viewer
-      и использовать для высокоуровневого поиска.
+    Sprint 3 invariant:
+    - section chunk — это тоже canonical chunk object;
+    - у него должен быть effective_uid;
+    - scope обязателен;
+    - section строится только из clause chunks, у которых уже есть
+      валидная canonical identity.
+
+    Группировка:
+    - по первому заголовку path_titles[0], то есть по "разделу" документа.
     """
-    from collections import defaultdict
-
     if not clause_chunks:
         logger.debug(
             "Section builder: no clause chunks provided",
@@ -191,22 +222,36 @@ def build_section_chunks_from_clauses(
         },
     )
 
-    # Группы по верхнему заголовку раздела.
-    # Ключом будет кортеж из одного элемента: (path_titles[0],)
-    groups: dict[tuple[str, ...], list[Dict[str, Any]]] = defaultdict(list)
-
+    groups: dict[tuple[str, str], list[Dict[str, Any]]] = defaultdict(list)
     clauses_without_path_count = 0
+    clauses_without_effective_uid_count = 0
+    clauses_without_scope_count = 0
 
     for ch in clause_chunks:
         meta = ch.get("metadata") or {}
+
+        effective_uid = meta.get("effective_uid")
+        scope = meta.get("scope")
         path = meta.get("path_titles") or []
-        # Если у клаузы нет path_titles — мы не знаем, к какому разделу её отнести.
+
+        if not effective_uid:
+            clauses_without_effective_uid_count += 1
+            continue
+
+        if not scope:
+            clauses_without_scope_count += 1
+            continue
+
         if not path:
             clauses_without_path_count += 1
             continue
 
-        # Берём только верхний заголовок раздела.
-        key = (str(path[0]).strip(),)
+        first_title = str(path[0]).strip()
+        if not first_title:
+            clauses_without_path_count += 1
+            continue
+
+        key = (scope, first_title)
         groups[key].append(ch)
 
     logger.info(
@@ -215,42 +260,77 @@ def build_section_chunks_from_clauses(
             "doc_id": str(doc_id),
             "groups_count": len(groups),
             "clauses_without_path_count": clauses_without_path_count,
+            "clauses_without_effective_uid_count": clauses_without_effective_uid_count,
+            "clauses_without_scope_count": clauses_without_scope_count,
         },
     )
 
     sections: List[Dict[str, Any]] = []
-
     long_section_count = 0
     empty_section_text_count = 0
 
-    for path_key, items in groups.items():
+    for (scope, section_title), items in groups.items():
         if not items:
             continue
 
-        # Сортируем клаузы внутри раздела по странице и номеру клаузы,
-        # чтобы текст секции шёл в правильном порядке.
         def _sort_key(c: Dict[str, Any]) -> tuple:
             meta = c.get("metadata") or {}
             start_page = meta.get("start_page") or 0
-            clause_uid = meta.get("clause_uid") or ""
-            return (int(start_page), str(clause_uid))
+            effective_uid = meta.get("effective_uid") or ""
+            raw_uid = meta.get("raw_uid") or ""
+            return (int(start_page), str(effective_uid), str(raw_uid))
 
         items_sorted = sorted(items, key=_sort_key)
 
         texts: List[str] = []
         pages: List[int] = []
+        element_ids: List[str] = []
+        position_ratios: List[float] = []
+        lf_merged: dict[str, Any] = {}
+
+        segment_id = None
+        segment_type = None
+        segment_title = None
+        segment_order = None
+        is_primary_segment = None
 
         for it in items_sorted:
             t = (it.get("text") or "").strip()
             if t:
                 texts.append(t)
+
             meta = it.get("metadata") or {}
+
             sp = meta.get("start_page")
             ep = meta.get("end_page")
             if isinstance(sp, int):
                 pages.append(sp)
             if isinstance(ep, int):
                 pages.append(ep)
+
+            for eid in meta.get("element_ids") or []:
+                eid = str(eid).strip()
+                if eid and eid not in element_ids:
+                    element_ids.append(eid)
+
+            pos = meta.get("position_ratio")
+            if isinstance(pos, (int, float)):
+                position_ratios.append(float(pos))
+
+            lf = meta.get("language_filter") or {}
+            if lf:
+                for k, v in lf.items():
+                    lf_merged.setdefault(k, v)
+
+            segment_id = segment_id or meta.get("segment_id")
+            segment_type = segment_type or meta.get("segment_type")
+            segment_title = segment_title or meta.get("segment_title")
+            segment_order = segment_order if segment_order is not None else meta.get("segment_order")
+            is_primary_segment = (
+                is_primary_segment
+                if is_primary_segment is not None
+                else meta.get("is_primary_segment")
+            )
 
         full_text = "\n\n".join(texts).strip()
         if not full_text:
@@ -259,7 +339,8 @@ def build_section_chunks_from_clauses(
                 "Section builder: group produced empty section text, skipping",
                 extra={
                     "doc_id": str(doc_id),
-                    "path_key": list(path_key),
+                    "scope": scope,
+                    "section_title": section_title,
                     "items_count": len(items_sorted),
                 },
             )
@@ -272,60 +353,62 @@ def build_section_chunks_from_clauses(
                 "Section builder: section exceeds max_tokens",
                 extra={
                     "doc_id": str(doc_id),
-                    "path_key": list(path_key),
+                    "scope": scope,
+                    "section_title": section_title,
                     "items_count": len(items_sorted),
                     "token_count": tokens,
                     "max_tokens": max_tokens,
                 },
             )
-            # Пока сознательно не режем full_text.
 
-        # Идентификатор секции строим из doc_id и верхнего заголовка.
-        section_id = f"{doc_id}:section:{' / '.join(path_key)}"
         start_page = min(pages) if pages else None
         end_page = max(pages) if pages else None
+        path_titles = [section_title]
 
-        # path_titles для секции — это один элемент: название раздела.
-        path_titles = [path_key[0]]
+        section_effective_uid = build_section_effective_uid(
+            scope=scope,
+            section_title=section_title,
+        )
+        section_id = build_section_chunk_id(
+            doc_id=doc_id,
+            effective_uid=section_effective_uid,
+        )
 
-        metadata = {
+        metadata: Dict[str, Any] = {
             "doc_id": str(doc_id),
-            # clause_uid для секции оставляем None — это не одна конкретная клауза,
-            # а логический блок, объединяющий несколько клауз.
-            "clause_uid": None,
-            # Заголовок секции — верхний заголовок раздела (например, "ГАРАНТИИ").
-            "title": path_titles[0],
-            # Уровень 1 — "крупный" блок.
+            "chunk_kind": "section",
+            "node_kind": "section",
+            "effective_uid": section_effective_uid,
+            "raw_uid": None,
+            "scope": scope,
+            "title": section_title,
+            "section_title": section_title,
             "level": 1,
             "path_titles": path_titles,
             "start_page": start_page,
             "end_page": end_page,
-            # Пока не восстанавливаем element_ids, потому что секция объединяет
-            # несколько клауз. При необходимости можно будет добавить их позже.
-            "element_ids": [],
+            "element_ids": element_ids,
             "token_count": tokens,
             "summary": build_chunk_summary(path_titles, full_text),
         }
 
-        # Собираем общие флаги language_filter и средний position_ratio по клаузам.
-        lf_merged: dict[str, Any] = {}
-        positions: list[float] = []
-
-        for it in items_sorted:
-            meta_it = it.get("metadata") or {}
-            lf_it = meta_it.get("language_filter") or {}
-            if lf_it:
-                for k, v in lf_it.items():
-                    lf_merged.setdefault(k, v)
-
-            pos_it = meta_it.get("position_ratio")
-            if isinstance(pos_it, (int, float)):
-                positions.append(float(pos_it))
-
         if lf_merged:
             metadata["language_filter"] = lf_merged
-        if positions:
-            metadata["position_ratio"] = sum(positions) / len(positions)
+        if position_ratios:
+            metadata["position_ratio"] = sum(position_ratios) / len(position_ratios)
+
+        if segment_id is not None:
+            metadata["segment_id"] = segment_id
+        if segment_type is not None:
+            metadata["segment_type"] = segment_type
+        if segment_title is not None:
+            metadata["segment_title"] = segment_title
+        if segment_order is not None:
+            metadata["segment_order"] = segment_order
+        if start_page is not None and end_page is not None:
+            metadata["segment_page_range"] = [start_page, end_page]
+        if is_primary_segment is not None:
+            metadata["is_primary_segment"] = bool(is_primary_segment)
 
         sections.append(
             {
@@ -343,6 +426,8 @@ def build_section_chunks_from_clauses(
             "sections_count": len(sections),
             "groups_count": len(groups),
             "clauses_without_path_count": clauses_without_path_count,
+            "clauses_without_effective_uid_count": clauses_without_effective_uid_count,
+            "clauses_without_scope_count": clauses_without_scope_count,
             "empty_section_text_count": empty_section_text_count,
             "long_section_count": long_section_count,
         },
@@ -356,11 +441,14 @@ def build_section_chunks_from_clauses(
             extra={
                 "doc_id": str(doc_id),
                 "section_id": sample.get("id"),
+                "effective_uid": sample_meta.get("effective_uid"),
+                "scope": sample_meta.get("scope"),
                 "title": sample_meta.get("title"),
                 "path_titles": sample_meta.get("path_titles"),
                 "token_count": sample_meta.get("token_count"),
                 "start_page": sample_meta.get("start_page"),
                 "end_page": sample_meta.get("end_page"),
+                "chunk_kind": sample_meta.get("chunk_kind"),
             },
         )
 
